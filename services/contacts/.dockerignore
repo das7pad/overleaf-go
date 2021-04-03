@@ -1,7 +1,8 @@
 *
 
 # src
-!/*.go
+!*.go
+!/pkg
 
 # dependencies
 !/go.mod

@@ -14,26 +14,29 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package contacts
 
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+const NoLimit = -1
 
 type ContactManager interface {
 	GetContacts(
 		ctx context.Context,
 		userId primitive.ObjectID,
-	) (map[string]ContactDetails, error)
+		limit int,
+	) ([]primitive.ObjectID, error)
 
-	TouchContact(
+	AddContacts(
 		ctx context.Context,
 		userId, contactId primitive.ObjectID,
 	) error
@@ -47,51 +50,108 @@ type userIdFilter struct {
 	UserId primitive.ObjectID `bson:"user_id"`
 }
 
-type ContactDetails struct {
+type contactDetails struct {
 	Connections int                `bson:"n"`
 	LastTouched primitive.DateTime `bson:"ts"`
 }
 
 type contactsDocument struct {
-	Contacts map[string]ContactDetails `bson:"contacts"`
+	Contacts map[string]contactDetails `bson:"contacts"`
 }
 
 type contactManager struct {
 	contactsCollection mongo.Collection
 }
 
+type contact struct {
+	UserId  string
+	Details contactDetails
+}
+
+func (c contact) IsPreferredOver(other contact) bool {
+	a := c.Details
+	b := other.Details
+	if a.Connections > b.Connections {
+		return true
+	} else if a.Connections < b.Connections {
+		return false
+	} else if a.LastTouched > b.LastTouched {
+		return true
+	} else if a.LastTouched < b.LastTouched {
+		return false
+	} else {
+		return false
+	}
+}
+
 func (cm *contactManager) GetContacts(
 	ctx context.Context,
 	userId primitive.ObjectID,
-) (map[string]ContactDetails, error) {
-	contacts := contactsDocument{Contacts: map[string]ContactDetails{}}
+	limit int,
+) ([]primitive.ObjectID, error) {
+	entry := contactsDocument{Contacts: map[string]contactDetails{}}
 	err := cm.
 		contactsCollection.
 		FindOne(ctx, userIdFilter{UserId: userId}).
-		Decode(&contacts)
+		Decode(&entry)
 	if err != nil && err != mongo.ErrNoDocuments {
 		return nil, err
 	}
-	return contacts.Contacts, nil
+
+	contacts := make([]contact, 0)
+	for contactId, details := range entry.Contacts {
+		contacts = append(contacts, contact{
+			UserId:  contactId,
+			Details: details,
+		})
+	}
+	sort.Slice(contacts, func(i, j int) bool {
+		return contacts[i].IsPreferredOver(contacts[j])
+	})
+
+	responseSize := len(contacts)
+	if limit != NoLimit && responseSize > limit {
+		responseSize = limit
+	}
+	contactIds := make([]primitive.ObjectID, responseSize)
+	for i := 0; i < responseSize; i++ {
+		id, err := primitive.ObjectIDFromHex(contacts[i].UserId)
+		if err != nil {
+			return nil, err
+		}
+		contactIds[i] = id
+	}
+
+	return contactIds, nil
 }
 
-func (cm *contactManager) TouchContact(
-	ctx context.Context,
+func prepareTouchContactOneWay(
 	userId, contactId primitive.ObjectID,
-) error {
+) mongo.WriteModel {
 	now := primitive.NewDateTimeFromTime(time.Now())
-	_, err := cm.contactsCollection.UpdateOne(
-		ctx,
-		userIdFilter{UserId: userId},
-		bson.M{
+	return mongo.NewUpdateOneModel().
+		SetFilter(userIdFilter{UserId: userId}).
+		SetUpdate(bson.M{
 			"$inc": bson.M{
 				fmt.Sprintf("contacts.%s.n", contactId.Hex()): 1,
 			},
 			"$set": bson.M{
 				fmt.Sprintf("contacts.%s.ts", contactId.Hex()): now,
 			},
+		}).
+		SetUpsert(true)
+}
+
+func (cm *contactManager) AddContacts(
+	ctx context.Context,
+	userId, contactId primitive.ObjectID,
+) error {
+	_, err := cm.contactsCollection.BulkWrite(
+		ctx,
+		[]mongo.WriteModel{
+			prepareTouchContactOneWay(userId, contactId),
+			prepareTouchContactOneWay(contactId, userId),
 		},
-		options.Update().SetUpsert(true),
 	)
 	if err != nil {
 		return err

@@ -20,23 +20,24 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"sort"
 	"strconv"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/contacts/pkg/managers/contacts"
 )
 
 type HttpController interface {
 	GetRouter() http.Handler
 }
 
-func NewHttpController(cm ContactManager) HttpController {
+func NewHttpController(cm contacts.ContactManager) HttpController {
 	return &httpController{cm: cm}
 }
 
 type httpController struct {
-	cm ContactManager
+	cm contacts.ContactManager
 }
 
 func (h *httpController) GetRouter() http.Handler {
@@ -88,17 +89,10 @@ func (h *httpController) addContacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.cm.TouchContact(r.Context(), userId, contactId)
+	err = h.cm.AddContacts(r.Context(), userId, contactId)
 	if err != nil {
 		log.Println(err)
-		errorResponse(w, 500, "cannot touch contacts of user")
-		return
-	}
-
-	err = h.cm.TouchContact(r.Context(), contactId, userId)
-	if err != nil {
-		log.Println(err)
-		errorResponse(w, 500, "cannot touch contacts of contact")
+		errorResponse(w, 500, "cannot touch contacts for users")
 		return
 	}
 
@@ -107,13 +101,8 @@ func (h *httpController) addContacts(w http.ResponseWriter, r *http.Request) {
 
 const ContactLimit = 50
 
-type contact struct {
-	UserId  string
-	Details ContactDetails
-}
-
 type getContactsResponseBody struct {
-	ContactIds []string `json:"contact_ids"`
+	ContactIds []primitive.ObjectID `json:"contact_ids"`
 }
 
 func (h *httpController) getContacts(w http.ResponseWriter, r *http.Request) {
@@ -137,43 +126,13 @@ func (h *httpController) getContacts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	contactsMap, err := h.cm.GetContacts(r.Context(), userId)
+	contactIds, err := h.cm.GetContacts(r.Context(), userId, limit)
 	if err != nil {
+		log.Println(err)
 		errorResponse(w, 500, "cannot read contacts")
 		return
 	}
 
-	contacts := make([]contact, 0)
-	for contactId, details := range contactsMap {
-		contacts = append(contacts, contact{
-			UserId:  contactId,
-			Details: details,
-		})
-	}
-	sort.Slice(contacts, func(i, j int) bool {
-		a := contacts[i].Details
-		b := contacts[j].Details
-		if a.Connections > b.Connections {
-			return true
-		} else if a.Connections < b.Connections {
-			return false
-		} else if a.LastTouched > b.LastTouched {
-			return true
-		} else if a.LastTouched < b.LastTouched {
-			return false
-		} else {
-			return false
-		}
-	})
-
-	responseSize := len(contacts)
-	if responseSize > limit {
-		responseSize = limit
-	}
-	contactIds := make([]string, responseSize)
-	for i := 0; i < responseSize; i++ {
-		contactIds[i] = contacts[i].UserId
-	}
 	err = json.NewEncoder(w).Encode(
 		&getContactsResponseBody{ContactIds: contactIds},
 	)

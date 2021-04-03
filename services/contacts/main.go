@@ -22,6 +22,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"github.com/das7pad/contacts/pkg/managers/contacts"
 )
 
 func waitForDb(ctx context.Context, client *mongo.Client) error {
@@ -40,7 +42,7 @@ func main() {
 		panic(err)
 	}
 	contactsCollection := client.Database(db).Collection("contacts")
-	cm := NewContactManager(*contactsCollection)
+	cm := contacts.NewContactManager(*contactsCollection)
 	handler := NewHttpController(cm)
 
 	server := http.Server{
