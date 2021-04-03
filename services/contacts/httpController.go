@@ -28,12 +28,8 @@ import (
 	"github.com/das7pad/contacts/pkg/managers/contacts"
 )
 
-type HttpController interface {
-	GetRouter() http.Handler
-}
-
-func NewHttpController(cm contacts.ContactManager) HttpController {
-	return &httpController{cm: cm}
+func newHttpController(cm contacts.ContactManager) httpController {
+	return httpController{cm: cm}
 }
 
 type httpController struct {

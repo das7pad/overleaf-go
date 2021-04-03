@@ -43,7 +43,7 @@ func main() {
 	}
 	contactsCollection := client.Database(db).Collection("contacts")
 	cm := contacts.NewContactManager(*contactsCollection)
-	handler := NewHttpController(cm)
+	handler := newHttpController(cm)
 
 	server := http.Server{
 		Addr:    address,
