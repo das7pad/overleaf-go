@@ -1,0 +1,9 @@
+# IDE / vim
+.idea/
+.*.swp
+
+# tests
+node_modules/
+
+# binary
+/chat
