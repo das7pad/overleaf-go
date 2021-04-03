@@ -31,7 +31,7 @@ func waitForDb(ctx context.Context, client *mongo.Client) error {
 }
 
 func main() {
-	address, mongoOptions, db := getOptions()
+	address, mongoOptions, dbName := getOptions()
 	ctx := context.Background()
 	client, err := mongo.Connect(ctx, mongoOptions)
 	if err != nil {
@@ -41,8 +41,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	contactsCollection := client.Database(db).Collection("contacts")
-	cm := contacts.NewContactManager(*contactsCollection)
+	db := client.Database(dbName)
+	cm := contacts.NewContactManager(db)
 	handler := newHttpController(cm)
 
 	server := http.Server{

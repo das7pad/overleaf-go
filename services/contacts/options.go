@@ -56,7 +56,7 @@ func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
 func getOptions() (
 	address string,
 	mongoOptions *options.ClientOptions,
-	db string,
+	dbName string,
 ) {
 	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
 	port := getIntFromEnv("PORT", 3036)
@@ -90,6 +90,6 @@ func getOptions() (
 	if err != nil {
 		panic(err)
 	}
-	db = cs.Database
+	dbName = cs.Database
 	return
 }

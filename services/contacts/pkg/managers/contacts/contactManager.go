@@ -42,7 +42,8 @@ type ContactManager interface {
 	) error
 }
 
-func NewContactManager(contactsCollection mongo.Collection) ContactManager {
+func NewContactManager(db *mongo.Database) ContactManager {
+	contactsCollection := db.Collection("contacts")
 	return &contactManager{contactsCollection: contactsCollection}
 }
 
@@ -60,7 +61,7 @@ type contactsDocument struct {
 }
 
 type contactManager struct {
-	contactsCollection mongo.Collection
+	contactsCollection *mongo.Collection
 }
 
 type contact struct {
