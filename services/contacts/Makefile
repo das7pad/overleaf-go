@@ -44,6 +44,11 @@ docker/push:
 	docker push $(IMAGE)
 	docker push $(IMAGE_LATEST)
 
+log_image_digest:
+	docker inspect -f '{{ index .RepoDigests 0 }}' $(IMAGE) \
+	| cut -d: -f2 \
+	> docker-image.digest.txt
+
 docker/clean:
 	docker rmi \
 		$(IMAGE) \
