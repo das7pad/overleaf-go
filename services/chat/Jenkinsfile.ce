@@ -32,6 +32,8 @@ pipeline {
     stage('Push Docker Image') {
       steps {
         sh 'make docker/push'
+        sh 'make log_image_digest'
+        archiveArtifacts 'docker-image.digest.txt'
       }
     }
   }
