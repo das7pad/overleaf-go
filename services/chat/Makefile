@@ -20,9 +20,8 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD)
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
-IMAGE_BARE = $(DOCKER_REGISTRY)/chat
-IMAGE = $(IMAGE_BARE):$(BUILD_NUMBER)
-IMAGE_LATEST = $(IMAGE_BARE):latest
+IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/chat
+IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 
 docker/build:
 	docker build \
@@ -33,7 +32,6 @@ docker/build:
 docker/build/production: docker/build
 	docker build \
 		--tag $(IMAGE) \
-		--tag $(IMAGE_LATEST) \
 		--cache-from $(IMAGE)-build \
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
@@ -42,7 +40,6 @@ docker/build/production: docker/build
 
 docker/push:
 	docker push $(IMAGE)
-	docker push $(IMAGE_LATEST)
 
 log_image_digest:
 	docker inspect -f '{{ index .RepoDigests 0 }}' $(IMAGE) \
@@ -53,7 +50,6 @@ docker/clean:
 	docker rmi \
 		$(IMAGE) \
 		$(IMAGE)-build \
-		$(IMAGE_LATEST) \
 		--force
 
 .PHONY: test
