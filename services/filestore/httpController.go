@@ -91,6 +91,16 @@ func (h *httpController) GetRouter() http.Handler {
 		Methods(http.MethodPut).
 		Path("").
 		HandlerFunc(h.copyProjectFile)
+	projectFileRouter.
+		NewRoute().
+		Methods(http.MethodPut).
+		Path("/upload").
+		HandlerFunc(h.sendProjectFileViaPUT)
+	projectFileRouter.
+		NewRoute().
+		Methods(http.MethodPut).
+		Path("/copy").
+		HandlerFunc(h.copyProjectFile)
 	return router
 }
 
@@ -296,6 +306,32 @@ func (h *httpController) sendProjectFile(w http.ResponseWriter, r *http.Request)
 		options,
 	)
 	respond(w, r, http.StatusOK, nil, err, "cannot POST project file")
+}
+
+func (h *httpController) sendProjectFileViaPUT(w http.ResponseWriter, r *http.Request) {
+	if h.allowRedirects {
+		u, err := h.fm.GetRedirectURLForPUTOnProjectFile(
+			r.Context(),
+			getId(r, "projectId"),
+			getId(r, "fileId"),
+		)
+		redirect(w, r, u, err, "cannot redirect PUT on project file")
+		return
+	}
+
+	options := backend.SendOptions{
+		ContentSize:     getBodySize(r),
+		ContentEncoding: r.Header.Get("Content-Encoding"),
+		ContentType:     r.Header.Get("Content-Type"),
+	}
+	err := h.fm.SendStreamForProjectFile(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "fileId"),
+		r.Body,
+		options,
+	)
+	respond(w, r, http.StatusOK, nil, err, "cannot PUT project file")
 }
 
 type copyProjectRequestBody struct {
