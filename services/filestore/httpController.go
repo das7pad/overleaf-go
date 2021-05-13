@@ -28,9 +28,10 @@ import (
 
 	"github.com/das7pad/filestore/pkg/backend"
 
-	"github.com/das7pad/filestore/pkg/managers/filestore"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/filestore/pkg/managers/filestore"
 )
 
 func newHttpController(fm filestore.Manager, allowRedirects bool) httpController {

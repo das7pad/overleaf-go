@@ -10,7 +10,7 @@ max_line_length = 79
 tab_width = 2
 trim_trailing_whitespace = true
 
-[{*.go,Makefile}]
+[{*.go, Makefile}]
 indent_style = tab
 indent_size = 4
 tab_width = 4

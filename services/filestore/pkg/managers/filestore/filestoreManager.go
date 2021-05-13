@@ -22,8 +22,9 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/das7pad/filestore/pkg/backend"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/filestore/pkg/backend"
 )
 
 type Manager interface {
