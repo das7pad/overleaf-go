@@ -18,7 +18,6 @@ package backend
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/url"
 	"time"
@@ -153,7 +152,6 @@ func (m *minioBackend) GetDirectorySize(ctx context.Context, bucket string, pref
 	var sum int64
 	for info := range c {
 		if err := info.Err; err != nil {
-			fmt.Println(info)
 			return 0, rewriteError(err)
 		}
 		sum += info.Size
