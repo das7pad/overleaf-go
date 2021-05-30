@@ -308,7 +308,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 	if err != nil {
 		return nil, errors.Tag(err, "cannot start container")
 	}
-	return &validUntil, err
+	return &validUntil, nil
 }
 
 func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Namespace) (string, error) {
@@ -348,9 +348,9 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 	validUntil := a.getExpectedEndOfAgentLife()
 	err := a.dockerClient.ContainerRestart(ctx, name, &restartTimeout)
 	if err != nil {
-		return nil, err
+		return nil, errors.Tag(err, "cannot restart container")
 	}
-	return validUntil, err
+	return validUntil, nil
 }
 
 func (a *agentRunner) stopContainer(namespace types.Namespace) error {
