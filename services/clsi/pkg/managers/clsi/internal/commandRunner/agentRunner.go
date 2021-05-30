@@ -306,7 +306,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Namespace) (string, error) {
 	res, err := a.dockerClient.ContainerInspect(ctx, containerName(namespace))
 	if err != nil {
-		return "", err
+		return "", errors.Tag(err, "cannot get container epoch")
 	}
 	if res.Config == nil {
 		return "", errors.New("container config missing")
