@@ -269,7 +269,7 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 			time.Now().Add(-m.options.ProjectCacheDuration),
 		)
 		if err != nil && err != ctx.Err() {
-			log.Printf("cleanup failed: %v", err)
+			log.Printf("cleanup failed: %s", err)
 		}
 		select {
 		case <-ctx.Done():

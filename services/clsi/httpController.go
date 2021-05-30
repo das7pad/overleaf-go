@@ -196,7 +196,7 @@ func respond(
 			errorResponse(w, http.StatusLocked, err.Error())
 			return
 		}
-		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
+		log.Printf("%s %s: %s: %s", r.Method, r.URL.Path, msg, err)
 		errorResponse(w, http.StatusInternalServerError, msg)
 		return
 	}

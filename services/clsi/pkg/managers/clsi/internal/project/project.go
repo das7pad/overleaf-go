@@ -159,7 +159,7 @@ func (p *project) ClearCache(ctx context.Context) error {
 	pending := p.triggerCleanup()
 	err := pending.Wait(ctx)
 	if err != nil {
-		log.Printf("cleanup failed for %q: %v", p.namespace, err)
+		log.Printf("cleanup failed for %q: %s", p.namespace, err)
 		// Schedule this instance for recycling.
 		p.dead = true
 		return err
@@ -466,7 +466,7 @@ func (p *project) setupRunner(ctx context.Context, imageName types.ImageName) er
 	}
 	err = pending.Wait(ctx)
 	if err != nil {
-		log.Printf("setup failed for %q: %v", p.namespace, err)
+		log.Printf("setup failed for %q: %s", p.namespace, err)
 		// Schedule this instance for recycling.
 		p.dead = true
 		return err
