@@ -157,7 +157,15 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			if err != nil && !errdefs.IsNotFound(err) {
 				return nil, errors.Tag(err, "cannot stop old container")
 			}
-			validUntil, err = a.createContainer(ctx, namespace, imageName)
+			// The container is not gone immediately. Delay and retry 3 times.
+			for i := 1; i < 4; i++ {
+				time.Sleep(time.Duration(i * 100 * int(time.Millisecond)))
+
+				validUntil, err = a.createContainer(ctx, namespace, imageName)
+				if err == nil || errdefs.IsConflict(err) {
+					break
+				}
+			}
 			if err != nil {
 				return nil, errors.Tag(err, "cannot re-create old container")
 			}
