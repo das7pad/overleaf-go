@@ -154,7 +154,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			// - version: options may have changed.
 			// - cycle: we lost track of expected/max container life-time.
 			err = a.stopContainer(namespace)
-			if err != nil && !errdefs.IsNotFound(err) {
+			if err != nil {
 				return nil, errors.Tag(err, "cannot stop old container")
 			}
 			// The container is not gone immediately. Delay and retry 3 times.
@@ -355,11 +355,18 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 
 func (a *agentRunner) stopContainer(namespace types.Namespace) error {
 	timeout := time.Duration(0)
-	return a.dockerClient.ContainerStop(
+	err := a.dockerClient.ContainerStop(
 		context.Background(),
 		containerName(namespace),
 		&timeout,
 	)
+	if err == nil {
+		return nil
+	}
+	if errdefs.IsNotFound(err) {
+		return nil
+	}
+	return errors.Tag(err, "cannot stop container")
 }
 
 func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, options *types.CommandOptions) (types.ExitCode, error) {
