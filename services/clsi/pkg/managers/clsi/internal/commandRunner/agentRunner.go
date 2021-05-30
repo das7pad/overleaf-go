@@ -143,8 +143,6 @@ const clsiProcessEpochLabel = "com.overleaf.clsi.process.epoch"
 var currentClsiProcessEpoch = strconv.FormatInt(time.Now().UnixNano(), 10)
 
 func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
-	name := containerName(namespace)
-
 	validUntil, err := a.createContainer(ctx, namespace, imageName)
 	if err == nil {
 		// Happy path.
@@ -165,9 +163,10 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			}
 		} else {
 			// The container is running, but expired. Reset it.
-			restartTimeout := time.Duration(0)
-			err = a.dockerClient.ContainerRestart(ctx, name, &restartTimeout)
-			if err != nil && errdefs.IsNotFound(err) {
+			validUntil, err = a.restartContainer(ctx, namespace)
+			if err == nil {
+				// Happy path
+			} else if errdefs.IsNotFound(err) {
 				// The container just died. Recreate it.
 				validUntil, err = a.createContainer(ctx, namespace, imageName)
 				if err != nil {
@@ -175,8 +174,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 						err, "cannot re-create expired container",
 					)
 				}
-			}
-			if err != nil {
+			} else {
 				return nil, errors.Tag(
 					err, "cannot restart expired container",
 				)
@@ -198,6 +196,11 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 		}
 	}
 	return nil, probeErr
+}
+
+func (a *agentRunner) getExpectedEndOfAgentLife() *time.Time {
+	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
+	return &validUntil
 }
 
 func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
@@ -329,6 +332,17 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) erro
 		return errors.New("non success from probe command")
 	}
 	return nil
+}
+
+func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Namespace) (*time.Time, error) {
+	restartTimeout := time.Duration(0)
+	name := containerName(namespace)
+	validUntil := a.getExpectedEndOfAgentLife()
+	err := a.dockerClient.ContainerRestart(ctx, name, &restartTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return validUntil, err
 }
 
 func (a *agentRunner) stopContainer(namespace types.Namespace) error {
