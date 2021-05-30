@@ -213,7 +213,7 @@ func (a *agentRunner) getExpectedEndOfAgentLife() *time.Time {
 
 func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
 	compileDir := a.o.CompileBaseDir.CompileDir(namespace)
-	outputDir := a.o.CompileBaseDir.CompileDir(namespace)
+	outputDir := a.o.OutputBaseDir.OutputDir(namespace)
 
 	lifeSpanInSeconds := int64(a.o.AgentContainerLifeSpan) / int64(time.Second)
 
