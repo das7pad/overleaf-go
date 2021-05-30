@@ -20,6 +20,27 @@ import (
 	"errors"
 )
 
+type Causer interface {
+	Cause() error
+}
+
+type TaggedError struct {
+	msg   string
+	cause error
+}
+
+func (t *TaggedError) Error() string {
+	return t.msg + ": " + t.cause.Error()
+}
+
+func (t *TaggedError) Cause() error {
+	return t.cause
+}
+
+func Tag(err error, msg string) *TaggedError {
+	return &TaggedError{msg: msg, cause: err}
+}
+
 type ValidationError struct {
 	Msg string
 }

@@ -146,12 +146,10 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 	name := containerName(namespace)
 
 	validUntil, err := a.createContainer(ctx, namespace, imageName)
-	if err != nil && !errdefs.IsConflict(err) {
-		// Bail out on low-level errors.
-		return nil, err
-	}
-	if err != nil {
-		// Handle conflict/missing error.
+	if err == nil {
+		// Happy path.
+	} else if errdefs.IsConflict(err) {
+		// Handle conflict error.
 		epoch, _ := a.getContainerEpoch(ctx, namespace)
 		if epoch != currentClsiProcessEpoch {
 			// The container is from previous version/cycle, replace it.
@@ -159,9 +157,12 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			// - cycle: we lost track of expected/max container life-time.
 			err = a.stopContainer(namespace)
 			if err != nil && !errdefs.IsNotFound(err) {
-				return nil, err
+				return nil, errors.Tag(err, "cannot stop old container")
 			}
 			validUntil, err = a.createContainer(ctx, namespace, imageName)
+			if err != nil {
+				return nil, errors.Tag(err, "cannot re-create old container")
+			}
 		} else {
 			// The container is running, but expired. Reset it.
 			restartTimeout := time.Duration(0)
@@ -169,23 +170,34 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			if err != nil && errdefs.IsNotFound(err) {
 				// The container just died. Recreate it.
 				validUntil, err = a.createContainer(ctx, namespace, imageName)
+				if err != nil {
+					return nil, errors.Tag(
+						err, "cannot re-create expired container",
+					)
+				}
+			}
+			if err != nil {
+				return nil, errors.Tag(
+					err, "cannot restart expired container",
+				)
 			}
 		}
+	} else {
+		// Bail out on low-level errors.
+		return nil, errors.Tag(err, "low level error while creating container")
 	}
-	if err != nil {
-		// The container start or restart failed.
-		return nil, err
-	}
+
+	var probeErr error
 	// Wait for the startup of the agent.
 	for i := 0; i < 5; i++ {
 		// Backoff momentarily starting from attempt two.
 		time.Sleep(time.Duration(i * 100 * int(time.Millisecond)))
 
-		if err = a.probe(ctx, namespace); err == nil {
+		if probeErr = a.probe(ctx, namespace); probeErr == nil {
 			return validUntil, nil
 		}
 	}
-	return nil, err
+	return nil, probeErr
 }
 
 func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
@@ -272,7 +284,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		name,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Tag(err, "cannot create container")
 	}
 
 	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
@@ -282,6 +294,9 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		name,
 		dockerTypes.ContainerStartOptions{},
 	)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot start container")
+	}
 	return &validUntil, err
 }
 
