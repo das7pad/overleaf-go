@@ -411,8 +411,5 @@ func (h *httpController) cookieStatus(w http.ResponseWriter, _ *http.Request) {
 func (h *httpController) healthCheck(w http.ResponseWriter, r *http.Request) {
 	err := h.cm.HealthCheck(r.Context())
 	msg := "health check failed"
-	if err != nil {
-		msg = err.Error()
-	}
 	respond(w, r, http.StatusOK, nil, err, msg)
 }
