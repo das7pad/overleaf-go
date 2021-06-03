@@ -1,0 +1,10 @@
+# IDE / vim
+.idea/
+.*.swp
+
+# tests
+node_modules/
+
+# binary
+/real-time
+/execAgent

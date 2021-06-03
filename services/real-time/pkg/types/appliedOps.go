@@ -1,0 +1,167 @@
+// Golang port of the Overleaf real-time service
+// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package types
+
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/real-time/pkg/errors"
+)
+
+type PublicId string
+
+func (p PublicId) Validate() error {
+	if p == "" {
+		return &errors.ValidationError{Msg: "missing source"}
+	}
+	return nil
+}
+
+type TrackChangesSeed string
+
+func (t TrackChangesSeed) Validate() error {
+	if t == "" {
+		return nil
+	}
+	if len(t) != 18 {
+		return &errors.ValidationError{Msg: "tc must be 18 char long if set"}
+	}
+	return nil
+}
+
+type Timestamp JavaScriptNumber
+
+func (t Timestamp) Validate() error {
+	if t == 0 {
+		return &errors.ValidationError{Msg: "ts is missing"}
+	}
+	return nil
+}
+
+type DocumentUpdateMeta struct {
+	Hash             string              `json:"hash,omitempty"`
+	Source           PublicId            `json:"source"`
+	Timestamp        Timestamp           `json:"ts"`
+	TrackChangesSeed TrackChangesSeed    `json:"tc,omitempty"`
+	UserId           *primitive.ObjectID `json:"user_id,omitempty"`
+}
+
+func (d *DocumentUpdateMeta) Validate() error {
+	if err := d.Source.Validate(); err != nil {
+		return err
+	}
+	if err := d.Timestamp.Validate(); err != nil {
+		return err
+	}
+	if err := d.TrackChangesSeed.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type Op struct {
+	Comment   string              `json:"c,omitempty"`
+	Deletion  string              `json:"d,omitempty"`
+	Insertion string              `json:"i,omitempty"`
+	Position  JavaScriptNumber    `json:"p"`
+	Thread    *primitive.ObjectID `json:"t,omitempty"`
+}
+
+func (o *Op) IsComment() bool {
+	return o.Comment != ""
+}
+func (o *Op) IsDeletion() bool {
+	return o.Deletion != ""
+}
+func (o *Op) IsInsertion() bool {
+	return o.Insertion != ""
+}
+func (o *Op) Validate() error {
+	if o.IsComment() {
+		if o.Thread == nil || o.Thread.IsZero() {
+			return &errors.ValidationError{Msg: "comment op is missing thread"}
+		}
+		return nil
+	} else if o.IsDeletion() {
+		return nil
+	} else if o.IsInsertion() {
+		return nil
+	} else {
+		return &errors.ValidationError{Msg: "unknown op type"}
+	}
+}
+
+type Ops []Op
+
+func (o *Ops) Validate() error {
+	if o == nil {
+		return &errors.ValidationError{Msg: "missing ops"}
+	}
+	for _, op := range *o {
+		if err := op.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type DocumentUpdate struct {
+	DocId       primitive.ObjectID `json:"doc"`
+	Dup         bool               `json:"dup,omitempty"`
+	Meta        DocumentUpdateMeta `json:"meta"`
+	Ops         Ops                `json:"op"`
+	Version     JavaScriptNumber   `json:"v"`
+	LastVersion JavaScriptNumber   `json:"lastV"`
+}
+
+func (d *DocumentUpdate) Validate() error {
+	if err := d.Ops.Validate(); err != nil {
+		return err
+	}
+	if err := d.Meta.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type JavaScriptError struct {
+	Message string `json:"message"`
+}
+
+type AppliedOpsMessage struct {
+	DocId       primitive.ObjectID `json:"doc_id"`
+	Error       *JavaScriptError   `json:"error,omitempty"`
+	HealthCheck bool               `json:"health_check,omitempty"`
+	Id          string             `json:"_id"`
+	Update      *DocumentUpdate    `json:"op,omitempty"`
+	ProjectId   primitive.ObjectID `json:"project_id"`
+}
+
+func (d *AppliedOpsMessage) Validate() error {
+	if d.Update != nil {
+		if err := d.Update.Validate(); err != nil {
+			return err
+		}
+		return nil
+	} else if d.Error != nil {
+		return nil
+	} else if d.HealthCheck {
+		return nil
+	} else {
+		return &errors.ValidationError{Msg: "unknown message type"}
+	}
+}

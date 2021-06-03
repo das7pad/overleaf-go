@@ -1,0 +1,50 @@
+// Golang port of the Overleaf real-time service
+// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package types
+
+import (
+	"encoding/json"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type Action string
+
+const (
+	JoinProject       = Action("joinProject")
+	JoinDoc           = Action("joinDoc")
+	LeaveDoc          = Action("leaveDoc")
+	GetConnectedUsers = Action("clientTracking.getConnectedUsers")
+	UpdatePosition    = Action("clientTracking.updatePosition")
+	ApplyUpdate       = Action("applyUpdate")
+	AddComment        = Action("addComment")
+)
+
+type Callback JavaScriptNumber
+
+type RPCRequest struct {
+	Action   Action             `json:"a"`
+	Body     json.RawMessage    `json:"b"`
+	Callback Callback           `json:"c"`
+	DocId    primitive.ObjectID `json:"d"`
+}
+
+type RPCResponse struct {
+	Body     json.RawMessage `json:"b"`
+	Callback Callback        `json:"c"`
+	Error    string          `json:"e"`
+}
