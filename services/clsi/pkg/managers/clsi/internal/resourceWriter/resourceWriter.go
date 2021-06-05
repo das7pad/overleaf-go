@@ -37,7 +37,7 @@ type ResourceWriter interface {
 		projectId primitive.ObjectID,
 		namespace types.Namespace,
 		request *types.CompileRequest,
-	) (*ResourceCache, error)
+	) (ResourceCache, error)
 
 	Clear(projectId primitive.ObjectID, namespace types.Namespace) error
 
@@ -80,9 +80,9 @@ func (r *resourceWriter) GetState(namespace types.Namespace) (types.SyncState, e
 	return "", nil
 }
 
-func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId primitive.ObjectID, namespace types.Namespace, request *types.CompileRequest) (*ResourceCache, error) {
+func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId primitive.ObjectID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
 	dir := r.options.CompileBaseDir.CompileDir(namespace)
-	var cache *ResourceCache
+	var cache ResourceCache
 	var err error
 	if request.Options.SyncType == types.SyncTypeFull {
 		cache, err = r.fullSync(ctx, projectId, request, dir)
@@ -138,7 +138,7 @@ func (r *resourceWriter) Clear(projectId primitive.ObjectID, namespace types.Nam
 	return nil
 }
 
-func (r *resourceWriter) fullSync(ctx context.Context, projectId primitive.ObjectID, request *types.CompileRequest, dir types.CompileDir) (*ResourceCache, error) {
+func (r *resourceWriter) fullSync(ctx context.Context, projectId primitive.ObjectID, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := composeResourceCache(request)
 
 	err := r.sync(ctx, projectId, request, dir, cache)
@@ -148,7 +148,7 @@ func (r *resourceWriter) fullSync(ctx context.Context, projectId primitive.Objec
 	return cache, nil
 }
 
-func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId primitive.ObjectID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (*ResourceCache, error) {
+func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId primitive.ObjectID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := composeResourceCache(request)
 
 	err := r.sync(ctx, projectId, request, dir, cache)
@@ -163,9 +163,9 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId prim
 	return cache, nil
 }
 
-func (r *resourceWriter) incrementalSync(ctx context.Context, projectId primitive.ObjectID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (*ResourceCache, error) {
+func (r *resourceWriter) incrementalSync(ctx context.Context, projectId primitive.ObjectID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := r.loadResourceCache(namespace)
-	if len(*cache) == 0 {
+	if len(cache) == 0 {
 		return nil, &errors.InvalidStateError{
 			Msg: "missing cache for incremental sync",
 		}
@@ -183,7 +183,7 @@ func (r *resourceWriter) incrementalSync(ctx context.Context, projectId primitiv
 	return cache, nil
 }
 
-func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID, request *types.CompileRequest, compileDir types.CompileDir, cache *ResourceCache) error {
+func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {
 	if err := r.urlCache.SetupForProject(ctx, projectId); err != nil {
 		return err
 	}
@@ -230,7 +230,6 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 			}
 		}
 		foundResources := 0
-		allResources := *cache
 		for fileName, isDir := range allFiles.IsDir {
 			if isDir {
 				continue

@@ -38,7 +38,7 @@ type Manager interface {
 	SaveOutputFiles(
 		ctx context.Context,
 		files *types.CommandOutputFiles,
-		cache *resourceWriter.ResourceCache,
+		allResources resourceWriter.ResourceCache,
 		namespace types.Namespace,
 	) (types.OutputFiles, HasOutputPDF, error)
 
@@ -59,7 +59,7 @@ type manager struct {
 
 type HasOutputPDF bool
 
-func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutputFiles, cache *resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error) {
+func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutputFiles, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error) {
 	buildId, err := getBuildId()
 	if err != nil {
 		return nil, false, err
@@ -81,7 +81,6 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 	}
 	outputFiles := make(types.OutputFiles, 0)
 	hasOutputPDF := HasOutputPDF(false)
-	allResources := *cache
 	for fileName, d := range allFiles.FileStats {
 		if _, isResource := allResources[fileName]; isResource {
 			continue

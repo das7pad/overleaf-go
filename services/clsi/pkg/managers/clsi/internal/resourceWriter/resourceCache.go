@@ -38,22 +38,22 @@ type resourceCacheEntry struct {
 
 type ResourceCache map[types.FileName]resourceCacheEntry
 
-func (r *resourceWriter) loadResourceCache(namespace types.Namespace) *ResourceCache {
+func (r *resourceWriter) loadResourceCache(namespace types.Namespace) ResourceCache {
 	cache := make(ResourceCache)
 	file, err := os.Open(r.getStatePath(namespace))
 	if err != nil {
-		return &cache
+		return cache
 	}
 	defer func() {
 		_ = file.Close()
 	}()
 	if err = json.NewDecoder(file).Decode(&cache); err != nil {
-		return &cache
+		return cache
 	}
-	return &cache
+	return cache
 }
 
-func composeResourceCache(request *types.CompileRequest) *ResourceCache {
+func composeResourceCache(request *types.CompileRequest) ResourceCache {
 	cache := make(ResourceCache, len(request.Resources))
 	for _, resource := range request.Resources {
 		if resource == request.RootDocAliasResource {
@@ -65,10 +65,10 @@ func composeResourceCache(request *types.CompileRequest) *ResourceCache {
 			URL:        resource.URL,
 		}
 	}
-	return &cache
+	return cache
 }
 
-func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache *ResourceCache) error {
+func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache ResourceCache) error {
 	target := r.getStatePath(namespace)
 	tmp := target + "~"
 	file, err := os.Create(tmp)
