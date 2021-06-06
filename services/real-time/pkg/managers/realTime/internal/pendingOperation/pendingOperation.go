@@ -28,6 +28,7 @@ type PendingOperation interface {
 	Done() <-chan struct{}
 	Err() error
 	IsPending() bool
+	Failed() bool
 	Wait(ctx context.Context) error
 }
 
@@ -46,6 +47,10 @@ func (c *pendingOperation) Err() error {
 
 func (c *pendingOperation) IsPending() bool {
 	return c.err == OperationStillPending
+}
+
+func (c *pendingOperation) Failed() bool {
+	return !c.IsPending() && c.err != nil
 }
 
 func (c *pendingOperation) Wait(ctx context.Context) error {

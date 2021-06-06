@@ -18,17 +18,14 @@ package channelManager
 
 import (
 	"context"
-	"sync"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/pendingOperation"
 )
 
 type Manager interface {
 	Subscribe(ctx context.Context, id primitive.ObjectID) error
-	UnSubscribe(ctx context.Context, id primitive.ObjectID) error
+	Unsubscribe(ctx context.Context, id primitive.ObjectID) error
 	Publish(ctx context.Context, id primitive.ObjectID, msg string) error
 	Listen() <-chan string
 	Close()
@@ -49,10 +46,8 @@ func New(ctx context.Context, c redis.UniversalClient, baseChannel BaseChannel) 
 	}
 
 	return &manager{
-		c:                 c,
-		p:                 p,
-		l:                 sync.Mutex{},
-		pendingOperations: make(map[channel]pendingOperation.WithCancel),
+		c: c,
+		p: p,
 	}, nil
 }
 
@@ -60,57 +55,14 @@ type manager struct {
 	c    redis.UniversalClient
 	p    *redis.PubSub
 	base BaseChannel
-
-	l                 sync.Mutex
-	pendingOperations map[channel]pendingOperation.WithCancel
 }
 
 func (m *manager) Subscribe(ctx context.Context, id primitive.ObjectID) error {
-	return m.changeSubscription(ctx, m.p.Subscribe, id)
+	return m.p.Subscribe(ctx, string(m.base.join(id)))
 }
 
-func (m *manager) UnSubscribe(ctx context.Context, id primitive.ObjectID) error {
-	return m.changeSubscription(ctx, m.p.Unsubscribe, id)
-}
-
-func (m *manager) changeSubscription(ctx context.Context, fn func(ctx context.Context, c ...string) error, id primitive.ObjectID) error {
-	op := m.triggerChangeOfSubscription(ctx, fn, id)
-	err := op.Wait(ctx)
-	m.cleanupChangeOfSubscription(id, op)
-	return err
-}
-
-func (m *manager) cleanupChangeOfSubscription(id primitive.ObjectID, op pendingOperation.PendingOperation) {
-	m.l.Lock()
-	defer m.l.Unlock()
-	c := m.base.join(id)
-
-	if currentOp, exists := m.pendingOperations[c]; exists {
-		if currentOp == op {
-			delete(m.pendingOperations, c)
-		}
-	}
-}
-
-func (m *manager) triggerChangeOfSubscription(ctx context.Context, fn func(ctx context.Context, c ...string) error, id primitive.ObjectID) pendingOperation.PendingOperation {
-	m.l.Lock()
-	defer m.l.Unlock()
-	c := m.base.join(id)
-
-	if oldOp, exists := m.pendingOperations[c]; exists {
-		if oldOp.IsPending() {
-			oldOp.Cancel()
-		}
-		_ = oldOp.Wait(ctx)
-	}
-	op := pendingOperation.TrackOperationWithCancel(
-		ctx,
-		func(ctx context.Context) error {
-			return fn(ctx, string(c))
-		},
-	)
-	m.pendingOperations[c] = op
-	return op
+func (m *manager) Unsubscribe(ctx context.Context, id primitive.ObjectID) error {
+	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
 }
 
 func (m *manager) Publish(ctx context.Context, id primitive.ObjectID, msg string) error {
