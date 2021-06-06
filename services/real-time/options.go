@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	jwtMiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
+	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/real-time/pkg/errors"
 	"github.com/das7pad/real-time/pkg/types"
@@ -62,8 +64,9 @@ func getJSONFromEnv(key string, target interface{}) {
 type clsiOptions struct {
 	address string
 
-	jwtOptions jwtMiddleware.Options
-	options    *types.Options
+	jwtOptions   jwtMiddleware.Options
+	redisOptions *redis.UniversalOptions
+	options      *types.Options
 }
 
 func getOptions() *clsiOptions {
@@ -84,5 +87,18 @@ func getOptions() *clsiOptions {
 		},
 		SigningMethod: jwt.SigningMethodHS512,
 	}
+
+	o.redisOptions = &redis.UniversalOptions{
+		Addrs: strings.Split(
+			getStringFromEnv("REDIS_HOST", "localhost:6379"),
+			",",
+		),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		MaxRetries: int(getIntFromEnv(
+			"REDIS_MAX_RETRIES_PER_REQUEST", 20),
+		),
+		PoolSize: int(getIntFromEnv("REDIS_POOL_SIZE", 0)),
+	}
+
 	return o
 }

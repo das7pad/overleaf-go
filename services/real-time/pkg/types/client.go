@@ -56,9 +56,28 @@ type Client struct {
 	User         *User
 
 	WriteQueue chan *RPCResponse
+
+	nextClientAppliedOps   *Client
+	nextClientEditorEvents *Client
 }
 
-func (c *Client) ResolveCapabilities(privilegeLevel string, isRestrictedUser bool) {
+func GetNextAppliedOpsClient(client *Client) *Client {
+	return client.nextClientAppliedOps
+}
+func GetNextEditorEventsClient(client *Client) *Client {
+	return client.nextClientEditorEvents
+}
+func SetNextAppliedOpsClient(client *Client, next *Client) {
+	client.nextClientAppliedOps = next
+}
+func SetNextEditorEventsClient(client *Client, next *Client) {
+	client.nextClientEditorEvents = next
+}
+
+type PrivilegeLevel string
+type IsRestrictedUser bool
+
+func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestrictedUser IsRestrictedUser) {
 	switch privilegeLevel {
 	case "owner", "readAndWrite":
 		c.capabilities = Capabilities(

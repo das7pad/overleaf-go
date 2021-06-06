@@ -22,8 +22,21 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+
 	"github.com/das7pad/real-time/pkg/managers/realTime"
 )
+
+func waitForRedis(
+	ctx context.Context,
+	rClient redis.UniversalClient,
+) error {
+	// Write a dummy value as health check on startup.
+	// Redis standalone: not reachable -> timeout
+	// Redis cluster: not reachable -> timeout; some shard down -> error *
+	// *provided cluster-require-full-coverage=yes (which is the default)
+	return rClient.Set(ctx, "startup", "42", time.Second).Err()
+}
 
 func main() {
 	// Init the default random source.
@@ -34,7 +47,13 @@ func main() {
 		context.Background(),
 	)
 
-	rtm, err := realTime.New(o.options)
+	redisClient := redis.NewUniversalClient(o.redisOptions)
+	err := waitForRedis(backgroundTaskCtx, redisClient)
+	if err != nil {
+		panic(err)
+	}
+
+	rtm, err := realTime.New(backgroundTaskCtx, o.options, redisClient)
 	if err != nil {
 		panic(err)
 	}

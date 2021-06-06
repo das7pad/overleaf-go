@@ -196,13 +196,19 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		cancel()
-		close(c.WriteQueue)
-		for range c.WriteQueue {
-			// Flush queue.
-		}
 		_ = u.Close()
+		_ = h.rtm.Disconnect(&c)
+		close(c.WriteQueue)
 	}()
 	go func() {
+		defer func() {
+			cancel()
+			_ = u.Close()
+			for range c.WriteQueue {
+				// Flush the queue.
+				// Eventually the main goroutine will close the channel.
+			}
+		}()
 		waitForCtxDone := ctx.Done()
 		for {
 			select {
@@ -213,7 +219,10 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if err := u.WriteJSON(&response); err != nil {
-					break
+					return
+				}
+				if response.FatalError {
+					return
 				}
 			}
 		}
@@ -223,15 +232,27 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	for {
 		err := u.ReadJSON(&request)
 		if err != nil {
+			c.WriteQueue <- &types.RPCResponse{
+				Error:      "bad request",
+				FatalError: true,
+			}
+			<-ctx.Done()
 			break
 		}
 		response := types.RPCResponse{
 			Callback: request.Callback,
 		}
-		err = h.rtm.RPC(ctx, &c, &request, &response)
-		if err != nil {
+		rpc := types.RPC{
+			Context:  ctx,
+			Client:   &c,
+			Request:  &request,
+			Response: &response,
+		}
+		h.rtm.RPC(&rpc)
+		c.WriteQueue <- &response
+		if rpc.Response.FatalError {
+			<-ctx.Done()
 			break
 		}
-		c.WriteQueue <- &response
 	}
 }

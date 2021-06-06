@@ -17,9 +17,12 @@
 package types
 
 import (
+	"context"
 	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/real-time/pkg/errors"
 )
 
 type Action string
@@ -47,4 +50,30 @@ type RPCResponse struct {
 	Body     json.RawMessage `json:"b"`
 	Callback Callback        `json:"c"`
 	Error    string          `json:"e"`
+
+	FatalError bool
+}
+
+type RPC struct {
+	context.Context
+
+	Client   *Client
+	Request  *RPCRequest
+	Response *RPCResponse
+}
+
+func (r *RPC) Validate() error {
+	if r.Client == nil {
+		return &errors.ValidationError{Msg: "missing rpc detail: client"}
+	}
+	if r.Request == nil {
+		return &errors.ValidationError{Msg: "missing rpc detail: request"}
+	}
+	if r.Response == nil {
+		return &errors.ValidationError{Msg: "missing rpc detail: response"}
+	}
+	if err := r.Client.CanDo(r.Request.Action, r.Request.DocId); err != nil {
+		return err
+	}
+	return nil
 }
