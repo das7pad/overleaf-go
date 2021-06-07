@@ -21,8 +21,8 @@ import (
 )
 
 type Change struct {
-	RangeEntryBase `bson:"inline"`
-	Op             ChangeOp `json:"op" bson:"op"`
+	RangeEntryBase
+	Op ChangeOp `json:"op"`
 }
 
 func (c Change) Equals(other Change) bool {
@@ -56,9 +56,9 @@ func (c Changes) Equals(other Changes) bool {
 }
 
 type ChangeOp struct {
-	Deletion  string           `json:"d,omitempty" bson:"d,omitempty"`
-	Insertion string           `json:"i,omitempty" bson:"i,omitempty"`
-	Position  JavaScriptNumber `json:"p" bson:"p"`
+	Deletion  string           `json:"d,omitempty"`
+	Insertion string           `json:"i,omitempty"`
+	Position  JavaScriptNumber `json:"p"`
 }
 
 func (o ChangeOp) Equals(other ChangeOp) bool {
@@ -75,8 +75,8 @@ func (o ChangeOp) Equals(other ChangeOp) bool {
 }
 
 type Comment struct {
-	RangeEntryBase `bson:"inline"`
-	Op             CommentOp `json:"op" bson:"op"`
+	RangeEntryBase
+	Op CommentOp `json:"op"`
 }
 
 func (c Comment) Equals(other Comment) bool {
@@ -110,9 +110,9 @@ func (c Comments) Equals(other Comments) bool {
 }
 
 type CommentOp struct {
-	Comment  string             `json:"c" bson:"c"`
-	Position JavaScriptNumber   `json:"p" bson:"p"`
-	Thread   primitive.ObjectID `json:"t" bson:"t"`
+	Comment  string             `json:"c"`
+	Position JavaScriptNumber   `json:"p"`
+	Thread   primitive.ObjectID `json:"t"`
 }
 
 func (o CommentOp) Equals(other CommentOp) bool {
@@ -151,8 +151,8 @@ func (l Lines) Equals(other Lines) bool {
 }
 
 type RangeMetaData struct {
-	Timestamp time.Time           `json:"ts" bson:"ts"`
-	UserId    *primitive.ObjectID `json:"user_id,omitempty" bson:"user_id,omitempty"`
+	Timestamp time.Time           `json:"ts"`
+	UserId    *primitive.ObjectID `json:"user_id,omitempty"`
 }
 
 func (d RangeMetaData) Equals(other RangeMetaData) bool {
@@ -172,8 +172,8 @@ func (d RangeMetaData) Equals(other RangeMetaData) bool {
 }
 
 type RangeEntryBase struct {
-	Id       primitive.ObjectID `json:"id" bson:"id"`
-	MetaData RangeMetaData      `json:"metadata" bson:"metadata"`
+	Id       primitive.ObjectID `json:"id"`
+	MetaData RangeMetaData      `json:"metadata"`
 }
 
 func (b RangeEntryBase) Equals(other RangeEntryBase) bool {
@@ -187,8 +187,8 @@ func (b RangeEntryBase) Equals(other RangeEntryBase) bool {
 }
 
 type Ranges struct {
-	Changes  Changes  `json:"changes,omitempty" bson:"changes,omitempty"`
-	Comments Comments `json:"comments,omitempty" bson:"comments,omitempty"`
+	Changes  Changes  `json:"changes,omitempty"`
+	Comments Comments `json:"comments,omitempty"`
 }
 
 func (r Ranges) Equals(other Ranges) bool {
