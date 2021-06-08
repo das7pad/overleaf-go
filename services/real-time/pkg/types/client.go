@@ -48,14 +48,29 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 	return Capabilities(int(c) / int(action))
 }
 
-type Client struct {
-	DocId        *primitive.ObjectID
-	PublicId     PublicId
-	capabilities Capabilities
-	ProjectId    *primitive.ObjectID
-	User         *User
+func NewClient(wsBootstrap *WsBootstrap, writeQueue chan<- *RPCResponse) (*Client, error) {
+	publicId, err := getPublicId()
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		lockedProjectId: wsBootstrap.ProjectId,
+		PublicId:        publicId,
+		User:            wsBootstrap.User,
+		WriteQueue:      writeQueue,
+	}, nil
+}
 
-	WriteQueue chan *RPCResponse
+type Client struct {
+	capabilities    Capabilities
+	lockedProjectId primitive.ObjectID
+
+	DocId     *primitive.ObjectID
+	PublicId  PublicId
+	ProjectId *primitive.ObjectID
+	User      *User
+
+	WriteQueue chan<- *RPCResponse
 
 	nextClientAppliedOps   *Client
 	nextClientEditorEvents *Client
@@ -106,6 +121,13 @@ func (c *Client) requireJoinedProjectAndDoc() error {
 	}
 	if c.DocId == nil {
 		return &errors.InvalidStateError{Msg: "join doc first"}
+	}
+	return nil
+}
+
+func (c *Client) CanJoinProject(id primitive.ObjectID) error {
+	if id.Hex() != c.lockedProjectId.Hex() {
+		return &errors.NotAuthorizedError{}
 	}
 	return nil
 }

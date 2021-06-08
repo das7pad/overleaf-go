@@ -17,4 +17,9 @@
 package types
 
 type Options struct {
+	APIs struct {
+		WebApi struct {
+			URL string `json:"url"`
+		} `json:"web_api"`
+	} `json:"apis"`
 }

@@ -38,6 +38,7 @@ func New(ctx context.Context, c redis.UniversalClient) (Manager, error) {
 		return nil, err
 	}
 	b := broadcaster.New(
+		ctx,
 		types.GetNextAppliedOpsClient,
 		types.SetNextAppliedOpsClient,
 		channel,

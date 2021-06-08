@@ -89,7 +89,23 @@ func validateAndSetId(name string) mux.MiddlewareFunc {
 	}
 }
 
-func (h *httpController) getUserFromJWT(r *http.Request) (*types.User, error) {
+const (
+	emailField     = "email"
+	firstNameField = "firstName"
+	idField        = "id"
+	lastNameField  = "lastName"
+)
+
+var (
+	userFields = []string{
+		emailField,
+		firstNameField,
+		idField,
+		lastNameField,
+	}
+)
+
+func (h *httpController) getWsBootstrap(r *http.Request) (*types.WsBootstrap, error) {
 	if err := h.jwt.CheckJWT(nil, r); err != nil {
 		return nil, err
 	}
@@ -104,14 +120,59 @@ func (h *httpController) getUserFromJWT(r *http.Request) (*types.User, error) {
 	}
 	claims := token.Claims.(jwt.MapClaims)
 	rawUser := claims["user"]
+	user := &types.User{}
 	if rawUser == nil {
-		return nil, &errors.ValidationError{Msg: "corrupt jwt: missing user"}
+		user.Id = primitive.NilObjectID
+	} else {
+		userDetails, ok2 := rawUser.(map[string]interface{})
+		if !ok2 {
+			return nil, &errors.ValidationError{
+				Msg: "corrupt jwt: malformed user",
+			}
+		}
+		for _, f := range userFields {
+			if userDetails[f] == nil {
+				return nil, &errors.ValidationError{
+					Msg: "corrupt jwt: malformed user." + f,
+				}
+			}
+			s, ok3 := userDetails[f].(string)
+			if !ok3 {
+
+			}
+			switch f {
+			case emailField:
+				user.Email = s
+			case firstNameField:
+				user.FirstName = s
+			case idField:
+				userId, err := primitive.ObjectIDFromHex(s)
+				if err != nil {
+					return nil, &errors.ValidationError{
+						Msg: "corrupt jwt: malformed user.id",
+					}
+				}
+				user.Id = userId
+			case lastNameField:
+				user.LastName = s
+			}
+		}
 	}
-	user, ok := rawUser.(*types.User)
-	if !ok {
-		return nil, &errors.ValidationError{Msg: "corrupt jwt: malformed user"}
+	rawProjectId := claims["projectId"]
+	if rawProjectId == nil {
+		return nil, &errors.ValidationError{
+			Msg: "corrupt jwt: missing projectId",
+		}
 	}
-	return user, nil
+	projectId, err := primitive.ObjectIDFromHex(rawProjectId.(string))
+	if err != nil {
+		return nil, &errors.ValidationError{
+			Msg: "corrupt jwt: malformed projectId",
+		}
+	}
+	return &types.WsBootstrap{
+		ProjectId: projectId, User: user,
+	}, nil
 }
 
 func getParam(r *http.Request, name string) string {
@@ -175,21 +236,31 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, jwtErr := h.getUserFromJWT(r)
+	wsBootstrap, jwtErr := h.getWsBootstrap(r)
 	if jwtErr != nil {
-		msg := "cannot read user from jwt"
+		log.Println("jwt auth failed: " + jwtErr.Error())
+		msg := "bad wsBootstrap blob"
 		if errors.IsValidationError(jwtErr) {
 			msg = jwtErr.Error()
 		}
-		_ = u.WriteJSON(&types.RPCResponse{Error: msg})
+		_ = u.WriteJSON(&types.RPCResponse{
+			Error: &errors.JavaScriptError{Message: msg},
+		})
 		_ = u.Close()
 		return
 	}
 
-	c := types.Client{
-		PublicId:   "..",
-		User:       user,
-		WriteQueue: make(chan *types.RPCResponse, 10),
+	writeQueue := make(chan *types.RPCResponse, 10)
+	c, clientErr := types.NewClient(wsBootstrap, writeQueue)
+	if clientErr != nil {
+		log.Println("client setup failed: " + clientErr.Error())
+		_ = u.WriteJSON(&types.RPCResponse{
+			Error: &errors.JavaScriptError{
+				Message: "internal error during setup",
+			},
+		})
+		_ = u.Close()
+		return
 	}
 
 	ctx, cancel := context.WithCancel(r.Context())
@@ -197,14 +268,14 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		cancel()
 		_ = u.Close()
-		_ = h.rtm.Disconnect(&c)
-		close(c.WriteQueue)
+		_ = h.rtm.Disconnect(c)
+		close(writeQueue)
 	}()
 	go func() {
 		defer func() {
 			cancel()
 			_ = u.Close()
-			for range c.WriteQueue {
+			for range writeQueue {
 				// Flush the queue.
 				// Eventually the main goroutine will close the channel.
 			}
@@ -214,7 +285,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-waitForCtxDone:
 				return
-			case response, ok := <-c.WriteQueue:
+			case response, ok := <-writeQueue:
 				if !ok {
 					return
 				}
@@ -233,7 +304,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		err := u.ReadJSON(&request)
 		if err != nil {
 			c.WriteQueue <- &types.RPCResponse{
-				Error:      "bad request",
+				Error:      &errors.JavaScriptError{Message: "bad request"},
 				FatalError: true,
 			}
 			<-ctx.Done()
@@ -244,7 +315,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		}
 		rpc := types.RPC{
 			Context:  ctx,
-			Client:   &c,
+			Client:   c,
 			Request:  &request,
 			Response: &response,
 		}

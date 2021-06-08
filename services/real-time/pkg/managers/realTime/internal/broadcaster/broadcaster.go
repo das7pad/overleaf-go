@@ -34,8 +34,8 @@ type Broadcaster interface {
 	Walk(id primitive.ObjectID, fn func(client *types.Client) error) error
 }
 
-func New(get GetNextFn, set SetNextFn, c channelManager.Manager) Broadcaster {
-	return &broadcaster{
+func New(ctx context.Context, get GetNextFn, set SetNextFn, c channelManager.Manager) Broadcaster {
+	b := &broadcaster{
 		c:       c,
 		getNext: get,
 		setNext: set,
@@ -43,6 +43,8 @@ func New(get GetNextFn, set SetNextFn, c channelManager.Manager) Broadcaster {
 		mux:     sync.RWMutex{},
 		rooms:   make(map[primitive.ObjectID]*room),
 	}
+	go b.processQueue(ctx)
+	return b
 }
 
 type GetNextFn func(client *types.Client) *types.Client

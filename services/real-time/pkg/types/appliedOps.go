@@ -17,10 +17,31 @@
 package types
 
 import (
+	"encoding/hex"
+	"math/rand"
+	"strconv"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/real-time/pkg/errors"
 )
+
+// getPublicId yields a secure unique id
+// It contains a 16 hex char long timestamp in ns precision, a hyphen and
+//  another 16 hex char long random string.
+func getPublicId() (PublicId, error) {
+	buf := make([]byte, 8)
+	_, err := rand.Read(buf)
+	if err != nil {
+		return "", err
+	}
+	now := time.Now().UnixNano()
+	id := PublicId(
+		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
+	)
+	return id, nil
+}
 
 type PublicId string
 
@@ -138,17 +159,13 @@ func (d *DocumentUpdate) Validate() error {
 	return nil
 }
 
-type JavaScriptError struct {
-	Message string `json:"message"`
-}
-
 type AppliedOpsMessage struct {
-	DocId       primitive.ObjectID `json:"doc_id"`
-	Error       *JavaScriptError   `json:"error,omitempty"`
-	HealthCheck bool               `json:"health_check,omitempty"`
-	Id          string             `json:"_id"`
-	Update      *DocumentUpdate    `json:"op,omitempty"`
-	ProjectId   primitive.ObjectID `json:"project_id"`
+	DocId       primitive.ObjectID      `json:"doc_id"`
+	Error       *errors.JavaScriptError `json:"error,omitempty"`
+	HealthCheck bool                    `json:"health_check,omitempty"`
+	Id          string                  `json:"_id"`
+	Update      *DocumentUpdate         `json:"op,omitempty"`
+	ProjectId   primitive.ObjectID      `json:"project_id"`
 }
 
 func (d *AppliedOpsMessage) Validate() error {

@@ -42,11 +42,15 @@ func New(ctx context.Context, options *types.Options, c redis.UniversalClient) (
 	if err != nil {
 		return nil, err
 	}
+
 	e, err := editorEvents.New(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	w := webApiManager.New(options)
+	w, err := webApiManager.New(options)
+	if err != nil {
+		return nil, err
+	}
 	return &manager{
 		options:      options,
 		appliedOps:   a,
@@ -76,16 +80,17 @@ func (m *manager) RPC(rpc *types.RPC) {
 		"%s: %s: %s",
 		rpc.Client.User.Id, rpc.Request.Action, err.Error(),
 	)
-	if errors.IsValidationError(err) {
-		rpc.Response.Error = err.Error()
-		return
+	cause := errors.GetCause(err)
+	if potentiallyFatalError, ok := cause.(errors.PotentiallyFatalError); ok {
+		rpc.Response.FatalError = potentiallyFatalError.IsFatal()
 	}
-	if errors.IsInvalidState(err) {
-		rpc.Response.Error = err.Error()
-		rpc.Response.FatalError = true
-		return
+	if publicError, ok := cause.(errors.PublicError); ok {
+		rpc.Response.Error = publicError.Public()
+	} else {
+		rpc.Response.Error = &errors.JavaScriptError{
+			Message: "Something went wrong in real-time service",
+		}
 	}
-	rpc.Response.Error = "Something went wrong in real-time service"
 }
 
 func (m *manager) joinProject(rpc *types.RPC) error {
@@ -93,6 +98,13 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
+	if err := rpc.Client.CanJoinProject(args.ProjectId); err != nil {
+		return errors.Tag(
+			err,
+			"rejection cross project join "+args.ProjectId.Hex(),
+		)
+	}
+
 	r, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
 	if err != nil {
 		return errors.Tag(
@@ -106,16 +118,23 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 			err, "editorEvents.Join failed for "+args.ProjectId.Hex(),
 		)
 	}
+	levelRaw, err := json.Marshal(r.PrivilegeLevel)
+	if err != nil {
+		return errors.Tag(
+			err,
+			"encoding PrivilegeLevel failed for "+args.ProjectId.Hex(),
+		)
+	}
 	res := types.JoinProjectResponse{
 		r.Project,
-		json.RawMessage(r.PrivilegeLevel),
+		json.RawMessage(levelRaw),
 		json.RawMessage("5"),
 	}
 	body, err := json.Marshal(res)
 	if err != nil {
 		return errors.Tag(
 			err,
-			"encoding joinProject response failed for "+args.ProjectId.Hex(),
+			"encoding JoinProjectResponse failed for "+args.ProjectId.Hex(),
 		)
 	}
 	rpc.Response.Body = body

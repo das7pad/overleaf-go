@@ -14,38 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package editorEvents
+package types
 
 import (
-	"context"
-
-	"github.com/go-redis/redis/v8"
-
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channelManager"
-	"github.com/das7pad/real-time/pkg/types"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type Manager interface {
-	broadcaster.Broadcaster
-}
-
-func New(ctx context.Context, c redis.UniversalClient) (Manager, error) {
-	channel, err := channelManager.New(ctx, c, "editorEvents")
-	if err != nil {
-		return nil, err
-	}
-	b := broadcaster.New(
-		ctx,
-		types.GetNextEditorEventsClient,
-		types.SetNextEditorEventsClient,
-		channel,
-	)
-	return &manager{
-		Broadcaster: b,
-	}, nil
-}
-
-type manager struct {
-	broadcaster.Broadcaster
+type WsBootstrap struct {
+	ProjectId primitive.ObjectID `json:"projectId"`
+	User      *User              `json:"user"`
 }

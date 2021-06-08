@@ -47,11 +47,11 @@ type RPCRequest struct {
 }
 
 type RPCResponse struct {
-	Body     json.RawMessage `json:"b"`
-	Callback Callback        `json:"c"`
-	Error    string          `json:"e"`
+	Body     json.RawMessage         `json:"b,omitempty"`
+	Callback Callback                `json:"c,omitempty"`
+	Error    *errors.JavaScriptError `json:"e,omitempty"`
 
-	FatalError bool
+	FatalError bool `json:"-"`
 }
 
 type RPC struct {
