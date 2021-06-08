@@ -49,7 +49,7 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 }
 
 func NewClient(wsBootstrap *WsBootstrap, writeQueue chan<- *RPCResponse) (*Client, error) {
-	publicId, err := getPublicId()
+	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
 	}

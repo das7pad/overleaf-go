@@ -27,10 +27,10 @@ import (
 	"github.com/das7pad/real-time/pkg/errors"
 )
 
-// getPublicId yields a secure unique id
+// generatePublicId yields a secure unique id
 // It contains a 16 hex char long timestamp in ns precision, a hyphen and
 //  another 16 hex char long random string.
-func getPublicId() (PublicId, error) {
+func generatePublicId() (PublicId, error) {
 	buf := make([]byte, 8)
 	_, err := rand.Read(buf)
 	if err != nil {
