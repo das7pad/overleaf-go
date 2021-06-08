@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package channelManager
+package channel
 
 import (
 	"context"
@@ -38,23 +38,23 @@ func (c BaseChannel) join(id primitive.ObjectID) channel {
 	return channel(string(c) + ":" + id.Hex())
 }
 
-func New(ctx context.Context, c redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
-	p := c.Subscribe(ctx, string(baseChannel))
+func New(ctx context.Context, client redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
+	p := client.Subscribe(ctx, string(baseChannel))
 
 	if _, err := p.Receive(ctx); err != nil {
 		return nil, err
 	}
 
 	return &manager{
-		c: c,
-		p: p,
+		client: client,
+		p:      p,
 	}, nil
 }
 
 type manager struct {
-	c    redis.UniversalClient
-	p    *redis.PubSub
-	base BaseChannel
+	client redis.UniversalClient
+	p      *redis.PubSub
+	base   BaseChannel
 }
 
 func (m *manager) Subscribe(ctx context.Context, id primitive.ObjectID) error {
@@ -66,7 +66,7 @@ func (m *manager) Unsubscribe(ctx context.Context, id primitive.ObjectID) error 
 }
 
 func (m *manager) Publish(ctx context.Context, id primitive.ObjectID, msg string) error {
-	return m.c.Publish(ctx, string(m.base.join(id)), msg).Err()
+	return m.client.Publish(ctx, string(m.base.join(id)), msg).Err()
 }
 
 func (m *manager) Listen() <-chan string {

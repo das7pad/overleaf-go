@@ -203,7 +203,7 @@ func (r Ranges) Equals(other Ranges) bool {
 
 type Revision JavaScriptNumber
 
-type Version JavaScriptNumber
+type Version int64
 
 func (v Version) Equals(other Version) bool {
 	return v == other

@@ -22,7 +22,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channelManager"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/real-time/pkg/types"
 )
 
@@ -32,8 +32,8 @@ type Manager interface {
 	AddComment(rpc *types.RPC) error
 }
 
-func New(ctx context.Context, c redis.UniversalClient) (Manager, error) {
-	channel, err := channelManager.New(ctx, c, "appliedOps")
+func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
+	c, err := channel.New(ctx, client, "appliedOps")
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func New(ctx context.Context, c redis.UniversalClient) (Manager, error) {
 		ctx,
 		types.GetNextAppliedOpsClient,
 		types.SetNextAppliedOpsClient,
-		channel,
+		c,
 	)
 	return &manager{
 		Broadcaster: b,

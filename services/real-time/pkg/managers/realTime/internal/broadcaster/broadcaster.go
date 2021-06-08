@@ -23,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/real-time/pkg/errors"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channelManager"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/pendingOperation"
 	"github.com/das7pad/real-time/pkg/types"
 )
@@ -34,7 +34,7 @@ type Broadcaster interface {
 	Walk(id primitive.ObjectID, fn func(client *types.Client) error) error
 }
 
-func New(ctx context.Context, get GetNextFn, set SetNextFn, c channelManager.Manager) Broadcaster {
+func New(ctx context.Context, get GetNextFn, set SetNextFn, c channel.Manager) Broadcaster {
 	b := &broadcaster{
 		c:       c,
 		getNext: get,
@@ -51,7 +51,7 @@ type GetNextFn func(client *types.Client) *types.Client
 type SetNextFn func(client *types.Client, next *types.Client)
 
 type broadcaster struct {
-	c channelManager.Manager
+	c channel.Manager
 
 	getNext GetNextFn
 	setNext SetNextFn

@@ -14,38 +14,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package editorEvents
+package types
 
 import (
-	"context"
+	"encoding/json"
 
-	"github.com/go-redis/redis/v8"
-
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
-	"github.com/das7pad/real-time/pkg/types"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type Manager interface {
-	broadcaster.Broadcaster
+type JoinDocRequest struct {
+	DocId       primitive.ObjectID
+	FromVersion Version `json:"fromVersion"`
 }
 
-func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
-	c, err := channel.New(ctx, client, "editorEvents")
-	if err != nil {
-		return nil, err
-	}
-	b := broadcaster.New(
-		ctx,
-		types.GetNextEditorEventsClient,
-		types.SetNextEditorEventsClient,
-		c,
-	)
-	return &manager{
-		Broadcaster: b,
-	}, nil
-}
-
-type manager struct {
-	broadcaster.Broadcaster
+type JoinDocResponse struct {
+	Lines   json.RawMessage `json:"lines"`
+	Ops     json.RawMessage `json:"ops"`
+	Ranges  Ranges          `json:"ranges"`
+	Version Version         `json:"version"`
 }

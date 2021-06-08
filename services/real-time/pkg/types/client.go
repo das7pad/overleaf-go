@@ -32,10 +32,15 @@ const (
 	CanAddComment      = CapabilityComponent(2)
 	CanEditContent     = CapabilityComponent(3)
 	CanSeeOtherClients = CapabilityComponent(5)
+	CanSeeComments     = CapabilityComponent(7)
 )
 
+func (c Capabilities) Includes(action CapabilityComponent) bool {
+	return int(c)%int(action) == 0
+}
+
 func (c Capabilities) CheckIncludes(action CapabilityComponent) error {
-	if int(c)%int(action) != 0 {
+	if !c.Includes(action) {
 		return &errors.NotAuthorizedError{}
 	}
 	return nil
@@ -96,15 +101,23 @@ func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestricted
 	switch privilegeLevel {
 	case "owner", "readAndWrite":
 		c.capabilities = Capabilities(
-			CanAddComment * CanEditContent * CanSeeOtherClients,
+			CanAddComment *
+				CanEditContent *
+				CanSeeOtherClients *
+				CanSeeComments,
 		)
 	case "readOnly":
-		c.capabilities = Capabilities(CanAddComment)
+		c.capabilities = Capabilities(
+			CanAddComment *
+				CanSeeOtherClients *
+				CanSeeComments,
+		)
 	default:
 		c.capabilities = NoCapabilities
 	}
 	if isRestrictedUser {
 		c.capabilities = c.capabilities.TakeAway(CanSeeOtherClients)
+		c.capabilities = c.capabilities.TakeAway(CanSeeComments)
 	}
 }
 
@@ -130,6 +143,14 @@ func (c *Client) CanJoinProject(id primitive.ObjectID) error {
 		return &errors.NotAuthorizedError{}
 	}
 	return nil
+}
+
+func (c *Client) HasCapability(component CapabilityComponent) bool {
+	return c.capabilities.Includes(component)
+}
+
+func (c *Client) CheckHasCapability(component CapabilityComponent) error {
+	return c.capabilities.CheckIncludes(component)
 }
 
 func (c *Client) CanDo(action Action, docId primitive.ObjectID) error {

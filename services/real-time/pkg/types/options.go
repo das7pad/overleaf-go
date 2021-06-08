@@ -18,6 +18,9 @@ package types
 
 type Options struct {
 	APIs struct {
+		DocumentUpdater struct {
+			URL string `json:"url"`
+		} `json:"document_updater"`
 		WebApi struct {
 			URL string `json:"url"`
 		} `json:"web_api"`

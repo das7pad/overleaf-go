@@ -25,8 +25,9 @@ import (
 
 	"github.com/das7pad/real-time/pkg/errors"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/appliedOps"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/documentUpdater"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/editorEvents"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/webApiManager"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/webApi"
 	"github.com/das7pad/real-time/pkg/types"
 )
 
@@ -37,34 +38,39 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, c redis.UniversalClient) (Manager, error) {
-	a, err := appliedOps.New(ctx, c)
+func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
+	a, err := appliedOps.New(ctx, client)
 	if err != nil {
 		return nil, err
 	}
-
-	e, err := editorEvents.New(ctx, c)
+	e, err := editorEvents.New(ctx, client)
 	if err != nil {
 		return nil, err
 	}
-	w, err := webApiManager.New(options)
+	w, err := webApi.New(options)
+	if err != nil {
+		return nil, err
+	}
+	d, err := documentUpdater.New(options)
 	if err != nil {
 		return nil, err
 	}
 	return &manager{
-		options:      options,
-		appliedOps:   a,
-		editorEvents: e,
-		webApi:       w,
+		options:         options,
+		appliedOps:      a,
+		editorEvents:    e,
+		documentUpdater: d,
+		webApi:          w,
 	}, nil
 }
 
 type manager struct {
 	options *types.Options
 
-	appliedOps   appliedOps.Manager
-	editorEvents editorEvents.Manager
-	webApi       webApiManager.Manager
+	appliedOps      appliedOps.Manager
+	editorEvents    editorEvents.Manager
+	documentUpdater documentUpdater.Manager
+	webApi          webApi.Manager
 }
 
 func (m *manager) PeriodicCleanup(ctx context.Context) {
@@ -112,12 +118,16 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		)
 	}
 	rpc.Client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
-	err = m.editorEvents.Join(rpc, rpc.Client, args.ProjectId)
-	if err != nil {
+
+	// For cleanup purposes: mark as joined before actually joining.
+	rpc.Client.ProjectId = &args.ProjectId
+
+	if err = m.editorEvents.Join(rpc, rpc.Client, args.ProjectId); err != nil {
 		return errors.Tag(
 			err, "editorEvents.Join failed for "+args.ProjectId.Hex(),
 		)
 	}
+
 	levelRaw, err := json.Marshal(r.PrivilegeLevel)
 	if err != nil {
 		return errors.Tag(
@@ -141,6 +151,39 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	return nil
 }
 func (m *manager) joinDoc(rpc *types.RPC) error {
+	var args types.JoinDocRequest
+	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
+		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
+	}
+	args.DocId = rpc.Request.DocId
+
+	r, err := m.documentUpdater.JoinDoc(rpc, rpc.Client, &args)
+	if err != nil {
+		return errors.Tag(
+			err, "documentUpdater.JoinDoc failed for "+args.DocId.Hex(),
+		)
+	}
+	if !rpc.Client.HasCapability(types.CanSeeComments) {
+		r.Ranges.Comments = types.Comments{}
+	}
+
+	// For cleanup purposes: mark as joined before actually joining.
+	rpc.Client.DocId = &args.DocId
+
+	if err = m.appliedOps.Join(rpc, rpc.Client, args.DocId); err != nil {
+		return errors.Tag(
+			err, "appliedOps.Join failed for "+args.DocId.Hex(),
+		)
+	}
+
+	body, err := json.Marshal(r)
+	if err != nil {
+		return errors.Tag(
+			err,
+			"encoding JoinDocResponse failed for "+args.DocId.Hex(),
+		)
+	}
+	rpc.Response.Body = body
 	return nil
 }
 func (m *manager) leaveDoc(rpc *types.RPC) error {
