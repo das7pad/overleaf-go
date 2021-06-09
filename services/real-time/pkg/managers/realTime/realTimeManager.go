@@ -187,6 +187,18 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	return nil
 }
 func (m *manager) leaveDoc(rpc *types.RPC) error {
+	docId := rpc.Client.DocId
+	if docId == nil {
+		// Ignore not yet joined.
+		return nil
+	}
+	err := m.appliedOps.Leave(rpc.Client, *docId)
+	if err != nil {
+		return errors.Tag(
+			err, "appliedOps.Leave failed for "+docId.Hex(),
+		)
+	}
+	rpc.Client.DocId = nil
 	return nil
 }
 func (m *manager) applyUpdate(rpc *types.RPC) error {
