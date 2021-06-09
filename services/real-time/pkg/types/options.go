@@ -17,6 +17,8 @@
 package types
 
 type Options struct {
+	PendingUpdatesListShardCount int64 `json:"pending_updates_list_shard_count"`
+
 	APIs struct {
 		DocumentUpdater struct {
 			URL string `json:"url"`

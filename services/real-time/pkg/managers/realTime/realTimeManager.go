@@ -39,7 +39,7 @@ type Manager interface {
 }
 
 func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
-	a, err := appliedOps.New(ctx, client)
+	a, err := appliedOps.New(ctx, options, client)
 	if err != nil {
 		return nil, err
 	}
@@ -201,11 +201,60 @@ func (m *manager) leaveDoc(rpc *types.RPC) error {
 	rpc.Client.DocId = nil
 	return nil
 }
+
+const (
+	maxUpdateSize = 7*1024*1024 + 64*1024
+)
+
+func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.ApplyUpdateRequest, error) {
+	if len(rpc.Request.Body) > maxUpdateSize {
+		// Accept the update RPC at first.
+		rpc.Client.WriteQueue <- &types.RPCResponse{
+			Callback: rpc.Request.Callback,
+		}
+
+		// Then fire an otUpdateError.
+		codedError := errors.CodedError{
+			Description: "update is too large",
+			Code:        "otUpdateError",
+		}
+		// Turn into broadcast.
+		rpc.Response.Callback = 0
+
+		rpc.Response.FatalError = true
+		return nil, &codedError
+	}
+	var args types.ApplyUpdateRequest
+	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
+		return nil, &errors.ValidationError{Msg: "bad request: " + err.Error()}
+	}
+	args.DocId = rpc.Request.DocId
+	args.Meta.Source = rpc.Client.PublicId
+	args.Meta.UserId = rpc.Client.User.Id
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+	return &args, nil
+}
+
 func (m *manager) applyUpdate(rpc *types.RPC) error {
-	return m.appliedOps.ApplyUpdate(rpc)
+	args, err := m.preProcessApplyUpdateRequest(rpc)
+	if err != nil {
+		return err
+	}
+	return m.appliedOps.QueueUpdate(rpc, args)
 }
 func (m *manager) addComment(rpc *types.RPC) error {
-	return m.appliedOps.AddComment(rpc)
+	args, err := m.preProcessApplyUpdateRequest(rpc)
+	if err != nil {
+		return err
+	}
+	for _, op := range args.Ops {
+		if !op.IsComment() {
+			return &errors.NotAuthorizedError{}
+		}
+	}
+	return m.appliedOps.QueueUpdate(rpc, args)
 }
 func (m *manager) getConnectedUsers(rpc *types.RPC) error {
 	return nil

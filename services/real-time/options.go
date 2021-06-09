@@ -76,6 +76,9 @@ func getOptions() *clsiOptions {
 	o.address = listenAddress + ":" + strconv.FormatInt(port, 10)
 
 	getJSONFromEnv("OPTIONS", &o.options)
+	if o.options.PendingUpdatesListShardCount <= 0 {
+		panic("pending_updates_list_shard_count must be greater than 0")
+	}
 
 	jwtSecret := os.Getenv("JWT_REAL_TIME_VERIFY_SECRET")
 	if jwtSecret == "" {

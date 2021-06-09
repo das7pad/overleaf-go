@@ -18,9 +18,13 @@ package appliedOps
 
 import (
 	"context"
+	"encoding/json"
+	"math/rand"
+	"strconv"
 
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/real-time/pkg/errors"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/real-time/pkg/types"
@@ -28,11 +32,10 @@ import (
 
 type Manager interface {
 	broadcaster.Broadcaster
-	ApplyUpdate(rpc *types.RPC) error
-	AddComment(rpc *types.RPC) error
+	QueueUpdate(rpc *types.RPC, update *types.ApplyUpdateRequest) error
 }
 
-func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
+func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
 	c, err := channel.New(ctx, client, "appliedOps")
 	if err != nil {
 		return nil, err
@@ -44,18 +47,46 @@ func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
 		c,
 	)
 	return &manager{
-		Broadcaster: b,
+		Broadcaster:                  b,
+		client:                       client,
+		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
 	}, nil
 }
 
 type manager struct {
 	broadcaster.Broadcaster
+
+	client                       redis.UniversalClient
+	pendingUpdatesListShardCount int64
 }
 
-func (m *manager) ApplyUpdate(rpc *types.RPC) error {
-	panic("implement me")
+func (m *manager) getPendingUpdatesListKey() string {
+	shard := rand.Int63n(m.pendingUpdatesListShardCount)
+	if shard == 0 {
+		return "pending-updates-list"
+	}
+	return "pending-updates-list-" + strconv.FormatInt(shard, 10)
 }
 
-func (m *manager) AddComment(rpc *types.RPC) error {
-	panic("implement me")
+func (m *manager) QueueUpdate(rpc *types.RPC, update *types.ApplyUpdateRequest) error {
+	blob, err := json.Marshal(update)
+	if err != nil {
+		return errors.Tag(err, "cannot encode update")
+	}
+
+	docId := rpc.Client.DocId
+	pendingUpdateKey := "PendingUpdates:{" + docId.Hex() + "}"
+	if err = m.client.RPush(rpc, pendingUpdateKey, blob).Err(); err != nil {
+		return errors.Tag(err, "cannot queue update")
+	}
+
+	shardKey := m.getPendingUpdatesListKey()
+	docKey := rpc.Client.ProjectId.Hex() + ":" + docId.Hex()
+	if err = m.client.RPush(rpc, shardKey, docKey).Err(); err != nil {
+		return errors.Tag(
+			err,
+			"cannot notify shard about new queue entry",
+		)
+	}
+	return nil
 }

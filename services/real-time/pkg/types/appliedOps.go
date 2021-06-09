@@ -128,11 +128,11 @@ func (o *Op) Validate() error {
 
 type Ops []Op
 
-func (o *Ops) Validate() error {
-	if o == nil {
+func (o Ops) Validate() error {
+	if o == nil || len(o) == 0 {
 		return &errors.ValidationError{Msg: "missing ops"}
 	}
-	for _, op := range *o {
+	for _, op := range o {
 		if err := op.Validate(); err != nil {
 			return err
 		}
@@ -143,6 +143,7 @@ func (o *Ops) Validate() error {
 type DocumentUpdate struct {
 	DocId       primitive.ObjectID `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
+	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Ops         Ops                `json:"op"`
 	Version     JavaScriptNumber   `json:"v"`
@@ -181,4 +182,27 @@ func (d *AppliedOpsMessage) Validate() error {
 	} else {
 		return &errors.ValidationError{Msg: "unknown message type"}
 	}
+}
+
+type ApplyUpdateMeta struct {
+	Source           PublicId           `json:"source"`
+	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
+	UserId           primitive.ObjectID `json:"user_id"`
+}
+
+type ApplyUpdateRequest struct {
+	DocId       primitive.ObjectID `json:"doc"`
+	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
+	Hash        string             `json:"hash,omitempty"`
+	Meta        ApplyUpdateMeta    `json:"meta"`
+	Ops         Ops                `json:"op"`
+	Version     JavaScriptNumber   `json:"v"`
+	LastVersion JavaScriptNumber   `json:"lastV"`
+}
+
+func (d *ApplyUpdateRequest) Validate() error {
+	if err := d.Ops.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
