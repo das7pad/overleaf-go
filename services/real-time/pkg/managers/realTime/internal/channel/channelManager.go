@@ -48,6 +48,7 @@ func New(ctx context.Context, client redis.UniversalClient, baseChannel BaseChan
 	return &manager{
 		client: client,
 		p:      p,
+		base:   baseChannel,
 	}, nil
 }
 
