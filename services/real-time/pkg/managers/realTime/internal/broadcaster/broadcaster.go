@@ -131,17 +131,34 @@ func (b *broadcaster) join(a action) pendingOperation.WithCancel {
 			roomWasEmpty = true
 		} else {
 			roomWasEmpty = false
+
+			found := false
+			_ = b.walkFrom(r.head, func(client *types.Client) error {
+				if client == a.client {
+					found = true
+					return CancelWalk
+				}
+				return nil
+			})
+			if found {
+				return nil
+			}
 		}
+
+		// Adding the client to the head of the clients ensures that Walk
+		//  will not see this client twice.
 		b.setNext(a.client, r.head)
+		r.head = a.client
 	} else {
 		roomWasEmpty = true
-		r = &room{}
+		r = &room{
+			head: a.client,
+		}
 
 		b.mux.Lock()
 		b.rooms[a.id] = r
 		b.mux.Unlock()
 	}
-	r.head = a.client
 
 	lastSubscribeFailed := r.pendingSubscribe != nil &&
 		r.pendingSubscribe.Failed()
@@ -239,8 +256,14 @@ func (b *broadcaster) Leave(client *types.Client, id primitive.ObjectID) error {
 
 var CancelWalk = errors.New("cancel walk")
 
+type WalkFn = func(client *types.Client) error
+
 func (b *broadcaster) Walk(id primitive.ObjectID, fn func(client *types.Client) error) error {
-	for head := b.getHead(id); head != nil; head = b.getNext(head) {
+	return b.walkFrom(b.getHead(id), fn)
+}
+
+func (b *broadcaster) walkFrom(head *types.Client, fn WalkFn) error {
+	for ; head != nil; head = b.getNext(head) {
 		err := fn(head)
 		switch err {
 		case nil:
