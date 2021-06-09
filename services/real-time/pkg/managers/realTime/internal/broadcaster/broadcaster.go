@@ -144,7 +144,7 @@ func (b *broadcaster) join(a action) pendingOperation.WithCancel {
 	r.head = a.client
 
 	lastSubscribeFailed := r.pendingSubscribe != nil &&
-		r.pendingUnsubscribe.Failed()
+		r.pendingSubscribe.Failed()
 	if roomWasEmpty || lastSubscribeFailed {
 		unsubscribe := r.pendingUnsubscribe
 		r.pendingSubscribe = pendingOperation.TrackOperationWithCancel(
