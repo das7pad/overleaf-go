@@ -18,7 +18,9 @@ package types
 
 import (
 	"bytes"
+	"encoding/json"
 
+	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/real-time/pkg/errors"
@@ -53,7 +55,27 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 	return Capabilities(int(c) / int(action))
 }
 
-func NewClient(wsBootstrap *WsBootstrap, writeQueue chan<- *RPCResponse) (*Client, error) {
+func PrepareBulkMessage(response *RPCResponse) (*WriteQueueEntry, error) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, body)
+	if err != nil {
+		return nil, err
+	}
+	return &WriteQueueEntry{Msg: pm, FatalError: response.FatalError}, nil
+}
+
+type WriteQueueEntry struct {
+	Blob       []byte
+	Msg        *websocket.PreparedMessage
+	FatalError bool
+}
+
+type WriteQueue chan<- *WriteQueueEntry
+
+func NewClient(wsBootstrap *WsBootstrap, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
@@ -62,7 +84,8 @@ func NewClient(wsBootstrap *WsBootstrap, writeQueue chan<- *RPCResponse) (*Clien
 		lockedProjectId: wsBootstrap.ProjectId,
 		PublicId:        publicId,
 		User:            wsBootstrap.User,
-		WriteQueue:      writeQueue,
+		writeQueue:      writeQueue,
+		disconnect:      disconnect,
 	}, nil
 }
 
@@ -75,7 +98,8 @@ type Client struct {
 	ProjectId *primitive.ObjectID
 	User      *User
 
-	WriteQueue chan<- *RPCResponse
+	writeQueue WriteQueue
+	disconnect func()
 
 	nextClientAppliedOps   *Client
 	nextClientEditorEvents *Client
@@ -215,4 +239,46 @@ func (c *Client) CanDo(action Action, docId primitive.ObjectID) error {
 			Msg: "unknown action: " + string(action),
 		}
 	}
+}
+
+func (c *Client) TriggerDisconnect() {
+	c.disconnect()
+}
+
+func (c *Client) QueueResponse(response *RPCResponse) error {
+	blob, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	return c.QueueMessage(&WriteQueueEntry{
+		Blob:       blob,
+		FatalError: response.FatalError,
+	})
+}
+
+func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
+	if err := c.QueueResponse(response); err != nil {
+		// Client is out-of-sync.
+		c.TriggerDisconnect()
+		return false
+	}
+	return true
+}
+
+func (c *Client) QueueMessage(msg *WriteQueueEntry) error {
+	select {
+	case c.writeQueue <- msg:
+		return nil
+	default:
+		return errors.New("queue is full")
+	}
+}
+
+func (c *Client) EnsureQueueMessage(msg *WriteQueueEntry) bool {
+	if err := c.QueueMessage(msg); err != nil {
+		// Client is out-of-sync.
+		c.TriggerDisconnect()
+		return false
+	}
+	return true
 }

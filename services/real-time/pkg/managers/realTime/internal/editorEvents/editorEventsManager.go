@@ -30,8 +30,8 @@ type Manager interface {
 	broadcaster.Broadcaster
 }
 
-func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
-	c, err := channel.New(ctx, client, "editorEvents")
+func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
+	c, err := channel.New(ctx, options, client, "editor-events")
 	if err != nil {
 		return nil, err
 	}

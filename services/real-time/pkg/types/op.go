@@ -56,9 +56,9 @@ func (c Changes) Equals(other Changes) bool {
 }
 
 type ChangeOp struct {
-	Deletion  string           `json:"d,omitempty"`
-	Insertion string           `json:"i,omitempty"`
-	Position  JavaScriptNumber `json:"p"`
+	Deletion  string `json:"d,omitempty"`
+	Insertion string `json:"i,omitempty"`
+	Position  int64  `json:"p"`
 }
 
 func (o ChangeOp) Equals(other ChangeOp) bool {
@@ -111,7 +111,7 @@ func (c Comments) Equals(other Comments) bool {
 
 type CommentOp struct {
 	Comment  string             `json:"c"`
-	Position JavaScriptNumber   `json:"p"`
+	Position int64              `json:"p"`
 	Thread   primitive.ObjectID `json:"t"`
 }
 
@@ -127,8 +127,6 @@ func (o CommentOp) Equals(other CommentOp) bool {
 	}
 	return true
 }
-
-type JavaScriptNumber float64
 
 type Lines []string
 
@@ -201,7 +199,7 @@ func (r Ranges) Equals(other Ranges) bool {
 	return true
 }
 
-type Revision JavaScriptNumber
+type Revision int64
 
 type Version int64
 

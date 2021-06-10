@@ -37,7 +37,7 @@ const (
 	AddComment        = Action("addComment")
 )
 
-type Callback JavaScriptNumber
+type Callback int64
 
 type RPCRequest struct {
 	Action   Action             `json:"a"`
@@ -50,6 +50,7 @@ type RPCResponse struct {
 	Body     json.RawMessage         `json:"b,omitempty"`
 	Callback Callback                `json:"c,omitempty"`
 	Error    *errors.JavaScriptError `json:"e,omitempty"`
+	Name     string                  `json:"n,omitempty"`
 
 	FatalError bool `json:"-"`
 }

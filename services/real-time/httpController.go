@@ -250,9 +250,11 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeQueue := make(chan *types.RPCResponse, 10)
-	c, clientErr := types.NewClient(wsBootstrap, writeQueue)
+	writeQueue := make(chan *types.WriteQueueEntry, 10)
+	ctx, cancel := context.WithCancel(r.Context())
+	c, clientErr := types.NewClient(wsBootstrap, writeQueue, cancel)
 	if clientErr != nil {
+		cancel()
 		log.Println("client setup failed: " + clientErr.Error())
 		_ = u.WriteJSON(&types.RPCResponse{
 			Error: &errors.JavaScriptError{
@@ -262,8 +264,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		_ = u.Close()
 		return
 	}
-
-	ctx, cancel := context.WithCancel(r.Context())
+	waitForCtxDone := ctx.Done()
 
 	defer func() {
 		cancel()
@@ -280,35 +281,51 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 				// Eventually the main goroutine will close the channel.
 			}
 		}()
-		waitForCtxDone := ctx.Done()
 		for {
 			select {
 			case <-waitForCtxDone:
 				return
-			case response, ok := <-writeQueue:
+			case entry, ok := <-writeQueue:
 				if !ok {
 					return
 				}
-				if err := u.WriteJSON(&response); err != nil {
-					return
+				if entry.Blob != nil {
+					err := u.WriteMessage(websocket.TextMessage, entry.Blob)
+					if err != nil {
+						return
+					}
+				} else {
+					if err := u.WritePreparedMessage(entry.Msg); err != nil {
+						return
+					}
 				}
-				if response.FatalError {
+				if entry.FatalError {
 					return
 				}
 			}
 		}
 	}()
 
+	defer func() {
+		// Wait for the queue flush.
+		// In case queuing from the read-loop failed, this is a noop.
+		<-waitForCtxDone
+	}()
 	var request types.RPCRequest
 	for {
+		select {
+		case <-waitForCtxDone:
+			return
+		default:
+			// Not done yet.
+		}
 		err := u.ReadJSON(&request)
 		if err != nil {
-			c.WriteQueue <- &types.RPCResponse{
+			c.EnsureQueueResponse(&types.RPCResponse{
 				Error:      &errors.JavaScriptError{Message: "bad request"},
 				FatalError: true,
-			}
-			<-ctx.Done()
-			break
+			})
+			return
 		}
 		response := types.RPCResponse{
 			Callback: request.Callback,
@@ -320,10 +337,11 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 			Response: &response,
 		}
 		h.rtm.RPC(&rpc)
-		c.WriteQueue <- &response
-		if rpc.Response.FatalError {
-			<-ctx.Done()
-			break
+		if rpc.Response != nil {
+			failed := !c.EnsureQueueResponse(&response)
+			if failed || rpc.Response.FatalError {
+				return
+			}
 		}
 	}
 }

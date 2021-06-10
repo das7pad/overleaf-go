@@ -19,6 +19,7 @@ package appliedOps
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"math/rand"
 	"strconv"
 
@@ -32,11 +33,11 @@ import (
 
 type Manager interface {
 	broadcaster.Broadcaster
-	QueueUpdate(rpc *types.RPC, update *types.ApplyUpdateRequest) error
+	QueueUpdate(rpc *types.RPC, update *types.DocumentUpdate) error
 }
 
 func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
-	c, err := channel.New(ctx, client, "appliedOps")
+	c, err := channel.New(ctx, options, client, "applied-ops")
 	if err != nil {
 		return nil, err
 	}
@@ -46,18 +47,116 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 		types.SetNextAppliedOpsClient,
 		c,
 	)
-	return &manager{
+	m := manager{
 		Broadcaster:                  b,
+		channel:                      c,
 		client:                       client,
 		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
-	}, nil
+	}
+	go m.listen()
+	return &m, nil
 }
 
 type manager struct {
 	broadcaster.Broadcaster
 
+	channel                      channel.Manager
 	client                       redis.UniversalClient
 	pendingUpdatesListShardCount int64
+}
+
+func (m *manager) listen() {
+	for raw := range m.channel.Listen() {
+		var msg types.AppliedOpsMessage
+		if err := json.Unmarshal([]byte(raw), &msg); err != nil {
+			log.Println("cannot parse appliedOps message: " + err.Error())
+			continue
+		}
+		if err := m.handleMessage(&msg); err != nil {
+			log.Println("cannot handle appliedOps message: " + err.Error())
+			continue
+		}
+	}
+}
+
+func (m *manager) handleMessage(msg *types.AppliedOpsMessage) error {
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+
+	if msg.Error != nil {
+		return m.handleError(msg)
+	} else {
+		return m.handleUpdate(msg)
+	}
+}
+func (m *manager) handleError(msg *types.AppliedOpsMessage) error {
+	resp := types.RPCResponse{
+		Error:      msg.Error,
+		Name:       "otUpdateError",
+		FatalError: true,
+	}
+	bulkMessage, err := types.PrepareBulkMessage(&resp)
+	if err != nil {
+		return err
+	}
+	return m.Broadcaster.Walk(msg.DocId, func(client *types.Client) error {
+		client.EnsureQueueMessage(bulkMessage)
+		return nil
+	})
+}
+
+func (m *manager) handleUpdate(msg *types.AppliedOpsMessage) error {
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+
+	update, err := msg.Update()
+	if err != nil {
+		return err
+	}
+	isComment := update.Ops.HasCommentOp()
+	source := update.Meta.Source
+	resp := types.RPCResponse{
+		Name: "otUpdateApplied",
+		Body: msg.UpdateRaw,
+	}
+	bulkMessage, err := types.PrepareBulkMessage(&resp)
+	if err != nil {
+		return err
+	}
+	return m.Broadcaster.Walk(msg.DocId, func(client *types.Client) error {
+		if isComment && !client.HasCapability(types.CanSeeComments) {
+			return nil
+		}
+		if client.PublicId == source {
+			m.sendAckToSender(client, update)
+			return nil
+		}
+		if update.Dup {
+			// Only send an ack to the sender.
+			return nil
+		}
+		client.EnsureQueueMessage(bulkMessage)
+		return nil
+	})
+}
+
+func (m *manager) sendAckToSender(client *types.Client, update *types.DocumentUpdate) {
+	minUpdate := types.MinimalDocumentUpdate{
+		DocId:   update.DocId,
+		Version: update.Version,
+	}
+	body, err := json.Marshal(minUpdate)
+	if err != nil {
+		client.TriggerDisconnect()
+		return
+	}
+	resp := types.RPCResponse{
+		Body: body,
+		Name: "otUpdateApplied",
+	}
+	client.EnsureQueueResponse(&resp)
 }
 
 func (m *manager) getPendingUpdatesListKey() string {
@@ -68,7 +167,7 @@ func (m *manager) getPendingUpdatesListKey() string {
 	return "pending-updates-list-" + strconv.FormatInt(shard, 10)
 }
 
-func (m *manager) QueueUpdate(rpc *types.RPC, update *types.ApplyUpdateRequest) error {
+func (m *manager) QueueUpdate(rpc *types.RPC, update *types.DocumentUpdate) error {
 	blob, err := json.Marshal(update)
 	if err != nil {
 		return errors.Tag(err, "cannot encode update")

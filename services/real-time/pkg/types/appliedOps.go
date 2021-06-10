@@ -17,7 +17,9 @@
 package types
 
 import (
+	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"math/rand"
 	"strconv"
 	"time"
@@ -64,21 +66,23 @@ func (t TrackChangesSeed) Validate() error {
 	return nil
 }
 
-type Timestamp JavaScriptNumber
+type Timestamp int64
 
 func (t Timestamp) Validate() error {
 	if t == 0 {
-		return &errors.ValidationError{Msg: "ts is missing"}
+		return nil
+	}
+	if t < 0 {
+		return &errors.ValidationError{Msg: "ts must be greater zero"}
 	}
 	return nil
 }
 
 type DocumentUpdateMeta struct {
-	Hash             string              `json:"hash,omitempty"`
-	Source           PublicId            `json:"source"`
-	Timestamp        Timestamp           `json:"ts"`
-	TrackChangesSeed TrackChangesSeed    `json:"tc,omitempty"`
-	UserId           *primitive.ObjectID `json:"user_id,omitempty"`
+	Source           PublicId           `json:"source"`
+	Timestamp        Timestamp          `json:"ts,omitempty"`
+	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
+	UserId           primitive.ObjectID `json:"user_id"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {
@@ -98,7 +102,7 @@ type Op struct {
 	Comment   string              `json:"c,omitempty"`
 	Deletion  string              `json:"d,omitempty"`
 	Insertion string              `json:"i,omitempty"`
-	Position  JavaScriptNumber    `json:"p"`
+	Position  int64               `json:"p"`
 	Thread    *primitive.ObjectID `json:"t,omitempty"`
 }
 
@@ -128,6 +132,24 @@ func (o *Op) Validate() error {
 
 type Ops []Op
 
+func (o Ops) HasEditOp() bool {
+	for _, op := range o {
+		if !op.IsComment() {
+			return true
+		}
+	}
+	return false
+}
+
+func (o Ops) HasCommentOp() bool {
+	for _, op := range o {
+		if op.IsComment() {
+			return true
+		}
+	}
+	return false
+}
+
 func (o Ops) Validate() error {
 	if o == nil || len(o) == 0 {
 		return &errors.ValidationError{Msg: "missing ops"}
@@ -144,10 +166,15 @@ type DocumentUpdate struct {
 	DocId       primitive.ObjectID `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
 	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
+	Hash        string             `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Ops         Ops                `json:"op"`
-	Version     JavaScriptNumber   `json:"v"`
-	LastVersion JavaScriptNumber   `json:"lastV"`
+	Version     int64              `json:"v"`
+	LastVersion int64              `json:"lastV"`
+}
+type MinimalDocumentUpdate struct {
+	DocId   primitive.ObjectID `json:"doc"`
+	Version int64              `json:"v"`
 }
 
 func (d *DocumentUpdate) Validate() error {
@@ -164,45 +191,37 @@ type AppliedOpsMessage struct {
 	DocId       primitive.ObjectID      `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
-	Id          string                  `json:"_id"`
-	Update      *DocumentUpdate         `json:"op,omitempty"`
-	ProjectId   primitive.ObjectID      `json:"project_id"`
+	UpdateRaw   json.RawMessage         `json:"op,omitempty"`
+	update      *DocumentUpdate
 }
 
-func (d *AppliedOpsMessage) Validate() error {
-	if d.Update != nil {
-		if err := d.Update.Validate(); err != nil {
+func (m *AppliedOpsMessage) Update() (*DocumentUpdate, error) {
+	if m.update != nil {
+		return m.update, nil
+	}
+	d := json.NewDecoder(bytes.NewReader(m.UpdateRaw))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&m.update); err != nil {
+		return nil, err
+	}
+	return m.update, nil
+}
+
+func (m *AppliedOpsMessage) Validate() error {
+	if m.UpdateRaw != nil {
+		update, err := m.Update()
+		if err != nil {
+			return err
+		}
+		if err = update.Validate(); err != nil {
 			return err
 		}
 		return nil
-	} else if d.Error != nil {
+	} else if m.Error != nil {
 		return nil
-	} else if d.HealthCheck {
+	} else if m.HealthCheck {
 		return nil
 	} else {
 		return &errors.ValidationError{Msg: "unknown message type"}
 	}
-}
-
-type ApplyUpdateMeta struct {
-	Source           PublicId           `json:"source"`
-	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
-	UserId           primitive.ObjectID `json:"user_id"`
-}
-
-type ApplyUpdateRequest struct {
-	DocId       primitive.ObjectID `json:"doc"`
-	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
-	Hash        string             `json:"hash,omitempty"`
-	Meta        ApplyUpdateMeta    `json:"meta"`
-	Ops         Ops                `json:"op"`
-	Version     JavaScriptNumber   `json:"v"`
-	LastVersion JavaScriptNumber   `json:"lastV"`
-}
-
-func (d *ApplyUpdateRequest) Validate() error {
-	if err := d.Ops.Validate(); err != nil {
-		return err
-	}
-	return nil
 }

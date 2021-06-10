@@ -21,6 +21,8 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/real-time/pkg/types"
 )
 
 type Manager interface {
@@ -38,7 +40,7 @@ func (c BaseChannel) join(id primitive.ObjectID) channel {
 	return channel(string(c) + ":" + id.Hex())
 }
 
-func New(ctx context.Context, client redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
+func New(ctx context.Context, options *types.Options, client redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
 	p := client.Subscribe(ctx, string(baseChannel))
 
 	if _, err := p.Receive(ctx); err != nil {
@@ -46,28 +48,42 @@ func New(ctx context.Context, client redis.UniversalClient, baseChannel BaseChan
 	}
 
 	return &manager{
-		client: client,
-		p:      p,
-		base:   baseChannel,
+		publishOnIndividualChannels: options.PublishOnIndividualChannels,
+		client:                      client,
+		p:                           p,
+		base:                        baseChannel,
 	}, nil
 }
 
 type manager struct {
-	client redis.UniversalClient
-	p      *redis.PubSub
-	base   BaseChannel
+	client                      redis.UniversalClient
+	p                           *redis.PubSub
+	publishOnIndividualChannels bool
+	base                        BaseChannel
 }
 
 func (m *manager) Subscribe(ctx context.Context, id primitive.ObjectID) error {
+	if !m.publishOnIndividualChannels {
+		// Already subscribed to base channel.
+		return nil
+	}
 	return m.p.Subscribe(ctx, string(m.base.join(id)))
 }
 
 func (m *manager) Unsubscribe(ctx context.Context, id primitive.ObjectID) error {
+	if !m.publishOnIndividualChannels {
+		// Not subscribed, see Subscribe
+		return nil
+	}
 	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
 }
 
 func (m *manager) Publish(ctx context.Context, id primitive.ObjectID, msg string) error {
-	return m.client.Publish(ctx, string(m.base.join(id)), msg).Err()
+	c := channel(m.base)
+	if m.publishOnIndividualChannels {
+		c = m.base.join(id)
+	}
+	return m.client.Publish(ctx, string(c), msg).Err()
 }
 
 func (m *manager) Listen() <-chan string {

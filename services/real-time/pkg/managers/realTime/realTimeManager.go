@@ -43,7 +43,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	e, err := editorEvents.New(ctx, client)
+	e, err := editorEvents.New(ctx, options, client)
 	if err != nil {
 		return nil, err
 	}
@@ -206,12 +206,12 @@ const (
 	maxUpdateSize = 7*1024*1024 + 64*1024
 )
 
-func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.ApplyUpdateRequest, error) {
+func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.DocumentUpdate, error) {
 	if len(rpc.Request.Body) > maxUpdateSize {
-		// Accept the update RPC at first.
-		rpc.Client.WriteQueue <- &types.RPCResponse{
+		// Accept the update RPC at first, keep going on error.
+		_ = rpc.Client.QueueResponse(&types.RPCResponse{
 			Callback: rpc.Request.Callback,
-		}
+		})
 
 		// Then fire an otUpdateError.
 		codedError := errors.CodedError{
@@ -220,17 +220,21 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.ApplyUpda
 		}
 		// Turn into broadcast.
 		rpc.Response.Callback = 0
+		rpc.Response.Name = "otUpdateError"
 
 		rpc.Response.FatalError = true
 		return nil, &codedError
 	}
-	var args types.ApplyUpdateRequest
+	var args types.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return nil, &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
+	// Hard code document and user identifier.
 	args.DocId = rpc.Request.DocId
 	args.Meta.Source = rpc.Client.PublicId
 	args.Meta.UserId = rpc.Client.User.Id
+	// Dup is an output only field
+	args.Dup = false
 	if err := args.Validate(); err != nil {
 		return nil, err
 	}
@@ -249,10 +253,8 @@ func (m *manager) addComment(rpc *types.RPC) error {
 	if err != nil {
 		return err
 	}
-	for _, op := range args.Ops {
-		if !op.IsComment() {
-			return &errors.NotAuthorizedError{}
-		}
+	if args.Ops.HasEditOp() {
+		return &errors.NotAuthorizedError{}
 	}
 	return m.appliedOps.QueueUpdate(rpc, args)
 }
