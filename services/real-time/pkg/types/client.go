@@ -100,22 +100,6 @@ type Client struct {
 
 	writeQueue WriteQueue
 	disconnect func()
-
-	nextClientAppliedOps   *Client
-	nextClientEditorEvents *Client
-}
-
-func GetNextAppliedOpsClient(client *Client) *Client {
-	return client.nextClientAppliedOps
-}
-func GetNextEditorEventsClient(client *Client) *Client {
-	return client.nextClientEditorEvents
-}
-func SetNextAppliedOpsClient(client *Client, next *Client) {
-	client.nextClientAppliedOps = next
-}
-func SetNextEditorEventsClient(client *Client, next *Client) {
-	client.nextClientEditorEvents = next
 }
 
 type PrivilegeLevel string

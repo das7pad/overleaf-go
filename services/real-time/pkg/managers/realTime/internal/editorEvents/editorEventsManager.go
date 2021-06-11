@@ -35,12 +35,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	b := broadcaster.New(
-		ctx,
-		types.GetNextEditorEventsClient,
-		types.SetNextEditorEventsClient,
-		c,
-	)
+	b := broadcaster.New(ctx, c)
 	return &manager{
 		Broadcaster: b,
 	}, nil

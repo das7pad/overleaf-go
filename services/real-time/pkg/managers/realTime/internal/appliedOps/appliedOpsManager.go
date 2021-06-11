@@ -41,12 +41,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	b := broadcaster.New(
-		ctx,
-		types.GetNextAppliedOpsClient,
-		types.SetNextAppliedOpsClient,
-		c,
-	)
+	b := broadcaster.New(ctx, c)
 	m := manager{
 		Broadcaster:                  b,
 		channel:                      c,
@@ -100,10 +95,10 @@ func (m *manager) handleError(msg *types.AppliedOpsMessage) error {
 	if err != nil {
 		return err
 	}
-	return m.Broadcaster.Walk(msg.DocId, func(client *types.Client) error {
+	for _, client := range m.GetClients(msg.DocId) {
 		client.EnsureQueueMessage(bulkMessage)
-		return nil
-	})
+	}
+	return nil
 }
 
 func (m *manager) handleUpdate(msg *types.AppliedOpsMessage) error {
@@ -125,21 +120,25 @@ func (m *manager) handleUpdate(msg *types.AppliedOpsMessage) error {
 	if err != nil {
 		return err
 	}
-	return m.Broadcaster.Walk(msg.DocId, func(client *types.Client) error {
-		if isComment && !client.HasCapability(types.CanSeeComments) {
-			return nil
-		}
+	for _, client := range m.GetClients(msg.DocId) {
 		if client.PublicId == source {
 			m.sendAckToSender(client, update)
-			return nil
+			if update.Dup {
+				// Only send an ack to the sender, then stop.
+				break
+			}
+			continue
 		}
 		if update.Dup {
 			// Only send an ack to the sender.
-			return nil
+			continue
+		}
+		if isComment && !client.HasCapability(types.CanSeeComments) {
+			continue
 		}
 		client.EnsureQueueMessage(bulkMessage)
-		return nil
-	})
+	}
+	return nil
 }
 
 func (m *manager) sendAckToSender(client *types.Client, update *types.DocumentUpdate) {
