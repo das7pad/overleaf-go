@@ -30,6 +30,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/real-time/pkg/errors"
+	"github.com/das7pad/real-time/pkg/events"
 	"github.com/das7pad/real-time/pkg/managers/realTime"
 	"github.com/das7pad/real-time/pkg/types"
 )
@@ -240,14 +241,9 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	wsBootstrap, jwtErr := h.getWsBootstrap(r)
 	if jwtErr != nil {
 		log.Println("jwt auth failed: " + jwtErr.Error())
-		msg := "bad wsBootstrap blob"
-		if errors.IsValidationError(jwtErr) {
-			msg += ": " + jwtErr.Error()
-		}
-		_ = conn.WriteJSON(&types.RPCResponse{
-			Name:  "connectionRejected",
-			Error: &errors.JavaScriptError{Message: msg},
-		})
+		_ = conn.WritePreparedMessage(
+			events.ConnectionRejectedBadWsBootstrapPrepared,
+		)
 		return
 	}
 
@@ -260,19 +256,13 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	c, clientErr := types.NewClient(wsBootstrap, writeQueue, cancel)
 	if clientErr != nil {
 		log.Println("client setup failed: " + clientErr.Error())
-		_ = conn.WriteJSON(&types.RPCResponse{
-			Name: "connectionRejected",
-			Error: &errors.JavaScriptError{
-				Message: "internal error during setup",
-			},
-		})
+		_ = conn.WritePreparedMessage(
+			events.ConnectionRejectedInternalErrorPrepared,
+		)
 		return
 	}
-	accErr := conn.WriteJSON(&types.RPCResponse{
-		Name: "connectionAccepted",
-		Body: c.PublicId.JSON(),
-	})
-	if accErr != nil {
+
+	if c.QueueResponse(events.ConnectionAcceptedResponse(c.PublicId)) != nil {
 		return
 	}
 
@@ -333,10 +323,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		}
 		err := conn.ReadJSON(&request)
 		if err != nil {
-			c.EnsureQueueResponse(&types.RPCResponse{
-				Error:      &errors.JavaScriptError{Message: "bad request"},
-				FatalError: true,
-			})
+			c.EnsureQueueMessage(events.BadRequestBulkMessage)
 			return
 		}
 		response := types.RPCResponse{
