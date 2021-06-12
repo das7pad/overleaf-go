@@ -230,52 +230,63 @@ func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
-	u, upgradeErr := h.u.Upgrade(w, r, nil)
+	conn, upgradeErr := h.u.Upgrade(w, r, nil)
 	if upgradeErr != nil {
 		// A 4xx has been generated already.
 		return
 	}
+	defer func() { _ = conn.Close() }()
 
 	wsBootstrap, jwtErr := h.getWsBootstrap(r)
 	if jwtErr != nil {
 		log.Println("jwt auth failed: " + jwtErr.Error())
 		msg := "bad wsBootstrap blob"
 		if errors.IsValidationError(jwtErr) {
-			msg = jwtErr.Error()
+			msg += ": " + jwtErr.Error()
 		}
-		_ = u.WriteJSON(&types.RPCResponse{
+		_ = conn.WriteJSON(&types.RPCResponse{
+			Name:  "connectionRejected",
 			Error: &errors.JavaScriptError{Message: msg},
 		})
-		_ = u.Close()
 		return
 	}
 
 	writeQueue := make(chan *types.WriteQueueEntry, 10)
+	defer close(writeQueue)
+
 	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
 	c, clientErr := types.NewClient(wsBootstrap, writeQueue, cancel)
 	if clientErr != nil {
-		cancel()
 		log.Println("client setup failed: " + clientErr.Error())
-		_ = u.WriteJSON(&types.RPCResponse{
+		_ = conn.WriteJSON(&types.RPCResponse{
+			Name: "connectionRejected",
 			Error: &errors.JavaScriptError{
 				Message: "internal error during setup",
 			},
 		})
-		_ = u.Close()
 		return
 	}
+	accErr := conn.WriteJSON(&types.RPCResponse{
+		Name: "connectionAccepted",
+		Body: c.PublicId.JSON(),
+	})
+	if accErr != nil {
+		return
+	}
+
 	waitForCtxDone := ctx.Done()
 
 	defer func() {
 		cancel()
-		_ = u.Close()
+		_ = conn.Close()
 		_ = h.rtm.Disconnect(c)
-		close(writeQueue)
 	}()
 	go func() {
 		defer func() {
 			cancel()
-			_ = u.Close()
+			_ = conn.Close()
 			for range writeQueue {
 				// Flush the queue.
 				// Eventually the main goroutine will close the channel.
@@ -290,12 +301,13 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if entry.Blob != nil {
-					err := u.WriteMessage(websocket.TextMessage, entry.Blob)
+					err := conn.WriteMessage(websocket.TextMessage, entry.Blob)
 					if err != nil {
 						return
 					}
 				} else {
-					if err := u.WritePreparedMessage(entry.Msg); err != nil {
+					err := conn.WritePreparedMessage(entry.Msg)
+					if err != nil {
 						return
 					}
 				}
@@ -319,7 +331,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		default:
 			// Not done yet.
 		}
-		err := u.ReadJSON(&request)
+		err := conn.ReadJSON(&request)
 		if err != nil {
 			c.EnsureQueueResponse(&types.RPCResponse{
 				Error:      &errors.JavaScriptError{Message: "bad request"},

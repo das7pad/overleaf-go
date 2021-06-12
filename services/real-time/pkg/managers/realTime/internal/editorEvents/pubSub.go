@@ -17,29 +17,15 @@
 package editorEvents
 
 import (
-	"context"
-
-	"github.com/go-redis/redis/v8"
-
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
 )
 
-type Manager interface {
-	broadcaster.Broadcaster
+type ProjectRoom struct {
+	*broadcaster.TrackingRoom
 }
 
-func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
-	c, err := channel.New(ctx, client, "editor-events")
-	if err != nil {
-		return nil, err
+func newRoom(room *broadcaster.TrackingRoom) broadcaster.Room {
+	return &ProjectRoom{
+		TrackingRoom: room,
 	}
-	b := broadcaster.New(ctx, c, newRoom)
-	return &manager{
-		Broadcaster: b,
-	}, nil
-}
-
-type manager struct {
-	broadcaster.Broadcaster
 }

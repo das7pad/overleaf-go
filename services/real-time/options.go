@@ -18,7 +18,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -57,7 +56,7 @@ func getJSONFromEnv(key string, target interface{}) {
 	}
 	err := json.Unmarshal([]byte(os.Getenv(key)), target)
 	if err != nil {
-		panic(fmt.Errorf("malformed %s: %w", key, err))
+		panic(errors.Tag(err, "malformed "+key))
 	}
 }
 

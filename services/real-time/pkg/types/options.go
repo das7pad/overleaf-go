@@ -18,7 +18,6 @@ package types
 
 type Options struct {
 	PendingUpdatesListShardCount int64 `json:"pending_updates_list_shard_count"`
-	PublishOnIndividualChannels  bool  `json:"publish_on_individual_channels"`
 
 	APIs struct {
 		DocumentUpdater struct {

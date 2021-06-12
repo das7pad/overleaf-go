@@ -54,6 +54,10 @@ func (p PublicId) Validate() error {
 	return nil
 }
 
+func (p PublicId) JSON() json.RawMessage {
+	return json.RawMessage("\"" + p + "\"")
+}
+
 type TrackChangesSeed string
 
 func (t TrackChangesSeed) Validate() error {

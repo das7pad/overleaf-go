@@ -43,7 +43,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	e, err := editorEvents.New(ctx, options, client)
+	e, err := editorEvents.New(ctx, client)
 	if err != nil {
 		return nil, err
 	}

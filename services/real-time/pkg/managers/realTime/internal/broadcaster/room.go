@@ -21,46 +21,85 @@ import (
 	"github.com/das7pad/real-time/pkg/types"
 )
 
-type flatClients []*types.Client
+type Clients []*types.Client
 
-var noClients = make(flatClients, 0)
+var noClients = make(Clients, 0)
 
-type room struct {
-	flat flatClients
+type Room interface {
+	Handle(msg string)
+	Clients() Clients
 
-	pendingSubscribe   pendingOperation.WithCancel
-	pendingUnsubscribe pendingOperation.WithCancel
+	isEmpty() bool
+	add(client *types.Client)
+	remove(client *types.Client)
+
+	broadcast(msg string)
+	close()
+
+	pendingOperation() pendingOperation.WithCancel
+	setPendingOperation(p pendingOperation.WithCancel)
 }
 
-func (r *room) isEmpty() bool {
-	return len(r.flat) == 0
+type TrackingRoom struct {
+	clients Clients
+	c       chan string
+
+	pending pendingOperation.WithCancel
 }
 
-func (r *room) add(client *types.Client) {
+func (r *TrackingRoom) Handle(_ string) {
+	panic("not implemented")
+}
+
+func (r *TrackingRoom) Clients() Clients {
+	return r.clients
+}
+
+func (r *TrackingRoom) pendingOperation() pendingOperation.WithCancel {
+	return r.pending
+}
+
+func (r *TrackingRoom) setPendingOperation(p pendingOperation.WithCancel) {
+	r.pending = p
+}
+
+func (r *TrackingRoom) broadcast(msg string) {
+	r.c <- msg
+}
+
+func (r *TrackingRoom) close() {
+	close(r.c)
+}
+
+func (r *TrackingRoom) isEmpty() bool {
+	return len(r.clients) == 0
+}
+
+func (r *TrackingRoom) add(client *types.Client) {
 	if r.isEmpty() {
-		r.flat = flatClients{client}
+		r.clients = Clients{client}
 		return
 	}
 
-	for _, c := range r.flat {
+	for _, c := range r.clients {
 		if c == client {
 			return
 		}
 	}
 
-	n := len(r.flat) + 1
-	f := make(flatClients, n)
-	copy(f, r.flat)
+	n := len(r.clients) + 1
+	f := make(Clients, n)
+	copy(f, r.clients)
 	f[n-1] = client
-	r.flat = f
+	r.clients = f
 }
 
-func (r *room) remove(client *types.Client) {
+func (r *TrackingRoom) remove(client *types.Client) {
 	if r.isEmpty() {
 		return
 	}
 	idx := -1
-	for i, c := range r.flat {
+	for i, c := range r.clients {
 		if c == client {
 			idx = i
 			break
@@ -71,16 +110,16 @@ func (r *room) remove(client *types.Client) {
 		return
 	}
 
-	n := len(r.flat)
+	n := len(r.clients)
 	if n == 1 {
-		r.flat = noClients
+		r.clients = noClients
 		return
 	}
 
-	f := make(flatClients, n-1)
-	copy(f, r.flat[:n-1])
+	f := make(Clients, n-1)
+	copy(f, r.clients[:n-1])
 	if idx != n-1 {
-		f[n-2] = r.flat[n-1]
+		f[n-2] = r.clients[n-1]
 	}
-	r.flat = f
+	r.clients = f
 }

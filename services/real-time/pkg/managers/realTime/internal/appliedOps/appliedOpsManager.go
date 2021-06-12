@@ -19,7 +19,6 @@ package appliedOps
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"math/rand"
 	"strconv"
 
@@ -37,18 +36,17 @@ type Manager interface {
 }
 
 func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
-	c, err := channel.New(ctx, options, client, "applied-ops")
+	c, err := channel.New(ctx, client, "applied-ops")
 	if err != nil {
 		return nil, err
 	}
-	b := broadcaster.New(ctx, c)
+	b := broadcaster.New(ctx, c, newRoom)
 	m := manager{
 		Broadcaster:                  b,
 		channel:                      c,
 		client:                       client,
 		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
 	}
-	go m.listen()
 	return &m, nil
 }
 
@@ -58,104 +56,6 @@ type manager struct {
 	channel                      channel.Manager
 	client                       redis.UniversalClient
 	pendingUpdatesListShardCount int64
-}
-
-func (m *manager) listen() {
-	for raw := range m.channel.Listen() {
-		var msg types.AppliedOpsMessage
-		if err := json.Unmarshal([]byte(raw), &msg); err != nil {
-			log.Println("cannot parse appliedOps message: " + err.Error())
-			continue
-		}
-		if err := m.handleMessage(&msg); err != nil {
-			log.Println("cannot handle appliedOps message: " + err.Error())
-			continue
-		}
-	}
-}
-
-func (m *manager) handleMessage(msg *types.AppliedOpsMessage) error {
-	if err := msg.Validate(); err != nil {
-		return err
-	}
-
-	if msg.Error != nil {
-		return m.handleError(msg)
-	} else {
-		return m.handleUpdate(msg)
-	}
-}
-func (m *manager) handleError(msg *types.AppliedOpsMessage) error {
-	resp := types.RPCResponse{
-		Error:      msg.Error,
-		Name:       "otUpdateError",
-		FatalError: true,
-	}
-	bulkMessage, err := types.PrepareBulkMessage(&resp)
-	if err != nil {
-		return err
-	}
-	for _, client := range m.GetClients(msg.DocId) {
-		client.EnsureQueueMessage(bulkMessage)
-	}
-	return nil
-}
-
-func (m *manager) handleUpdate(msg *types.AppliedOpsMessage) error {
-	if err := msg.Validate(); err != nil {
-		return err
-	}
-
-	update, err := msg.Update()
-	if err != nil {
-		return err
-	}
-	isComment := update.Ops.HasCommentOp()
-	source := update.Meta.Source
-	resp := types.RPCResponse{
-		Name: "otUpdateApplied",
-		Body: msg.UpdateRaw,
-	}
-	bulkMessage, err := types.PrepareBulkMessage(&resp)
-	if err != nil {
-		return err
-	}
-	for _, client := range m.GetClients(msg.DocId) {
-		if client.PublicId == source {
-			m.sendAckToSender(client, update)
-			if update.Dup {
-				// Only send an ack to the sender, then stop.
-				break
-			}
-			continue
-		}
-		if update.Dup {
-			// Only send an ack to the sender.
-			continue
-		}
-		if isComment && !client.HasCapability(types.CanSeeComments) {
-			continue
-		}
-		client.EnsureQueueMessage(bulkMessage)
-	}
-	return nil
-}
-
-func (m *manager) sendAckToSender(client *types.Client, update *types.DocumentUpdate) {
-	minUpdate := types.MinimalDocumentUpdate{
-		DocId:   update.DocId,
-		Version: update.Version,
-	}
-	body, err := json.Marshal(minUpdate)
-	if err != nil {
-		client.TriggerDisconnect()
-		return
-	}
-	resp := types.RPCResponse{
-		Body: body,
-		Name: "otUpdateApplied",
-	}
-	client.EnsureQueueResponse(&resp)
 }
 
 func (m *manager) getPendingUpdatesListKey() string {

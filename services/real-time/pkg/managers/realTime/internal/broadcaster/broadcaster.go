@@ -30,26 +30,30 @@ import (
 type Broadcaster interface {
 	Join(ctx context.Context, client *types.Client, id primitive.ObjectID) error
 	Leave(client *types.Client, id primitive.ObjectID) error
-	GetClients(id primitive.ObjectID) flatClients
 }
 
-func New(ctx context.Context, c channel.Manager) Broadcaster {
+type NewRoom func(room *TrackingRoom) Room
+
+func New(ctx context.Context, c channel.Manager, newRoom NewRoom) Broadcaster {
 	b := &broadcaster{
-		c:     c,
-		queue: make(chan action),
-		mux:   sync.RWMutex{},
-		rooms: make(map[primitive.ObjectID]*room),
+		c:       c,
+		newRoom: newRoom,
+		queue:   make(chan action),
+		mux:     sync.RWMutex{},
+		rooms:   make(map[primitive.ObjectID]Room),
 	}
 	go b.processQueue(ctx)
+	go b.listen(ctx)
 	return b
 }
 
 type broadcaster struct {
 	c channel.Manager
 
-	queue chan action
-	mux   sync.RWMutex
-	rooms map[primitive.ObjectID]*room
+	newRoom NewRoom
+	queue   chan action
+	mux     sync.RWMutex
+	rooms   map[primitive.ObjectID]Room
 }
 
 type operation int
@@ -90,10 +94,6 @@ func (b *broadcaster) processQueue(ctx context.Context) {
 }
 
 func (b *broadcaster) cleanup(id primitive.ObjectID) {
-	// Get write lock while we are removing the empty room.
-	b.mux.Lock()
-	defer b.mux.Unlock()
-
 	r, exists := b.rooms[id]
 	if !exists {
 		// Someone else cleaned it up already.
@@ -103,14 +103,36 @@ func (b *broadcaster) cleanup(id primitive.ObjectID) {
 		// Someone else joined again.
 		return
 	}
+
+	// Get write lock while we are removing the empty room.
+	b.mux.Lock()
 	delete(b.rooms, id)
+	b.mux.Unlock()
+	r.close()
+}
+
+func (b *broadcaster) createNewRoom() Room {
+	c := make(chan string)
+	r := b.newRoom(&TrackingRoom{
+		c:       c,
+		clients: noClients,
+	})
+	go func() {
+		for message := range c {
+			if r.isEmpty() {
+				continue
+			}
+			r.Handle(message)
+		}
+	}()
+	return r
 }
 
 func (b *broadcaster) join(a action) pendingOperation.WithCancel {
 	// No need for read locking, we are the only potential writer.
 	r, exists := b.rooms[a.id]
 	if !exists {
-		r = &room{flat: flatClients{a.client}}
+		r = b.createNewRoom()
 		b.mux.Lock()
 		b.rooms[a.id] = r
 		b.mux.Unlock()
@@ -119,22 +141,23 @@ func (b *broadcaster) join(a action) pendingOperation.WithCancel {
 	roomWasEmpty := r.isEmpty()
 	r.add(a.client)
 
-	lastSubscribeFailed := r.pendingSubscribe != nil &&
-		r.pendingSubscribe.Failed()
-	if roomWasEmpty || lastSubscribeFailed {
-		unsubscribe := r.pendingUnsubscribe
-		r.pendingSubscribe = pendingOperation.TrackOperationWithCancel(
-			a.ctx,
-			func(ctx context.Context) error {
-				if unsubscribe != nil && unsubscribe.IsPending() {
-					unsubscribe.Cancel()
-					_ = unsubscribe.Wait(ctx)
-				}
-				return b.c.Subscribe(ctx, a.id)
-			},
-		)
+	pending := r.pendingOperation()
+	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
+		// Already subscribed or subscribe is still pending.
+		return pending
 	}
-	return r.pendingSubscribe
+
+	op := pendingOperation.TrackOperationWithCancel(
+		a.ctx,
+		func(ctx context.Context) error {
+			if pending != nil && pending.IsPending() {
+				pending.Cancel()
+				_ = pending.Wait(ctx)
+			}
+			return b.c.Subscribe(ctx, a.id)
+		})
+	r.setPendingOperation(op)
+	return op
 }
 
 func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
@@ -144,29 +167,31 @@ func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
 		// Already left.
 		return nil
 	}
+	if r.isEmpty() {
+		// Already left.
+		return nil
+	}
 
 	r.remove(a.client)
 
-	if r.isEmpty() {
-		subscribe := r.pendingSubscribe
-		r.pendingUnsubscribe = pendingOperation.TrackOperationWithCancel(
-			a.ctx,
-			func(ctx context.Context) error {
-				if subscribe != nil && subscribe.IsPending() {
-					subscribe.Cancel()
-					_ = subscribe.Wait(ctx)
-				}
-				err := b.c.Unsubscribe(ctx, a.id)
-				b.queue <- action{
-					operation: cleanup,
-					id:        a.id,
-				}
-				return err
-			},
-		)
-		return r.pendingUnsubscribe
+	if !r.isEmpty() {
+		// Do not unsubscribe yet.
+		return nil
 	}
-	return nil
+
+	subscribe := r.pendingOperation()
+	op := pendingOperation.TrackOperationWithCancel(
+		a.ctx,
+		func(ctx context.Context) error {
+			if subscribe != nil && subscribe.IsPending() {
+				subscribe.Cancel()
+				_ = subscribe.Wait(ctx)
+			}
+			return b.c.Unsubscribe(ctx, a.id)
+		},
+	)
+	r.setPendingOperation(op)
+	return op
 }
 
 func (b *broadcaster) Join(ctx context.Context, client *types.Client, id primitive.ObjectID) error {
@@ -204,12 +229,30 @@ func (b *broadcaster) Leave(client *types.Client, id primitive.ObjectID) error {
 	return b.doJoinLeave(context.Background(), client, id, leave)
 }
 
-func (b *broadcaster) GetClients(id primitive.ObjectID) flatClients {
+func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {
 	b.mux.RLock()
-	defer b.mux.RUnlock()
-	r, exists := b.rooms[id]
+	r, exists := b.rooms[message.Channel]
+	b.mux.RUnlock()
 	if !exists {
-		return noClients
+		return
 	}
-	return r.flat
+	if r.isEmpty() {
+		// Safeguard for dead room.
+		return
+	}
+	r.broadcast(message.Msg)
+}
+
+func (b *broadcaster) listen(ctx context.Context) {
+	for raw := range b.c.Listen(ctx) {
+		switch raw.Action {
+		case channel.Unsubscribed:
+			b.queue <- action{
+				operation: cleanup,
+				id:        raw.Channel,
+			}
+		case channel.Message:
+			b.handleMessage(raw)
+		}
+	}
 }

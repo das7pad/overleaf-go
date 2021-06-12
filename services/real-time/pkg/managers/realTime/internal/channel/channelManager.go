@@ -21,15 +21,26 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/real-time/pkg/types"
 )
+
+type Action int
+
+const (
+	Message Action = iota
+	Unsubscribed
+)
+
+type PubSubMessage struct {
+	Msg     string
+	Channel primitive.ObjectID
+	Action  Action
+}
 
 type Manager interface {
 	Subscribe(ctx context.Context, id primitive.ObjectID) error
 	Unsubscribe(ctx context.Context, id primitive.ObjectID) error
 	Publish(ctx context.Context, id primitive.ObjectID, msg string) error
-	Listen() <-chan string
+	Listen(ctx context.Context) <-chan *PubSubMessage
 	Close()
 }
 
@@ -40,7 +51,18 @@ func (c BaseChannel) join(id primitive.ObjectID) channel {
 	return channel(string(c) + ":" + id.Hex())
 }
 
-func New(ctx context.Context, options *types.Options, client redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
+func (c BaseChannel) parseIdFromChannel(s string) primitive.ObjectID {
+	if len(s) != len(c)+25 {
+		return primitive.NilObjectID
+	}
+	id, err := primitive.ObjectIDFromHex(s[len(c)+1:])
+	if err != nil {
+		return primitive.NilObjectID
+	}
+	return id
+}
+
+func New(ctx context.Context, client redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
 	p := client.Subscribe(ctx, string(baseChannel))
 
 	if _, err := p.Receive(ctx); err != nil {
@@ -48,51 +70,59 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	}
 
 	return &manager{
-		publishOnIndividualChannels: options.PublishOnIndividualChannels,
-		client:                      client,
-		p:                           p,
-		base:                        baseChannel,
+		client: client,
+		p:      p,
+		base:   baseChannel,
 	}, nil
 }
 
 type manager struct {
-	client                      redis.UniversalClient
-	p                           *redis.PubSub
-	publishOnIndividualChannels bool
-	base                        BaseChannel
+	client redis.UniversalClient
+	p      *redis.PubSub
+	base   BaseChannel
 }
 
 func (m *manager) Subscribe(ctx context.Context, id primitive.ObjectID) error {
-	if !m.publishOnIndividualChannels {
-		// Already subscribed to base channel.
-		return nil
-	}
 	return m.p.Subscribe(ctx, string(m.base.join(id)))
 }
 
 func (m *manager) Unsubscribe(ctx context.Context, id primitive.ObjectID) error {
-	if !m.publishOnIndividualChannels {
-		// Not subscribed, see Subscribe
-		return nil
-	}
 	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
 }
 
 func (m *manager) Publish(ctx context.Context, id primitive.ObjectID, msg string) error {
-	c := channel(m.base)
-	if m.publishOnIndividualChannels {
-		c = m.base.join(id)
-	}
-	return m.client.Publish(ctx, string(c), msg).Err()
+	return m.client.Publish(ctx, string(m.base.join(id)), msg).Err()
 }
 
-func (m *manager) Listen() <-chan string {
-	rawC := make(chan string)
+func (m *manager) Listen(ctx context.Context) <-chan *PubSubMessage {
+	rawC := make(chan *PubSubMessage, 100)
 	go func() {
-		for msg := range m.p.Channel() {
-			rawC <- msg.Payload
+		defer close(rawC)
+		for {
+			raw, err := m.p.Receive(ctx)
+			if err != nil {
+				if err == redis.ErrClosed {
+					return
+				}
+				continue
+			}
+			switch msg := raw.(type) {
+			case *redis.Subscription:
+				if msg.Kind != "unsubscribe" {
+					continue
+				}
+				rawC <- &PubSubMessage{
+					Channel: m.base.parseIdFromChannel(msg.Channel),
+					Action:  Unsubscribed,
+				}
+			case *redis.Message:
+				rawC <- &PubSubMessage{
+					Msg:     msg.Payload,
+					Channel: m.base.parseIdFromChannel(msg.Channel),
+					Action:  Message,
+				}
+			}
 		}
-		close(rawC)
 	}()
 	return rawC
 }
