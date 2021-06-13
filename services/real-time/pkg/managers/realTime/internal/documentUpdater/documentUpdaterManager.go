@@ -30,6 +30,7 @@ import (
 
 type Manager interface {
 	JoinDoc(ctx context.Context, client *types.Client, request *types.JoinDocRequest) (*types.JoinDocResponse, error)
+	CheckDocExists(ctx context.Context, client *types.Client, request *types.JoinDocRequest) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -90,6 +91,37 @@ func (m *manager) JoinDoc(ctx context.Context, client *types.Client, request *ty
 		}
 	default:
 		return nil, errors.New(
+			"non-success status code from document-updater: " + res.Status,
+		)
+	}
+}
+
+func (m *manager) CheckDocExists(ctx context.Context, client *types.Client, request *types.JoinDocRequest) error {
+	if client.IsKnownDoc(request.DocId) {
+		return nil
+	}
+
+	u := m.baseURL
+	u += "/project/" + client.ProjectId.Hex()
+	u += "/doc/" + request.DocId.Hex()
+	u += "/exists"
+	r, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
+	if err != nil {
+		return err
+	}
+	res, err := m.client.Do(r)
+	if err != nil {
+		return err
+	}
+	_ = res.Body.Close()
+	switch res.StatusCode {
+	case http.StatusNoContent:
+		client.AddKnownDoc(request.DocId)
+		return nil
+	case http.StatusForbidden, http.StatusNotFound:
+		return &errors.NotAuthorizedError{}
+	default:
+		return errors.New(
 			"non-success status code from document-updater: " + res.Status,
 		)
 	}

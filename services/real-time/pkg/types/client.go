@@ -19,6 +19,7 @@ package types
 import (
 	"bytes"
 	"encoding/json"
+	"math/rand"
 
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -102,8 +103,32 @@ type Client struct {
 	ProjectId *primitive.ObjectID
 	User      *User
 
+	knownDocs []primitive.ObjectID
+
 	writeQueue WriteQueue
 	disconnect func()
+}
+
+func (c *Client) IsKnownDoc(id primitive.ObjectID) bool {
+	if c.knownDocs == nil {
+		return false
+	}
+	for _, doc := range c.knownDocs {
+		if doc == id {
+			return true
+		}
+	}
+	return false
+}
+
+const MaxKnownDocsToKeep = 100
+
+func (c *Client) AddKnownDoc(id primitive.ObjectID) {
+	if len(c.knownDocs) < MaxKnownDocsToKeep {
+		c.knownDocs = append(c.knownDocs, id)
+	} else {
+		c.knownDocs[rand.Int63n(MaxKnownDocsToKeep)] = id
+	}
 }
 
 type PrivilegeLevel string

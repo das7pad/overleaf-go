@@ -158,14 +158,11 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	}
 	args.DocId = rpc.Request.DocId
 
-	r, err := m.documentUpdater.JoinDoc(rpc, rpc.Client, &args)
+	err := m.documentUpdater.CheckDocExists(rpc, rpc.Client, &args)
 	if err != nil {
 		return errors.Tag(
-			err, "documentUpdater.JoinDoc failed for "+args.DocId.Hex(),
+			err, "documentUpdater.CheckDocExists failed for "+args.DocId.Hex(),
 		)
-	}
-	if !rpc.Client.HasCapability(types.CanSeeComments) {
-		r.Ranges.Comments = types.Comments{}
 	}
 
 	// For cleanup purposes: mark as joined before actually joining.
@@ -175,6 +172,16 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 		return errors.Tag(
 			err, "appliedOps.Join failed for "+args.DocId.Hex(),
 		)
+	}
+
+	r, err := m.documentUpdater.JoinDoc(rpc, rpc.Client, &args)
+	if err != nil {
+		return errors.Tag(
+			err, "documentUpdater.JoinDoc failed for "+args.DocId.Hex(),
+		)
+	}
+	if !rpc.Client.HasCapability(types.CanSeeComments) {
+		r.Ranges.Comments = types.Comments{}
 	}
 
 	ranges, err := json.Marshal(r.Ranges)
