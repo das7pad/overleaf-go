@@ -64,6 +64,10 @@ func (r *TrackingRoom) setPendingOperation(p pendingOperation.WithCancel) {
 }
 
 func (r *TrackingRoom) broadcast(msg string) {
+	if r.isEmpty() {
+		// Safeguard for dead room.
+		return
+	}
 	r.c <- msg
 }
 

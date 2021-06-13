@@ -36,11 +36,12 @@ type NewRoom func(room *TrackingRoom) Room
 
 func New(ctx context.Context, c channel.Manager, newRoom NewRoom) Broadcaster {
 	b := &broadcaster{
-		c:       c,
-		newRoom: newRoom,
-		queue:   make(chan action),
-		mux:     sync.RWMutex{},
-		rooms:   make(map[primitive.ObjectID]Room),
+		c:        c,
+		newRoom:  newRoom,
+		allQueue: make(chan *channel.PubSubMessage),
+		queue:    make(chan action),
+		mux:      sync.RWMutex{},
+		rooms:    make(map[primitive.ObjectID]Room),
 	}
 	go b.processQueue(ctx)
 	go b.listen(ctx)
@@ -49,6 +50,8 @@ func New(ctx context.Context, c channel.Manager, newRoom NewRoom) Broadcaster {
 
 type broadcaster struct {
 	c channel.Manager
+
+	allQueue chan *channel.PubSubMessage
 
 	newRoom NewRoom
 	queue   chan action
@@ -236,14 +239,32 @@ func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {
 	if !exists {
 		return
 	}
-	if r.isEmpty() {
-		// Safeguard for dead room.
-		return
-	}
 	r.broadcast(message.Msg)
 }
 
+func (b *broadcaster) handleAllMessage(message *channel.PubSubMessage) {
+	b.mux.RLock()
+	rooms := make([]Room, len(b.rooms))
+	i := 0
+	for _, r := range b.rooms {
+		rooms[i] = r
+		i++
+	}
+	b.mux.RUnlock()
+	for _, r := range rooms {
+		r.broadcast(message.Msg)
+	}
+}
+
+func (b *broadcaster) processAllMessages() {
+	for message := range b.allQueue {
+		b.handleAllMessage(message)
+	}
+}
+
 func (b *broadcaster) listen(ctx context.Context) {
+	go b.processAllMessages()
+	defer close(b.allQueue)
 	for raw := range b.c.Listen(ctx) {
 		switch raw.Action {
 		case channel.Unsubscribed:
@@ -252,7 +273,11 @@ func (b *broadcaster) listen(ctx context.Context) {
 				id:        raw.Channel,
 			}
 		case channel.Message:
-			b.handleMessage(raw)
+			if raw.Channel == primitive.NilObjectID {
+				b.allQueue <- raw
+			} else {
+				b.handleMessage(raw)
+			}
 		}
 	}
 }
