@@ -31,11 +31,13 @@ type Capabilities int
 type CapabilityComponent int
 
 const (
-	NoCapabilities     = Capabilities(0)
-	CanAddComment      = CapabilityComponent(2)
-	CanEditContent     = CapabilityComponent(3)
-	CanSeeOtherClients = CapabilityComponent(5)
-	CanSeeComments     = CapabilityComponent(7)
+	NoCapabilities            = Capabilities(0)
+	CanAddComment             = CapabilityComponent(2)
+	CanEditContent            = CapabilityComponent(3)
+	CanSeeOtherClients        = CapabilityComponent(5)
+	CanSeeComments            = CapabilityComponent(7)
+	CanSeeNonRestrictedEvents = CapabilityComponent(11)
+	CanSeeAllEditorEvents     = CapabilityComponent(13)
 )
 
 func (c Capabilities) Includes(action CapabilityComponent) bool {
@@ -141,13 +143,17 @@ func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestricted
 			CanAddComment *
 				CanEditContent *
 				CanSeeOtherClients *
-				CanSeeComments,
+				CanSeeComments *
+				CanSeeNonRestrictedEvents *
+				CanSeeAllEditorEvents,
 		)
 	case "readOnly":
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanSeeOtherClients *
-				CanSeeComments,
+				CanSeeComments *
+				CanSeeNonRestrictedEvents *
+				CanSeeAllEditorEvents,
 		)
 	default:
 		c.capabilities = NoCapabilities
@@ -155,6 +161,7 @@ func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestricted
 	if isRestrictedUser {
 		c.capabilities = c.capabilities.TakeAway(CanSeeOtherClients)
 		c.capabilities = c.capabilities.TakeAway(CanSeeComments)
+		c.capabilities = c.capabilities.TakeAway(CanSeeAllEditorEvents)
 	}
 }
 

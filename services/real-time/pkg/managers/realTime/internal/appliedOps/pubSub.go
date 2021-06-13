@@ -44,6 +44,9 @@ func (r *DocRoom) Handle(raw string) {
 		log.Println("cannot validate appliedOps message: " + err.Error())
 		return
 	}
+	if msg.HealthCheck {
+		return
+	}
 	var err error
 	if msg.Error != nil {
 		err = r.handleError(&msg)

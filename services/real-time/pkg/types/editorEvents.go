@@ -20,10 +20,23 @@ import (
 	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/real-time/pkg/errors"
 )
 
 type EditorEventsMessage struct {
-	RoomId  primitive.ObjectID `json:"room_id"`
-	Message string             `json:"message"`
-	Payload []json.RawMessage  `json:"payload"`
+	HealthCheck bool               `json:"health_check,omitempty"`
+	RoomId      primitive.ObjectID `json:"room_id"`
+	Message     string             `json:"message"`
+	Payload     json.RawMessage    `json:"payload"`
+}
+
+func (m *EditorEventsMessage) Validate() error {
+	if m.HealthCheck {
+		return nil
+	}
+	if m.Message == "" {
+		return &errors.ValidationError{Msg: "missing message"}
+	}
+	return nil
 }

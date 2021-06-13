@@ -17,7 +17,11 @@
 package editorEvents
 
 import (
+	"encoding/json"
+	"log"
+
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
+	"github.com/das7pad/real-time/pkg/types"
 )
 
 type ProjectRoom struct {
@@ -27,5 +31,92 @@ type ProjectRoom struct {
 func newRoom(room *broadcaster.TrackingRoom) broadcaster.Room {
 	return &ProjectRoom{
 		TrackingRoom: room,
+	}
+}
+
+const (
+	clientTrackingRefresh = "clientTracking.refresh"
+)
+
+var nonRestrictedMessages = []string{
+	// File Tree events
+	// NOTE: The actual event names have a typo.
+	"reciveNewDoc",
+	"reciveNewFile",
+	"reciveNewFolder",
+	"reciveEntityMove",
+	"reciveEntityRename",
+	"removeEntity",
+
+	// Core project details
+	"projectNameUpdated",
+	"rootDocUpdated",
+	"toggle-track-changes",
+
+	// Project deleted
+	"projectRenamedOrDeletedByExternalSource",
+
+	// Auth
+	"project:publicAccessLevel:changed",
+}
+
+func (r *ProjectRoom) Handle(raw string) {
+	var msg types.EditorEventsMessage
+	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
+		log.Println("cannot parse editorEvents message: " + err.Error())
+		return
+	}
+	if err := msg.Validate(); err != nil {
+		log.Println("cannot validate editorEvents message: " + err.Error())
+		return
+	}
+	if msg.HealthCheck {
+		return
+	}
+	var err error
+	if msg.Message == clientTrackingRefresh {
+		err = nil
+	} else {
+		err = r.handleMessage(&msg)
+	}
+	if err != nil {
+		log.Println("cannot handle appliedOps message: " + err.Error())
+		return
+	}
+}
+
+func (r *ProjectRoom) handleMessage(msg *types.EditorEventsMessage) error {
+	resp := types.RPCResponse{
+		Name: msg.Message,
+		Body: msg.Payload,
+	}
+	bulkMessage, err := types.PrepareBulkMessage(&resp)
+	if err != nil {
+		return err
+	}
+	nonRestricted := isNonRestrictedMessage(msg.Message)
+	for _, client := range r.Clients() {
+		if !clientCanSeeMessage(client, nonRestricted) {
+			continue
+		}
+		client.EnsureQueueMessage(bulkMessage)
+	}
+	return nil
+}
+
+func isNonRestrictedMessage(message string) bool {
+	for _, nonRestrictedMessage := range nonRestrictedMessages {
+		if message == nonRestrictedMessage {
+			return true
+		}
+	}
+	return false
+}
+
+func clientCanSeeMessage(client *types.Client, nonRestrictedMessage bool) bool {
+	if nonRestrictedMessage {
+		return client.HasCapability(types.CanSeeNonRestrictedEvents)
+	} else {
+		return client.HasCapability(types.CanSeeAllEditorEvents)
 	}
 }
