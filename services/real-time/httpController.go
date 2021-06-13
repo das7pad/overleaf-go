@@ -94,7 +94,7 @@ func validateAndSetId(name string) mux.MiddlewareFunc {
 const (
 	emailField     = "email"
 	firstNameField = "firstName"
-	idField        = "id"
+	idField        = "user_id"
 	lastNameField  = "lastName"
 )
 
