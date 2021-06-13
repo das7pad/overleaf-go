@@ -111,6 +111,7 @@ func (b *broadcaster) cleanup(id primitive.ObjectID) {
 	b.mux.Lock()
 	delete(b.rooms, id)
 	b.mux.Unlock()
+	r.StopPeriodicTasks()
 	r.close()
 }
 

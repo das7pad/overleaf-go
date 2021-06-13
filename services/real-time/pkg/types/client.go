@@ -249,8 +249,11 @@ func (c *Client) CanDo(action Action, docId primitive.ObjectID) error {
 		}
 		return nil
 	case UpdatePosition:
-		if err := c.requireJoinedProjectAndDoc(); err != nil {
+		if err := c.requireJoinedProject(); err != nil {
 			return err
+		}
+		if c.DocId == nil || docId != *c.DocId {
+			return &errors.ValidationError{Msg: "stale position update"}
 		}
 		if err := c.capabilities.CheckIncludes(CanSeeOtherClients); err != nil {
 			return err

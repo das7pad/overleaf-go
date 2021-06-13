@@ -21,11 +21,13 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/real-time/pkg/errors"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/appliedOps"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/documentUpdater"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/webApi"
@@ -44,7 +46,8 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	e, err := editorEvents.New(ctx, client)
+	c := clientTracking.New(client)
+	e, err := editorEvents.New(ctx, client, c)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +62,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	return &manager{
 		options:         options,
 		appliedOps:      a,
+		clientTracking:  c,
 		editorEvents:    e,
 		documentUpdater: d,
 		webApi:          w,
@@ -68,6 +72,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 type manager struct {
 	options *types.Options
 
+	clientTracking  clientTracking.Manager
 	appliedOps      appliedOps.Manager
 	editorEvents    editorEvents.Manager
 	documentUpdater documentUpdater.Manager
@@ -122,6 +127,13 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 
 	// For cleanup purposes: mark as joined before actually joining.
 	rpc.Client.ProjectId = &args.ProjectId
+
+	go func() {
+		// Mark the user as joined in the background.
+		// NOTE: UpdateClientPosition expects a present client.ProjectId.
+		//       Start the goroutine after assigning one.
+		m.clientTracking.InitializeClientPosition(rpc.Client)
+	}()
 
 	if err = m.editorEvents.Join(rpc, rpc.Client, args.ProjectId); err != nil {
 		return errors.Tag(
@@ -280,13 +292,59 @@ func (m *manager) addComment(rpc *types.RPC) error {
 	return m.appliedOps.QueueUpdate(rpc, args)
 }
 func (m *manager) getConnectedUsers(rpc *types.RPC) error {
+	users, err := m.clientTracking.GetConnectedClients(rpc, *rpc.Client.ProjectId)
+	if err != nil {
+		return err
+	}
+	blob, err := json.Marshal(users)
+	if err != nil {
+		return errors.Tag(err, "cannot serialize users")
+	}
+	body, err := json.Marshal([]json.RawMessage{blob})
+	if err != nil {
+		return errors.Tag(err, "cannot wrap users")
+	}
+	rpc.Response.Body = body
 	return nil
 }
 func (m *manager) updatePosition(rpc *types.RPC) error {
+	var args types.ClientPosition
+	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
+		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
+	}
+	// Hard code document identifier.
+	args.DocId = rpc.Request.DocId
+
+	err := m.clientTracking.UpdateClientPosition(rpc, rpc.Client, &args)
+	if err != nil {
+		return errors.Tag(err, "cannot persist position update")
+	}
+
+	notification := types.ClientPositionUpdateNotification{
+		Source: rpc.Client.PublicId,
+		Row:    args.Row,
+		Column: args.Column,
+		DocId:  args.DocId,
+	}
+	body, err := json.Marshal(notification)
+	if err != nil {
+		return errors.Tag(err, "cannot encode notification")
+	}
+	msg := types.EditorEventsMessage{
+		RoomId:  *rpc.Client.ProjectId,
+		Message: editorEvents.ClientTrackingClientUpdated,
+		Payload: body,
+	}
+	if err = m.editorEvents.Broadcast(rpc, &msg); err != nil {
+		return errors.Tag(err, "cannot send notification")
+	}
+	if rpc.Request.Callback == 0 {
+		rpc.Response = nil
+	}
 	return nil
 }
 func (m *manager) Disconnect(client *types.Client) error {
-	var errAppliedOps, errEditorEvents error
+	var errAppliedOps, errEditorEvents, errClientTracking error
 	docId := client.DocId
 	if docId != nil {
 		errAppliedOps = m.appliedOps.Leave(client, *docId)
@@ -294,14 +352,37 @@ func (m *manager) Disconnect(client *types.Client) error {
 	projectId := client.ProjectId
 	if projectId != nil {
 		errEditorEvents = m.editorEvents.Leave(client, *projectId)
-	}
-	// TODO: delete client tracking entry?
 
+		// Skip cleanup when not joined yet.
+		errClientTracking = m.cleanupClientTracking(client)
+	}
+
+	// TODO: background flush to document-updater
 	if errAppliedOps != nil {
 		return errAppliedOps
 	}
 	if errEditorEvents != nil {
 		return errEditorEvents
+	}
+	if errClientTracking != nil {
+		return errClientTracking
+	}
+	return nil
+}
+
+func (m *manager) cleanupClientTracking(client *types.Client) error {
+	m.clientTracking.DeleteClientPosition(client)
+
+	body := json.RawMessage("\"" + client.PublicId + "\"")
+	msg := types.EditorEventsMessage{
+		RoomId:  *client.ProjectId,
+		Message: "clientTracking.clientDisconnected",
+		Payload: body,
+	}
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	if err := m.editorEvents.Broadcast(ctx, &msg); err != nil {
+		return errors.Tag(err, "cannot send notification for disconnect")
 	}
 	return nil
 }

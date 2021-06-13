@@ -17,25 +17,30 @@
 package editorEvents
 
 import (
+	"context"
 	"encoding/json"
 	"log"
+	"math/rand"
+	"time"
 
+	"github.com/das7pad/real-time/pkg/errors"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/real-time/pkg/types"
 )
 
 type ProjectRoom struct {
 	*broadcaster.TrackingRoom
-}
 
-func newRoom(room *broadcaster.TrackingRoom) broadcaster.Room {
-	return &ProjectRoom{
-		TrackingRoom: room,
-	}
+	nextClientRefresh  time.Time
+	nextProjectRefresh time.Time
+	periodicRefresh    *time.Ticker
+	clientTracking     clientTracking.Manager
 }
 
 const (
-	clientTrackingRefresh = "clientTracking.refresh"
+	ClientTrackingRefresh       = "clientTracking.refresh"
+	ClientTrackingClientUpdated = "clientTracking.clientUpdated"
 )
 
 var nonRestrictedMessages = []string{
@@ -74,9 +79,12 @@ func (r *ProjectRoom) Handle(raw string) {
 		return
 	}
 	var err error
-	if msg.Message == clientTrackingRefresh {
-		err = nil
-	} else {
+	switch msg.Message {
+	case ClientTrackingRefresh:
+		err = r.refreshClientPositions()
+	case ClientTrackingClientUpdated:
+		err = r.handleClientTrackingUpdated(&msg)
+	default:
 		err = r.handleMessage(&msg)
 	}
 	if err != nil {
@@ -85,7 +93,74 @@ func (r *ProjectRoom) Handle(raw string) {
 	}
 }
 
+func (r *ProjectRoom) StopPeriodicTasks() {
+	t := r.periodicRefresh
+	if t != nil {
+		t.Stop()
+	}
+}
+
+func (r *ProjectRoom) StartPeriodicTasks() {
+	jitter := time.Duration(rand.Int63n(int64(30 * time.Second)))
+	baseInter := clientTracking.RefreshUserEvery - jitter
+
+	t := time.NewTicker(baseInter)
+	r.periodicRefresh = t
+	go func() {
+		failedAttempts := 0
+		for range t.C {
+			err := r.refreshClientPositions()
+			if err != nil {
+				if failedAttempts == 0 {
+					// Retry soon.
+					t.Reset(baseInter / 3)
+				}
+				failedAttempts++
+				if failedAttempts%10 == 0 {
+					err = errors.Tag(
+						err, "repeatedly failed to refresh clients",
+					)
+					log.Println(err.Error())
+				}
+				continue
+			}
+			if failedAttempts > 0 {
+				failedAttempts = 0
+				t.Reset(baseInter)
+			}
+		}
+	}()
+}
+
+func (r *ProjectRoom) refreshClientPositions() error {
+	t := time.Now()
+	if t.Before(r.nextClientRefresh) {
+		return nil
+	}
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	refreshProjectExpiry := t.After(r.nextProjectRefresh)
+	err := r.clientTracking.RefreshClientPositions(ctx, r.Clients(), refreshProjectExpiry)
+	if err != nil {
+		return err
+	}
+	r.nextClientRefresh = t.Add(clientTracking.RefreshUserEvery)
+	r.nextProjectRefresh = t.Add(clientTracking.RefreshProjectEvery)
+	return nil
+}
+func (r *ProjectRoom) handleClientTrackingUpdated(msg *types.EditorEventsMessage) error {
+	var notification types.ClientPositionUpdateNotification
+	if err := json.Unmarshal(msg.Payload, &notification); err != nil {
+		return errors.Tag(err, "cannot decode notification")
+	}
+	return r.handleMessageFromSource(msg, notification.Source)
+}
+
 func (r *ProjectRoom) handleMessage(msg *types.EditorEventsMessage) error {
+	return r.handleMessageFromSource(msg, "")
+}
+
+func (r *ProjectRoom) handleMessageFromSource(msg *types.EditorEventsMessage, id types.PublicId) error {
 	resp := types.RPCResponse{
 		Name: msg.Message,
 		Body: msg.Payload,
@@ -96,6 +171,9 @@ func (r *ProjectRoom) handleMessage(msg *types.EditorEventsMessage) error {
 	}
 	nonRestricted := isNonRestrictedMessage(msg.Message)
 	for _, client := range r.Clients() {
+		if client.PublicId == id {
+			continue
+		}
 		if !clientCanSeeMessage(client, nonRestricted) {
 			continue
 		}

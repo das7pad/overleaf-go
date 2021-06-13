@@ -18,28 +18,54 @@ package editorEvents
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
+	"github.com/das7pad/real-time/pkg/managers/realTime/internal/clientTracking"
+	"github.com/das7pad/real-time/pkg/types"
 )
 
 type Manager interface {
 	broadcaster.Broadcaster
+
+	Broadcast(ctx context.Context, message *types.EditorEventsMessage) error
 }
 
-func New(ctx context.Context, client redis.UniversalClient) (Manager, error) {
+func New(ctx context.Context, client redis.UniversalClient, clientTracking clientTracking.Manager) (Manager, error) {
 	c, err := channel.New(ctx, client, "editor-events")
 	if err != nil {
 		return nil, err
 	}
+	newRoom := func(room *broadcaster.TrackingRoom) broadcaster.Room {
+		now := time.Now()
+		return &ProjectRoom{
+			TrackingRoom:       room,
+			clientTracking:     clientTracking,
+			nextProjectRefresh: now,
+			nextClientRefresh:  now,
+		}
+	}
 	b := broadcaster.New(ctx, c, newRoom)
 	return &manager{
 		Broadcaster: b,
+		c:           c,
 	}, nil
 }
 
 type manager struct {
 	broadcaster.Broadcaster
+
+	c channel.Manager
+}
+
+func (m *manager) Broadcast(ctx context.Context, message *types.EditorEventsMessage) error {
+	body, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	return m.c.Publish(ctx, message.RoomId, string(body))
 }

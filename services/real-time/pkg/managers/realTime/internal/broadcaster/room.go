@@ -28,6 +28,8 @@ var noClients = make(Clients, 0)
 type Room interface {
 	Handle(msg string)
 	Clients() Clients
+	StartPeriodicTasks()
+	StopPeriodicTasks()
 
 	isEmpty() bool
 	add(client *types.Client)
@@ -53,6 +55,13 @@ func (r *TrackingRoom) Handle(_ string) {
 
 func (r *TrackingRoom) Clients() Clients {
 	return r.clients
+}
+
+func (r *TrackingRoom) StartPeriodicTasks() {
+	// Noop
+}
+func (r *TrackingRoom) StopPeriodicTasks() {
+	// Noop
 }
 
 func (r *TrackingRoom) pendingOperation() pendingOperation.WithCancel {
