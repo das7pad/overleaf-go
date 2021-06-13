@@ -108,7 +108,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	if err := rpc.Client.CanJoinProject(args.ProjectId); err != nil {
 		return errors.Tag(
 			err,
-			"rejection cross project join "+args.ProjectId.Hex(),
+			"rejecting cross project join "+args.ProjectId.Hex(),
 		)
 	}
 

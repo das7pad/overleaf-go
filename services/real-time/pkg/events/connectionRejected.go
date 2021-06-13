@@ -29,7 +29,7 @@ var ConnectionRejectedBadWsBootstrapResponse = &types.RPCResponse{
 	},
 	FatalError: true,
 }
-var ConnectionRejectedBadWsBootstrapPrepared = prepareMessage(
+var ConnectionRejectedBadWsBootstrapPrepared = prepareBulkMessage(
 	ConnectionRejectedBadWsBootstrapResponse,
 )
 
@@ -40,6 +40,6 @@ var ConnectionRejectedInternalErrorResponse = &types.RPCResponse{
 	},
 	FatalError: true,
 }
-var ConnectionRejectedInternalErrorPrepared = prepareMessage(
+var ConnectionRejectedInternalErrorPrepared = prepareBulkMessage(
 	ConnectionRejectedInternalErrorResponse,
 )

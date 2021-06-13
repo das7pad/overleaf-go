@@ -56,15 +56,19 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 }
 
 func PrepareBulkMessage(response *RPCResponse) (*WriteQueueEntry, error) {
-	body, err := json.Marshal(response)
+	blob, err := json.Marshal(response)
 	if err != nil {
 		return nil, err
 	}
-	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, body)
+	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, blob)
 	if err != nil {
 		return nil, err
 	}
-	return &WriteQueueEntry{Msg: pm, FatalError: response.FatalError}, nil
+	return &WriteQueueEntry{
+		Blob:       blob,
+		Msg:        pm,
+		FatalError: response.FatalError,
+	}, nil
 }
 
 type WriteQueueEntry struct {

@@ -17,14 +17,8 @@
 package events
 
 import (
-	"github.com/gorilla/websocket"
-
 	"github.com/das7pad/real-time/pkg/types"
 )
-
-func prepareMessage(response *types.RPCResponse) *websocket.PreparedMessage {
-	return prepareBulkMessage(response).Msg
-}
 
 func prepareBulkMessage(response *types.RPCResponse) *types.WriteQueueEntry {
 	entry, err := types.PrepareBulkMessage(response)

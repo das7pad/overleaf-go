@@ -249,7 +249,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	if jwtErr != nil {
 		log.Println("jwt auth failed: " + jwtErr.Error())
 		_ = conn.WritePreparedMessage(
-			events.ConnectionRejectedBadWsBootstrapPrepared,
+			events.ConnectionRejectedBadWsBootstrapPrepared.Msg,
 		)
 		return
 	}
@@ -264,7 +264,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	if clientErr != nil {
 		log.Println("client setup failed: " + clientErr.Error())
 		_ = conn.WritePreparedMessage(
-			events.ConnectionRejectedInternalErrorPrepared,
+			events.ConnectionRejectedInternalErrorPrepared.Msg,
 		)
 		return
 	}
@@ -297,13 +297,13 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					return
 				}
-				if entry.Blob != nil {
-					err := conn.WriteMessage(websocket.TextMessage, entry.Blob)
+				if entry.Msg != nil {
+					err := conn.WritePreparedMessage(entry.Msg)
 					if err != nil {
 						return
 					}
 				} else {
-					err := conn.WritePreparedMessage(entry.Msg)
+					err := conn.WriteMessage(websocket.TextMessage, entry.Blob)
 					if err != nil {
 						return
 					}
