@@ -71,7 +71,7 @@ type clsiOptions struct {
 func getOptions() *clsiOptions {
 	o := &clsiOptions{}
 	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
-	port := getIntFromEnv("PORT", 13013)
+	port := getIntFromEnv("PORT", 3026)
 	o.address = listenAddress + ":" + strconv.FormatInt(port, 10)
 
 	getJSONFromEnv("OPTIONS", &o.options)

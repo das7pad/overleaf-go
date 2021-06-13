@@ -60,7 +60,8 @@ func (m *manager) JoinDoc(ctx context.Context, client *types.Client, request *ty
 	u := m.baseURL
 	u += "/project/" + client.ProjectId.Hex()
 	u += "/doc/" + request.DocId.Hex()
-	u += "?fromVersion" + strconv.FormatInt(int64(request.FromVersion), 10)
+	u += "?fromVersion=" + strconv.FormatInt(int64(request.FromVersion), 10)
+	u += "&snapshot=true"
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err

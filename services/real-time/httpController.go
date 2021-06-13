@@ -44,7 +44,7 @@ func newHttpController(rtm realTime.Manager, jwtOptions jwtMiddleware.Options) h
 	return httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
-			Subprotocols: []string{"v5.realTime.overleaf.com"},
+			Subprotocols: []string{"v5.real-time.overleaf.com"},
 		},
 		jwt: jwtMiddleware.New(jwtOptions),
 	}
@@ -73,6 +73,7 @@ func (h *httpController) GetRouter() http.Handler {
 	userRouter.Use(validateAndSetId("userId"))
 
 	router.HandleFunc("/socket.io", h.ws)
+	router.HandleFunc("/socket.io/socket.io.js", h.clientBlob)
 	return router
 }
 
@@ -228,6 +229,12 @@ func respond(
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("real-time is alive (go)\n"))
+}
+
+func (h *httpController) clientBlob(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript")
+	w.WriteHeader(200)
+	_, _ = w.Write([]byte("window.io='plain'"))
 }
 
 func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {

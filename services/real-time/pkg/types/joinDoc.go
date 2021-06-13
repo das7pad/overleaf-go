@@ -28,8 +28,8 @@ type JoinDocRequest struct {
 }
 
 type JoinDocResponse struct {
-	Lines   json.RawMessage `json:"lines"`
-	Ops     json.RawMessage `json:"ops"`
-	Ranges  Ranges          `json:"ranges"`
-	Version Version         `json:"version"`
+	Ops      json.RawMessage `json:"ops"`
+	Ranges   Ranges          `json:"ranges"`
+	Snapshot json.RawMessage `json:"snapshot"`
+	Version  Version         `json:"version"`
 }

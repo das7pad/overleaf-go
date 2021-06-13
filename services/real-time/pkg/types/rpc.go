@@ -35,6 +35,7 @@ const (
 	UpdatePosition    = Action("clientTracking.updatePosition")
 	ApplyUpdate       = Action("applyUpdate")
 	AddComment        = Action("addComment")
+	Ping              = Action("ping")
 )
 
 type Callback int64

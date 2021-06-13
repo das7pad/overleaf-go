@@ -163,6 +163,8 @@ func (c *Client) CheckHasCapability(component CapabilityComponent) error {
 
 func (c *Client) CanDo(action Action, docId primitive.ObjectID) error {
 	switch action {
+	case Ping:
+		return nil
 	case JoinProject:
 		if c.ProjectId != nil {
 			return &errors.InvalidStateError{Msg: "already joined project"}

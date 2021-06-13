@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 
 	"github.com/go-redis/redis/v8"
 
@@ -83,8 +84,8 @@ func (m *manager) RPC(rpc *types.RPC) {
 		return
 	}
 	log.Printf(
-		"%s: %s: %s",
-		rpc.Client.User.Id, rpc.Request.Action, err.Error(),
+		"user %s: %s: %s",
+		rpc.Client.User.Id.Hex(), rpc.Request.Action, err.Error(),
 	)
 	cause := errors.GetCause(err)
 	if potentiallyFatalError, ok := cause.(errors.PotentiallyFatalError); ok {
@@ -176,14 +177,27 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 		)
 	}
 
-	body, err := json.Marshal(r)
+	ranges, err := json.Marshal(r.Ranges)
+	if err != nil {
+		return errors.Tag(
+			err,
+			"encoding ranges failed for "+args.DocId.Hex(),
+		)
+	}
+	body := []json.RawMessage{
+		r.Snapshot,
+		json.RawMessage(strconv.FormatInt(int64(r.Version), 10)),
+		r.Ops,
+		ranges,
+	}
+	blob, err := json.Marshal(body)
 	if err != nil {
 		return errors.Tag(
 			err,
 			"encoding JoinDocResponse failed for "+args.DocId.Hex(),
 		)
 	}
-	rpc.Response.Body = body
+	rpc.Response.Body = blob
 	return nil
 }
 func (m *manager) leaveDoc(rpc *types.RPC) error {
@@ -291,6 +305,8 @@ func (m *manager) rpc(rpc *types.RPC) error {
 	}
 
 	switch rpc.Request.Action {
+	case types.Ping:
+		return nil
 	case types.JoinProject:
 		return m.joinProject(rpc)
 	case types.JoinDoc:

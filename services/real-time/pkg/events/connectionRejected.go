@@ -25,6 +25,7 @@ var ConnectionRejectedBadWsBootstrapResponse = &types.RPCResponse{
 	Name: "connectionRejected",
 	Error: &errors.JavaScriptError{
 		Message: "bad wsBootstrap blob",
+		Code:    "BadWsBootstrapBlob",
 	},
 	FatalError: true,
 }
