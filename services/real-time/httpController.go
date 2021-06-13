@@ -320,7 +320,6 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		// In case queuing from the read-loop failed, this is a noop.
 		<-waitForCtxDone
 	}()
-	var request types.RPCRequest
 	for {
 		select {
 		case <-waitForCtxDone:
@@ -328,6 +327,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		default:
 			// Not done yet.
 		}
+		var request types.RPCRequest
 		err := conn.ReadJSON(&request)
 		if err != nil {
 			c.EnsureQueueMessage(events.BadRequestBulkMessage)
