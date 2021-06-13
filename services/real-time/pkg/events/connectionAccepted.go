@@ -25,6 +25,6 @@ import (
 func ConnectionAcceptedResponse(id types.PublicId) *types.RPCResponse {
 	return &types.RPCResponse{
 		Name: "connectionAccepted",
-		Body: json.RawMessage("\"" + id + "\""),
+		Body: json.RawMessage("[null,\"" + id + "\"]"),
 	}
 }
