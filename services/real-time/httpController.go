@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	jwtMiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
@@ -255,7 +256,11 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeQueue := make(chan *types.WriteQueueEntry, 10)
-	defer close(writeQueue)
+	defer func() {
+		// TODO: rework closing to go through ack from project+doc room.
+		time.Sleep(10 * time.Second)
+		close(writeQueue)
+	}()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()

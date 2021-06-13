@@ -123,7 +123,7 @@ func (r *TrackingRoom) remove(client *types.Client) {
 	f := make(Clients, n-1)
 	copy(f, r.clients[:n-1])
 	if idx != n-1 {
-		f[n-2] = r.clients[n-1]
+		f[idx] = r.clients[n-1]
 	}
 	r.clients = f
 }
