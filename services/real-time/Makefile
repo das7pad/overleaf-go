@@ -52,4 +52,16 @@ docker/clean:
 		$(IMAGE)-build \
 		--force
 
+.PHONY: public.tar.gz
+public.tar.gz:
+	echo "window.io='plain'" > socket.io.min.js
+	tar --create --sort=name --mtime=2021-01-01T00:00Z socket.io.min.js \
+	| gzip -6 \
+	> public.tar.gz
+	sha256sum public.tar.gz | awk '{ print $$1 }' > public.tar.gz.checksum.txt
+	touch -m -d 2021-01-01T00:00Z public.tar.gz public.tar.gz.checksum.txt
+
+clean/public.tar.gz:
+	rm -f public.tar.gz public.tar.gz.checksum.txt socket.io.min.js
+
 .PHONY: test

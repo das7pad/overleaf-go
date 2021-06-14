@@ -36,6 +36,17 @@ pipeline {
         archiveArtifacts 'docker-image.digest.txt'
       }
     }
+    stage('Archive socket.io-client stub') {
+      steps {
+        sh 'make public.tar.gz'
+        archiveArtifacts(artifacts: 'public.tar.gz*')
+      }
+      post {
+        cleanup {
+          sh 'make clean/public.tar.gz'
+        }
+      }
+    }
   }
   post {
     cleanup {
