@@ -54,6 +54,7 @@ func (h *httpController) GetRouter(
 
 	jwtRouter := router.PathPrefix("/jwt/notifications").Subrouter()
 	jwtRouter.Use(cors(corsOptions))
+	jwtRouter.Use(noCache())
 	jwtRouter.Use(jwtMiddleware.New(jwtOptions).Handler)
 	jwtRouter.Use(validateAndSetId("userId"))
 	jwtRouter.
@@ -113,6 +114,15 @@ func (h *httpController) GetRouter(
 		Path("/key/{notificationKey}").
 		HandlerFunc(h.removeNotificationByKeyOnly)
 	return router
+}
+
+func noCache() mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-cache")
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func cors(options CorsOptions) mux.MiddlewareFunc {
