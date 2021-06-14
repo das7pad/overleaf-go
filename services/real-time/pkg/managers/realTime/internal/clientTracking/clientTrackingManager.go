@@ -31,7 +31,7 @@ import (
 
 type Manager interface {
 	DeleteClientPosition(client *types.Client)
-	GetConnectedClients(ctx context.Context, projectId primitive.ObjectID) (types.ConnectedClients, error)
+	GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error)
 	InitializeClientPosition(client *types.Client)
 	RefreshClientPositions(ctx context.Context, client []*types.Client, refreshProjectExpiry bool) error
 	UpdateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition) error
@@ -63,13 +63,21 @@ func getProjectKey(projectId primitive.ObjectID) string {
 	return "clients_in_project:{" + projectId.Hex() + "}"
 }
 
-func (m *manager) GetConnectedClients(ctx context.Context, projectId primitive.ObjectID) (types.ConnectedClients, error) {
+func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
+	projectId := *client.ProjectId
 	ids, err := m.redisClient.SMembers(ctx, getProjectKey(projectId)).Result()
 	if err != nil {
 		return nil, err
 	}
-	if len(ids) == 0 {
+	if len(ids) == 0 || len(ids) == 1 && ids[0] == string(client.PublicId) {
 		return make(types.ConnectedClients, 0), err
+	}
+	for idx, id := range ids {
+		if id == string(client.PublicId) {
+			ids[idx] = ids[len(ids)-1]
+			ids = ids[:len(ids)-1]
+			break
+		}
 	}
 
 	users := make([]*redis.StringStringMapCmd, len(ids))

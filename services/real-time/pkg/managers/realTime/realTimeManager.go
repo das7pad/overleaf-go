@@ -292,7 +292,7 @@ func (m *manager) addComment(rpc *types.RPC) error {
 	return m.appliedOps.QueueUpdate(rpc, args)
 }
 func (m *manager) getConnectedUsers(rpc *types.RPC) error {
-	users, err := m.clientTracking.GetConnectedClients(rpc, *rpc.Client.ProjectId)
+	users, err := m.clientTracking.GetConnectedClients(rpc, rpc.Client)
 	if err != nil {
 		return err
 	}
