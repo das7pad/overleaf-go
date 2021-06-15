@@ -354,10 +354,14 @@ func (m *manager) Disconnect(client *types.Client) error {
 		errEditorEvents = m.editorEvents.Leave(client, *projectId)
 
 		// Skip cleanup when not joined yet.
-		errClientTracking = m.cleanupClientTracking(client)
+		var nowEmpty bool
+		nowEmpty, errClientTracking = m.cleanupClientTracking(client)
+		// Flush eagerly on error.
+		if nowEmpty || errClientTracking != nil {
+			m.backgroundFlush(client)
+		}
 	}
 
-	// TODO: background flush to document-updater
 	if errAppliedOps != nil {
 		return errAppliedOps
 	}
@@ -370,8 +374,8 @@ func (m *manager) Disconnect(client *types.Client) error {
 	return nil
 }
 
-func (m *manager) cleanupClientTracking(client *types.Client) error {
-	m.clientTracking.DeleteClientPosition(client)
+func (m *manager) cleanupClientTracking(client *types.Client) (bool, error) {
+	nowEmpty := m.clientTracking.DeleteClientPosition(client)
 
 	body := json.RawMessage("\"" + client.PublicId + "\"")
 	msg := types.EditorEventsMessage{
@@ -382,9 +386,25 @@ func (m *manager) cleanupClientTracking(client *types.Client) error {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	if err := m.editorEvents.Broadcast(ctx, &msg); err != nil {
-		return errors.Tag(err, "cannot send notification for disconnect")
+		return nowEmpty, errors.Tag(
+			err, "cannot send notification for disconnect",
+		)
 	}
-	return nil
+	return nowEmpty, nil
+}
+
+func (m *manager) backgroundFlush(client *types.Client) {
+	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
+	defer done()
+
+	err := m.documentUpdater.FlushProject(ctx, client)
+	if err != nil {
+		log.Println(
+			errors.Tag(
+				err, "background flush failed for "+client.ProjectId.Hex(),
+			).Error(),
+		)
+	}
 }
 
 func (m *manager) rpc(rpc *types.RPC) error {

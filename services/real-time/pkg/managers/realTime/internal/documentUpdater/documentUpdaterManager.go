@@ -31,6 +31,7 @@ import (
 type Manager interface {
 	JoinDoc(ctx context.Context, client *types.Client, request *types.JoinDocRequest) (*types.JoinDocResponse, error)
 	CheckDocExists(ctx context.Context, client *types.Client, request *types.JoinDocRequest) error
+	FlushProject(ctx context.Context, client *types.Client) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -120,6 +121,29 @@ func (m *manager) CheckDocExists(ctx context.Context, client *types.Client, requ
 		return nil
 	case http.StatusForbidden, http.StatusNotFound:
 		return &errors.NotAuthorizedError{}
+	default:
+		return errors.New(
+			"non-success status code from document-updater: " + res.Status,
+		)
+	}
+}
+
+func (m *manager) FlushProject(ctx context.Context, client *types.Client) error {
+	u := m.baseURL
+	u += "/project/" + client.ProjectId.Hex()
+	u += "?background=true"
+	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
+	if err != nil {
+		return err
+	}
+	res, err := m.client.Do(r)
+	if err != nil {
+		return err
+	}
+	_ = res.Body.Close()
+	switch res.StatusCode {
+	case http.StatusNoContent:
+		return nil
 	default:
 		return errors.New(
 			"non-success status code from document-updater: " + res.Status,

@@ -30,7 +30,7 @@ import (
 )
 
 type Manager interface {
-	DeleteClientPosition(client *types.Client)
+	DeleteClientPosition(client *types.Client) bool
 	GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error)
 	InitializeClientPosition(client *types.Client)
 	RefreshClientPositions(ctx context.Context, client []*types.Client, refreshProjectExpiry bool) error
@@ -124,21 +124,25 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	return clients, nil
 }
 
-func (m *manager) DeleteClientPosition(client *types.Client) {
+func (m *manager) DeleteClientPosition(client *types.Client) bool {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
 	projectKey := getProjectKey(*client.ProjectId)
 	userKey := getConnectedUserKey(*client.ProjectId, client.PublicId)
+	var nowEmpty *redis.IntCmd
 	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
 		p.SRem(ctx, projectKey, string(client.PublicId))
+		nowEmpty = p.SCard(ctx, projectKey)
 		p.Expire(ctx, projectKey, ProjectExpiry)
 		p.Del(ctx, userKey)
 		return nil
 	})
 	if err != nil {
 		log.Println("error deleting client position: " + err.Error())
+		return true
 	}
+	return nowEmpty.Val() == 0
 }
 
 func (m *manager) InitializeClientPosition(client *types.Client) {
