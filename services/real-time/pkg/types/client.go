@@ -82,7 +82,7 @@ type WriteQueueEntry struct {
 
 type WriteQueue chan<- *WriteQueueEntry
 
-func NewClient(wsBootstrap *WsBootstrap, writeQueue WriteQueue, disconnect func()) (*Client, error) {
+func NewClient(wsBootstrap *WsBootstrap, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
@@ -91,6 +91,7 @@ func NewClient(wsBootstrap *WsBootstrap, writeQueue WriteQueue, disconnect func(
 		lockedProjectId: wsBootstrap.ProjectId,
 		PublicId:        publicId,
 		User:            wsBootstrap.User,
+		writerChanges:   writerChanges,
 		writeQueue:      writeQueue,
 		disconnect:      disconnect,
 	}, nil
@@ -107,8 +108,17 @@ type Client struct {
 
 	knownDocs []primitive.ObjectID
 
-	writeQueue WriteQueue
-	disconnect func()
+	writerChanges chan bool
+	writeQueue    WriteQueue
+	disconnect    func()
+}
+
+func (c *Client) AddWriter() {
+	c.writerChanges <- true
+}
+
+func (c *Client) RemoveWriter() {
+	c.writerChanges <- false
 }
 
 func (c *Client) IsKnownDoc(id primitive.ObjectID) bool {

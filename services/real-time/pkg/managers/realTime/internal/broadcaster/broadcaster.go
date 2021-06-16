@@ -115,18 +115,28 @@ func (b *broadcaster) cleanup(id primitive.ObjectID) {
 	r.close()
 }
 
+type roomQueueEntry struct {
+	msg           string
+	leavingClient *types.Client
+}
+
 func (b *broadcaster) createNewRoom() Room {
-	c := make(chan string)
+	c := make(chan *roomQueueEntry)
 	r := b.newRoom(&TrackingRoom{
 		c:       c,
 		clients: noClients,
 	})
 	go func() {
-		for message := range c {
+		for entry := range c {
+			if entry.leavingClient != nil {
+				entry.leavingClient.RemoveWriter()
+				continue
+			}
+
 			if r.isEmpty() {
 				continue
 			}
-			r.Handle(message)
+			r.Handle(entry.msg)
 		}
 	}()
 	return r

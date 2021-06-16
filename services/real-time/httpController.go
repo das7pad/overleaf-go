@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
 	jwtMiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
@@ -255,17 +254,30 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writerChanges := make(chan bool)
 	writeQueue := make(chan *types.WriteQueueEntry, 10)
+	go func() {
+		defer close(writeQueue)
+		pendingWriters := 1
+		for addWriter := range writerChanges {
+			if addWriter {
+				pendingWriters++
+			} else {
+				pendingWriters--
+			}
+			if pendingWriters == 0 {
+				close(writerChanges)
+			}
+		}
+	}()
 	defer func() {
-		// TODO: rework closing to go through ack from project+doc room.
-		time.Sleep(10 * time.Second)
-		close(writeQueue)
+		writerChanges <- false
 	}()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	c, clientErr := types.NewClient(wsBootstrap, writeQueue, cancel)
+	c, clientErr := types.NewClient(wsBootstrap, writerChanges, writeQueue, cancel)
 	if clientErr != nil {
 		log.Println("client setup failed: " + clientErr.Error())
 		_ = conn.WritePreparedMessage(

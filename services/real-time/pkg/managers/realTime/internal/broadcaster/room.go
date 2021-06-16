@@ -44,7 +44,7 @@ type Room interface {
 
 type TrackingRoom struct {
 	clients Clients
-	c       chan string
+	c       chan *roomQueueEntry
 
 	pending pendingOperation.WithCancel
 }
@@ -77,7 +77,7 @@ func (r *TrackingRoom) broadcast(msg string) {
 		// Safeguard for dead room.
 		return
 	}
-	r.c <- msg
+	r.c <- &roomQueueEntry{msg: msg}
 }
 
 func (r *TrackingRoom) close() {
@@ -90,6 +90,7 @@ func (r *TrackingRoom) isEmpty() bool {
 
 func (r *TrackingRoom) add(client *types.Client) {
 	if r.isEmpty() {
+		client.AddWriter()
 		r.clients = Clients{client}
 		return
 	}
@@ -104,6 +105,7 @@ func (r *TrackingRoom) add(client *types.Client) {
 	f := make(Clients, n)
 	copy(f, r.clients)
 	f[n-1] = client
+	client.AddWriter()
 	r.clients = f
 }
 
@@ -122,6 +124,10 @@ func (r *TrackingRoom) remove(client *types.Client) {
 		// Not found.
 		return
 	}
+
+	defer func() {
+		r.c <- &roomQueueEntry{leavingClient: client}
+	}()
 
 	n := len(r.clients)
 	if n == 1 {
