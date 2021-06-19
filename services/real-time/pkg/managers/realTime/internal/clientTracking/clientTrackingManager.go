@@ -134,7 +134,6 @@ func (m *manager) DeleteClientPosition(client *types.Client) bool {
 	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
 		p.SRem(ctx, projectKey, string(client.PublicId))
 		nowEmpty = p.SCard(ctx, projectKey)
-		p.Expire(ctx, projectKey, ProjectExpiry)
 		p.Del(ctx, userKey)
 		return nil
 	})
