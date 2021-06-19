@@ -65,25 +65,35 @@ func getProjectKey(projectId primitive.ObjectID) string {
 
 func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
 	projectId := *client.ProjectId
-	ids, err := m.redisClient.SMembers(ctx, getProjectKey(projectId)).Result()
+	rawIds, err := m.redisClient.SMembers(ctx, getProjectKey(projectId)).Result()
 	if err != nil {
 		return nil, err
 	}
-	if len(ids) == 0 || len(ids) == 1 && ids[0] == string(client.PublicId) {
+	if len(rawIds) == 0 ||
+		len(rawIds) == 1 && rawIds[0] == string(client.PublicId) {
+		// Fast path: no connected clients or just the RPC client.
 		return make(types.ConnectedClients, 0), err
 	}
-	for idx, id := range ids {
-		if id == string(client.PublicId) {
-			ids[idx] = ids[len(ids)-1]
+	ids := make([]types.PublicId, len(rawIds))
+	idxSelf := -1
+	for idx, rawId := range rawIds {
+		id := types.PublicId(rawId)
+		ids[idx] = id
+		if id == client.PublicId {
+			idxSelf = idx
+		}
+	}
+	if idxSelf != -1 {
+		if len(ids) > 1 {
+			ids[idxSelf] = ids[len(ids)-1]
 			ids = ids[:len(ids)-1]
-			break
 		}
 	}
 
 	users := make([]*redis.StringStringMapCmd, len(ids))
 	_, err = m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
 		for idx, id := range ids {
-			userKey := getConnectedUserKey(projectId, types.PublicId(id))
+			userKey := getConnectedUserKey(projectId, id)
 			users[idx] = p.HGetAll(ctx, userKey)
 		}
 		return nil
@@ -91,20 +101,28 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	if err != nil {
 		return nil, err
 	}
-	clients := make(types.ConnectedClients, 0)
+	connectedClients := make(types.ConnectedClients, 0)
+	staleClients := make([]types.PublicId, 0)
+	defer func() {
+		if len(staleClients) != 0 {
+			go m.cleanupStaleClients(*client.ProjectId, staleClients)
+		}
+	}()
 	for idx, id := range ids {
 		userDetails := users[idx].Val()
 		userRaw := userDetails[userField]
 		if userRaw == "" {
+			staleClients = append(staleClients, id)
 			continue
 		}
 		var user types.User
 		err = json.Unmarshal([]byte(userRaw), &user)
 		if err != nil {
+			staleClients = append(staleClients, id)
 			return nil, errors.Tag(err, "cannot deserialize user: "+userRaw)
 		}
-		client := &types.ConnectedClient{
-			ClientId: types.PublicId(id),
+		cc := &types.ConnectedClient{
+			ClientId: id,
 			User:     user,
 		}
 
@@ -113,15 +131,41 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 			var pos types.ClientPosition
 			err = json.Unmarshal([]byte(posRaw), &pos)
 			if err != nil {
+				staleClients = append(staleClients, id)
 				return nil, errors.Tag(
 					err, "cannot deserialize pos: "+posRaw,
 				)
 			}
-			client.ClientPosition = &pos
+			cc.ClientPosition = &pos
 		}
-		clients = append(clients, client)
+		connectedClients = append(connectedClients, cc)
 	}
-	return clients, nil
+	return connectedClients, nil
+}
+
+func (m *manager) cleanupStaleClients(projectId primitive.ObjectID, staleClients []types.PublicId) {
+	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
+	defer done()
+
+	projectKey := getProjectKey(projectId)
+	rawIds := make([]interface{}, len(staleClients))
+	for idx, id := range staleClients {
+		rawIds[idx] = string(id)
+	}
+	rawUserKeys := make([]string, len(staleClients))
+	for idx, id := range staleClients {
+		rawUserKeys[idx] = getConnectedUserKey(projectId, id)
+	}
+	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
+		p.Del(ctx, rawUserKeys...)
+		p.SRem(ctx, projectKey, rawIds...)
+		return nil
+	})
+	if err != nil {
+		log.Println(
+			errors.Tag(err, "error clearing stale clients").Error(),
+		)
+	}
 }
 
 func (m *manager) DeleteClientPosition(client *types.Client) bool {
