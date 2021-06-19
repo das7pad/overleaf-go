@@ -91,8 +91,8 @@ func (c Comments) Equals(other Comments) bool {
 	if len(c) != len(other) {
 		return false
 	}
-	for i, change := range c {
-		if !change.Equals(other[i]) {
+	for i, comment := range c {
+		if !comment.Equals(other[i]) {
 			return false
 		}
 	}
