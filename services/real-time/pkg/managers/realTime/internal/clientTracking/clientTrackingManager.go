@@ -190,7 +190,7 @@ func (m *manager) UpdateClientPosition(ctx context.Context, client *types.Client
 		details[positionField] = pos
 	}
 
-	_, err = m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
+	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		p.SAdd(ctx, projectKey, string(client.PublicId))
 		p.Expire(ctx, projectKey, ProjectExpiry)
 		p.HSet(ctx, userKey, details)
