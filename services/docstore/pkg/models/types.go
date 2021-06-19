@@ -40,12 +40,6 @@ func (c Change) Equals(other Change) bool {
 type Changes []Change
 
 func (c Changes) Equals(other Changes) bool {
-	if c == nil {
-		return other == nil
-	}
-	if other == nil {
-		return false
-	}
 	if len(c) != len(other) {
 		return false
 	}
@@ -94,12 +88,6 @@ func (c Comment) Equals(other Comment) bool {
 type Comments []Comment
 
 func (c Comments) Equals(other Comments) bool {
-	if c == nil {
-		return other == nil
-	}
-	if other == nil {
-		return false
-	}
 	if len(c) != len(other) {
 		return false
 	}
@@ -135,12 +123,6 @@ type JavaScriptNumber float64
 type Lines []string
 
 func (l Lines) Equals(other Lines) bool {
-	if l == nil {
-		return other == nil
-	}
-	if other == nil {
-		return false
-	}
 	if len(l) != len(other) {
 		return false
 	}
