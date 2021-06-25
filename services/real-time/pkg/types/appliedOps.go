@@ -104,6 +104,7 @@ type Op struct {
 	Insertion string              `json:"i,omitempty"`
 	Position  int64               `json:"p"`
 	Thread    *primitive.ObjectID `json:"t,omitempty"`
+	Undo      bool                `json:"undo,omitempty"`
 }
 
 func (o *Op) IsComment() bool {
