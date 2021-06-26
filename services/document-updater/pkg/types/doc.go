@@ -18,6 +18,7 @@ package types
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -28,6 +29,15 @@ const megabytes = 1024 * 1024
 const MaxRangesSize = 3 * megabytes
 
 type UnFlushedTime int64
+
+func (u *UnFlushedTime) UnmarshalJSON(bytes []byte) error {
+	raw, err := strconv.ParseInt(string(bytes), 10, 64)
+	if err != nil {
+		return err
+	}
+	*u = UnFlushedTime(raw)
+	return nil
+}
 
 type LastUpdatedCtx struct {
 	At int64               `json:"at"`

@@ -130,6 +130,27 @@ func (e *NotAuthorizedError) IsFatal() bool {
 	return true
 }
 
+type NotFoundError struct {
+}
+
+func (e *NotFoundError) Error() string {
+	return "not found"
+}
+
+func (e *NotFoundError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: e.Error(),
+	}
+}
+
+func IsNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*NotFoundError)
+	return ok
+}
+
 type CodedError struct {
 	Description string
 	Code        string

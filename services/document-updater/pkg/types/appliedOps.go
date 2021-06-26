@@ -150,12 +150,12 @@ type DocumentUpdate struct {
 	Hash        string             `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Ops         Ops                `json:"op"`
-	Version     int64              `json:"v"`
+	Version     Version            `json:"v"`
 	LastVersion int64              `json:"lastV"`
 }
 type MinimalDocumentUpdate struct {
 	DocId   primitive.ObjectID `json:"doc"`
-	Version int64              `json:"v"`
+	Version Version            `json:"v"`
 }
 
 func (d *DocumentUpdate) Validate() error {

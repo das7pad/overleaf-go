@@ -19,6 +19,7 @@ package types
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,4 +228,17 @@ type Version int64
 
 func (v Version) Equals(other Version) bool {
 	return v == other
+}
+
+func (v Version) String() string {
+	return strconv.FormatInt(int64(v), 10)
+}
+
+func (v *Version) UnmarshalJSON(bytes []byte) error {
+	raw, err := strconv.ParseInt(string(bytes), 10, 64)
+	if err != nil {
+		return err
+	}
+	*v = Version(raw)
+	return nil
 }

@@ -17,13 +17,13 @@
 package types
 
 type ProjectUpdate struct {
-	Id      string `json:"id"`
-	Version string `json:"version"`
-	Type    string `json:"type"`
+	Id      string  `json:"id"`
+	Version Version `json:"version"`
+	Type    string  `json:"type"`
 }
 
 type RenameUpdate struct {
 	ProjectUpdate
-	PathName    string `json:"pathname"`
-	NewPathName string `json:"new_pathname"`
+	PathName    PathName `json:"pathname"`
+	NewPathName PathName `json:"new_pathname"`
 }
