@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -70,9 +71,9 @@ type Manager interface {
 	GetPreviousDocOps(
 		ctx context.Context,
 		docId primitive.ObjectID,
-		start int64,
-		end int64,
-	) ([]types.Op, error)
+		start types.Version,
+		end types.Version,
+	) ([]types.DocumentUpdate, error)
 
 	GetPreviousDocUpdatesUnderLock(
 		ctx context.Context,
@@ -297,9 +298,48 @@ func (m *manager) GetDocVersion(ctx context.Context, docId primitive.ObjectID) (
 	return v, nil
 }
 
-func (m *manager) GetPreviousDocOps(ctx context.Context, docId primitive.ObjectID, start int64, end int64) ([]types.Op, error) {
-	// use lua script
-	panic("implement me")
+var scriptGetPreviousDocUpdates = redis.NewScript(`
+local length = redis.call("LLEN", KEYS[1])
+if length == 0 then error("overleaf: length is 0") end
+
+local version = tonumber(redis.call("GET", KEYS[2]), 10)
+if version == nil then error("overleaf: version not found") end
+
+local first_version_in_redis = version - length
+local start = tonumber(ARGV[1], 10)
+local stop = tonumber(ARGV[2], 10)
+
+if start < first_version_in_redis then error("overleaf: too old start") end
+if stop > version then error("overleaf: end in future") end
+
+start = start - first_version_in_redis
+if stop > -1 then stop = (stop - first_version_in_redis) end
+
+return redis.call("LRANGE", KEYS[1], start, stop)
+`)
+
+func (m *manager) GetPreviousDocOps(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
+	keys := []string{
+		getDocUpdatesKey(docId),
+		getDocVersionKey(docId),
+	}
+	argv := []interface{}{
+		start.String(),
+		end.String(),
+	}
+	res, err := scriptGetPreviousDocUpdates.Run(ctx, m.rClient, keys, argv).Result()
+	if err != nil {
+		if strings.Contains(err.Error(), "overleaf:") {
+			return nil, errors.New("doc ops range is not loaded in redis")
+		}
+		return nil, errors.Tag(err, "cannot get previous updates from redis")
+	}
+	switch val := res.(type) {
+	case []string:
+		return m.parseDocumentUpdates(start, val)
+	default:
+		return nil, errors.New("unexpected updates response from redis")
+	}
 }
 
 func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
@@ -314,10 +354,14 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId prim
 	if len(raw) != int(n) {
 		return nil, errors.New("doc ops range is not loaded in redis")
 	}
-	updates := make([]types.DocumentUpdate, n)
+	return m.parseDocumentUpdates(start, raw)
+}
+
+func (m *manager) parseDocumentUpdates(start types.Version, raw []string) ([]types.DocumentUpdate, error) {
+	updates := make([]types.DocumentUpdate, len(raw))
 	for i, s := range raw {
 		update := types.DocumentUpdate{}
-		if err = json.Unmarshal([]byte(s), &update); err != nil {
+		if err := json.Unmarshal([]byte(s), &update); err != nil {
 			return nil, errors.Tag(err, "cannot parse update")
 		}
 		if i == 0 && start != update.Version {
