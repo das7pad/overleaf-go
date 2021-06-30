@@ -197,6 +197,11 @@ func (p *project) Compile(ctx context.Context, request *types.CompileRequest, re
 	p.compileMux.Lock()
 	defer p.compileMux.Unlock()
 
+	// Double check after acquiring the lock.
+	if p.pendingCompile != nil {
+		return &errors.AlreadyCompilingError{}
+	}
+
 	p.pendingCompile = trackOperationWithCancel(
 		ctx,
 		func(compileCtx context.Context) error {
