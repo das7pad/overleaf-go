@@ -58,7 +58,7 @@ var (
 )
 
 func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.CompileRequest, response *types.CompileResponse) (*types.CommandOutputFiles, error) {
-	cmd, err := r.composeCommandOptions(request, namespace)
+	cmd, err := r.composeCommandOptions(namespace, request, response)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, 
 	return &cmd.CommandOutputFiles, nil
 }
 
-func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, namespace types.Namespace) (*types.CommandOptions, error) {
+func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *types.CompileRequest, response *types.CompileResponse) (*types.CommandOptions, error) {
 	files, err := commandRunner.CreateCommandOutput(
 		r.options.CompileBaseDir.CompileDir(namespace),
 	)
@@ -150,5 +150,6 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, names
 		Timeout:            request.Options.Timeout,
 		CompileGroup:       request.Options.CompileGroup,
 		CommandOutputFiles: *files,
+		Timed:              &response.Timings.Compile,
 	}, nil
 }

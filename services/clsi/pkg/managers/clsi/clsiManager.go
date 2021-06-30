@@ -137,6 +137,7 @@ func (m *manager) ClearCache(ctx context.Context, projectId primitive.ObjectID, 
 }
 
 func (m *manager) Compile(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.CompileRequest, response *types.CompileResponse) error {
+	response.Timings.CompileE2E.Begin()
 	if err := request.Preprocess(m.options); err != nil {
 		return err
 	}
@@ -149,7 +150,9 @@ func (m *manager) Compile(ctx context.Context, projectId primitive.ObjectID, use
 		projectId,
 		userId,
 		func(p project.Project) error {
-			return p.Compile(ctx, request, response)
+			err := p.Compile(ctx, request, response)
+			response.Timings.CompileE2E.End()
+			return err
 		},
 	)
 }

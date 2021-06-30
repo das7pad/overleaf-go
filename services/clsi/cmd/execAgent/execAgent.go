@@ -37,7 +37,7 @@ const (
 	outputDir  = types.OutputDir(constants.OutputDirContainer)
 )
 
-func do(ctx context.Context, options *types.ExecAgentRequestOptions) (types.ExitCode, error) {
+func do(ctx context.Context, options *types.ExecAgentRequestOptions, timed *types.Timed) (types.ExitCode, error) {
 	args := make([]string, len(options.CommandLine))
 	for i, s := range options.CommandLine {
 		s = strings.ReplaceAll(
@@ -68,7 +68,9 @@ func do(ctx context.Context, options *types.ExecAgentRequestOptions) (types.Exit
 		cmd.Stdout = stdOut
 	}
 
+	timed.Begin()
 	err := cmd.Run()
+	timed.End()
 	if err == nil {
 		return 0, nil
 	}
@@ -80,32 +82,34 @@ func do(ctx context.Context, options *types.ExecAgentRequestOptions) (types.Exit
 
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	options := types.ExecAgentRequestOptions{}
+	timed := types.Timed{}
 	if err := json.NewDecoder(r.Body).Decode(&options); err != nil {
-		respond(w, http.StatusBadRequest, -1, "invalid request")
+		respond(w, http.StatusBadRequest, -1, timed, "invalid request")
 		return
 	}
 
 	timeout := time.Duration(options.Timeout)
 	ctx, done := context.WithTimeout(r.Context(), timeout)
 	defer done()
-	code, err := do(ctx, &options)
+	code, err := do(ctx, &options, &timed)
 	if err == nil {
-		respond(w, http.StatusOK, code, "")
+		respond(w, http.StatusOK, code, timed, "")
 	} else if err == context.Canceled {
-		respond(w, http.StatusConflict, code, constants.Cancelled)
+		respond(w, http.StatusConflict, code, timed, constants.Cancelled)
 	} else if err == context.DeadlineExceeded {
-		respond(w, http.StatusConflict, code, constants.TimedOut)
+		respond(w, http.StatusConflict, code, timed, constants.TimedOut)
 	} else {
-		respond(w, http.StatusInternalServerError, code, err.Error())
+		respond(w, http.StatusInternalServerError, code, timed, err.Error())
 	}
 }
 
-func respond(w http.ResponseWriter, status int, code types.ExitCode, message string) {
+func respond(w http.ResponseWriter, status int, code types.ExitCode, timed types.Timed, message string) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
-	msg := types.ExecAgentResponseBody{
+	msg := &types.ExecAgentResponseBody{
 		ExitCode:     code,
 		ErrorMessage: message,
+		Timed:        timed,
 	}
 	_ = json.NewEncoder(w).Encode(msg)
 }

@@ -52,6 +52,7 @@ type CommandOptions struct {
 	ImageName
 	CompileGroup
 	CommandOutputFiles
+	*Timed
 }
 
 type CommandOutputFiles struct {

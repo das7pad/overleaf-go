@@ -26,4 +26,5 @@ type ExecAgentRequestOptions struct {
 type ExecAgentResponseBody struct {
 	ExitCode     ExitCode `json:"exitCode"`
 	ErrorMessage string   `json:"error_message"`
+	Timed        Timed    `json:"timed"`
 }

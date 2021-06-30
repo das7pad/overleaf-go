@@ -223,12 +223,14 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	}
 	p.rootDocAlias.AddAliasDocIfNeeded(request)
 
+	response.Timings.Sync.Begin()
 	cache, err := p.writer.SyncResourcesToDisk(
 		ctx,
 		p.projectId,
 		p.namespace,
 		request,
 	)
+	response.Timings.Sync.End()
 	if err != nil {
 		return err
 	}
@@ -245,12 +247,14 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 		return err
 	}
 
+	response.Timings.Output.Begin()
 	outputFiles, hasOutputPDF, err := p.outputCache.SaveOutputFiles(
 		ctx,
 		cmdOutputFiles,
 		cache,
 		p.namespace,
 	)
+	response.Timings.Output.End()
 	if response.Status == constants.Success && !hasOutputPDF {
 		response.Status = constants.Failure
 	}
