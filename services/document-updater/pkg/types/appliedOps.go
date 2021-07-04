@@ -78,7 +78,7 @@ func (d *DocumentUpdateMeta) Validate() error {
 	return nil
 }
 
-type Op struct {
+type Component struct {
 	Comment   string              `json:"c,omitempty"`
 	Deletion  string              `json:"d,omitempty"`
 	Insertion string              `json:"i,omitempty"`
@@ -87,16 +87,19 @@ type Op struct {
 	Undo      bool                `json:"undo,omitempty"`
 }
 
-func (o *Op) IsComment() bool {
+func (o *Component) IsComment() bool {
 	return o.Comment != ""
 }
-func (o *Op) IsDeletion() bool {
+func (o *Component) IsDeletion() bool {
 	return o.Deletion != ""
 }
-func (o *Op) IsInsertion() bool {
+func (o *Component) IsInsertion() bool {
 	return o.Insertion != ""
 }
-func (o *Op) Validate() error {
+func (o *Component) Validate() error {
+	if o.Position < 0 {
+		return &errors.ValidationError{Msg: "position is negative"}
+	}
 	if o.IsComment() {
 		if o.Thread == nil || o.Thread.IsZero() {
 			return &errors.ValidationError{Msg: "comment op is missing thread"}
@@ -111,9 +114,9 @@ func (o *Op) Validate() error {
 	}
 }
 
-type Ops []Op
+type Op []Component
 
-func (o Ops) HasEditOp() bool {
+func (o Op) HasEdit() bool {
 	for _, op := range o {
 		if !op.IsComment() {
 			return true
@@ -122,7 +125,7 @@ func (o Ops) HasEditOp() bool {
 	return false
 }
 
-func (o Ops) HasCommentOp() bool {
+func (o Op) HasComment() bool {
 	for _, op := range o {
 		if op.IsComment() {
 			return true
@@ -131,12 +134,12 @@ func (o Ops) HasCommentOp() bool {
 	return false
 }
 
-func (o Ops) Validate() error {
+func (o Op) Validate() error {
 	if o == nil || len(o) == 0 {
 		return &errors.ValidationError{Msg: "missing ops"}
 	}
-	for _, op := range o {
-		if err := op.Validate(); err != nil {
+	for _, component := range o {
+		if err := component.Validate(); err != nil {
 			return err
 		}
 	}
@@ -149,7 +152,7 @@ type DocumentUpdate struct {
 	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
 	Hash        string             `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
-	Ops         Ops                `json:"op"`
+	Op          Op                 `json:"op"`
 	Version     Version            `json:"v"`
 	LastVersion int64              `json:"lastV"`
 }
@@ -159,7 +162,7 @@ type MinimalDocumentUpdate struct {
 }
 
 func (d *DocumentUpdate) Validate() error {
-	if err := d.Ops.Validate(); err != nil {
+	if err := d.Op.Validate(); err != nil {
 		return err
 	}
 	if err := d.Meta.Validate(); err != nil {

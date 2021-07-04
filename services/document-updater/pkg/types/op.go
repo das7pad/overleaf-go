@@ -147,6 +147,17 @@ func (s Snapshot) ToLines() Lines {
 	return strings.Split(string(s), "\n")
 }
 
+func (s Snapshot) Slice(start, end int64) string {
+	l := int64(len(s))
+	if l < start {
+		return ""
+	}
+	if l < end {
+		end = l
+	}
+	return string(s[start:end])
+}
+
 type Lines []string
 
 func (l Lines) Equals(other Lines) bool {
