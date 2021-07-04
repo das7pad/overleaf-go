@@ -18,28 +18,34 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
-	"unicode"
 
 	"github.com/gorilla/mux"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/document-updater/pkg/errors"
+	"github.com/das7pad/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/document-updater/pkg/types"
 )
 
-func newHttpController() httpController {
-	return httpController{}
+func newHttpController(dum documentUpdater.Manager) httpController {
+	return httpController{
+		dum: dum,
+	}
 }
 
 type httpController struct {
+	dum documentUpdater.Manager
 }
 
 func (h *httpController) GetRouter() http.Handler {
 	router := mux.NewRouter()
+	router.NotFoundHandler = http.HandlerFunc(h.handle404)
 	router.HandleFunc("/status", h.status)
+
 	projectRouter := router.
 		PathPrefix("/project/{projectId}").
 		Subrouter()
@@ -49,6 +55,17 @@ func (h *httpController) GetRouter() http.Handler {
 		PathPrefix("/doc/{docId}").
 		Subrouter()
 	docRouter.Use(validateAndSetId("docId"))
+
+	docRouter.
+		NewRoute().
+		Methods(http.MethodGet).
+		Path("").
+		HandlerFunc(h.getDoc)
+	docRouter.
+		NewRoute().
+		Methods(http.MethodGet, http.MethodHead).
+		Path("/exists").
+		HandlerFunc(h.checkDocExists)
 
 	return router
 }
@@ -82,20 +99,6 @@ func getId(r *http.Request, name string) primitive.ObjectID {
 func errorResponse(w http.ResponseWriter, code int, message string) {
 	w.WriteHeader(code)
 
-	// Align the error messages with the NodeJS implementation/tests.
-	if message == "invalid payload" {
-		// Realistically only the user_id field is of interest.
-		message = "invalid user_id"
-	}
-	// Emit a capitalized error message.
-	message = fmt.Sprintf(
-		"%s%s",
-		string(unicode.ToTitle(rune(message[0]))),
-		message[1:],
-	)
-	// Report errors is route parameter validation as projectId -> project_id.
-	message = strings.ReplaceAll(message, "Id", "_id")
-
 	// Flush it and ignore any errors.
 	_, _ = w.Write([]byte(message))
 }
@@ -105,23 +108,20 @@ func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("document-updater is alive (go)\n"))
 }
 
-func getNumberFromQuery(
+func getVersionFromQuery(
 	r *http.Request,
 	key string,
-	fallback float64,
-) (float64, error) {
+	fallback types.Version,
+) (types.Version, error) {
 	raw := r.URL.Query().Get(key)
 	if raw == "" {
 		return fallback, nil
 	}
-	return strconv.ParseFloat(raw, 64)
-}
-
-// TODO: move into pkg
-type ValidationError string
-
-func (v ValidationError) Error() string {
-	return string(v)
+	i, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return types.Version(i), nil
 }
 
 func respond(
@@ -133,21 +133,64 @@ func respond(
 	msg string,
 ) {
 	if err != nil {
-		if _, is400 := err.(ValidationError); is400 {
-			errorResponse(w, 400, err.Error())
+		if errors.IsValidationError(err) {
+			errorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, 500, msg)
+		if errors.IsNotAuthorizedError(err) {
+			errorResponse(w, http.StatusForbidden, err.Error())
+			return
+		}
+		if errors.IsNotFoundError(err) {
+			errorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if errors.IsInvalidState(err) {
+			errorResponse(w, http.StatusConflict, err.Error())
+			return
+		}
+		log.Printf("%s %s: %s: %s", r.Method, r.URL.Path, msg, err)
+		errorResponse(w, http.StatusInternalServerError, msg)
 		return
 	}
-	w.WriteHeader(code)
-	if body != nil {
+	if body == nil {
+		w.WriteHeader(code)
+	} else {
+		w.Header().Set(
+			"Content-Type",
+			"application/json; charset=utf-8",
+		)
+		if code != http.StatusOK {
+			w.WriteHeader(code)
+		}
 		_ = json.NewEncoder(w).Encode(body)
 	}
 }
 
-func (h *httpController) demo(w http.ResponseWriter, r *http.Request) {
-	i, err := getNumberFromQuery(r, "foo", 417)
-	respond(w, r, int(i), getId(r, "docId"), err, "demo")
+func (h *httpController) handle404(w http.ResponseWriter, r *http.Request) {
+	respond(w, r, 404, nil, errors.New("404"), "404")
+}
+
+func (h *httpController) checkDocExists(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.CheckDocExists(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "docId"),
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot check doc exists")
+}
+
+func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
+	fromVersion, err := getVersionFromQuery(r, "fromVersion", -1)
+	if err != nil {
+		errorResponse(w, 400, "invalid fromVersion")
+		return
+	}
+	doc, err := h.dum.GetDoc(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "docId"),
+		fromVersion,
+	)
+	respond(w, r, http.StatusOK, doc, err, "cannot get doc")
 }

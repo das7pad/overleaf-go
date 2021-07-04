@@ -59,6 +59,9 @@ func Tag(err error, msg string) *TaggedError {
 }
 
 func GetCause(err error) error {
+	if err == nil {
+		return err
+	}
 	if causer, ok := err.(Causer); ok {
 		return GetCause(causer.Cause())
 	}
@@ -80,6 +83,7 @@ func (v *ValidationError) Public() *JavaScriptError {
 }
 
 func IsValidationError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -106,6 +110,7 @@ func (i *InvalidStateError) Public() *JavaScriptError {
 }
 
 func IsInvalidState(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -130,6 +135,15 @@ func (e *NotAuthorizedError) IsFatal() bool {
 	return true
 }
 
+func IsNotAuthorizedError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*NotAuthorizedError)
+	return ok
+}
+
 type NotFoundError struct {
 }
 
@@ -144,6 +158,7 @@ func (e *NotFoundError) Public() *JavaScriptError {
 }
 
 func IsNotFoundError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}

@@ -17,6 +17,9 @@
 package types
 
 import (
+	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"strconv"
 
@@ -31,6 +34,9 @@ const MaxRangesSize = 3 * megabytes
 type UnFlushedTime int64
 
 func (u *UnFlushedTime) UnmarshalJSON(bytes []byte) error {
+	if bytes == nil {
+		return nil
+	}
 	raw, err := strconv.ParseInt(string(bytes), 10, 64)
 	if err != nil {
 		return err
@@ -49,11 +55,22 @@ type ProjectHistoryType string
 
 type FlushedDoc struct {
 	Lines              Lines              `json:"lines"`
-	Version            Version            `json:"version"`
-	Ranges             Ranges             `json:"ranges"`
 	PathName           PathName           `json:"pathname"`
 	ProjectHistoryId   ProjectHistoryId   `json:"projectHistoryId,omitempty"`
 	ProjectHistoryType ProjectHistoryType `json:"projectHistoryType,omitempty"`
+	Ranges             Ranges             `json:"ranges"`
+	Version            Version            `json:"version"`
+}
+
+func (d *FlushedDoc) ToDoc(projectId primitive.ObjectID) *Doc {
+	doc := &Doc{}
+	doc.Snapshot = d.Lines.ToSnapshot()
+	doc.PathName = d.PathName
+	doc.ProjectHistoryId = d.ProjectHistoryId
+	doc.ProjectId = projectId
+	doc.Ranges = d.Ranges
+	doc.Version = d.Version
+	return doc
 }
 
 type PathName string
@@ -75,18 +92,68 @@ type Doc struct {
 	UnFlushedTime
 }
 
-func (core *DocCore) UnmarshalJSON(bytes []byte) error {
-	if err := json.Unmarshal(bytes, &core); err != nil {
+func deserializeDocCoreV0(core *DocCore, blob []byte) error {
+	var err error
+	parts := bytes.Split(blob, []byte{0})
+	if len(parts) != 6 {
+		n := strconv.FormatInt(int64(len(parts)), 10)
+		return errors.New("expected 6 doc core parts, got " + n)
+	}
+
+	d := sha1.New()
+	d.Write(parts[0])
+	hash := Hash(hex.EncodeToString(d.Sum(nil)))
+
+	if err = hash.CheckMatches(Hash(parts[1])); err != nil {
 		return err
 	}
-	hash := core.Snapshot.Hash()
-	if core.Hash != hash {
-		return errors.New(
-			string("snapshot hash mismatch: " + core.Hash + " != " + hash),
-		)
+
+	var lines Lines
+	if err = json.Unmarshal(parts[0], &lines); err != nil {
+		return errors.Tag(err, "cannot parse lines")
+	}
+	core.Snapshot = lines.ToSnapshot()
+
+	core.JsonRanges = parts[2]
+
+	core.ProjectId, err = primitive.ObjectIDFromHex(string(parts[3]))
+	if err != nil {
+		return errors.Tag(err, "cannot parse projectId")
+	}
+
+	if err = json.Unmarshal(parts[4], &core.PathName); err != nil {
+		return errors.Tag(err, "cannot parse pathName")
+	}
+
+	if string(parts[5]) == "NaN" {
+		core.ProjectHistoryId = 0
+	} else {
+		if err = json.Unmarshal(parts[5], &core.ProjectHistoryId); err != nil {
+			return errors.Tag(err, "cannot parse projectHistoryId")
+		}
+	}
+	return nil
+}
+
+func (core *DocCore) UnmarshalJSON(bytes []byte) error {
+	if len(bytes) == 0 {
+		return errors.New("empty doc core blob")
+	}
+	if bytes[0] == '{' {
+		if err := json.Unmarshal(bytes, &core); err != nil {
+			return err
+		}
+		hash := core.Snapshot.Hash()
+		if err := core.Hash.CheckMatches(hash); err != nil {
+			return err
+		}
+	} else {
+		if err := deserializeDocCoreV0(core, bytes); err != nil {
+			return err
+		}
 	}
 	if err := json.Unmarshal(core.JsonRanges, &core.Ranges); err != nil {
-		return err
+		return errors.Tag(err, "cannot deserialize ranges")
 	}
 	return nil
 }

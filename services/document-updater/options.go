@@ -17,7 +17,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"os"
 	"strconv"
 	"strings"
@@ -27,9 +27,21 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+
+	"github.com/das7pad/document-updater/pkg/errors"
+	"github.com/das7pad/document-updater/pkg/types"
 )
 
-func getIntFromEnv(key string, fallback int) int {
+func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
+	if v, exists := os.LookupEnv(key); !exists || v == "" {
+		return fallback
+	}
+	return time.Duration(
+		getIntFromEnv(key, 0) * int64(time.Millisecond),
+	)
+}
+
+func getIntFromEnv(key string, fallback int64) int64 {
 	raw := os.Getenv(key)
 	if raw == "" {
 		return fallback
@@ -38,7 +50,7 @@ func getIntFromEnv(key string, fallback int) int {
 	if err != nil {
 		panic(err)
 	}
-	return int(parsed)
+	return parsed
 }
 
 func getStringFromEnv(key, fallback string) string {
@@ -49,22 +61,47 @@ func getStringFromEnv(key, fallback string) string {
 	return raw
 }
 
-func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
+func getJSONFromEnv(key string, target interface{}) {
 	if v, exists := os.LookupEnv(key); !exists || v == "" {
-		return fallback
+		panic(errors.New("missing " + key))
 	}
-	return time.Duration(getIntFromEnv(key, 0) * int(time.Millisecond))
+	err := json.Unmarshal([]byte(os.Getenv(key)), target)
+	if err != nil {
+		panic(errors.Tag(err, "malformed "+key))
+	}
 }
 
-func getOptions() (
-	address string,
-	mongoOptions *options.ClientOptions,
-	dbName string,
-	redisOptions *redis.UniversalOptions,
-) {
+type documentUpdaterOptions struct {
+	address string
+
+	mongoOptions *options.ClientOptions
+	dbName       string
+	redisOptions *redis.UniversalOptions
+	options      *types.Options
+}
+
+func getOptions() *documentUpdaterOptions {
+	o := &documentUpdaterOptions{}
 	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
-	port := getIntFromEnv("PORT", 3010)
-	address = fmt.Sprintf("%s:%d", listenAddress, port)
+	port := getIntFromEnv("PORT", 3003)
+	o.address = listenAddress + ":" + strconv.FormatInt(port, 10)
+
+	getJSONFromEnv("OPTIONS", &o.options)
+	if o.options.PendingUpdatesListShardCount <= 0 {
+		panic("pending_updates_list_shard_count must be greater than 0")
+	}
+
+	o.redisOptions = &redis.UniversalOptions{
+		Addrs: strings.Split(
+			getStringFromEnv("REDIS_HOST", "localhost:6379"),
+			",",
+		),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		MaxRetries: int(getIntFromEnv(
+			"REDIS_MAX_RETRIES_PER_REQUEST", 20),
+		),
+		PoolSize: int(getIntFromEnv("REDIS_POOL_SIZE", 0)),
+	}
 
 	mongoConnectionString := os.Getenv("MONGO_CONNECTION_STRING")
 	if mongoConnectionString == "" {
@@ -72,11 +109,9 @@ func getOptions() (
 		if mongoHost == "" {
 			mongoHost = "localhost"
 		}
-		mongoConnectionString = fmt.Sprintf(
-			"mongodb://%s/sharelatex", mongoHost,
-		)
+		mongoConnectionString = "mongodb://" + mongoHost + "/sharelatex"
 	}
-	mongoOptions = options.Client()
+	mongoOptions := options.Client()
 	mongoOptions.ApplyURI(mongoConnectionString)
 	mongoOptions.SetAppName(os.Getenv("SERVICE_NAME"))
 	mongoOptions.SetMaxPoolSize(
@@ -89,21 +124,13 @@ func getOptions() (
 		"MONGO_SERVER_SELECTION_TIMEOUT",
 		60*time.Second,
 	))
+	o.mongoOptions = mongoOptions
 
 	cs, err := connstring.Parse(mongoConnectionString)
 	if err != nil {
 		panic(err)
 	}
-	dbName = cs.Database
+	o.dbName = cs.Database
 
-	redisOptions = &redis.UniversalOptions{
-		Addrs: strings.Split(
-			getStringFromEnv("REDIS_HOST", "localhost:6379"),
-			",",
-		),
-		Password:   os.Getenv("REDIS_PASSWORD"),
-		MaxRetries: getIntFromEnv("REDIS_MAX_RETRIES_PER_REQUEST", 20),
-		PoolSize:   getIntFromEnv("REDIS_POOL_SIZE", 0),
-	}
-	return
+	return o
 }

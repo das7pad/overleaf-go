@@ -171,6 +171,21 @@ func (d *DocumentUpdate) Validate() error {
 	return nil
 }
 
+const maxAgeOfOp = Version(80)
+
+func (d *DocumentUpdate) CheckVersion(current Version) error {
+	if d.Version < 0 {
+		return &errors.ValidationError{Msg: "Version missing"}
+	}
+	if d.Version > current {
+		return &errors.ValidationError{Msg: "Op at future version"}
+	}
+	if d.Version+maxAgeOfOp < current {
+		return &errors.ValidationError{Msg: "Op too old"}
+	}
+	return nil
+}
+
 type AppliedOpsMessage struct {
 	DocId       primitive.ObjectID      `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`

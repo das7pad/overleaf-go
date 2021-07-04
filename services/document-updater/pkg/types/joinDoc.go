@@ -16,20 +16,9 @@
 
 package types
 
-import (
-	"encoding/json"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
-)
-
-type JoinDocRequest struct {
-	DocId       primitive.ObjectID
-	FromVersion Version `json:"fromVersion"`
-}
-
-type JoinDocResponse struct {
-	Ops      json.RawMessage `json:"ops"`
-	Ranges   Ranges          `json:"ranges"`
-	Snapshot json.RawMessage `json:"snapshot"`
-	Version  Version         `json:"version"`
+type GetDocResponse struct {
+	Ops      []DocumentUpdate `json:"ops"`
+	Ranges   Ranges           `json:"ranges"`
+	Snapshot Snapshot         `json:"snapshot"`
+	Version  Version          `json:"version"`
 }

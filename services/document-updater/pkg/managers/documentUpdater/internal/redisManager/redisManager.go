@@ -256,12 +256,14 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 		return nil, &errors.NotFoundError{}
 	}
 	blobs := make([][]byte, len(results))
-	for _, result := range results {
+	for i, result := range results {
 		switch value := result.(type) {
 		case []byte:
-			blobs = append(blobs, value)
+			blobs[i] = value
 		case string:
-			blobs = append(blobs, []byte(value))
+			blobs[i] = []byte(value)
+		case nil:
+			blobs[i] = nil
 		default:
 			return nil, errors.New("unexpected value from redis")
 		}
@@ -319,6 +321,9 @@ return redis.call("LRANGE", KEYS[1], start, stop)
 `)
 
 func (m *manager) GetPreviousDocOps(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
+	if start == end {
+		return make([]types.DocumentUpdate, 0), nil
+	}
 	keys := []string{
 		getDocUpdatesKey(docId),
 		getDocVersionKey(docId),

@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/document-updater/pkg/errors"
 )
 
 type Change struct {
@@ -135,6 +137,16 @@ func (o CommentOp) Equals(other CommentOp) bool {
 }
 
 type Hash string
+
+func (h Hash) CheckMatches(other Hash) error {
+	if h == other {
+		return nil
+	}
+	return errors.New(
+		string("snapshot hash mismatch: " + h + " != " + other),
+	)
+}
+
 type Snapshot string
 
 func (s Snapshot) Hash() Hash {

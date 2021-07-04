@@ -26,6 +26,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"github.com/das7pad/document-updater/pkg/managers/documentUpdater"
 )
 
 const StartUpTimeout = time.Second * 30
@@ -73,29 +75,33 @@ func waitForRedis(
 }
 
 func main() {
-	address, mongoOptions, dbName, redisOptions := getOptions()
+	o := getOptions()
 	ctx := context.Background()
-	mongoClient, err := mongo.Connect(ctx, mongoOptions)
+	mongoClient, err := mongo.Connect(ctx, o.mongoOptions)
 	if err != nil {
 		panic(err)
 	}
-	redisClient := redis.NewUniversalClient(redisOptions)
+	redisClient := redis.NewUniversalClient(o.redisOptions)
 
 	waitForDataStores(ctx, mongoClient, redisClient)
 
-	db := mongoClient.Database(dbName)
+	db := mongoClient.Database(o.dbName)
 
 	// keep reference while building the app
 	fmt.Println(db)
 
-	handler := newHttpController()
+	dum, err := documentUpdater.New(o.options, redisClient)
+	if err != nil {
+		panic(err)
+	}
+	handler := newHttpController(dum)
 
 	server := http.Server{
-		Addr:    address,
+		Addr:    o.address,
 		Handler: handler.GetRouter(),
 	}
 	err = server.ListenAndServe()
-	if err != nil {
+	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }
