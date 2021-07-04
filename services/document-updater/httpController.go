@@ -51,6 +51,12 @@ func (h *httpController) GetRouter() http.Handler {
 		Subrouter()
 	projectRouter.Use(validateAndSetId("projectId"))
 
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
+		Path("/flush").
+		HandlerFunc(h.flushProject)
+
 	docRouter := projectRouter.
 		PathPrefix("/doc/{docId}").
 		Subrouter()
@@ -193,4 +199,12 @@ func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
 		fromVersion,
 	)
 	respond(w, r, http.StatusOK, doc, err, "cannot get doc")
+}
+
+func (h *httpController) flushProject(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.FlushProject(
+		r.Context(),
+		getId(r, "projectId"),
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot flush project")
 }

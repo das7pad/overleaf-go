@@ -38,6 +38,7 @@ type Manager interface {
 		docId primitive.ObjectID,
 		fromVersion types.Version,
 	) (*types.GetDocResponse, error)
+	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
@@ -82,4 +83,8 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 		response.Version = doc.Version
 	}
 	return &response, nil
+}
+
+func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
+	return nil
 }
