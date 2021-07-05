@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/das7pad/real-time/pkg/errors"
 	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/real-time/pkg/types"
 )
@@ -60,9 +61,16 @@ func (r *DocRoom) Handle(raw string) {
 }
 
 func (r *DocRoom) handleError(msg *types.AppliedOpsMessage) error {
+	blob, err := json.Marshal(&types.AppliedOpsMessage{
+		DocId: msg.DocId,
+	})
+	if err != nil {
+		return errors.Tag(err, "cannot compose minimal error message")
+	}
 	resp := types.RPCResponse{
 		Error:      msg.Error,
 		Name:       "otUpdateError",
+		Body:       blob,
 		FatalError: true,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
