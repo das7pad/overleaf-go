@@ -32,8 +32,8 @@ func Apply(snapshot types.Snapshot, ops types.Op) (types.Snapshot, error) {
 			end := op.Position + int64(len(op.Deletion))
 			deletionActual := snapshot.Slice(start, end)
 			if op.Deletion != deletionActual {
-				return "", &errors.JavaScriptError{
-					Message: "Delete component '" +
+				return "", &errors.CodedError{
+					Description: "Delete component '" +
 						op.Deletion +
 						"' does not match deleted text '" +
 						deletionActual +
@@ -46,8 +46,8 @@ func Apply(snapshot types.Snapshot, ops types.Op) (types.Snapshot, error) {
 			end := op.Position + int64(len(op.Comment))
 			commentActual := snapshot.Slice(start, end)
 			if op.Comment != commentActual {
-				return "", &errors.JavaScriptError{
-					Message: "Comment component '" +
+				return "", &errors.CodedError{
+					Description: "Comment component '" +
 						op.Comment +
 						"' does not match commented text '" +
 						commentActual +

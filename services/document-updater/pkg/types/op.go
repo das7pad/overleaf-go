@@ -142,9 +142,9 @@ func (h Hash) CheckMatches(other Hash) error {
 	if h == other {
 		return nil
 	}
-	return errors.New(
-		string("snapshot hash mismatch: " + h + " != " + other),
-	)
+	return &errors.CodedError{
+		Description: string("snapshot hash mismatch: " + h + " != " + other),
+	}
 }
 
 type Snapshot string

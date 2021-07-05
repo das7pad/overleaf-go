@@ -44,6 +44,10 @@ func New(rm redisManager.Manager, rtRm realTimeRedisManager.Manager) Manager {
 	}
 }
 
+const (
+	maxDocLength = 2 * 1024 * 1024
+)
+
 type manager struct {
 	rm   redisManager.Manager
 	rtRm realTimeRedisManager.Manager
@@ -79,6 +83,7 @@ func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive
 
 outer:
 	for _, update := range updates {
+		incomingVersion := update.Version
 		offset := len(allTransformUpdates) - int(doc.Version-update.Version)
 		transformUpdates := allTransformUpdates[offset:]
 		for _, transformUpdate := range transformUpdates {
@@ -99,6 +104,18 @@ outer:
 		if err != nil {
 			return processed, err
 		}
+
+		if len(s) > maxDocLength {
+			return processed, &errors.CodedError{
+				Description: "Update takes doc over max doc size",
+			}
+		}
+		if incomingVersion == doc.Version && len(update.Hash) != 0 {
+			if err = s.Hash().CheckMatches(update.Hash); err != nil {
+				return processed, err
+			}
+		}
+
 		doc.Snapshot = s
 		doc.Version++
 		doc.LastUpdatedCtx.At = time.Now().Unix()

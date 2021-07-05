@@ -161,7 +161,7 @@ type DocumentUpdate struct {
 	DocId       primitive.ObjectID `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
 	DupIfSource `json:"dupIfSource,omitempty"`
-	Hash        string             `json:"hash,omitempty"`
+	Hash        Hash               `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Op          Op                 `json:"op"`
 	Version     Version            `json:"v"`

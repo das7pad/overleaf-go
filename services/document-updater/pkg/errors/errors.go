@@ -172,7 +172,7 @@ type CodedError struct {
 }
 
 func (e *CodedError) Error() string {
-	return "coded error: " + e.Code
+	return e.Description + " (" + e.Code + ")"
 }
 
 func (e *CodedError) Public() *JavaScriptError {

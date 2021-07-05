@@ -39,8 +39,8 @@ const (
 	rightSide
 )
 
-var deleteOpsDeleteDifferentText = &errors.JavaScriptError{
-	Message: "Delete ops delete different text in the same region of the document",
+var deleteOpsDeleteDifferentText = &errors.CodedError{
+	Description: "Delete ops delete different text in the same region of the document",
 }
 
 func transformPosition(p int64, c types.Component, insertAfter bool) int64 {
