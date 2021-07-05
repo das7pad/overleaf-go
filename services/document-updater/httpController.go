@@ -61,6 +61,11 @@ func (h *httpController) GetRouter() http.Handler {
 		Methods(http.MethodPost).
 		Path("/flush").
 		HandlerFunc(h.flushProject)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
+		Path("/get_and_flush_if_old").
+		HandlerFunc(h.getAndFlushIfOld)
 
 	docRouter := projectRouter.
 		PathPrefix("/doc/{docId}").
@@ -248,4 +253,14 @@ func (h *httpController) flushAndDeleteProject(w http.ResponseWriter, r *http.Re
 		getId(r, "projectId"),
 	)
 	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete project")
+}
+
+func (h *httpController) getAndFlushIfOld(w http.ResponseWriter, r *http.Request) {
+	state := r.URL.Query().Get("state")
+	docs, err := h.dum.GetProjectDocsAndFlushIfOld(
+		r.Context(),
+		getId(r, "projectId"),
+		state,
+	)
+	respond(w, r, http.StatusOK, docs, err, "cannot get and flush old")
 }

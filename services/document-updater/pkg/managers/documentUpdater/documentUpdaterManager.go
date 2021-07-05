@@ -38,6 +38,7 @@ type Manager interface {
 		docId primitive.ObjectID,
 		fromVersion types.Version,
 	) (*types.GetDocResponse, error)
+	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
 	FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
@@ -86,6 +87,10 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 		response.Version = doc.Version
 	}
 	return response, nil
+}
+
+func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error) {
+	return m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
 }
 
 func (m *manager) FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {

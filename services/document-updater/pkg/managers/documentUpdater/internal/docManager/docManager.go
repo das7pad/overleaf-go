@@ -36,6 +36,7 @@ import (
 type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error)
+	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
 
 	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error)
 
@@ -287,4 +288,25 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 		return errors.New(s)
 	}
 	return nil
+}
+
+func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error) {
+	err := m.rm.CheckOrSetProjectState(ctx, projectId, newState)
+	if err != nil {
+		return nil, err
+	}
+	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
+	if err != nil {
+		return nil, err
+	}
+	docs := make([]*types.DocContent, len(docIds))
+	for i, docId := range docIds {
+		// TODO: force flush for old docs
+		doc, _, err2 := m.ProcessUpdatesForDoc(ctx, projectId, docId)
+		if err2 != nil {
+			return nil, errors.Tag(err2, projectId.Hex()+"/"+docId.Hex())
+		}
+		docs[i] = doc.ToDocContent(docId)
+	}
+	return docs, nil
 }

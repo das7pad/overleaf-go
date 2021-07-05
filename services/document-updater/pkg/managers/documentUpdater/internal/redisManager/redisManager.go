@@ -50,7 +50,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		newState string,
-	) (bool, error)
+	) error
 
 	ClearProjectState(
 		ctx context.Context,
@@ -218,17 +218,20 @@ func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId primitive.O
 	return nil
 }
 
-func (m *manager) CheckOrSetProjectState(ctx context.Context, projectId primitive.ObjectID, newState string) (bool, error) {
+func (m *manager) CheckOrSetProjectState(ctx context.Context, projectId primitive.ObjectID, newState string) error {
 	var res *redis.StringCmd
 	_, err := m.rClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		res = p.GetSet(ctx, getProjectStateKey(projectId), newState)
 		p.Expire(ctx, getProjectStateKey(projectId), 30*time.Minute)
 		return nil
 	})
-	if err != nil {
-		return false, errors.Tag(err, "cannot check/swap state")
+	if err != nil && err != redis.Nil {
+		return errors.Tag(err, "cannot check/swap state")
 	}
-	return res.Val() != newState, nil
+	if res == nil || res.Val() != newState {
+		return &errors.InvalidStateError{}
+	}
+	return nil
 }
 
 func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {

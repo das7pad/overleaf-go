@@ -110,6 +110,20 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 	}
 }
 
+type DocContent struct {
+	Id      primitive.ObjectID `json:"_id"`
+	Lines   Lines              `json:"lines"`
+	Version Version            `json:"v"`
+}
+
+func (d *Doc) ToDocContent(docId primitive.ObjectID) *DocContent {
+	return &DocContent{
+		Id:      docId,
+		Lines:   d.Snapshot.ToLines(),
+		Version: d.Version,
+	}
+}
+
 func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 	var err error
 	parts := bytes.Split(blob, []byte{0})
