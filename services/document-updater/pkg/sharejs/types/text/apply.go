@@ -32,13 +32,13 @@ func Apply(snapshot types.Snapshot, ops types.Op) (types.Snapshot, error) {
 			end := op.Position + int64(len(op.Deletion))
 			deletionActual := snapshot.Slice(start, end)
 			if op.Deletion != deletionActual {
-				return "", errors.New(
-					"Delete component '" +
+				return "", &errors.JavaScriptError{
+					Message: "Delete component '" +
 						op.Deletion +
 						"' does not match deleted text '" +
 						deletionActual +
 						"'",
-				)
+				}
 			}
 			snapshot = snapshot[:start] + snapshot[end:]
 		} else if op.IsComment() {
@@ -46,13 +46,13 @@ func Apply(snapshot types.Snapshot, ops types.Op) (types.Snapshot, error) {
 			end := op.Position + int64(len(op.Comment))
 			commentActual := snapshot.Slice(start, end)
 			if op.Comment != commentActual {
-				return "", errors.New(
-					"Comment component '" +
+				return "", &errors.JavaScriptError{
+					Message: "Comment component '" +
 						op.Comment +
 						"' does not match commented text '" +
 						commentActual +
 						"'",
-				)
+				}
 			}
 		}
 		// NOTE: else case is handled in validation on ingestion into service.

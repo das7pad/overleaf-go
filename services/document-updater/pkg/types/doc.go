@@ -46,8 +46,8 @@ func (u *UnFlushedTime) UnmarshalJSON(bytes []byte) error {
 }
 
 type LastUpdatedCtx struct {
-	At int64               `json:"at"`
-	By *primitive.ObjectID `json:"by,omitempty"`
+	At int64              `json:"at"`
+	By primitive.ObjectID `json:"by,omitempty"`
 }
 
 type ProjectHistoryId int64
@@ -135,7 +135,7 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 	return nil
 }
 
-func (core *DocCore) UnmarshalJSON(bytes []byte) error {
+func (core *DocCore) DoUnmarshalJSON(bytes []byte) error {
 	if len(bytes) == 0 {
 		return errors.New("empty doc core blob")
 	}
@@ -158,7 +158,7 @@ func (core *DocCore) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func (core *DocCore) MarshalJSON() ([]byte, error) {
+func (core *DocCore) DoMarshalJSON() ([]byte, error) {
 	ranges, err := json.Marshal(core.Ranges)
 	if err != nil {
 		return nil, err

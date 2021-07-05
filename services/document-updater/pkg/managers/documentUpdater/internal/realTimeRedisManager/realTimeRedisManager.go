@@ -28,6 +28,8 @@ import (
 )
 
 type Manager interface {
+	ConfirmUpdates(ctx context.Context, processed []types.DocumentUpdate) error
+
 	GetPendingUpdatesForDoc(
 		ctx context.Context,
 		docId primitive.ObjectID,
@@ -38,9 +40,10 @@ type Manager interface {
 		docId primitive.ObjectID,
 	) (int64, error)
 
-	SendMessage(
+	ReportError(
 		ctx context.Context,
-		message *types.AppliedOpsMessage,
+		docId primitive.ObjectID,
+		err error,
 	) error
 }
 
@@ -91,15 +94,69 @@ func (m *manager) GetUpdatesLength(ctx context.Context, docId primitive.ObjectID
 	return n, nil
 }
 
-func (m *manager) SendMessage(ctx context.Context, message *types.AppliedOpsMessage) error {
-	blob, err := json.Marshal(message)
-	if err != nil {
-		return errors.Tag(err, "cannot serialize message")
+func (m *manager) ConfirmUpdates(ctx context.Context, processed []types.DocumentUpdate) error {
+	_, err := m.client.Pipelined(ctx, func(p redis.Pipeliner) error {
+		for _, update := range processed {
+			if update.Dup {
+				// minimal response
+				update = types.DocumentUpdate{
+					DocId: update.DocId,
+					Dup:   true,
+					Meta: types.DocumentUpdateMeta{
+						Source: update.Meta.Source,
+					},
+					Version: update.Version,
+				}
+			}
+
+			blob, err := json.Marshal(update)
+			if err != nil {
+				return errors.Tag(err, "cannot serialize update")
+			}
+			_, err = m.sendMessageVia(ctx, p, &types.AppliedOpsMessage{
+				DocId:     update.DocId,
+				UpdateRaw: blob,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return err
+}
+
+func (m *manager) ReportError(ctx context.Context, docId primitive.ObjectID, err error) error {
+	message := &types.AppliedOpsMessage{
+		DocId: docId,
 	}
-	channel := "applied-ops:" + message.DocId.Hex()
-	err = m.client.Publish(ctx, channel, blob).Err()
+	if publicErr, ok := err.(errors.PublicError); ok {
+		message.Error = publicErr.Public()
+	} else {
+		message.Error = &errors.JavaScriptError{
+			Message: "hidden error in document-updater",
+			Code:    "hidden",
+		}
+	}
+	return m.sendMessage(ctx, message)
+}
+
+func (m *manager) sendMessage(ctx context.Context, message *types.AppliedOpsMessage) error {
+	cmd, err := m.sendMessageVia(ctx, m.client, message)
 	if err != nil {
+		return err
+	}
+	if err = cmd.Err(); err != nil {
 		return errors.Tag(err, "cannot send message")
 	}
 	return nil
+}
+
+func (m *manager) sendMessageVia(ctx context.Context, runner redis.Cmdable, message *types.AppliedOpsMessage) (*redis.IntCmd, error) {
+	blob, err := json.Marshal(message)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot serialize message")
+	}
+	channel := "applied-ops:" + message.DocId.Hex()
+	return runner.Publish(ctx, channel, blob), nil
 }

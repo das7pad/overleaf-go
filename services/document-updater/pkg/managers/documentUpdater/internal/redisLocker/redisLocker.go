@@ -173,7 +173,7 @@ func (l *locker) releaseLock(key string, lockValue string, workDeadline time.Tim
 		return err
 	}
 	switch returnValue := res.(type) {
-	case int, int64:
+	case int64:
 		if returnValue == 1 {
 			return nil
 		}

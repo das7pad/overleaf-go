@@ -95,11 +95,9 @@ type Manager interface {
 
 	UpdateDocument(
 		ctx context.Context,
-		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
 		doc *types.Doc,
 		appliedUpdates []types.DocumentUpdate,
-		updateMetaData *types.DocumentUpdateMeta,
 	) (int64, error)
 
 	RenameDoc(
@@ -183,7 +181,7 @@ func (m *manager) PutDocInMemory(ctx context.Context, projectId primitive.Object
 	if err != nil {
 		return errors.Tag(err, "cannot record doc in project")
 	}
-	coreBlob, err := doc.DocCore.MarshalJSON()
+	coreBlob, err := doc.DocCore.DoMarshalJSON()
 	if err != nil {
 		return errors.Tag(err, "cannot serialize DocCore")
 	}
@@ -269,7 +267,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 		}
 	}
 	doc := &types.Doc{}
-	if err := doc.DocCore.UnmarshalJSON(blobs[0]); err != nil {
+	if err := doc.DocCore.DoUnmarshalJSON(blobs[0]); err != nil {
 		return nil, errors.Tag(err, "cannot parse doc core")
 	}
 	if doc.ProjectId != projectId {
@@ -385,7 +383,7 @@ func (m *manager) SetHistoryType(ctx context.Context, docId primitive.ObjectID, 
 	panic("implement me")
 }
 
-func (m *manager) UpdateDocument(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, doc *types.Doc, appliedUpdates []types.DocumentUpdate, updateMetaData *types.DocumentUpdateMeta) (int64, error) {
+func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, appliedUpdates []types.DocumentUpdate) (int64, error) {
 	currentVersion, err := m.GetDocVersion(ctx, docId)
 	if err != nil {
 		return 0, errors.Tag(err, "cannot get doc version for validation")
@@ -400,7 +398,7 @@ func (m *manager) UpdateDocument(ctx context.Context, projectId primitive.Object
 		)
 	}
 
-	coreBlob, err := doc.DocCore.MarshalJSON()
+	coreBlob, err := doc.DocCore.DoMarshalJSON()
 	if err != nil {
 		return 0, errors.Tag(err, "cannot serialize doc core")
 	}

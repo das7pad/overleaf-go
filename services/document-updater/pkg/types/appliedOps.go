@@ -62,7 +62,7 @@ type DocumentUpdateMeta struct {
 	Source           PublicId           `json:"source"`
 	Timestamp        Timestamp          `json:"ts,omitempty"`
 	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
-	UserId           primitive.ObjectID `json:"user_id"`
+	UserId           primitive.ObjectID `json:"user_id,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {
@@ -146,19 +146,26 @@ func (o Op) Validate() error {
 	return nil
 }
 
+type DupIfSource []PublicId
+
+func (d DupIfSource) Contains(id PublicId) bool {
+	for _, publicId := range d {
+		if publicId == id {
+			return true
+		}
+	}
+	return false
+}
+
 type DocumentUpdate struct {
 	DocId       primitive.ObjectID `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
-	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
+	DupIfSource `json:"dupIfSource,omitempty"`
 	Hash        string             `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Op          Op                 `json:"op"`
 	Version     Version            `json:"v"`
 	LastVersion int64              `json:"lastV"`
-}
-type MinimalDocumentUpdate struct {
-	DocId   primitive.ObjectID `json:"doc"`
-	Version Version            `json:"v"`
 }
 
 func (d *DocumentUpdate) Validate() error {
