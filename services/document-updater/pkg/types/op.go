@@ -151,6 +151,9 @@ type Snapshot string
 
 func (s Snapshot) Hash() Hash {
 	d := sha1.New()
+	d.Write(
+		[]byte("blob " + strconv.FormatInt(int64(len(s)), 10) + "\x00"),
+	)
 	d.Write([]byte(s))
 	return Hash(hex.EncodeToString(d.Sum(nil)))
 }
