@@ -38,7 +38,10 @@ type Manager interface {
 		docId primitive.ObjectID,
 		fromVersion types.Version,
 	) (*types.GetDocResponse, error)
+	FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
+	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
+	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
@@ -61,7 +64,7 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive
 }
 
 func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.GetDocResponse, error) {
-	var response types.GetDocResponse
+	response := &types.GetDocResponse{}
 	if fromVersion == -1 {
 		doc, err := m.dm.GetDoc(ctx, projectId, docId)
 		if err != nil {
@@ -82,9 +85,21 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 		response.Ranges = doc.Ranges
 		response.Version = doc.Version
 	}
-	return &response, nil
+	return response, nil
+}
+
+func (m *manager) FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	return m.dm.FlushDoc(ctx, projectId, docId)
+}
+
+func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	return m.dm.FlushAndDeleteDoc(ctx, projectId, docId)
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
-	return nil
+	return m.dm.FlushProject(ctx, projectId)
+}
+
+func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+	return m.dm.FlushAndDeleteProject(ctx, projectId)
 }

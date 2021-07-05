@@ -92,6 +92,24 @@ type Doc struct {
 	UnFlushedTime
 }
 
+type SetDocDetails struct {
+	Lines         Lines              `json:"lines"`
+	Ranges        Ranges             `json:"ranges"`
+	Version       Version            `json:"version"`
+	LastUpdatedAt int64              `json:"lastUpdatedAt"`
+	LastUpdatedBy primitive.ObjectID `json:"lastUpdatedBy"`
+}
+
+func (d *Doc) ToSetDocDetails() *SetDocDetails {
+	return &SetDocDetails{
+		Lines:         d.Snapshot.ToLines(),
+		Ranges:        d.Ranges,
+		Version:       d.Version,
+		LastUpdatedAt: d.LastUpdatedCtx.At,
+		LastUpdatedBy: d.LastUpdatedCtx.By,
+	}
+}
+
 func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 	var err error
 	parts := bytes.Split(blob, []byte{0})
@@ -125,7 +143,7 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 		return errors.Tag(err, "cannot parse pathName")
 	}
 
-	if string(parts[5]) == "NaN" {
+	if string(parts[5]) == "NaN" || string(parts[5]) == "undefined" {
 		core.ProjectHistoryId = 0
 	} else {
 		if err = json.Unmarshal(parts[5], &core.ProjectHistoryId); err != nil {

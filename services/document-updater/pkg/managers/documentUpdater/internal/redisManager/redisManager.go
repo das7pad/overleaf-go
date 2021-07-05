@@ -280,8 +280,10 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 	if err := doc.UnFlushedTime.UnmarshalJSON(blobs[2]); err != nil {
 		return nil, errors.Tag(err, "cannot parse doc un-flushed time")
 	}
-	if err := json.Unmarshal(blobs[3], &doc.LastUpdatedCtx); err != nil {
-		return nil, errors.Tag(err, "cannot parse doc version")
+	if len(blobs[3]) > 2 {
+		if err := json.Unmarshal(blobs[3], &doc.LastUpdatedCtx); err != nil {
+			return nil, errors.Tag(err, "cannot parse last updated ctx")
+		}
 	}
 	return doc, nil
 }
@@ -388,13 +390,15 @@ func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, 
 	if err != nil {
 		return 0, errors.Tag(err, "cannot get doc version for validation")
 	}
-	if currentVersion != doc.Version-1 {
+	nUpdatesOffset := types.Version(len(appliedUpdates))
+	if currentVersion != doc.Version-nUpdatesOffset {
 		return 0, errors.New(
 			"refusing to update: remote version mismatches local version: " +
 				currentVersion.String() +
 				" != " +
 				doc.Version.String() +
-				" - 1",
+				" - " +
+				nUpdatesOffset.String(),
 		)
 	}
 
@@ -434,10 +438,12 @@ func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, 
 		}
 		// NOTE: Node.JS is doing this in above branch.
 		//       This might be a problem for ranges-only updates.
+		now := time.Now().Unix()
+		doc.UnFlushedTime = types.UnFlushedTime(now)
 		p.SetNX(
 			ctx,
 			getUnFlushedTimeKey(docId),
-			time.Now().Unix(),
+			now,
 			0,
 		)
 

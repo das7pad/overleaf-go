@@ -17,6 +17,7 @@
 package webApi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 
 type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.FlushedDoc, error)
+	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -51,6 +53,11 @@ func New(options *types.Options) (Manager, error) {
 	}, nil
 }
 
+const (
+	maxRetries = 3
+	backOff    = 5 * time.Second
+)
+
 type manager struct {
 	baseURL string
 
@@ -60,11 +67,17 @@ type manager struct {
 func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.FlushedDoc, error) {
 	var err error
 	var doc *types.FlushedDoc
-	for i := 0; i < 2; i++ {
+	for i := 0; i < maxRetries; i++ {
 		if i != 0 {
-			time.Sleep(10 * time.Second)
+			time.Sleep(backOff)
+		}
+		if err2 := ctx.Err(); err2 != nil {
+			return nil, err2
 		}
 		doc, err = m.getDocOnce(ctx, projectId, docId)
+		if err2 := ctx.Err(); err2 != nil {
+			return nil, err2
+		}
 		if err == nil {
 			return doc, nil
 		}
@@ -105,6 +118,61 @@ func (m *manager) getDocOnce(ctx context.Context, projectId, docId primitive.Obj
 		return nil, &errors.NotFoundError{}
 	default:
 		return nil, errors.New(
+			"non-success status code from web: " + res.Status,
+		)
+	}
+}
+func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error {
+	blob, err := json.Marshal(doc)
+	if err != nil {
+		return errors.Tag(err, "cannot serialize doc")
+	}
+
+	for i := 0; i < maxRetries; i++ {
+		if i != 0 {
+			time.Sleep(backOff)
+		}
+		if err2 := ctx.Err(); err2 != nil {
+			return err2
+		}
+		err = m.setDocOnce(ctx, projectId, docId, blob)
+		if err2 := ctx.Err(); err2 != nil {
+			return err2
+		}
+		if err == nil {
+			return nil
+		}
+		err = errors.Tag(err, "cannot set doc")
+		if errors.IsNotFoundError(err) {
+			return err
+		}
+	}
+	return err
+}
+
+func (m *manager) setDocOnce(ctx context.Context, projectId, docId primitive.ObjectID, blob json.RawMessage) error {
+	body := bytes.NewReader(blob)
+	u := m.baseURL
+	u += "/project/" + projectId.Hex()
+	u += "/doc/" + docId.Hex()
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
+	if err != nil {
+		return err
+	}
+	r.Header.Set("Content-Type", "application/json")
+	res, err := m.client.Do(r)
+	if err != nil {
+		return err
+	}
+	_ = res.Body.Close()
+
+	switch res.StatusCode {
+	case http.StatusOK, http.StatusAccepted, http.StatusNoContent:
+		return nil
+	case http.StatusNotFound:
+		return &errors.NotFoundError{}
+	default:
+		return errors.New(
 			"non-success status code from web: " + res.Status,
 		)
 	}

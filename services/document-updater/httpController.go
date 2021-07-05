@@ -53,6 +53,11 @@ func (h *httpController) GetRouter() http.Handler {
 
 	projectRouter.
 		NewRoute().
+		Methods(http.MethodDelete).
+		Path("").
+		HandlerFunc(h.flushAndDeleteProject)
+	projectRouter.
+		NewRoute().
 		Methods(http.MethodPost).
 		Path("/flush").
 		HandlerFunc(h.flushProject)
@@ -67,6 +72,16 @@ func (h *httpController) GetRouter() http.Handler {
 		Methods(http.MethodGet).
 		Path("").
 		HandlerFunc(h.getDoc)
+	docRouter.
+		NewRoute().
+		Methods(http.MethodDelete).
+		Path("").
+		HandlerFunc(h.flushAndDeleteDoc)
+	docRouter.
+		NewRoute().
+		Methods(http.MethodPost).
+		Path("/flush").
+		HandlerFunc(h.flushDoc)
 	docRouter.
 		NewRoute().
 		Methods(http.MethodGet, http.MethodHead).
@@ -207,4 +222,30 @@ func (h *httpController) flushProject(w http.ResponseWriter, r *http.Request) {
 		getId(r, "projectId"),
 	)
 	respond(w, r, http.StatusNoContent, nil, err, "cannot flush project")
+}
+
+func (h *httpController) flushDoc(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.FlushDoc(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "docId"),
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot flush doc")
+}
+
+func (h *httpController) flushAndDeleteDoc(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.FlushAndDeleteDoc(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "docId"),
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete doc")
+}
+
+func (h *httpController) flushAndDeleteProject(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.FlushAndDeleteProject(
+		r.Context(),
+		getId(r, "projectId"),
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete project")
 }
