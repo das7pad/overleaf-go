@@ -60,7 +60,7 @@ func getJSONFromEnv(key string, target interface{}) {
 	}
 }
 
-type clsiOptions struct {
+type realTimeOptions struct {
 	address string
 
 	jwtOptions   jwtMiddleware.Options
@@ -68,8 +68,8 @@ type clsiOptions struct {
 	options      *types.Options
 }
 
-func getOptions() *clsiOptions {
-	o := &clsiOptions{}
+func getOptions() *realTimeOptions {
+	o := &realTimeOptions{}
 	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
 	port := getIntFromEnv("PORT", 3026)
 	o.address = listenAddress + ":" + strconv.FormatInt(port, 10)
