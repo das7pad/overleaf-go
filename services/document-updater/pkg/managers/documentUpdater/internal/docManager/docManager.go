@@ -140,75 +140,131 @@ func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId pri
 	var err error
 	var queueDepth int64
 
-	lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-		doc, queueDepth, err = m.processUpdatesForDoc(ctx, projectId, docId)
-	})
-	if err != nil {
-		return nil, queueDepth, err
+	for {
+		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			doc, queueDepth, err = m.processUpdatesForDoc(ctx, projectId, docId)
+		})
+		if err == errPartialFlush {
+			err = nil
+			continue
+		}
+		if err != nil {
+			return nil, queueDepth, err
+		}
+		if lockErr != nil {
+			return nil, queueDepth, lockErr
+		}
+		return doc, queueDepth, nil
 	}
-	if lockErr != nil {
-		return nil, queueDepth, lockErr
-	}
-	return doc, queueDepth, nil
 }
 
+const (
+	lockUsageProcessOutstandingUpdates = 0.5
+	maxBudgetProcessOutstandingUpdates = 10 * time.Second
+	maxCacheSize                       = 100
+)
+
+var (
+	errPartialFlush = errors.New("partial flush")
+)
+
 func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error) {
-	var queueDepth int64
 	doc, err := m.getDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, 0, err
 	}
-	initialVersion := doc.Version
-
-	processed, updateError := m.u.ProcessOutstandingUpdates(
-		ctx, docId, doc,
-	)
-
-	if ctx.Err() != nil {
+	if err = ctx.Err(); err != nil {
 		// Processing timed out.
-		err = ctx.Err()
 		return nil, 0, err
 	}
-	if doc.Version != initialVersion {
-		appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
-		for _, update := range processed {
-			if update.Dup {
-				continue
-			}
-			appliedUpdates = append(appliedUpdates, update)
-		}
-		queueDepth, err = m.rm.UpdateDocument(
-			ctx, docId, doc, appliedUpdates,
+	initialVersion := doc.Version
+	now := time.Now()
+	softDeadline := now.Add(maxBudgetProcessOutstandingUpdates)
+	if hardDeadline, hasDeadline := ctx.Deadline(); hasDeadline {
+		dynamicBudget := time.Duration(
+			float64(hardDeadline.Sub(now)) *
+				lockUsageProcessOutstandingUpdates,
 		)
-		if err != nil {
+		if dynamicBudget < maxBudgetProcessOutstandingUpdates {
+			softDeadline = now.Add(dynamicBudget)
+		}
+	}
+
+	transformUpdatesCache := make([]types.DocumentUpdate, 0)
+	var processed []types.DocumentUpdate
+	var updateErr error
+	queueDepth := int64(-1)
+
+	for time.Now().Before(softDeadline) {
+		if err = ctx.Err(); err != nil {
+			// Processing timed out.
 			return nil, 0, err
 		}
-	}
+		processed, transformUpdatesCache, updateErr =
+			m.u.ProcessOutstandingUpdates(
+				ctx, docId, doc, transformUpdatesCache,
+			)
 
-	if len(processed) != 0 {
-		// NOTE: This used to be in the background in Node.JS.
-		//       Move in foreground to avoid race-conditions.
-		confirmCtx, cancel := context.WithTimeout(
-			context.Background(), time.Second*10,
-		)
-		defer cancel()
-		err2 := m.rtRm.ConfirmUpdates(confirmCtx, processed)
-		if err2 != nil {
-			ids := projectId.Hex() + "/" + docId.Hex()
-			err2 = errors.Tag(err2, "cannot confirm updates in "+ids)
-			log.Println(err2.Error())
+		if err = ctx.Err(); err != nil {
+			// Processing timed out.
+			return nil, 0, err
+		}
+		if len(processed) == 0 && updateErr == nil {
+			return doc, queueDepth, nil
+		}
+
+		if doc.Version != initialVersion {
+			appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
+			for _, update := range processed {
+				if update.Dup {
+					continue
+				}
+				appliedUpdates = append(appliedUpdates, update)
+			}
+			queueDepth, err = m.rm.UpdateDocument(
+				ctx, docId, doc, appliedUpdates,
+			)
+			if err != nil {
+				return nil, 0, err
+			}
+		}
+
+		if len(processed) != 0 {
+			// NOTE: This used to be in the background in Node.JS.
+			//       Move in foreground to avoid race-conditions.
+			confirmCtx, cancel := context.WithTimeout(
+				context.Background(), time.Second*10,
+			)
+			err = m.rtRm.ConfirmUpdates(confirmCtx, processed)
+			cancel()
+			if err != nil {
+				ids := projectId.Hex() + "/" + docId.Hex()
+				err = errors.Tag(err, "cannot confirm updates in "+ids)
+				log.Println(err.Error())
+			}
+		}
+
+		if updateErr != nil {
+			// NOTE: This used to be in the background in Node.JS.
+			//       Move in foreground to avoid race-conditions.
+			reportCtx, cancel := context.WithTimeout(
+				context.Background(), time.Second*10,
+			)
+			err = m.rtRm.ReportError(reportCtx, docId, updateErr)
+			cancel()
+			if err != nil {
+				ids := projectId.Hex() + "/" + docId.Hex()
+				err = errors.Tag(err, "cannot report error in "+ids)
+				log.Println(err.Error())
+			}
+			return nil, 0, updateErr
+		}
+
+		if n := len(transformUpdatesCache); n > maxCacheSize {
+			transformUpdatesCache = transformUpdatesCache[n-maxCacheSize:]
 		}
 	}
-
-	if updateError != nil {
-		err2 := m.rtRm.ReportError(ctx, docId, updateError)
-		if err2 != nil {
-			ids := projectId.Hex() + "/" + docId.Hex()
-			err2 = errors.Tag(err2, "cannot report error in "+ids)
-			log.Println(err2.Error())
-		}
-	}
-	return doc, queueDepth, nil
+	return nil, 0, errPartialFlush
 }
 
 func (m *manager) FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
@@ -222,32 +278,40 @@ func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId primit
 func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID, delete bool) error {
 	var err error
 
-	lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-		var doc *types.Doc
-		doc, _, err = m.processUpdatesForDoc(ctx, projectId, docId)
+	for {
+		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			var doc *types.Doc
+			doc, _, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			if err != nil {
+				return
+			}
+			if doc.UnFlushedTime != 0 {
+				err = m.webApi.SetDoc(
+					ctx, projectId, docId, doc.ToSetDocDetails(),
+				)
+				if err != nil {
+					return
+				}
+			}
+			if delete {
+				err = m.rm.RemoveDocFromMemory(ctx, projectId, docId)
+				if err != nil {
+					return
+				}
+			}
+		})
+		if err == errPartialFlush {
+			err = nil
+			continue
+		}
 		if err != nil {
-			return
+			return err
 		}
-		if doc.UnFlushedTime != 0 {
-			err = m.webApi.SetDoc(ctx, projectId, docId, doc.ToSetDocDetails())
-			if err != nil {
-				return
-			}
+		if lockErr != nil {
+			return lockErr
 		}
-		if delete {
-			err = m.rm.RemoveDocFromMemory(ctx, projectId, docId)
-			if err != nil {
-				return
-			}
-		}
-	})
-	if err != nil {
-		return err
+		return nil
 	}
-	if lockErr != nil {
-		return lockErr
-	}
-	return nil
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {

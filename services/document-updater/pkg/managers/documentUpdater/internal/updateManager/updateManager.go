@@ -34,7 +34,8 @@ type Manager interface {
 		ctx context.Context,
 		docId primitive.ObjectID,
 		doc *types.Doc,
-	) ([]types.DocumentUpdate, error)
+		transformUpdatesCache []types.DocumentUpdate,
+	) ([]types.DocumentUpdate, []types.DocumentUpdate, error)
 }
 
 func New(rm redisManager.Manager, rtRm realTimeRedisManager.Manager) Manager {
@@ -53,29 +54,39 @@ type manager struct {
 	rtRm realTimeRedisManager.Manager
 }
 
-func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc) ([]types.DocumentUpdate, error) {
+func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, transformUpdatesCache []types.DocumentUpdate) ([]types.DocumentUpdate, []types.DocumentUpdate, error) {
 	updates, err := m.rtRm.GetPendingUpdatesForDoc(ctx, docId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get work")
+		return nil, nil, errors.Tag(err, "cannot get work")
 	}
 	if len(updates) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	minVersion := updates[0].Version
 	for _, update := range updates {
 		if err = update.CheckVersion(doc.Version); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if update.Version < minVersion {
 			minVersion = update.Version
 		}
 	}
-	allTransformUpdates, err := m.rm.GetPreviousDocUpdatesUnderLock(
-		ctx, docId, minVersion, doc.Version,
-	)
-	if err != nil {
-		return nil, errors.Tag(err, "cannot get transform updates")
+	maxVersion := doc.Version
+	if len(transformUpdatesCache) != 0 {
+		maxVersion = transformUpdatesCache[0].Version
+	}
+
+	if minVersion < maxVersion {
+		missingTransformUpdates, err2 := m.rm.GetPreviousDocUpdatesUnderLock(
+			ctx, docId, minVersion, maxVersion,
+		)
+		if err2 != nil {
+			return nil, nil, errors.Tag(err2, "cannot get transform updates")
+		}
+		transformUpdatesCache = append(
+			missingTransformUpdates, transformUpdatesCache...,
+		)
 	}
 
 	processed := make([]types.DocumentUpdate, 0)
@@ -84,9 +95,8 @@ func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive
 outer:
 	for _, update := range updates {
 		incomingVersion := update.Version
-		offset := len(allTransformUpdates) - int(doc.Version-update.Version)
-		transformUpdates := allTransformUpdates[offset:]
-		for _, transformUpdate := range transformUpdates {
+		offset := len(transformUpdatesCache) - int(doc.Version-update.Version)
+		for _, transformUpdate := range transformUpdatesCache[offset:] {
 			if update.DupIfSource.Contains(transformUpdate.Meta.Source) {
 				update.Dup = true
 				processed = append(processed, update)
@@ -95,24 +105,24 @@ outer:
 
 			update.Op, err = text.Transform(update.Op, transformUpdate.Op)
 			if err != nil {
-				return processed, err
+				return processed, nil, err
 			}
 			update.Version++
 		}
 
 		s, err = text.Apply(doc.Snapshot, update.Op)
 		if err != nil {
-			return processed, err
+			return processed, nil, err
 		}
 
 		if len(s) > maxDocLength {
-			return processed, &errors.CodedError{
+			return processed, nil, &errors.CodedError{
 				Description: "Update takes doc over max doc size",
 			}
 		}
 		if incomingVersion == doc.Version && len(update.Hash) != 0 {
 			if err = s.Hash().CheckMatches(update.Hash); err != nil {
-				return processed, err
+				return processed, nil, err
 			}
 		}
 
@@ -121,7 +131,7 @@ outer:
 		doc.LastUpdatedCtx.At = time.Now().Unix()
 		doc.LastUpdatedCtx.By = update.Meta.UserId
 		processed = append(processed, update)
-		allTransformUpdates = append(allTransformUpdates, update)
+		transformUpdatesCache = append(transformUpdatesCache, update)
 	}
-	return processed, nil
+	return processed, transformUpdatesCache, nil
 }
