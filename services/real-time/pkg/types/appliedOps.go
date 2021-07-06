@@ -179,8 +179,19 @@ type MinimalDocumentUpdate struct {
 }
 
 func (d *DocumentUpdate) Validate() error {
-	if err := d.Ops.Validate(); err != nil {
-		return err
+	if d.Dup {
+		if len(d.Ops) == 0 {
+			// Ignore missing ops for duplicate op ack.
+		} else {
+			// Do not anything else slip through.
+			if err := d.Ops.Validate(); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := d.Ops.Validate(); err != nil {
+			return err
+		}
 	}
 	if err := d.Meta.Validate(); err != nil {
 		return err
