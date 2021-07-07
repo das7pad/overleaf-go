@@ -43,10 +43,10 @@ var deleteOpsDeleteDifferentText = &errors.CodedError{
 	Description: "Delete ops delete different text in the same region of the document",
 }
 
-func transformPosition(p int64, c types.Component, insertAfter bool) int64 {
+func transformPosition(p int, c types.Component, insertAfter bool) int {
 	if c.IsInsertion() {
 		if c.Position < p || (c.Position == p && insertAfter) {
-			return p + int64(len(c.Insertion))
+			return p + len(c.Insertion)
 		}
 		return p
 	}
@@ -54,7 +54,7 @@ func transformPosition(p int64, c types.Component, insertAfter bool) int64 {
 		if p <= c.Position {
 			return p
 		}
-		delSize := int64(len(c.Deletion))
+		delSize := len(c.Deletion)
 		if p <= c.Position+delSize {
 			return c.Position
 		}
@@ -75,8 +75,8 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 			d := c.Deletion
 			if c.Position < otherC.Position {
 				edge := otherC.Position - c.Position
-				if edge > int64(len(d)) {
-					edge = int64(len(d))
+				if edge > len(d) {
+					edge = len(d)
 				}
 				c.Deletion = d[:edge]
 				op = appendOp(op, c)
@@ -87,14 +87,14 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 			}
 			return appendOp(op, types.Component{
 				Deletion: d,
-				Position: p + int64(len(otherC.Insertion)),
+				Position: p + len(otherC.Insertion),
 			}), nil
 		}
 		if otherC.IsDeletion() {
-			cEndBeforeOp := c.Position + int64(len(c.Deletion))
-			otherCEndBeforeOp := otherC.Position + int64(len(otherC.Deletion))
+			cEndBeforeOp := c.Position + len(c.Deletion)
+			otherCEndBeforeOp := otherC.Position + len(otherC.Deletion)
 			if c.Position >= otherCEndBeforeOp {
-				c.Position -= int64(len(otherC.Deletion))
+				c.Position -= len(otherC.Deletion)
 				return appendOp(op, c), nil
 			}
 			if cEndBeforeOp <= otherC.Position {
@@ -104,24 +104,32 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 			intersectStart := c.Position
 			intersectEnd := cEndBeforeOp
 
-			d := ""
+			dLen := 0
 			if c.Position < otherC.Position {
 				intersectStart = otherC.Position
-				d = c.Deletion[:otherC.Position-c.Position]
+				dLen += otherC.Position - c.Position
 			}
 			if cEndBeforeOp > otherCEndBeforeOp {
 				intersectEnd = otherCEndBeforeOp
-				d += c.Deletion[otherCEndBeforeOp-c.Position:]
+				dLen += len(c.Deletion) - (otherCEndBeforeOp - c.Position)
 			}
 			cIntersect := c.Deletion[intersectStart-c.Position : intersectEnd-c.Position]
 			otherCIntersect := otherC.Deletion[intersectStart-otherC.Position : intersectEnd-otherC.Position]
 
-			if cIntersect != otherCIntersect {
+			if string(cIntersect) != string(otherCIntersect) {
 				return nil, deleteOpsDeleteDifferentText
 			}
 
-			if len(d) == 0 {
+			if dLen == 0 {
 				return op, nil
+			}
+			d := make(types.Snippet, dLen)
+			dPos := 0
+			if c.Position < otherC.Position {
+				dPos += copy(d, c.Deletion[:otherC.Position-c.Position])
+			}
+			if cEndBeforeOp > otherCEndBeforeOp {
+				copy(d[dPos:], c.Deletion[otherCEndBeforeOp-c.Position:])
 			}
 
 			c.Deletion = d
@@ -135,7 +143,7 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 
 	// else: comment type
 	if otherC.IsInsertion() {
-		cLen := int64(len(c.Comment))
+		cLen := len(c.Comment)
 		if c.Position < otherC.Position && otherC.Position < c.Position+cLen {
 			offset := otherC.Position - c.Position
 			c.Comment = inject(c.Comment, offset, otherC.Insertion)
@@ -145,11 +153,11 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 		return appendOp(op, c), nil
 	}
 	if otherC.IsDeletion() {
-		cEnd := c.Position + int64(len(c.Comment))
-		otherCEndBeforeOp := otherC.Position + int64(len(otherC.Deletion))
+		cEnd := c.Position + len(c.Comment)
+		otherCEndBeforeOp := otherC.Position + len(otherC.Deletion)
 
 		if c.Position >= otherCEndBeforeOp {
-			c.Position -= int64(len(otherC.Deletion))
+			c.Position -= len(otherC.Deletion)
 			return appendOp(op, c), nil
 		}
 		if cEnd <= otherC.Position {
@@ -159,20 +167,30 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 		intersectStart := c.Position
 		intersectEnd := cEnd
 
-		cc := ""
+		ccLen := 0
 		if c.Position < otherC.Position {
 			intersectStart = otherC.Position
-			cc = c.Comment[:otherC.Position-c.Position]
+			ccLen += otherC.Position - c.Position
 		}
 		if cEnd > otherCEndBeforeOp {
 			intersectEnd = otherCEndBeforeOp
-			cc += c.Comment[otherCEndBeforeOp-c.Position:]
+			ccLen += len(c.Comment) - (otherCEndBeforeOp - c.Position)
 		}
 		cIntersect := c.Comment[intersectStart-c.Position : intersectEnd-c.Position]
 		otherCIntersect := otherC.Deletion[intersectStart-otherC.Position : intersectEnd-otherC.Position]
 
-		if cIntersect != otherCIntersect {
+		if string(cIntersect) != string(otherCIntersect) {
 			return nil, deleteOpsDeleteDifferentText
+		}
+
+		cc := make(types.Snippet, ccLen)
+		ccPos := 0
+		if c.Position < otherC.Position {
+			ccPos += copy(cc, c.Comment[:otherC.Position-c.Position])
+		}
+		if cEnd > otherCEndBeforeOp {
+			intersectEnd = otherCEndBeforeOp
+			copy(cc[ccPos:], c.Comment[otherCEndBeforeOp-c.Position:])
 		}
 
 		c.Comment = cc

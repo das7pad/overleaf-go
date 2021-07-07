@@ -38,12 +38,12 @@ func TestTransform(t *testing.T) {
 			name: "emptyOther",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 0},
+					{Insertion: types.Snippet("foo"), Position: 0},
 				},
 				otherOp: nil,
 			},
 			want: types.Op{
-				{Insertion: "foo", Position: 0},
+				{Insertion: types.Snippet("foo"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -51,14 +51,14 @@ func TestTransform(t *testing.T) {
 			name: "insertionPassThroughDeletion",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 10},
+					{Insertion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 42},
+					{Deletion: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Insertion: "foo", Position: 10},
+				{Insertion: types.Snippet("foo"), Position: 10},
 			},
 			wantErr: false,
 		},
@@ -66,14 +66,14 @@ func TestTransform(t *testing.T) {
 			name: "insertionPassThroughInsertion",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 10},
+					{Insertion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Insertion: "foo", Position: 42},
+					{Insertion: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Insertion: "foo", Position: 10},
+				{Insertion: types.Snippet("foo"), Position: 10},
 			},
 			wantErr: false,
 		},
@@ -81,14 +81,14 @@ func TestTransform(t *testing.T) {
 			name: "insertionPassThroughComment",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 10},
+					{Insertion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Comment: "foo", Position: 42},
+					{Comment: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Insertion: "foo", Position: 10},
+				{Insertion: types.Snippet("foo"), Position: 10},
 			},
 			wantErr: false,
 		},
@@ -96,14 +96,14 @@ func TestTransform(t *testing.T) {
 			name: "deletionPassThroughInsertion",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 10},
+					{Deletion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Insertion: "foo", Position: 42},
+					{Insertion: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 10},
+				{Deletion: types.Snippet("foo"), Position: 10},
 			},
 			wantErr: false,
 		},
@@ -111,14 +111,14 @@ func TestTransform(t *testing.T) {
 			name: "deletionPassThroughDeletion",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 10},
+					{Deletion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 42},
+					{Deletion: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 10},
+				{Deletion: types.Snippet("foo"), Position: 10},
 			},
 			wantErr: false,
 		},
@@ -126,14 +126,14 @@ func TestTransform(t *testing.T) {
 			name: "deletionPassThroughComment",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 10},
+					{Deletion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Comment: "foo", Position: 42},
+					{Comment: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 10},
+				{Deletion: types.Snippet("foo"), Position: 10},
 			},
 			wantErr: false,
 		},
@@ -141,15 +141,15 @@ func TestTransform(t *testing.T) {
 			name: "mergeDeletions",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 0},
-					{Deletion: "Baz", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
+					{Deletion: types.Snippet("Baz"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Comment: "do-not-matter", Position: 42},
+					{Comment: types.Snippet("do-not-matter"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Deletion: "fooBaz", Position: 0},
+				{Deletion: types.Snippet("fooBaz"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -157,15 +157,15 @@ func TestTransform(t *testing.T) {
 			name: "mergeInsertions",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 0},
-					{Insertion: "Baz", Position: 3},
+					{Insertion: types.Snippet("foo"), Position: 0},
+					{Insertion: types.Snippet("Baz"), Position: 3},
 				},
 				otherOp: types.Op{
-					{Comment: "do-not-matter", Position: 42},
+					{Comment: types.Snippet("do-not-matter"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Insertion: "fooBaz", Position: 0},
+				{Insertion: types.Snippet("fooBaz"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -173,15 +173,15 @@ func TestTransform(t *testing.T) {
 			name: "splitDeletionInsertion",
 			args: args{
 				op: types.Op{
-					{Deletion: "fooBaz", Position: 0},
+					{Deletion: types.Snippet("fooBaz"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Insertion: "Bar", Position: 3},
+					{Insertion: types.Snippet("Bar"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 0},
-				{Deletion: "Baz", Position: 3},
+				{Deletion: types.Snippet("foo"), Position: 0},
+				{Deletion: types.Snippet("Baz"), Position: 3},
 			},
 			wantErr: false,
 		},
@@ -189,16 +189,16 @@ func TestTransform(t *testing.T) {
 			name: "splitDeletionInsertionMulti",
 			args: args{
 				op: types.Op{
-					{Deletion: "fooBaz", Position: 0},
+					{Deletion: types.Snippet("fooBaz"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Insertion: "Bar", Position: 3},
-					{Comment: "foo", Position: 42},
+					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Comment: types.Snippet("foo"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 0},
-				{Deletion: "Baz", Position: 3},
+				{Deletion: types.Snippet("foo"), Position: 0},
+				{Deletion: types.Snippet("Baz"), Position: 3},
 			},
 			wantErr: false,
 		},
@@ -206,16 +206,16 @@ func TestTransform(t *testing.T) {
 			name: "splitDeletionInsertionMultiRev",
 			args: args{
 				op: types.Op{
-					{Insertion: "Bar", Position: 3},
-					{Comment: "foo", Position: 42},
+					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Comment: types.Snippet("foo"), Position: 42},
 				},
 				otherOp: types.Op{
-					{Deletion: "fooBaz", Position: 0},
+					{Deletion: types.Snippet("fooBaz"), Position: 0},
 				},
 			},
 			want: types.Op{
-				{Insertion: "Bar", Position: 0},
-				{Comment: "foo", Position: 36},
+				{Insertion: types.Snippet("Bar"), Position: 0},
+				{Comment: types.Snippet("foo"), Position: 36},
 			},
 			wantErr: false,
 		},
@@ -223,11 +223,11 @@ func TestTransform(t *testing.T) {
 			name: "splitDeletionInsertionMultiRevMismatch",
 			args: args{
 				op: types.Op{
-					{Insertion: "Bar", Position: 3},
-					{Comment: "foo", Position: 6},
+					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Comment: types.Snippet("foo"), Position: 6},
 				},
 				otherOp: types.Op{
-					{Deletion: "fooBaz", Position: 0},
+					{Deletion: types.Snippet("fooBaz"), Position: 0},
 				},
 			},
 			wantErr: true,
@@ -236,14 +236,14 @@ func TestTransform(t *testing.T) {
 			name: "shiftInsertionFromDeletion",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 10},
+					{Insertion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 3},
+					{Deletion: types.Snippet("foo"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Insertion: "foo", Position: 7},
+				{Insertion: types.Snippet("foo"), Position: 7},
 			},
 			wantErr: false,
 		},
@@ -251,14 +251,14 @@ func TestTransform(t *testing.T) {
 			name: "shiftInsertionFromInsertion",
 			args: args{
 				op: types.Op{
-					{Insertion: "foo", Position: 10},
+					{Insertion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Insertion: "foo", Position: 3},
+					{Insertion: types.Snippet("foo"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Insertion: "foo", Position: 13},
+				{Insertion: types.Snippet("foo"), Position: 13},
 			},
 			wantErr: false,
 		},
@@ -266,14 +266,14 @@ func TestTransform(t *testing.T) {
 			name: "shiftDeletionFromInsertion",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 10},
+					{Deletion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Insertion: "foo", Position: 3},
+					{Insertion: types.Snippet("foo"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 13},
+				{Deletion: types.Snippet("foo"), Position: 13},
 			},
 			wantErr: false,
 		},
@@ -281,14 +281,14 @@ func TestTransform(t *testing.T) {
 			name: "shiftDeletionFromDeletion",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 10},
+					{Deletion: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 3},
+					{Deletion: types.Snippet("foo"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Deletion: "foo", Position: 7},
+				{Deletion: types.Snippet("foo"), Position: 7},
 			},
 			wantErr: false,
 		},
@@ -296,14 +296,89 @@ func TestTransform(t *testing.T) {
 			name: "shiftCommentFromInsertion",
 			args: args{
 				op: types.Op{
-					{Comment: "foo", Position: 10},
+					{Comment: types.Snippet("foo"), Position: 10},
 				},
 				otherOp: types.Op{
-					{Insertion: "foo", Position: 3},
+					{Insertion: types.Snippet("foo"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Comment: "foo", Position: 13},
+				{Comment: types.Snippet("foo"), Position: 13},
+			},
+			wantErr: false,
+		},
+		{
+			name: "shiftInsertionFromDeletionUTF-8",
+			args: args{
+				op: types.Op{
+					{Insertion: types.Snippet("foo"), Position: 10},
+				},
+				otherOp: types.Op{
+					{Deletion: types.Snippet("föö"), Position: 3},
+				},
+			},
+			want: types.Op{
+				{Insertion: types.Snippet("foo"), Position: 7},
+			},
+			wantErr: false,
+		},
+		{
+			name: "shiftInsertionFromInsertionUTF-8",
+			args: args{
+				op: types.Op{
+					{Insertion: types.Snippet("foo"), Position: 10},
+				},
+				otherOp: types.Op{
+					{Insertion: types.Snippet("föö"), Position: 3},
+				},
+			},
+			want: types.Op{
+				{Insertion: types.Snippet("foo"), Position: 13},
+			},
+			wantErr: false,
+		},
+		{
+			name: "shiftDeletionFromInsertionUTF-8",
+			args: args{
+				op: types.Op{
+					{Deletion: types.Snippet("foo"), Position: 10},
+				},
+				otherOp: types.Op{
+					{Insertion: types.Snippet("föö"), Position: 3},
+				},
+			},
+			want: types.Op{
+				{Deletion: types.Snippet("foo"), Position: 13},
+			},
+			wantErr: false,
+		},
+		{
+			name: "shiftDeletionFromDeletionUTF-8",
+			args: args{
+				op: types.Op{
+					{Deletion: types.Snippet("foo"), Position: 10},
+				},
+				otherOp: types.Op{
+					{Deletion: types.Snippet("föö"), Position: 3},
+				},
+			},
+			want: types.Op{
+				{Deletion: types.Snippet("foo"), Position: 7},
+			},
+			wantErr: false,
+		},
+		{
+			name: "shiftCommentFromInsertionUTF-8",
+			args: args{
+				op: types.Op{
+					{Comment: types.Snippet("foo"), Position: 10},
+				},
+				otherOp: types.Op{
+					{Insertion: types.Snippet("föö"), Position: 3},
+				},
+			},
+			want: types.Op{
+				{Comment: types.Snippet("foo"), Position: 13},
 			},
 			wantErr: false,
 		},
@@ -311,10 +386,10 @@ func TestTransform(t *testing.T) {
 			name: "eatDeletionChild",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "fooBar", Position: 0},
+					{Deletion: types.Snippet("fooBar"), Position: 0},
 				},
 			},
 			want:    types.Op{},
@@ -324,10 +399,10 @@ func TestTransform(t *testing.T) {
 			name: "eatDeletionChildInner",
 			args: args{
 				op: types.Op{
-					{Deletion: "oo", Position: 1},
+					{Deletion: types.Snippet("oo"), Position: 1},
 				},
 				otherOp: types.Op{
-					{Deletion: "fooBar", Position: 0},
+					{Deletion: types.Snippet("fooBar"), Position: 0},
 				},
 			},
 			want:    types.Op{},
@@ -337,11 +412,11 @@ func TestTransform(t *testing.T) {
 			name: "eatDeletionChildInnerMulti",
 			args: args{
 				op: types.Op{
-					{Deletion: "oo", Position: 1},
+					{Deletion: types.Snippet("oo"), Position: 1},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 0},
-					{Deletion: "Bar", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
+					{Deletion: types.Snippet("Bar"), Position: 0},
 				},
 			},
 			want:    types.Op{},
@@ -351,31 +426,31 @@ func TestTransform(t *testing.T) {
 			name: "eatDeletionChildInnerMultiRev",
 			args: args{
 				op: types.Op{
-					{Deletion: "oo", Position: 1},
-					{Deletion: "Bar", Position: 1},
-					{Comment: "foo", Position: 42},
+					{Deletion: types.Snippet("oo"), Position: 1},
+					{Deletion: types.Snippet("Bar"), Position: 1},
+					{Comment: types.Snippet("foo"), Position: 42},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 0},
-					{Deletion: "Bar", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
+					{Deletion: types.Snippet("Bar"), Position: 0},
 				},
 			},
 			want: types.Op{
-				{Comment: "foo", Position: 41}},
+				{Comment: types.Snippet("foo"), Position: 41}},
 			wantErr: false,
 		},
 		{
 			name: "eatDeletionChildPartialStart",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "ooBar", Position: 1},
+					{Deletion: types.Snippet("ooBar"), Position: 1},
 				},
 			},
 			want: types.Op{
-				{Deletion: "f", Position: 0},
+				{Deletion: types.Snippet("f"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -383,14 +458,14 @@ func TestTransform(t *testing.T) {
 			name: "eatDeletionChildPartialEnd",
 			args: args{
 				op: types.Op{
-					{Deletion: "Bar", Position: 3},
+					{Deletion: types.Snippet("Bar"), Position: 3},
 				},
 				otherOp: types.Op{
-					{Deletion: "ooBa", Position: 1},
+					{Deletion: types.Snippet("ooBa"), Position: 1},
 				},
 			},
 			want: types.Op{
-				{Deletion: "r", Position: 1},
+				{Deletion: types.Snippet("r"), Position: 1},
 			},
 			wantErr: false,
 		},
@@ -398,10 +473,10 @@ func TestTransform(t *testing.T) {
 			name: "deletionMismatch",
 			args: args{
 				op: types.Op{
-					{Deletion: "Bar", Position: 0},
+					{Deletion: types.Snippet("Bar"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
 				},
 			},
 			want:    nil,
@@ -411,10 +486,10 @@ func TestTransform(t *testing.T) {
 			name: "commentAndDeletionMismatch",
 			args: args{
 				op: types.Op{
-					{Comment: "Bar", Position: 0},
+					{Comment: types.Snippet("Bar"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
 				},
 			},
 			want:    nil,
@@ -424,11 +499,11 @@ func TestTransform(t *testing.T) {
 			name: "commentAndDeletionMismatchMulti",
 			args: args{
 				op: types.Op{
-					{Comment: "foo", Position: 0},
-					{Comment: "Bar", Position: 42},
+					{Comment: types.Snippet("foo"), Position: 0},
+					{Comment: types.Snippet("Bar"), Position: 42},
 				},
 				otherOp: types.Op{
-					{Deletion: "Baz", Position: 0},
+					{Deletion: types.Snippet("Baz"), Position: 0},
 				},
 			},
 			want:    nil,
@@ -438,11 +513,11 @@ func TestTransform(t *testing.T) {
 			name: "commentAndDeletionMismatchMultiReverse",
 			args: args{
 				op: types.Op{
-					{Deletion: "foo", Position: 0},
-					{Comment: "Bar", Position: 42},
+					{Deletion: types.Snippet("foo"), Position: 0},
+					{Comment: types.Snippet("Bar"), Position: 42},
 				},
 				otherOp: types.Op{
-					{Comment: "Baz", Position: 0},
+					{Comment: types.Snippet("Baz"), Position: 0},
 				},
 			},
 			want:    nil,
@@ -452,14 +527,14 @@ func TestTransform(t *testing.T) {
 			name: "commentCutFromDeletion",
 			args: args{
 				op: types.Op{
-					{Comment: "fooBar", Position: 0},
+					{Comment: types.Snippet("fooBar"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "foo", Position: 0},
+					{Deletion: types.Snippet("foo"), Position: 0},
 				},
 			},
 			want: types.Op{
-				{Comment: "Bar", Position: 0},
+				{Comment: types.Snippet("Bar"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -467,14 +542,14 @@ func TestTransform(t *testing.T) {
 			name: "commentCutFromDeletionPartial",
 			args: args{
 				op: types.Op{
-					{Comment: "fooBarBaz", Position: 0},
+					{Comment: types.Snippet("fooBarBaz"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "Bar", Position: 3},
+					{Deletion: types.Snippet("Bar"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Comment: "fooBaz", Position: 0},
+				{Comment: types.Snippet("fooBaz"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -482,14 +557,14 @@ func TestTransform(t *testing.T) {
 			name: "commentPassThroughDeletion",
 			args: args{
 				op: types.Op{
-					{Comment: "fooBar", Position: 0},
+					{Comment: types.Snippet("fooBar"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Deletion: "Bar", Position: 42},
+					{Deletion: types.Snippet("Bar"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Comment: "fooBar", Position: 0},
+				{Comment: types.Snippet("fooBar"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -497,14 +572,14 @@ func TestTransform(t *testing.T) {
 			name: "commentPassThroughComment",
 			args: args{
 				op: types.Op{
-					{Comment: "fooBar", Position: 0},
+					{Comment: types.Snippet("fooBar"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Comment: "Bar", Position: 42},
+					{Comment: types.Snippet("Bar"), Position: 42},
 				},
 			},
 			want: types.Op{
-				{Comment: "fooBar", Position: 0},
+				{Comment: types.Snippet("fooBar"), Position: 0},
 			},
 			wantErr: false,
 		},
@@ -512,14 +587,14 @@ func TestTransform(t *testing.T) {
 			name: "commentExtendedByInsertion",
 			args: args{
 				op: types.Op{
-					{Comment: "fooBaz", Position: 0},
+					{Comment: types.Snippet("fooBaz"), Position: 0},
 				},
 				otherOp: types.Op{
-					{Insertion: "Bar", Position: 3},
+					{Insertion: types.Snippet("Bar"), Position: 3},
 				},
 			},
 			want: types.Op{
-				{Comment: "fooBarBaz", Position: 0},
+				{Comment: types.Snippet("fooBarBaz"), Position: 0},
 			},
 			wantErr: false,
 		},

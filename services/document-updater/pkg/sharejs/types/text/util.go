@@ -20,8 +20,26 @@ import (
 	"github.com/das7pad/document-updater/pkg/types"
 )
 
-func inject(s1 string, position int64, s2 string) string {
-	return s1[:position] + s2 + s1[position:]
+func inject(s1 []rune, position int, s2 []rune) []rune {
+	s := make([]rune, len(s1)+len(s2))
+	copy(s, s1[:position])
+	copy(s[position:], s2)
+	copy(s[position+len(s2):], s1[position:])
+	return s
+}
+
+func injectInPlace(s1 []rune, position int, s2 []rune) []rune {
+	newLen := len(s1) + len(s2)
+	var s []rune
+	if cap(s1) >= newLen {
+		s = s1[:newLen]
+	} else {
+		s = make([]rune, newLen)
+		copy(s, s1[:position])
+	}
+	copy(s[position+len(s2):], s1[position:])
+	copy(s[position:], s2)
+	return s
 }
 
 func appendOp(op types.Op, c types.Component) types.Op {
@@ -52,5 +70,5 @@ func appendOp(op types.Op, c types.Component) types.Op {
 
 func overlapsByN(a, b types.Component, n int) bool {
 	return a.Position <= b.Position &&
-		b.Position <= a.Position+int64(n)
+		b.Position <= a.Position+n
 }

@@ -19,6 +19,7 @@ package types
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -147,14 +148,27 @@ func (h Hash) CheckMatches(other Hash) error {
 	}
 }
 
-type Snapshot string
+type Snapshot []rune
+
+func (s *Snapshot) UnmarshalJSON(bytes []byte) error {
+	var raw string
+	if err := json.Unmarshal(bytes, &raw); err != nil {
+		return err
+	}
+	*s = Snapshot(raw)
+	return nil
+}
+
+func (s Snapshot) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(s))
+}
 
 func (s Snapshot) Hash() Hash {
 	d := sha1.New()
 	d.Write(
 		[]byte("blob " + strconv.FormatInt(int64(len(s)), 10) + "\x00"),
 	)
-	d.Write([]byte(s))
+	d.Write([]byte(string(s)))
 	return Hash(hex.EncodeToString(d.Sum(nil)))
 }
 
@@ -162,8 +176,8 @@ func (s Snapshot) ToLines() Lines {
 	return strings.Split(string(s), "\n")
 }
 
-func (s Snapshot) Slice(start, end int64) string {
-	l := int64(len(s))
+func (s Snapshot) Slice(start, end int) string {
+	l := len(s)
 	if l < start {
 		return ""
 	}

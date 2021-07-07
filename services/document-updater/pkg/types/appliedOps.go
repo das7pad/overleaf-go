@@ -78,23 +78,38 @@ func (d *DocumentUpdateMeta) Validate() error {
 	return nil
 }
 
+type Snippet []rune
+
+func (s *Snippet) UnmarshalJSON(bytes []byte) error {
+	var raw string
+	if err := json.Unmarshal(bytes, &raw); err != nil {
+		return err
+	}
+	*s = Snippet(raw)
+	return nil
+}
+
+func (s Snippet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(s))
+}
+
 type Component struct {
-	Comment   string              `json:"c,omitempty"`
-	Deletion  string              `json:"d,omitempty"`
-	Insertion string              `json:"i,omitempty"`
-	Position  int64               `json:"p"`
+	Comment   Snippet             `json:"c,omitempty"`
+	Deletion  Snippet             `json:"d,omitempty"`
+	Insertion Snippet             `json:"i,omitempty"`
+	Position  int                 `json:"p"`
 	Thread    *primitive.ObjectID `json:"t,omitempty"`
 	Undo      bool                `json:"undo,omitempty"`
 }
 
 func (o *Component) IsComment() bool {
-	return o.Comment != ""
+	return len(o.Comment) != 0
 }
 func (o *Component) IsDeletion() bool {
-	return o.Deletion != ""
+	return len(o.Deletion) != 0
 }
 func (o *Component) IsInsertion() bool {
-	return o.Insertion != ""
+	return len(o.Insertion) != 0
 }
 func (o *Component) Validate() error {
 	if o.Position < 0 {

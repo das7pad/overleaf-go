@@ -24,31 +24,31 @@ import (
 func Apply(snapshot types.Snapshot, ops types.Op) (types.Snapshot, error) {
 	for _, op := range ops {
 		if op.IsInsertion() {
-			snapshot = types.Snapshot(
-				inject(string(snapshot), op.Position, op.Insertion),
-			)
+			snapshot = injectInPlace(snapshot, op.Position, op.Insertion)
 		} else if op.IsDeletion() {
 			start := op.Position
-			end := op.Position + int64(len(op.Deletion))
+			end := op.Position + len(op.Deletion)
 			deletionActual := snapshot.Slice(start, end)
-			if op.Deletion != deletionActual {
-				return "", &errors.CodedError{
+			if string(op.Deletion) != deletionActual {
+				return nil, &errors.CodedError{
 					Description: "Delete component '" +
-						op.Deletion +
+						string(op.Deletion) +
 						"' does not match deleted text '" +
 						deletionActual +
 						"'",
 				}
 			}
-			snapshot = snapshot[:start] + snapshot[end:]
+			s := snapshot[:]
+			snapshot = snapshot[:len(snapshot)-len(op.Deletion)]
+			copy(snapshot[start:], s[end:])
 		} else if op.IsComment() {
 			start := op.Position
-			end := op.Position + int64(len(op.Comment))
+			end := op.Position + len(op.Comment)
 			commentActual := snapshot.Slice(start, end)
-			if op.Comment != commentActual {
-				return "", &errors.CodedError{
+			if string(op.Comment) != commentActual {
+				return nil, &errors.CodedError{
 					Description: "Comment component '" +
-						op.Comment +
+						string(op.Comment) +
 						"' does not match commented text '" +
 						commentActual +
 						"'",
