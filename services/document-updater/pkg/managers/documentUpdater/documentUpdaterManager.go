@@ -22,11 +22,13 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/docManager"
 	"github.com/das7pad/document-updater/pkg/types"
 )
 
 type Manager interface {
+	StartBackgroundTasks(ctx context.Context)
 	CheckDocExists(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -51,12 +53,18 @@ func New(options *types.Options, client redis.UniversalClient) (Manager, error) 
 		return nil, err
 	}
 	return &manager{
-		dm: dm,
+		dispatcher: dispatchManager.New(options, client, dm),
+		dm:         dm,
 	}, nil
 }
 
 type manager struct {
-	dm docManager.Manager
+	dispatcher dispatchManager.Manager
+	dm         docManager.Manager
+}
+
+func (m *manager) StartBackgroundTasks(ctx context.Context) {
+	m.dispatcher.Start(ctx)
 }
 
 func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {

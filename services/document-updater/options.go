@@ -90,6 +90,9 @@ func getOptions() *documentUpdaterOptions {
 	if o.options.PendingUpdatesListShardCount <= 0 {
 		panic("pending_updates_list_shard_count must be greater than 0")
 	}
+	if o.options.WorkersPerShard <= 0 {
+		panic("workers_per_shard must be greater than 0")
+	}
 
 	o.redisOptions = &redis.UniversalOptions{
 		Addrs: strings.Split(

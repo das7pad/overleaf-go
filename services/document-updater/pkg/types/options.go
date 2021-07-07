@@ -17,7 +17,8 @@
 package types
 
 type Options struct {
-	PendingUpdatesListShardCount int64 `json:"pending_updates_list_shard_count"`
+	WorkersPerShard              int `json:"workers_per_shard"`
+	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
 
 	APIs struct {
 		WebApi struct {

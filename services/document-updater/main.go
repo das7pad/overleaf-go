@@ -94,13 +94,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	handler := newHttpController(dum)
 
+	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
+		context.Background(),
+	)
+	dum.StartBackgroundTasks(backgroundTaskCtx)
+
+	handler := newHttpController(dum)
 	server := http.Server{
 		Addr:    o.address,
 		Handler: handler.GetRouter(),
 	}
 	err = server.ListenAndServe()
+	shutdownBackgroundTasks()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
