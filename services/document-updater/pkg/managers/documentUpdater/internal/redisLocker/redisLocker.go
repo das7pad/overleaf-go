@@ -36,11 +36,14 @@ type Runner func(ctx context.Context)
 
 type Locker interface {
 	RunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error
+	TryRunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error
 }
 
 func New(client redis.UniversalClient) Locker {
 	return &locker{client: client}
 }
+
+var ErrLocked = errors.New("locked")
 
 type locker struct {
 	client redis.UniversalClient
@@ -99,6 +102,14 @@ func getBlockingKey(docId primitive.ObjectID) string {
 }
 
 func (l *locker) RunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error {
+	return l.runWithLock(ctx, docId, runner, true)
+}
+
+func (l *locker) TryRunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error {
+	return l.runWithLock(ctx, docId, runner, false)
+}
+
+func (l *locker) runWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner, poll bool) error {
 	key := getBlockingKey(docId)
 	lockValue := getUniqueValue()
 
@@ -119,6 +130,9 @@ func (l *locker) RunWithLock(ctx context.Context, docId primitive.ObjectID, runn
 		}
 		if gotLock {
 			break
+		}
+		if !poll {
+			return ErrLocked
 		}
 		if time.Now().Add(testInterval).After(acquireLockDeadline) {
 			return context.DeadlineExceeded

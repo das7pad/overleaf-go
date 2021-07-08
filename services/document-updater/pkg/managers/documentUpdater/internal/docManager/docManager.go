@@ -138,12 +138,15 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error) {
 	var doc *types.Doc
 	var err error
-	var queueDepth int64
+	queueDepth := int64(-1)
 
 	for {
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+		lockErr := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) {
 			doc, queueDepth, err = m.processUpdatesForDoc(ctx, projectId, docId)
 		})
+		if lockErr == redisLocker.ErrLocked {
+			return nil, queueDepth, nil
+		}
 		if err == errPartialFlush {
 			err = nil
 			continue
