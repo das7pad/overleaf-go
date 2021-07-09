@@ -79,7 +79,7 @@ func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive
 
 	if minVersion < maxVersion {
 		missingTransformUpdates, err2 := m.rm.GetPreviousDocUpdatesUnderLock(
-			ctx, docId, minVersion, maxVersion,
+			ctx, docId, minVersion, maxVersion, doc.Version,
 		)
 		if err2 != nil {
 			return nil, nil, errors.Tag(err2, "cannot get transform updates")

@@ -78,8 +78,9 @@ type Manager interface {
 	GetPreviousDocUpdatesUnderLock(
 		ctx context.Context,
 		docId primitive.ObjectID,
-		start types.Version,
+		begin types.Version,
 		end types.Version,
+		docVersion types.Version,
 	) ([]types.DocumentUpdate, error)
 
 	GetHistoryType(
@@ -364,19 +365,23 @@ func (m *manager) GetPreviousDocOps(ctx context.Context, docId primitive.ObjectI
 	return m.parseDocumentUpdates(start, blobs)
 }
 
-func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
-	if start == end {
+func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, begin types.Version, end types.Version, docVersion types.Version) ([]types.DocumentUpdate, error) {
+	if begin == end {
 		return nil, nil
 	}
-	n := int64(end - start)
-	raw, err := m.rClient.LRange(ctx, getDocUpdatesKey(docId), -n, n).Result()
+	n := int64(end - begin)
+	offset := int64(docVersion - end)
+	start := -n - offset
+	stop := -1 - offset
+	raw, err :=
+		m.rClient.LRange(ctx, getDocUpdatesKey(docId), start, stop).Result()
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get previous updates from redis")
 	}
 	if len(raw) != int(n) {
 		return nil, errors.New("doc ops range is not loaded in redis")
 	}
-	return m.parseDocumentUpdates(start, raw)
+	return m.parseDocumentUpdates(begin, raw)
 }
 
 func (m *manager) parseDocumentUpdates(start types.Version, raw []string) ([]types.DocumentUpdate, error) {
