@@ -342,12 +342,26 @@ func (m *manager) GetPreviousDocOps(ctx context.Context, docId primitive.ObjectI
 		}
 		return nil, errors.Tag(err, "cannot get previous updates from redis")
 	}
-	switch val := res.(type) {
-	case []string:
-		return m.parseDocumentUpdates(start, val)
-	default:
-		return nil, errors.New("unexpected updates response from redis")
+	stage0, isArr := res.([]interface{})
+	if !isArr {
+		err = errors.New("got non array")
+		return nil, errors.Tag(err, "unexpected updates response from redis")
 	}
+	blobs := make([]string, end-start)
+	for i, item := range stage0 {
+		if s, isString := item.(string); isString {
+			blobs[i] = s
+			continue
+		}
+		update := (start + types.Version(i)).String()
+		err = errors.New(
+			"update not received as string: " + update,
+		)
+		return nil, errors.Tag(
+			err, "unexpected updates response from redis",
+		)
+	}
+	return m.parseDocumentUpdates(start, blobs)
 }
 
 func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
