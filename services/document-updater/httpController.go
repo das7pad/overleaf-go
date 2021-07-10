@@ -59,6 +59,11 @@ func (h *httpController) GetRouter() http.Handler {
 	projectRouter.
 		NewRoute().
 		Methods(http.MethodPost).
+		Path("/clearState").
+		HandlerFunc(h.clearProjectState)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
 		Path("/flush").
 		HandlerFunc(h.flushProject)
 	projectRouter.
@@ -263,4 +268,12 @@ func (h *httpController) getAndFlushIfOld(w http.ResponseWriter, r *http.Request
 		state,
 	)
 	respond(w, r, http.StatusOK, docs, err, "cannot get and flush old")
+}
+
+func (h *httpController) clearProjectState(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.ClearProjectState(
+		r.Context(),
+		getId(r, "projectId"),
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot clear state")
 }

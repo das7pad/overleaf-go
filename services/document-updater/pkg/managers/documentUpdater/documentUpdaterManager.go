@@ -34,6 +34,7 @@ type Manager interface {
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
 	) error
+	ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error
 	GetDoc(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -65,6 +66,10 @@ type manager struct {
 
 func (m *manager) StartBackgroundTasks(ctx context.Context) {
 	m.dispatcher.Start(ctx)
+}
+
+func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {
+	return m.dm.ClearProjectState(ctx, projectId)
 }
 
 func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {

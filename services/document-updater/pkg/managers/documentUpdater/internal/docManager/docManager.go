@@ -34,6 +34,8 @@ import (
 )
 
 type Manager interface {
+	ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error
+
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
@@ -71,6 +73,10 @@ type manager struct {
 	rtRm   realTimeRedisManager.Manager
 	u      updateManager.Manager
 	webApi webApi.Manager
+}
+
+func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {
+	return m.rm.ClearProjectState(ctx, projectId)
 }
 
 func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error) {
