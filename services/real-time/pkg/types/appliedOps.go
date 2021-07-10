@@ -171,7 +171,6 @@ type DocumentUpdate struct {
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Ops         Ops                `json:"op"`
 	Version     int64              `json:"v"`
-	LastVersion int64              `json:"lastV"`
 }
 type MinimalDocumentUpdate struct {
 	DocId   primitive.ObjectID `json:"doc"`
