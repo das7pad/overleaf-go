@@ -68,7 +68,7 @@ type Manager interface {
 		docId primitive.ObjectID,
 	) (types.Version, error)
 
-	GetPreviousDocOps(
+	GetPreviousDocUpdates(
 		ctx context.Context,
 		docId primitive.ObjectID,
 		start types.Version,
@@ -324,7 +324,7 @@ if stop > -1 then stop = (stop - first_version_in_redis) end
 return redis.call("LRANGE", KEYS[1], start, stop)
 `)
 
-func (m *manager) GetPreviousDocOps(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
 	if start == end {
 		return make([]types.DocumentUpdate, 0), nil
 	}

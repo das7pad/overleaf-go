@@ -78,7 +78,8 @@ func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId p
 	if err != nil {
 		return nil, nil, err
 	}
-	updates, err := m.rm.GetPreviousDocOps(ctx, docId, fromVersion, doc.Version)
+	updates, err :=
+		m.rm.GetPreviousDocUpdates(ctx, docId, fromVersion, doc.Version)
 	if err != nil {
 		return nil, nil, err
 	}
