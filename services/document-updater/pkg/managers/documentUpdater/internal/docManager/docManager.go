@@ -30,6 +30,7 @@ import (
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/redisManager"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/updateManager"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/webApi"
+	"github.com/das7pad/document-updater/pkg/sharejs/types/text"
 	"github.com/das7pad/document-updater/pkg/types"
 )
 
@@ -39,6 +40,8 @@ type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
+
+	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 
 	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error)
 
@@ -142,6 +145,87 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	return doc, nil
 }
 
+func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {
+	for {
+		var err error
+		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			var doc *types.Doc
+			doc, _, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			if err != nil {
+				return
+			}
+
+			if err = ctx.Err(); err != nil {
+				// Processing timed out.
+				return
+			}
+
+			op := text.Diff(doc.Snapshot, request.Snapshot())
+
+			if err = ctx.Err(); err != nil {
+				// Processing timed out.
+				return
+			}
+
+			if len(op) > 0 {
+				if request.Undoing {
+					for i := range op {
+						op[i].Undo = true
+					}
+				}
+
+				updates := []types.DocumentUpdate{{
+					Version: doc.Version,
+					DocId:   docId,
+					Hash:    request.Snapshot().Hash(),
+					Op:      op,
+					Meta: types.DocumentUpdateMeta{
+						Type:   "external",
+						Source: types.PublicId(request.Source),
+						UserId: request.UserId,
+					},
+				}}
+
+				initialVersion := doc.Version
+				updates, _, err = m.u.ProcessUpdates(
+					ctx, docId, doc, updates, nil,
+				)
+				if err != nil {
+					return
+				}
+
+				_, err = m.persistProcessedUpdates(
+					ctx,
+					projectId, docId,
+					doc, initialVersion,
+					updates, nil,
+				)
+				if err != nil {
+					return
+				}
+			}
+
+			deleteFromRedis := doc.JustLoadedIntoRedis
+			err = m.doFlushAndMaybeDelete(
+				ctx, projectId, docId, doc, deleteFromRedis,
+			)
+			if err != nil {
+				return
+			}
+		})
+		if err == errPartialFlush {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if lockErr != nil {
+			return lockErr
+		}
+		return nil
+	}
+}
+
 func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error) {
 	var doc *types.Doc
 	var err error
@@ -223,51 +307,14 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId pri
 			return doc, queueDepth, nil
 		}
 
-		if doc.Version != initialVersion {
-			appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
-			for _, update := range processed {
-				if update.Dup {
-					continue
-				}
-				appliedUpdates = append(appliedUpdates, update)
-			}
-			queueDepth, err = m.rm.UpdateDocument(
-				ctx, docId, doc, appliedUpdates,
-			)
-			if err != nil {
-				return nil, 0, err
-			}
-		}
-
-		if len(processed) != 0 {
-			// NOTE: This used to be in the background in Node.JS.
-			//       Move in foreground to avoid race-conditions.
-			confirmCtx, cancel := context.WithTimeout(
-				context.Background(), time.Second*10,
-			)
-			err = m.rtRm.ConfirmUpdates(confirmCtx, processed)
-			cancel()
-			if err != nil {
-				ids := projectId.Hex() + "/" + docId.Hex()
-				err = errors.Tag(err, "cannot confirm updates in "+ids)
-				log.Println(err.Error())
-			}
-		}
-
-		if updateErr != nil {
-			// NOTE: This used to be in the background in Node.JS.
-			//       Move in foreground to avoid race-conditions.
-			reportCtx, cancel := context.WithTimeout(
-				context.Background(), time.Second*10,
-			)
-			err = m.rtRm.ReportError(reportCtx, docId, updateErr)
-			cancel()
-			if err != nil {
-				ids := projectId.Hex() + "/" + docId.Hex()
-				err = errors.Tag(err, "cannot report error in "+ids)
-				log.Println(err.Error())
-			}
-			return nil, 0, updateErr
+		queueDepth, err = m.persistProcessedUpdates(
+			ctx,
+			projectId, docId,
+			doc, initialVersion,
+			processed, updateErr,
+		)
+		if err != nil {
+			return nil, 0, err
 		}
 
 		if n := len(transformUpdatesCache); n > maxCacheSize {
@@ -275,6 +322,65 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId pri
 		}
 	}
 	return nil, 0, errPartialFlush
+}
+
+func (m *manager) persistProcessedUpdates(
+	ctx context.Context,
+	projectId, docId primitive.ObjectID,
+	doc *types.Doc,
+	initialVersion types.Version,
+	processed []types.DocumentUpdate,
+	updateErr error,
+) (int64, error) {
+	var queueDepth int64
+	var err error
+	if doc.Version != initialVersion {
+		appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
+		for _, update := range processed {
+			if update.Dup {
+				continue
+			}
+			appliedUpdates = append(appliedUpdates, update)
+		}
+		queueDepth, err = m.rm.UpdateDocument(
+			ctx, docId, doc, appliedUpdates,
+		)
+		if err != nil {
+			return queueDepth, err
+		}
+	}
+
+	if len(processed) != 0 {
+		// NOTE: This used to be in the background in Node.JS.
+		//       Move in foreground to avoid race-conditions.
+		confirmCtx, cancel := context.WithTimeout(
+			context.Background(), time.Second*10,
+		)
+		err = m.rtRm.ConfirmUpdates(confirmCtx, processed)
+		cancel()
+		if err != nil {
+			ids := projectId.Hex() + "/" + docId.Hex()
+			err = errors.Tag(err, "cannot confirm updates in "+ids)
+			log.Println(err.Error())
+		}
+	}
+
+	if updateErr != nil {
+		// NOTE: This used to be in the background in Node.JS.
+		//       Move in foreground to avoid race-conditions.
+		reportCtx, cancel := context.WithTimeout(
+			context.Background(), time.Second*10,
+		)
+		err = m.rtRm.ReportError(reportCtx, docId, updateErr)
+		cancel()
+		if err != nil {
+			ids := projectId.Hex() + "/" + docId.Hex()
+			err = errors.Tag(err, "cannot report error in "+ids)
+			log.Println(err.Error())
+		}
+		return 0, updateErr
+	}
+	return queueDepth, nil
 }
 
 func (m *manager) FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
@@ -295,19 +401,11 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 			if err != nil {
 				return
 			}
-			if doc.UnFlushedTime != 0 {
-				err = m.webApi.SetDoc(
-					ctx, projectId, docId, doc.ToSetDocDetails(),
-				)
-				if err != nil {
-					return
-				}
-			}
-			if delete {
-				err = m.rm.RemoveDocFromMemory(ctx, projectId, docId)
-				if err != nil {
-					return
-				}
+			err = m.doFlushAndMaybeDelete(
+				ctx, projectId, docId, doc, delete,
+			)
+			if err != nil {
+				return
 			}
 		})
 		if err == errPartialFlush {
@@ -322,6 +420,24 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 		}
 		return nil
 	}
+}
+
+func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.Doc, deleteFromRedis bool) error {
+	if doc.UnFlushedTime != 0 {
+		err := m.webApi.SetDoc(
+			ctx, projectId, docId, doc.ToSetDocDetails(),
+		)
+		if err != nil {
+			return err
+		}
+	}
+	if deleteFromRedis {
+		err := m.rm.RemoveDocFromMemory(ctx, projectId, docId)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {

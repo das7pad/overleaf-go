@@ -36,6 +36,13 @@ type Manager interface {
 		doc *types.Doc,
 		transformUpdatesCache []types.DocumentUpdate,
 	) ([]types.DocumentUpdate, []types.DocumentUpdate, error)
+
+	ProcessUpdates(
+		ctx context.Context,
+		docId primitive.ObjectID,
+		doc *types.Doc,
+		updates, transformUpdatesCache []types.DocumentUpdate,
+	) ([]types.DocumentUpdate, []types.DocumentUpdate, error)
 }
 
 func New(rm redisManager.Manager, rtRm realTimeRedisManager.Manager) Manager {
@@ -44,10 +51,6 @@ func New(rm redisManager.Manager, rtRm realTimeRedisManager.Manager) Manager {
 		rtRm: rtRm,
 	}
 }
-
-const (
-	maxDocLength = 2 * 1024 * 1024
-)
 
 type manager struct {
 	rm   redisManager.Manager
@@ -59,9 +62,14 @@ func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot get work")
 	}
+	return m.ProcessUpdates(ctx, docId, doc, updates, transformUpdatesCache)
+}
+
+func (m *manager) ProcessUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, updates, transformUpdatesCache []types.DocumentUpdate) ([]types.DocumentUpdate, []types.DocumentUpdate, error) {
 	if len(updates) == 0 {
 		return nil, nil, nil
 	}
+	var err error
 
 	minVersion := updates[0].Version
 	for _, update := range updates {
@@ -115,10 +123,8 @@ outer:
 			return processed, nil, err
 		}
 
-		if len(s) > maxDocLength {
-			return processed, nil, &errors.CodedError{
-				Description: "Update takes doc over max doc size",
-			}
+		if err = s.Validate(); err != nil {
+			return processed, nil, err
 		}
 		if incomingVersion == doc.Version && len(update.Hash) != 0 {
 			if err = s.Hash().CheckMatches(update.Hash); err != nil {

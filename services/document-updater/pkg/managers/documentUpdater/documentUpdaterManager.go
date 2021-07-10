@@ -46,6 +46,7 @@ type Manager interface {
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
+	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
@@ -104,6 +105,10 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 
 func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error) {
 	return m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
+}
+
+func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {
+	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 
 func (m *manager) FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {

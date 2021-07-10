@@ -70,6 +70,7 @@ func (d *FlushedDoc) ToDoc(projectId primitive.ObjectID) *Doc {
 	doc.ProjectId = projectId
 	doc.Ranges = d.Ranges
 	doc.Version = d.Version
+	doc.JustLoadedIntoRedis = true
 	return doc
 }
 
@@ -90,6 +91,29 @@ type Doc struct {
 	LastUpdatedCtx
 	Version
 	UnFlushedTime
+	JustLoadedIntoRedis bool
+}
+
+type SetDocRequest struct {
+	Lines    Lines `json:"lines"`
+	snapshot Snapshot
+	Source   string             `json:"source"`
+	UserId   primitive.ObjectID `json:"user_id"`
+	Undoing  bool               `json:"undoing"`
+}
+
+func (s *SetDocRequest) Snapshot() Snapshot {
+	if s.snapshot == nil {
+		s.snapshot = s.Lines.ToSnapshot()
+	}
+	return s.snapshot
+}
+
+func (s *SetDocRequest) Validate() error {
+	if err := s.Snapshot().Validate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 type SetDocDetails struct {

@@ -58,6 +58,7 @@ func (t Timestamp) Validate() error {
 }
 
 type DocumentUpdateMeta struct {
+	Type             string             `json:"type"`
 	Source           PublicId           `json:"source"`
 	Timestamp        Timestamp          `json:"ts,omitempty"`
 	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`

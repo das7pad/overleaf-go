@@ -148,7 +148,22 @@ func (h Hash) CheckMatches(other Hash) error {
 	}
 }
 
+const (
+	maxDocLength = 2 * 1024 * 1024
+)
+
+var (
+	ErrDocIsTooLarge = &errors.ValidationError{Msg: "doc is too large"}
+)
+
 type Snapshot []rune
+
+func (s Snapshot) Validate() error {
+	if len(s) > maxDocLength {
+		return ErrDocIsTooLarge
+	}
+	return nil
+}
 
 func (s *Snapshot) UnmarshalJSON(bytes []byte) error {
 	var raw string

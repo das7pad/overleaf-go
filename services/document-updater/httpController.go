@@ -84,6 +84,11 @@ func (h *httpController) GetRouter() http.Handler {
 		HandlerFunc(h.getDoc)
 	docRouter.
 		NewRoute().
+		Methods(http.MethodPost).
+		Path("").
+		HandlerFunc(h.setDoc)
+	docRouter.
+		NewRoute().
 		Methods(http.MethodDelete).
 		Path("").
 		HandlerFunc(h.flushAndDeleteDoc)
@@ -106,7 +111,7 @@ func validateAndSetId(name string) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id, err := primitive.ObjectIDFromHex(mux.Vars(r)[name])
 			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, 400, "invalid "+name)
+				errorResponse(w, http.StatusBadRequest, "invalid "+name)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -214,7 +219,7 @@ func (h *httpController) checkDocExists(w http.ResponseWriter, r *http.Request) 
 func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
 	fromVersion, err := getVersionFromQuery(r, "fromVersion", -1)
 	if err != nil {
-		errorResponse(w, 400, "invalid fromVersion")
+		errorResponse(w, http.StatusBadRequest, "invalid fromVersion")
 		return
 	}
 	doc, err := h.dum.GetDoc(
@@ -224,6 +229,29 @@ func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
 		fromVersion,
 	)
 	respond(w, r, http.StatusOK, doc, err, "cannot get doc")
+}
+
+func (h *httpController) setDoc(w http.ResponseWriter, r *http.Request) {
+	var request types.SetDocRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "bad request")
+		return
+	}
+	if err := request.Validate(); err != nil {
+		if err == types.ErrDocIsTooLarge {
+			errorResponse(w, http.StatusNotAcceptable, err.Error())
+			return
+		}
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	err := h.dum.SetDoc(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "docId"),
+		&request,
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete doc")
 }
 
 func (h *httpController) flushProject(w http.ResponseWriter, r *http.Request) {
