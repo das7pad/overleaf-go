@@ -436,7 +436,13 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId pr
 		if err != nil {
 			return err
 		}
+	} else if doc.UnFlushedTime != 0 {
+		err := m.rm.ClearUnFlushedTime(ctx, docId)
+		if err != nil {
+			return err
+		}
 	}
+	doc.UnFlushedTime = 0
 	return nil
 }
 
