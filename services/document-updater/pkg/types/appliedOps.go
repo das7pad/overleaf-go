@@ -175,12 +175,11 @@ func (d DupIfSource) Contains(id PublicId) bool {
 type DocumentUpdate struct {
 	DocId       primitive.ObjectID `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
-	DupIfSource `json:"dupIfSource,omitempty"`
+	DupIfSource DupIfSource        `json:"dupIfSource,omitempty"`
 	Hash        Hash               `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
 	Op          Op                 `json:"op"`
 	Version     Version            `json:"v"`
-	LastVersion int64              `json:"lastV"`
 }
 
 func (d *DocumentUpdate) Validate() error {
