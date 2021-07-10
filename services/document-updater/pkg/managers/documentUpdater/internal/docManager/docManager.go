@@ -45,7 +45,7 @@ type Manager interface {
 
 	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error)
 
-	FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
+	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
@@ -383,7 +383,23 @@ func (m *manager) persistProcessedUpdates(
 	return queueDepth, nil
 }
 
-func (m *manager) FlushDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId primitive.ObjectID) bool {
+	// Look for the doc (version) and updates gracefully, ignoring errors.
+	// It's only used for taking a short-cut when already flushed.
+	// Else we go the long way of fetch doc, check for updates and then flush.
+	// Not taking the fast path is OK.
+	_, err := m.rm.GetDocVersion(ctx, docId)
+	if err == nil || errors.GetCause(err) != redis.Nil {
+		return false
+	}
+	n, err := m.rtRm.GetUpdatesLength(ctx, docId)
+	if err != nil {
+		return false
+	}
+	return n == 0
+}
+
+func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error {
 	return m.flushAndMaybeDeleteDoc(ctx, projectId, docId, false)
 }
 
@@ -396,6 +412,9 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 
 	for {
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			if m.tryCheckDocNotLoadedOrFlushed(ctx, docId) {
+				return
+			}
 			var doc *types.Doc
 			doc, _, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
@@ -447,7 +466,7 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId pr
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
-	return m.operateOnAllProjectDocs(ctx, projectId, m.FlushDoc)
+	return m.operateOnAllProjectDocs(ctx, projectId, m.FlushDocIfLoaded)
 }
 
 func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {

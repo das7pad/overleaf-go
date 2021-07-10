@@ -96,7 +96,7 @@ func (h *httpController) GetRouter() http.Handler {
 		NewRoute().
 		Methods(http.MethodPost).
 		Path("/flush").
-		HandlerFunc(h.flushDoc)
+		HandlerFunc(h.flushDocIfLoaded)
 	docRouter.
 		NewRoute().
 		Methods(http.MethodGet, http.MethodHead).
@@ -262,8 +262,8 @@ func (h *httpController) flushProject(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusNoContent, nil, err, "cannot flush project")
 }
 
-func (h *httpController) flushDoc(w http.ResponseWriter, r *http.Request) {
-	err := h.dum.FlushDoc(
+func (h *httpController) flushDocIfLoaded(w http.ResponseWriter, r *http.Request) {
+	err := h.dum.FlushDocIfLoaded(
 		r.Context(),
 		getId(r, "projectId"),
 		getId(r, "docId"),
