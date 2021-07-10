@@ -17,7 +17,6 @@
 package types
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -211,37 +210,5 @@ type AppliedOpsMessage struct {
 	DocId       primitive.ObjectID      `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
-	UpdateRaw   json.RawMessage         `json:"op,omitempty"`
-	update      *DocumentUpdate
-}
-
-func (m *AppliedOpsMessage) Update() (*DocumentUpdate, error) {
-	if m.update != nil {
-		return m.update, nil
-	}
-	d := json.NewDecoder(bytes.NewReader(m.UpdateRaw))
-	d.DisallowUnknownFields()
-	if err := d.Decode(&m.update); err != nil {
-		return nil, err
-	}
-	return m.update, nil
-}
-
-func (m *AppliedOpsMessage) Validate() error {
-	if m.UpdateRaw != nil {
-		update, err := m.Update()
-		if err != nil {
-			return err
-		}
-		if err = update.Validate(); err != nil {
-			return err
-		}
-		return nil
-	} else if m.Error != nil {
-		return nil
-	} else if m.HealthCheck {
-		return nil
-	} else {
-		return &errors.ValidationError{Msg: "unknown message type"}
-	}
+	Update      DocumentUpdate          `json:"op,omitempty"`
 }

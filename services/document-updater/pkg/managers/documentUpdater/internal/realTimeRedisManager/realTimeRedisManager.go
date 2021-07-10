@@ -109,13 +109,9 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []types.Document
 				}
 			}
 
-			blob, err := json.Marshal(update)
-			if err != nil {
-				return errors.Tag(err, "cannot serialize update")
-			}
-			_, err = m.sendMessageVia(ctx, p, &types.AppliedOpsMessage{
-				DocId:     update.DocId,
-				UpdateRaw: blob,
+			_, err := m.sendMessageVia(ctx, p, &types.AppliedOpsMessage{
+				DocId:  update.DocId,
+				Update: update,
 			})
 			if err != nil {
 				return err
