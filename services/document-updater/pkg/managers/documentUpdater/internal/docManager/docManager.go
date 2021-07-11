@@ -28,6 +28,7 @@ import (
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/redisLocker"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/redisManager"
+	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/trackChanges"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/updateManager"
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater/internal/webApi"
 	"github.com/das7pad/document-updater/pkg/sharejs/types/text"
@@ -60,13 +61,18 @@ func New(options *types.Options, client redis.UniversalClient) (Manager, error) 
 	if err != nil {
 		return nil, err
 	}
+	tc, err := trackChanges.New(options, client)
+	if err != nil {
+		return nil, err
+	}
 	u := updateManager.New(rm, rtRm)
 	return &manager{
 		rl:     rl,
 		rm:     rm,
 		rtRm:   rtRm,
-		webApi: web,
+		tc:     tc,
 		u:      u,
+		webApi: web,
 	}, nil
 }
 
@@ -74,6 +80,7 @@ type manager struct {
 	rl     redisLocker.Locker
 	rm     redisManager.Manager
 	rtRm   realTimeRedisManager.Manager
+	tc     trackChanges.Manager
 	u      updateManager.Manager
 	webApi webApi.Manager
 }
@@ -334,8 +341,8 @@ func (m *manager) persistProcessedUpdates(
 ) (int64, error) {
 	var queueDepth int64
 	var err error
+	appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
 	if doc.Version != initialVersion {
-		appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
 		for _, update := range processed {
 			if update.Dup {
 				continue
@@ -379,6 +386,15 @@ func (m *manager) persistProcessedUpdates(
 			log.Println(err.Error())
 		}
 		return 0, updateErr
+	}
+
+	if len(appliedUpdates) != 0 {
+		err = m.tc.RecordAndFlushHistoryOps(
+			ctx, projectId, docId, int64(len(appliedUpdates)), queueDepth,
+		)
+		if err != nil {
+			return 0, errors.Tag(err, "cannot record and flush history")
+		}
 	}
 	return queueDepth, nil
 }

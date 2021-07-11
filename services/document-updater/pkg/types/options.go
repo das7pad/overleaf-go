@@ -21,6 +21,9 @@ type Options struct {
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
 
 	APIs struct {
+		TrackChanges struct {
+			URL string `json:"url"`
+		} `json:"track_changes"`
 		WebApi struct {
 			URL string `json:"url"`
 		} `json:"web_api"`
