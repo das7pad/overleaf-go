@@ -44,7 +44,7 @@ type Manager interface {
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 
-	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error)
+	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 
 	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
@@ -157,7 +157,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 		var err error
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
 			var doc *types.Doc
-			doc, _, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
@@ -201,7 +201,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 					return
 				}
 
-				_, err = m.persistProcessedUpdates(
+				err = m.persistProcessedUpdates(
 					ctx,
 					projectId, docId,
 					doc, initialVersion,
@@ -233,29 +233,28 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	}
 }
 
-func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error) {
+func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
 	var doc *types.Doc
 	var err error
-	queueDepth := int64(-1)
 
 	for {
 		lockErr := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) {
-			doc, queueDepth, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
 		})
 		if lockErr == redisLocker.ErrLocked {
-			return nil, queueDepth, nil
+			return nil, nil
 		}
 		if err == errPartialFlush {
 			err = nil
 			continue
 		}
 		if err != nil {
-			return nil, queueDepth, err
+			return nil, err
 		}
 		if lockErr != nil {
-			return nil, queueDepth, lockErr
+			return nil, lockErr
 		}
-		return doc, queueDepth, nil
+		return doc, nil
 	}
 }
 
@@ -269,14 +268,14 @@ var (
 	errPartialFlush = errors.New("partial flush")
 )
 
-func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, int64, error) {
+func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
 	doc, err := m.getDoc(ctx, projectId, docId)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if err = ctx.Err(); err != nil {
 		// Processing timed out.
-		return nil, 0, err
+		return nil, err
 	}
 	initialVersion := doc.Version
 	now := time.Now()
@@ -294,12 +293,11 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId pri
 	transformUpdatesCache := make([]types.DocumentUpdate, 0)
 	var processed []types.DocumentUpdate
 	var updateErr error
-	queueDepth := int64(-1)
 
 	for time.Now().Before(softDeadline) {
 		if err = ctx.Err(); err != nil {
 			// Processing timed out.
-			return nil, 0, err
+			return nil, err
 		}
 		processed, transformUpdatesCache, updateErr =
 			m.u.ProcessOutstandingUpdates(
@@ -308,27 +306,27 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId pri
 
 		if err = ctx.Err(); err != nil {
 			// Processing timed out.
-			return nil, 0, err
+			return nil, err
 		}
 		if len(processed) == 0 && updateErr == nil {
-			return doc, queueDepth, nil
+			return doc, nil
 		}
 
-		queueDepth, err = m.persistProcessedUpdates(
+		err = m.persistProcessedUpdates(
 			ctx,
 			projectId, docId,
 			doc, initialVersion,
 			processed, updateErr,
 		)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 
 		if n := len(transformUpdatesCache); n > maxCacheSize {
 			transformUpdatesCache = transformUpdatesCache[n-maxCacheSize:]
 		}
 	}
-	return nil, 0, errPartialFlush
+	return nil, errPartialFlush
 }
 
 func (m *manager) persistProcessedUpdates(
@@ -338,7 +336,7 @@ func (m *manager) persistProcessedUpdates(
 	initialVersion types.Version,
 	processed []types.DocumentUpdate,
 	updateErr error,
-) (int64, error) {
+) error {
 	var queueDepth int64
 	var err error
 	appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
@@ -353,7 +351,7 @@ func (m *manager) persistProcessedUpdates(
 			ctx, docId, doc, appliedUpdates,
 		)
 		if err != nil {
-			return queueDepth, err
+			return err
 		}
 	}
 
@@ -385,7 +383,7 @@ func (m *manager) persistProcessedUpdates(
 			err = errors.Tag(err, "cannot report error in "+ids)
 			log.Println(err.Error())
 		}
-		return 0, updateErr
+		return updateErr
 	}
 
 	if len(appliedUpdates) != 0 {
@@ -393,10 +391,10 @@ func (m *manager) persistProcessedUpdates(
 			ctx, projectId, docId, int64(len(appliedUpdates)), queueDepth,
 		)
 		if err != nil {
-			return 0, errors.Tag(err, "cannot record and flush history")
+			return errors.Tag(err, "cannot record and flush history")
 		}
 	}
-	return queueDepth, nil
+	return nil
 }
 
 func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId primitive.ObjectID) bool {
@@ -432,7 +430,7 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 				return
 			}
 			var doc *types.Doc
-			doc, _, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
@@ -533,7 +531,7 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId pri
 	docs := make([]*types.DocContent, len(docIds))
 	for i, docId := range docIds {
 		// TODO: force flush for old docs
-		doc, _, err2 := m.ProcessUpdatesForDoc(ctx, projectId, docId)
+		doc, err2 := m.ProcessUpdatesForDoc(ctx, projectId, docId)
 		if err2 != nil {
 			return nil, errors.Tag(err2, projectId.Hex()+"/"+docId.Hex())
 		}

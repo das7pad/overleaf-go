@@ -121,7 +121,7 @@ func (m *shard) process(work chan string) {
 		ctx, cancel := context.WithTimeout(
 			context.Background(), maxProcessingTime,
 		)
-		_, _, err = m.dm.ProcessUpdatesForDoc(ctx, projectId, docId)
+		_, err = m.dm.ProcessUpdatesForDoc(ctx, projectId, docId)
 		cancel()
 		if err != nil {
 			ids := projectId.Hex() + "/" + docId.Hex()
