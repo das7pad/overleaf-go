@@ -134,8 +134,10 @@ outer:
 
 		doc.Snapshot = s
 		doc.Version++
-		doc.LastUpdatedCtx.At = time.Now().Unix()
+		now := time.Now().UnixNano() / int64(time.Millisecond)
+		doc.LastUpdatedCtx.At = now
 		doc.LastUpdatedCtx.By = update.Meta.UserId
+		update.Meta.Timestamp = types.Timestamp(now)
 		processed = append(processed, update)
 		transformUpdatesCache = append(transformUpdatesCache, update)
 	}
