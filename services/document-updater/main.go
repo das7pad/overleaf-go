@@ -18,50 +18,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
 	"github.com/das7pad/document-updater/pkg/managers/documentUpdater"
 )
-
-const StartUpTimeout = time.Second * 30
-
-func waitForDataStores(
-	ctx context.Context,
-	mongoClient *mongo.Client,
-	redisClient redis.UniversalClient,
-) {
-	startUpCtx, doneWithStartupChecks := context.WithTimeout(
-		ctx,
-		StartUpTimeout,
-	)
-	ready := make(chan error)
-	go func() {
-		ready <- waitForMongo(startUpCtx, mongoClient)
-	}()
-	go func() {
-		ready <- waitForRedis(ctx, redisClient)
-	}()
-
-	if err := <-ready; err != nil {
-		panic(err)
-	}
-	if err := <-ready; err != nil {
-		panic(err)
-	}
-	close(ready)
-	doneWithStartupChecks()
-}
-
-func waitForMongo(ctx context.Context, client *mongo.Client) error {
-	return client.Ping(ctx, readpref.Primary())
-}
 
 func waitForRedis(
 	ctx context.Context,
@@ -77,18 +40,12 @@ func waitForRedis(
 func main() {
 	o := getOptions()
 	ctx := context.Background()
-	mongoClient, err := mongo.Connect(ctx, o.mongoOptions)
+	redisClient := redis.NewUniversalClient(o.redisOptions)
+
+	err := waitForRedis(ctx, redisClient)
 	if err != nil {
 		panic(err)
 	}
-	redisClient := redis.NewUniversalClient(o.redisOptions)
-
-	waitForDataStores(ctx, mongoClient, redisClient)
-
-	db := mongoClient.Database(o.dbName)
-
-	// keep reference while building the app
-	fmt.Println(db)
 
 	dum, err := documentUpdater.New(o.options, redisClient)
 	if err != nil {
