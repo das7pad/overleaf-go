@@ -118,6 +118,32 @@ func IsInvalidState(err error) bool {
 	return ok
 }
 
+type UpdateRangeNotAvailableError struct {
+}
+
+func (i *UpdateRangeNotAvailableError) IsFatal() bool {
+	return true
+}
+
+func (i *UpdateRangeNotAvailableError) Error() string {
+	return "doc ops range is not loaded in redis"
+}
+
+func (i *UpdateRangeNotAvailableError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: i.Error(),
+	}
+}
+
+func IsUpdateRangeNotAvailableError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*UpdateRangeNotAvailableError)
+	return ok
+}
+
 type NotAuthorizedError struct {
 }
 

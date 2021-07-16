@@ -80,7 +80,7 @@ func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId primitive.O
 			return nil, errors.Tag(err, "cannot deserialize update")
 		}
 		if err = updates[i].Validate(); err != nil {
-			return nil, err
+			return nil, errors.Tag(err, "update invalid")
 		}
 	}
 	return updates, nil

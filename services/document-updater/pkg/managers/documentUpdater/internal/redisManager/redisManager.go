@@ -145,6 +145,10 @@ const (
 	DocOpsMaxLength = 100
 )
 
+var (
+	updateRangeNotAvailable = &errors.UpdateRangeNotAvailableError{}
+)
+
 type manager struct {
 	rClient redis.UniversalClient
 }
@@ -339,7 +343,7 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.Obj
 	res, err := scriptGetPreviousDocUpdates.Run(ctx, m.rClient, keys, argv).Result()
 	if err != nil {
 		if strings.Contains(err.Error(), "overleaf:") {
-			return nil, errors.New("doc ops range is not loaded in redis")
+			return nil, updateRangeNotAvailable
 		}
 		return nil, errors.Tag(err, "cannot get previous updates from redis")
 	}
@@ -379,7 +383,7 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId prim
 		return nil, errors.Tag(err, "cannot get previous updates from redis")
 	}
 	if len(raw) != int(n) {
-		return nil, errors.New("doc ops range is not loaded in redis")
+		return nil, updateRangeNotAvailable
 	}
 	return m.parseDocumentUpdates(begin, raw)
 }
@@ -392,7 +396,7 @@ func (m *manager) parseDocumentUpdates(start types.Version, raw []string) ([]typ
 			return nil, errors.Tag(err, "cannot parse update")
 		}
 		if i == 0 && start != update.Version {
-			return nil, errors.New("doc ops range is not loaded in redis")
+			return nil, updateRangeNotAvailable
 		}
 		updates[i] = update
 	}

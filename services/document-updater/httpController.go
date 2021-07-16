@@ -185,6 +185,10 @@ func respond(
 			errorResponse(w, http.StatusConflict, err.Error())
 			return
 		}
+		if errors.IsUpdateRangeNotAvailableError(err) {
+			errorResponse(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
 		log.Printf("%s %s: %s: %s", r.Method, r.URL.Path, msg, err)
 		errorResponse(w, http.StatusInternalServerError, msg)
 		return
