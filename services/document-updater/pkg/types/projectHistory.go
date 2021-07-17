@@ -17,9 +17,9 @@
 package types
 
 type ProjectUpdate struct {
-	Id      string  `json:"id"`
-	Version Version `json:"version"`
-	Type    string  `json:"type"`
+	Id      string `json:"id"`
+	Version string `json:"version"`
+	Type    string `json:"type"`
 }
 
 type RenameUpdate struct {
