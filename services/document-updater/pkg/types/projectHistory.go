@@ -16,14 +16,71 @@
 
 package types
 
-type ProjectUpdate struct {
-	Id      string `json:"id"`
-	Version string `json:"version"`
-	Type    string `json:"type"`
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/document-updater/pkg/errors"
+)
+
+type coreProjectUpdate struct {
+	Id      primitive.ObjectID `json:"id"`
+	Version string             `json:"version"`
+	Type    string             `json:"type"`
 }
 
 type RenameUpdate struct {
-	ProjectUpdate
+	coreProjectUpdate
 	PathName    PathName `json:"pathname"`
-	NewPathName PathName `json:"new_pathname"`
+	NewPathName PathName `json:"newPathname"`
+}
+
+func (r *RenameUpdate) Validate() error {
+	if r.PathName == "" {
+		return &errors.ValidationError{Msg: "missing old path"}
+	}
+	return nil
+}
+
+type GenericProjectUpdate struct {
+	coreProjectUpdate
+	PathName    PathName `json:"pathname"`
+	NewPathName PathName `json:"newPathname"`
+}
+
+func (g *GenericProjectUpdate) RenameUpdate() *RenameUpdate {
+	return &RenameUpdate{
+		coreProjectUpdate: g.coreProjectUpdate,
+		PathName:          g.PathName,
+		NewPathName:       g.NewPathName,
+	}
+}
+
+type ProcessProjectUpdatesRequest struct {
+	ProjectVersion Version                `json:"version"`
+	Updates        []GenericProjectUpdate `json:"updates"`
+}
+
+func (p *ProcessProjectUpdatesRequest) Validate() error {
+	if p.ProjectVersion < 0 {
+		return &errors.ValidationError{Msg: "version must be greater 0"}
+	}
+	if len(p.Updates) == 0 {
+		return &errors.ValidationError{Msg: "missing updates"}
+	}
+	for _, update := range p.Updates {
+		switch update.Type {
+		case "rename-doc":
+			if err := update.RenameUpdate().Validate(); err != nil {
+				return err
+			}
+		case "rename-file":
+		case "add-doc":
+		case "add-file":
+		default:
+			return &errors.ValidationError{
+				Msg: "unknown update type: " + update.Type,
+			}
+		}
+	}
+	return nil
 }

@@ -43,6 +43,7 @@ type Manager interface {
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
+	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error
 
 	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 
@@ -83,6 +84,55 @@ type manager struct {
 	tc     trackChanges.Manager
 	u      updateManager.Manager
 	webApi webApi.Manager
+}
+
+func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error {
+	docId := update.Id
+	for {
+		var err error
+		if err = m.rm.ClearProjectState(ctx, projectId); err != nil {
+			return errors.Tag(
+				err, "cannot clear project state ahead of doc rename",
+			)
+		}
+
+		if _, err = m.rm.GetDocVersion(ctx, docId); err != nil {
+			if errors.IsNotFoundError(err) {
+				// Fast path: Doc is not loaded in redis yet.
+				return nil
+			}
+		}
+
+		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			var doc *types.Doc
+			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			if err != nil {
+				return
+			}
+			err = m.rm.RenameDoc(ctx, projectId, docId, doc, update)
+		})
+		if err == errPartialFlush {
+			continue
+		}
+
+		detachedCtx, done :=
+			context.WithTimeout(context.Background(), 10*time.Second)
+		err2 := m.rm.ClearProjectState(detachedCtx, projectId)
+		done()
+
+		if err != nil {
+			return err
+		}
+		if err2 != nil {
+			return errors.Tag(
+				err2, "cannot clear project state after doc rename",
+			)
+		}
+		if lockErr != nil {
+			return lockErr
+		}
+		return nil
+	}
 }
 
 func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {

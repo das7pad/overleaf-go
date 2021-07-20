@@ -105,9 +105,8 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		userId primitive.ObjectID,
+		doc *types.Doc,
 		update *types.RenameUpdate,
-		projectHistoryId int64,
 	) error
 
 	ClearUnFlushedTime(
@@ -299,6 +298,9 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 func (m *manager) GetDocVersion(ctx context.Context, docId primitive.ObjectID) (types.Version, error) {
 	raw, err := m.rClient.Get(ctx, getDocVersionKey(docId)).Result()
 	if err != nil {
+		if err == redis.Nil {
+			err = &errors.NotFoundError{}
+		}
 		return 0, errors.Tag(err, "cannot get version from redis")
 	}
 	var v types.Version
@@ -484,17 +486,10 @@ func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, 
 	return -1, nil
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, userId primitive.ObjectID, update *types.RenameUpdate, projectHistoryId int64) error {
-	doc, err := m.GetDoc(ctx, projectId, docId)
-	if err == nil {
-		doc.PathName = update.NewPathName
-		if err = m.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
-			return errors.Tag(err, "cannot rewrite doc in redis")
-		}
-	} else if errors.IsNotFoundError(err) {
-		// Noop
-	} else {
-		return errors.Tag(err, "cannot fetch doc for rewriting")
+func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, doc *types.Doc, update *types.RenameUpdate) error {
+	doc.PathName = update.NewPathName
+	if err := m.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
+		return errors.Tag(err, "cannot rewrite doc in redis")
 	}
 	return nil
 }

@@ -18,6 +18,7 @@ package documentUpdater
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -46,7 +47,9 @@ type Manager interface {
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
+	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
+	ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
@@ -67,6 +70,37 @@ type manager struct {
 
 func (m *manager) StartBackgroundTasks(ctx context.Context) {
 	m.dispatcher.Start(ctx)
+}
+
+func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error {
+	if err := update.Validate(); err != nil {
+		return err
+	}
+	return m.dm.RenameDoc(ctx, projectId, update)
+}
+
+func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
+
+	subVersion := int64(0)
+	base := strconv.FormatInt(int64(request.ProjectVersion), 10)
+	for _, update := range request.Updates {
+		subVersion += 1
+		update.Version = base + "." + strconv.FormatInt(subVersion, 10)
+		switch update.Type {
+		case "rename-doc":
+			err := m.dm.RenameDoc(ctx, projectId, update.RenameUpdate())
+			if err != nil {
+				return err
+			}
+		case "rename-file":
+		case "add-doc":
+		case "add-file":
+		}
+	}
+	return nil
 }
 
 func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {

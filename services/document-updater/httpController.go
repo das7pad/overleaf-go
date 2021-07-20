@@ -59,6 +59,11 @@ func (h *httpController) GetRouter() http.Handler {
 	projectRouter.
 		NewRoute().
 		Methods(http.MethodPost).
+		Path("").
+		HandlerFunc(h.processProjectUpdates)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
 		Path("/clearState").
 		HandlerFunc(h.clearProjectState)
 	projectRouter.
@@ -308,4 +313,18 @@ func (h *httpController) clearProjectState(w http.ResponseWriter, r *http.Reques
 		getId(r, "projectId"),
 	)
 	respond(w, r, http.StatusNoContent, nil, err, "cannot clear state")
+}
+
+func (h *httpController) processProjectUpdates(w http.ResponseWriter, r *http.Request) {
+	var request types.ProcessProjectUpdatesRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "bad request")
+		return
+	}
+	err := h.dum.ProcessProjectUpdates(
+		r.Context(),
+		getId(r, "projectId"),
+		&request,
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete doc")
 }
