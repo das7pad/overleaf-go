@@ -120,6 +120,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 			return nil, err
 		}
 		response.Ops = make([]types.DocumentUpdate, 0)
+		response.PathName = doc.PathName
 		response.Snapshot = doc.Snapshot
 		response.Ranges = doc.Ranges
 		response.Version = doc.Version
