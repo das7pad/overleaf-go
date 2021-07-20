@@ -220,5 +220,5 @@ type AppliedOpsMessage struct {
 	DocId       primitive.ObjectID      `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
-	Update      DocumentUpdate          `json:"op,omitempty"`
+	Update      *DocumentUpdate         `json:"op,omitempty"`
 }

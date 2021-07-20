@@ -111,7 +111,7 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []types.Document
 
 			_, err := m.sendMessageVia(ctx, p, &types.AppliedOpsMessage{
 				DocId:  update.DocId,
-				Update: update,
+				Update: &update,
 			})
 			if err != nil {
 				return err
