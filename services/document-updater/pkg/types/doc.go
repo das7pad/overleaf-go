@@ -135,16 +135,18 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 }
 
 type DocContent struct {
-	Id      primitive.ObjectID `json:"_id"`
-	Lines   Lines              `json:"lines"`
-	Version Version            `json:"v"`
+	Id       primitive.ObjectID `json:"_id"`
+	Lines    Lines              `json:"lines"`
+	PathName PathName           `json:"pathname"`
+	Version  Version            `json:"v"`
 }
 
 func (d *Doc) ToDocContent(docId primitive.ObjectID) *DocContent {
 	return &DocContent{
-		Id:      docId,
-		Lines:   d.Snapshot.ToLines(),
-		Version: d.Version,
+		Id:       docId,
+		Lines:    d.Snapshot.ToLines(),
+		PathName: d.PathName,
+		Version:  d.Version,
 	}
 }
 
