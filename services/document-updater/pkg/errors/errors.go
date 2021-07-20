@@ -68,6 +68,27 @@ func GetCause(err error) error {
 	return err
 }
 
+type AlreadyReportedError struct {
+	err error
+}
+
+func (a AlreadyReportedError) Error() string {
+	return "already reported: " + a.err.Error()
+}
+
+func MarkAsReported(err error) error {
+	return &AlreadyReportedError{err: err}
+}
+
+func IsAlreadyReported(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, isAlreadyReported := err.(*AlreadyReportedError)
+	return isAlreadyReported
+}
+
 type ValidationError struct {
 	Msg string
 }

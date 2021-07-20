@@ -45,7 +45,7 @@ type Manager interface {
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error
 
-	ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
+	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error
 
 	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
@@ -283,6 +283,15 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	}
 }
 
+func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	_, err := m.ProcessUpdatesForDoc(ctx, projectId, docId)
+	if err != nil && !errors.IsAlreadyReported(err) {
+		m.reportError(projectId, docId, err)
+		err = errors.MarkAsReported(err)
+	}
+	return err
+}
+
 func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
 	var doc *types.Doc
 	var err error
@@ -421,19 +430,8 @@ func (m *manager) persistProcessedUpdates(
 	}
 
 	if updateErr != nil {
-		// NOTE: This used to be in the background in Node.JS.
-		//       Move in foreground to avoid race-conditions.
-		reportCtx, cancel := context.WithTimeout(
-			context.Background(), time.Second*10,
-		)
-		err = m.rtRm.ReportError(reportCtx, docId, updateErr)
-		cancel()
-		if err != nil {
-			ids := projectId.Hex() + "/" + docId.Hex()
-			err = errors.Tag(err, "cannot report error in "+ids)
-			log.Println(err.Error())
-		}
-		return updateErr
+		m.reportError(projectId, docId, updateErr)
+		return errors.MarkAsReported(updateErr)
 	}
 
 	if len(appliedUpdates) != 0 {
@@ -445,6 +443,21 @@ func (m *manager) persistProcessedUpdates(
 		}
 	}
 	return nil
+}
+
+func (m *manager) reportError(projectId, docId primitive.ObjectID, err error) {
+	// NOTE: This used to be in the background in Node.JS.
+	//       Move in foreground to avoid race-conditions.
+	reportCtx, cancel := context.WithTimeout(
+		context.Background(), time.Second*10,
+	)
+	err2 := m.rtRm.ReportError(reportCtx, docId, err)
+	cancel()
+	if err2 != nil {
+		ids := projectId.Hex() + "/" + docId.Hex()
+		err2 = errors.Tag(err2, "cannot report error in "+ids)
+		log.Println(err2.Error())
+	}
 }
 
 func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId primitive.ObjectID) bool {
