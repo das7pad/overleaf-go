@@ -164,6 +164,17 @@ func getVersionFromQuery(
 	}
 	return types.Version(i), nil
 }
+func getIntFromHeaders(
+	r *http.Request,
+	key string,
+	fallback int64,
+) (int64, error) {
+	raw := r.Header.Get(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	return strconv.ParseInt(raw, 10, 64)
+}
 
 func respond(
 	w http.ResponseWriter,
@@ -240,13 +251,26 @@ func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, doc, err, "cannot get doc")
 }
 
+const (
+	maxSetDocRequestSize = 8 * 1024 * 1024
+)
+
 func (h *httpController) setDoc(w http.ResponseWriter, r *http.Request) {
+	n, err := getIntFromHeaders(r, "Content-Length", 0)
+	if err != nil || n < 1 {
+		errorResponse(w, http.StatusBadRequest, "missing request size")
+		return
+	}
+	if n > maxSetDocRequestSize {
+		errorResponse(w, http.StatusRequestEntityTooLarge, "too large")
+		return
+	}
 	var request types.SetDocRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
 		errorResponse(w, http.StatusBadRequest, "bad request")
 		return
 	}
-	if err := request.Validate(); err != nil {
+	if err = request.Validate(); err != nil {
 		if err == types.ErrDocIsTooLarge {
 			errorResponse(w, http.StatusNotAcceptable, err.Error())
 			return
@@ -254,7 +278,7 @@ func (h *httpController) setDoc(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	err := h.dum.SetDoc(
+	err = h.dum.SetDoc(
 		r.Context(),
 		getId(r, "projectId"),
 		getId(r, "docId"),
