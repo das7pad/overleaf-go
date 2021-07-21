@@ -62,8 +62,9 @@ type FlushedDoc struct {
 	Version            Version            `json:"version"`
 }
 
-func (d *FlushedDoc) ToDoc(projectId primitive.ObjectID) *Doc {
+func (d *FlushedDoc) ToDoc(projectId, docId primitive.ObjectID) *Doc {
 	doc := &Doc{}
+	doc.DocId = docId
 	doc.Snapshot = d.Lines.ToSnapshot()
 	doc.PathName = d.PathName
 	doc.ProjectHistoryId = d.ProjectHistoryId
@@ -91,6 +92,7 @@ type Doc struct {
 	LastUpdatedCtx
 	Version
 	UnFlushedTime
+	DocId               primitive.ObjectID
 	JustLoadedIntoRedis bool
 }
 
@@ -134,17 +136,33 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 	}
 }
 
-type DocContent struct {
+type DocContentLines struct {
 	Id       primitive.ObjectID `json:"_id"`
 	Lines    Lines              `json:"lines"`
 	PathName PathName           `json:"pathname"`
 	Version  Version            `json:"v"`
 }
 
-func (d *Doc) ToDocContent(docId primitive.ObjectID) *DocContent {
-	return &DocContent{
-		Id:       docId,
+type DocContentSnapshot struct {
+	Id       primitive.ObjectID `json:"_id"`
+	Snapshot Snapshot           `json:"snapshot"`
+	PathName PathName           `json:"pathname"`
+	Version  Version            `json:"v"`
+}
+
+func (d *Doc) ToDocContentLines() *DocContentLines {
+	return &DocContentLines{
+		Id:       d.DocId,
 		Lines:    d.Snapshot.ToLines(),
+		PathName: d.PathName,
+		Version:  d.Version,
+	}
+}
+
+func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
+	return &DocContentSnapshot{
+		Id:       d.DocId,
+		Snapshot: d.Snapshot,
 		PathName: d.PathName,
 		Version:  d.Version,
 	}

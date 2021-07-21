@@ -273,7 +273,9 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 			return nil, errors.New("unexpected value from redis")
 		}
 	}
-	doc := &types.Doc{}
+	doc := &types.Doc{
+		DocId: docId,
+	}
 	if err := doc.DocCore.DoUnmarshalJSON(blobs[0]); err != nil {
 		return nil, errors.Tag(err, "cannot parse doc core")
 	}

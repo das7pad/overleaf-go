@@ -42,7 +42,8 @@ type Manager interface {
 		docId primitive.ObjectID,
 		fromVersion types.Version,
 	) (*types.GetDocResponse, error)
-	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
+	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentLines, error)
+	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentSnapshot, error)
 	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
@@ -142,8 +143,28 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	return response, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error) {
-	return m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
+func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentLines, error) {
+	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
+	if err != nil {
+		return nil, err
+	}
+	docContentsLines := make([]*types.DocContentLines, len(docs))
+	for i, doc := range docs {
+		docContentsLines[i] = doc.ToDocContentLines()
+	}
+	return docContentsLines, nil
+}
+
+func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentSnapshot, error) {
+	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
+	if err != nil {
+		return nil, err
+	}
+	docContentsSnapshot := make([]*types.DocContentSnapshot, len(docs))
+	for i, doc := range docs {
+		docContentsSnapshot[i] = doc.ToDocContentSnapshot()
+	}
+	return docContentsSnapshot, nil
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {

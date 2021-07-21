@@ -40,7 +40,7 @@ type Manager interface {
 
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error)
-	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
+	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error)
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 
@@ -218,7 +218,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get doc from mongo")
 	}
-	doc = flushedDoc.ToDoc(projectId)
+	doc = flushedDoc.ToDoc(projectId, docId)
 	err = m.rm.PutDocInMemory(ctx, projectId, docId, doc)
 	if err != nil {
 		ids := projectId.Hex() + "/" + docId.Hex()
@@ -613,7 +613,7 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 	return nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error) {
+func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error) {
 	err := m.rm.CheckOrSetProjectState(ctx, projectId, newState)
 	if err != nil {
 		return nil, err
@@ -622,14 +622,14 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId pri
 	if err != nil {
 		return nil, err
 	}
-	docs := make([]*types.DocContent, len(docIds))
+	docs := make([]*types.Doc, len(docIds))
 	for i, docId := range docIds {
 		// TODO: force flush for old docs
 		doc, err2 := m.ProcessUpdatesForDoc(ctx, projectId, docId)
 		if err2 != nil {
 			return nil, errors.Tag(err2, projectId.Hex()+"/"+docId.Hex())
 		}
-		docs[i] = doc.ToDocContent(docId)
+		docs[i] = doc
 	}
 	return docs, nil
 }

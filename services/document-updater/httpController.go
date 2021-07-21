@@ -323,11 +323,21 @@ func (h *httpController) flushAndDeleteProject(w http.ResponseWriter, r *http.Re
 
 func (h *httpController) getAndFlushIfOld(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
-	docs, err := h.dum.GetProjectDocsAndFlushIfOld(
-		r.Context(),
-		getId(r, "projectId"),
-		state,
-	)
+	var docs interface{}
+	var err error
+	if r.URL.Query().Get("snapshot") == "true" {
+		docs, err = h.dum.GetProjectDocsAndFlushIfOldSnapshot(
+			r.Context(),
+			getId(r, "projectId"),
+			state,
+		)
+	} else {
+		docs, err = h.dum.GetProjectDocsAndFlushIfOldLines(
+			r.Context(),
+			getId(r, "projectId"),
+			state,
+		)
+	}
 	respond(w, r, http.StatusOK, docs, err, "cannot get and flush old")
 }
 
