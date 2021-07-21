@@ -43,7 +43,11 @@ type Manager interface {
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContent, error)
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
-	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error
+
+	AddDoc(ctx context.Context, projectId primitive.ObjectID, update *types.AddDocUpdate) error
+	AddFile(ctx context.Context, projectId primitive.ObjectID, update *types.AddFileUpdate) error
+	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameDocUpdate) error
+	RenameFile(ctx context.Context, projectId primitive.ObjectID, update *types.RenameFileUpdate) error
 
 	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error
 
@@ -86,7 +90,25 @@ type manager struct {
 	webApi webApi.Manager
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error {
+func (m *manager) AddDoc(ctx context.Context, projectId primitive.ObjectID, _ *types.AddDocUpdate) error {
+	if err := m.rm.ClearProjectState(ctx, projectId); err != nil {
+		return errors.Tag(
+			err, "cannot clear project state ahead of adding doc",
+		)
+	}
+	return nil
+}
+
+func (m *manager) AddFile(ctx context.Context, projectId primitive.ObjectID, _ *types.AddFileUpdate) error {
+	if err := m.rm.ClearProjectState(ctx, projectId); err != nil {
+		return errors.Tag(
+			err, "cannot clear project state ahead of adding file",
+		)
+	}
+	return nil
+}
+
+func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameDocUpdate) error {
 	docId := update.Id
 	for {
 		var err error
@@ -133,6 +155,15 @@ func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, u
 		}
 		return nil
 	}
+}
+
+func (m *manager) RenameFile(ctx context.Context, projectId primitive.ObjectID, _ *types.RenameFileUpdate) error {
+	if err := m.rm.ClearProjectState(ctx, projectId); err != nil {
+		return errors.Tag(
+			err, "cannot clear project state ahead of renaming file",
+		)
+	}
+	return nil
 }
 
 func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {

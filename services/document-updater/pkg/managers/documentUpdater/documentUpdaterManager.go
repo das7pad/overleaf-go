@@ -47,7 +47,6 @@ type Manager interface {
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
-	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 	ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error
 }
@@ -72,13 +71,6 @@ func (m *manager) StartBackgroundTasks(ctx context.Context) {
 	m.dispatcher.Start(ctx)
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameUpdate) error {
-	if err := update.Validate(); err != nil {
-		return err
-	}
-	return m.dm.RenameDoc(ctx, projectId, update)
-}
-
 func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
@@ -91,13 +83,25 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive
 		update.Version = base + "." + strconv.FormatInt(subVersion, 10)
 		switch update.Type {
 		case "rename-doc":
-			err := m.dm.RenameDoc(ctx, projectId, update.RenameUpdate())
+			err := m.dm.RenameDoc(ctx, projectId, update.RenameDocUpdate())
 			if err != nil {
 				return err
 			}
 		case "rename-file":
+			err := m.dm.RenameFile(ctx, projectId, update.RenameFileUpdate())
+			if err != nil {
+				return err
+			}
 		case "add-doc":
+			err := m.dm.AddDoc(ctx, projectId, update.AddDocUpdate())
+			if err != nil {
+				return err
+			}
 		case "add-file":
+			err := m.dm.AddFile(ctx, projectId, update.AddFileUpdate())
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

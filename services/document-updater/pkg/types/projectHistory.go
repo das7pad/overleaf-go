@@ -28,15 +28,60 @@ type coreProjectUpdate struct {
 	Type    string             `json:"type"`
 }
 
-type RenameUpdate struct {
+type AddDocUpdate struct {
+	coreProjectUpdate
+	PathName PathName `json:"pathname"`
+}
+
+func (a *AddDocUpdate) Validate() error {
+	if a.PathName == "" {
+		return &errors.ValidationError{Msg: "missing path"}
+	}
+	return nil
+}
+
+type AddFileUpdate struct {
+	coreProjectUpdate
+	PathName PathName `json:"pathname"`
+	URL      string   `json:"url"`
+}
+
+func (a *AddFileUpdate) Validate() error {
+	if a.PathName == "" {
+		return &errors.ValidationError{Msg: "missing path"}
+	}
+	if a.URL == "" {
+		return &errors.ValidationError{Msg: "missing url"}
+	}
+	return nil
+}
+
+type RenameDocUpdate struct {
 	coreProjectUpdate
 	PathName    PathName `json:"pathname"`
 	NewPathName PathName `json:"newPathname"`
 }
 
-func (r *RenameUpdate) Validate() error {
+func (r *RenameDocUpdate) Validate() error {
 	if r.PathName == "" {
 		return &errors.ValidationError{Msg: "missing old path"}
+	}
+	return nil
+}
+
+type RenameFileUpdate struct {
+	coreProjectUpdate
+	PathName    PathName `json:"pathname"`
+	NewPathName PathName `json:"newPathname"`
+	URL         string   `json:"url"`
+}
+
+func (r *RenameFileUpdate) Validate() error {
+	if r.PathName == "" {
+		return &errors.ValidationError{Msg: "missing old path"}
+	}
+	if r.URL == "" {
+		return &errors.ValidationError{Msg: "missing url"}
 	}
 	return nil
 }
@@ -45,13 +90,38 @@ type GenericProjectUpdate struct {
 	coreProjectUpdate
 	PathName    PathName `json:"pathname"`
 	NewPathName PathName `json:"newPathname"`
+	URL         string   `json:"url"`
 }
 
-func (g *GenericProjectUpdate) RenameUpdate() *RenameUpdate {
-	return &RenameUpdate{
+func (g *GenericProjectUpdate) AddDocUpdate() *AddDocUpdate {
+	return &AddDocUpdate{
+		coreProjectUpdate: g.coreProjectUpdate,
+		PathName:          g.PathName,
+	}
+}
+
+func (g *GenericProjectUpdate) AddFileUpdate() *AddFileUpdate {
+	return &AddFileUpdate{
+		coreProjectUpdate: g.coreProjectUpdate,
+		PathName:          g.PathName,
+		URL:               g.URL,
+	}
+}
+
+func (g *GenericProjectUpdate) RenameDocUpdate() *RenameDocUpdate {
+	return &RenameDocUpdate{
 		coreProjectUpdate: g.coreProjectUpdate,
 		PathName:          g.PathName,
 		NewPathName:       g.NewPathName,
+	}
+}
+
+func (g *GenericProjectUpdate) RenameFileUpdate() *RenameFileUpdate {
+	return &RenameFileUpdate{
+		coreProjectUpdate: g.coreProjectUpdate,
+		PathName:          g.PathName,
+		NewPathName:       g.NewPathName,
+		URL:               g.URL,
 	}
 }
 
@@ -69,13 +139,22 @@ func (p *ProcessProjectUpdatesRequest) Validate() error {
 	}
 	for _, update := range p.Updates {
 		switch update.Type {
+		case "add-doc":
+			if err := update.AddDocUpdate().Validate(); err != nil {
+				return err
+			}
+		case "add-file":
+			if err := update.AddFileUpdate().Validate(); err != nil {
+				return err
+			}
 		case "rename-doc":
-			if err := update.RenameUpdate().Validate(); err != nil {
+			if err := update.RenameDocUpdate().Validate(); err != nil {
 				return err
 			}
 		case "rename-file":
-		case "add-doc":
-		case "add-file":
+			if err := update.RenameFileUpdate().Validate(); err != nil {
+				return err
+			}
 		default:
 			return &errors.ValidationError{
 				Msg: "unknown update type: " + update.Type,
