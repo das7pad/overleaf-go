@@ -48,13 +48,13 @@ func New(options *types.Options) (Manager, error) {
 	return &manager{
 		baseURL: baseURL.String(),
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 5 * time.Second,
 		},
 	}, nil
 }
 
 const (
-	maxRetries = 3
+	maxRetries = 2
 	backOff    = 5 * time.Second
 )
 
