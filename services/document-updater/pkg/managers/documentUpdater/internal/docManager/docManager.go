@@ -315,7 +315,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 }
 
 func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error {
-	_, err := m.ProcessUpdatesForDoc(ctx, projectId, docId)
+	_, err := m.processUpdatesForDocAndMaybeFlushOld(ctx, projectId, docId, false)
 	if err != nil && !errors.IsAlreadyReported(err) {
 		m.reportError(projectId, docId, err)
 		err = errors.MarkAsReported(err)
@@ -323,13 +323,30 @@ func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, d
 	return err
 }
 
-func (m *manager) ProcessUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
+const (
+	maxUnFlushedAge = 5 * time.Minute
+)
+
+func (m *manager) processUpdatesForDocAndMaybeFlushOld(ctx context.Context, projectId, docId primitive.ObjectID, flushOld bool) (*types.Doc, error) {
 	var doc *types.Doc
 	var err error
 
 	for {
 		lockErr := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) {
 			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			if err != nil {
+				return
+			}
+			if flushOld && doc.UnFlushedTime != 0 {
+				maxAge := types.UnFlushedTime(
+					time.Now().Add(-maxUnFlushedAge).Unix(),
+				)
+				if doc.UnFlushedTime < maxAge {
+					err = m.doFlushAndMaybeDelete(
+						ctx, projectId, docId, doc, false,
+					)
+				}
+			}
 		})
 		if lockErr == redisLocker.ErrLocked {
 			return nil, nil
@@ -624,8 +641,9 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId pri
 	}
 	docs := make([]*types.Doc, len(docIds))
 	for i, docId := range docIds {
-		// TODO: force flush for old docs
-		doc, err2 := m.ProcessUpdatesForDoc(ctx, projectId, docId)
+		doc, err2 := m.processUpdatesForDocAndMaybeFlushOld(
+			ctx, projectId, docId, true,
+		)
 		if err2 != nil {
 			return nil, errors.Tag(err2, projectId.Hex()+"/"+docId.Hex())
 		}
