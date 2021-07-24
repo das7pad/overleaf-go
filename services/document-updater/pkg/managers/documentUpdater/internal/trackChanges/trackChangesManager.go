@@ -32,6 +32,7 @@ import (
 )
 
 type Manager interface {
+	FlushDocInBackground(projectId, docId primitive.ObjectID)
 	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId primitive.ObjectID, nUpdates, queueDepth int64) error
 }
 
@@ -74,13 +75,17 @@ func shouldFlush(nUpdates, queueDepth int64) bool {
 	return before != after
 }
 
+func (m *manager) FlushDocInBackground(projectId, docId primitive.ObjectID) {
+	go m.flushDocChangesAndLogErr(projectId, docId)
+}
+
 func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId primitive.ObjectID, nUpdates, queueDepth int64) error {
 	if err := m.hrm.RecordDocHasHistory(ctx, projectId, docId); err != nil {
 		return err
 	}
 
 	if shouldFlush(nUpdates, queueDepth) {
-		go m.flushDocChangesAndLogErr(projectId, docId)
+		m.FlushDocInBackground(projectId, docId)
 	}
 	return nil
 }

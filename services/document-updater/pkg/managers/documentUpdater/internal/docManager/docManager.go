@@ -538,6 +538,9 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 	for {
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
 			if m.tryCheckDocNotLoadedOrFlushed(ctx, docId) {
+				if delete {
+					m.tc.FlushDocInBackground(projectId, docId)
+				}
 				return
 			}
 			var doc *types.Doc
@@ -567,6 +570,9 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 }
 
 func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.Doc, deleteFromRedis bool) error {
+	if deleteFromRedis {
+		m.tc.FlushDocInBackground(projectId, docId)
+	}
 	if doc.UnFlushedTime != 0 {
 		err := m.webApi.SetDoc(
 			ctx, projectId, docId, doc.ToSetDocDetails(),
