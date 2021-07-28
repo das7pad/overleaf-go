@@ -18,6 +18,8 @@ package channel
 
 import (
 	"context"
+	"math"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -98,14 +100,21 @@ func (m *manager) Listen(ctx context.Context) <-chan *PubSubMessage {
 	rawC := make(chan *PubSubMessage, 100)
 	go func() {
 		defer close(rawC)
+		nFailed := 0
 		for {
 			raw, err := m.p.Receive(ctx)
 			if err != nil {
 				if err == redis.ErrClosed {
 					return
 				}
+				nFailed++
+				time.Sleep(time.Duration(math.Min(
+					float64(5*time.Second),
+					math.Pow(2, float64(nFailed))*float64(time.Millisecond),
+				)))
 				continue
 			}
+			nFailed = 0
 			switch msg := raw.(type) {
 			case *redis.Subscription:
 				if msg.Kind != "unsubscribe" {
