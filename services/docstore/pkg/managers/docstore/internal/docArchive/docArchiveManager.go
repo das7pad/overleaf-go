@@ -30,7 +30,7 @@ import (
 	"github.com/das7pad/docstore/pkg/errors"
 	"github.com/das7pad/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/docstore/pkg/models"
-	"github.com/das7pad/docstore/pkg/options"
+	"github.com/das7pad/docstore/pkg/types"
 )
 
 type Manager interface {
@@ -62,7 +62,7 @@ type Manager interface {
 	) error
 }
 
-func New(backendOptions backend.Options, bucket string, pLimits options.PLimits, dm docs.Manager) (Manager, error) {
+func New(backendOptions backend.Options, bucket string, pLimits types.PLimits, dm docs.Manager) (Manager, error) {
 	b, err := backend.FromOptions(backendOptions)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ type manager struct {
 	b       backend.Backend
 	bucket  string
 	dm      docs.Manager
-	pLimits options.PLimits
+	pLimits types.PLimits
 }
 
 type pMapWorker func(

@@ -30,7 +30,7 @@ import (
 	"github.com/das7pad/docstore/pkg/errors"
 	"github.com/das7pad/docstore/pkg/managers/docstore"
 	"github.com/das7pad/docstore/pkg/models"
-	"github.com/das7pad/docstore/pkg/options"
+	"github.com/das7pad/docstore/pkg/types"
 )
 
 func newHttpController(dm docstore.Manager) httpController {
@@ -210,7 +210,7 @@ func (h *httpController) peakDeletedDocNames(w http.ResponseWriter, r *http.Requ
 	limit := docstore.DefaultLimit
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		if limitRaw, err := strconv.ParseInt(raw, 10, 64); err == nil {
-			limit = options.Limit(limitRaw)
+			limit = types.Limit(limitRaw)
 		}
 	}
 

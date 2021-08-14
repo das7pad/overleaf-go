@@ -14,11 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package options
+package types
 
-type Limit int64
+import (
+	"github.com/das7pad/docstore/pkg/backend"
+)
 
-type PLimits struct {
-	ParallelArchiveJobs int64 `json:"parallelArchiveJobs"`
-	BatchSize           int32 `json:"batchSize"`
+type Options struct {
+	ArchivePLimits PLimits         `json:"archive_p_limits"`
+	BackendOptions backend.Options `json:"backend_options"`
+	Bucket         string          `json:"bucket"`
+	MaxDeletedDocs Limit           `json:"max_deleted_docs"`
 }

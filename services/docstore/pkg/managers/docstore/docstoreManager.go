@@ -23,17 +23,16 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/docstore/pkg/backend"
 	"github.com/das7pad/docstore/pkg/errors"
 	"github.com/das7pad/docstore/pkg/managers/docstore/internal/docArchive"
 	"github.com/das7pad/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/docstore/pkg/models"
-	"github.com/das7pad/docstore/pkg/options"
+	"github.com/das7pad/docstore/pkg/types"
 )
 
 type Modified bool
 
-const DefaultLimit options.Limit = -1
+const DefaultLimit types.Limit = -1
 
 type Manager interface {
 	IsDocDeleted(
@@ -57,7 +56,7 @@ type Manager interface {
 	PeakDeletedDocNames(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-		limit options.Limit,
+		limit types.Limit,
 	) ([]models.DocName, error)
 
 	GetAllRanges(
@@ -110,17 +109,14 @@ type Manager interface {
 
 func New(
 	db *mongo.Database,
-	backendOptions backend.Options,
-	bucket string,
-	pLimits options.PLimits,
-	maxDeletedDocs options.Limit,
+	options types.Options,
 ) (Manager, error) {
 	dm := docs.New(db)
 
 	da, err := docArchive.New(
-		backendOptions,
-		bucket,
-		pLimits,
+		options.BackendOptions,
+		options.Bucket,
+		options.ArchivePLimits,
 		dm,
 	)
 	if err != nil {
@@ -129,14 +125,14 @@ func New(
 	return &manager{
 		da:             da,
 		dm:             dm,
-		maxDeletedDocs: maxDeletedDocs,
+		maxDeletedDocs: options.MaxDeletedDocs,
 	}, nil
 }
 
 type manager struct {
 	da             docArchive.Manager
 	dm             docs.Manager
-	maxDeletedDocs options.Limit
+	maxDeletedDocs types.Limit
 }
 
 func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
@@ -178,7 +174,7 @@ func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID,
 	}
 }
 
-func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit options.Limit) ([]models.DocName, error) {
+func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit types.Limit) ([]models.DocName, error) {
 	if limit == DefaultLimit {
 		limit = m.maxDeletedDocs
 	} else if limit < 1 {
@@ -187,7 +183,7 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 		}
 	} else {
 		// Silently limit the provided value to the configured default limit.
-		limit = options.Limit(math.Min(
+		limit = types.Limit(math.Min(
 			float64(limit),
 			float64(m.maxDeletedDocs),
 		))

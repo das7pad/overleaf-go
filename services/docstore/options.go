@@ -26,8 +26,7 @@ import (
 	mongoOptions "go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
-	"github.com/das7pad/docstore/pkg/backend"
-	"github.com/das7pad/docstore/pkg/options"
+	"github.com/das7pad/docstore/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int64) int64 {
@@ -68,13 +67,10 @@ func getJSONFromEnv(key string, target interface{}) {
 }
 
 type docstoreOptions struct {
-	address        string
-	mongoOptions   *mongoOptions.ClientOptions
-	dbName         string
-	backendOptions backend.Options
-	bucket         string
-	pLimits        options.PLimits
-	maxDeletedDocs options.Limit
+	address      string
+	mongoOptions *mongoOptions.ClientOptions
+	dbName       string
+	options      types.Options
 }
 
 func getOptions() *docstoreOptions {
@@ -113,12 +109,6 @@ func getOptions() *docstoreOptions {
 	}
 	o.dbName = cs.Database
 
-	getJSONFromEnv("BACKEND_OPTIONS", &o.backendOptions)
-	o.bucket = getStringFromEnv("BUCKET", "docstore")
-	getJSONFromEnv("ARCHIVE_P_LIMITS", &o.pLimits)
-
-	o.maxDeletedDocs = options.Limit(
-		getIntFromEnv("MAX_DELETED_DOCS", 100),
-	)
+	getJSONFromEnv("OPTIONS", &o.options)
 	return o
 }

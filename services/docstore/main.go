@@ -44,10 +44,7 @@ func main() {
 	db := client.Database(o.dbName)
 	nm, err := docstore.New(
 		db,
-		o.backendOptions,
-		o.bucket,
-		o.pLimits,
-		o.maxDeletedDocs,
+		o.options,
 	)
 	if err != nil {
 		panic(err)
