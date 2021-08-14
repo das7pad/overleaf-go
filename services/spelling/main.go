@@ -42,7 +42,7 @@ func main() {
 		panic(err)
 	}
 	db := client.Database(o.dbName)
-	sm, err := spelling.New(db, o.lruSize)
+	sm, err := spelling.New(db, o.options)
 	if err != nil {
 		panic(err)
 	}

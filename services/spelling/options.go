@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -28,6 +29,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+
+	"github.com/das7pad/spelling/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int) int {
@@ -57,13 +60,23 @@ func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
 	return time.Duration(getIntFromEnv(key, 0) * int(time.Millisecond))
 }
 
+func getJSONFromEnv(key string, target interface{}) {
+	if v, exists := os.LookupEnv(key); !exists || v == "" {
+		panic(fmt.Errorf("missing %s", key))
+	}
+	err := json.Unmarshal([]byte(os.Getenv(key)), target)
+	if err != nil {
+		panic(fmt.Errorf("malformed %s: %w", key, err))
+	}
+}
+
 type spellingOptions struct {
 	address      string
 	corsOptions  CorsOptions
 	jwtOptions   jwtMiddleware.Options
-	lruSize      int
 	mongoOptions *options.ClientOptions
 	dbName       string
+	options      *types.Options
 }
 
 func getOptions() *spellingOptions {
@@ -91,7 +104,8 @@ func getOptions() *spellingOptions {
 		AllowedOrigins: allowedOrigins,
 		SiteUrl:        siteUrl,
 	}
-	o.lruSize = getIntFromEnv("LRU_SIZE", 10*1000)
+
+	getJSONFromEnv("OPTIONS", &o.options)
 
 	mongoConnectionString := os.Getenv("MONGO_CONNECTION_STRING")
 	if mongoConnectionString == "" {

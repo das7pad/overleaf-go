@@ -57,7 +57,11 @@ type Manager interface {
 	) error
 }
 
-func New(db *mongo.Database, lruSize int) (Manager, error) {
+func New(db *mongo.Database, options *types.Options) (Manager, error) {
+	lruSize := options.LRUSize
+	if lruSize <= 0 {
+		lruSize = 10 * 1000
+	}
 	a, err := aspell.New(lruSize)
 	if err != nil {
 		return nil, err
