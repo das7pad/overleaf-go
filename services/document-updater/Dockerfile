@@ -38,7 +38,7 @@ LABEL \
   org.opencontainers.image.version="$RELEASE" \
   org.opencontainers.image.revision="$COMMIT" \
   org.opencontainers.image.vendor="Jakob Ackermann" \
-  org.opencontainers.image.licenses="Apache-2.0" \
+  org.opencontainers.image.licenses="AGPL-3.0" \
   org.opencontainers.image.ref.name="$RELEASE" \
   org.opencontainers.image.title="document-updater" \
   org.opencontainers.image.description="REST API service and worker for document updates processing"
