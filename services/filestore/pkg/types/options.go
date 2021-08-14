@@ -14,29 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package types
 
 import (
-	"net/http"
-
-	"github.com/das7pad/filestore/pkg/managers/filestore"
+	"github.com/das7pad/filestore/pkg/backend"
 )
 
-func main() {
-	o := getOptions()
+type Buckets struct {
+	UserFiles string `json:"user_files"`
+}
 
-	nm, err := filestore.New(o.options)
-	if err != nil {
-		panic(err)
-	}
-	handler := newHttpController(nm, o.options.AllowRedirects)
-
-	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(),
-	}
-	err = server.ListenAndServe()
-	if err != nil {
-		panic(err)
-	}
+type Options struct {
+	AllowRedirects bool            `json:"allow_redirects"`
+	BackendOptions backend.Options `json:"backend_options"`
+	Buckets        Buckets         `json:"buckets"`
 }

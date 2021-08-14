@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/filestore/pkg/backend"
+	"github.com/das7pad/filestore/pkg/types"
 )
 
 type Manager interface {
@@ -98,14 +99,14 @@ type Manager interface {
 	) error
 }
 
-func New(backendOptions backend.Options, buckets Buckets) (Manager, error) {
-	b, err := backend.FromOptions(backendOptions)
+func New(options types.Options) (Manager, error) {
+	b, err := backend.FromOptions(options.BackendOptions)
 	if err != nil {
 		return nil, err
 	}
 	return &manager{
 		b:       b,
-		buckets: buckets,
+		buckets: options.Buckets,
 	}, nil
 }
 
@@ -115,13 +116,9 @@ func (c ValidationError) Error() string {
 	return string(c)
 }
 
-type Buckets struct {
-	UserFiles string `json:"user_files"`
-}
-
 type manager struct {
 	b       backend.Backend
-	buckets Buckets
+	buckets types.Buckets
 }
 
 func getProjectPrefix(projectId primitive.ObjectID) string {

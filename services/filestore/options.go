@@ -22,8 +22,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/das7pad/filestore/pkg/backend"
-	"github.com/das7pad/filestore/pkg/managers/filestore"
+	"github.com/das7pad/filestore/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int) int {
@@ -46,13 +45,6 @@ func getStringFromEnv(key, fallback string) string {
 	return raw
 }
 
-func getBoolFromEnv(key string, fallback bool) bool {
-	if v, exists := os.LookupEnv(key); !exists || v == "" {
-		return fallback
-	}
-	return os.Getenv(key) == "true"
-}
-
 func getJSONFromEnv(key string, target interface{}) {
 	if v, exists := os.LookupEnv(key); !exists || v == "" {
 		panic(fmt.Errorf("missing %s", key))
@@ -64,10 +56,8 @@ func getJSONFromEnv(key string, target interface{}) {
 }
 
 type filestoreOptions struct {
-	address        string
-	allowRedirects bool
-	backendOptions backend.Options
-	buckets        filestore.Buckets
+	address string
+	options types.Options
 }
 
 func getOptions() *filestoreOptions {
@@ -76,8 +66,6 @@ func getOptions() *filestoreOptions {
 	port := getIntFromEnv("PORT", 3009)
 	o.address = fmt.Sprintf("%s:%d", listenAddress, port)
 
-	o.allowRedirects = getBoolFromEnv("ALLOW_REDIRECTS", false)
-	getJSONFromEnv("BACKEND_OPTIONS", &o.backendOptions)
-	getJSONFromEnv("BUCKETS", &o.buckets)
+	getJSONFromEnv("OPTIONS", &o.options)
 	return o
 }
