@@ -20,7 +20,9 @@ cat <<EOF
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pipeline {
-  agent any
+  agent {
+    label 'non_docker_builder'
+  }
 
   stages {
     stage('Fan out') {
