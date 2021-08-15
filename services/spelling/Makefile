@@ -55,6 +55,7 @@ docker/build/production: docker/build
 docker/push:
 	docker push $(IMAGE_ASPELL_CACHE)
 	docker push $(IMAGE)
+	$(MAKE) log_image_digest
 
 log_image_digest:
 	docker inspect -f '{{ index .RepoDigests 0 }}' $(IMAGE) \
