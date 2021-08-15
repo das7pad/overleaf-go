@@ -28,7 +28,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 

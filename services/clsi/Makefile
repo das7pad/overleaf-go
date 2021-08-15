@@ -27,13 +27,15 @@ docker/build:
 	docker build \
 		--tag $(IMAGE)-build \
 		--target build \
-		.
+		--file Dockerfile \
+		../../
 	docker build \
 		--cache-from $(IMAGE)-build \
 		--cache-from $(IMAGE)-build-execAgent \
 		--tag $(IMAGE)-build-execAgent \
 		--target build-execAgent \
-		.
+		--file Dockerfile \
+		../../
 
 docker/build/production: docker/build
 	docker build \
@@ -43,7 +45,8 @@ docker/build/production: docker/build
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
 		--build-arg RELEASE=$(RELEASE) \
-		.
+		--file Dockerfile \
+		../../
 
 docker/push:
 	docker push $(IMAGE)

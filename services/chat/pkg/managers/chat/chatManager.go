@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/message"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/thread"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
@@ -94,14 +95,6 @@ type manager struct {
 	tm thread.Manager
 }
 
-type ValidationError string
-
-func (c ValidationError) Error() string {
-	return string(c)
-}
-
-const NilValidationError = ""
-
 func nowMS() float64 {
 	return float64(time.Now().UnixNano() / 1e6)
 }
@@ -146,14 +139,12 @@ func (m *manager) SendThreadMessage(
 	return m.sendMessage(ctx, projectId, &threadId, content, userId)
 }
 
-// NOTE: const values are fully static in golang -- no fmt.Sprintf and friends.
-// NOTE: Hence we cannot fill MaxMessageLength into ContentTooLong.
-const (
-	NoContentProvided = ValidationError("no content provided")
+var (
+	NoContentProvided = &errors.ValidationError{Msg: "no content provided"}
 	MaxMessageLength  = 10 * 1024
-	ContentTooLong    = ValidationError(
-		"content too long (> 10240 bytes)",
-	)
+	ContentTooLong    = &errors.ValidationError{
+		Msg: "content too long (> 10240 bytes)",
+	}
 )
 
 func (m *manager) sendMessage(

@@ -24,6 +24,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Notification struct {
@@ -72,12 +74,6 @@ func New(db *mongo.Database) Manager {
 	}
 }
 
-type ValidationError string
-
-func (c ValidationError) Error() string {
-	return string(c)
-}
-
 type manager struct {
 	c *mongo.Collection
 }
@@ -105,9 +101,9 @@ func (m *manager) GetUserNotifications(ctx context.Context, userId primitive.Obj
 
 func (m *manager) AddNotification(ctx context.Context, userId primitive.ObjectID, notification Notification, forceCreate bool) error {
 	if notification.Key == "" {
-		return ValidationError(
-			"cannot add notification: missing key",
-		)
+		return &errors.ValidationError{
+			Msg: "cannot add notification: missing key",
+		}
 	}
 
 	filter := bson.M{
@@ -149,9 +145,9 @@ func (m *manager) RemoveNotificationById(ctx context.Context, userId primitive.O
 
 func (m *manager) RemoveNotificationByKey(ctx context.Context, userId primitive.ObjectID, notificationKey string) error {
 	if notificationKey == "" {
-		return ValidationError(
-			"cannot remove notification by key: missing notificationKey",
-		)
+		return &errors.ValidationError{
+			Msg: "cannot remove notification by key: missing notificationKey",
+		}
 	}
 
 	filter := bson.M{
@@ -169,9 +165,9 @@ func (m *manager) RemoveNotificationByKey(ctx context.Context, userId primitive.
 
 func (m *manager) RemoveNotificationByKeyOnly(ctx context.Context, notificationKey string) error {
 	if notificationKey == "" {
-		return ValidationError(
-			"cannot remove notification by key only: missing notificationKey",
-		)
+		return &errors.ValidationError{
+			Msg: "cannot remove notification by key only: missing notificationKey",
+		}
 	}
 
 	filter := bson.M{

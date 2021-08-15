@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 

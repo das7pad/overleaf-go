@@ -16,15 +16,16 @@
 
 FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/clsi
-COPY go.mod go.sum ./
+COPY go.mod ../../
+COPY services/clsi/go.mod services/clsi/go.sum ./
 RUN go mod download
-COPY . .
+COPY . ../../
 RUN go build . && mv clsi /clsi
 
 # Build the execAgent in ubuntu/debian. The texlive image will use debian.
 FROM golang:1.16 as build-execAgent
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/clsi
-COPY . .
+COPY . ../../
 RUN go build cmd/execAgent/execAgent.go && mv execAgent /execAgent
 
 FROM alpine:3.13
@@ -33,7 +34,7 @@ ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
 ENV COPY_EXEC_AGENT_DST="/mount/execAgent"
 ENV SECCOMP_POLICY_PATH="/seccomp/policy.json"
 ENTRYPOINT ["clsi"]
-COPY ./seccomp /seccomp
+COPY services/clsi/seccomp /seccomp
 COPY --from=build /clsi /usr/local/bin/
 COPY --from=build-execAgent /execAgent /usr/local/bin/
 

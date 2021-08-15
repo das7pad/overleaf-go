@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -252,7 +253,7 @@ func respond(
 	msg string,
 ) {
 	if err != nil {
-		if _, is400 := err.(spelling.ValidationError); is400 {
+		if errors.IsValidationError(err) {
 			errorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}

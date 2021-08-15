@@ -26,8 +26,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/project"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -350,7 +350,7 @@ func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId pr
 	for i := 0; i < 3; i++ {
 		p, err := m.pm.GetProject(ctx, projectId, userId)
 		if err != nil {
-			if errors.IsRecoverable(err) {
+			if err == project.IsDeadError {
 				lastErr = err
 				continue
 			}
@@ -358,7 +358,7 @@ func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId pr
 		}
 		err = fn(p)
 		if err != nil {
-			if errors.IsRecoverable(err) {
+			if err == project.IsDeadError {
 				lastErr = err
 				continue
 			}

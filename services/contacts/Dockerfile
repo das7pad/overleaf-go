@@ -16,9 +16,10 @@
 
 FROM golang:1.14-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/contacts
-COPY go.mod go.sum ./
+COPY go.mod ../../
+COPY services/contacts/go.mod services/contacts/go.sum ./
 RUN go mod download
-COPY . .
+COPY . ../../
 RUN go build . && mv contacts /contacts
 
 FROM alpine:3.13

@@ -21,8 +21,8 @@ import (
 	"io/fs"
 	"path/filepath"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -43,6 +43,12 @@ type finder struct {
 	options *types.Options
 }
 
+var (
+	ProjectHasTooManyFilesAndDirectories = &errors.InvalidStateError{
+		Msg: "project has too many files/directories",
+	}
+)
+
 func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAndDirs, error) {
 	isDir := make(isDirMap)
 	fileStats := make(fileStatsMap)
@@ -56,7 +62,7 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 		}
 		nEntries++
 		if nEntries > maxEntries {
-			return &errors.ProjectHasTooManyFilesAndDirectories
+			return ProjectHasTooManyFilesAndDirectories
 		}
 		if nEntries%100 == 0 {
 			if err = ctx.Err(); err != nil {

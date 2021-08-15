@@ -26,8 +26,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/backend"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
@@ -247,7 +247,7 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 	getOptions := backend.GetOptions{}
 	reader, err := m.b.GetReadStream(ctx, m.bucket, key, getOptions)
 	if err != nil {
-		if !backend.IsNotFoundError(err) {
+		if !errors.IsNotFoundError(err) {
 			return err
 		}
 		isArchivedNow, err2 := m.dm.IsDocArchived(ctx, projectId, docId)
@@ -301,7 +301,7 @@ func (m *manager) DestroyDocs(ctx context.Context, projectId primitive.ObjectID)
 func (m *manager) DestroyDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
 	err := m.b.DeleteObject(ctx, m.bucket, docKey(projectId, docId))
 	if err != nil {
-		if _, is404 := err.(backend.ErrorNotFound); !is404 {
+		if !errors.IsNotFoundError(err) {
 			return err
 		}
 	}

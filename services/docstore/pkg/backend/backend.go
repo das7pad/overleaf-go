@@ -126,18 +126,6 @@ type Backend interface {
 	) error
 }
 
-type ErrorNotFound struct {
-}
-
-func (e ErrorNotFound) Error() string {
-	return "NoSuchKey"
-}
-
-func IsNotFoundError(err error) bool {
-	_, is404 := err.(ErrorNotFound)
-	return is404
-}
-
 func FromOptions(options Options) (Backend, error) {
 	switch options.Provider {
 	case "minio":

@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/containerd/containerd v1.5.2 // indirect
+	github.com/das7pad/overleaf-go v0.0.0
 	github.com/docker/docker v20.10.6+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0
@@ -13,4 +14,8 @@ require (
 	go.mongodb.org/mongo-driver v1.5.1
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/grpc v1.38.0 // indirect
+)
+
+replace (
+	github.com/das7pad/overleaf-go v0.0.0 => ../../
 )

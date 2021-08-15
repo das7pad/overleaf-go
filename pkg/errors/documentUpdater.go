@@ -1,4 +1,4 @@
-// Golang port of the Overleaf docstore service
+// Golang port Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,37 +14,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package models
+package errors
 
-import (
-	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
-type Validator interface {
-	Validate() error
+type UpdateRangeNotAvailableError struct {
 }
 
-func (f DocInS3Field) Validate() error {
-	if f.IsArchived() {
-		return &errors.ErrorDocArchived{}
-	}
-	return nil
+func (i *UpdateRangeNotAvailableError) IsFatal() bool {
+	return true
 }
 
-func (c DocRangesCollection) Validate() error {
-	for _, element := range c {
-		if err := element.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
+func (i *UpdateRangeNotAvailableError) Error() string {
+	return "doc ops range is not loaded in redis"
 }
 
-func (c DocContentsCollection) Validate() error {
-	for _, element := range c {
-		if err := element.Validate(); err != nil {
-			return err
-		}
+func (i *UpdateRangeNotAvailableError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: i.Error(),
 	}
-	return nil
+}
+
+func IsUpdateRangeNotAvailableError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*UpdateRangeNotAvailableError)
+	return ok
 }

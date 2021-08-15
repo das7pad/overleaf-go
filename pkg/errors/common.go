@@ -1,4 +1,4 @@
-// Golang port of the Overleaf clsi service
+// Golang port Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -59,10 +59,34 @@ func Tag(err error, msg string) *TaggedError {
 }
 
 func GetCause(err error) error {
+	if err == nil {
+		return err
+	}
 	if causer, ok := err.(Causer); ok {
 		return GetCause(causer.Cause())
 	}
 	return err
+}
+
+type AlreadyReportedError struct {
+	err error
+}
+
+func (a AlreadyReportedError) Error() string {
+	return "already reported: " + a.err.Error()
+}
+
+func MarkAsReported(err error) error {
+	return &AlreadyReportedError{err: err}
+}
+
+func IsAlreadyReported(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, isAlreadyReported := err.(*AlreadyReportedError)
+	return isAlreadyReported
 }
 
 type ValidationError struct {
@@ -80,6 +104,7 @@ func (v *ValidationError) Public() *JavaScriptError {
 }
 
 func IsValidationError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -106,6 +131,7 @@ func (i *InvalidStateError) Public() *JavaScriptError {
 }
 
 func IsInvalidState(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -130,13 +156,44 @@ func (e *NotAuthorizedError) IsFatal() bool {
 	return true
 }
 
+func IsNotAuthorizedError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*NotAuthorizedError)
+	return ok
+}
+
+type NotFoundError struct {
+}
+
+func (e *NotFoundError) Error() string {
+	return "not found"
+}
+
+func (e *NotFoundError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: e.Error(),
+	}
+}
+
+func IsNotFoundError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*NotFoundError)
+	return ok
+}
+
 type CodedError struct {
 	Description string
 	Code        string
 }
 
 func (e *CodedError) Error() string {
-	return "coded error: " + e.Code
+	return e.Description + " (" + e.Code + ")"
 }
 
 func (e *CodedError) Public() *JavaScriptError {

@@ -23,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docArchive"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
@@ -178,7 +178,7 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 	if limit == DefaultLimit {
 		limit = m.maxDeletedDocs
 	} else if limit < 1 {
-		return nil, errors.ValidationError{
+		return nil, &errors.ValidationError{
 			Msg: "limit must be greater or equal 1",
 		}
 	} else {
@@ -230,14 +230,14 @@ const MaxLineLength = 2 * 1024 * 1024
 
 func validateDocLines(lines models.Lines) error {
 	if lines == nil {
-		return errors.ValidationError{Msg: "no doc lines provided"}
+		return &errors.ValidationError{Msg: "no doc lines provided"}
 	}
 	sum := 0
 	for _, line := range lines {
 		sum += len(line)
 	}
 	if sum > MaxLineLength {
-		return errors.BodyTooLargeError{}
+		return &errors.BodyTooLargeError{}
 	}
 	return nil
 }
@@ -304,10 +304,10 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta models.DocMeta) error {
 	if meta.Deleted {
 		if meta.Name == "" {
-			return errors.ValidationError{Msg: "missing name when deleting"}
+			return &errors.ValidationError{Msg: "missing name when deleting"}
 		}
 		if meta.DeletedAt.IsZero() {
-			return errors.ValidationError{
+			return &errors.ValidationError{
 				Msg: "missing deletedAt when deleting",
 			}
 		}

@@ -26,7 +26,7 @@ import (
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 

@@ -100,12 +100,6 @@ func (m *manager) UnlearnWord(ctx context.Context, userId primitive.ObjectID, wo
 	return m.lm.UnlearnWord(ctx, userId, word)
 }
 
-type ValidationError string
-
-func (c ValidationError) Error() string {
-	return string(c)
-}
-
 const (
 	RequestLimit = 10000
 )

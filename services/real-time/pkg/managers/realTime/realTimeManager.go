@@ -25,7 +25,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/documentUpdater"
@@ -247,7 +247,7 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.DocumentU
 		})
 
 		// Then fire an otUpdateError.
-		codedError := errors.CodedError{
+		codedError := &errors.CodedError{
 			Description: "update is too large",
 			Code:        "otUpdateError",
 		}
@@ -256,7 +256,7 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.DocumentU
 		rpc.Response.Name = "otUpdateError"
 
 		rpc.Response.FatalError = true
-		return nil, &codedError
+		return nil, codedError
 	}
 	var args types.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {

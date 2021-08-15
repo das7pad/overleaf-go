@@ -24,7 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 )
 
@@ -148,7 +148,7 @@ type manager struct {
 
 func rewriteMongoError(err error) error {
 	if err == mongo.ErrNoDocuments {
-		return errors.ErrorDocNotFound{}
+		return &errors.ErrorDocNotFound{}
 	}
 	return err
 }

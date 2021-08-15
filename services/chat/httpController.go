@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 )
 
@@ -181,7 +182,7 @@ func respond(
 	msg string,
 ) {
 	if err != nil {
-		if _, is400 := err.(chat.ValidationError); is400 {
+		if errors.IsValidationError(err) {
 			errorResponse(w, 400, err.Error())
 			return
 		}
@@ -225,20 +226,24 @@ type sendMessageRequestBody struct {
 
 func parseSendMessageRequest(
 	r *http.Request,
-) (string, primitive.ObjectID, chat.ValidationError) {
+) (string, primitive.ObjectID, error) {
 	var requestBody sendMessageRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		return "", primitive.NilObjectID, "invalid payload"
+		return "", primitive.NilObjectID, &errors.ValidationError{
+			Msg: "invalid payload",
+		}
 	}
 	if requestBody.UserId == primitive.NilObjectID {
-		return "", primitive.NilObjectID, "invalid user_id"
+		return "", primitive.NilObjectID, &errors.ValidationError{
+			Msg: "invalid user_id",
+		}
 	}
-	return requestBody.Content, requestBody.UserId, chat.NilValidationError
+	return requestBody.Content, requestBody.UserId, nil
 }
 
 func (h *httpController) sendGlobalMessages(w http.ResponseWriter, r *http.Request) {
 	content, userId, validationError := parseSendMessageRequest(r)
-	if validationError != chat.NilValidationError {
+	if validationError != nil {
 		errorResponse(w, 400, validationError.Error())
 		return
 	}
@@ -261,7 +266,7 @@ func (h *httpController) getAllThreads(w http.ResponseWriter, r *http.Request) {
 
 func (h *httpController) sendThreadMessage(w http.ResponseWriter, r *http.Request) {
 	content, userId, validationError := parseSendMessageRequest(r)
-	if validationError != chat.NilValidationError {
+	if validationError != nil {
 		errorResponse(w, 400, validationError.Error())
 		return
 	}

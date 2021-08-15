@@ -16,9 +16,10 @@
 
 FROM golang:1.14-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/chat
-COPY go.mod go.sum ./
+COPY go.mod ../../
+COPY services/chat/go.mod services/chat/go.sum ./
 RUN go mod download
-COPY . .
+COPY . ../../
 RUN go build . && mv chat /chat
 
 FROM alpine:3.13

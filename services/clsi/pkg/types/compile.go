@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 const (

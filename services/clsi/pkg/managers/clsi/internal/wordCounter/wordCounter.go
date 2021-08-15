@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )

@@ -1,0 +1,19 @@
+*
+
+# src
+!/services/*/*.go
+!/services/*/cmd
+!/services/*/pkg
+!/pkg
+
+# dependencies
+!/services/*/go.mod
+!/services/*/go.sum
+!/go.mod
+!/go.sum
+
+# clsi
+!/services/clsi/seccomp
+
+# spelling
+!/services/spelling/install_deps.sh

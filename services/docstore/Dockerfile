@@ -16,9 +16,10 @@
 
 FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/docstore
-COPY go.mod go.sum ./
+COPY go.mod ../../
+COPY services/docstore/go.mod services/docstore/go.sum ./
 RUN go mod download
-COPY . .
+COPY . ../../
 RUN go build . && mv docstore /docstore
 
 FROM alpine:3.13

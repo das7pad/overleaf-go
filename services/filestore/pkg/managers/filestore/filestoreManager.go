@@ -110,12 +110,6 @@ func New(options types.Options) (Manager, error) {
 	}, nil
 }
 
-type ValidationError string
-
-func (c ValidationError) Error() string {
-	return string(c)
-}
-
 type manager struct {
 	b       backend.Backend
 	buckets types.Buckets

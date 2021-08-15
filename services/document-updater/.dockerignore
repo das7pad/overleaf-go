@@ -3,7 +3,6 @@
 # src
 !*.go
 !/pkg
-!/internal
 
 # dependencies
 !/go.mod

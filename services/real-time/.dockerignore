@@ -2,9 +2,7 @@
 
 # src
 !*.go
-!/cmd
 !/pkg
-!/seccomp
 
 # dependencies
 !/go.mod

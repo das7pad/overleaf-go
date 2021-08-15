@@ -25,10 +25,11 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
+
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 

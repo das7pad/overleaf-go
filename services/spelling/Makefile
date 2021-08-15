@@ -28,7 +28,8 @@ docker/build:
 	docker build \
 		--tag $(IMAGE)-build \
 		--target build \
-		.
+		--file Dockerfile \
+		../../
 
 docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true
@@ -41,7 +42,8 @@ docker/build/production: docker/build
 		--cache-from $(IMAGE)-build \
 		--cache-from $(IMAGE)-aspell-cache \
 		--target aspell-cache \
-		.
+		--file Dockerfile \
+		../../
 
 	docker build \
 		--tag $(IMAGE) \
@@ -50,7 +52,8 @@ docker/build/production: docker/build
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
 		--build-arg RELEASE=$(RELEASE) \
-		.
+		--file Dockerfile \
+		../../
 
 docker/push:
 	docker push $(IMAGE_ASPELL_CACHE)

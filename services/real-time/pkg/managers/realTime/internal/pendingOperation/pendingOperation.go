@@ -19,7 +19,7 @@ package pendingOperation
 import (
 	"context"
 
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 var OperationStillPending = errors.New("operation is still pending")

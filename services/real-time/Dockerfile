@@ -16,9 +16,10 @@
 
 FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/real-time
-COPY go.mod go.sum ./
+COPY go.mod ../../
+COPY services/real-time/go.mod services/real-time/go.sum ./
 RUN go mod download
-COPY . .
+COPY . ../../
 RUN go build . && mv real-time /real-time
 
 FROM alpine:3.13

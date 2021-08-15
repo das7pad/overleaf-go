@@ -24,7 +24,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/urlCache"
@@ -94,7 +94,7 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId prim
 		cache, err = r.incrementalSync(ctx, projectId, namespace, request, dir)
 	}
 	if err != nil {
-		if err != errors.ProjectHasTooManyFilesAndDirectories {
+		if err != outputFileFinder.ProjectHasTooManyFilesAndDirectories {
 			return nil, err
 		}
 		// Clear all the contents.

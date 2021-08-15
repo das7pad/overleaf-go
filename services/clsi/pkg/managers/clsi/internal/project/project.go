@@ -25,8 +25,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -332,12 +332,15 @@ func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest
 	)
 }
 
+var (
+	IsDeadError = &errors.InvalidStateError{
+		Msg: "project is dead",
+	}
+)
+
 func (p *project) checkIsDead() error {
 	if p.IsDead() {
-		return &errors.InvalidStateError{
-			Msg:         "project is dead",
-			Recoverable: true,
-		}
+		return IsDeadError
 	}
 	return nil
 }
@@ -348,8 +351,7 @@ func (p *project) checkStateExpectAnyContent() error {
 	}
 	if p.state == types.SyncStateCleared {
 		return &errors.InvalidStateError{
-			Msg:         "project contents are missing",
-			Recoverable: false,
+			Msg: "project contents are missing",
 		}
 	}
 	return nil
@@ -365,15 +367,13 @@ func (p *project) checkSyncState(syncType types.SyncType, state types.SyncState)
 	needsFullSync := p.state == "" || p.state == types.SyncStateCleared
 	if needsFullSync {
 		return &errors.InvalidStateError{
-			Msg:         "local sync type empty and incoming syncType!=full",
-			Recoverable: false,
+			Msg: "local sync type empty and incoming syncType!=full",
 		}
 	}
 
 	if p.state != state {
 		return &errors.InvalidStateError{
-			Msg:         "local sync state differs remote state",
-			Recoverable: false,
+			Msg: "local sync state differs remote state",
 		}
 	}
 	return nil

@@ -16,13 +16,14 @@
 
 FROM golang:1.16 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/spelling
-COPY go.mod go.sum ./
+COPY go.mod ../../
+COPY services/spelling/go.mod services/spelling/go.sum ./
 RUN go mod download
-COPY . .
+COPY . ../../
 RUN go build . && mv spelling /spelling
 
 FROM debian:buster-slim as aspell-cache
-COPY install_deps.sh /
+COPY services/spelling/install_deps.sh /
 RUN /install_deps.sh
 
 FROM aspell-cache

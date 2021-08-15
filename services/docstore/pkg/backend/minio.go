@@ -24,6 +24,8 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 func initMinioBackend(o Options) (Backend, error) {
@@ -51,7 +53,7 @@ func rewriteError(err error) error {
 	}
 	minioError, isMinioError := err.(minio.ErrorResponse)
 	if isMinioError && minioError.Code == "NoSuchKey" {
-		return ErrorNotFound{}
+		return &errors.NotFoundError{}
 	}
 	return err
 }
@@ -167,9 +169,9 @@ func (m *minioBackend) DeletePrefix(ctx context.Context, bucket string, prefix s
 	objects := m.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{
 		Prefix: prefix,
 	})
-	errors := m.mc.RemoveObjects(ctx, bucket, objects, minio.RemoveObjectsOptions{})
+	objectErrors := m.mc.RemoveObjects(ctx, bucket, objects, minio.RemoveObjectsOptions{})
 
-	for objectError := range errors {
+	for objectError := range objectErrors {
 		return rewriteError(objectError.Err)
 	}
 	return nil

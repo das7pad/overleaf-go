@@ -1,4 +1,4 @@
-// Golang port of the Overleaf docstore service
+// Golang port Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -16,14 +16,6 @@
 
 package errors
 
-type ValidationError struct {
-	Msg string
-}
-
-func (c ValidationError) Error() string {
-	return c.Msg
-}
-
 type BodyTooLargeError struct {
 	ValidationError
 }
@@ -38,14 +30,6 @@ func IsBodyTooLargeError(err error) bool {
 	}
 	_, isBodyTooLargeError := err.(BodyTooLargeError)
 	return isBodyTooLargeError
-}
-
-func IsValidationError(err error) bool {
-	if err == nil {
-		return false
-	}
-	_, isValidationError := err.(ValidationError)
-	return isValidationError
 }
 
 func IsDocNotFoundError(err error) bool {

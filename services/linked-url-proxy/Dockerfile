@@ -16,7 +16,7 @@
 
 FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/linked-url-proxy
-COPY . .
+COPY . ../../
 RUN go build . && mv linked-url-proxy /linked-url-proxy
 
 FROM alpine:3.13
