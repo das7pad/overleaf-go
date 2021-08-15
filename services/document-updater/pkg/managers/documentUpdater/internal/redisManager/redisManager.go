@@ -83,17 +83,6 @@ type Manager interface {
 		docVersion types.Version,
 	) ([]types.DocumentUpdate, error)
 
-	GetHistoryType(
-		ctx context.Context,
-		docId primitive.ObjectID,
-	) (string, error)
-
-	SetHistoryType(
-		ctx context.Context,
-		docId primitive.ObjectID,
-		projectHistoryType string,
-	) error
-
 	UpdateDocument(
 		ctx context.Context,
 		docId primitive.ObjectID,
@@ -405,14 +394,6 @@ func (m *manager) parseDocumentUpdates(start types.Version, raw []string) ([]typ
 		updates[i] = update
 	}
 	return updates, nil
-}
-
-func (m *manager) GetHistoryType(ctx context.Context, docId primitive.ObjectID) (string, error) {
-	panic("implement me")
-}
-
-func (m *manager) SetHistoryType(ctx context.Context, docId primitive.ObjectID, projectHistoryType string) error {
-	panic("implement me")
 }
 
 func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, appliedUpdates []types.DocumentUpdate) (int64, error) {

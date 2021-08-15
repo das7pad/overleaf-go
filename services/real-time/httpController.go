@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 
@@ -189,41 +188,6 @@ func errorResponse(w http.ResponseWriter, code int, message string) {
 
 	// Flush it and ignore any errors.
 	_, _ = w.Write([]byte(message))
-}
-
-func respond(
-	w http.ResponseWriter,
-	r *http.Request,
-	code int,
-	body interface{},
-	err error,
-	msg string,
-) {
-	if err != nil {
-		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.IsInvalidState(err) {
-			errorResponse(w, http.StatusConflict, err.Error())
-			return
-		}
-		log.Printf("%s %s: %s: %s", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
-		return
-	}
-	if body == nil {
-		w.WriteHeader(code)
-	} else {
-		w.Header().Set(
-			"Content-Type",
-			"application/json; charset=utf-8",
-		)
-		if code != http.StatusOK {
-			w.WriteHeader(code)
-		}
-		_ = json.NewEncoder(w).Encode(body)
-	}
 }
 
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
