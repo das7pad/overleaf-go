@@ -28,8 +28,8 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/spelling/pkg/managers/spelling"
-	"github.com/das7pad/spelling/pkg/types"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 func newHttpController(cm spelling.Manager) httpController {

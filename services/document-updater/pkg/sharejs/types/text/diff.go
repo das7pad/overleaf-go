@@ -21,7 +21,7 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 
-	"github.com/das7pad/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 var dmp = diffmatchpatch.New()

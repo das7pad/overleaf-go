@@ -26,8 +26,8 @@ import (
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/real-time/pkg/errors"
-	"github.com/das7pad/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int64) int64 {

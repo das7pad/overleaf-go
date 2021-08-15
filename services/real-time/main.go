@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/real-time/pkg/managers/realTime"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 )
 
 func waitForRedis(

@@ -24,8 +24,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/filestore/pkg/backend"
-	"github.com/das7pad/filestore/pkg/types"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/backend"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
 type Manager interface {

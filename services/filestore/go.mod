@@ -1,4 +1,4 @@
-module github.com/das7pad/filestore
+module github.com/das7pad/overleaf-go/services/filestore
 
 go 1.16
 

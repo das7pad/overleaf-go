@@ -20,7 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/docstore/pkg/models"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 )
 
 func docFilter(projectId primitive.ObjectID, docId primitive.ObjectID) bson.M {

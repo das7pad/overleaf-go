@@ -26,7 +26,7 @@ import (
 	mongoOptions "go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
-	"github.com/das7pad/docstore/pkg/types"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int64) int64 {

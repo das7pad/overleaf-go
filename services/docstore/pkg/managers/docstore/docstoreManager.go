@@ -23,11 +23,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/docstore/pkg/errors"
-	"github.com/das7pad/docstore/pkg/managers/docstore/internal/docArchive"
-	"github.com/das7pad/docstore/pkg/managers/docstore/internal/docs"
-	"github.com/das7pad/docstore/pkg/models"
-	"github.com/das7pad/docstore/pkg/types"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docArchive"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
 type Modified bool

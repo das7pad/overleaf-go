@@ -17,7 +17,7 @@
 package events
 
 import (
-	"github.com/das7pad/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 func prepareBulkMessage(response *types.RPCResponse) *types.WriteQueueEntry {

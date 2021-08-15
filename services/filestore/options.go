@@ -22,7 +22,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/das7pad/filestore/pkg/types"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int) int {

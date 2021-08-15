@@ -1,4 +1,4 @@
-module github.com/das7pad/docstore
+module github.com/das7pad/overleaf-go/services/docstore
 
 go 1.16
 

@@ -23,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
-	"github.com/das7pad/chat/pkg/managers/chat"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 )
 
 func waitForDb(ctx context.Context, client *mongo.Client) error {

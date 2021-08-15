@@ -16,7 +16,7 @@
 
 package models
 
-import "github.com/das7pad/docstore/pkg/errors"
+import "github.com/das7pad/overleaf-go/services/docstore/pkg/errors"
 
 type Validator interface {
 	Validate() error

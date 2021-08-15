@@ -30,7 +30,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
-	"github.com/das7pad/spelling/pkg/types"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int) int {

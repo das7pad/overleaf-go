@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/errors"
-	"github.com/das7pad/clsi/pkg/managers/clsi"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 )
 
 func startLoadAgent(options *clsiOptions, manager clsi.Manager) (io.Closer, error) {

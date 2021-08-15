@@ -21,8 +21,8 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 
-	"github.com/das7pad/spelling/pkg/managers/spelling/internal/aspell/internal/aspellRunner"
-	"github.com/das7pad/spelling/pkg/types"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/aspell/internal/aspellRunner"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type Manager interface {

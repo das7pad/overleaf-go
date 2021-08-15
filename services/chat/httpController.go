@@ -28,7 +28,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/chat/pkg/managers/chat"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 )
 
 func newHttpController(cm chat.Manager) httpController {

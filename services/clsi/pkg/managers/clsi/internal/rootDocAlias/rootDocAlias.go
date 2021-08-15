@@ -19,7 +19,7 @@ package rootDocAlias
 import (
 	"strings"
 
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type Manager interface {

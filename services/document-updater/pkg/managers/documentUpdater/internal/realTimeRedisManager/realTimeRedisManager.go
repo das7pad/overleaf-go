@@ -23,8 +23,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/document-updater/pkg/errors"
-	"github.com/das7pad/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type Manager interface {

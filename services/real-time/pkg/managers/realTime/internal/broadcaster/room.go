@@ -17,8 +17,8 @@
 package broadcaster
 
 import (
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/pendingOperation"
-	"github.com/das7pad/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/pendingOperation"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Clients []*types.Client

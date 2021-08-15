@@ -26,12 +26,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/constants"
-	"github.com/das7pad/clsi/pkg/copyFile"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/outputFileFinder"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/resourceCleanup"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/resourceWriter"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceWriter"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type Manager interface {

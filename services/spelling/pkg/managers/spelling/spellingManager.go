@@ -22,9 +22,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/spelling/pkg/managers/spelling/internal/aspell"
-	"github.com/das7pad/spelling/pkg/managers/spelling/internal/learnedWords"
-	"github.com/das7pad/spelling/pkg/types"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/aspell"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/learnedWords"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type Manager interface {

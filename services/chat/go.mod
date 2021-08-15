@@ -1,4 +1,4 @@
-module github.com/das7pad/chat
+module github.com/das7pad/overleaf-go/services/chat
 
 go 1.14
 

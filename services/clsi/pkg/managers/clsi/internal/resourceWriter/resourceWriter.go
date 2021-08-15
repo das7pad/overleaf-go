@@ -24,11 +24,11 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/clsi/pkg/errors"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/outputFileFinder"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/resourceCleanup"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/urlCache"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/urlCache"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type ResourceWriter interface {

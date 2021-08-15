@@ -17,7 +17,7 @@
 package types
 
 import (
-	"github.com/das7pad/filestore/pkg/backend"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/backend"
 )
 
 type Buckets struct {

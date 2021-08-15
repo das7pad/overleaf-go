@@ -17,7 +17,7 @@
 package types
 
 import (
-	"github.com/das7pad/docstore/pkg/backend"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/backend"
 )
 
 type Options struct {

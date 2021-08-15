@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/errors"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 func getIntFromEnv(key string, fallback int64) int64 {

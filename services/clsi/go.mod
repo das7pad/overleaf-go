@@ -1,4 +1,4 @@
-module github.com/das7pad/clsi
+module github.com/das7pad/overleaf-go/services/clsi
 
 go 1.16
 

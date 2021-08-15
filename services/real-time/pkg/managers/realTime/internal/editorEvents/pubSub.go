@@ -23,10 +23,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/das7pad/real-time/pkg/errors"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/clientTracking"
-	"github.com/das7pad/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type ProjectRoom struct {

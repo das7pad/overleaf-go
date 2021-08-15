@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 )
 
 func waitForRedis(

@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/errors"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 func newLocalRunner(options *types.Options) (Runner, error) {

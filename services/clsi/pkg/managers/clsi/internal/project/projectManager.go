@@ -25,16 +25,16 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/commandRunner"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/draftMode"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/latexRunner"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/outputCache"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/outputFileFinder"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/resourceWriter"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/rootDocAlias"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/syncTex"
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/wordCounter"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/draftMode"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/latexRunner"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputCache"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceWriter"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/rootDocAlias"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/syncTex"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/wordCounter"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type Manager interface {

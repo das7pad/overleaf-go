@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 func cleanupExpired(dir types.OutputDir, keepBuildId types.BuildId, namespace types.Namespace) {

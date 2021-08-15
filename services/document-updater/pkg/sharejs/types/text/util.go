@@ -17,7 +17,7 @@
 package text
 
 import (
-	"github.com/das7pad/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func inject(s1 []rune, position int, s2 []rune) []rune {

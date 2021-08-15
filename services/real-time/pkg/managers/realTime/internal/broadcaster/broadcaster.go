@@ -22,9 +22,9 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/channel"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/pendingOperation"
-	"github.com/das7pad/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/pendingOperation"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Broadcaster interface {

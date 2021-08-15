@@ -1,4 +1,4 @@
-module github.com/das7pad/document-updater
+module github.com/das7pad/overleaf-go/services/document-updater
 
 go 1.16
 

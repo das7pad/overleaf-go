@@ -24,7 +24,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type isDirMap map[types.FileName]bool

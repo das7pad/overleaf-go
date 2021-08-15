@@ -27,10 +27,10 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/docstore/pkg/errors"
-	"github.com/das7pad/docstore/pkg/managers/docstore"
-	"github.com/das7pad/docstore/pkg/models"
-	"github.com/das7pad/docstore/pkg/types"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
 func newHttpController(dm docstore.Manager) httpController {

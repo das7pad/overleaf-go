@@ -25,13 +25,13 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/real-time/pkg/errors"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/appliedOps"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/clientTracking"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/documentUpdater"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/editorEvents"
-	"github.com/das7pad/real-time/pkg/managers/realTime/internal/webApi"
-	"github.com/das7pad/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/webApi"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Manager interface {

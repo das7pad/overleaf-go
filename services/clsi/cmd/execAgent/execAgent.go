@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/constants"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 var containerEnv = os.Environ()

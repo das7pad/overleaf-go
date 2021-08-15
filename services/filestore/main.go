@@ -19,7 +19,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/das7pad/filestore/pkg/managers/filestore"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 )
 
 func main() {

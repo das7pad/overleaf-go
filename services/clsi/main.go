@@ -23,8 +23,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/das7pad/clsi/pkg/copyFile"
-	"github.com/das7pad/clsi/pkg/managers/clsi"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 )
 
 func main() {

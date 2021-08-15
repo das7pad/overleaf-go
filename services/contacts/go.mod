@@ -1,4 +1,4 @@
-module github.com/das7pad/contacts
+module github.com/das7pad/overleaf-go/services/contacts
 
 go 1.14
 

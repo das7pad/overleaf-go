@@ -1,4 +1,4 @@
-module github.com/das7pad/spelling
+module github.com/das7pad/overleaf-go/services/spelling
 
 go 1.16
 

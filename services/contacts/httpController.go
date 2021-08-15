@@ -25,7 +25,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/contacts/pkg/managers/contacts"
+	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 )
 
 func newHttpController(cm contacts.ContactManager) httpController {

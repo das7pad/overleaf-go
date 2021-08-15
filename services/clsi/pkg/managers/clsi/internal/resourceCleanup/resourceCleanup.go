@@ -20,8 +20,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/das7pad/clsi/pkg/managers/clsi/internal/rootDocAlias"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/rootDocAlias"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 var PreserveFilesPrefixes = []string{

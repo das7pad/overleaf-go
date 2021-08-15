@@ -1,4 +1,4 @@
-module github.com/das7pad/notifications
+module github.com/das7pad/overleaf-go/services/notifications
 
 go 1.16
 

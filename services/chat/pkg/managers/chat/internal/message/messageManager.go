@@ -24,7 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/das7pad/chat/pkg/types"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type Manager interface {

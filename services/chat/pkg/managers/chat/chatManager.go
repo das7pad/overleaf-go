@@ -23,9 +23,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/chat/pkg/managers/chat/internal/message"
-	"github.com/das7pad/chat/pkg/managers/chat/internal/thread"
-	"github.com/das7pad/chat/pkg/types"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/message"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/thread"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type Manager interface {

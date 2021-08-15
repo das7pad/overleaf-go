@@ -21,7 +21,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/das7pad/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
 )
 
 func Atomic(reader io.Reader, dest string, copyMode bool) error {

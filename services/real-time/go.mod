@@ -1,4 +1,4 @@
-module github.com/das7pad/real-time
+module github.com/das7pad/overleaf-go/services/real-time
 
 go 1.16
 

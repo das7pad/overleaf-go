@@ -28,8 +28,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
-	"github.com/das7pad/document-updater/pkg/errors"
-	"github.com/das7pad/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func getDurationFromEnv(key string, fallback time.Duration) time.Duration {

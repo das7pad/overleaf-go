@@ -15,7 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/real-time
+WORKDIR /go/src/github.com/das7pad/overleaf-go/services/real-time
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
@@ -33,8 +33,8 @@ ARG COMMIT
 LABEL \
   org.opencontainers.image.created="$DATE" \
   org.opencontainers.image.authors="Jakob Ackermann <das7pad@outlook.com>" \
-  org.opencontainers.image.url="https://github.com/das7pad/real-time" \
-  org.opencontainers.image.source="https://github.com/das7pad/real-time" \
+  org.opencontainers.image.url="https://github.com/das7pad/overleaf-go" \
+  org.opencontainers.image.source="https://github.com/das7pad/overleaf-go" \
   org.opencontainers.image.version="$RELEASE" \
   org.opencontainers.image.revision="$COMMIT" \
   org.opencontainers.image.vendor="Jakob Ackermann" \

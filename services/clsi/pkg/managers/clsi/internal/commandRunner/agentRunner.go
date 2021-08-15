@@ -35,9 +35,9 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-units"
 
-	"github.com/das7pad/clsi/pkg/constants"
-	"github.com/das7pad/clsi/pkg/errors"
-	"github.com/das7pad/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type agentRunner struct {

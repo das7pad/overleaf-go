@@ -19,8 +19,8 @@ package docs
 import (
 	"fmt"
 
-	"github.com/das7pad/docstore/pkg/managers/docstore/internal/docs/internal/views"
-	"github.com/das7pad/docstore/pkg/models"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs/internal/views"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 )
 
 var (
