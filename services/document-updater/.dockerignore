@@ -1,0 +1,10 @@
+*
+
+# src
+!*.go
+!/pkg
+!/internal
+
+# dependencies
+!/go.mod
+!/go.sum
