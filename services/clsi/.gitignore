@@ -2,8 +2,8 @@
 .idea/
 .*.swp
 
-# tests
-node_modules/
+# ci
+docker-image.digest.txt
 
 # binary
 /clsi
