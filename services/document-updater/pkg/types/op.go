@@ -191,15 +191,15 @@ func (s Snapshot) ToLines() Lines {
 	return strings.Split(string(s), "\n")
 }
 
-func (s Snapshot) Slice(start, end int) string {
+func (s Snapshot) Slice(start, end int) Snippet {
 	l := len(s)
 	if l < start {
-		return ""
+		return Snippet("")
 	}
 	if l < end {
 		end = l
 	}
-	return string(s[start:end])
+	return Snippet(s[start:end])
 }
 
 type Lines []string
