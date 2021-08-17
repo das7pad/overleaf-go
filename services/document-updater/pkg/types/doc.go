@@ -33,18 +33,6 @@ const MaxRangesSize = 3 * megabytes
 
 type UnFlushedTime int64
 
-func (u *UnFlushedTime) UnmarshalJSON(bytes []byte) error {
-	if bytes == nil {
-		return nil
-	}
-	raw, err := strconv.ParseInt(string(bytes), 10, 64)
-	if err != nil {
-		return err
-	}
-	*u = UnFlushedTime(raw)
-	return nil
-}
-
 type LastUpdatedCtx struct {
 	At int64              `json:"at"`
 	By primitive.ObjectID `json:"by,omitempty"`

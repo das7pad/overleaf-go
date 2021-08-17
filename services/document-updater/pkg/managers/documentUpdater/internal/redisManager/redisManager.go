@@ -273,11 +273,13 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 		return nil, &errors.NotAuthorizedError{}
 	}
 
-	if err := doc.Version.UnmarshalJSON(blobs[1]); err != nil {
+	if err := json.Unmarshal(blobs[1], &doc.Version); err != nil {
 		return nil, errors.Tag(err, "cannot parse doc version")
 	}
-	if err := doc.UnFlushedTime.UnmarshalJSON(blobs[2]); err != nil {
-		return nil, errors.Tag(err, "cannot parse doc un-flushed time")
+	if len(blobs[2]) != 0 {
+		if err := json.Unmarshal(blobs[2], &doc.UnFlushedTime); err != nil {
+			return nil, errors.Tag(err, "cannot parse doc un-flushed time")
+		}
 	}
 	if len(blobs[3]) > 2 {
 		if err := json.Unmarshal(blobs[3], &doc.LastUpdatedCtx); err != nil {
