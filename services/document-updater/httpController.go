@@ -27,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -153,8 +154,8 @@ func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
 func getVersionFromQuery(
 	r *http.Request,
 	key string,
-	fallback types.Version,
-) (types.Version, error) {
+	fallback sharedTypes.Version,
+) (sharedTypes.Version, error) {
 	raw := r.URL.Query().Get(key)
 	if raw == "" {
 		return fallback, nil
@@ -163,7 +164,7 @@ func getVersionFromQuery(
 	if err != nil {
 		return 0, err
 	}
-	return types.Version(i), nil
+	return sharedTypes.Version(i), nil
 }
 func getIntFromHeaders(
 	r *http.Request,
@@ -272,7 +273,7 @@ func (h *httpController) setDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = request.Validate(); err != nil {
-		if err == types.ErrDocIsTooLarge {
+		if err == sharedTypes.ErrDocIsTooLarge {
 			errorResponse(w, http.StatusNotAcceptable, err.Error())
 			return
 		}

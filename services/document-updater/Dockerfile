@@ -16,7 +16,7 @@
 
 FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/document-updater
-COPY go.mod ../../
+COPY go.mod go.sum ../../
 COPY services/document-updater/go.mod services/document-updater/go.sum ./
 RUN go mod download
 COPY . ../../

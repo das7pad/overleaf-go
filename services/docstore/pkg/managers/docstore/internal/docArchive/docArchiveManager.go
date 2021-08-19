@@ -27,9 +27,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/backend"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
@@ -186,11 +186,11 @@ type archivedDocBase struct {
 
 type archivedDocV1 struct {
 	archivedDocBase
-	Lines  models.Lines  `json:"lines"`
-	Ranges models.Ranges `json:"ranges"`
+	Lines  sharedTypes.Lines  `json:"lines"`
+	Ranges sharedTypes.Ranges `json:"ranges"`
 }
 
-type archivedDocV0 models.Lines
+type archivedDocV0 sharedTypes.Lines
 
 func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
 	doc, err := m.dm.GetDocForArchiving(
@@ -282,16 +282,16 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 	return m.b.DeleteObject(ctx, m.bucket, key)
 }
 
-func deserializeArchive(blob []byte) (models.Lines, models.Ranges, error) {
+func deserializeArchive(blob []byte) (sharedTypes.Lines, sharedTypes.Ranges, error) {
 	var archiveV1 archivedDocV1
 	if err := json.Unmarshal(blob, &archiveV1); err == nil {
 		return archiveV1.Lines, archiveV1.Ranges, nil
 	}
 	var archiveV0 archivedDocV0
 	if err := json.Unmarshal(blob, &archiveV0); err == nil {
-		return models.Lines(archiveV0), models.Ranges{}, nil
+		return sharedTypes.Lines(archiveV0), sharedTypes.Ranges{}, nil
 	}
-	return nil, models.Ranges{}, fmt.Errorf("unknown archive format")
+	return nil, sharedTypes.Ranges{}, fmt.Errorf("unknown archive format")
 }
 
 func (m *manager) DestroyDocs(ctx context.Context, projectId primitive.ObjectID) error {

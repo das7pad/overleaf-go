@@ -16,7 +16,7 @@
 
 FROM golang:1.16 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/spelling
-COPY go.mod ../../
+COPY go.mod go.sum ../../
 COPY services/spelling/go.mod services/spelling/go.sum ./
 RUN go mod download
 COPY . ../../

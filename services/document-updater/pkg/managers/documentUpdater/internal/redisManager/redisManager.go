@@ -29,6 +29,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
@@ -67,21 +68,21 @@ type Manager interface {
 	GetDocVersion(
 		ctx context.Context,
 		docId primitive.ObjectID,
-	) (types.Version, error)
+	) (sharedTypes.Version, error)
 
 	GetPreviousDocUpdates(
 		ctx context.Context,
 		docId primitive.ObjectID,
-		start types.Version,
-		end types.Version,
+		start sharedTypes.Version,
+		end sharedTypes.Version,
 	) ([]types.DocumentUpdate, error)
 
 	GetPreviousDocUpdatesUnderLock(
 		ctx context.Context,
 		docId primitive.ObjectID,
-		begin types.Version,
-		end types.Version,
-		docVersion types.Version,
+		begin sharedTypes.Version,
+		end sharedTypes.Version,
+		docVersion sharedTypes.Version,
 	) ([]types.DocumentUpdate, error)
 
 	UpdateDocument(
@@ -289,7 +290,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 	return doc, nil
 }
 
-func (m *manager) GetDocVersion(ctx context.Context, docId primitive.ObjectID) (types.Version, error) {
+func (m *manager) GetDocVersion(ctx context.Context, docId primitive.ObjectID) (sharedTypes.Version, error) {
 	raw, err := m.rClient.Get(ctx, getDocVersionKey(docId)).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -297,7 +298,7 @@ func (m *manager) GetDocVersion(ctx context.Context, docId primitive.ObjectID) (
 		}
 		return 0, errors.Tag(err, "cannot get version from redis")
 	}
-	var v types.Version
+	var v sharedTypes.Version
 	if err = json.Unmarshal([]byte(raw), &v); err != nil {
 		return 0, errors.Tag(err, "cannot parse version")
 	}
@@ -324,7 +325,7 @@ if stop > -1 then stop = (stop - first_version_in_redis) end
 return redis.call("LRANGE", KEYS[1], start, stop)
 `)
 
-func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.ObjectID, start types.Version, end types.Version) ([]types.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.ObjectID, start sharedTypes.Version, end sharedTypes.Version) ([]types.DocumentUpdate, error) {
 	if start == end {
 		return make([]types.DocumentUpdate, 0), nil
 	}
@@ -354,7 +355,7 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.Obj
 			blobs[i] = s
 			continue
 		}
-		update := (start + types.Version(i)).String()
+		update := (start + sharedTypes.Version(i)).String()
 		err = errors.New(
 			"update not received as string: " + update,
 		)
@@ -365,7 +366,7 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.Obj
 	return m.parseDocumentUpdates(start, blobs)
 }
 
-func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, begin types.Version, end types.Version, docVersion types.Version) ([]types.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, begin sharedTypes.Version, end sharedTypes.Version, docVersion sharedTypes.Version) ([]types.DocumentUpdate, error) {
 	if begin == end {
 		return nil, nil
 	}
@@ -384,7 +385,7 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId prim
 	return m.parseDocumentUpdates(begin, raw)
 }
 
-func (m *manager) parseDocumentUpdates(start types.Version, raw []string) ([]types.DocumentUpdate, error) {
+func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) ([]types.DocumentUpdate, error) {
 	updates := make([]types.DocumentUpdate, len(raw))
 	for i, s := range raw {
 		update := types.DocumentUpdate{}
@@ -404,7 +405,7 @@ func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, 
 	if err != nil {
 		return 0, errors.Tag(err, "cannot get doc version for validation")
 	}
-	nUpdatesOffset := types.Version(len(appliedUpdates))
+	nUpdatesOffset := sharedTypes.Version(len(appliedUpdates))
 	if currentVersion != doc.Version-nUpdatesOffset {
 		return 0, errors.New(
 			"refusing to update: remote version mismatches local version: " +

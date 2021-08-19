@@ -1,4 +1,4 @@
-// Golang port of the Overleaf clsi service
+// Golang port of Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,20 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
 	"strconv"
 )
 
-type Float float64
+type Revision int64
 
-func (j Float) String() string {
-	return strconv.FormatFloat(float64(j), 'f', -1, 64)
+type Version int64
+
+func (v Version) Equals(other Version) bool {
+	return v == other
 }
 
-type Int int64
-
-func (i Int) String() string {
-	return strconv.FormatInt(int64(i), 10)
+func (v Version) String() string {
+	return strconv.FormatInt(int64(v), 10)
 }

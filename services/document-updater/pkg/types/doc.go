@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 const megabytes = 1024 * 1024
@@ -42,12 +43,12 @@ type ProjectHistoryId int64
 type ProjectHistoryType string
 
 type FlushedDoc struct {
-	Lines              Lines              `json:"lines"`
-	PathName           PathName           `json:"pathname"`
-	ProjectHistoryId   ProjectHistoryId   `json:"projectHistoryId,omitempty"`
-	ProjectHistoryType ProjectHistoryType `json:"projectHistoryType,omitempty"`
-	Ranges             Ranges             `json:"ranges"`
-	Version            Version            `json:"version"`
+	Lines              sharedTypes.Lines   `json:"lines"`
+	PathName           PathName            `json:"pathname"`
+	ProjectHistoryId   ProjectHistoryId    `json:"projectHistoryId,omitempty"`
+	ProjectHistoryType ProjectHistoryType  `json:"projectHistoryType,omitempty"`
+	Ranges             sharedTypes.Ranges  `json:"ranges"`
+	Version            sharedTypes.Version `json:"version"`
 }
 
 func (d *FlushedDoc) ToDoc(projectId, docId primitive.ObjectID) *Doc {
@@ -66,33 +67,33 @@ func (d *FlushedDoc) ToDoc(projectId, docId primitive.ObjectID) *Doc {
 type PathName string
 
 type DocCore struct {
-	Snapshot         Snapshot           `json:"snapshot"`
-	Hash             Hash               `json:"hash"`
-	JsonRanges       json.RawMessage    `json:"json_ranges"`
-	Ranges           Ranges             `json:"-"`
-	ProjectId        primitive.ObjectID `json:"project_id"`
-	PathName         PathName           `json:"path_name"`
-	ProjectHistoryId ProjectHistoryId   `json:"project_history_id,omitempty"`
+	Snapshot         sharedTypes.Snapshot `json:"snapshot"`
+	Hash             sharedTypes.Hash     `json:"hash"`
+	JsonRanges       json.RawMessage      `json:"json_ranges"`
+	Ranges           sharedTypes.Ranges   `json:"-"`
+	ProjectId        primitive.ObjectID   `json:"project_id"`
+	PathName         PathName             `json:"path_name"`
+	ProjectHistoryId ProjectHistoryId     `json:"project_history_id,omitempty"`
 }
 
 type Doc struct {
 	DocCore
 	LastUpdatedCtx
-	Version
+	sharedTypes.Version
 	UnFlushedTime
 	DocId               primitive.ObjectID
 	JustLoadedIntoRedis bool
 }
 
 type SetDocRequest struct {
-	Lines    Lines `json:"lines"`
-	snapshot Snapshot
+	Lines    sharedTypes.Lines `json:"lines"`
+	snapshot sharedTypes.Snapshot
 	Source   string             `json:"source"`
 	UserId   primitive.ObjectID `json:"user_id"`
 	Undoing  bool               `json:"undoing"`
 }
 
-func (s *SetDocRequest) Snapshot() Snapshot {
+func (s *SetDocRequest) Snapshot() sharedTypes.Snapshot {
 	if s.snapshot == nil {
 		s.snapshot = s.Lines.ToSnapshot()
 	}
@@ -107,11 +108,11 @@ func (s *SetDocRequest) Validate() error {
 }
 
 type SetDocDetails struct {
-	Lines         Lines              `json:"lines"`
-	Ranges        Ranges             `json:"ranges"`
-	Version       Version            `json:"version"`
-	LastUpdatedAt int64              `json:"lastUpdatedAt"`
-	LastUpdatedBy primitive.ObjectID `json:"lastUpdatedBy"`
+	Lines         sharedTypes.Lines   `json:"lines"`
+	Ranges        sharedTypes.Ranges  `json:"ranges"`
+	Version       sharedTypes.Version `json:"version"`
+	LastUpdatedAt int64               `json:"lastUpdatedAt"`
+	LastUpdatedBy primitive.ObjectID  `json:"lastUpdatedBy"`
 }
 
 func (d *Doc) ToSetDocDetails() *SetDocDetails {
@@ -125,17 +126,17 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 }
 
 type DocContentLines struct {
-	Id       primitive.ObjectID `json:"_id"`
-	Lines    Lines              `json:"lines"`
-	PathName PathName           `json:"pathname"`
-	Version  Version            `json:"v"`
+	Id       primitive.ObjectID  `json:"_id"`
+	Lines    sharedTypes.Lines   `json:"lines"`
+	PathName PathName            `json:"pathname"`
+	Version  sharedTypes.Version `json:"v"`
 }
 
 type DocContentSnapshot struct {
-	Id       primitive.ObjectID `json:"_id"`
-	Snapshot Snapshot           `json:"snapshot"`
-	PathName PathName           `json:"pathname"`
-	Version  Version            `json:"v"`
+	Id       primitive.ObjectID   `json:"_id"`
+	Snapshot sharedTypes.Snapshot `json:"snapshot"`
+	PathName PathName             `json:"pathname"`
+	Version  sharedTypes.Version  `json:"v"`
 }
 
 func (d *Doc) ToDocContentLines() *DocContentLines {
@@ -166,13 +167,13 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 
 	d := sha1.New()
 	d.Write(parts[0])
-	hash := Hash(hex.EncodeToString(d.Sum(nil)))
+	hash := sharedTypes.Hash(hex.EncodeToString(d.Sum(nil)))
 
-	if err = hash.CheckMatches(Hash(parts[1])); err != nil {
+	if err = hash.CheckMatches(sharedTypes.Hash(parts[1])); err != nil {
 		return err
 	}
 
-	var lines Lines
+	var lines sharedTypes.Lines
 	if err = json.Unmarshal(parts[0], &lines); err != nil {
 		return errors.Tag(err, "cannot parse lines")
 	}

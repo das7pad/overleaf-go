@@ -21,6 +21,7 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
@@ -30,14 +31,14 @@ func init() {
 	dmp.DiffTimeout = 100 * time.Millisecond
 }
 
-func Diff(before, after types.Snapshot) types.Op {
+func Diff(before, after sharedTypes.Snapshot) types.Op {
 	diffs := dmp.DiffMainRunes(before, after, false)
 	diffs = dmp.DiffCleanupSemantic(diffs)
 
 	op := make(types.Op, 0, len(diffs))
 	pos := 0
 	for _, diff := range diffs {
-		s := types.Snippet(diff.Text)
+		s := sharedTypes.Snippet(diff.Text)
 		switch diff.Type {
 		case diffmatchpatch.DiffInsert:
 			op = append(op, types.Component{

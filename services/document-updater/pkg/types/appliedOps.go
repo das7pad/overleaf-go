@@ -17,12 +17,12 @@
 package types
 
 import (
-	"encoding/json"
 	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type PublicId string
@@ -79,25 +79,10 @@ func (d *DocumentUpdateMeta) Validate() error {
 	return nil
 }
 
-type Snippet []rune
-
-func (s *Snippet) UnmarshalJSON(bytes []byte) error {
-	var raw string
-	if err := json.Unmarshal(bytes, &raw); err != nil {
-		return err
-	}
-	*s = Snippet(raw)
-	return nil
-}
-
-func (s Snippet) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(s))
-}
-
 type Component struct {
-	Comment   Snippet             `json:"c,omitempty"`
-	Deletion  Snippet             `json:"d,omitempty"`
-	Insertion Snippet             `json:"i,omitempty"`
+	Comment   sharedTypes.Snippet `json:"c,omitempty"`
+	Deletion  sharedTypes.Snippet `json:"d,omitempty"`
+	Insertion sharedTypes.Snippet `json:"i,omitempty"`
 	Position  int                 `json:"p"`
 	Thread    *primitive.ObjectID `json:"t,omitempty"`
 	Undo      bool                `json:"undo,omitempty"`
@@ -174,13 +159,13 @@ func (d DupIfSource) Contains(id PublicId) bool {
 }
 
 type DocumentUpdate struct {
-	DocId       primitive.ObjectID `json:"doc"`
-	Dup         bool               `json:"dup,omitempty"`
-	DupIfSource DupIfSource        `json:"dupIfSource,omitempty"`
-	Hash        Hash               `json:"hash,omitempty"`
-	Meta        DocumentUpdateMeta `json:"meta"`
-	Op          Op                 `json:"op"`
-	Version     Version            `json:"v"`
+	DocId       primitive.ObjectID  `json:"doc"`
+	Dup         bool                `json:"dup,omitempty"`
+	DupIfSource DupIfSource         `json:"dupIfSource,omitempty"`
+	Hash        sharedTypes.Hash    `json:"hash,omitempty"`
+	Meta        DocumentUpdateMeta  `json:"meta"`
+	Op          Op                  `json:"op"`
+	Version     sharedTypes.Version `json:"v"`
 }
 
 func (d *DocumentUpdate) Validate() error {
@@ -193,9 +178,9 @@ func (d *DocumentUpdate) Validate() error {
 	return nil
 }
 
-const maxAgeOfOp = Version(80)
+const maxAgeOfOp = sharedTypes.Version(80)
 
-func (d *DocumentUpdate) CheckVersion(current Version) error {
+func (d *DocumentUpdate) CheckVersion(current sharedTypes.Version) error {
 	if d.Version < 0 {
 		return &errors.ValidationError{Msg: "Version missing"}
 	}

@@ -20,13 +20,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func TestDiff(t *testing.T) {
 	type args struct {
-		before types.Snapshot
-		after  types.Snapshot
+		before sharedTypes.Snapshot
+		after  sharedTypes.Snapshot
 	}
 	tests := []struct {
 		name string
@@ -36,12 +37,12 @@ func TestDiff(t *testing.T) {
 		{
 			name: "insertNewText",
 			args: args{
-				before: types.Snapshot("hello world"),
-				after:  types.Snapshot("hello beautiful world"),
+				before: sharedTypes.Snapshot("hello world"),
+				after:  sharedTypes.Snapshot("hello beautiful world"),
 			},
 			want: types.Op{
 				{
-					Insertion: types.Snippet("beautiful "),
+					Insertion: sharedTypes.Snippet("beautiful "),
 					Position:  6,
 				},
 			},
@@ -49,12 +50,12 @@ func TestDiff(t *testing.T) {
 		{
 			name: "insertNewTextUTF-8",
 			args: args{
-				before: types.Snapshot("hellö wörld"),
-				after:  types.Snapshot("hellö beäütifül wörld"),
+				before: sharedTypes.Snapshot("hellö wörld"),
+				after:  sharedTypes.Snapshot("hellö beäütifül wörld"),
 			},
 			want: types.Op{
 				{
-					Insertion: types.Snippet(" beäütifül"),
+					Insertion: sharedTypes.Snippet(" beäütifül"),
 					Position:  5,
 				},
 			},
@@ -62,16 +63,16 @@ func TestDiff(t *testing.T) {
 		{
 			name: "shiftInsertAfterInsert",
 			args: args{
-				before: types.Snapshot("the boy played with the ball"),
-				after:  types.Snapshot("the tall boy played with the red ball"),
+				before: sharedTypes.Snapshot("the boy played with the ball"),
+				after:  sharedTypes.Snapshot("the tall boy played with the red ball"),
 			},
 			want: types.Op{
 				{
-					Insertion: types.Snippet("tall "),
+					Insertion: sharedTypes.Snippet("tall "),
 					Position:  4,
 				},
 				{
-					Insertion: types.Snippet("red "),
+					Insertion: sharedTypes.Snippet("red "),
 					Position:  29,
 				},
 			},
@@ -79,12 +80,12 @@ func TestDiff(t *testing.T) {
 		{
 			name: "delete",
 			args: args{
-				before: types.Snapshot("hello beautiful world"),
-				after:  types.Snapshot("hello world"),
+				before: sharedTypes.Snapshot("hello beautiful world"),
+				after:  sharedTypes.Snapshot("hello world"),
 			},
 			want: types.Op{
 				{
-					Deletion: types.Snippet("beautiful "),
+					Deletion: sharedTypes.Snippet("beautiful "),
 					Position: 6,
 				},
 			},
@@ -92,16 +93,16 @@ func TestDiff(t *testing.T) {
 		{
 			name: "shiftDeleteAfterDelete",
 			args: args{
-				before: types.Snapshot("the tall boy played with the red ball"),
-				after:  types.Snapshot("the boy played with the ball"),
+				before: sharedTypes.Snapshot("the tall boy played with the red ball"),
+				after:  sharedTypes.Snapshot("the boy played with the ball"),
 			},
 			want: types.Op{
 				{
-					Deletion: types.Snippet("tall "),
+					Deletion: sharedTypes.Snippet("tall "),
 					Position: 4,
 				},
 				{
-					Deletion: types.Snippet("red "),
+					Deletion: sharedTypes.Snippet("red "),
 					Position: 24,
 				},
 			},

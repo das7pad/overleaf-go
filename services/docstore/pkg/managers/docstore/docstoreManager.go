@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docArchive"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
@@ -51,7 +52,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-	) (models.Lines, error)
+	) (sharedTypes.Lines, error)
 
 	PeakDeletedDocNames(
 		ctx context.Context,
@@ -73,10 +74,10 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		lines models.Lines,
-		version models.Version,
-		ranges models.Ranges,
-	) (Modified, models.Revision, error)
+		lines sharedTypes.Lines,
+		version sharedTypes.Version,
+		ranges sharedTypes.Ranges,
+	) (Modified, sharedTypes.Revision, error)
 
 	PatchDoc(
 		ctx context.Context,
@@ -160,7 +161,7 @@ func (m *manager) GetFullDoc(ctx context.Context, projectId primitive.ObjectID, 
 	}
 }
 
-func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (models.Lines, error) {
+func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (sharedTypes.Lines, error) {
 	for {
 		lines, err := m.dm.GetDocLines(ctx, projectId, docId)
 		if err != nil {
@@ -228,7 +229,7 @@ func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.Obj
 
 const MaxLineLength = 2 * 1024 * 1024
 
-func validateDocLines(lines models.Lines) error {
+func validateDocLines(lines sharedTypes.Lines) error {
 	if lines == nil {
 		return &errors.ValidationError{Msg: "no doc lines provided"}
 	}
@@ -242,14 +243,14 @@ func validateDocLines(lines models.Lines) error {
 	return nil
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines models.Lines, version models.Version, ranges models.Ranges) (Modified, models.Revision, error) {
+func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, version sharedTypes.Version, ranges sharedTypes.Ranges) (Modified, sharedTypes.Revision, error) {
 	if err := validateDocLines(lines); err != nil {
 		return false, 0, err
 	}
 
 	var modifiedContents bool
 	var modifiedVersion bool
-	var revision models.Revision
+	var revision sharedTypes.Revision
 
 	if doc, err := m.GetFullDoc(ctx, projectId, docId); err == nil {
 		modifiedContents = false

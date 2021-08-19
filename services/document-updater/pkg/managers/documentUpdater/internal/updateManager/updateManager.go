@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/redisManager"
@@ -99,7 +100,7 @@ func (m *manager) ProcessUpdates(ctx context.Context, docId primitive.ObjectID, 
 	}
 
 	processed := make([]types.DocumentUpdate, 0)
-	var s types.Snapshot
+	var s sharedTypes.Snapshot
 
 outer:
 	for _, update := range updates {

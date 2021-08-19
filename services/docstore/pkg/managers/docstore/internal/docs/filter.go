@@ -20,7 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func docFilter(projectId primitive.ObjectID, docId primitive.ObjectID) bson.M {
@@ -29,7 +29,7 @@ func docFilter(projectId primitive.ObjectID, docId primitive.ObjectID) bson.M {
 		"_id":        docId,
 	}
 }
-func docFilterWithRevision(projectId primitive.ObjectID, docId primitive.ObjectID, revision models.Revision) bson.M {
+func docFilterWithRevision(projectId primitive.ObjectID, docId primitive.ObjectID, revision sharedTypes.Revision) bson.M {
 	filter := docFilter(projectId, docId)
 	filter["rev"] = revision
 	return filter

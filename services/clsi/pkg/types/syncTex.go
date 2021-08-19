@@ -18,37 +18,38 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
 
-type Page Int
+type Page int64
 
 func (p Page) String() string {
-	return Int(p).String()
+	return sharedTypes.Int(p).String()
 }
 
-type Horizontal Float
+type Horizontal float64
 
 func (h Horizontal) String() string {
-	return Float(h).String()
+	return sharedTypes.Float(h).String()
 }
 
-type Vertical Float
+type Vertical float64
 
 func (v Vertical) String() string {
-	return Float(v).String()
+	return sharedTypes.Float(v).String()
 }
 
-type Line Int
+type Line float64
 
 func (l Line) String() string {
-	return Int(l).String()
+	return sharedTypes.Int(l).String()
 }
 
-type Column Int
+type Column float64
 
 func (c Column) String() string {
-	return Int(c).String()
+	return sharedTypes.Int(c).String()
 }
 
 type CodePosition struct {
@@ -59,8 +60,8 @@ type CodePosition struct {
 
 type CodePositions []*CodePosition
 
-type Height Float
-type Width Float
+type Height float64
+type Width float64
 
 type PDFPosition struct {
 	Page       `json:"page"`

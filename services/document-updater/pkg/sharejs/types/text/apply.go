@@ -18,11 +18,12 @@ package text
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
-func Apply(snapshot types.Snapshot, ops types.Op) (types.Snapshot, error) {
+func Apply(snapshot sharedTypes.Snapshot, ops types.Op) (sharedTypes.Snapshot, error) {
 	for _, op := range ops {
 		if op.IsInsertion() {
 			snapshot = injectInPlace(snapshot, op.Position, op.Insertion)

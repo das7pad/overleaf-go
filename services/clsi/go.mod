@@ -11,11 +11,9 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	go.mongodb.org/mongo-driver v1.5.1
+	go.mongodb.org/mongo-driver v1.7.1
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/grpc v1.38.0 // indirect
 )
 
-replace (
-	github.com/das7pad/overleaf-go v0.0.0 => ../../
-)
+replace github.com/das7pad/overleaf-go v0.0.0 => ../../

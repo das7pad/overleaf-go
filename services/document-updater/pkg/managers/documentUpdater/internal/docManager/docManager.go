@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/redisLocker"
@@ -40,7 +41,7 @@ type Manager interface {
 	ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error
 
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
-	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error)
+	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []types.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error)
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
@@ -171,7 +172,7 @@ func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.Obj
 	return m.rm.ClearProjectState(ctx, projectId)
 }
 
-func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.Doc, []types.DocumentUpdate, error) {
+func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []types.DocumentUpdate, error) {
 	doc, err := m.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, nil, err
@@ -441,7 +442,7 @@ func (m *manager) persistProcessedUpdates(
 	ctx context.Context,
 	projectId, docId primitive.ObjectID,
 	doc *types.Doc,
-	initialVersion types.Version,
+	initialVersion sharedTypes.Version,
 	processed []types.DocumentUpdate,
 	updateErr error,
 ) error {

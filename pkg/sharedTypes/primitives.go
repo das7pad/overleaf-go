@@ -1,4 +1,4 @@
-// Golang port of the Overleaf real-time service
+// Golang port of the Overleaf clsi service
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,24 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
-	"encoding/json"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"strconv"
 )
 
-type JoinDocRequest struct {
-	DocId       primitive.ObjectID
-	FromVersion sharedTypes.Version `json:"fromVersion"`
+type Float float64
+
+func (j Float) String() string {
+	return strconv.FormatFloat(float64(j), 'f', -1, 64)
 }
 
-type JoinDocResponse struct {
-	Ops      json.RawMessage     `json:"ops"`
-	Ranges   sharedTypes.Ranges  `json:"ranges"`
-	Snapshot json.RawMessage     `json:"snapshot"`
-	Version  sharedTypes.Version `json:"version"`
+type Int int64
+
+func (i Int) String() string {
+	return strconv.FormatInt(int64(i), 10)
 }

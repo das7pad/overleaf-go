@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type DocIdField struct {
@@ -27,11 +29,11 @@ type DocIdField struct {
 }
 
 type DocLinesField struct {
-	Lines Lines `json:"lines" bson:"lines"`
+	Lines sharedTypes.Lines `json:"lines" bson:"lines"`
 }
 
 type DocRevisionField struct {
-	Revision Revision `json:"rev" bson:"rev"`
+	Revision sharedTypes.Revision `json:"rev" bson:"rev"`
 }
 
 type DocNameField struct {
@@ -54,7 +56,7 @@ func (f DocInS3Field) IsArchived() bool {
 }
 
 type DocOpsVersionField struct {
-	Version Version `json:"version" bson:"version"`
+	Version sharedTypes.Version `json:"version" bson:"version"`
 }
 
 type DocOpsDocIdField struct {
@@ -62,5 +64,5 @@ type DocOpsDocIdField struct {
 }
 
 type DocRangesField struct {
-	Ranges Ranges `json:"ranges" bson:"ranges"`
+	Ranges sharedTypes.Ranges `json:"ranges" bson:"ranges"`
 }

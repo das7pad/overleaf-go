@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 )
 
@@ -63,7 +64,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-	) (models.Lines, error)
+	) (sharedTypes.Lines, error)
 
 	PeakDeletedDocNames(
 		ctx context.Context,
@@ -103,14 +104,14 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		lines models.Lines,
-		ranges models.Ranges,
-	) (models.Revision, error)
+		lines sharedTypes.Lines,
+		ranges sharedTypes.Ranges,
+	) (sharedTypes.Revision, error)
 
 	SetDocVersion(
 		ctx context.Context,
 		docId primitive.ObjectID,
-		version models.Version,
+		version sharedTypes.Version,
 	) error
 
 	PatchDocMeta(
@@ -124,7 +125,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		revision models.Revision,
+		revision sharedTypes.Revision,
 	) error
 
 	DestroyDoc(
@@ -232,7 +233,7 @@ func (m *manager) GetDocForArchiving(ctx context.Context, projectId primitive.Ob
 	return &doc, nil
 }
 
-func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (models.Lines, error) {
+func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (sharedTypes.Lines, error) {
 	var doc models.DocLines
 	err := m.cDocs.FindOne(
 		ctx,
@@ -381,7 +382,7 @@ type upsertDocUpdate struct {
 	ProjectId             primitive.ObjectID `bson:"project_id"`
 }
 
-func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines models.Lines, ranges models.Ranges) (models.Revision, error) {
+func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, ranges sharedTypes.Ranges) (sharedTypes.Revision, error) {
 	updates := upsertDocUpdate{ProjectId: projectId}
 	updates.Lines = lines
 	updates.Ranges = ranges
@@ -406,7 +407,7 @@ func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, d
 	return doc.Revision, nil
 }
 
-func (m *manager) SetDocVersion(ctx context.Context, docId primitive.ObjectID, version models.Version) error {
+func (m *manager) SetDocVersion(ctx context.Context, docId primitive.ObjectID, version sharedTypes.Version) error {
 	_, err := m.cDocOps.UpdateOne(
 		ctx,
 		models.DocOpsDocIdField{DocId: docId},
@@ -432,7 +433,7 @@ func (m *manager) PatchDocMeta(ctx context.Context, projectId primitive.ObjectID
 	return err
 }
 
-func (m *manager) MarkDocAsArchived(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, revision models.Revision) error {
+func (m *manager) MarkDocAsArchived(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, revision sharedTypes.Revision) error {
 	filter := docFilterWithRevision(projectId, docId, revision)
 	_, err := m.cDocs.UpdateOne(
 		ctx,

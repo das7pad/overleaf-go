@@ -28,6 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
@@ -311,13 +312,13 @@ func (h *httpController) isDocDeleted(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateDocRequestBody struct {
-	Lines   models.Lines    `json:"lines"`
-	Ranges  models.Ranges   `json:"ranges"`
-	Version *models.Version `json:"version"`
+	Lines   sharedTypes.Lines    `json:"lines"`
+	Ranges  sharedTypes.Ranges   `json:"ranges"`
+	Version *sharedTypes.Version `json:"version"`
 }
 type updateDocResponseBody struct {
-	Revision models.Revision   `json:"rev"`
-	Modified docstore.Modified `json:"modified"`
+	Revision sharedTypes.Revision `json:"rev"`
+	Modified docstore.Modified    `json:"modified"`
 }
 
 func (h *httpController) updateDoc(w http.ResponseWriter, r *http.Request) {

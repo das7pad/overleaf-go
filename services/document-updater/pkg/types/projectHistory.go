@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type coreProjectUpdate struct {
@@ -126,7 +127,7 @@ func (g *GenericProjectUpdate) RenameFileUpdate() *RenameFileUpdate {
 }
 
 type ProcessProjectUpdatesRequest struct {
-	ProjectVersion Version                `json:"version"`
+	ProjectVersion sharedTypes.Version    `json:"version"`
 	Updates        []GenericProjectUpdate `json:"updates"`
 }
 

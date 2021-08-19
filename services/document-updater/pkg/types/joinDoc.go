@@ -16,10 +16,14 @@
 
 package types
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type GetDocResponse struct {
-	Ops      []DocumentUpdate `json:"ops"`
-	PathName PathName         `json:"pathname"`
-	Ranges   Ranges           `json:"ranges"`
-	Snapshot Snapshot         `json:"snapshot"`
-	Version  Version          `json:"version"`
+	Ops      []DocumentUpdate     `json:"ops"`
+	PathName PathName             `json:"pathname"`
+	Ranges   sharedTypes.Ranges   `json:"ranges"`
+	Snapshot sharedTypes.Snapshot `json:"snapshot"`
+	Version  sharedTypes.Version  `json:"version"`
 }

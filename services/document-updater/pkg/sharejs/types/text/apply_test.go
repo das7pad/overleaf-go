@@ -19,221 +19,222 @@ package text
 import (
 	"testing"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func TestApply(t *testing.T) {
 	type args struct {
-		snapshot types.Snapshot
+		snapshot sharedTypes.Snapshot
 		ops      types.Op
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    types.Snapshot
+		want    sharedTypes.Snapshot
 		wantErr bool
 	}{
 		{
 			name: "new",
 			args: args{
-				snapshot: types.Snapshot(""),
+				snapshot: sharedTypes.Snapshot(""),
 				ops: types.Op{
-					{Insertion: types.Snippet("foo"), Position: 0},
+					{Insertion: sharedTypes.Snippet("foo"), Position: 0},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("foo"),
+			want:    sharedTypes.Snapshot("foo"),
 		},
 		{
 			name: "append",
 			args: args{
-				snapshot: types.Snapshot("foo"),
+				snapshot: sharedTypes.Snapshot("foo"),
 				ops: types.Op{
-					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fooBar"),
+			want:    sharedTypes.Snapshot("fooBar"),
 		},
 		{
 			name: "insert",
 			args: args{
-				snapshot: types.Snapshot("fooBaz"),
+				snapshot: sharedTypes.Snapshot("fooBaz"),
 				ops: types.Op{
-					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fooBarBaz"),
+			want:    sharedTypes.Snapshot("fooBarBaz"),
 		},
 		{
 			name: "insertUTF-8",
 			args: args{
-				snapshot: types.Snapshot("fööBaz"),
+				snapshot: sharedTypes.Snapshot("fööBaz"),
 				ops: types.Op{
-					{Insertion: types.Snippet("Bär"), Position: 3},
+					{Insertion: sharedTypes.Snippet("Bär"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fööBärBaz"),
+			want:    sharedTypes.Snapshot("fööBärBaz"),
 		},
 		{
 			name: "delete",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Deletion: types.Snippet("Bar"), Position: 3},
+					{Deletion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("foo"),
+			want:    sharedTypes.Snapshot("foo"),
 		},
 		{
 			name: "deleteUTF-8",
 			args: args{
-				snapshot: types.Snapshot("fööBär"),
+				snapshot: sharedTypes.Snapshot("fööBär"),
 				ops: types.Op{
-					{Deletion: types.Snippet("Bär"), Position: 3},
+					{Deletion: sharedTypes.Snippet("Bär"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("föö"),
+			want:    sharedTypes.Snapshot("föö"),
 		},
 		{
 			name: "deleteAndInsertSequenceS1",
 			args: args{
-				snapshot: types.Snapshot("fooBaz"),
+				snapshot: sharedTypes.Snapshot("fooBaz"),
 				ops: types.Op{
-					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fooBarBaz"),
+			want:    sharedTypes.Snapshot("fooBarBaz"),
 		},
 		{
 			name: "deleteAndInsertSequenceS2",
 			args: args{
-				snapshot: types.Snapshot("fooBaz"),
+				snapshot: sharedTypes.Snapshot("fooBaz"),
 				ops: types.Op{
-					{Insertion: types.Snippet("Bar"), Position: 3},
-					{Deletion: types.Snippet("foo"), Position: 0},
+					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
+					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("BarBaz"),
+			want:    sharedTypes.Snapshot("BarBaz"),
 		},
 		{
 			name: "deleteAndInsertSequence",
 			args: args{
-				snapshot: types.Snapshot("fooBaz"),
+				snapshot: sharedTypes.Snapshot("fooBaz"),
 				ops: types.Op{
-					{Insertion: types.Snippet("Bar"), Position: 3},
-					{Deletion: types.Snippet("foo"), Position: 0},
-					{Deletion: types.Snippet("Baz"), Position: 3},
+					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
+					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
+					{Deletion: sharedTypes.Snippet("Baz"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("Bar"),
+			want:    sharedTypes.Snapshot("Bar"),
 		},
 		{
 			name: "deleteMismatch",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Deletion: types.Snippet("bar"), Position: 3},
+					{Deletion: sharedTypes.Snippet("bar"), Position: 3},
 				},
 			},
 			wantErr: true,
-			want:    types.Snapshot(""),
+			want:    sharedTypes.Snapshot(""),
 		},
 		{
 			name: "deleteOOB",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Deletion: types.Snippet("barBaz"), Position: 3},
+					{Deletion: sharedTypes.Snippet("barBaz"), Position: 3},
 				},
 			},
 			wantErr: true,
-			want:    types.Snapshot(""),
+			want:    sharedTypes.Snapshot(""),
 		},
 		{
 			name: "deleteOOBStart",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Deletion: types.Snippet("barBaz"), Position: 42},
+					{Deletion: sharedTypes.Snippet("barBaz"), Position: 42},
 				},
 			},
 			wantErr: true,
-			want:    types.Snapshot(""),
+			want:    sharedTypes.Snapshot(""),
 		},
 		{
 			name: "comment",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Comment: types.Snippet("Bar"), Position: 3},
+					{Comment: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fooBar"),
+			want:    sharedTypes.Snapshot("fooBar"),
 		},
 		{
 			name: "commentUTF-8",
 			args: args{
-				snapshot: types.Snapshot("fööBär"),
+				snapshot: sharedTypes.Snapshot("fööBär"),
 				ops: types.Op{
-					{Comment: types.Snippet("Bär"), Position: 3},
+					{Comment: sharedTypes.Snippet("Bär"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fööBär"),
+			want:    sharedTypes.Snapshot("fööBär"),
 		},
 		{
 			name: "commentMismatch",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Comment: types.Snippet("bar"), Position: 3},
+					{Comment: sharedTypes.Snippet("bar"), Position: 3},
 				},
 			},
 			wantErr: true,
-			want:    types.Snapshot(""),
+			want:    sharedTypes.Snapshot(""),
 		},
 		{
 			name: "commentOOB",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Comment: types.Snippet("out-of-bound"), Position: 3},
+					{Comment: sharedTypes.Snippet("out-of-bound"), Position: 3},
 				},
 			},
 			wantErr: true,
-			want:    types.Snapshot(""),
+			want:    sharedTypes.Snapshot(""),
 		},
 		{
 			name: "commentOOBStart",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Comment: types.Snippet("out-of-bound"), Position: 42},
+					{Comment: sharedTypes.Snippet("out-of-bound"), Position: 42},
 				},
 			},
 			wantErr: true,
-			want:    types.Snapshot(""),
+			want:    sharedTypes.Snapshot(""),
 		},
 		{
 			name: "deleteAndRestoreReuseSlice",
 			args: args{
-				snapshot: types.Snapshot("fooBar"),
+				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: types.Op{
-					{Deletion: types.Snippet("Bar"), Position: 3},
-					{Insertion: types.Snippet("Bar"), Position: 3},
+					{Deletion: sharedTypes.Snippet("Bar"), Position: 3},
+					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
 			wantErr: false,
-			want:    types.Snapshot("fooBar"),
+			want:    sharedTypes.Snapshot("fooBar"),
 		},
 	}
 	for _, tt := range tests {

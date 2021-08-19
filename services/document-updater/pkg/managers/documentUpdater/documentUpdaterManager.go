@@ -23,6 +23,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -40,7 +41,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		fromVersion types.Version,
+		fromVersion sharedTypes.Version,
 	) (*types.GetDocResponse, error)
 	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentLines, error)
 	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentSnapshot, error)
@@ -117,7 +118,7 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive
 	return err
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion types.Version) (*types.GetDocResponse, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
 	response := &types.GetDocResponse{}
 	if fromVersion == -1 {
 		doc, err := m.dm.GetDoc(ctx, projectId, docId)

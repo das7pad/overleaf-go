@@ -18,6 +18,7 @@ package text
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
@@ -124,7 +125,7 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 			if dLen == 0 {
 				return op, nil
 			}
-			d := make(types.Snippet, dLen)
+			d := make(sharedTypes.Snippet, dLen)
 			dPos := 0
 			if c.Position < otherC.Position {
 				dPos += copy(d, c.Deletion[:otherC.Position-c.Position])
@@ -184,7 +185,7 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 			return nil, deleteOpsDeleteDifferentText
 		}
 
-		cc := make(types.Snippet, ccLen)
+		cc := make(sharedTypes.Snippet, ccLen)
 		ccPos := 0
 		if c.Position < otherC.Position {
 			ccPos += copy(cc, c.Comment[:otherC.Position-c.Position])

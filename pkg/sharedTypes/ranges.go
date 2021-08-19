@@ -1,4 +1,4 @@
-// Golang port of the Overleaf document-updater service
+// Golang port of Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,24 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
-	"strconv"
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Change struct {
-	RangeEntryBase
-	Op ChangeOp `json:"op"`
+	RangeEntryBase `bson:"inline"`
+	Op             ChangeOp `json:"op" bson:"op"`
 }
 
 func (c Change) Equals(other Change) bool {
@@ -47,12 +40,6 @@ func (c Change) Equals(other Change) bool {
 type Changes []Change
 
 func (c Changes) Equals(other Changes) bool {
-	if c == nil {
-		return other == nil
-	}
-	if other == nil {
-		return false
-	}
 	if len(c) != len(other) {
 		return false
 	}
@@ -65,9 +52,9 @@ func (c Changes) Equals(other Changes) bool {
 }
 
 type ChangeOp struct {
-	Deletion  string `json:"d,omitempty"`
-	Insertion string `json:"i,omitempty"`
-	Position  int64  `json:"p"`
+	Deletion  string `json:"d,omitempty" bson:"d,omitempty"`
+	Insertion string `json:"i,omitempty" bson:"i,omitempty"`
+	Position  int64  `json:"p" bson:"p"`
 }
 
 func (o ChangeOp) Equals(other ChangeOp) bool {
@@ -84,8 +71,8 @@ func (o ChangeOp) Equals(other ChangeOp) bool {
 }
 
 type Comment struct {
-	RangeEntryBase
-	Op CommentOp `json:"op"`
+	RangeEntryBase `bson:"inline"`
+	Op             CommentOp `json:"op" bson:"op"`
 }
 
 func (c Comment) Equals(other Comment) bool {
@@ -101,17 +88,11 @@ func (c Comment) Equals(other Comment) bool {
 type Comments []Comment
 
 func (c Comments) Equals(other Comments) bool {
-	if c == nil {
-		return other == nil
-	}
-	if other == nil {
-		return false
-	}
 	if len(c) != len(other) {
 		return false
 	}
-	for i, change := range c {
-		if !change.Equals(other[i]) {
+	for i, comment := range c {
+		if !comment.Equals(other[i]) {
 			return false
 		}
 	}
@@ -119,9 +100,9 @@ func (c Comments) Equals(other Comments) bool {
 }
 
 type CommentOp struct {
-	Comment  string             `json:"c"`
-	Position int64              `json:"p"`
-	Thread   primitive.ObjectID `json:"t"`
+	Comment  string             `json:"c" bson:"c"`
+	Position int64              `json:"p" bson:"p"`
+	Thread   primitive.ObjectID `json:"t" bson:"t"`
 }
 
 func (o CommentOp) Equals(other CommentOp) bool {
@@ -137,98 +118,9 @@ func (o CommentOp) Equals(other CommentOp) bool {
 	return true
 }
 
-type Hash string
-
-func (h Hash) CheckMatches(other Hash) error {
-	if h == other {
-		return nil
-	}
-	return &errors.CodedError{
-		Description: string("snapshot hash mismatch: " + h + " != " + other),
-	}
-}
-
-const (
-	maxDocLength = 2 * 1024 * 1024
-)
-
-var (
-	ErrDocIsTooLarge = &errors.ValidationError{Msg: "doc is too large"}
-)
-
-type Snapshot []rune
-
-func (s Snapshot) Validate() error {
-	if len(s) > maxDocLength {
-		return ErrDocIsTooLarge
-	}
-	return nil
-}
-
-func (s *Snapshot) UnmarshalJSON(bytes []byte) error {
-	var raw string
-	if err := json.Unmarshal(bytes, &raw); err != nil {
-		return err
-	}
-	*s = Snapshot(raw)
-	return nil
-}
-
-func (s Snapshot) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(s))
-}
-
-func (s Snapshot) Hash() Hash {
-	d := sha1.New()
-	d.Write(
-		[]byte("blob " + strconv.FormatInt(int64(len(s)), 10) + "\x00"),
-	)
-	d.Write([]byte(string(s)))
-	return Hash(hex.EncodeToString(d.Sum(nil)))
-}
-
-func (s Snapshot) ToLines() Lines {
-	return strings.Split(string(s), "\n")
-}
-
-func (s Snapshot) Slice(start, end int) Snippet {
-	l := len(s)
-	if l < start {
-		return Snippet("")
-	}
-	if l < end {
-		end = l
-	}
-	return Snippet(s[start:end])
-}
-
-type Lines []string
-
-func (l Lines) Equals(other Lines) bool {
-	if l == nil {
-		return other == nil
-	}
-	if other == nil {
-		return false
-	}
-	if len(l) != len(other) {
-		return false
-	}
-	for i, line := range l {
-		if line != other[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func (l Lines) ToSnapshot() Snapshot {
-	return Snapshot(strings.Join(l, "\n"))
-}
-
 type RangeMetaData struct {
-	Timestamp time.Time           `json:"ts"`
-	UserId    *primitive.ObjectID `json:"user_id,omitempty"`
+	Timestamp time.Time           `json:"ts" bson:"ts"`
+	UserId    *primitive.ObjectID `json:"user_id,omitempty" bson:"user_id,omitempty"`
 }
 
 func (d RangeMetaData) Equals(other RangeMetaData) bool {
@@ -248,8 +140,8 @@ func (d RangeMetaData) Equals(other RangeMetaData) bool {
 }
 
 type RangeEntryBase struct {
-	Id       primitive.ObjectID `json:"id"`
-	MetaData RangeMetaData      `json:"metadata"`
+	Id       primitive.ObjectID `json:"id" bson:"id"`
+	MetaData RangeMetaData      `json:"metadata" bson:"metadata"`
 }
 
 func (b RangeEntryBase) Equals(other RangeEntryBase) bool {
@@ -263,8 +155,8 @@ func (b RangeEntryBase) Equals(other RangeEntryBase) bool {
 }
 
 type Ranges struct {
-	Changes  Changes  `json:"changes,omitempty"`
-	Comments Comments `json:"comments,omitempty"`
+	Changes  Changes  `json:"changes,omitempty" bson:"changes,omitempty"`
+	Comments Comments `json:"comments,omitempty" bson:"comments,omitempty"`
 }
 
 func (r Ranges) Equals(other Ranges) bool {
@@ -275,16 +167,4 @@ func (r Ranges) Equals(other Ranges) bool {
 		return false
 	}
 	return true
-}
-
-type Revision int64
-
-type Version int64
-
-func (v Version) Equals(other Version) bool {
-	return v == other
-}
-
-func (v Version) String() string {
-	return strconv.FormatInt(int64(v), 10)
 }

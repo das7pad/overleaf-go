@@ -26,6 +26,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/documentUpdater"
@@ -193,7 +194,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 		)
 	}
 	if !rpc.Client.HasCapability(types.CanSeeComments) {
-		r.Ranges.Comments = types.Comments{}
+		r.Ranges.Comments = sharedTypes.Comments{}
 	}
 
 	ranges, err := json.Marshal(r.Ranges)
