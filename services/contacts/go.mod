@@ -1,6 +1,6 @@
 module github.com/das7pad/overleaf-go/services/contacts
 
-go 1.14
+go 1.15
 
 require (
 	github.com/gorilla/mux v1.8.0

@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.14-alpine3.13 as build
+FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/contacts
 COPY go.mod go.sum ../../
 COPY services/contacts/go.mod services/contacts/go.sum ./

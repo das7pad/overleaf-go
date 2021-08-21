@@ -1,6 +1,6 @@
 module github.com/das7pad/overleaf-go/services/chat
 
-go 1.14
+go 1.16
 
 require (
 	github.com/das7pad/overleaf-go v0.0.0
