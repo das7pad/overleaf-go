@@ -28,7 +28,7 @@ func IsBodyTooLargeError(err error) bool {
 	if err == nil {
 		return false
 	}
-	_, isBodyTooLargeError := err.(BodyTooLargeError)
+	_, isBodyTooLargeError := err.(*BodyTooLargeError)
 	return isBodyTooLargeError
 }
 
@@ -36,7 +36,7 @@ func IsDocNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	_, isNotFoundErr := err.(ErrorDocNotFound)
+	_, isNotFoundErr := err.(*ErrorDocNotFound)
 	return isNotFoundErr
 }
 
@@ -58,6 +58,6 @@ func IsDocArchivedError(err error) bool {
 	if err == nil {
 		return false
 	}
-	_, isArchivedErr := err.(ErrorDocArchived)
+	_, isArchivedErr := err.(*ErrorDocArchived)
 	return isArchivedErr
 }
