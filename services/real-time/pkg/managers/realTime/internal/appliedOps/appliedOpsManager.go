@@ -25,6 +25,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -32,7 +33,7 @@ import (
 
 type Manager interface {
 	broadcaster.Broadcaster
-	QueueUpdate(rpc *types.RPC, update *types.DocumentUpdate) error
+	QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate) error
 }
 
 func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
@@ -66,7 +67,7 @@ func (m *manager) getPendingUpdatesListKey() string {
 	return "pending-updates-list-" + strconv.FormatInt(shard, 10)
 }
 
-func (m *manager) QueueUpdate(rpc *types.RPC, update *types.DocumentUpdate) error {
+func (m *manager) QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate) error {
 	blob, err := json.Marshal(update)
 	if err != nil {
 		return errors.Tag(err, "cannot encode update")

@@ -125,7 +125,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 		if err != nil {
 			return nil, err
 		}
-		response.Ops = make([]types.DocumentUpdate, 0)
+		response.Ops = make([]sharedTypes.DocumentUpdate, 0)
 		response.PathName = doc.PathName
 		response.Snapshot = doc.Snapshot
 		response.Ranges = doc.Ranges

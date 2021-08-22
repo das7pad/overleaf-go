@@ -19,16 +19,14 @@ package text
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
-func Transform(op, otherOp types.Op) (types.Op, error) {
+func Transform(op, otherOp sharedTypes.Op) (sharedTypes.Op, error) {
 	if len(otherOp) == 0 {
 		return op, nil
 	}
 	if len(otherOp) == 1 && len(op) == 1 {
-		transformed := make(types.Op, 0, 1)
+		transformed := make(sharedTypes.Op, 0, 1)
 		return transformComponent(transformed, op[0], otherOp[0], leftSide)
 	}
 	return transformX(op, otherOp)
@@ -45,7 +43,7 @@ var deleteOpsDeleteDifferentText = &errors.CodedError{
 	Description: "Delete ops delete different text in the same region of the document",
 }
 
-func transformPosition(p int, c types.Component, insertAfter bool) int {
+func transformPosition(p int, c sharedTypes.Component, insertAfter bool) int {
 	if c.IsInsertion() {
 		if c.Position < p || (c.Position == p && insertAfter) {
 			return p + len(c.Insertion)
@@ -66,7 +64,7 @@ func transformPosition(p int, c types.Component, insertAfter bool) int {
 	return p
 }
 
-func transformComponent(op types.Op, c, otherC types.Component, side transformSide) (types.Op, error) {
+func transformComponent(op sharedTypes.Op, c, otherC sharedTypes.Component, side transformSide) (sharedTypes.Op, error) {
 	if c.IsInsertion() {
 		c.Position = transformPosition(c.Position, otherC, side == rightSide)
 		return appendOp(op, c), nil
@@ -87,7 +85,7 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 			if len(d) == 0 {
 				return op, nil
 			}
-			return appendOp(op, types.Component{
+			return appendOp(op, sharedTypes.Component{
 				Deletion: d,
 				Position: p + len(otherC.Insertion),
 			}), nil
@@ -204,7 +202,7 @@ func transformComponent(op types.Op, c, otherC types.Component, side transformSi
 	return appendOp(op, c), nil
 }
 
-func transformComponentX(left, right types.Component, destLeft, destRight types.Op) (types.Op, types.Op, error) {
+func transformComponentX(left, right sharedTypes.Component, destLeft, destRight sharedTypes.Op) (sharedTypes.Op, sharedTypes.Op, error) {
 	var err error
 	destLeft, err = transformComponent(destLeft, left, right, leftSide)
 	if err != nil {
@@ -217,15 +215,15 @@ func transformComponentX(left, right types.Component, destLeft, destRight types.
 	return destLeft, destRight, nil
 }
 
-func transformX(left, right types.Op) (types.Op, error) {
+func transformX(left, right sharedTypes.Op) (sharedTypes.Op, error) {
 	var err error
 	for _, component := range right {
-		transformedLeft := make(types.Op, 0, len(left))
+		transformedLeft := make(sharedTypes.Op, 0, len(left))
 
 		k := 0
 	inner:
 		for k < len(left) {
-			nextC := make(types.Op, 0)
+			nextC := make(sharedTypes.Op, 0)
 
 			transformedLeft, nextC, err = transformComponentX(
 				left[k], component, transformedLeft, nextC,

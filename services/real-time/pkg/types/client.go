@@ -18,13 +18,17 @@ package types
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"math/rand"
+	"strconv"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Capabilities int
@@ -82,6 +86,22 @@ type WriteQueueEntry struct {
 
 type WriteQueue chan<- *WriteQueueEntry
 
+// generatePublicId yields a secure unique id
+// It contains a 16 hex char long timestamp in ns precision, a hyphen and
+//  another 16 hex char long random string.
+func generatePublicId() (sharedTypes.PublicId, error) {
+	buf := make([]byte, 8)
+	_, err := rand.Read(buf)
+	if err != nil {
+		return "", err
+	}
+	now := time.Now().UnixNano()
+	id := sharedTypes.PublicId(
+		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
+	)
+	return id, nil
+}
+
 func NewClient(wsBootstrap *WsBootstrap, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
@@ -102,7 +122,7 @@ type Client struct {
 	lockedProjectId primitive.ObjectID
 
 	DocId     *primitive.ObjectID
-	PublicId  PublicId
+	PublicId  sharedTypes.PublicId
 	ProjectId *primitive.ObjectID
 	User      *User
 

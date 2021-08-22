@@ -240,7 +240,7 @@ const (
 	maxUpdateSize = 7*1024*1024 + 64*1024
 )
 
-func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.DocumentUpdate, error) {
+func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*sharedTypes.DocumentUpdate, error) {
 	if len(rpc.Request.Body) > maxUpdateSize {
 		// Accept the update RPC at first, keep going on error.
 		_ = rpc.Client.QueueResponse(&types.RPCResponse{
@@ -259,7 +259,7 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*types.DocumentU
 		rpc.Response.FatalError = true
 		return nil, codedError
 	}
-	var args types.DocumentUpdate
+	var args sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return nil, &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
@@ -287,7 +287,7 @@ func (m *manager) addComment(rpc *types.RPC) error {
 	if err != nil {
 		return err
 	}
-	if args.Ops.HasEditOp() {
+	if args.Op.HasEdit() {
 		return &errors.NotAuthorizedError{}
 	}
 	return m.appliedOps.QueueUpdate(rpc, args)

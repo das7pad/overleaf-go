@@ -36,15 +36,15 @@ type Manager interface {
 		ctx context.Context,
 		docId primitive.ObjectID,
 		doc *types.Doc,
-		transformUpdatesCache []types.DocumentUpdate,
-	) ([]types.DocumentUpdate, []types.DocumentUpdate, error)
+		transformUpdatesCache []sharedTypes.DocumentUpdate,
+	) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
 
 	ProcessUpdates(
 		ctx context.Context,
 		docId primitive.ObjectID,
 		doc *types.Doc,
-		updates, transformUpdatesCache []types.DocumentUpdate,
-	) ([]types.DocumentUpdate, []types.DocumentUpdate, error)
+		updates, transformUpdatesCache []sharedTypes.DocumentUpdate,
+	) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
 }
 
 func New(rm redisManager.Manager, rtRm realTimeRedisManager.Manager) Manager {
@@ -59,7 +59,7 @@ type manager struct {
 	rtRm realTimeRedisManager.Manager
 }
 
-func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, transformUpdatesCache []types.DocumentUpdate) ([]types.DocumentUpdate, []types.DocumentUpdate, error) {
+func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
 	updates, err := m.rtRm.GetPendingUpdatesForDoc(ctx, docId)
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot get work")
@@ -67,7 +67,7 @@ func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive
 	return m.ProcessUpdates(ctx, docId, doc, updates, transformUpdatesCache)
 }
 
-func (m *manager) ProcessUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, updates, transformUpdatesCache []types.DocumentUpdate) ([]types.DocumentUpdate, []types.DocumentUpdate, error) {
+func (m *manager) ProcessUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, updates, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
 	if len(updates) == 0 {
 		return nil, nil, nil
 	}
@@ -99,7 +99,7 @@ func (m *manager) ProcessUpdates(ctx context.Context, docId primitive.ObjectID, 
 		)
 	}
 
-	processed := make([]types.DocumentUpdate, 0)
+	processed := make([]sharedTypes.DocumentUpdate, 0)
 	var s sharedTypes.Snapshot
 
 outer:
@@ -139,7 +139,7 @@ outer:
 		now := time.Now().UnixNano() / int64(time.Millisecond)
 		doc.LastUpdatedCtx.At = now
 		doc.LastUpdatedCtx.By = update.Meta.UserId
-		update.Meta.Timestamp = types.Timestamp(now)
+		update.Meta.Timestamp = sharedTypes.Timestamp(now)
 		processed = append(processed, update)
 		transformUpdatesCache = append(transformUpdatesCache, update)
 	}

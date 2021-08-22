@@ -75,7 +75,7 @@ type Manager interface {
 		docId primitive.ObjectID,
 		start sharedTypes.Version,
 		end sharedTypes.Version,
-	) ([]types.DocumentUpdate, error)
+	) ([]sharedTypes.DocumentUpdate, error)
 
 	GetPreviousDocUpdatesUnderLock(
 		ctx context.Context,
@@ -83,13 +83,13 @@ type Manager interface {
 		begin sharedTypes.Version,
 		end sharedTypes.Version,
 		docVersion sharedTypes.Version,
-	) ([]types.DocumentUpdate, error)
+	) ([]sharedTypes.DocumentUpdate, error)
 
 	UpdateDocument(
 		ctx context.Context,
 		docId primitive.ObjectID,
 		doc *types.Doc,
-		appliedUpdates []types.DocumentUpdate,
+		appliedUpdates []sharedTypes.DocumentUpdate,
 	) (int64, error)
 
 	RenameDoc(
@@ -325,9 +325,9 @@ if stop > -1 then stop = (stop - first_version_in_redis) end
 return redis.call("LRANGE", KEYS[1], start, stop)
 `)
 
-func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.ObjectID, start sharedTypes.Version, end sharedTypes.Version) ([]types.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.ObjectID, start sharedTypes.Version, end sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
 	if start == end {
-		return make([]types.DocumentUpdate, 0), nil
+		return make([]sharedTypes.DocumentUpdate, 0), nil
 	}
 	keys := []string{
 		getDocUpdatesKey(docId),
@@ -366,7 +366,7 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.Obj
 	return m.parseDocumentUpdates(start, blobs)
 }
 
-func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, begin sharedTypes.Version, end sharedTypes.Version, docVersion sharedTypes.Version) ([]types.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, begin sharedTypes.Version, end sharedTypes.Version, docVersion sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
 	if begin == end {
 		return nil, nil
 	}
@@ -385,10 +385,10 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId prim
 	return m.parseDocumentUpdates(begin, raw)
 }
 
-func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) ([]types.DocumentUpdate, error) {
-	updates := make([]types.DocumentUpdate, len(raw))
+func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) ([]sharedTypes.DocumentUpdate, error) {
+	updates := make([]sharedTypes.DocumentUpdate, len(raw))
 	for i, s := range raw {
-		update := types.DocumentUpdate{}
+		update := sharedTypes.DocumentUpdate{}
 		if err := json.Unmarshal([]byte(s), &update); err != nil {
 			return nil, errors.Tag(err, "cannot parse update")
 		}
@@ -400,7 +400,7 @@ func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) 
 	return updates, nil
 }
 
-func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, appliedUpdates []types.DocumentUpdate) (int64, error) {
+func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, appliedUpdates []sharedTypes.DocumentUpdate) (int64, error) {
 	currentVersion, err := m.GetDocVersion(ctx, docId)
 	if err != nil {
 		return 0, errors.Tag(err, "cannot get doc version for validation")

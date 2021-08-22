@@ -41,7 +41,7 @@ type Manager interface {
 	ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error
 
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
-	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []types.DocumentUpdate, error)
+	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error)
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
@@ -172,7 +172,7 @@ func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.Obj
 	return m.rm.ClearProjectState(ctx, projectId)
 }
 
-func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []types.DocumentUpdate, error) {
+func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
 	doc, err := m.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, nil, err
@@ -264,14 +264,14 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 					}
 				}
 
-				updates := []types.DocumentUpdate{{
+				updates := []sharedTypes.DocumentUpdate{{
 					Version: doc.Version,
 					DocId:   docId,
 					Hash:    request.Snapshot().Hash(),
 					Op:      op,
-					Meta: types.DocumentUpdateMeta{
+					Meta: sharedTypes.DocumentUpdateMeta{
 						Type:   "external",
-						Source: types.PublicId(request.Source),
+						Source: sharedTypes.PublicId(request.Source),
 						UserId: request.UserId,
 					},
 				}}
@@ -399,8 +399,8 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId pri
 		}
 	}
 
-	transformUpdatesCache := make([]types.DocumentUpdate, 0)
-	var processed []types.DocumentUpdate
+	transformUpdatesCache := make([]sharedTypes.DocumentUpdate, 0)
+	var processed []sharedTypes.DocumentUpdate
 	var updateErr error
 
 	for time.Now().Before(softDeadline) {
@@ -443,12 +443,12 @@ func (m *manager) persistProcessedUpdates(
 	projectId, docId primitive.ObjectID,
 	doc *types.Doc,
 	initialVersion sharedTypes.Version,
-	processed []types.DocumentUpdate,
+	processed []sharedTypes.DocumentUpdate,
 	updateErr error,
 ) error {
 	var queueDepth int64
 	var err error
-	appliedUpdates := make([]types.DocumentUpdate, 0, len(processed))
+	appliedUpdates := make([]sharedTypes.DocumentUpdate, 0, len(processed))
 	if doc.Version != initialVersion {
 		for _, update := range processed {
 			if update.Dup {

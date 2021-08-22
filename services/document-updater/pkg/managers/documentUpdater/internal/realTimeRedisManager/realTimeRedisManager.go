@@ -24,17 +24,16 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	ConfirmUpdates(ctx context.Context, processed []types.DocumentUpdate) error
+	ConfirmUpdates(ctx context.Context, processed []sharedTypes.DocumentUpdate) error
 
 	GetPendingUpdatesForDoc(
 		ctx context.Context,
 		docId primitive.ObjectID,
-	) ([]types.DocumentUpdate, error)
+	) ([]sharedTypes.DocumentUpdate, error)
 
 	GetUpdatesLength(
 		ctx context.Context,
@@ -62,7 +61,7 @@ func getPendingUpdatesKey(docId primitive.ObjectID) string {
 
 const maxOpsPerIteration = 10
 
-func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId primitive.ObjectID) ([]types.DocumentUpdate, error) {
+func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId primitive.ObjectID) ([]sharedTypes.DocumentUpdate, error) {
 	var result *redis.StringSliceCmd
 	_, err := m.client.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		key := getPendingUpdatesKey(docId)
@@ -74,7 +73,7 @@ func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId primitive.O
 		return nil, errors.Tag(err, "cannot fetch pending updates")
 	}
 	raw := result.Val()
-	updates := make([]types.DocumentUpdate, len(raw))
+	updates := make([]sharedTypes.DocumentUpdate, len(raw))
 	for i, blob := range raw {
 		err = json.Unmarshal([]byte(blob), &updates[i])
 		if err != nil {
@@ -95,22 +94,22 @@ func (m *manager) GetUpdatesLength(ctx context.Context, docId primitive.ObjectID
 	return n, nil
 }
 
-func (m *manager) ConfirmUpdates(ctx context.Context, processed []types.DocumentUpdate) error {
+func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.DocumentUpdate) error {
 	_, err := m.client.Pipelined(ctx, func(p redis.Pipeliner) error {
 		for _, update := range processed {
 			if update.Dup {
 				// minimal response
-				update = types.DocumentUpdate{
+				update = sharedTypes.DocumentUpdate{
 					DocId: update.DocId,
 					Dup:   true,
-					Meta: types.DocumentUpdateMeta{
+					Meta: sharedTypes.DocumentUpdateMeta{
 						Source: update.Meta.Source,
 					},
 					Version: update.Version,
 				}
 			}
 
-			_, err := m.sendMessageVia(ctx, p, &types.AppliedOpsMessage{
+			_, err := m.sendMessageVia(ctx, p, &sharedTypes.AppliedOpsMessage{
 				DocId:  update.DocId,
 				Update: &update,
 			})
@@ -124,7 +123,7 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []types.Document
 }
 
 func (m *manager) ReportError(ctx context.Context, docId primitive.ObjectID, err error) error {
-	message := &types.AppliedOpsMessage{
+	message := &sharedTypes.AppliedOpsMessage{
 		DocId: docId,
 	}
 	if publicErr, ok := err.(errors.PublicError); ok {
@@ -138,7 +137,7 @@ func (m *manager) ReportError(ctx context.Context, docId primitive.ObjectID, err
 	return m.sendMessage(ctx, message)
 }
 
-func (m *manager) sendMessage(ctx context.Context, message *types.AppliedOpsMessage) error {
+func (m *manager) sendMessage(ctx context.Context, message *sharedTypes.AppliedOpsMessage) error {
 	cmd, err := m.sendMessageVia(ctx, m.client, message)
 	if err != nil {
 		return err
@@ -149,7 +148,7 @@ func (m *manager) sendMessage(ctx context.Context, message *types.AppliedOpsMess
 	return nil
 }
 
-func (m *manager) sendMessageVia(ctx context.Context, runner redis.Cmdable, message *types.AppliedOpsMessage) (*redis.IntCmd, error) {
+func (m *manager) sendMessageVia(ctx context.Context, runner redis.Cmdable, message *sharedTypes.AppliedOpsMessage) (*redis.IntCmd, error) {
 	blob, err := json.Marshal(message)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot serialize message")

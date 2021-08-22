@@ -19,10 +19,11 @@ package events
 import (
 	"encoding/json"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func ConnectionAcceptedResponse(id types.PublicId) *types.RPCResponse {
+func ConnectionAcceptedResponse(id sharedTypes.PublicId) *types.RPCResponse {
 	return &types.RPCResponse{
 		Name: "connectionAccepted",
 		Body: json.RawMessage("[null,\"" + id + "\"]"),

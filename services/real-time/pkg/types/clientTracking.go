@@ -18,6 +18,8 @@ package types
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Column int64
@@ -30,14 +32,14 @@ type ClientPosition struct {
 }
 
 type ClientPositionUpdateNotification struct {
-	Source PublicId           `json:"id"`
-	Row    Row                `json:"row"`
-	Column Column             `json:"column"`
-	DocId  primitive.ObjectID `json:"doc_id"`
+	Source sharedTypes.PublicId `json:"id"`
+	Row    Row                  `json:"row"`
+	Column Column               `json:"column"`
+	DocId  primitive.ObjectID   `json:"doc_id"`
 }
 
 type ConnectedClient struct {
-	ClientId PublicId `json:"client_id"`
+	ClientId sharedTypes.PublicId `json:"client_id"`
 	User
 
 	ClientPosition *ClientPosition `json:"cursorData,omitempty"`

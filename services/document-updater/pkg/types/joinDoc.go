@@ -21,9 +21,9 @@ import (
 )
 
 type GetDocResponse struct {
-	Ops      []DocumentUpdate     `json:"ops"`
-	PathName PathName             `json:"pathname"`
-	Ranges   sharedTypes.Ranges   `json:"ranges"`
-	Snapshot sharedTypes.Snapshot `json:"snapshot"`
-	Version  sharedTypes.Version  `json:"version"`
+	Ops      []sharedTypes.DocumentUpdate `json:"ops"`
+	PathName PathName                     `json:"pathname"`
+	Ranges   sharedTypes.Ranges           `json:"ranges"`
+	Snapshot sharedTypes.Snapshot         `json:"snapshot"`
+	Version  sharedTypes.Version          `json:"version"`
 }

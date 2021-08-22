@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func TestDiff(t *testing.T) {
@@ -32,7 +31,7 @@ func TestDiff(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want types.Op
+		want sharedTypes.Op
 	}{
 		{
 			name: "insertNewText",
@@ -40,7 +39,7 @@ func TestDiff(t *testing.T) {
 				before: sharedTypes.Snapshot("hello world"),
 				after:  sharedTypes.Snapshot("hello beautiful world"),
 			},
-			want: types.Op{
+			want: sharedTypes.Op{
 				{
 					Insertion: sharedTypes.Snippet("beautiful "),
 					Position:  6,
@@ -53,7 +52,7 @@ func TestDiff(t *testing.T) {
 				before: sharedTypes.Snapshot("hellö wörld"),
 				after:  sharedTypes.Snapshot("hellö beäütifül wörld"),
 			},
-			want: types.Op{
+			want: sharedTypes.Op{
 				{
 					Insertion: sharedTypes.Snippet(" beäütifül"),
 					Position:  5,
@@ -66,7 +65,7 @@ func TestDiff(t *testing.T) {
 				before: sharedTypes.Snapshot("the boy played with the ball"),
 				after:  sharedTypes.Snapshot("the tall boy played with the red ball"),
 			},
-			want: types.Op{
+			want: sharedTypes.Op{
 				{
 					Insertion: sharedTypes.Snippet("tall "),
 					Position:  4,
@@ -83,7 +82,7 @@ func TestDiff(t *testing.T) {
 				before: sharedTypes.Snapshot("hello beautiful world"),
 				after:  sharedTypes.Snapshot("hello world"),
 			},
-			want: types.Op{
+			want: sharedTypes.Op{
 				{
 					Deletion: sharedTypes.Snippet("beautiful "),
 					Position: 6,
@@ -96,7 +95,7 @@ func TestDiff(t *testing.T) {
 				before: sharedTypes.Snapshot("the tall boy played with the red ball"),
 				after:  sharedTypes.Snapshot("the boy played with the ball"),
 			},
-			want: types.Op{
+			want: sharedTypes.Op{
 				{
 					Deletion: sharedTypes.Snippet("tall "),
 					Position: 4,

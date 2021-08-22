@@ -17,7 +17,7 @@
 package text
 
 import (
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func inject(s1 []rune, position int, s2 []rune) []rune {
@@ -42,7 +42,7 @@ func injectInPlace(s1 []rune, position int, s2 []rune) []rune {
 	return s
 }
 
-func appendOp(op types.Op, c types.Component) types.Op {
+func appendOp(op sharedTypes.Op, c sharedTypes.Component) sharedTypes.Op {
 	if len(op) == 0 {
 		return append(op, c)
 	}
@@ -68,7 +68,7 @@ func appendOp(op types.Op, c types.Component) types.Op {
 	return append(op, c)
 }
 
-func overlapsByN(a, b types.Component, n int) bool {
+func overlapsByN(a, b sharedTypes.Component, n int) bool {
 	return a.Position <= b.Position &&
 		b.Position <= a.Position+n
 }

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -160,7 +161,7 @@ func (r *ProjectRoom) handleMessage(msg *types.EditorEventsMessage) error {
 	return r.handleMessageFromSource(msg, "")
 }
 
-func (r *ProjectRoom) handleMessageFromSource(msg *types.EditorEventsMessage, id types.PublicId) error {
+func (r *ProjectRoom) handleMessageFromSource(msg *types.EditorEventsMessage, id sharedTypes.PublicId) error {
 	resp := types.RPCResponse{
 		Name: msg.Message,
 		Body: msg.Payload,

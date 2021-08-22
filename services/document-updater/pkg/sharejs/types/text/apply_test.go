@@ -20,13 +20,12 @@ import (
 	"testing"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func TestApply(t *testing.T) {
 	type args struct {
 		snapshot sharedTypes.Snapshot
-		ops      types.Op
+		ops      sharedTypes.Op
 	}
 	tests := []struct {
 		name    string
@@ -38,7 +37,7 @@ func TestApply(t *testing.T) {
 			name: "new",
 			args: args{
 				snapshot: sharedTypes.Snapshot(""),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("foo"), Position: 0},
 				},
 			},
@@ -49,7 +48,7 @@ func TestApply(t *testing.T) {
 			name: "append",
 			args: args{
 				snapshot: sharedTypes.Snapshot("foo"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
@@ -60,7 +59,7 @@ func TestApply(t *testing.T) {
 			name: "insert",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBaz"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
@@ -71,7 +70,7 @@ func TestApply(t *testing.T) {
 			name: "insertUTF-8",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fööBaz"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bär"), Position: 3},
 				},
 			},
@@ -82,7 +81,7 @@ func TestApply(t *testing.T) {
 			name: "delete",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
@@ -93,7 +92,7 @@ func TestApply(t *testing.T) {
 			name: "deleteUTF-8",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fööBär"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("Bär"), Position: 3},
 				},
 			},
@@ -104,7 +103,7 @@ func TestApply(t *testing.T) {
 			name: "deleteAndInsertSequenceS1",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBaz"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
@@ -115,7 +114,7 @@ func TestApply(t *testing.T) {
 			name: "deleteAndInsertSequenceS2",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBaz"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
 				},
@@ -127,7 +126,7 @@ func TestApply(t *testing.T) {
 			name: "deleteAndInsertSequence",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBaz"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
 					{Deletion: sharedTypes.Snippet("Baz"), Position: 3},
@@ -140,7 +139,7 @@ func TestApply(t *testing.T) {
 			name: "deleteMismatch",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("bar"), Position: 3},
 				},
 			},
@@ -151,7 +150,7 @@ func TestApply(t *testing.T) {
 			name: "deleteOOB",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("barBaz"), Position: 3},
 				},
 			},
@@ -162,7 +161,7 @@ func TestApply(t *testing.T) {
 			name: "deleteOOBStart",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("barBaz"), Position: 42},
 				},
 			},
@@ -173,7 +172,7 @@ func TestApply(t *testing.T) {
 			name: "comment",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Comment: sharedTypes.Snippet("Bar"), Position: 3},
 				},
 			},
@@ -184,7 +183,7 @@ func TestApply(t *testing.T) {
 			name: "commentUTF-8",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fööBär"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Comment: sharedTypes.Snippet("Bär"), Position: 3},
 				},
 			},
@@ -195,7 +194,7 @@ func TestApply(t *testing.T) {
 			name: "commentMismatch",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Comment: sharedTypes.Snippet("bar"), Position: 3},
 				},
 			},
@@ -206,7 +205,7 @@ func TestApply(t *testing.T) {
 			name: "commentOOB",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Comment: sharedTypes.Snippet("out-of-bound"), Position: 3},
 				},
 			},
@@ -217,7 +216,7 @@ func TestApply(t *testing.T) {
 			name: "commentOOBStart",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Comment: sharedTypes.Snippet("out-of-bound"), Position: 42},
 				},
 			},
@@ -228,7 +227,7 @@ func TestApply(t *testing.T) {
 			name: "deleteAndRestoreReuseSlice",
 			args: args{
 				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: types.Op{
+				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("Bar"), Position: 3},
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
 				},

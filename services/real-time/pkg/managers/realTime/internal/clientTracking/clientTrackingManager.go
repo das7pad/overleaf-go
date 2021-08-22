@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -55,7 +56,7 @@ const (
 	positionField = "cursorData"
 )
 
-func getConnectedUserKey(projectId primitive.ObjectID, id types.PublicId) string {
+func getConnectedUserKey(projectId primitive.ObjectID, id sharedTypes.PublicId) string {
 	return "connected_user:{" + projectId.Hex() + "}:" + string(id)
 }
 
@@ -74,10 +75,10 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 		// Fast path: no connected clients or just the RPC client.
 		return make(types.ConnectedClients, 0), err
 	}
-	ids := make([]types.PublicId, len(rawIds))
+	ids := make([]sharedTypes.PublicId, len(rawIds))
 	idxSelf := -1
 	for idx, rawId := range rawIds {
-		id := types.PublicId(rawId)
+		id := sharedTypes.PublicId(rawId)
 		ids[idx] = id
 		if id == client.PublicId {
 			idxSelf = idx
@@ -102,7 +103,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 		return nil, err
 	}
 	connectedClients := make(types.ConnectedClients, 0)
-	staleClients := make([]types.PublicId, 0)
+	staleClients := make([]sharedTypes.PublicId, 0)
 	defer func() {
 		if len(staleClients) != 0 {
 			go m.cleanupStaleClients(*client.ProjectId, staleClients)
@@ -143,7 +144,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	return connectedClients, nil
 }
 
-func (m *manager) cleanupStaleClients(projectId primitive.ObjectID, staleClients []types.PublicId) {
+func (m *manager) cleanupStaleClients(projectId primitive.ObjectID, staleClients []sharedTypes.PublicId) {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 

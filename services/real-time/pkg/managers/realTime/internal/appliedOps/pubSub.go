@@ -21,6 +21,7 @@ import (
 	"log"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
@@ -36,7 +37,7 @@ func newRoom(room *broadcaster.TrackingRoom) broadcaster.Room {
 }
 
 func (r *DocRoom) Handle(raw string) {
-	var msg types.AppliedOpsMessage
+	var msg sharedTypes.AppliedOpsMessage
 	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
 		log.Println("cannot parse appliedOps message: " + err.Error())
 		return
@@ -60,8 +61,8 @@ func (r *DocRoom) Handle(raw string) {
 	}
 }
 
-func (r *DocRoom) handleError(msg *types.AppliedOpsMessage) error {
-	blob, err := json.Marshal(&types.AppliedOpsMessage{
+func (r *DocRoom) handleError(msg *sharedTypes.AppliedOpsMessage) error {
+	blob, err := json.Marshal(&sharedTypes.AppliedOpsMessage{
 		DocId: msg.DocId,
 	})
 	if err != nil {
@@ -83,16 +84,14 @@ func (r *DocRoom) handleError(msg *types.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) handleUpdate(msg *types.AppliedOpsMessage) error {
-	update, err := msg.Update()
-	if err != nil {
-		return err
-	}
-	isComment := update.Ops.HasCommentOp()
+func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
+	update := msg.Update
+	isComment := update.Op.HasComment()
 	source := update.Meta.Source
+	blob, err := json.Marshal(&update)
 	resp := types.RPCResponse{
 		Name: "otUpdateApplied",
-		Body: msg.UpdateRaw,
+		Body: blob,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -119,8 +118,8 @@ func (r *DocRoom) handleUpdate(msg *types.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) sendAckToSender(client *types.Client, update *types.DocumentUpdate) {
-	minUpdate := types.MinimalDocumentUpdate{
+func (r *DocRoom) sendAckToSender(client *types.Client, update *sharedTypes.DocumentUpdate) {
+	minUpdate := sharedTypes.DocumentUpdateAck{
 		DocId:   update.DocId,
 		Version: update.Version,
 	}

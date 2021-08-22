@@ -1,4 +1,4 @@
-// Golang port of the Overleaf real-time service
+// Golang port Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,36 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
-	"bytes"
-	"encoding/hex"
-	"encoding/json"
-	"math/rand"
 	"strconv"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
-
-// generatePublicId yields a secure unique id
-// It contains a 16 hex char long timestamp in ns precision, a hyphen and
-//  another 16 hex char long random string.
-func generatePublicId() (PublicId, error) {
-	buf := make([]byte, 8)
-	_, err := rand.Read(buf)
-	if err != nil {
-		return "", err
-	}
-	now := time.Now().UnixNano()
-	id := PublicId(
-		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
-	)
-	return id, nil
-}
 
 type PublicId string
 
@@ -83,7 +62,7 @@ type DocumentUpdateMeta struct {
 	Source           PublicId           `json:"source"`
 	Timestamp        Timestamp          `json:"ts,omitempty"`
 	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
-	UserId           primitive.ObjectID `json:"user_id"`
+	UserId           primitive.ObjectID `json:"user_id,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {
@@ -99,25 +78,28 @@ func (d *DocumentUpdateMeta) Validate() error {
 	return nil
 }
 
-type Op struct {
-	Comment   string              `json:"c,omitempty"`
-	Deletion  string              `json:"d,omitempty"`
-	Insertion string              `json:"i,omitempty"`
-	Position  int64               `json:"p"`
+type Component struct {
+	Comment   Snippet             `json:"c,omitempty"`
+	Deletion  Snippet             `json:"d,omitempty"`
+	Insertion Snippet             `json:"i,omitempty"`
+	Position  int                 `json:"p"`
 	Thread    *primitive.ObjectID `json:"t,omitempty"`
 	Undo      bool                `json:"undo,omitempty"`
 }
 
-func (o *Op) IsComment() bool {
-	return o.Comment != ""
+func (o *Component) IsComment() bool {
+	return len(o.Comment) != 0
 }
-func (o *Op) IsDeletion() bool {
-	return o.Deletion != ""
+func (o *Component) IsDeletion() bool {
+	return len(o.Deletion) != 0
 }
-func (o *Op) IsInsertion() bool {
-	return o.Insertion != ""
+func (o *Component) IsInsertion() bool {
+	return len(o.Insertion) != 0
 }
-func (o *Op) Validate() error {
+func (o *Component) Validate() error {
+	if o.Position < 0 {
+		return &errors.ValidationError{Msg: "position is negative"}
+	}
 	if o.IsComment() {
 		if o.Thread == nil || o.Thread.IsZero() {
 			return &errors.ValidationError{Msg: "comment op is missing thread"}
@@ -132,9 +114,9 @@ func (o *Op) Validate() error {
 	}
 }
 
-type Ops []Op
+type Op []Component
 
-func (o Ops) HasEditOp() bool {
+func (o Op) HasEdit() bool {
 	for _, op := range o {
 		if !op.IsComment() {
 			return true
@@ -143,7 +125,7 @@ func (o Ops) HasEditOp() bool {
 	return false
 }
 
-func (o Ops) HasCommentOp() bool {
+func (o Op) HasComment() bool {
 	for _, op := range o {
 		if op.IsComment() {
 			return true
@@ -152,44 +134,48 @@ func (o Ops) HasCommentOp() bool {
 	return false
 }
 
-func (o Ops) Validate() error {
-	if o == nil || len(o) == 0 {
+func (o Op) Validate() error {
+	if len(o) == 0 {
 		return &errors.ValidationError{Msg: "missing ops"}
 	}
-	for _, op := range o {
-		if err := op.Validate(); err != nil {
+	for _, component := range o {
+		if err := component.Validate(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+type DupIfSource []PublicId
+
+func (d DupIfSource) Contains(id PublicId) bool {
+	for _, publicId := range d {
+		if publicId == id {
+			return true
+		}
+	}
+	return false
+}
+
 type DocumentUpdate struct {
 	DocId       primitive.ObjectID `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
-	DupIfSource []PublicId         `json:"dupIfSource,omitempty"`
-	Hash        string             `json:"hash,omitempty"`
+	DupIfSource DupIfSource        `json:"dupIfSource,omitempty"`
+	Hash        Hash               `json:"hash,omitempty"`
 	Meta        DocumentUpdateMeta `json:"meta"`
-	Ops         Ops                `json:"op"`
-	Version     int64              `json:"v"`
-}
-type MinimalDocumentUpdate struct {
-	DocId   primitive.ObjectID `json:"doc"`
-	Version int64              `json:"v"`
+	Op          Op                 `json:"op"`
+	Version     Version            `json:"v"`
 }
 
 func (d *DocumentUpdate) Validate() error {
 	if d.Dup {
-		if len(d.Ops) == 0 {
-			// Ignore missing ops for duplicate op ack.
-		} else {
-			// Do not anything else slip through.
-			if err := d.Ops.Validate(); err != nil {
-				return err
+		if len(d.Op) != 0 {
+			return &errors.ValidationError{
+				Msg: "non empty op on duplicate update",
 			}
 		}
 	} else {
-		if err := d.Ops.Validate(); err != nil {
+		if err := d.Op.Validate(); err != nil {
 			return err
 		}
 	}
@@ -199,33 +185,44 @@ func (d *DocumentUpdate) Validate() error {
 	return nil
 }
 
+const maxAgeOfOp = Version(80)
+
+func (d *DocumentUpdate) CheckVersion(current Version) error {
+	if d.Version < 0 {
+		return &errors.ValidationError{Msg: "Version missing"}
+	}
+	if d.Version > current {
+		a := strconv.FormatInt(int64(d.Version), 10)
+		b := strconv.FormatInt(int64(current), 10)
+		return &errors.ValidationError{
+			Msg: "Op at future version: " + a + " vs " + b,
+		}
+	}
+	if d.Version+maxAgeOfOp < current {
+		a := strconv.FormatInt(int64(d.Version+maxAgeOfOp), 10)
+		b := strconv.FormatInt(int64(current), 10)
+		return &errors.ValidationError{
+			Msg: "Op too old: " + a + " vs " + b,
+		}
+	}
+	return nil
+}
+
+type DocumentUpdateAck struct {
+	DocId   primitive.ObjectID `json:"doc"`
+	Version Version            `json:"v"`
+}
+
 type AppliedOpsMessage struct {
 	DocId       primitive.ObjectID      `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
-	UpdateRaw   json.RawMessage         `json:"op,omitempty"`
-	update      *DocumentUpdate
-}
-
-func (m *AppliedOpsMessage) Update() (*DocumentUpdate, error) {
-	if m.update != nil {
-		return m.update, nil
-	}
-	d := json.NewDecoder(bytes.NewReader(m.UpdateRaw))
-	d.DisallowUnknownFields()
-	if err := d.Decode(&m.update); err != nil {
-		return nil, err
-	}
-	return m.update, nil
+	Update      *DocumentUpdate         `json:"op,omitempty"`
 }
 
 func (m *AppliedOpsMessage) Validate() error {
-	if m.UpdateRaw != nil {
-		update, err := m.Update()
-		if err != nil {
-			return err
-		}
-		if err = update.Validate(); err != nil {
+	if m.Update != nil {
+		if err := m.Update.Validate(); err != nil {
 			return err
 		}
 		return nil
