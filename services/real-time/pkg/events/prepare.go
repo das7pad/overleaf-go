@@ -20,7 +20,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func prepareBulkMessage(response *types.RPCResponse) *types.WriteQueueEntry {
+func prepareBulkMessageOffline(response *types.RPCResponse) *types.WriteQueueEntry {
 	entry, err := types.PrepareBulkMessage(response)
 	if err != nil {
 		panic(err)

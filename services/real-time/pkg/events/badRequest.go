@@ -28,4 +28,4 @@ var BadRequestResponse = &types.RPCResponse{
 	},
 	FatalError: true,
 }
-var BadRequestBulkMessage = prepareBulkMessage(BadRequestResponse)
+var BadRequestBulkMessage = prepareBulkMessageOffline(BadRequestResponse)
