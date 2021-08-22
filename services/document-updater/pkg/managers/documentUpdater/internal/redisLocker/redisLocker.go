@@ -30,6 +30,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Runner func(ctx context.Context)
@@ -39,14 +40,36 @@ type Locker interface {
 	TryRunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error
 }
 
-func New(client redis.UniversalClient) Locker {
-	return &locker{client: client}
+func New(client redis.UniversalClient) (Locker, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, errors.Tag(err, "cannot get hostname")
+	}
+	rawRand := make([]byte, 4)
+	if _, err = rand.Read(rawRand); err != nil {
+		return nil, errors.Tag(err, "cannot get random salt")
+	}
+	rnd := hex.EncodeToString(rawRand)
+
+	return &locker{
+		client: client,
+
+		counter:  0,
+		hostname: hostname,
+		pid:      sharedTypes.Int(os.Getpid()).String(),
+		rnd:      rnd,
+	}, nil
 }
 
 var ErrLocked = errors.New("locked")
 
 type locker struct {
 	client redis.UniversalClient
+
+	counter  int64
+	hostname string
+	pid      string
+	rnd      string
 }
 
 const (
@@ -57,27 +80,6 @@ const (
 	LockTTL               = 30 * time.Second
 )
 
-var (
-	hostname string
-	pid      = strconv.FormatInt(int64(os.Getpid()), 10)
-	rnd      string
-	counter  int64 = 0
-)
-
-func init() {
-	var err error
-	hostname, err = os.Hostname()
-	if err != nil {
-		panic(errors.Tag(err, "cannot get hostname"))
-	}
-	rawRand := make([]byte, 4)
-	_, err = rand.Read(rawRand)
-	if err != nil {
-		panic(errors.Tag(err, "cannot get random salt"))
-	}
-	rnd = hex.EncodeToString(rawRand)
-}
-
 var unlockScript = redis.NewScript(`
 if redis.call("get", KEYS[1]) == ARGV[1] then
 	return redis.call("del", KEYS[1])
@@ -86,13 +88,13 @@ else
 end
 `)
 
-func getUniqueValue() string {
+func (l *locker) getUniqueValue() string {
 	now := strconv.FormatInt(time.Now().UnixNano(), 10)
-	c := strconv.FormatInt(atomic.AddInt64(&counter, 1), 10)
+	c := strconv.FormatInt(atomic.AddInt64(&l.counter, 1), 10)
 	return "locked" +
-		":host=" + hostname +
-		":pid=" + pid +
-		":random=" + rnd +
+		":host=" + l.hostname +
+		":pid=" + l.pid +
+		":random=" + l.rnd +
 		":time=" + now +
 		":count=" + c
 }
@@ -111,7 +113,7 @@ func (l *locker) TryRunWithLock(ctx context.Context, docId primitive.ObjectID, r
 
 func (l *locker) runWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner, poll bool) error {
 	key := getBlockingKey(docId)
-	lockValue := getUniqueValue()
+	lockValue := l.getUniqueValue()
 
 	acquireLockDeadline := time.Now().Add(MaxLockWaitTime)
 	acquireLockCtx, doneAcquireLock := context.WithDeadline(

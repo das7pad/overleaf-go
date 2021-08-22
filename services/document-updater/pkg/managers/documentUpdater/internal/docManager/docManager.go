@@ -61,7 +61,10 @@ type Manager interface {
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
-	rl := redisLocker.New(client)
+	rl, err := redisLocker.New(client)
+	if err != nil {
+		return nil, err
+	}
 	rm := redisManager.New(client)
 	rtRm := realTimeRedisManager.New(client)
 	web, err := webApi.New(options)
