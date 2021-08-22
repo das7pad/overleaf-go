@@ -25,6 +25,7 @@ func (m MissingOutputFileError) Error() string {
 }
 
 func IsMissingOutputFileError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -40,6 +41,7 @@ func (a AlreadyCompilingError) Error() string {
 }
 
 func IsAlreadyCompiling(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}

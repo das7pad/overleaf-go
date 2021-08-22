@@ -25,6 +25,7 @@ func (e BodyTooLargeError) Error() string {
 }
 
 func IsBodyTooLargeError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -33,6 +34,7 @@ func IsBodyTooLargeError(err error) bool {
 }
 
 func IsDocNotFoundError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
@@ -55,6 +57,7 @@ func (e ErrorDocArchived) Error() string {
 }
 
 func IsDocArchivedError(err error) bool {
+	err = GetCause(err)
 	if err == nil {
 		return false
 	}
