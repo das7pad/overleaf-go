@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -171,32 +170,59 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	}
 	args.DocId = rpc.Request.DocId
 
-	err := m.documentUpdater.CheckDocExists(rpc, rpc.Client, &args)
-	if err != nil {
-		return errors.Tag(
-			err, "documentUpdater.CheckDocExists failed for "+args.DocId.Hex(),
+	if !rpc.Client.IsKnownDoc(rpc.Request.DocId) {
+		err := m.documentUpdater.CheckDocExists(
+			rpc,
+			*rpc.Client.ProjectId,
+			args.DocId,
 		)
+		if err != nil {
+			return errors.Tag(
+				err,
+				"documentUpdater.CheckDocExists failed for "+args.DocId.Hex(),
+			)
+		}
+		rpc.Client.AddKnownDoc(rpc.Request.DocId)
 	}
 
 	// For cleanup purposes: mark as joined before actually joining.
 	rpc.Client.DocId = &args.DocId
 
-	if err = m.appliedOps.Join(rpc, rpc.Client, args.DocId); err != nil {
+	if err := m.appliedOps.Join(rpc, rpc.Client, args.DocId); err != nil {
 		return errors.Tag(
 			err, "appliedOps.Join failed for "+args.DocId.Hex(),
 		)
 	}
 
-	r, err := m.documentUpdater.JoinDoc(rpc, rpc.Client, &args)
+	r, err := m.documentUpdater.GetDoc(
+		rpc,
+		*rpc.Client.ProjectId,
+		args.DocId,
+		args.FromVersion,
+	)
 	if err != nil {
 		return errors.Tag(
-			err, "documentUpdater.JoinDoc failed for "+args.DocId.Hex(),
+			err, "documentUpdater.GetDoc failed for "+args.DocId.Hex(),
 		)
 	}
 	if !rpc.Client.HasCapability(types.CanSeeComments) {
 		r.Ranges.Comments = sharedTypes.Comments{}
 	}
 
+	s, err := json.Marshal(r.Snapshot)
+	if err != nil {
+		return errors.Tag(
+			err,
+			"encoding snapshot failed for "+args.DocId.Hex(),
+		)
+	}
+	ops, err := json.Marshal(r.Ops)
+	if err != nil {
+		return errors.Tag(
+			err,
+			"encoding ops failed for "+args.DocId.Hex(),
+		)
+	}
 	ranges, err := json.Marshal(r.Ranges)
 	if err != nil {
 		return errors.Tag(
@@ -205,9 +231,9 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 		)
 	}
 	body := []json.RawMessage{
-		r.Snapshot,
-		json.RawMessage(strconv.FormatInt(int64(r.Version), 10)),
-		r.Ops,
+		s,
+		json.RawMessage(r.Version.String()),
+		ops,
 		ranges,
 	}
 	blob, err := json.Marshal(body)
@@ -398,7 +424,7 @@ func (m *manager) backgroundFlush(client *types.Client) {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 
-	err := m.documentUpdater.FlushProject(ctx, client)
+	err := m.documentUpdater.FlushProject(ctx, *client.ProjectId)
 	if err != nil {
 		log.Println(
 			errors.Tag(

@@ -17,8 +17,6 @@
 package types
 
 import (
-	"encoding/json"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -27,11 +25,4 @@ import (
 type JoinDocRequest struct {
 	DocId       primitive.ObjectID
 	FromVersion sharedTypes.Version `json:"fromVersion"`
-}
-
-type JoinDocResponse struct {
-	Ops      json.RawMessage     `json:"ops"`
-	Ranges   sharedTypes.Ranges  `json:"ranges"`
-	Snapshot json.RawMessage     `json:"snapshot"`
-	Version  sharedTypes.Version `json:"version"`
 }

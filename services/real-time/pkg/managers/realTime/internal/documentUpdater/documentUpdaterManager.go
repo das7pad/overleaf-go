@@ -21,17 +21,20 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Manager interface {
-	JoinDoc(ctx context.Context, client *types.Client, request *types.JoinDocRequest) (*types.JoinDocResponse, error)
-	CheckDocExists(ctx context.Context, client *types.Client, request *types.JoinDocRequest) error
-	FlushProject(ctx context.Context, client *types.Client) error
+	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error)
+	CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error
+	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -58,11 +61,11 @@ type manager struct {
 	client *http.Client
 }
 
-func (m *manager) JoinDoc(ctx context.Context, client *types.Client, request *types.JoinDocRequest) (*types.JoinDocResponse, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error) {
 	u := m.baseURL
-	u += "/project/" + client.ProjectId.Hex()
-	u += "/doc/" + request.DocId.Hex()
-	u += "?fromVersion=" + strconv.FormatInt(int64(request.FromVersion), 10)
+	u += "/project/" + projectId.Hex()
+	u += "/doc/" + docId.Hex()
+	u += "?fromVersion=" + fromVersion.String()
 	u += "&snapshot=true"
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -77,7 +80,7 @@ func (m *manager) JoinDoc(ctx context.Context, client *types.Client, request *ty
 	}()
 	switch res.StatusCode {
 	case http.StatusOK:
-		var body types.JoinDocResponse
+		var body documentUpdaterTypes.GetDocResponse
 		err = json.NewDecoder(res.Body).Decode(&body)
 		if err != nil {
 			return nil, err
@@ -97,14 +100,10 @@ func (m *manager) JoinDoc(ctx context.Context, client *types.Client, request *ty
 	}
 }
 
-func (m *manager) CheckDocExists(ctx context.Context, client *types.Client, request *types.JoinDocRequest) error {
-	if client.IsKnownDoc(request.DocId) {
-		return nil
-	}
-
+func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {
 	u := m.baseURL
-	u += "/project/" + client.ProjectId.Hex()
-	u += "/doc/" + request.DocId.Hex()
+	u += "/project/" + projectId.Hex()
+	u += "/doc/" + docId.Hex()
 	u += "/exists"
 	r, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
 	if err != nil {
@@ -117,7 +116,6 @@ func (m *manager) CheckDocExists(ctx context.Context, client *types.Client, requ
 	_ = res.Body.Close()
 	switch res.StatusCode {
 	case http.StatusNoContent:
-		client.AddKnownDoc(request.DocId)
 		return nil
 	case http.StatusForbidden, http.StatusNotFound:
 		return &errors.NotAuthorizedError{}
@@ -128,9 +126,9 @@ func (m *manager) CheckDocExists(ctx context.Context, client *types.Client, requ
 	}
 }
 
-func (m *manager) FlushProject(ctx context.Context, client *types.Client) error {
+func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
 	u := m.baseURL
-	u += "/project/" + client.ProjectId.Hex()
+	u += "/project/" + projectId.Hex()
 	u += "?background=true"
 	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
 	if err != nil {
