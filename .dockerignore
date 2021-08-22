@@ -1,19 +1,8 @@
-*
-
-# src
-!/services/*/*.go
-!/services/*/cmd
-!/services/*/pkg
-!/pkg
-
-# dependencies
-!/services/*/go.mod
-!/services/*/go.sum
-!/go.mod
-!/go.sum
-
-# clsi
-!/services/clsi/seccomp
-
-# spelling
-!/services/spelling/install_deps.sh
+# Inverse ignore is broken. It kind of worked by accident in some cases.
+# The behavior of `COPY . ../../` + `docker build [...] ../../` changes based
+#  on the current working directory and may-or-may-not include entire service
+#  directories (e.g. the real-time build saw clsi, but not document-updater;
+#  the document-updater build could see it-self).
+# No work around exists. Just ignore the major offender .git/ for now.
+# https://github.com/moby/moby/issues/30018
+.git/
