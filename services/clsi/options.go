@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -82,41 +81,6 @@ func getOptions() *clsiOptions {
 	o.copyExecAgent = getStringFromEnv("COPY_EXEC_AGENT", "false") == "true"
 
 	getJSONFromEnv("OPTIONS", &o.options)
-
-	if o.options.CacheBaseDir == "" {
-		panic("missing cache_base_dir")
-	}
-	if o.options.CompileBaseDir == "" {
-		panic("missing compile_base_dir")
-	}
-	if o.options.OutputBaseDir == "" {
-		panic("missing output_base_dir")
-	}
-	if o.options.ParallelResourceWrite == 0 {
-		panic("missing parallel_resource_write")
-	}
-	if o.options.MaxFilesAndDirsPerProject == 0 {
-		panic("missing max_files_and_dirs_per_project")
-	}
-	if o.options.URLDownloadRetries < 0 {
-		panic("url_download_retries cannot be negative")
-	}
-	if o.options.URLDownloadTimeout < 1 {
-		panic("url_download_timeout_ns cannot be lower than 1")
-	}
-	maxCompileTime := time.Duration(types.MaxTimeout)
-	if o.options.ProjectCacheDuration < maxCompileTime {
-		panic(
-			"project_cache_duration_ns cannot be lower than " +
-				maxCompileTime.String(),
-		)
-	}
-	if o.options.GetCapacityRefreshEvery < 1 {
-		panic("get_capacity_refresh_every_ns cannot be lower than 1")
-	}
-	if o.options.HealthCheckRefreshEvery < 1 {
-		panic("health_check_refresh_every_ns cannot be lower than 1")
-	}
 
 	if o.options.DockerContainerOptions.SeccompPolicyPath == "" {
 		o.options.DockerContainerOptions.SeccompPolicyPath = getStringFromEnv(

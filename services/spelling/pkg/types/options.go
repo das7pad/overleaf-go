@@ -16,6 +16,19 @@
 
 package types
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/errors"
+)
+
 type Options struct {
 	LRUSize int `json:"lru_size"`
+}
+
+func (o Options) Validate() error {
+	if o.LRUSize <= 0 {
+		return &errors.ValidationError{
+			Msg: "lru_size must be greater than 0",
+		}
+	}
+	return nil
 }

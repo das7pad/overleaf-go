@@ -20,7 +20,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -38,18 +37,9 @@ type Manager interface {
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
-	baseURL, err := url.Parse(options.APIs.TrackChanges.URL)
-	if err != nil {
-		return nil, err
-	}
-	if baseURL.Scheme == "" {
-		return nil, &errors.ValidationError{
-			Msg: "trackChanges URL is missing scheme",
-		}
-	}
 	return &manager{
 		hrm:     historyRedisManager.New(client),
-		baseURL: baseURL.String(),
+		baseURL: options.APIs.TrackChanges.URL.String(),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},

@@ -20,7 +20,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -28,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -95,7 +95,7 @@ func (u *urlCache) projectDir(projectId primitive.ObjectID) types.ProjectCacheDi
 	return u.cacheDir.ProjectCacheDir(projectId)
 }
 
-func (u *urlCache) downloadIntoCache(ctx context.Context, url url.URL, cachePath string) error {
+func (u *urlCache) downloadIntoCache(ctx context.Context, url sharedTypes.URL, cachePath string) error {
 	r, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -120,7 +120,7 @@ func (u *urlCache) downloadIntoCache(ctx context.Context, url url.URL, cachePath
 	return atomicWrite(response.Body, cachePath)
 }
 
-func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url url.URL, cachePath string) error {
+func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedTypes.URL, cachePath string) error {
 	var err error
 	for i := int64(0); i < u.tries; i++ {
 		if err = u.downloadIntoCache(ctx, url, cachePath); err == nil {
@@ -148,7 +148,7 @@ func (u *urlCache) Download(ctx context.Context, projectId primitive.ObjectID, r
 		return err
 	}
 
-	err := u.downloadIntoCacheWithRetries(ctx, url.URL(*resource.URL), cachePath)
+	err := u.downloadIntoCacheWithRetries(ctx, *resource.URL, cachePath)
 	if err != nil {
 		return err
 	}

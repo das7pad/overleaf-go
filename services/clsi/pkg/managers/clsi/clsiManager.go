@@ -87,6 +87,10 @@ type Manager interface {
 }
 
 func New(options *types.Options) (Manager, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
 	pm, err := project.NewManager(options)
 	if err != nil {
 		return nil, err

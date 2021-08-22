@@ -16,16 +16,42 @@
 
 package types
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type Options struct {
 	WorkersPerShard              int `json:"workers_per_shard"`
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
 
 	APIs struct {
 		TrackChanges struct {
-			URL string `json:"url"`
+			URL sharedTypes.URL `json:"url"`
 		} `json:"track_changes"`
 		WebApi struct {
-			URL string `json:"url"`
+			URL sharedTypes.URL `json:"url"`
 		} `json:"web_api"`
 	} `json:"apis"`
+}
+
+func (o Options) Validate() error {
+	if o.PendingUpdatesListShardCount <= 0 {
+		return &errors.ValidationError{
+			Msg: "pending_updates_list_shard_count must be greater than 0",
+		}
+	}
+	if o.WorkersPerShard <= 0 {
+		return &errors.ValidationError{
+			Msg: "workers_per_shard must be greater than 0",
+		}
+	}
+
+	if err := o.APIs.TrackChanges.URL.Validate(); err != nil {
+		return errors.Tag(err, "track_changes.url is invalid")
+	}
+	if err := o.APIs.WebApi.URL.Validate(); err != nil {
+		return errors.Tag(err, "web_api.url is invalid")
+	}
+	return nil
 }

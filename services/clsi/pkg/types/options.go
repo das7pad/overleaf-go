@@ -18,6 +18,8 @@ package types
 
 import (
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type SeccompPolicy struct {
@@ -74,4 +76,60 @@ type Options struct {
 
 	Runner                 string `json:"runner"`
 	DockerContainerOptions `json:"docker_container_options"`
+}
+
+func (o Options) Validate() error {
+	if o.CacheBaseDir == "" {
+		return &errors.ValidationError{
+			Msg: "missing cache_base_dir",
+		}
+	}
+	if o.CompileBaseDir == "" {
+		return &errors.ValidationError{
+			Msg: "missing compile_base_dir",
+		}
+	}
+	if o.OutputBaseDir == "" {
+		return &errors.ValidationError{
+			Msg: "missing output_base_dir",
+		}
+	}
+	if o.ParallelResourceWrite == 0 {
+		return &errors.ValidationError{
+			Msg: "missing parallel_resource_write",
+		}
+	}
+	if o.MaxFilesAndDirsPerProject == 0 {
+		return &errors.ValidationError{
+			Msg: "missing max_files_and_dirs_per_project",
+		}
+	}
+	if o.URLDownloadRetries < 0 {
+		return &errors.ValidationError{
+			Msg: "url_download_retries cannot be negative",
+		}
+	}
+	if o.URLDownloadTimeout < 1 {
+		return &errors.ValidationError{
+			Msg: "url_download_timeout_ns cannot be lower than 1",
+		}
+	}
+	maxCompileTime := time.Duration(MaxTimeout)
+	if o.ProjectCacheDuration < maxCompileTime {
+		return &errors.ValidationError{
+			Msg: "project_cache_duration_ns cannot be lower than " +
+				maxCompileTime.String(),
+		}
+	}
+	if o.GetCapacityRefreshEvery < 1 {
+		return &errors.ValidationError{
+			Msg: "get_capacity_refresh_every_ns cannot be lower than 1",
+		}
+	}
+	if o.HealthCheckRefreshEvery < 1 {
+		return &errors.ValidationError{
+			Msg: "health_check_refresh_every_ns cannot be lower than 1",
+		}
+	}
+	return nil
 }

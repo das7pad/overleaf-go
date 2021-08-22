@@ -99,7 +99,11 @@ type Manager interface {
 	) error
 }
 
-func New(options types.Options) (Manager, error) {
+func New(options *types.Options) (Manager, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
 	b, err := backend.FromOptions(options.BackendOptions)
 	if err != nil {
 		return nil, err

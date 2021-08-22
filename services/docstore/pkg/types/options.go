@@ -17,6 +17,7 @@
 package types
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/backend"
 )
 
@@ -25,4 +26,28 @@ type Options struct {
 	BackendOptions backend.Options `json:"backend_options"`
 	Bucket         string          `json:"bucket"`
 	MaxDeletedDocs Limit           `json:"max_deleted_docs"`
+}
+
+func (o Options) Validate() error {
+	if o.Bucket == "" {
+		return &errors.ValidationError{
+			Msg: "missing bucket",
+		}
+	}
+	if o.MaxDeletedDocs <= 0 {
+		return &errors.ValidationError{
+			Msg: "max_deleted_docs must be greater 0",
+		}
+	}
+	if o.ArchivePLimits.BatchSize <= 0 {
+		return &errors.ValidationError{
+			Msg: "archive_p_limits.batchSize must be greater 0",
+		}
+	}
+	if o.ArchivePLimits.ParallelArchiveJobs <= 0 {
+		return &errors.ValidationError{
+			Msg: "archive_p_limits.parallelArchiveJobs must be greater 0",
+		}
+	}
+	return nil
 }

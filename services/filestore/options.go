@@ -57,7 +57,7 @@ func getJSONFromEnv(key string, target interface{}) {
 
 type filestoreOptions struct {
 	address string
-	options types.Options
+	options *types.Options
 }
 
 func getOptions() *filestoreOptions {

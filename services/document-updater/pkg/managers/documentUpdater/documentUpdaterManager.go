@@ -54,6 +54,10 @@ type Manager interface {
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
 	dm, err := docManager.New(options, client)
 	if err != nil {
 		return nil, err

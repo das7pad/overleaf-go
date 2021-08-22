@@ -42,6 +42,10 @@ type Manager interface {
 }
 
 func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
 	a, err := appliedOps.New(ctx, options, client)
 	if err != nil {
 		return nil, err

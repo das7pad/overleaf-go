@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -38,17 +37,8 @@ type Manager interface {
 }
 
 func New(options *types.Options) (Manager, error) {
-	baseURL, err := url.Parse(options.APIs.DocumentUpdater.URL)
-	if err != nil {
-		return nil, err
-	}
-	if baseURL.Scheme == "" {
-		return nil, &errors.ValidationError{
-			Msg: "documentUpdater URL is missing scheme",
-		}
-	}
 	return &manager{
-		baseURL: baseURL.String(),
+		baseURL: options.APIs.DocumentUpdater.URL.String(),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},

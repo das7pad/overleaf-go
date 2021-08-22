@@ -70,7 +70,7 @@ type docstoreOptions struct {
 	address      string
 	mongoOptions *mongoOptions.ClientOptions
 	dbName       string
-	options      types.Options
+	options      *types.Options
 }
 
 func getOptions() *docstoreOptions {

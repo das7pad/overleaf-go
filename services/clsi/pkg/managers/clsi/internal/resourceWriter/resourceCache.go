@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -33,7 +34,7 @@ func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
 type resourceCacheEntry struct {
 	Path       types.FileName    `json:"p"`
 	ModifiedAt *types.ModifiedAt `json:"m"`
-	URL        *types.URL        `json:"u"`
+	URL        *sharedTypes.URL  `json:"u"`
 }
 
 type ResourceCache map[types.FileName]resourceCacheEntry

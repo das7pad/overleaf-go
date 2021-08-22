@@ -17,6 +17,7 @@
 package types
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/backend"
 )
 
@@ -28,4 +29,13 @@ type Options struct {
 	AllowRedirects bool            `json:"allow_redirects"`
 	BackendOptions backend.Options `json:"backend_options"`
 	Buckets        Buckets         `json:"buckets"`
+}
+
+func (o Options) Validate() error {
+	if o.Buckets.UserFiles == "" {
+		return &errors.ValidationError{
+			Msg: "missing buckets.user_files",
+		}
+	}
+	return nil
 }

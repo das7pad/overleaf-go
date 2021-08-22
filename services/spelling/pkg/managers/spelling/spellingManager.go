@@ -58,11 +58,11 @@ type Manager interface {
 }
 
 func New(db *mongo.Database, options *types.Options) (Manager, error) {
-	lruSize := options.LRUSize
-	if lruSize <= 0 {
-		lruSize = 10 * 1000
+	if err := options.Validate(); err != nil {
+		return nil, err
 	}
-	a, err := aspell.New(lruSize)
+
+	a, err := aspell.New(options.LRUSize)
 	if err != nil {
 		return nil, err
 	}

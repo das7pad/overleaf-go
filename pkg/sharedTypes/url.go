@@ -1,4 +1,4 @@
-// Golang port of the Overleaf real-time service
+// Golang port of Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,38 +14,47 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
+	"encoding/json"
+	"net/url"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type Options struct {
-	PendingUpdatesListShardCount int64 `json:"pending_updates_list_shard_count"`
-
-	APIs struct {
-		DocumentUpdater struct {
-			URL sharedTypes.URL `json:"url"`
-		} `json:"document_updater"`
-		WebApi struct {
-			URL sharedTypes.URL `json:"url"`
-		} `json:"web_api"`
-	} `json:"apis"`
+type URL struct {
+	url.URL
 }
 
-func (o Options) Validate() error {
-	if o.PendingUpdatesListShardCount <= 0 {
+func (u *URL) UnmarshalJSON(bytes []byte) error {
+	var s string
+	if err := json.Unmarshal(bytes, &s); err != nil {
+		return err
+	}
+	raw, err := url.Parse(s)
+	if err != nil {
+		return err
+	}
+	u.URL = *raw
+	return nil
+}
+
+func (u *URL) MarshalJSON() ([]byte, error) {
+	s := u.URL.String()
+	return json.Marshal(&s)
+}
+
+func (u *URL) Validate() error {
+	if u.Scheme == "" {
 		return &errors.ValidationError{
-			Msg: "pending_updates_list_shard_count must be greater than 0",
+			Msg: "URL is missing scheme",
 		}
 	}
-
-	if err := o.APIs.DocumentUpdater.URL.Validate(); err != nil {
-		return errors.Tag(err, "document_updater.url is invalid")
-	}
-	if err := o.APIs.WebApi.URL.Validate(); err != nil {
-		return errors.Tag(err, "web_api.url is invalid")
+	if u.Host == "" {
+		return &errors.ValidationError{
+			Msg: "URL is missing host",
+		}
 	}
 	return nil
 }

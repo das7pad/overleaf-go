@@ -108,18 +108,14 @@ type Manager interface {
 	) error
 }
 
-func New(
-	db *mongo.Database,
-	options types.Options,
-) (Manager, error) {
+func New(db *mongo.Database, options *types.Options) (Manager, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
 	dm := docs.New(db)
 
-	da, err := docArchive.New(
-		options.BackendOptions,
-		options.Bucket,
-		options.ArchivePLimits,
-		dm,
-	)
+	da, err := docArchive.New(options, dm)
 	if err != nil {
 		return nil, err
 	}

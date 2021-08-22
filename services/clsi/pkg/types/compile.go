@@ -17,13 +17,12 @@
 package types
 
 import (
-	"encoding/json"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 const (
@@ -146,38 +145,13 @@ func (m *ModifiedAt) Validate(*Options) error {
 	return nil
 }
 
-type URL url.URL
-
-func (u *URL) UnmarshalJSON(bytes []byte) error {
-	var s string
-	if err := json.Unmarshal(bytes, &s); err != nil {
-		return err
-	}
-	raw, err := url.Parse(s)
-	if err != nil {
-		return err
-	}
-	*u = URL(*raw)
-	return nil
-}
-
-func (u *URL) MarshalJSON() ([]byte, error) {
-	raw := url.URL(*u)
-	s := raw.String()
-	return json.Marshal(&s)
-}
-
-func (u *URL) Validate(*Options) error {
-	return nil
-}
-
 // The Resource is either the inline doc Content,
 //  or a file with download URL and ModifiedAt timestamp.
 type Resource struct {
-	Path       FileName    `json:"path"`
-	Content    *Content    `json:"content"`
-	ModifiedAt *ModifiedAt `json:"modified"`
-	URL        *URL        `json:"url"`
+	Path       FileName         `json:"path"`
+	Content    *Content         `json:"content"`
+	ModifiedAt *ModifiedAt      `json:"modified"`
+	URL        *sharedTypes.URL `json:"url"`
 }
 
 func (r *Resource) IsDoc() bool {
@@ -194,6 +168,9 @@ func (r *Resource) Validate(options *Options) error {
 		// file
 		if r.URL == nil {
 			return &errors.ValidationError{Msg: "missing file url"}
+		}
+		if err := r.URL.Validate(); err != nil {
+			return errors.Tag(err, "file url is invalid")
 		}
 		if r.ModifiedAt == nil {
 			return &errors.ValidationError{

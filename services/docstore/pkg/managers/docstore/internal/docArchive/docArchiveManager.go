@@ -62,16 +62,16 @@ type Manager interface {
 	) error
 }
 
-func New(backendOptions backend.Options, bucket string, pLimits types.PLimits, dm docs.Manager) (Manager, error) {
-	b, err := backend.FromOptions(backendOptions)
+func New(options *types.Options, dm docs.Manager) (Manager, error) {
+	b, err := backend.FromOptions(options.BackendOptions)
 	if err != nil {
 		return nil, err
 	}
 	return &manager{
 		b:       b,
-		bucket:  bucket,
+		bucket:  options.Bucket,
 		dm:      dm,
-		pLimits: pLimits,
+		pLimits: options.ArchivePLimits,
 	}, nil
 }
 

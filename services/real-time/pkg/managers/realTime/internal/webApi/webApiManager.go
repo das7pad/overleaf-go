@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -32,17 +31,8 @@ type Manager interface {
 }
 
 func New(options *types.Options) (Manager, error) {
-	baseURL, err := url.Parse(options.APIs.WebApi.URL)
-	if err != nil {
-		return nil, err
-	}
-	if baseURL.Scheme == "" {
-		return nil, &errors.ValidationError{
-			Msg: "webApi URL is missing scheme",
-		}
-	}
 	return &manager{
-		baseURL: baseURL.String(),
+		baseURL: options.APIs.WebApi.URL.String(),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
