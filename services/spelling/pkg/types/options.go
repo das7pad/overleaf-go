@@ -24,7 +24,7 @@ type Options struct {
 	LRUSize int `json:"lru_size"`
 }
 
-func (o Options) Validate() error {
+func (o *Options) Validate() error {
 	if o.LRUSize <= 0 {
 		return &errors.ValidationError{
 			Msg: "lru_size must be greater than 0",

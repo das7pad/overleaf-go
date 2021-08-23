@@ -28,7 +28,7 @@ type Options struct {
 	MaxDeletedDocs Limit           `json:"max_deleted_docs"`
 }
 
-func (o Options) Validate() error {
+func (o *Options) Validate() error {
 	if o.Bucket == "" {
 		return &errors.ValidationError{
 			Msg: "missing bucket",

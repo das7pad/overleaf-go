@@ -78,7 +78,7 @@ type Options struct {
 	DockerContainerOptions `json:"docker_container_options"`
 }
 
-func (o Options) Validate() error {
+func (o *Options) Validate() error {
 	if o.CacheBaseDir == "" {
 		return &errors.ValidationError{
 			Msg: "missing cache_base_dir",

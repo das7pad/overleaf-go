@@ -34,7 +34,7 @@ type Options struct {
 	} `json:"apis"`
 }
 
-func (o Options) Validate() error {
+func (o *Options) Validate() error {
 	if o.PendingUpdatesListShardCount <= 0 {
 		return &errors.ValidationError{
 			Msg: "pending_updates_list_shard_count must be greater than 0",

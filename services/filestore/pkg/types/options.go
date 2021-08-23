@@ -31,7 +31,7 @@ type Options struct {
 	Buckets        Buckets         `json:"buckets"`
 }
 
-func (o Options) Validate() error {
+func (o *Options) Validate() error {
 	if o.Buckets.UserFiles == "" {
 		return &errors.ValidationError{
 			Msg: "missing buckets.user_files",
