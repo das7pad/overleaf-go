@@ -24,7 +24,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/services/filestore/pkg/backend"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
@@ -33,7 +33,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		fileId primitive.ObjectID,
-		options backend.GetOptions,
+		options objectStorage.GetOptions,
 	) (io.Reader, error)
 
 	GetRedirectURLForGETOnProjectFile(
@@ -52,7 +52,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		fileId primitive.ObjectID,
-	) (*url.URL, backend.FormData, error)
+	) (*url.URL, objectStorage.FormData, error)
 
 	GetRedirectURLForPUTOnProjectFile(
 		ctx context.Context,
@@ -95,7 +95,7 @@ type Manager interface {
 		projectId primitive.ObjectID,
 		fileId primitive.ObjectID,
 		reader io.Reader,
-		options backend.SendOptions,
+		options objectStorage.SendOptions,
 	) error
 }
 
@@ -104,7 +104,7 @@ func New(options *types.Options) (Manager, error) {
 		return nil, err
 	}
 
-	b, err := backend.FromOptions(options.BackendOptions)
+	b, err := objectStorage.FromOptions(options.BackendOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func New(options *types.Options) (Manager, error) {
 }
 
 type manager struct {
-	b       backend.Backend
+	b       objectStorage.Backend
 	buckets types.Buckets
 }
 
@@ -127,7 +127,7 @@ func getProjectFileKey(projectId, fileId primitive.ObjectID) string {
 	return fmt.Sprintf("%s/%s", projectId.Hex(), fileId.Hex())
 }
 
-func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, options backend.GetOptions) (io.Reader, error) {
+func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, options objectStorage.GetOptions) (io.Reader, error) {
 	return m.b.GetReadStream(
 		ctx,
 		m.buckets.UserFiles,
@@ -152,7 +152,7 @@ func (m *manager) GetRedirectURLForHEADOnProjectFile(ctx context.Context, projec
 	)
 }
 
-func (m *manager) GetRedirectURLForPOSTOnProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID) (*url.URL, backend.FormData, error) {
+func (m *manager) GetRedirectURLForPOSTOnProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID) (*url.URL, objectStorage.FormData, error) {
 	return m.b.GetRedirectURLForPOST(
 		ctx,
 		m.buckets.UserFiles,
@@ -209,7 +209,7 @@ func (m *manager) DeleteProject(ctx context.Context, projectId primitive.ObjectI
 	)
 }
 
-func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, reader io.Reader, options backend.SendOptions) error {
+func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, reader io.Reader, options objectStorage.SendOptions) error {
 	return m.b.SendFromStream(
 		ctx,
 		m.buckets.UserFiles,

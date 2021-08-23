@@ -17,6 +17,7 @@
 FROM golang:1.16-alpine3.13 as build
 WORKDIR /go/src/github.com/das7pad/overleaf-go/services/docstore
 COPY go.mod go.sum ../../
+COPY pkg/objectStorage/go.* ../../pkg/objectStorage/
 COPY services/docstore/go.mod services/docstore/go.sum ./
 RUN go mod download
 COPY . ../../

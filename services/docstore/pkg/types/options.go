@@ -18,14 +18,14 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/backend"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 )
 
 type Options struct {
-	ArchivePLimits PLimits         `json:"archive_p_limits"`
-	BackendOptions backend.Options `json:"backend_options"`
-	Bucket         string          `json:"bucket"`
-	MaxDeletedDocs Limit           `json:"max_deleted_docs"`
+	ArchivePLimits PLimits               `json:"archive_p_limits"`
+	BackendOptions objectStorage.Options `json:"backend_options"`
+	Bucket         string                `json:"bucket"`
+	MaxDeletedDocs Limit                 `json:"max_deleted_docs"`
 }
 
 func (o *Options) Validate() error {

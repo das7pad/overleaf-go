@@ -18,7 +18,7 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/services/filestore/pkg/backend"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 )
 
 type Buckets struct {
@@ -26,9 +26,9 @@ type Buckets struct {
 }
 
 type Options struct {
-	AllowRedirects bool            `json:"allow_redirects"`
-	BackendOptions backend.Options `json:"backend_options"`
-	Buckets        Buckets         `json:"buckets"`
+	AllowRedirects bool                  `json:"allow_redirects"`
+	BackendOptions objectStorage.Options `json:"backend_options"`
+	Buckets        Buckets               `json:"buckets"`
 }
 
 func (o *Options) Validate() error {

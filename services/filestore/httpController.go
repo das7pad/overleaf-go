@@ -30,7 +30,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/services/filestore/pkg/backend"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 )
 
@@ -240,7 +240,7 @@ func (h *httpController) getProjectFile(w http.ResponseWriter, r *http.Request) 
 		redirect(w, r, u, err, "cannot redirect GET on project file")
 		return
 	}
-	options := backend.GetOptions{}
+	options := objectStorage.GetOptions{}
 	body, err := h.fm.GetReadStreamForProjectFile(
 		r.Context(),
 		getId(r, "projectId"),
@@ -294,7 +294,7 @@ func (h *httpController) sendProjectFile(w http.ResponseWriter, r *http.Request)
 	//        POST form data is amended.
 	//       This needs an API rework for uploading via PUT.
 
-	options := backend.SendOptions{
+	options := objectStorage.SendOptions{
 		ContentSize:     getBodySize(r),
 		ContentEncoding: r.Header.Get("Content-Encoding"),
 		ContentType:     r.Header.Get("Content-Type"),
@@ -320,7 +320,7 @@ func (h *httpController) sendProjectFileViaPUT(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	options := backend.SendOptions{
+	options := objectStorage.SendOptions{
 		ContentSize:     getBodySize(r),
 		ContentEncoding: r.Header.Get("Content-Encoding"),
 		ContentType:     r.Header.Get("Content-Type"),

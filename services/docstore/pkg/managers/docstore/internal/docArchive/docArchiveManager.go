@@ -27,8 +27,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/backend"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
@@ -63,7 +63,7 @@ type Manager interface {
 }
 
 func New(options *types.Options, dm docs.Manager) (Manager, error) {
-	b, err := backend.FromOptions(options.BackendOptions)
+	b, err := objectStorage.FromOptions(options.BackendOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func New(options *types.Options, dm docs.Manager) (Manager, error) {
 }
 
 type manager struct {
-	b       backend.Backend
+	b       objectStorage.Backend
 	bucket  string
 	dm      docs.Manager
 	pLimits types.PLimits
@@ -218,7 +218,7 @@ func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, 
 	key := docKey(projectId, docId)
 	blob, err := json.Marshal(archivedDoc)
 	reader := bytes.NewBuffer(blob)
-	sendOptions := backend.SendOptions{
+	sendOptions := objectStorage.SendOptions{
 		ContentSize: int64(len(blob)),
 	}
 	err = m.b.SendFromStream(ctx, m.bucket, key, reader, sendOptions)
@@ -244,7 +244,7 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 	}
 	key := docKey(projectId, docId)
 
-	getOptions := backend.GetOptions{}
+	getOptions := objectStorage.GetOptions{}
 	reader, err := m.b.GetReadStream(ctx, m.bucket, key, getOptions)
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
