@@ -20,7 +20,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"strconv"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -70,7 +69,7 @@ func (s Snapshot) MarshalJSON() ([]byte, error) {
 func (s Snapshot) Hash() Hash {
 	d := sha1.New()
 	d.Write(
-		[]byte("blob " + strconv.FormatInt(int64(len(s)), 10) + "\x00"),
+		[]byte("blob " + Int(len(s)).String() + "\x00"),
 	)
 	d.Write([]byte(string(s)))
 	return Hash(hex.EncodeToString(d.Sum(nil)))

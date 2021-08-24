@@ -71,10 +71,10 @@ func getOptions() *clsiOptions {
 	o := &clsiOptions{}
 	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
 	port := getIntFromEnv("PORT", 3013)
-	o.address = listenAddress + ":" + strconv.FormatInt(port, 10)
+	o.address = fmt.Sprintf("%s:%d", listenAddress, port)
 
 	loadPort := getIntFromEnv("LOAD_PORT", 3048)
-	o.loadAddress = listenAddress + ":" + strconv.FormatInt(loadPort, 10)
+	o.loadAddress = fmt.Sprintf("%s:%d", listenAddress, loadPort)
 
 	o.copyExecAgentSrc = getStringFromEnv("COPY_EXEC_AGENT_SRC", "")
 	o.copyExecAgentDst = getStringFromEnv("COPY_EXEC_AGENT_DST", "")

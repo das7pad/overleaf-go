@@ -19,7 +19,6 @@ package dispatchManager
 import (
 	"context"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -51,10 +50,7 @@ type manager struct {
 
 func (m *manager) Start(ctx context.Context) {
 	for i := 0; i < m.o.PendingUpdatesListShardCount; i++ {
-		queue := "pending-updates-list"
-		if i > 0 {
-			queue += "-" + strconv.FormatInt(int64(i), 10)
-		}
+		queue := types.PendingUpdatesListKey(i).String()
 		s := &shard{
 			queue:   queue,
 			workers: m.o.WorkersPerShard,

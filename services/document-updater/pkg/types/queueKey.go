@@ -14,16 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sharedTypes
+package types
 
-type Revision int64
+import (
+	"strconv"
+)
 
-type Version int64
+type PendingUpdatesListKey int
 
-func (v Version) Equals(other Version) bool {
-	return v == other
-}
-
-func (v Version) String() string {
-	return Int(v).String()
+func (p PendingUpdatesListKey) String() string {
+	queue := "pending-updates-list"
+	if p > 0 {
+		queue += "-" + strconv.FormatInt(int64(p), 10)
+	}
+	return queue
 }

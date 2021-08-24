@@ -21,7 +21,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -161,7 +160,7 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 	var err error
 	parts := bytes.Split(blob, []byte{0})
 	if len(parts) != 6 {
-		n := strconv.FormatInt(int64(len(parts)), 10)
+		n := sharedTypes.Int(len(parts)).String()
 		return errors.New("expected 6 doc core parts, got " + n)
 	}
 

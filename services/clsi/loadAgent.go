@@ -17,9 +17,9 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -54,7 +54,7 @@ func startLoadAgent(options *clsiOptions, manager clsi.Manager) (io.Closer, erro
 				// Only do that in case we are sure there is no capacity.
 				capacity = 1
 			}
-			msg := "up, " + strconv.FormatInt(capacity, 10) + "%\n"
+			msg := fmt.Sprintf("up, %d%%\n", capacity)
 			_, _ = c.Write([]byte(msg))
 			_ = c.Close()
 		}

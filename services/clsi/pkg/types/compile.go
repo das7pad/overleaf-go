@@ -145,6 +145,13 @@ func (m *ModifiedAt) Validate(*Options) error {
 	return nil
 }
 
+func (m *ModifiedAt) String() string {
+	if m == nil {
+		return "0"
+	}
+	return sharedTypes.Int(*m).String()
+}
+
 // The Resource is either the inline doc Content,
 //  or a file with download URL and ModifiedAt timestamp.
 type Resource struct {

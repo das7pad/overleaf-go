@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -82,7 +81,7 @@ func (u *urlCache) SetupForProject(_ context.Context, projectId primitive.Object
 }
 
 func hashFileResource(resource *types.Resource) types.FileName {
-	modified := strconv.FormatInt(int64(*resource.ModifiedAt), 10)
+	modified := resource.ModifiedAt.String()
 	raw := resource.URL.Path + "-" + modified
 	return types.FileName(strings.ReplaceAll(raw, "/", "-"))
 }

@@ -17,8 +17,6 @@
 package sharedTypes
 
 import (
-	"strconv"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -192,15 +190,15 @@ func (d *DocumentUpdate) CheckVersion(current Version) error {
 		return &errors.ValidationError{Msg: "Version missing"}
 	}
 	if d.Version > current {
-		a := strconv.FormatInt(int64(d.Version), 10)
-		b := strconv.FormatInt(int64(current), 10)
+		a := d.Version.String()
+		b := current.String()
 		return &errors.ValidationError{
 			Msg: "Op at future version: " + a + " vs " + b,
 		}
 	}
 	if d.Version+maxAgeOfOp < current {
-		a := strconv.FormatInt(int64(d.Version+maxAgeOfOp), 10)
-		b := strconv.FormatInt(int64(current), 10)
+		a := (d.Version + maxAgeOfOp).String()
+		b := current.String()
 		return &errors.ValidationError{
 			Msg: "Op too old: " + a + " vs " + b,
 		}

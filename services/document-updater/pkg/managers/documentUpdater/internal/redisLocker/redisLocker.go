@@ -20,9 +20,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"os"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -30,7 +30,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Runner func(ctx context.Context)
@@ -56,7 +55,7 @@ func New(client redis.UniversalClient) (Locker, error) {
 
 		counter:  0,
 		hostname: hostname,
-		pid:      sharedTypes.Int(os.Getpid()).String(),
+		pid:      os.Getpid(),
 		rnd:      rnd,
 	}, nil
 }
@@ -68,7 +67,7 @@ type locker struct {
 
 	counter  int64
 	hostname string
-	pid      string
+	pid      int
 	rnd      string
 }
 
@@ -89,14 +88,12 @@ end
 `)
 
 func (l *locker) getUniqueValue() string {
-	now := strconv.FormatInt(time.Now().UnixNano(), 10)
-	c := strconv.FormatInt(atomic.AddInt64(&l.counter, 1), 10)
-	return "locked" +
-		":host=" + l.hostname +
-		":pid=" + l.pid +
-		":random=" + l.rnd +
-		":time=" + now +
-		":count=" + c
+	now := time.Now().UnixNano()
+	c := atomic.AddInt64(&l.counter, 1)
+	return fmt.Sprintf(
+		"locked:host=%s:pid=%d:random=%s:time=%d:count=%d",
+		l.hostname, l.pid, l.rnd, now, c,
+	)
 }
 
 func getBlockingKey(docId primitive.ObjectID) string {

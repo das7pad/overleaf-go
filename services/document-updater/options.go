@@ -18,6 +18,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -85,7 +86,7 @@ func getOptions() *documentUpdaterOptions {
 	o := &documentUpdaterOptions{}
 	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
 	port := getIntFromEnv("PORT", 3003)
-	o.address = listenAddress + ":" + strconv.FormatInt(port, 10)
+	o.address = fmt.Sprintf("%s:%d", listenAddress, port)
 
 	getJSONFromEnv("OPTIONS", &o.options)
 

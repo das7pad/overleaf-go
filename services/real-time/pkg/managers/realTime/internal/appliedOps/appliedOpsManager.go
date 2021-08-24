@@ -20,12 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"math/rand"
-	"strconv"
 
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -61,10 +61,7 @@ type manager struct {
 
 func (m *manager) getPendingUpdatesListKey() string {
 	shard := rand.Int63n(m.pendingUpdatesListShardCount)
-	if shard == 0 {
-		return "pending-updates-list"
-	}
-	return "pending-updates-list-" + strconv.FormatInt(shard, 10)
+	return documentUpdaterTypes.PendingUpdatesListKey(shard).String()
 }
 
 func (m *manager) QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate) error {

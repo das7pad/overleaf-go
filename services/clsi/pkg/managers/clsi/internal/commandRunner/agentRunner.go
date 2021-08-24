@@ -24,7 +24,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -140,7 +139,7 @@ const defaultAgentPathContainer = "/opt/exec-agent"
 const memoryLimitInBytes = 1024 * 1024 * 1024 * 1024
 const clsiProcessEpochLabel = "com.overleaf.clsi.process.epoch"
 
-var currentClsiProcessEpoch = strconv.FormatInt(time.Now().UnixNano(), 10)
+var currentClsiProcessEpoch = time.Now().UTC().Format(time.RFC3339Nano)
 
 func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
 	validUntil, err := a.createContainer(ctx, namespace, imageName)

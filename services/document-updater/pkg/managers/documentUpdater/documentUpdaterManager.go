@@ -18,7 +18,6 @@ package documentUpdater
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -82,11 +81,11 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive
 		return err
 	}
 
-	subVersion := int64(0)
-	base := strconv.FormatInt(int64(request.ProjectVersion), 10)
+	subVersion := sharedTypes.Version(0)
+	base := request.ProjectVersion.String()
 	for _, update := range request.Updates {
 		subVersion += 1
-		update.Version = base + "." + strconv.FormatInt(subVersion, 10)
+		update.Version = base + "." + subVersion.String()
 		switch update.Type {
 		case "rename-doc":
 			err := m.dm.RenameDoc(ctx, projectId, update.RenameDocUpdate())

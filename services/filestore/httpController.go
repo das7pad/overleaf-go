@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -271,7 +270,7 @@ func (h *httpController) getProjectFileHEAD(w http.ResponseWriter, r *http.Reque
 		getId(r, "fileId"),
 	)
 	if err == nil {
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
+		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	}
 	respond(w, r, http.StatusOK, nil, err, "cannot get project file size")
 }

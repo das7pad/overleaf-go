@@ -122,7 +122,7 @@ type Manager interface {
 
 	GetNextProjectToFlushAndDelete(
 		ctx context.Context,
-		cutoffTime int64,
+		cutoffTime time.Time,
 	) (primitive.ObjectID, int64, int64, error)
 }
 
@@ -547,13 +547,13 @@ func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId prim
 	return m.rClient.ZAdd(ctx, getFlushAndDeleteQueueKey(), queueEntry).Err()
 }
 
-func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime int64) (primitive.ObjectID, int64, int64, error) {
+func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime time.Time) (primitive.ObjectID, int64, int64, error) {
 	potentialOldEntries, err := m.rClient.ZRangeByScore(
 		ctx,
 		getFlushAndDeleteQueueKey(),
 		&redis.ZRangeBy{
 			Min:    "0",
-			Max:    strconv.FormatInt(cutoffTime, 10),
+			Max:    strconv.FormatInt(cutoffTime.Unix(), 10),
 			Offset: 0,
 			Count:  1,
 		},
