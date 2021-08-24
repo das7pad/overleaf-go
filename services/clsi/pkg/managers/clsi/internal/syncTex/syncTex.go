@@ -140,7 +140,7 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 			}
 			switch label {
 			case "Line":
-				p.Line = types.Line(i)
+				p.Row = types.Row(i)
 			case "Column":
 				p.Column = types.Column(i)
 			}

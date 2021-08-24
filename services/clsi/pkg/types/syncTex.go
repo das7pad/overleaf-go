@@ -40,22 +40,22 @@ func (v Vertical) String() string {
 	return sharedTypes.Float(v).String()
 }
 
-type Line float64
+type Row int64
 
-func (l Line) String() string {
-	return sharedTypes.Int(l).String()
+func (r Row) String() string {
+	return sharedTypes.Int(r).String()
 }
 
-type Column float64
+type Column int64
 
 func (c Column) String() string {
 	return sharedTypes.Int(c).String()
 }
 
 type CodePosition struct {
-	FileName `json:"file"`
-	Line     `json:"line"`
-	Column   `json:"column"`
+	FileName FileName `json:"file"`
+	Row      Row      `json:"line"`
+	Column   Column   `json:"column"`
 }
 
 type CodePositions []*CodePosition
@@ -64,11 +64,11 @@ type Height float64
 type Width float64
 
 type PDFPosition struct {
-	Page       `json:"page"`
-	Horizontal `json:"h"`
-	Vertical   `json:"v"`
-	Height     `json:"height"`
-	Width      `json:"width"`
+	Page       Page       `json:"page"`
+	Horizontal Horizontal `json:"h"`
+	Vertical   Vertical   `json:"v"`
+	Height     Height     `json:"height"`
+	Width      Width      `json:"width"`
 }
 type PDFPositions []*PDFPosition
 
@@ -130,7 +130,7 @@ func (o SyncTexOptions) OutputSyncTexGzPath() string {
 type SyncFromCodeRequest struct {
 	*SyncTexOptions
 	FileName FileName `json:"file_name"`
-	Line     Line     `json:"line"`
+	Row      Row      `json:"line"`
 	Column   Column   `json:"column"`
 }
 
@@ -139,14 +139,14 @@ func (r *SyncFromCodeRequest) Options() *SyncTexOptions {
 }
 
 func (r *SyncFromCodeRequest) CommandLine() CommandLine {
-	l := r.Line.String()
-	c := r.Column.String()
-	f := string(constants.CompileDirPlaceHolder + "/" + r.FileName)
+	line := r.Row.String()
+	column := r.Column.String()
+	input := string(constants.CompileDirPlaceHolder + "/" + r.FileName)
 	return CommandLine{
 		"synctex",
 		"view",
 		"-i",
-		l + ":" + c + ":" + f,
+		line + ":" + column + ":" + input,
 		"-o",
 		r.SyncTexOptions.OutputPDFPath(),
 	}
@@ -177,14 +177,14 @@ func (r *SyncFromPDFRequest) Options() *SyncTexOptions {
 }
 
 func (r *SyncFromPDFRequest) CommandLine() CommandLine {
-	p := r.Page.String()
-	h := r.Horizontal.String()
-	v := r.Vertical.String()
+	page := r.Page.String()
+	x := r.Horizontal.String()
+	y := r.Vertical.String()
 	return CommandLine{
 		"synctex",
 		"edit",
 		"-o",
-		p + ":" + h + ":" + v + ":" + r.SyncTexOptions.OutputPDFPath(),
+		page + ":" + x + ":" + y + ":" + r.SyncTexOptions.OutputPDFPath(),
 	}
 }
 

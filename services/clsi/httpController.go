@@ -297,8 +297,8 @@ func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
 	if !decodeFromQuery(w, r, "file", file, &file) {
 		return
 	}
-	var line types.Line
-	if !decodeFromQuery(w, r, "line", line, &line) {
+	var row types.Row
+	if !decodeFromQuery(w, r, "line", row, &row) {
 		return
 	}
 	var column types.Column
@@ -312,7 +312,7 @@ func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
 	request := types.SyncFromCodeRequest{
 		SyncTexOptions: syncTexOptions,
 		FileName:       file,
-		Line:           line,
+		Row:            row,
 		Column:         column,
 	}
 
