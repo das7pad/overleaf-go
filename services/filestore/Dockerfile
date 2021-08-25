@@ -14,15 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/filestore
-COPY . ../../
-RUN go build . && mv filestore /filestore
-
 FROM alpine:3.13
 ENV SERVICE_NAME="filestore"
 ENTRYPOINT ["filestore"]
-COPY --from=build /filestore /usr/local/bin/
+COPY ./filestore /usr/local/bin/
 USER nobody
 
 ARG DATE

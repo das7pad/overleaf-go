@@ -14,14 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/linked-url-proxy
-COPY . ../../
-RUN go build . && mv linked-url-proxy /linked-url-proxy
-
 FROM alpine:3.13
 ENTRYPOINT ["linked-url-proxy"]
-COPY --from=build /linked-url-proxy /usr/local/bin/
+COPY ./linked-url-proxy /usr/local/bin/
 USER nobody
 
 ARG DATE

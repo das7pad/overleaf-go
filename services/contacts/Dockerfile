@@ -14,15 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/contacts
-COPY . ../../
-RUN go build . && mv contacts /contacts
-
 FROM alpine:3.13
 ENV SERVICE_NAME="contacts"
 ENTRYPOINT ["contacts"]
-COPY --from=build /contacts /usr/local/bin/
+COPY ./contacts /usr/local/bin/
 USER nobody
 
 ARG DATE

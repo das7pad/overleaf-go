@@ -14,15 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/chat
-COPY . ../../
-RUN go build . && mv chat /chat
-
 FROM alpine:3.13
 ENV SERVICE_NAME="chat"
 ENTRYPOINT ["chat"]
-COPY --from=build /chat /usr/local/bin/
+COPY ./chat /usr/local/bin/
 USER nobody
 
 ARG DATE

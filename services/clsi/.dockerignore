@@ -1,11 +1,5 @@
 *
 
-# src
-!*.go
-!/cmd
-!/pkg
-!/seccomp
-
-# dependencies
-!/go.mod
-!/go.sum
+!clsi
+!execAgent
+!seccomp

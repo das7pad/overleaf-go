@@ -14,26 +14,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/clsi
-COPY . ../../
-RUN go build . && mv clsi /clsi
-
-# Build the execAgent in ubuntu/debian. The texlive image will use debian.
-FROM golang:1.16 as build-execAgent
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/clsi
-COPY . ../../
-RUN go build cmd/execAgent/execAgent.go && mv execAgent /execAgent
-
 FROM alpine:3.13
 ENV SERVICE_NAME="clsi"
 ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
 ENV COPY_EXEC_AGENT_DST="/mount/execAgent"
 ENV SECCOMP_POLICY_PATH="/seccomp/policy.json"
 ENTRYPOINT ["clsi"]
-COPY services/clsi/seccomp /seccomp
-COPY --from=build /clsi /usr/local/bin/
-COPY --from=build-execAgent /execAgent /usr/local/bin/
+COPY ./seccomp /seccomp
+COPY ./clsi /usr/local/bin/
+COPY ./execAgent /usr/local/bin/
 
 RUN adduser --uid 1000 --disabled-password tex \
 &&  mkdir         /cache /compiles /output \

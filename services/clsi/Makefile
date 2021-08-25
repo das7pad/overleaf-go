@@ -23,30 +23,38 @@ DOCKER_REGISTRY ?= localhost:5000
 IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/clsi
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 
-docker/build:
-	docker build \
-		--tag $(IMAGE)-build \
-		--target build \
-		--file Dockerfile \
-		../../
-	docker build \
-		--cache-from $(IMAGE)-build \
-		--cache-from $(IMAGE)-build-execAgent \
-		--tag $(IMAGE)-build-execAgent \
-		--target build-execAgent \
-		--file Dockerfile \
-		../../
+PWD ?= $(realpath .)
+ROOT = $(abspath $(PWD)/../../)
+BUILD_IN = \
+	docker run \
+ 		--rm \
+	 	--volume $(ROOT):$(ROOT) \
+	 	--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
+	 	--workdir $(PWD) \
+	 	--env HOME=$(ROOT)/.cache/home/ \
+	 	--user $(shell id -u) \
 
-docker/build/production: docker/build
+
+.PHONY: clsi
+clsi:
+	$(BUILD_IN) golang:1.16-alpine3.13 sh -c \
+		'go build && touch -m -d 2021-01-01-00:00:00 $@'
+
+# Build the execAgent in ubuntu/debian. The texlive image will use debian.
+.PHONY: execAgent
+execAgent:
+	$(BUILD_IN) golang:1.16 sh -c \
+ 		'go build cmd/execAgent/execAgent.go && touch -m -d 2021-01-01T00:00Z $@'
+
+docker/build/production: execAgent
+docker/build/production: clsi
 	docker build \
 		--tag $(IMAGE) \
-		--cache-from $(IMAGE)-build \
-		--cache-from $(IMAGE)-build-execAgent \
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
 		--build-arg RELEASE=$(RELEASE) \
 		--file Dockerfile \
-		../../
+		.
 
 docker/push:
 	docker push $(IMAGE)
@@ -60,8 +68,6 @@ log_image_digest:
 docker/clean:
 	docker rmi \
 		$(IMAGE) \
-		$(IMAGE)-build \
-		$(IMAGE)-build-execAgent \
 		--force
 
 .PHONY: test

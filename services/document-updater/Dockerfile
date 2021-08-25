@@ -14,15 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/document-updater
-COPY . ../../
-RUN go build . && mv document-updater /document-updater
-
 FROM alpine:3.13
 ENV SERVICE_NAME="document-updater"
 ENTRYPOINT ["document-updater"]
-COPY --from=build /document-updater /usr/local/bin/
+COPY ./document-updater /usr/local/bin/
 USER nobody
 
 ARG DATE

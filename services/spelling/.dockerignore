@@ -1,12 +1,4 @@
 *
 
-# src
-!*.go
-!/pkg
-
-# dependencies
-!/go.mod
-!/go.sum
-
-# aspell
-!/install_deps.sh
+!spelling
+!install_deps.sh

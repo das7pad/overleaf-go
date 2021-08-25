@@ -14,15 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16-alpine3.13 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/real-time
-COPY . ../../
-RUN go build . && mv real-time /real-time
-
 FROM alpine:3.13
 ENV SERVICE_NAME="real-time"
 ENTRYPOINT ["real-time"]
-COPY --from=build /real-time /usr/local/bin/
+COPY ./real-time /usr/local/bin/
 USER nobody
 
 ARG DATE

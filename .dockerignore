@@ -6,3 +6,5 @@
 # No work around exists. Just ignore the major offender .git/ for now.
 # https://github.com/moby/moby/issues/30018
 .git/
+
+.cache/

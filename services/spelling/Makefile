@@ -24,36 +24,44 @@ IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/spelling
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 IMAGE_ASPELL_CACHE = $(IMAGE_BARE):go-aspell-cache
 
-docker/build:
-	docker build \
-		--tag $(IMAGE)-build \
-		--target build \
-		--file Dockerfile \
-		../../
+PWD ?= $(realpath .)
+ROOT = $(abspath $(PWD)/../../)
+BUILD_IN = \
+	docker run \
+ 		--rm \
+	 	--volume $(ROOT):$(ROOT) \
+	 	--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
+	 	--workdir $(PWD) \
+	 	--env HOME=$(ROOT)/.cache/home/ \
+	 	--user $(shell id -u)
+
+.PHONY: spelling
+spelling:
+	$(BUILD_IN) golang:1.16 sh -c \
+ 		'go build && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true
 	docker tag $(IMAGE_ASPELL_CACHE) $(IMAGE)-aspell-cache || true
 
 docker/build/production: docker/pull/apell-cache
-docker/build/production: docker/build
+docker/build/production: spelling
 	docker build \
 		--tag $(IMAGE_ASPELL_CACHE) \
-		--cache-from $(IMAGE)-build \
 		--cache-from $(IMAGE)-aspell-cache \
 		--target aspell-cache \
 		--file Dockerfile \
-		../../
+		.
 
 	docker build \
 		--tag $(IMAGE) \
-		--cache-from $(IMAGE)-build \
-		--cache-from $(IMAGE_ASPELL_CACHE) \
+		--cache-from $(IMAGE) \
+		--cache-from $(IMAGE)-aspell-cache \
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
 		--build-arg RELEASE=$(RELEASE) \
 		--file Dockerfile \
-		../../
+		.
 
 docker/push:
 	docker push $(IMAGE_ASPELL_CACHE)
@@ -68,7 +76,6 @@ log_image_digest:
 docker/clean:
 	docker rmi \
 		$(IMAGE) \
-		$(IMAGE)-build \
 		$(IMAGE)-aspell-cache \
 		$(IMAGE_ASPELL_CACHE) \
 		--force

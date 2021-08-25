@@ -14,19 +14,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM golang:1.16 as build
-WORKDIR /go/src/github.com/das7pad/overleaf-go/services/spelling
-COPY . ../../
-RUN go build . && mv spelling /spelling
-
 FROM debian:buster-slim as aspell-cache
-COPY services/spelling/install_deps.sh /
+COPY ./install_deps.sh /
 RUN /install_deps.sh
 
 FROM aspell-cache
 ENV SERVICE_NAME="spelling"
 ENTRYPOINT ["spelling"]
-COPY --from=build /spelling /usr/local/bin/
+COPY ./spelling /usr/local/bin/
 USER nobody
 
 ARG DATE
