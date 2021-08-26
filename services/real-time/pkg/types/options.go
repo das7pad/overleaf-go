@@ -19,6 +19,7 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type Options struct {
@@ -26,7 +27,8 @@ type Options struct {
 
 	APIs struct {
 		DocumentUpdater struct {
-			URL sharedTypes.URL `json:"url"`
+			Options *documentUpdaterTypes.Options `json:"options"`
+			URL     sharedTypes.URL               `json:"url"`
 		} `json:"document_updater"`
 		WebApi struct {
 			URL sharedTypes.URL `json:"url"`
@@ -41,11 +43,15 @@ func (o *Options) Validate() error {
 		}
 	}
 
-	if err := o.APIs.DocumentUpdater.URL.Validate(); err != nil {
-		return errors.Tag(err, "document_updater.url is invalid")
+	if o.APIs.DocumentUpdater.Options != nil {
+		if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
+			return errors.Tag(err, "apis.document_updater.options is invalid")
+		}
+	} else if err := o.APIs.DocumentUpdater.URL.Validate(); err != nil {
+		return errors.Tag(err, "apis.document_updater.url is invalid")
 	}
 	if err := o.APIs.WebApi.URL.Validate(); err != nil {
-		return errors.Tag(err, "web_api.url is invalid")
+		return errors.Tag(err, "apis.web_api.url is invalid")
 	}
 	return nil
 }

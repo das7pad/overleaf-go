@@ -22,10 +22,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
@@ -36,7 +38,13 @@ type Manager interface {
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
-func New(options *types.Options) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
+	if options.APIs.DocumentUpdater.Options != nil {
+		return documentUpdater.New(
+			options.APIs.DocumentUpdater.Options,
+			client,
+		)
+	}
 	return &manager{
 		baseURL: options.APIs.DocumentUpdater.URL.String(),
 		client: &http.Client{

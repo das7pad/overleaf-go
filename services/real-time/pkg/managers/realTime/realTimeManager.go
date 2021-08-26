@@ -59,7 +59,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	d, err := documentUpdater.New(options)
+	d, err := documentUpdater.New(options, client)
 	if err != nil {
 		return nil, err
 	}
