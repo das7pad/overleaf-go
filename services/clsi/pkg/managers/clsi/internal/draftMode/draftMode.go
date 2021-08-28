@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -52,7 +53,7 @@ func (m *manager) InjectDraftMode(rootDoc *types.Resource) error {
 		return nil
 	}
 
-	content := types.Content(
+	content := sharedTypes.Snapshot(string(
 		noOptions.ReplaceAll(
 			withOptions.ReplaceAll(
 				[]byte(blob),
@@ -60,7 +61,7 @@ func (m *manager) InjectDraftMode(rootDoc *types.Resource) error {
 			),
 			noOptionsReplacement,
 		),
-	)
+	))
 	rootDoc.Content = &content
 	return nil
 }

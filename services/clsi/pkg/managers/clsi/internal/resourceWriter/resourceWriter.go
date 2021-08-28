@@ -320,7 +320,7 @@ func (r *resourceWriter) writeDoc(resource *types.Resource, compileDir types.Com
 	// There is no need for atomic writes here. In the error case, the file
 	//  will either get recreated on re-compile, or deleted as part of output
 	//  scrubbing in case it were to be deleted from the projects resources.
-	blob := []byte(*resource.Content)
+	blob := []byte(string(*resource.Content))
 	return os.WriteFile(compileDir.Join(resource.Path), blob, 0644)
 }
 

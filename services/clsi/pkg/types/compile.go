@@ -135,7 +135,6 @@ func (r RootResourcePath) Validate(*Options) error {
 	return nil
 }
 
-type Content string
 type ModifiedAt int64
 
 func (m *ModifiedAt) Validate(*Options) error {
@@ -155,10 +154,10 @@ func (m *ModifiedAt) String() string {
 // The Resource is either the inline doc Content,
 //  or a file with download URL and ModifiedAt timestamp.
 type Resource struct {
-	Path       sharedTypes.FileName `json:"path"`
-	Content    *Content             `json:"content"`
-	ModifiedAt *ModifiedAt          `json:"modified"`
-	URL        *sharedTypes.URL     `json:"url"`
+	Path       sharedTypes.FileName  `json:"path"`
+	Content    *sharedTypes.Snapshot `json:"content"`
+	ModifiedAt *ModifiedAt           `json:"modified"`
+	URL        *sharedTypes.URL      `json:"url"`
 }
 
 func (r *Resource) IsDoc() bool {
