@@ -80,10 +80,10 @@ func (u *urlCache) SetupForProject(_ context.Context, projectId primitive.Object
 	return err
 }
 
-func hashFileResource(resource *types.Resource) types.FileName {
+func hashFileResource(resource *types.Resource) sharedTypes.FileName {
 	modified := resource.ModifiedAt.String()
 	raw := resource.URL.Path + "-" + modified
-	return types.FileName(strings.ReplaceAll(raw, "/", "-"))
+	return sharedTypes.FileName(strings.ReplaceAll(raw, "/", "-"))
 }
 
 func atomicWrite(reader io.Reader, dest string) error {

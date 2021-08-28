@@ -107,7 +107,7 @@ func (s SyncType) Validate(*Options) error {
 	return &errors.ValidationError{Msg: "syncType is not allowed"}
 }
 
-type RootResourcePath FileName
+type RootResourcePath sharedTypes.FileName
 
 const UnsafeRootResourcePathCharacters = "#&;`|*?~<>^()[]{}$\\\x0A\xFF\x00"
 
@@ -126,7 +126,7 @@ func (r RootResourcePath) MakeSafe() (RootResourcePath, error) {
 }
 
 func (r RootResourcePath) Validate(*Options) error {
-	if err := FileName(r).Validate(); err != nil {
+	if err := sharedTypes.FileName(r).Validate(); err != nil {
 		return err
 	}
 	if r.ContainsUnsafeCharacters() {
@@ -155,10 +155,10 @@ func (m *ModifiedAt) String() string {
 // The Resource is either the inline doc Content,
 //  or a file with download URL and ModifiedAt timestamp.
 type Resource struct {
-	Path       FileName         `json:"path"`
-	Content    *Content         `json:"content"`
-	ModifiedAt *ModifiedAt      `json:"modified"`
-	URL        *sharedTypes.URL `json:"url"`
+	Path       sharedTypes.FileName `json:"path"`
+	Content    *Content             `json:"content"`
+	ModifiedAt *ModifiedAt          `json:"modified"`
+	URL        *sharedTypes.URL     `json:"url"`
 }
 
 func (r *Resource) IsDoc() bool {
@@ -273,7 +273,7 @@ func (c *CompileRequest) Preprocess(options *Options) error {
 		c.Options.Timeout *= 1000_000_000
 	}
 
-	rootResourcePath := FileName(c.RootResourcePath)
+	rootResourcePath := sharedTypes.FileName(c.RootResourcePath)
 	var rootDoc *Resource
 	for _, resource := range c.Resources {
 		if resource.Path == rootResourcePath {
@@ -294,7 +294,7 @@ func (c *CompileRequest) Preprocess(options *Options) error {
 		return err
 	}
 	if safe != c.RootResourcePath {
-		rootDoc.Path = FileName(safe)
+		rootDoc.Path = sharedTypes.FileName(safe)
 		c.RootResourcePath = safe
 	}
 
@@ -318,13 +318,12 @@ func (c *CompileRequest) Validate(options *Options) error {
 }
 
 type DownloadPath string
-type FileType string
 type OutputFile struct {
-	Build        BuildId      `json:"build"`
-	DownloadPath DownloadPath `json:"url"`
-	Path         FileName     `json:"path"`
-	Size         int64        `json:"size,omitempty"`
-	Type         FileType     `json:"type"`
+	Build        BuildId              `json:"build"`
+	DownloadPath DownloadPath         `json:"url"`
+	Path         sharedTypes.FileName `json:"path"`
+	Size         int64                `json:"size,omitempty"`
+	Type         sharedTypes.FileType `json:"type"`
 }
 type OutputFiles []OutputFile
 

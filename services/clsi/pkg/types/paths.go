@@ -17,89 +17,11 @@
 package types
 
 import (
-	"strings"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
-
-type DirEntry interface {
-	Dir() DirName
-	IsDir() bool
-	String() string
-}
-
-type DirName string
-
-func (d DirName) IsDir() bool {
-	return true
-}
-
-func (d DirName) Dir() DirName {
-	idx := strings.LastIndexByte(string(d), '/')
-	if idx < 1 {
-		return "."
-	}
-	return d[:idx]
-}
-
-func (d DirName) String() string {
-	return string(d)
-}
-
-type FileName string
-
-func (f FileName) Dir() DirName {
-	idx := strings.LastIndexByte(string(f), '/')
-	if idx < 1 {
-		return "."
-	}
-	return DirName(f[:idx])
-}
-
-func (f FileName) IsDir() bool {
-	return false
-}
-
-func (f FileName) IsStringParameter() bool {
-	return true
-}
-
-func (f FileName) String() string {
-	return string(f)
-}
-
-func (f FileName) Type() FileType {
-	idx := strings.LastIndexByte(string(f), '.')
-	if idx == -1 || idx == len(f)-1 {
-		return ""
-	}
-	// Drop the dot.
-	idx += 1
-	return FileType(f[idx:])
-}
-
-func (f FileName) Validate() error {
-	l := len(f)
-	if l == 0 {
-		return &errors.ValidationError{Msg: "empty file/path"}
-	}
-	if f[0] == '/' {
-		return &errors.ValidationError{Msg: "file/path is absolute"}
-	}
-	if f == "." || f[l-1] == '/' || strings.HasSuffix(string(f), "/.") {
-		return &errors.ValidationError{Msg: "file/path is dir"}
-	}
-	if f == ".." ||
-		strings.HasPrefix(string(f), "../") ||
-		strings.HasSuffix(string(f), "/..") ||
-		strings.Contains(string(f), "/../") {
-		return &errors.ValidationError{Msg: "file/path is jumping"}
-	}
-	return nil
-}
 
 type CacheBaseDir string
 
@@ -113,13 +35,13 @@ func (d CacheBaseDir) ProjectCacheDir(projectId primitive.ObjectID) ProjectCache
 
 type NamespacedCacheDir string
 
-func (d NamespacedCacheDir) Join(name FileName) string {
+func (d NamespacedCacheDir) Join(name sharedTypes.FileName) string {
 	return string(d) + "/" + string(name)
 }
 
 type ProjectCacheDir string
 
-func (d ProjectCacheDir) Join(name FileName) string {
+func (d ProjectCacheDir) Join(name sharedTypes.FileName) string {
 	return string(d) + "/" + string(name)
 }
 
@@ -131,7 +53,7 @@ func (d CompileDirBase) CompileDir(namespace Namespace) CompileDir {
 
 type CompileDir string
 
-func (d CompileDir) Join(name DirEntry) string {
+func (d CompileDir) Join(name sharedTypes.DirEntry) string {
 	return string(d) + "/" + name.String()
 }
 
@@ -153,10 +75,10 @@ func (d OutputDir) CompileOutputDir(id BuildId) CompileOutputDir {
 
 type CompileOutputDir string
 
-func (d CompileOutputDir) Join(name FileName) string {
+func (d CompileOutputDir) Join(name sharedTypes.FileName) string {
 	return string(d) + "/" + string(name)
 }
 
-func (d CompileOutputDir) JoinDir(name DirName) string {
+func (d CompileOutputDir) JoinDir(name sharedTypes.DirName) string {
 	return string(d) + "/" + string(name)
 }

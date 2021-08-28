@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -78,9 +79,9 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 			return nil
 		}
 		if d.IsDir() {
-			dirEntries[relativePath] = types.DirName(relativePath)
+			dirEntries[relativePath] = sharedTypes.DirName(relativePath)
 		} else {
-			fileName := types.FileName(relativePath)
+			fileName := sharedTypes.FileName(relativePath)
 			dirEntries[relativePath] = fileName
 			fileStats[fileName] = d
 		}

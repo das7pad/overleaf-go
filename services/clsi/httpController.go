@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -293,7 +294,7 @@ type syncFromCodeResponseBody struct {
 
 func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
 	// TODO: refactor into POST request
-	var file types.FileName
+	var file sharedTypes.FileName
 	if !decodeFromQuery(w, r, "file", file, &file) {
 		return
 	}

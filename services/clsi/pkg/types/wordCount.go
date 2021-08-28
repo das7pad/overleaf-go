@@ -16,6 +16,10 @@
 
 package types
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type Words struct {
 	Encode      string `json:"encode"`
 	TextWords   int64  `json:"textWords"`
@@ -29,9 +33,9 @@ type Words struct {
 	Messages    string `json:"messages"`
 }
 type WordCountRequest struct {
-	CompileGroup CompileGroup `json:"compile_group"`
-	FileName     FileName     `json:"file_name"`
-	ImageName    ImageName    `json:"image_name"`
+	CompileGroup CompileGroup         `json:"compile_group"`
+	FileName     sharedTypes.FileName `json:"file_name"`
+	ImageName    ImageName            `json:"image_name"`
 }
 
 func (r *WordCountRequest) Preprocess(options *Options) error {

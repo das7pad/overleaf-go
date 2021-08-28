@@ -19,12 +19,13 @@ package outputCache
 import (
 	"os"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type createdDirs struct {
 	base  types.CompileOutputDir
-	isDir map[types.DirName]bool
+	isDir map[sharedTypes.DirName]bool
 }
 
 func (d *createdDirs) CreateBase() error {
@@ -36,11 +37,11 @@ func (d *createdDirs) CreateBase() error {
 	return nil
 }
 
-func (d *createdDirs) EnsureIsWritable(name types.FileName) error {
+func (d *createdDirs) EnsureIsWritable(name sharedTypes.FileName) error {
 	return d.EnsureIsDir(name.Dir())
 }
 
-func (d *createdDirs) EnsureIsDir(name types.DirName) error {
+func (d *createdDirs) EnsureIsDir(name sharedTypes.DirName) error {
 	if name == "." {
 		return nil
 	}

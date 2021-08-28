@@ -19,6 +19,7 @@ package latexRunner
 import (
 	"context"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -50,7 +51,7 @@ var (
 		types.XeLatex:  "-xelatex",
 	}
 
-	preProcessedFileTypes = []types.FileType{
+	preProcessedFileTypes = []sharedTypes.FileType{
 		"md",
 		"Rtx",
 		"Rmd",
@@ -106,7 +107,7 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 	}
 
 	mainFile := string(request.RootResourcePath)
-	fileType := types.FileName(mainFile).Type()
+	fileType := sharedTypes.FileName(mainFile).Type()
 	for _, preProcessedFileType := range preProcessedFileTypes {
 		if fileType == preProcessedFileType {
 			mainFile = mainFile[:len(mainFile)-len(fileType)] + "tex"
@@ -128,7 +129,7 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 
 	env := r.options.LatexBaseEnv
 
-	isTexFile := types.FileName(request.RootResourcePath).Type() == "tex"
+	isTexFile := sharedTypes.FileName(request.RootResourcePath).Type() == "tex"
 	checkMode := request.Options.Check
 	if checkMode != types.NoCheck && isTexFile {
 		env = append(

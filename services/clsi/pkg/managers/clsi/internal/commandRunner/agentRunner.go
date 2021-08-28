@@ -35,6 +35,7 @@ import (
 	"github.com/docker/go-units"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -96,7 +97,7 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 					namespace := types.Namespace(addr[:24+1+24])
 					compileDir := options.CompileBaseDir.CompileDir(namespace)
 					path := compileDir.Join(
-						types.FileName(constants.AgentSocketName),
+						sharedTypes.FileName(constants.AgentSocketName),
 					)
 					return net.Dial("unix", path)
 				},
@@ -427,12 +428,12 @@ func (a *agentRunner) Run(ctx context.Context, namespace types.Namespace, option
 	return code, nil
 }
 
-func (a *agentRunner) Resolve(path string, _ types.Namespace) (types.FileName, error) {
+func (a *agentRunner) Resolve(path string, _ types.Namespace) (sharedTypes.FileName, error) {
 	if strings.HasPrefix(path, constants.CompileDirContainer+"/") {
-		return types.FileName(path[len(constants.CompileDirContainer)+1:]), nil
+		return sharedTypes.FileName(path[len(constants.CompileDirContainer)+1:]), nil
 	}
 	if strings.HasPrefix(path, constants.OutputDirContainer+"/") {
-		return types.FileName(path[len(constants.OutputDirContainer)+1:]), nil
+		return sharedTypes.FileName(path[len(constants.OutputDirContainer)+1:]), nil
 	}
 	return "", errors.New("unknown base: " + path)
 }

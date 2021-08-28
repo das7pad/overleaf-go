@@ -24,11 +24,12 @@ import (
 	"syscall"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-type dirEntriesMap map[string]types.DirEntry
-type fileStatsMap map[types.FileName]fs.DirEntry
+type dirEntriesMap map[string]sharedTypes.DirEntry
+type fileStatsMap map[sharedTypes.FileName]fs.DirEntry
 
 type AllFilesAndDirs struct {
 	DirEntries dirEntriesMap
@@ -36,7 +37,7 @@ type AllFilesAndDirs struct {
 }
 
 // DropTree is not thread-safe.
-func (a *AllFilesAndDirs) DropTree(parent types.DirEntry, compileDir types.CompileDir) error {
+func (a *AllFilesAndDirs) DropTree(parent sharedTypes.DirEntry, compileDir types.CompileDir) error {
 	exactMatch := parent.String()
 	prefix := exactMatch + "/"
 	dropSequence := make([]string, 0)
@@ -58,7 +59,7 @@ func (a *AllFilesAndDirs) DropTree(parent types.DirEntry, compileDir types.Compi
 }
 
 // Delete is not thread-safe.
-func (a *AllFilesAndDirs) Delete(entry types.DirEntry, compileDir types.CompileDir) error {
+func (a *AllFilesAndDirs) Delete(entry sharedTypes.DirEntry, compileDir types.CompileDir) error {
 	p := compileDir.Join(entry)
 	if entry.IsDir() {
 		if err := syscall.Rmdir(p); err != nil {
@@ -74,7 +75,7 @@ func (a *AllFilesAndDirs) Delete(entry types.DirEntry, compileDir types.CompileD
 }
 
 // EnsureIsDir is not thread-safe.
-func (a *AllFilesAndDirs) EnsureIsDir(name types.DirName, compileDir types.CompileDir) error {
+func (a *AllFilesAndDirs) EnsureIsDir(name sharedTypes.DirName, compileDir types.CompileDir) error {
 	s := name.String()
 
 	// Step 0: Bail out at the base of the compileDir.
@@ -112,7 +113,7 @@ func (a *AllFilesAndDirs) EnsureIsDir(name types.DirName, compileDir types.Compi
 }
 
 // EnsureIsWritable is not thread-safe.
-func (a *AllFilesAndDirs) EnsureIsWritable(name types.FileName, compileDir types.CompileDir) error {
+func (a *AllFilesAndDirs) EnsureIsWritable(name sharedTypes.FileName, compileDir types.CompileDir) error {
 	s := name.String()
 
 	// Step 0: action on what already exists in the in-memory view of the fs.

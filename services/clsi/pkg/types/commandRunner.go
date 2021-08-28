@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type CommandLine []string
@@ -56,8 +57,8 @@ type CommandOptions struct {
 }
 
 type CommandOutputFiles struct {
-	StdErr FileName
-	StdOut FileName
+	StdErr sharedTypes.FileName
+	StdOut sharedTypes.FileName
 }
 
 func (f *CommandOutputFiles) Cleanup(dir CompileDir) {

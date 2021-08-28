@@ -26,6 +26,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
@@ -69,7 +70,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 	compileOutputDir := outputDir.CompileOutputDir(buildId)
 	dirHelper := createdDirs{
 		base:  compileOutputDir,
-		isDir: make(map[types.DirName]bool),
+		isDir: make(map[sharedTypes.DirName]bool),
 	}
 	if err = dirHelper.CreateBase(); err != nil {
 		return nil, false, err
@@ -165,7 +166,7 @@ func getBuildId() (types.BuildId, error) {
 
 const publicProjectPrefix = "/project"
 
-func getDownloadPath(namespace types.Namespace, id types.BuildId, name types.FileName) types.DownloadPath {
+func getDownloadPath(namespace types.Namespace, id types.BuildId, name sharedTypes.FileName) types.DownloadPath {
 	return types.DownloadPath(
 		publicProjectPrefix +
 			"/" + string(namespace) +

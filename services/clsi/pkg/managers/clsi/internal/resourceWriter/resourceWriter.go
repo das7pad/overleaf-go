@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/urlCache"
@@ -202,7 +203,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 	concurrency := r.options.ParallelResourceWrite
 
 	work := make(chan *types.Resource, concurrency)
-	cleanupWork := make(chan types.FileName, concurrency)
+	cleanupWork := make(chan sharedTypes.FileName, concurrency)
 	go func() {
 		defer close(work)
 		defer close(cleanupWork)
@@ -231,7 +232,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 		}
 		foundResources := 0
 		for _, entry := range allFiles.DirEntries {
-			fileName, isFile := entry.(types.FileName)
+			fileName, isFile := entry.(sharedTypes.FileName)
 			if !isFile {
 				continue
 			}

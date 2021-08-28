@@ -20,8 +20,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/rootDocAlias"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 var PreserveFilesPrefixes = []string{
@@ -54,7 +54,7 @@ var PreserveRegex = regexp.MustCompile(
 	"^(.+/)?(_minted-|_markdown_)[^/]+/.+$",
 )
 
-func ShouldDelete(file types.FileName) bool {
+func ShouldDelete(file sharedTypes.FileName) bool {
 	isGenericOutputFile := file == "output.pdf" ||
 		file == "output.dvi" ||
 		file == "output.log" ||

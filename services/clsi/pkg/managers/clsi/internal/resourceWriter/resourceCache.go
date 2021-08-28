@@ -34,12 +34,12 @@ func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
 }
 
 type resourceCacheEntry struct {
-	Path       types.FileName    `json:"p"`
-	ModifiedAt *types.ModifiedAt `json:"m"`
-	URL        *sharedTypes.URL  `json:"u"`
+	Path       sharedTypes.FileName `json:"p"`
+	ModifiedAt *types.ModifiedAt    `json:"m"`
+	URL        *sharedTypes.URL     `json:"u"`
 }
 
-type ResourceCache map[types.FileName]resourceCacheEntry
+type ResourceCache map[sharedTypes.FileName]resourceCacheEntry
 
 func (r *resourceWriter) loadResourceCache(namespace types.Namespace) ResourceCache {
 	cache := make(ResourceCache)

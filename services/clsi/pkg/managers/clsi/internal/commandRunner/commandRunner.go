@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -46,7 +47,7 @@ type Runner interface {
 	Resolve(
 		path string,
 		namespace types.Namespace,
-	) (types.FileName, error)
+	) (sharedTypes.FileName, error)
 }
 
 type NamespacedRun func(ctx context.Context, options *types.CommandOptions) (types.ExitCode, error)
@@ -67,7 +68,7 @@ func CreateCommandOutput(dir types.CompileDir) (*types.CommandOutputFiles, error
 	if err != nil {
 		return nil, err
 	}
-	stdOut := types.FileName(path.Base(stdOutHandle.Name()))
+	stdOut := sharedTypes.FileName(path.Base(stdOutHandle.Name()))
 	if err = stdOutHandle.Close(); err != nil {
 		return nil, err
 	}

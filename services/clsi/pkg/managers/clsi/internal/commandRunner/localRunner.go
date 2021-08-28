@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -82,14 +83,14 @@ func (l *localRunner) Run(ctx context.Context, namespace types.Namespace, option
 	return -1, err
 }
 
-func (l *localRunner) Resolve(path string, namespace types.Namespace) (types.FileName, error) {
+func (l *localRunner) Resolve(path string, namespace types.Namespace) (sharedTypes.FileName, error) {
 	compileDir := string(l.options.CompileBaseDir.CompileDir(namespace))
 	if strings.HasPrefix(path, compileDir+"/") {
-		return types.FileName(path[len(compileDir)+1:]), nil
+		return sharedTypes.FileName(path[len(compileDir)+1:]), nil
 	}
 	outputDir := string(l.options.OutputBaseDir.OutputDir(namespace))
 	if strings.HasPrefix(path, outputDir+"/") {
-		return types.FileName(path[len(outputDir)+1:]), nil
+		return sharedTypes.FileName(path[len(outputDir)+1:]), nil
 	}
 	return "", errors.New("unknown base: " + path)
 }

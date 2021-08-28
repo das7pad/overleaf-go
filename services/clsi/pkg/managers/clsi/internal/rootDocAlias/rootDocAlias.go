@@ -19,6 +19,7 @@ package rootDocAlias
 import (
 	"strings"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -36,7 +37,7 @@ type manager struct {
 const (
 	usesTikzExternalize      = "\\tikzexternalize"
 	usesPsTool               = "{pstool}"
-	AliasDocFileName         = types.FileName("output.tex")
+	AliasDocFileName         = sharedTypes.FileName("output.tex")
 	aliasDocRootResourcePath = types.RootResourcePath(AliasDocFileName)
 )
 
