@@ -31,7 +31,7 @@ type coreProjectUpdate struct {
 
 type AddDocUpdate struct {
 	coreProjectUpdate
-	PathName PathName `json:"pathname"`
+	PathName sharedTypes.FileName `json:"pathname"`
 }
 
 func (a *AddDocUpdate) Validate() error {
@@ -43,8 +43,8 @@ func (a *AddDocUpdate) Validate() error {
 
 type AddFileUpdate struct {
 	coreProjectUpdate
-	PathName PathName `json:"pathname"`
-	URL      string   `json:"url"`
+	PathName sharedTypes.FileName `json:"pathname"`
+	URL      string               `json:"url"`
 }
 
 func (a *AddFileUpdate) Validate() error {
@@ -59,8 +59,8 @@ func (a *AddFileUpdate) Validate() error {
 
 type RenameDocUpdate struct {
 	coreProjectUpdate
-	PathName    PathName `json:"pathname"`
-	NewPathName PathName `json:"newPathname"`
+	PathName    sharedTypes.FileName `json:"pathname"`
+	NewPathName sharedTypes.FileName `json:"newPathname"`
 }
 
 func (r *RenameDocUpdate) Validate() error {
@@ -72,9 +72,9 @@ func (r *RenameDocUpdate) Validate() error {
 
 type RenameFileUpdate struct {
 	coreProjectUpdate
-	PathName    PathName `json:"pathname"`
-	NewPathName PathName `json:"newPathname"`
-	URL         string   `json:"url"`
+	PathName    sharedTypes.FileName `json:"pathname"`
+	NewPathName sharedTypes.FileName `json:"newPathname"`
+	URL         string               `json:"url"`
 }
 
 func (r *RenameFileUpdate) Validate() error {
@@ -89,9 +89,9 @@ func (r *RenameFileUpdate) Validate() error {
 
 type GenericProjectUpdate struct {
 	coreProjectUpdate
-	PathName    PathName `json:"pathname"`
-	NewPathName PathName `json:"newPathname"`
-	URL         string   `json:"url"`
+	PathName    sharedTypes.FileName `json:"pathname"`
+	NewPathName sharedTypes.FileName `json:"newPathname"`
+	URL         string               `json:"url"`
 }
 
 func (g *GenericProjectUpdate) AddDocUpdate() *AddDocUpdate {

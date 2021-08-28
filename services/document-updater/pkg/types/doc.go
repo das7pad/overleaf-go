@@ -42,12 +42,12 @@ type ProjectHistoryId int64
 type ProjectHistoryType string
 
 type FlushedDoc struct {
-	Lines              sharedTypes.Lines   `json:"lines"`
-	PathName           PathName            `json:"pathname"`
-	ProjectHistoryId   ProjectHistoryId    `json:"projectHistoryId,omitempty"`
-	ProjectHistoryType ProjectHistoryType  `json:"projectHistoryType,omitempty"`
-	Ranges             sharedTypes.Ranges  `json:"ranges"`
-	Version            sharedTypes.Version `json:"version"`
+	Lines              sharedTypes.Lines    `json:"lines"`
+	PathName           sharedTypes.FileName `json:"pathname"`
+	ProjectHistoryId   ProjectHistoryId     `json:"projectHistoryId,omitempty"`
+	ProjectHistoryType ProjectHistoryType   `json:"projectHistoryType,omitempty"`
+	Ranges             sharedTypes.Ranges   `json:"ranges"`
+	Version            sharedTypes.Version  `json:"version"`
 }
 
 func (d *FlushedDoc) ToDoc(projectId, docId primitive.ObjectID) *Doc {
@@ -63,15 +63,13 @@ func (d *FlushedDoc) ToDoc(projectId, docId primitive.ObjectID) *Doc {
 	return doc
 }
 
-type PathName string
-
 type DocCore struct {
 	Snapshot         sharedTypes.Snapshot `json:"snapshot"`
 	Hash             sharedTypes.Hash     `json:"hash"`
 	JsonRanges       json.RawMessage      `json:"json_ranges"`
 	Ranges           sharedTypes.Ranges   `json:"-"`
 	ProjectId        primitive.ObjectID   `json:"project_id"`
-	PathName         PathName             `json:"path_name"`
+	PathName         sharedTypes.FileName `json:"path_name"`
 	ProjectHistoryId ProjectHistoryId     `json:"project_history_id,omitempty"`
 }
 
@@ -125,16 +123,16 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 }
 
 type DocContentLines struct {
-	Id       primitive.ObjectID  `json:"_id"`
-	Lines    sharedTypes.Lines   `json:"lines"`
-	PathName PathName            `json:"pathname"`
-	Version  sharedTypes.Version `json:"v"`
+	Id       primitive.ObjectID   `json:"_id"`
+	Lines    sharedTypes.Lines    `json:"lines"`
+	PathName sharedTypes.FileName `json:"pathname"`
+	Version  sharedTypes.Version  `json:"v"`
 }
 
 type DocContentSnapshot struct {
 	Id       primitive.ObjectID   `json:"_id"`
 	Snapshot sharedTypes.Snapshot `json:"snapshot"`
-	PathName PathName             `json:"pathname"`
+	PathName sharedTypes.FileName `json:"pathname"`
 	Version  sharedTypes.Version  `json:"v"`
 }
 
