@@ -74,8 +74,7 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 			return nil
 		}
 		relativePath := path[parentLength:]
-		if relativePath == constants.ProjectSyncStateFilename ||
-			relativePath == constants.AgentSocketName {
+		if relativePath == constants.AgentSocketName {
 			return nil
 		}
 		if d.IsDir() {
