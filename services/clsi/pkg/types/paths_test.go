@@ -88,86 +88,70 @@ func TestFileName_Type(t *testing.T) {
 }
 
 func TestFileName_Validate(t *testing.T) {
-	type args struct {
-		in0 *Options
-	}
-	noArgs := args{}
 	tests := []struct {
 		name    string
 		f       FileName
-		args    args
 		wantErr bool
 	}{
 		{
 			"ok",
 			"foo.txt",
-			noArgs,
 			false,
 		},
 		{
 			"zero size",
 			"",
-			noArgs,
 			true,
 		},
 		{
 			"absolute",
 			"/foo.txt",
-			noArgs,
 			true,
 		},
 		{
 			"dir explicit",
 			"foo/",
-			noArgs,
 			true,
 		},
 		{
 			"dir implicit",
 			"foo/.",
-			noArgs,
 			true,
 		},
 		{
 			"just dot",
 			".",
-			noArgs,
 			true,
 		},
 		{
 			"just dots",
 			"..",
-			noArgs,
 			true,
 		},
 		{
 			"jumping parent",
 			"..",
-			noArgs,
 			true,
 		},
 		{
 			"jumping start",
 			"../foo.txt",
-			noArgs,
 			true,
 		},
 		{
 			"jumping middle",
 			"foo/../bar.txt",
-			noArgs,
 			true,
 		},
 		{
 			"jumping end",
 			"foo/..",
-			noArgs,
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.f.Validate(tt.args.in0); (err != nil) != tt.wantErr {
+			if err := tt.f.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

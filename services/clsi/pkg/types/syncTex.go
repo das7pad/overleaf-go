@@ -153,7 +153,7 @@ func (r *SyncFromCodeRequest) CommandLine() CommandLine {
 }
 
 func (r *SyncFromCodeRequest) Validate(options *Options) error {
-	if err := r.FileName.Validate(options); err != nil {
+	if err := r.FileName.Validate(); err != nil {
 		return err
 	}
 	if r.SyncTexOptions == nil {

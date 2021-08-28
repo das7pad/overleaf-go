@@ -125,8 +125,8 @@ func (r RootResourcePath) MakeSafe() (RootResourcePath, error) {
 	return r, nil
 }
 
-func (r RootResourcePath) Validate(options *Options) error {
-	if err := FileName(r).Validate(options); err != nil {
+func (r RootResourcePath) Validate(*Options) error {
+	if err := FileName(r).Validate(); err != nil {
 		return err
 	}
 	if r.ContainsUnsafeCharacters() {
@@ -166,7 +166,7 @@ func (r *Resource) IsDoc() bool {
 }
 
 func (r *Resource) Validate(options *Options) error {
-	if err := r.Path.Validate(options); err != nil {
+	if err := r.Path.Validate(); err != nil {
 		return err
 	}
 	if r.IsDoc() {

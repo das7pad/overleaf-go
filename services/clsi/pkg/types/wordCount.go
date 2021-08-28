@@ -51,7 +51,7 @@ func (r *WordCountRequest) Validate(options *Options) error {
 	if err := r.CompileGroup.Validate(options); err != nil {
 		return err
 	}
-	if err := r.FileName.Validate(options); err != nil {
+	if err := r.FileName.Validate(); err != nil {
 		return err
 	}
 	if err := r.ImageName.Validate(options); err != nil {

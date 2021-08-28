@@ -58,7 +58,7 @@ func (f FileName) IsStringParameter() bool {
 	return true
 }
 
-func (f FileName) Validate(*Options) error {
+func (f FileName) Validate() error {
 	l := len(f)
 	if l == 0 {
 		return &errors.ValidationError{Msg: "empty file/path"}
