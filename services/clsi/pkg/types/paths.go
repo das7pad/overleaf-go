@@ -25,37 +25,60 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
 
-type FileName string
-
-func (f FileName) lastIdxOf(needle uint8) int {
-	for i := len(f) - 1; i >= 0; i-- {
-		if f[i] == needle {
-			return i
-		}
-	}
-	return -1
+type DirEntry interface {
+	Dir() DirName
+	IsDir() bool
+	String() string
 }
 
-func (f FileName) Dir() FileName {
-	idx := f.lastIdxOf('/')
+type DirName string
+
+func (d DirName) IsDir() bool {
+	return true
+}
+
+func (d DirName) Dir() DirName {
+	idx := strings.LastIndexByte(string(d), '/')
 	if idx < 1 {
 		return "."
 	}
-	return f[:idx]
+	return d[:idx]
+}
+
+func (d DirName) String() string {
+	return string(d)
+}
+
+type FileName string
+
+func (f FileName) Dir() DirName {
+	idx := strings.LastIndexByte(string(f), '/')
+	if idx < 1 {
+		return "."
+	}
+	return DirName(f[:idx])
+}
+
+func (f FileName) IsDir() bool {
+	return false
+}
+
+func (f FileName) IsStringParameter() bool {
+	return true
+}
+
+func (f FileName) String() string {
+	return string(f)
 }
 
 func (f FileName) Type() FileType {
-	idx := f.lastIdxOf('.')
+	idx := strings.LastIndexByte(string(f), '.')
 	if idx == -1 || idx == len(f)-1 {
 		return ""
 	}
 	// Drop the dot.
 	idx += 1
 	return FileType(f[idx:])
-}
-
-func (f FileName) IsStringParameter() bool {
-	return true
 }
 
 func (f FileName) Validate() error {
@@ -108,8 +131,8 @@ func (d CompileDirBase) CompileDir(namespace Namespace) CompileDir {
 
 type CompileDir string
 
-func (d CompileDir) Join(name FileName) string {
-	return string(d) + "/" + string(name)
+func (d CompileDir) Join(name DirEntry) string {
+	return string(d) + "/" + name.String()
 }
 
 type OutputBaseDir string
@@ -131,5 +154,9 @@ func (d OutputDir) CompileOutputDir(id BuildId) CompileOutputDir {
 type CompileOutputDir string
 
 func (d CompileOutputDir) Join(name FileName) string {
+	return string(d) + "/" + string(name)
+}
+
+func (d CompileOutputDir) JoinDir(name DirName) string {
 	return string(d) + "/" + string(name)
 }

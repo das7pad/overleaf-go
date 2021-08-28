@@ -230,8 +230,9 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 			}
 		}
 		foundResources := 0
-		for fileName, isDir := range allFiles.IsDir {
-			if isDir {
+		for _, entry := range allFiles.DirEntries {
+			fileName, isFile := entry.(types.FileName)
+			if !isFile {
 				continue
 			}
 			if _, foundResource := allResources[fileName]; foundResource {
@@ -257,10 +258,13 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 		}
 		if foundResources != len(allResources) {
 			missing := make([]string, 0)
-			for file := range allResources {
-				if isDir, exists := allFiles.IsDir[file]; !exists || isDir {
-					missing = append(missing, string(file))
+			for fileName := range allResources {
+				s := fileName.String()
+				entry, exists := allFiles.DirEntries[s]
+				if exists && !entry.IsDir() {
+					continue
 				}
+				missing = append(missing, s)
 			}
 			flat := strings.Join(missing, ", ")
 			setErr(&errors.InvalidStateError{

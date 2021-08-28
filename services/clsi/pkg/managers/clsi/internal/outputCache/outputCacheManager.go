@@ -69,7 +69,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 	compileOutputDir := outputDir.CompileOutputDir(buildId)
 	dirHelper := createdDirs{
 		base:  compileOutputDir,
-		isDir: make(map[types.FileName]bool),
+		isDir: make(map[types.DirName]bool),
 	}
 	if err = dirHelper.CreateBase(); err != nil {
 		return nil, false, err

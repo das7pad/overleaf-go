@@ -95,7 +95,9 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 					}
 					namespace := types.Namespace(addr[:24+1+24])
 					compileDir := options.CompileBaseDir.CompileDir(namespace)
-					path := compileDir.Join(constants.AgentSocketName)
+					path := compileDir.Join(
+						types.FileName(constants.AgentSocketName),
+					)
 					return net.Dial("unix", path)
 				},
 			},

@@ -17,30 +17,31 @@
 package outputFileFinder
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"sort"
 	"strings"
 	"syscall"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-type isDirMap map[types.FileName]bool
+type dirEntriesMap map[string]types.DirEntry
 type fileStatsMap map[types.FileName]fs.DirEntry
 
 type AllFilesAndDirs struct {
-	IsDir     isDirMap
-	FileStats fileStatsMap
+	DirEntries dirEntriesMap
+	FileStats  fileStatsMap
 }
 
 // DropTree is not thread-safe.
-func (a *AllFilesAndDirs) DropTree(parent types.FileName, compileDir types.CompileDir) error {
-	prefix := string(parent + "/")
-	dropSequence := make([]types.FileName, 0)
-	for fileName := range a.IsDir {
-		if fileName == parent || strings.HasPrefix(string(fileName), prefix) {
+func (a *AllFilesAndDirs) DropTree(parent types.DirEntry, compileDir types.CompileDir) error {
+	exactMatch := parent.String()
+	prefix := exactMatch + "/"
+	dropSequence := make([]string, 0)
+	for fileName := range a.DirEntries {
+		if fileName == exactMatch || strings.HasPrefix(fileName, prefix) {
 			dropSequence = append(dropSequence, fileName)
 		}
 	}
@@ -49,7 +50,7 @@ func (a *AllFilesAndDirs) DropTree(parent types.FileName, compileDir types.Compi
 		return dropSequence[i] > dropSequence[j]
 	})
 	for _, fileName := range dropSequence {
-		if err := a.Delete(fileName, compileDir); err != nil {
+		if err := a.Delete(a.DirEntries[fileName], compileDir); err != nil {
 			return err
 		}
 	}
@@ -57,71 +58,82 @@ func (a *AllFilesAndDirs) DropTree(parent types.FileName, compileDir types.Compi
 }
 
 // Delete is not thread-safe.
-func (a *AllFilesAndDirs) Delete(fileName types.FileName, compileDir types.CompileDir) error {
-	p := compileDir.Join(fileName)
-	var err error
-	if a.IsDir[fileName] {
-		err = syscall.Rmdir(p)
+func (a *AllFilesAndDirs) Delete(entry types.DirEntry, compileDir types.CompileDir) error {
+	p := compileDir.Join(entry)
+	if entry.IsDir() {
+		if err := syscall.Rmdir(p); err != nil {
+			return errors.Tag(err, "cannot delete directory "+p)
+		}
 	} else {
-		err = syscall.Unlink(p)
+		if err := syscall.Unlink(p); err != nil {
+			return errors.Tag(err, "cannot delete file "+p)
+		}
 	}
-	if err != nil {
-		return fmt.Errorf("cannot delete %s: %w", p, err)
-	}
-	delete(a.IsDir, fileName)
+	delete(a.DirEntries, entry.String())
 	return nil
 }
 
 // EnsureIsDir is not thread-safe.
-func (a *AllFilesAndDirs) EnsureIsDir(name types.FileName, compileDir types.CompileDir) error {
-	if name == "." {
-		// Stop at the base of the compileDir.
+func (a *AllFilesAndDirs) EnsureIsDir(name types.DirName, compileDir types.CompileDir) error {
+	s := name.String()
+
+	// Step 0: Bail out at the base of the compileDir.
+	if s == "." {
 		return nil
 	}
 
-	if isDir, exists := a.IsDir[name]; exists {
-		if isDir {
-			// Happy path
-			return nil
-		}
-		// Cleanup the clutter output file
-		if err := a.Delete(name, compileDir); err != nil {
+	// Step 1: action on what already exists in the in-memory view of the fs.
+	if entry, exists := a.DirEntries[s]; exists && entry.IsDir() {
+		// Happy path, already exists as directory.
+		return nil
+	} else if exists {
+		// Entry is a file instead of a directory, delete it first.
+		// Case A: The last compile has replaced the directory with a file.
+		// Case B: The user has restructured the tree since the last compile.
+		if err := a.Delete(entry, compileDir); err != nil {
 			return err
 		}
-		a.IsDir[name] = true
-		return nil
+	} else {
+		// New directory, create parent directories first.
+		if err := a.EnsureIsDir(name.Dir(), compileDir); err != nil {
+			return err
+		}
 	}
 
-	// Make sure all the parents exists as well.
-	if err := a.EnsureIsDir(name.Dir(), compileDir); err != nil {
-		return err
+	// Step 2: create the directory.
+	p := compileDir.Join(name)
+	if err := os.Mkdir(p, 0755); err != nil {
+		return errors.Tag(err, "cannot create directory "+p)
 	}
-	if err := os.Mkdir(compileDir.Join(name), 0755); err != nil {
-		return err
-	}
-	a.IsDir[name] = true
+
+	// Step 3: persist new state in the in-memory view of the fs.
+	a.DirEntries[s] = name
 	return nil
 }
 
 // EnsureIsWritable is not thread-safe.
 func (a *AllFilesAndDirs) EnsureIsWritable(name types.FileName, compileDir types.CompileDir) error {
-	if isDir, exists := a.IsDir[name]; exists {
-		if !isDir {
-			// Happy path, overwrite doc/file
-			return nil
-		}
-		// New doc/file placed on top of a previous output dir
+	s := name.String()
+
+	// Step 0: action on what already exists in the in-memory view of the fs.
+	if entry, exists := a.DirEntries[s]; exists && !entry.IsDir() {
+		// Happy path, let the call-site overwrite the file.
+		return nil
+	} else if exists {
+		// Entry is a directory instead of a file, delete it recursively.
+		// Case A: The last compile has replaced the file with a directory.
+		// Case B: The user has restructured the tree since the last compile.
 		if err := a.DropTree(name, compileDir); err != nil {
 			return err
 		}
-		a.IsDir[name] = false
-		return nil
+	} else {
+		// Make sure all the parents exist and are directories.
+		if err := a.EnsureIsDir(name.Dir(), compileDir); err != nil {
+			return err
+		}
 	}
 
-	// Make sure all the parents exist and are directories.
-	if err := a.EnsureIsDir(name.Dir(), compileDir); err != nil {
-		return err
-	}
-	a.IsDir[name] = false
+	// Step 1: persist new state in the in-memory view of the fs.
+	a.DirEntries[s] = name
 	return nil
 }

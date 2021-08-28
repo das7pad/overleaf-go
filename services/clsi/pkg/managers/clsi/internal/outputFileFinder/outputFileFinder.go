@@ -50,7 +50,7 @@ var (
 )
 
 func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAndDirs, error) {
-	isDir := make(isDirMap)
+	dirEntries := make(dirEntriesMap)
 	fileStats := make(fileStatsMap)
 	parent := string(dir)
 	parentLength := len(parent) + 1
@@ -73,16 +73,17 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 			// Omit the parent dir
 			return nil
 		}
-		relativePath := types.FileName(path[parentLength:])
+		relativePath := path[parentLength:]
 		if relativePath == constants.ProjectSyncStateFilename ||
 			relativePath == constants.AgentSocketName {
 			return nil
 		}
 		if d.IsDir() {
-			isDir[relativePath] = true
+			dirEntries[relativePath] = types.DirName(relativePath)
 		} else {
-			isDir[relativePath] = false
-			fileStats[relativePath] = d
+			fileName := types.FileName(relativePath)
+			dirEntries[relativePath] = fileName
+			fileStats[fileName] = d
 		}
 		return nil
 	})
@@ -92,5 +93,5 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
-	return &AllFilesAndDirs{IsDir: isDir, FileStats: fileStats}, nil
+	return &AllFilesAndDirs{DirEntries: dirEntries, FileStats: fileStats}, nil
 }

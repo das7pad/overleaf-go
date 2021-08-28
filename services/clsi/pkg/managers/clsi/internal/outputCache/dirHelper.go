@@ -24,7 +24,7 @@ import (
 
 type createdDirs struct {
 	base  types.CompileOutputDir
-	isDir map[types.FileName]bool
+	isDir map[types.DirName]bool
 }
 
 func (d *createdDirs) CreateBase() error {
@@ -40,7 +40,7 @@ func (d *createdDirs) EnsureIsWritable(name types.FileName) error {
 	return d.EnsureIsDir(name.Dir())
 }
 
-func (d *createdDirs) EnsureIsDir(name types.FileName) error {
+func (d *createdDirs) EnsureIsDir(name types.DirName) error {
 	if name == "." {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (d *createdDirs) EnsureIsDir(name types.FileName) error {
 	if err := d.EnsureIsDir(name.Dir()); err != nil {
 		return err
 	}
-	p := d.base.Join(name)
+	p := d.base.JoinDir(name)
 	if err := os.Mkdir(p, 0755); err != nil && !os.IsExist(err) {
 		return err
 	}

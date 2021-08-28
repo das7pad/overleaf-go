@@ -24,7 +24,7 @@ func TestFileName_Dir(t *testing.T) {
 	tests := []struct {
 		name string
 		f    FileName
-		want FileName
+		want DirName
 	}{
 		{
 			"no dir",
