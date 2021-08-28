@@ -25,10 +25,12 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-const StateFile = types.FileName(constants.ProjectSyncStateFilename)
-
 func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
-	return r.options.CacheBaseDir.NamespacedCacheDir(namespace).Join(StateFile)
+	return r.
+		options.
+		CacheBaseDir.
+		NamespacedCacheDir(namespace).
+		Join(constants.ProjectSyncStateFilename)
 }
 
 type resourceCacheEntry struct {
