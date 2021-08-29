@@ -132,6 +132,24 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	// For cleanup purposes: mark as joined before actually joining.
 	rpc.Client.ProjectId = &args.ProjectId
 
+	// Fetch connected users in the background.
+	var connectedClients types.ConnectedClients
+	fetchUsersCtx, doneFetchingUsers := context.WithTimeout(
+		rpc, time.Second*10,
+	)
+	if rpc.Client.CanDo(types.GetConnectedUsers, rpc.Request.DocId) == nil {
+		defer doneFetchingUsers()
+		go func() {
+			connectedClients, _ = m.clientTracking.GetConnectedClients(
+				fetchUsersCtx, rpc.Client,
+			)
+			doneFetchingUsers()
+		}()
+	} else {
+		connectedClients = make(types.ConnectedClients, 0)
+		doneFetchingUsers()
+	}
+
 	go func() {
 		// Mark the user as joined in the background.
 		// NOTE: UpdateClientPosition expects a present client.ProjectId.
@@ -152,10 +170,20 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 			"encoding PrivilegeLevel failed for "+args.ProjectId.Hex(),
 		)
 	}
+
+	// Wait for the fetch, but ignore any fetch errors.
+	// Instead, let the client fetch any connectedClients via a 2nd rpc call.
+	<-fetchUsersCtx.Done()
+	usersBlob, err := json.Marshal(connectedClients)
+	if err != nil {
+		return errors.Tag(err, "cannot serialize connectedClients")
+	}
+
 	res := types.JoinProjectResponse{
 		r.Project,
 		json.RawMessage(levelRaw),
 		json.RawMessage("5"),
+		usersBlob,
 	}
 	body, err := json.Marshal(res)
 	if err != nil {
