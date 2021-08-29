@@ -17,9 +17,7 @@
 package types
 
 import (
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -326,46 +324,11 @@ type OutputFile struct {
 }
 type OutputFiles []OutputFile
 
-type Timed struct {
-	t0   *time.Time
-	diff time.Duration
-}
-
-func (t *Timed) Begin() {
-	now := time.Now()
-	t.t0 = &now
-}
-
-func (t *Timed) End() {
-	if t.t0 == nil {
-		return
-	}
-	t.diff = time.Now().Sub(*t.t0)
-	t.t0 = nil
-}
-
-func (t *Timed) Diff() int64 {
-	return t.diff.Milliseconds()
-}
-
-func (t *Timed) MarshalJSON() ([]byte, error) {
-	return []byte(strconv.FormatInt(t.Diff(), 10)), nil
-}
-
-func (t *Timed) UnmarshalJSON(bytes []byte) error {
-	diff, err := strconv.ParseInt(string(bytes), 10, 64)
-	if err != nil {
-		return err
-	}
-	t.diff = time.Duration(diff * int64(time.Millisecond))
-	return nil
-}
-
 type Timings struct {
-	Compile    Timed `json:"compile"`
-	CompileE2E Timed `json:"compileE2E"`
-	Output     Timed `json:"output"`
-	Sync       Timed `json:"sync"`
+	Compile    sharedTypes.Timed `json:"compile"`
+	CompileE2E sharedTypes.Timed `json:"compileE2E"`
+	Output     sharedTypes.Timed `json:"output"`
+	Sync       sharedTypes.Timed `json:"sync"`
 }
 
 type CompileStatus string

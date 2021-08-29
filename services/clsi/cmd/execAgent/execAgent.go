@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -37,7 +38,7 @@ const (
 	outputDir  = types.OutputDir(constants.OutputDirContainer)
 )
 
-func do(ctx context.Context, options *types.ExecAgentRequestOptions, timed *types.Timed) (types.ExitCode, error) {
+func do(ctx context.Context, options *types.ExecAgentRequestOptions, timed *sharedTypes.Timed) (types.ExitCode, error) {
 	args := make([]string, len(options.CommandLine))
 	for i, s := range options.CommandLine {
 		s = strings.ReplaceAll(
@@ -82,7 +83,7 @@ func do(ctx context.Context, options *types.ExecAgentRequestOptions, timed *type
 
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	options := types.ExecAgentRequestOptions{}
-	timed := types.Timed{}
+	timed := sharedTypes.Timed{}
 	if err := json.NewDecoder(r.Body).Decode(&options); err != nil {
 		respond(w, http.StatusBadRequest, -1, timed, "invalid request")
 		return
@@ -103,7 +104,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func respond(w http.ResponseWriter, status int, code types.ExitCode, timed types.Timed, message string) {
+func respond(w http.ResponseWriter, status int, code types.ExitCode, timed sharedTypes.Timed, message string) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	msg := &types.ExecAgentResponseBody{

@@ -1,4 +1,4 @@
-// Golang port of the Overleaf clsi service
+// Golang port of Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,21 +14,45 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"encoding/json"
+	"time"
 )
 
-type ExecAgentRequestOptions struct {
-	CommandLine        `json:"command_line"`
-	Environment        `json:"environment"`
-	Timeout            `json:"timeout"`
-	CommandOutputFiles `json:"command_output_files"`
+type Timed struct {
+	t0   *time.Time
+	diff time.Duration
 }
 
-type ExecAgentResponseBody struct {
-	ExitCode     ExitCode          `json:"exitCode"`
-	ErrorMessage string            `json:"error_message"`
-	Timed        sharedTypes.Timed `json:"timed"`
+func (t *Timed) Begin() {
+	now := time.Now()
+	t.t0 = &now
+}
+
+func (t *Timed) End() {
+	if t.t0 == nil {
+		return
+	}
+	t.diff = time.Now().Sub(*t.t0)
+	t.t0 = nil
+}
+
+func (t *Timed) Diff() int64 {
+	return t.diff.Milliseconds()
+}
+
+func (t *Timed) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.diff.String())
+}
+
+func (t *Timed) UnmarshalJSON(bytes []byte) error {
+	var raw string
+	err := json.Unmarshal(bytes, &raw)
+	if err != nil {
+		return err
+	}
+	t.diff, err = time.ParseDuration(raw)
+	return err
 }
