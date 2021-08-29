@@ -19,6 +19,7 @@ package realTimeRedisManager
 import (
 	"context"
 	"encoding/json"
+	"os"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -47,12 +48,21 @@ type Manager interface {
 	) error
 }
 
-func New(client redis.UniversalClient) Manager {
-	return &manager{client: client}
+func New(client redis.UniversalClient) (Manager, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, errors.Tag(err, "cannot get hostname")
+	}
+
+	return &manager{
+		client:   client,
+		hostname: hostname,
+	}, nil
 }
 
 type manager struct {
-	client redis.UniversalClient
+	client   redis.UniversalClient
+	hostname string
 }
 
 func getPendingUpdatesKey(docId primitive.ObjectID) string {
@@ -111,8 +121,9 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 			}
 
 			_, err := m.sendMessageVia(ctx, p, &sharedTypes.AppliedOpsMessage{
-				DocId:  update.DocId,
-				Update: &update,
+				DocId:       update.DocId,
+				Update:      &update,
+				ProcessedBy: m.hostname,
 			})
 			if err != nil {
 				return err
@@ -125,7 +136,8 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 
 func (m *manager) ReportError(ctx context.Context, docId primitive.ObjectID, err error) error {
 	message := &sharedTypes.AppliedOpsMessage{
-		DocId: docId,
+		DocId:       docId,
+		ProcessedBy: m.hostname,
 	}
 	if publicErr, ok := err.(errors.PublicError); ok {
 		message.Error = publicErr.Public()

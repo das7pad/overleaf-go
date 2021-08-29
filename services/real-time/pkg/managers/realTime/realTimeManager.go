@@ -121,7 +121,8 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		)
 	}
 
-	r, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
+	r, by, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
+	rpc.Response.ProcessedBy = by
 	if err != nil {
 		return errors.Tag(
 			err, "webApi.joinProject failed for "+args.ProjectId.Hex(),

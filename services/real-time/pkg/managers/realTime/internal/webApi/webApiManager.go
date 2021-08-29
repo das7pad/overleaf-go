@@ -27,7 +27,7 @@ import (
 )
 
 type Manager interface {
-	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, error)
+	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error)
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -49,44 +49,45 @@ const (
 	anonymousAccessTokenHeader = "x-sl-anonymous-access-token"
 )
 
-func (m *manager) JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, error) {
+func (m *manager) JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error) {
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.Hex() + "/join"
 	u += "?user_id=" + client.User.Id.Hex()
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	r.Header.Set(anonymousAccessTokenHeader, request.AnonymousAccessToken)
 	res, err := m.client.Do(r)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer func() {
 		_ = res.Body.Close()
 	}()
+	by := res.Header.Get("X-Served-By")
 	switch res.StatusCode {
 	case http.StatusOK:
 		var body types.JoinProjectWebApiResponse
 		err = json.NewDecoder(res.Body).Decode(&body)
 		if err != nil {
-			return nil, err
+			return nil, by, err
 		}
-		return &body, nil
+		return &body, by, nil
 	case http.StatusForbidden:
-		return nil, &errors.NotAuthorizedError{}
+		return nil, by, &errors.NotAuthorizedError{}
 	case http.StatusNotFound:
-		return nil, &errors.CodedError{
+		return nil, by, &errors.CodedError{
 			Description: "project not found",
 			Code:        "ProjectNotFound",
 		}
 	case http.StatusTooManyRequests:
-		return nil, &errors.CodedError{
+		return nil, by, &errors.CodedError{
 			Description: "rate-limit hit when joining project",
 			Code:        "TooManyRequests",
 		}
 	default:
-		return nil, errors.New(
+		return nil, by, errors.New(
 			"non-success status code from web: " + res.Status,
 		)
 	}

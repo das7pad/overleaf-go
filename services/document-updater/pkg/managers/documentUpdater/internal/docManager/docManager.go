@@ -66,7 +66,10 @@ func New(options *types.Options, client redis.UniversalClient) (Manager, error) 
 		return nil, err
 	}
 	rm := redisManager.New(client)
-	rtRm := realTimeRedisManager.New(client)
+	rtRm, err := realTimeRedisManager.New(client)
+	if err != nil {
+		return nil, err
+	}
 	web, err := webApi.New(options)
 	if err != nil {
 		return nil, err

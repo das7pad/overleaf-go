@@ -49,11 +49,12 @@ type RPCRequest struct {
 }
 
 type RPCResponse struct {
-	Body     json.RawMessage         `json:"b,omitempty"`
-	Callback Callback                `json:"c,omitempty"`
-	Error    *errors.JavaScriptError `json:"e,omitempty"`
-	Name     string                  `json:"n,omitempty"`
-	Latency  sharedTypes.Timed       `json:"l,omitempty"`
+	Body        json.RawMessage         `json:"b,omitempty"`
+	Callback    Callback                `json:"c,omitempty"`
+	Error       *errors.JavaScriptError `json:"e,omitempty"`
+	Name        string                  `json:"n,omitempty"`
+	Latency     sharedTypes.Timed       `json:"l,omitempty"`
+	ProcessedBy string                  `json:"p,omitempty"`
 
 	FatalError bool `json:"-"`
 }

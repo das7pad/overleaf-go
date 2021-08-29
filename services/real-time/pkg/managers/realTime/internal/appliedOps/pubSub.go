@@ -69,10 +69,11 @@ func (r *DocRoom) handleError(msg *sharedTypes.AppliedOpsMessage) error {
 		return errors.Tag(err, "cannot compose minimal error message")
 	}
 	resp := types.RPCResponse{
-		Error:      msg.Error,
-		Name:       "otUpdateError",
-		Body:       blob,
-		FatalError: true,
+		Error:       msg.Error,
+		Name:        "otUpdateError",
+		Body:        blob,
+		ProcessedBy: msg.ProcessedBy,
+		FatalError:  true,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -95,9 +96,10 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	source := update.Meta.Source
 	blob, err := json.Marshal(&update)
 	resp := types.RPCResponse{
-		Name:    "otUpdateApplied",
-		Body:    blob,
-		Latency: latency,
+		Name:        "otUpdateApplied",
+		Body:        blob,
+		Latency:     latency,
+		ProcessedBy: msg.ProcessedBy,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -105,7 +107,7 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	}
 	for _, client := range r.Clients() {
 		if client.PublicId == source {
-			r.sendAckToSender(client, update, latency)
+			r.sendAckToSender(client, msg, latency)
 			if update.Dup {
 				// Only send an ack to the sender, then stop.
 				break
@@ -124,10 +126,10 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) sendAckToSender(client *types.Client, update *sharedTypes.DocumentUpdate, latency sharedTypes.Timed) {
+func (r *DocRoom) sendAckToSender(client *types.Client, msg *sharedTypes.AppliedOpsMessage, latency sharedTypes.Timed) {
 	minUpdate := sharedTypes.DocumentUpdateAck{
-		DocId:   update.DocId,
-		Version: update.Version,
+		DocId:   msg.Update.DocId,
+		Version: msg.Update.Version,
 	}
 	body, err := json.Marshal(minUpdate)
 	if err != nil {
@@ -135,9 +137,10 @@ func (r *DocRoom) sendAckToSender(client *types.Client, update *sharedTypes.Docu
 		return
 	}
 	resp := types.RPCResponse{
-		Body:    body,
-		Name:    "otUpdateApplied",
-		Latency: latency,
+		Body:        body,
+		Name:        "otUpdateApplied",
+		Latency:     latency,
+		ProcessedBy: msg.ProcessedBy,
 	}
 	client.EnsureQueueResponse(&resp)
 }

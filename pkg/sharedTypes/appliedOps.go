@@ -219,6 +219,7 @@ type AppliedOpsMessage struct {
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
 	Update      *DocumentUpdate         `json:"op,omitempty"`
+	ProcessedBy string                  `json:"processed_by,omitempty"`
 }
 
 func (m *AppliedOpsMessage) Validate() error {
