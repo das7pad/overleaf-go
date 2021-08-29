@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Action string
@@ -52,6 +53,7 @@ type RPCResponse struct {
 	Callback Callback                `json:"c,omitempty"`
 	Error    *errors.JavaScriptError `json:"e,omitempty"`
 	Name     string                  `json:"n,omitempty"`
+	Latency  sharedTypes.Timed       `json:"l,omitempty"`
 
 	FatalError bool `json:"-"`
 }

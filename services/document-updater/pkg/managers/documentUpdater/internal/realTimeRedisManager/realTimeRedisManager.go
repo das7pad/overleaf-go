@@ -103,7 +103,8 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 					DocId: update.DocId,
 					Dup:   true,
 					Meta: sharedTypes.DocumentUpdateMeta{
-						Source: update.Meta.Source,
+						Source:        update.Meta.Source,
+						IngestionTime: update.Meta.IngestionTime,
 					},
 					Version: update.Version,
 				}

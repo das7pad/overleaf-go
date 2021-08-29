@@ -29,6 +29,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -202,6 +203,8 @@ func (h *httpController) clientBlob(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
+	setupTime := sharedTypes.Timed{}
+	setupTime.Begin()
 	conn, upgradeErr := h.u.Upgrade(w, r, nil)
 	if upgradeErr != nil {
 		// A 4xx has been generated already.
@@ -250,7 +253,8 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if c.QueueResponse(events.ConnectionAcceptedResponse(c.PublicId)) != nil {
+	setupTime.End()
+	if !c.EnsureQueueResponse(events.ConnectionAcceptedResponse(c.PublicId, setupTime)) {
 		return
 	}
 
@@ -323,8 +327,10 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 			Request:  &request,
 			Response: &response,
 		}
+		response.Latency.Begin()
 		h.rtm.RPC(&rpc)
 		if rpc.Response != nil {
+			rpc.Response.Latency.End()
 			failed := !c.EnsureQueueResponse(&response)
 			if failed || rpc.Response.FatalError {
 				return

@@ -86,12 +86,18 @@ func (r *DocRoom) handleError(msg *sharedTypes.AppliedOpsMessage) error {
 
 func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	update := msg.Update
+	latency := sharedTypes.Timed{}
+	if update.Meta.IngestionTime != nil {
+		latency.SetBegin(*update.Meta.IngestionTime)
+		latency.End()
+	}
 	isComment := update.Op.HasComment()
 	source := update.Meta.Source
 	blob, err := json.Marshal(&update)
 	resp := types.RPCResponse{
-		Name: "otUpdateApplied",
-		Body: blob,
+		Name:    "otUpdateApplied",
+		Body:    blob,
+		Latency: latency,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -99,7 +105,7 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	}
 	for _, client := range r.Clients() {
 		if client.PublicId == source {
-			r.sendAckToSender(client, update)
+			r.sendAckToSender(client, update, latency)
 			if update.Dup {
 				// Only send an ack to the sender, then stop.
 				break
@@ -118,7 +124,7 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) sendAckToSender(client *types.Client, update *sharedTypes.DocumentUpdate) {
+func (r *DocRoom) sendAckToSender(client *types.Client, update *sharedTypes.DocumentUpdate, latency sharedTypes.Timed) {
 	minUpdate := sharedTypes.DocumentUpdateAck{
 		DocId:   update.DocId,
 		Version: update.Version,
@@ -129,8 +135,9 @@ func (r *DocRoom) sendAckToSender(client *types.Client, update *sharedTypes.Docu
 		return
 	}
 	resp := types.RPCResponse{
-		Body: body,
-		Name: "otUpdateApplied",
+		Body:    body,
+		Name:    "otUpdateApplied",
+		Latency: latency,
 	}
 	client.EnsureQueueResponse(&resp)
 }

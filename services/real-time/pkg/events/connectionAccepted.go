@@ -23,9 +23,10 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func ConnectionAcceptedResponse(id sharedTypes.PublicId) *types.RPCResponse {
+func ConnectionAcceptedResponse(id sharedTypes.PublicId, setupTime sharedTypes.Timed) *types.RPCResponse {
 	return &types.RPCResponse{
-		Name: "connectionAccepted",
-		Body: json.RawMessage("[null,\"" + id + "\"]"),
+		Name:    "connectionAccepted",
+		Body:    json.RawMessage("[null,\"" + id + "\"]"),
+		Latency: setupTime,
 	}
 }

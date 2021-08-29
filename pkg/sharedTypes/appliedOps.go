@@ -17,6 +17,8 @@
 package sharedTypes
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -61,6 +63,7 @@ type DocumentUpdateMeta struct {
 	Timestamp        Timestamp          `json:"ts,omitempty"`
 	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
 	UserId           primitive.ObjectID `json:"user_id,omitempty"`
+	IngestionTime    *time.Time         `json:"ingestion_time,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {

@@ -267,15 +267,17 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 					}
 				}
 
+				now := time.Now()
 				updates := []sharedTypes.DocumentUpdate{{
 					Version: doc.Version,
 					DocId:   docId,
 					Hash:    request.Snapshot().Hash(),
 					Op:      op,
 					Meta: sharedTypes.DocumentUpdateMeta{
-						Type:   "external",
-						Source: sharedTypes.PublicId(request.Source),
-						UserId: request.UserId,
+						Type:          "external",
+						Source:        sharedTypes.PublicId(request.Source),
+						UserId:        request.UserId,
+						IngestionTime: &now,
 					},
 				}}
 

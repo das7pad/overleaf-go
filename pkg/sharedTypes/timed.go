@@ -31,6 +31,10 @@ func (t *Timed) Begin() {
 	t.t0 = &now
 }
 
+func (t *Timed) SetBegin(t0 time.Time) {
+	t.t0 = &t0
+}
+
 func (t *Timed) End() {
 	if t.t0 == nil {
 		return

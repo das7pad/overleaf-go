@@ -327,6 +327,10 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*sharedTypes.Doc
 	args.Meta.UserId = rpc.Client.User.Id
 	// Dup is an output only field
 	args.Dup = false
+	// Ingestion time is tracked internally only
+	now := time.Now()
+	args.Meta.IngestionTime = &now
+
 	if err := args.Validate(); err != nil {
 		return nil, err
 	}
