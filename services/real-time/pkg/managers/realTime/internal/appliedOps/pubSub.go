@@ -91,6 +91,7 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	if update.Meta.IngestionTime != nil {
 		latency.SetBegin(*update.Meta.IngestionTime)
 		latency.End()
+		update.Meta.IngestionTime = nil
 	}
 	isComment := update.Op.HasComment()
 	source := update.Meta.Source
