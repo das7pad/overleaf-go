@@ -50,11 +50,18 @@ func startLoadAgent(options *clsiOptions, manager clsi.Manager) (io.Closer, erro
 			}
 			capacity, err := manager.GetCapacity()
 			if err != nil {
-				// 0 would instruct haproxy to stop sending traffic.
+				// Not sending a reply would count as a failed health check.
+				// Emitting capacity=0 would trigger load shedding.
 				// Only do that in case we are sure there is no capacity.
 				capacity = 1
 			}
-			msg := fmt.Sprintf("up, %d%%\n", capacity)
+			var msg string
+			if options.loadShedding && capacity == 0 {
+				msg = fmt.Sprintf("maint, %d%%\n", capacity)
+			} else {
+				// 'ready' cancels out a previous 'maint' state.
+				msg = fmt.Sprintf("up, ready, %d%%\n", capacity)
+			}
 			_, _ = c.Write([]byte(msg))
 			_ = c.Close()
 		}

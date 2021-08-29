@@ -57,8 +57,9 @@ func getJSONFromEnv(key string, target interface{}) {
 }
 
 type clsiOptions struct {
-	address     string
-	loadAddress string
+	address      string
+	loadAddress  string
+	loadShedding bool
 
 	copyExecAgent    bool
 	copyExecAgentSrc string
@@ -75,6 +76,7 @@ func getOptions() *clsiOptions {
 
 	loadPort := getIntFromEnv("LOAD_PORT", 3048)
 	o.loadAddress = fmt.Sprintf("%s:%d", listenAddress, loadPort)
+	o.loadShedding = getStringFromEnv("LOAD_SHEDDING", "false") == "true"
 
 	o.copyExecAgentSrc = getStringFromEnv("COPY_EXEC_AGENT_SRC", "")
 	o.copyExecAgentDst = getStringFromEnv("COPY_EXEC_AGENT_DST", "")
