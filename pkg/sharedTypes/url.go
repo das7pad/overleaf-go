@@ -27,6 +27,11 @@ type URL struct {
 	url.URL
 }
 
+func (u URL) WithPath(s string) URL {
+	u.URL.Path = s
+	return u
+}
+
 func (u *URL) UnmarshalJSON(bytes []byte) error {
 	var s string
 	if err := json.Unmarshal(bytes, &s); err != nil {
