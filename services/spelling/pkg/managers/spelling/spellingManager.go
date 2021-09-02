@@ -57,7 +57,7 @@ type Manager interface {
 	) error
 }
 
-func New(db *mongo.Database, options *types.Options) (Manager, error) {
+func New(options *types.Options, db *mongo.Database) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}

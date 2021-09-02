@@ -43,8 +43,8 @@ func main() {
 	}
 	db := client.Database(o.dbName)
 	nm, err := docstore.New(
-		db,
 		o.options,
+		db,
 	)
 	if err != nil {
 		panic(err)
