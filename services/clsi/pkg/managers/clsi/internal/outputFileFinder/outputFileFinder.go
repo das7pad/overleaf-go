@@ -81,7 +81,7 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 		if d.IsDir() {
 			dirEntries[relativePath] = sharedTypes.DirName(relativePath)
 		} else {
-			fileName := sharedTypes.FileName(relativePath)
+			fileName := sharedTypes.PathName(relativePath)
 			dirEntries[relativePath] = fileName
 			fileStats[fileName] = d
 		}

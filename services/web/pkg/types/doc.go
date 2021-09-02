@@ -1,4 +1,4 @@
-// Golang port of the Overleaf clsi service
+// Golang port of the Overleaf web service
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,47 +14,40 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package outputCache
+package types
 
 import (
-	"os"
+	"encoding/json"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-type createdDirs struct {
-	base  types.CompileOutputDir
-	isDir map[sharedTypes.DirName]bool
-}
+type Snapshot []rune
 
-func (d *createdDirs) CreateBase() error {
-	p := string(d.base)
-	if err := os.Mkdir(p, 0755); err != nil && !os.IsExist(err) {
+func (s *Snapshot) UnmarshalJSON(bytes []byte) error {
+	var raw string
+	if err := json.Unmarshal(bytes, &raw); err != nil {
 		return err
 	}
-	d.isDir["."] = true
+	*s = Snapshot(raw)
 	return nil
 }
 
-func (d *createdDirs) EnsureIsWritable(name sharedTypes.PathName) error {
-	return d.EnsureIsDir(name.Dir())
+func (s Snapshot) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(s))
 }
 
-func (d *createdDirs) EnsureIsDir(name sharedTypes.DirName) error {
-	if name == "." {
-		return nil
-	}
-	if d.isDir[name] {
-		return nil
-	}
-	if err := d.EnsureIsDir(name.Dir()); err != nil {
-		return err
-	}
-	p := d.base.JoinDir(name)
-	if err := os.Mkdir(p, 0755); err != nil && !os.IsExist(err) {
-		return err
-	}
-	d.isDir[name] = true
+type Version int64
+
+type DocContentSnapshot struct {
+	Id       primitive.ObjectID   `json:"_id"`
+	Snapshot Snapshot             `json:"snapshot"`
+	PathName sharedTypes.PathName `json:"pathname"`
+	Version  Version              `json:"v"`
+}
+
+func (d *DocContentSnapshot) CheckIsValidRootDoc() error {
 	return nil
 }

@@ -54,7 +54,7 @@ var PreserveRegex = regexp.MustCompile(
 	"^(.+/)?(_minted-|_markdown_)[^/]+/.+$",
 )
 
-func ShouldDelete(file sharedTypes.FileName) bool {
+func ShouldDelete(file sharedTypes.PathName) bool {
 	isGenericOutputFile := file == "output.pdf" ||
 		file == "output.dvi" ||
 		file == "output.log" ||

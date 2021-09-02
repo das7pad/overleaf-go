@@ -203,7 +203,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 	concurrency := r.options.ParallelResourceWrite
 
 	work := make(chan *types.Resource, concurrency)
-	cleanupWork := make(chan sharedTypes.FileName, concurrency)
+	cleanupWork := make(chan sharedTypes.PathName, concurrency)
 	go func() {
 		defer close(work)
 		defer close(cleanupWork)
@@ -232,7 +232,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 		}
 		foundResources := 0
 		for _, entry := range allFiles.DirEntries {
-			fileName, isFile := entry.(sharedTypes.FileName)
+			fileName, isFile := entry.(sharedTypes.PathName)
 			if !isFile {
 				continue
 			}

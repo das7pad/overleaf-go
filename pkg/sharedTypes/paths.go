@@ -24,6 +24,18 @@ import (
 
 type FileType string
 
+type Filename string
+
+func (f Filename) Validate() error {
+	if f == "." || f == ".." {
+		return &errors.ValidationError{Msg: "filename cannot be '.' or '..'"}
+	}
+	if strings.ContainsRune(string(f), '/') {
+		return &errors.ValidationError{Msg: "filename cannot contain '/'"}
+	}
+	return nil
+}
+
 type DirEntry interface {
 	Dir() DirName
 	IsDir() bool
@@ -48,53 +60,60 @@ func (d DirName) String() string {
 	return string(d)
 }
 
-type FileName string
+func (d DirName) Join(f Filename) PathName {
+	if d == "" {
+		return PathName(f)
+	}
+	return PathName(string(d) + "/" + string(f))
+}
 
-func (f FileName) Dir() DirName {
-	idx := strings.LastIndexByte(string(f), '/')
+type PathName string
+
+func (p PathName) Dir() DirName {
+	idx := strings.LastIndexByte(string(p), '/')
 	if idx < 1 {
 		return "."
 	}
-	return DirName(f[:idx])
+	return DirName(p[:idx])
 }
 
-func (f FileName) IsDir() bool {
+func (p PathName) IsDir() bool {
 	return false
 }
 
-func (f FileName) IsStringParameter() bool {
+func (p PathName) IsStringParameter() bool {
 	return true
 }
 
-func (f FileName) String() string {
-	return string(f)
+func (p PathName) String() string {
+	return string(p)
 }
 
-func (f FileName) Type() FileType {
-	idx := strings.LastIndexByte(string(f), '.')
-	if idx == -1 || idx == len(f)-1 {
+func (p PathName) Type() FileType {
+	idx := strings.LastIndexByte(string(p), '.')
+	if idx == -1 || idx == len(p)-1 {
 		return ""
 	}
 	// Drop the dot.
 	idx += 1
-	return FileType(f[idx:])
+	return FileType(p[idx:])
 }
 
-func (f FileName) Validate() error {
-	l := len(f)
+func (p PathName) Validate() error {
+	l := len(p)
 	if l == 0 {
 		return &errors.ValidationError{Msg: "empty file/path"}
 	}
-	if f[0] == '/' {
+	if p[0] == '/' {
 		return &errors.ValidationError{Msg: "file/path is absolute"}
 	}
-	if f == "." || f[l-1] == '/' || strings.HasSuffix(string(f), "/.") {
+	if p == "." || p[l-1] == '/' || strings.HasSuffix(string(p), "/.") {
 		return &errors.ValidationError{Msg: "file/path is dir"}
 	}
-	if f == ".." ||
-		strings.HasPrefix(string(f), "../") ||
-		strings.HasSuffix(string(f), "/..") ||
-		strings.Contains(string(f), "/../") {
+	if p == ".." ||
+		strings.HasPrefix(string(p), "../") ||
+		strings.HasSuffix(string(p), "/..") ||
+		strings.Contains(string(p), "/../") {
 		return &errors.ValidationError{Msg: "file/path is jumping"}
 	}
 	return nil

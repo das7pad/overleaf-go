@@ -35,13 +35,13 @@ func (d CacheBaseDir) ProjectCacheDir(projectId primitive.ObjectID) ProjectCache
 
 type NamespacedCacheDir string
 
-func (d NamespacedCacheDir) Join(name sharedTypes.FileName) string {
+func (d NamespacedCacheDir) Join(name sharedTypes.PathName) string {
 	return string(d) + "/" + string(name)
 }
 
 type ProjectCacheDir string
 
-func (d ProjectCacheDir) Join(name sharedTypes.FileName) string {
+func (d ProjectCacheDir) Join(name sharedTypes.PathName) string {
 	return string(d) + "/" + string(name)
 }
 
@@ -75,7 +75,7 @@ func (d OutputDir) CompileOutputDir(id BuildId) CompileOutputDir {
 
 type CompileOutputDir string
 
-func (d CompileOutputDir) Join(name sharedTypes.FileName) string {
+func (d CompileOutputDir) Join(name sharedTypes.PathName) string {
 	return string(d) + "/" + string(name)
 }
 

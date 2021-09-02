@@ -1,4 +1,4 @@
-// Golang port of the Overleaf document-updater service
+// Golang port of the Overleaf web service
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,28 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
-type GetDocResponse struct {
-	Ops      []sharedTypes.DocumentUpdate `json:"ops"`
-	PathName sharedTypes.PathName         `json:"pathname"`
-	Ranges   sharedTypes.Ranges           `json:"ranges"`
-	Snapshot sharedTypes.Snapshot         `json:"snapshot"`
-	Version  sharedTypes.Version          `json:"version"`
+type Options struct {
+	PDFDownloadDomain PDFDownloadDomain `json:"pdf_download_domain"`
+
+	APIs struct {
+		Docstore struct {
+			Options *docstoreTypes.Options `json:"options"`
+		} `json:"docstore"`
+		DocumentUpdater struct {
+			Options *documentUpdaterTypes.Options `json:"options"`
+		} `json:"document_updater"`
+		TrackChanges struct {
+			URL sharedTypes.URL `json:"url"`
+		} `json:"track_changes"`
+		Clsi struct {
+			URL sharedTypes.URL `json:"url"`
+		} `json:"clsi"`
+		Filestore struct {
+			URL sharedTypes.URL `json:"url"`
+		} `json:"filestore"`
+	} `json:"apis"`
 }

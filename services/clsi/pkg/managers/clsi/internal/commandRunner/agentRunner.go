@@ -97,7 +97,7 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 					namespace := types.Namespace(addr[:24+1+24])
 					compileDir := options.CompileBaseDir.CompileDir(namespace)
 					path := compileDir.Join(
-						sharedTypes.FileName(constants.AgentSocketName),
+						sharedTypes.PathName(constants.AgentSocketName),
 					)
 					return net.Dial("unix", path)
 				},
@@ -428,12 +428,12 @@ func (a *agentRunner) Run(ctx context.Context, namespace types.Namespace, option
 	return code, nil
 }
 
-func (a *agentRunner) Resolve(path string, _ types.Namespace) (sharedTypes.FileName, error) {
+func (a *agentRunner) Resolve(path string, _ types.Namespace) (sharedTypes.PathName, error) {
 	if strings.HasPrefix(path, constants.CompileDirContainer+"/") {
-		return sharedTypes.FileName(path[len(constants.CompileDirContainer)+1:]), nil
+		return sharedTypes.PathName(path[len(constants.CompileDirContainer)+1:]), nil
 	}
 	if strings.HasPrefix(path, constants.OutputDirContainer+"/") {
-		return sharedTypes.FileName(path[len(constants.OutputDirContainer)+1:]), nil
+		return sharedTypes.PathName(path[len(constants.OutputDirContainer)+1:]), nil
 	}
 	return "", errors.New("unknown base: " + path)
 }

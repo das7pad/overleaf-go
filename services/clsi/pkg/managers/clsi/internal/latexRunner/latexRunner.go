@@ -107,7 +107,7 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 	}
 
 	mainFile := string(request.RootResourcePath)
-	fileType := sharedTypes.FileName(mainFile).Type()
+	fileType := sharedTypes.PathName(mainFile).Type()
 	for _, preProcessedFileType := range preProcessedFileTypes {
 		if fileType == preProcessedFileType {
 			mainFile = mainFile[:len(mainFile)-len(fileType)] + "tex"
@@ -129,7 +129,7 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 
 	env := r.options.LatexBaseEnv
 
-	isTexFile := sharedTypes.FileName(request.RootResourcePath).Type() == "tex"
+	isTexFile := sharedTypes.PathName(request.RootResourcePath).Type() == "tex"
 	checkMode := request.Options.Check
 	if checkMode != types.NoCheck && isTexFile {
 		env = append(

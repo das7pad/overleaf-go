@@ -29,7 +29,7 @@ import (
 )
 
 type dirEntriesMap map[string]sharedTypes.DirEntry
-type fileStatsMap map[sharedTypes.FileName]fs.DirEntry
+type fileStatsMap map[sharedTypes.PathName]fs.DirEntry
 
 type AllFilesAndDirs struct {
 	DirEntries dirEntriesMap
@@ -113,7 +113,7 @@ func (a *AllFilesAndDirs) EnsureIsDir(name sharedTypes.DirName, compileDir types
 }
 
 // EnsureIsWritable is not thread-safe.
-func (a *AllFilesAndDirs) EnsureIsWritable(name sharedTypes.FileName, compileDir types.CompileDir) error {
+func (a *AllFilesAndDirs) EnsureIsWritable(name sharedTypes.PathName, compileDir types.CompileDir) error {
 	s := name.String()
 
 	// Step 0: action on what already exists in the in-memory view of the fs.

@@ -57,8 +57,8 @@ type CommandOptions struct {
 }
 
 type CommandOutputFiles struct {
-	StdErr sharedTypes.FileName
-	StdOut sharedTypes.FileName
+	StdErr sharedTypes.PathName
+	StdOut sharedTypes.PathName
 }
 
 func (f *CommandOutputFiles) Cleanup(dir CompileDir) {

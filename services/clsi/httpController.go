@@ -294,7 +294,7 @@ type syncFromCodeResponseBody struct {
 
 func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
 	// TODO: refactor into POST request
-	var file sharedTypes.FileName
+	var file sharedTypes.PathName
 	if !decodeFromQuery(w, r, "file", file, &file) {
 		return
 	}

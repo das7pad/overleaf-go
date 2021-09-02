@@ -34,7 +34,7 @@ type Words struct {
 }
 type WordCountRequest struct {
 	CompileGroup CompileGroup         `json:"compile_group"`
-	FileName     sharedTypes.FileName `json:"file_name"`
+	FileName     sharedTypes.PathName `json:"file_name"`
 	ImageName    ImageName            `json:"image_name"`
 }
 

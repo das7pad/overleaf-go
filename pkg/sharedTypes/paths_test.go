@@ -23,7 +23,7 @@ import (
 func TestFileName_Dir(t *testing.T) {
 	tests := []struct {
 		name string
-		f    FileName
+		f    PathName
 		want DirName
 	}{
 		{
@@ -54,7 +54,7 @@ func TestFileName_Dir(t *testing.T) {
 func TestFileName_Type(t *testing.T) {
 	tests := []struct {
 		name string
-		f    FileName
+		f    PathName
 		want FileType
 	}{
 		{
@@ -90,7 +90,7 @@ func TestFileName_Type(t *testing.T) {
 func TestFileName_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		f       FileName
+		f       PathName
 		wantErr bool
 	}{
 		{

@@ -83,14 +83,14 @@ func (l *localRunner) Run(ctx context.Context, namespace types.Namespace, option
 	return -1, err
 }
 
-func (l *localRunner) Resolve(path string, namespace types.Namespace) (sharedTypes.FileName, error) {
+func (l *localRunner) Resolve(path string, namespace types.Namespace) (sharedTypes.PathName, error) {
 	compileDir := string(l.options.CompileBaseDir.CompileDir(namespace))
 	if strings.HasPrefix(path, compileDir+"/") {
-		return sharedTypes.FileName(path[len(compileDir)+1:]), nil
+		return sharedTypes.PathName(path[len(compileDir)+1:]), nil
 	}
 	outputDir := string(l.options.OutputBaseDir.OutputDir(namespace))
 	if strings.HasPrefix(path, outputDir+"/") {
-		return sharedTypes.FileName(path[len(outputDir)+1:]), nil
+		return sharedTypes.PathName(path[len(outputDir)+1:]), nil
 	}
 	return "", errors.New("unknown base: " + path)
 }

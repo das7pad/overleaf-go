@@ -43,7 +43,7 @@ type ProjectHistoryType string
 
 type FlushedDoc struct {
 	Lines              sharedTypes.Lines    `json:"lines"`
-	PathName           sharedTypes.FileName `json:"pathname"`
+	PathName           sharedTypes.PathName `json:"pathname"`
 	ProjectHistoryId   ProjectHistoryId     `json:"projectHistoryId,omitempty"`
 	ProjectHistoryType ProjectHistoryType   `json:"projectHistoryType,omitempty"`
 	Ranges             sharedTypes.Ranges   `json:"ranges"`
@@ -69,7 +69,7 @@ type DocCore struct {
 	JsonRanges       json.RawMessage      `json:"json_ranges"`
 	Ranges           sharedTypes.Ranges   `json:"-"`
 	ProjectId        primitive.ObjectID   `json:"project_id"`
-	PathName         sharedTypes.FileName `json:"path_name"`
+	PathName         sharedTypes.PathName `json:"path_name"`
 	ProjectHistoryId ProjectHistoryId     `json:"project_history_id,omitempty"`
 }
 
@@ -125,14 +125,14 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 type DocContentLines struct {
 	Id       primitive.ObjectID   `json:"_id"`
 	Lines    sharedTypes.Lines    `json:"lines"`
-	PathName sharedTypes.FileName `json:"pathname"`
+	PathName sharedTypes.PathName `json:"pathname"`
 	Version  sharedTypes.Version  `json:"v"`
 }
 
 type DocContentSnapshot struct {
 	Id       primitive.ObjectID   `json:"_id"`
 	Snapshot sharedTypes.Snapshot `json:"snapshot"`
-	PathName sharedTypes.FileName `json:"pathname"`
+	PathName sharedTypes.PathName `json:"pathname"`
 	Version  sharedTypes.Version  `json:"v"`
 }
 

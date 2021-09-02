@@ -1,4 +1,4 @@
-// Golang port of the Overleaf document-updater service
+// Golang port of Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,16 +14,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package project
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type GetDocResponse struct {
-	Ops      []sharedTypes.DocumentUpdate `json:"ops"`
-	PathName sharedTypes.PathName         `json:"pathname"`
-	Ranges   sharedTypes.Ranges           `json:"ranges"`
-	Snapshot sharedTypes.Snapshot         `json:"snapshot"`
-	Version  sharedTypes.Version          `json:"version"`
+type IdField struct {
+	Id primitive.ObjectID `json:"_id" bson:"_id"`
+}
+
+type NameField struct {
+	Name string `json:"name" bson:"name"`
+}
+
+type TreeField struct {
+	RootFolder []types.Folder `json:"rootFolder" bson:"rootFolder"`
 }

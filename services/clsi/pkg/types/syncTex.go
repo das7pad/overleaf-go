@@ -53,7 +53,7 @@ func (c Column) String() string {
 }
 
 type CodePosition struct {
-	FileName sharedTypes.FileName `json:"file"`
+	FileName sharedTypes.PathName `json:"file"`
 	Row      Row                  `json:"line"`
 	Column   Column               `json:"column"`
 }
@@ -109,7 +109,7 @@ func (o *SyncTexOptions) Validate(options *Options) error {
 	return nil
 }
 
-func (o SyncTexOptions) getPathFor(name sharedTypes.FileName) string {
+func (o SyncTexOptions) getPathFor(name sharedTypes.PathName) string {
 	if o.BuildId == allZeroBuildId {
 		return CompileDir(constants.CompileDirPlaceHolder).
 			Join(name)
@@ -129,7 +129,7 @@ func (o SyncTexOptions) OutputSyncTexGzPath() string {
 
 type SyncFromCodeRequest struct {
 	*SyncTexOptions
-	FileName sharedTypes.FileName `json:"file_name"`
+	FileName sharedTypes.PathName `json:"file_name"`
 	Row      Row                  `json:"line"`
 	Column   Column               `json:"column"`
 }

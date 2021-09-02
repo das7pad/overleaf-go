@@ -47,7 +47,7 @@ type Runner interface {
 	Resolve(
 		path string,
 		namespace types.Namespace,
-	) (sharedTypes.FileName, error)
+	) (sharedTypes.PathName, error)
 }
 
 type NamespacedRun func(ctx context.Context, options *types.CommandOptions) (types.ExitCode, error)
@@ -68,7 +68,7 @@ func CreateCommandOutput(dir types.CompileDir) (*types.CommandOutputFiles, error
 	if err != nil {
 		return nil, err
 	}
-	stdOut := sharedTypes.FileName(path.Base(stdOutHandle.Name()))
+	stdOut := sharedTypes.PathName(path.Base(stdOutHandle.Name()))
 	if err = stdOutHandle.Close(); err != nil {
 		return nil, err
 	}

@@ -105,7 +105,7 @@ func (s SyncType) Validate(*Options) error {
 	return &errors.ValidationError{Msg: "syncType is not allowed"}
 }
 
-type RootResourcePath sharedTypes.FileName
+type RootResourcePath sharedTypes.PathName
 
 const UnsafeRootResourcePathCharacters = "#&;`|*?~<>^()[]{}$\\\x0A\xFF\x00"
 
@@ -124,7 +124,7 @@ func (r RootResourcePath) MakeSafe() (RootResourcePath, error) {
 }
 
 func (r RootResourcePath) Validate(*Options) error {
-	if err := sharedTypes.FileName(r).Validate(); err != nil {
+	if err := sharedTypes.PathName(r).Validate(); err != nil {
 		return err
 	}
 	if r.ContainsUnsafeCharacters() {
@@ -152,10 +152,10 @@ func (m *ModifiedAt) String() string {
 // The Resource is either the inline doc Content,
 //  or a file with download URL and ModifiedAt timestamp.
 type Resource struct {
-	Path       sharedTypes.FileName  `json:"path"`
-	Content    *sharedTypes.Snapshot `json:"content"`
-	ModifiedAt *ModifiedAt           `json:"modified"`
-	URL        *sharedTypes.URL      `json:"url"`
+	Path       sharedTypes.PathName  `json:"path"`
+	Content    *sharedTypes.Snapshot `json:"content,omitempty"`
+	ModifiedAt *ModifiedAt           `json:"modified,omitempty"`
+	URL        *sharedTypes.URL      `json:"url,omitempty"`
 }
 
 func (r *Resource) IsDoc() bool {
@@ -244,8 +244,8 @@ type CompileRequest struct {
 	RootResourcePath RootResourcePath `json:"rootResourcePath"`
 
 	// Internal fields.
-	RootDoc              *Resource
-	RootDocAliasResource *Resource
+	RootDoc              *Resource `json:"-"`
+	RootDocAliasResource *Resource `json:"-"`
 }
 
 func (c *CompileRequest) Preprocess(options *Options) error {
@@ -270,7 +270,7 @@ func (c *CompileRequest) Preprocess(options *Options) error {
 		c.Options.Timeout *= 1000_000_000
 	}
 
-	rootResourcePath := sharedTypes.FileName(c.RootResourcePath)
+	rootResourcePath := sharedTypes.PathName(c.RootResourcePath)
 	var rootDoc *Resource
 	for _, resource := range c.Resources {
 		if resource.Path == rootResourcePath {
@@ -291,7 +291,7 @@ func (c *CompileRequest) Preprocess(options *Options) error {
 		return err
 	}
 	if safe != c.RootResourcePath {
-		rootDoc.Path = sharedTypes.FileName(safe)
+		rootDoc.Path = sharedTypes.PathName(safe)
 		c.RootResourcePath = safe
 	}
 
@@ -318,7 +318,7 @@ type DownloadPath string
 type OutputFile struct {
 	Build        BuildId              `json:"build"`
 	DownloadPath DownloadPath         `json:"url"`
-	Path         sharedTypes.FileName `json:"path"`
+	Path         sharedTypes.PathName `json:"path"`
 	Size         int64                `json:"size,omitempty"`
 	Type         sharedTypes.FileType `json:"type"`
 }

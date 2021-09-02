@@ -166,7 +166,7 @@ func getBuildId() (types.BuildId, error) {
 
 const publicProjectPrefix = "/project"
 
-func getDownloadPath(namespace types.Namespace, id types.BuildId, name sharedTypes.FileName) types.DownloadPath {
+func getDownloadPath(namespace types.Namespace, id types.BuildId, name sharedTypes.PathName) types.DownloadPath {
 	return types.DownloadPath(
 		publicProjectPrefix +
 			"/" + string(namespace) +

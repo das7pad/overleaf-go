@@ -37,7 +37,7 @@ type manager struct {
 const (
 	usesTikzExternalize      = "\\tikzexternalize"
 	usesPsTool               = "{pstool}"
-	AliasDocFileName         = sharedTypes.FileName("output.tex")
+	AliasDocFileName         = sharedTypes.PathName("output.tex")
 	aliasDocRootResourcePath = types.RootResourcePath(AliasDocFileName)
 )
 
