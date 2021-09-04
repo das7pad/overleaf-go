@@ -109,7 +109,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		clsiResponse := &clsiTypes.CompileResponse{}
 		err = m.doCompile(ctx, request, clsiRequest, clsiResponse)
 		if err != nil {
-			if errors.IsInvalidState(err) && syncType != clsiTypes.SyncTypeFullIncremental {
+			if errors.IsInvalidState(err) && !syncType.IsFull() {
 				continue
 			}
 			return errors.Tag(err, "cannot compile")

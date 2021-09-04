@@ -358,8 +358,7 @@ func (p *project) checkStateExpectAnyContent() error {
 }
 
 func (p *project) checkSyncState(syncType types.SyncType, state types.SyncState) error {
-	if syncType == types.SyncTypeFull ||
-		syncType == types.SyncTypeFullIncremental {
+	if syncType.IsFull() {
 		// SyncTypeFull and SyncTypeFullIncremental overwrite everything.
 		return nil
 	}
