@@ -50,7 +50,7 @@ type PDFDownloadDomain string
 
 type CompileProjectResponse struct {
 	clsiTypes.CompileResponse
-	ClsiServerId      ClsiServerId           `json:"clsiServerId"`
-	CompileGroup      clsiTypes.CompileGroup `json:"compileGroup"`
-	PDFDownloadDomain PDFDownloadDomain      `json:"pdfDownloadDomain"`
+	ClsiServerId      ClsiServerId           `json:"clsiServerId,omitempty"`
+	CompileGroup      clsiTypes.CompileGroup `json:"compileGroup,omitempty"`
+	PDFDownloadDomain PDFDownloadDomain      `json:"pdfDownloadDomain,omitempty"`
 }

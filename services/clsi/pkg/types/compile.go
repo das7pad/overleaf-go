@@ -334,8 +334,8 @@ type Timings struct {
 type CompileStatus string
 type CompileError string
 type CompileResponse struct {
-	Status      CompileStatus `json:"status"`
-	Error       CompileError  `json:"error"`
+	Status      CompileStatus `json:"status,omitempty"`
+	Error       CompileError  `json:"error,omitempty"`
 	OutputFiles OutputFiles   `json:"outputFiles"`
 	Timings     Timings       `json:"timings"`
 }
