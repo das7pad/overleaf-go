@@ -18,18 +18,14 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func waitForDb(ctx context.Context, client *mongo.Client) error {
@@ -66,36 +62,10 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(o.options)
 	wm, err := web.New(o.options, db, redisClient)
 	if err != nil {
 		panic(err)
 	}
-
-	projectId, _ := primitive.ObjectIDFromHex("61228c211d10774f5379c4f9")
-	userId, _ := primitive.ObjectIDFromHex("5ec9086c9ca958fbb9ca4b6f")
-	rootDocId, _ := primitive.ObjectIDFromHex("61228c211d10774f5379c4fb")
-
-	req := &types.CompileProjectRequest{
-		SignedCompileProjectRequestOptions: types.SignedCompileProjectRequestOptions{
-			CompileGroup: "priority",
-			ProjectId:    projectId,
-			UserId:       userId,
-			Timeout:      clsiTypes.Timeout(time.Minute),
-		},
-		AutoCompile: false,
-		Draft:       false,
-		Compiler:    clsiTypes.PDFLatex,
-		CheckMode:   clsiTypes.ErrorCheck,
-		ImageName:   "",
-		RootDocId:   rootDocId,
-	}
-	resp := &types.CompileProjectResponse{}
-
-	err = wm.CompileProject(ctx, req, resp)
-	fmt.Println(err)
-	fmt.Println(resp)
-
 	handler := newHttpController(wm)
 
 	server := http.Server{

@@ -35,12 +35,23 @@ func (t *Timed) SetBegin(t0 time.Time) {
 	t.t0 = &t0
 }
 
-func (t *Timed) End() {
+func (t *Timed) End() *Timed {
 	if t.t0 == nil {
-		return
+		return t
 	}
 	t.diff = time.Now().Sub(*t.t0)
 	t.t0 = nil
+	return t
+}
+
+func (t *Timed) String() string {
+	return t.diff.String()
+}
+
+func (t *Timed) Stage() string {
+	s := t.diff.String()
+	t.Begin()
+	return s
 }
 
 func (t *Timed) Diff() int64 {

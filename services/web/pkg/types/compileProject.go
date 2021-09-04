@@ -34,14 +34,15 @@ type SignedCompileProjectRequestOptions struct {
 }
 
 type CompileProjectRequest struct {
-	SignedCompileProjectRequestOptions
+	SignedCompileProjectRequestOptions `json:"-"`
 
-	AutoCompile bool
-	Draft       clsiTypes.DraftModeFlag
-	Compiler    clsiTypes.Compiler
-	CheckMode   clsiTypes.CheckMode
-	ImageName   clsiTypes.ImageName
-	RootDocId   primitive.ObjectID
+	AutoCompile                bool                    `json:"auto_compile"`
+	CheckMode                  clsiTypes.CheckMode     `json:"check_mode"`
+	Compiler                   clsiTypes.Compiler      `json:"compiler"`
+	Draft                      clsiTypes.DraftModeFlag `json:"draft"`
+	ImageName                  clsiTypes.ImageName     `json:"image_name"`
+	IncrementalCompilesEnabled bool                    `json:"incremental_compiles_enabled"`
+	RootDocId                  primitive.ObjectID      `json:"root_doc_id"`
 }
 
 type ClsiServerId string

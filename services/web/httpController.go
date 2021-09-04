@@ -117,10 +117,10 @@ func checkEpochs(client redis.UniversalClient) mux.MiddlewareFunc {
 				return
 			}
 			for _, field := range ids {
-				stored := epochs[field].String()
+				stored := epochs[field].Val()
 				provided := getItemFromJwt(r, string("epoch_"+field))
 				if stored != provided {
-					errorResponse(w, 409, "epoch mismatch: "+string(field))
+					errorResponse(w, 401, "epoch mismatch: "+string(field))
 					return
 				}
 			}
@@ -336,10 +336,12 @@ func (h *httpController) compileProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	request := &types.CompileProjectRequest{
-		SignedCompileProjectRequestOptions: *so,
-		AutoCompile:                        r.URL.Query().Get("autoCompile") == "true",
+	request := &types.CompileProjectRequest{}
+	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+		return
 	}
+	request.SignedCompileProjectRequestOptions = *so
 	response := &types.CompileProjectResponse{}
 	err = h.wm.CompileProject(
 		r.Context(),

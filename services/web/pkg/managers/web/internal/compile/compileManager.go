@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -69,7 +68,14 @@ type manager struct {
 
 func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
 	syncState := clsiTypes.SyncState("TODO")
-	resources, rootDocPath, err := m.fromRedis(ctx, request)
+	var resources clsiTypes.Resources
+	var rootDocPath clsiTypes.RootResourcePath
+	var err error
+	if request.IncrementalCompilesEnabled {
+		resources, rootDocPath, err = m.fromRedis(ctx, request)
+	} else {
+		err = &errors.InvalidStateError{}
+	}
 	var syncType clsiTypes.SyncType
 
 	for {
@@ -141,8 +147,6 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 				"/project/" + request.ProjectId.Hex() +
 					"/file/" + entry.Id.Hex(),
 			)
-			fmt.Println(url)
-			fmt.Println(m.options.APIs.Filestore.URL)
 			files = append(files, &clsiTypes.Resource{
 				Path:       p,
 				ModifiedAt: &t,
@@ -237,8 +241,6 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 		return errors.Tag(err, "cannot serialize compile request")
 	}
 
-	fmt.Println(string(blob))
-
 	body := bytes.NewReader(blob)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
@@ -266,10 +268,9 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 	case http.StatusConflict:
 		return &errors.InvalidStateError{}
 	default:
-		blob, err := io.ReadAll(res.Body)
-		fmt.Println(string(blob), err)
+		blob, err = io.ReadAll(res.Body)
 		return errors.New(
-			"non-success status code from clsi: " + res.Status,
+			"non-success status code from clsi: " + res.Status + ": " + string(blob),
 		)
 	}
 }
