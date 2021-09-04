@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -67,7 +68,14 @@ type manager struct {
 }
 
 func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
+	if m.options.TeXLiveImageNameOverride != "" {
+		idx := strings.LastIndexByte(string(request.ImageName), '/')
+		request.ImageName = m.options.TeXLiveImageNameOverride + "/" +
+			request.ImageName[idx+1:]
+	}
+
 	syncState := clsiTypes.SyncState("TODO")
+
 	var resources clsiTypes.Resources
 	var rootDocPath clsiTypes.RootResourcePath
 	var err error

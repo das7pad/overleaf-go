@@ -18,12 +18,14 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type Options struct {
-	PDFDownloadDomain PDFDownloadDomain `json:"pdf_download_domain"`
+	PDFDownloadDomain        PDFDownloadDomain   `json:"pdf_download_domain"`
+	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
 
 	APIs struct {
 		Docstore struct {
