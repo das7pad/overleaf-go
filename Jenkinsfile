@@ -252,6 +252,29 @@ pipeline {
             }
           }
         }
+        stage('web') {
+          when {
+            beforeAgent true
+            changeset "services/web/**"
+          }
+          agent {
+            label 'docker_builder'
+          }
+          steps {
+            dir('services/web') {
+              sh 'make docker/build/production'
+              sh 'make docker/push'
+            }
+            archiveArtifacts 'services/web/docker-image.digest.txt'
+          }
+          post {
+            cleanup {
+              dir('services/web') {
+                sh 'make docker/clean'
+              }
+            }
+          }
+        }
       }
     }
   }
