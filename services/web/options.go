@@ -146,10 +146,9 @@ func getOptions() *webOptions {
 			",",
 		),
 		Password: os.Getenv("REDIS_PASSWORD"),
-		MaxRetries: int(getIntFromEnv(
+		MaxRetries: getIntFromEnv(
 			"REDIS_MAX_RETRIES_PER_REQUEST", 20),
-		),
-		PoolSize: int(getIntFromEnv("REDIS_POOL_SIZE", 0)),
+		PoolSize: getIntFromEnv("REDIS_POOL_SIZE", 0),
 	}
 	return o
 }
