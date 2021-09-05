@@ -87,6 +87,16 @@ func (h *httpController) GetRouter() http.Handler {
 			HandlerFunc(h.syncFromCode)
 		compileRouter.
 			NewRoute().
+			Methods(http.MethodPost).
+			Path("/sync/code").
+			HandlerFunc(h.syncFromCodePOST)
+		compileRouter.
+			NewRoute().
+			Methods(http.MethodPost).
+			Path("/sync/pdf").
+			HandlerFunc(h.syncFromPDFPOST)
+		compileRouter.
+			NewRoute().
 			Methods(http.MethodGet).
 			Path("/sync/pdf").
 			HandlerFunc(h.syncFromPDF)
@@ -293,7 +303,6 @@ type syncFromCodeResponseBody struct {
 }
 
 func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
-	// TODO: refactor into POST request
 	var file sharedTypes.PathName
 	if !decodeFromQuery(w, r, "file", file, &file) {
 		return
@@ -311,7 +320,7 @@ func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request := types.SyncFromCodeRequest{
-		SyncTexOptions: syncTexOptions,
+		SyncTexOptions: *syncTexOptions,
 		FileName:       file,
 		Row:            row,
 		Column:         column,
@@ -332,12 +341,29 @@ func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, body, err, "cannot sync from code")
 }
 
+func (h *httpController) syncFromCodePOST(w http.ResponseWriter, r *http.Request) {
+	var request types.SyncFromCodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	body := make(types.PDFPositions, 0)
+	err := h.cm.SyncFromCode(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "userId"),
+		&request,
+		&body,
+	)
+	respond(w, r, http.StatusOK, body, err, "cannot sync from code POST")
+}
+
 type syncFromPDFResponseBody struct {
 	CodePositions *types.CodePositions `json:"code"`
 }
 
 func (h *httpController) syncFromPDF(w http.ResponseWriter, r *http.Request) {
-	// TODO: refactor into POST request
 	var page types.Page
 	if !decodeFromQuery(w, r, "page", page, &page) {
 		return
@@ -355,7 +381,7 @@ func (h *httpController) syncFromPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request := types.SyncFromPDFRequest{
-		SyncTexOptions: syncTexOptions,
+		SyncTexOptions: *syncTexOptions,
 		Page:           page,
 		Horizontal:     horizontal,
 		Vertical:       vertical,
@@ -374,6 +400,24 @@ func (h *httpController) syncFromPDF(w http.ResponseWriter, r *http.Request) {
 		body.CodePositions = &codePositions
 	}
 	respond(w, r, http.StatusOK, body, err, "cannot sync from pdf")
+}
+
+func (h *httpController) syncFromPDFPOST(w http.ResponseWriter, r *http.Request) {
+	var request types.SyncFromPDFRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	body := make(types.CodePositions, 0)
+	err := h.cm.SyncFromPDF(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "userId"),
+		&request,
+		&body,
+	)
+	respond(w, r, http.StatusOK, body, err, "cannot sync from pdf POST")
 }
 
 type wordCountResponseBody struct {

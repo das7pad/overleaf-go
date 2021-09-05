@@ -17,7 +17,6 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
@@ -78,9 +77,9 @@ type SyncTexRequestCommon interface {
 }
 
 type SyncTexOptions struct {
-	BuildId      BuildId      `json:"build_id"`
-	CompileGroup CompileGroup `json:"compile_group"`
-	ImageName    ImageName    `json:"image_name"`
+	BuildId      BuildId      `json:"buildId"`
+	CompileGroup CompileGroup `json:"compileGroup"`
+	ImageName    ImageName    `json:"imageName"`
 }
 
 func (o *SyncTexOptions) Preprocess(options *Options) error {
@@ -128,14 +127,14 @@ func (o SyncTexOptions) OutputSyncTexGzPath() string {
 }
 
 type SyncFromCodeRequest struct {
-	*SyncTexOptions
-	FileName sharedTypes.PathName `json:"file_name"`
+	SyncTexOptions
+	FileName sharedTypes.PathName `json:"fileName"`
 	Row      Row                  `json:"line"`
 	Column   Column               `json:"column"`
 }
 
 func (r *SyncFromCodeRequest) Options() *SyncTexOptions {
-	return r.SyncTexOptions
+	return &r.SyncTexOptions
 }
 
 func (r *SyncFromCodeRequest) CommandLine() CommandLine {
@@ -156,9 +155,6 @@ func (r *SyncFromCodeRequest) Validate(options *Options) error {
 	if err := r.FileName.Validate(); err != nil {
 		return err
 	}
-	if r.SyncTexOptions == nil {
-		return &errors.ValidationError{Msg: "missing SyncTexOptions"}
-	}
 	if err := r.SyncTexOptions.Validate(options); err != nil {
 		return err
 	}
@@ -166,14 +162,14 @@ func (r *SyncFromCodeRequest) Validate(options *Options) error {
 }
 
 type SyncFromPDFRequest struct {
-	*SyncTexOptions
+	SyncTexOptions
 	Page       Page       `json:"page"`
 	Horizontal Horizontal `json:"horizontal"`
 	Vertical   Vertical   `json:"vertical"`
 }
 
 func (r *SyncFromPDFRequest) Options() *SyncTexOptions {
-	return r.SyncTexOptions
+	return &r.SyncTexOptions
 }
 
 func (r *SyncFromPDFRequest) CommandLine() CommandLine {
@@ -189,9 +185,6 @@ func (r *SyncFromPDFRequest) CommandLine() CommandLine {
 }
 
 func (r *SyncFromPDFRequest) Validate(options *Options) error {
-	if r.SyncTexOptions == nil {
-		return &errors.ValidationError{Msg: "missing SyncTexOptions"}
-	}
 	if err := r.SyncTexOptions.Validate(options); err != nil {
 		return err
 	}
