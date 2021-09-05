@@ -136,6 +136,8 @@ func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedC
 const clsiServerIdQueryParam = "clsiserverid"
 
 func (m *manager) doStaticRequest(clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, error) {
-	r.URL.Query().Set(clsiServerIdQueryParam, string(clsiServerId))
+	q := r.URL.Query()
+	q.Set(clsiServerIdQueryParam, string(clsiServerId))
+	r.URL.RawQuery = q.Encode()
 	return m.pool.Do(r)
 }
