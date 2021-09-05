@@ -335,7 +335,7 @@ func respond(
 }
 
 type clearProjectCacheRequestBody struct {
-	types.ClsiServerId `json:"clsi_server_id"`
+	types.ClsiServerId `json:"clsiServerId"`
 }
 
 func (h *httpController) clearProjectCache(w http.ResponseWriter, r *http.Request) {
