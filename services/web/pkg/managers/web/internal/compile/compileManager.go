@@ -20,7 +20,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -114,15 +116,13 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			RootResourcePath: rootDocPath,
 		}
 
-		clsiResponse := &clsiTypes.CompileResponse{}
-		err = m.doCompile(ctx, request, clsiRequest, clsiResponse)
+		err = m.doCompile(ctx, request, clsiRequest, response)
 		if err != nil {
 			if errors.IsInvalidState(err) && !syncType.IsFull() {
 				continue
 			}
 			return errors.Tag(err, "cannot compile")
 		}
-		response.CompileResponse = *clsiResponse
 		response.PDFDownloadDomain = m.options.PDFDownloadDomain
 		return nil
 	}
@@ -236,8 +236,74 @@ type compileResponseBody struct {
 	Response *clsiTypes.CompileResponse `json:"compile"`
 }
 
-func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRequest, requestBody *clsiTypes.CompileRequest, response *clsiTypes.CompileResponse) error {
-	// TODO: backend persistence
+func getPersistenceKey(compileGroup clsiTypes.CompileGroup, projectId, userId primitive.ObjectID) string {
+	return fmt.Sprintf("clsiserver:%s:%s:%s", compileGroup, projectId.Hex(), userId.Hex())
+}
+
+func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, compileGroup clsiTypes.CompileGroup, projectId, userId primitive.ObjectID) (types.ClsiServerId, error) {
+	if m.options.APIs.Clsi.Persistence.CookieName == "" {
+		return "", nil
+	}
+	var clsiServerId types.ClsiServerId
+	for _, cookie := range res.Cookies() {
+		if cookie.Name == m.options.APIs.Clsi.Persistence.CookieName {
+			clsiServerId = types.ClsiServerId(cookie.Value)
+			break
+		}
+	}
+	k := getPersistenceKey(compileGroup, projectId, userId)
+	persistenceTTL := m.options.APIs.Clsi.Persistence.TTL
+	var err error
+	if clsiServerId == "" {
+		err = m.client.Expire(ctx, k, persistenceTTL).Err()
+	} else {
+		err = m.client.Set(ctx, k, string(clsiServerId), persistenceTTL).Err()
+	}
+	return clsiServerId, err
+}
+
+func (m *manager) assignNewServerId(ctx context.Context, compileGroup clsiTypes.CompileGroup, projectId, userId primitive.ObjectID) (types.ClsiServerId, error) {
+	u := m.baseURL
+	u += "/project/" + projectId.Hex()
+	u += "/user/" + userId.Hex()
+	u += "/status"
+	r, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		u,
+		nil,
+	)
+	if err != nil {
+		return "", errors.Tag(err, "cannot create cookie status req")
+	}
+	res, err := m.pool.Do(r)
+	if err != nil {
+		return "", errors.Tag(err, "cannot perform cookie status req")
+	}
+
+	return m.populateServerIdFromResponse(ctx, res, compileGroup, projectId, userId)
+}
+
+func (m *manager) getServerId(ctx context.Context, compileGroup clsiTypes.CompileGroup, projectId, userId primitive.ObjectID) (types.ClsiServerId, error) {
+	if m.options.APIs.Clsi.Persistence.CookieName == "" {
+		return "", nil
+	}
+	k := getPersistenceKey(compileGroup, projectId, userId)
+	s, err := m.client.Get(ctx, k).Result()
+	if err != nil && err != redis.Nil {
+		return "", err
+	}
+	if s != "" {
+		return types.ClsiServerId(s), nil
+	}
+	return m.assignNewServerId(ctx, compileGroup, projectId, userId)
+}
+
+func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRequest, requestBody *clsiTypes.CompileRequest, response *types.CompileProjectResponse) error {
+	clsiServerId, err := m.getServerId(ctx, request.CompileGroup, request.ProjectId, request.UserId)
+	if err != nil {
+		return err
+	}
 
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.Hex()
@@ -255,6 +321,13 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 	if err != nil {
 		return err
 	}
+	if clsiServerId != "" {
+		response.ClsiServerId = clsiServerId
+		r.AddCookie(&http.Cookie{
+			Name:  m.options.APIs.Clsi.Persistence.CookieName,
+			Value: string(clsiServerId),
+		})
+	}
 	res, err := m.pool.Do(r)
 	if err != nil {
 		return err
@@ -262,10 +335,26 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 	defer func() {
 		_ = res.Body.Close()
 	}()
+
+	newClsiServerId, err := m.populateServerIdFromResponse(
+		ctx,
+		res,
+		request.CompileGroup,
+		request.ProjectId,
+		request.UserId,
+	)
+	if err != nil {
+		// This is semi-ok to fail. We got a response, why discard it now?
+		log.Printf("cannot update clsi persistence: %s", err.Error())
+	}
+	if newClsiServerId != "" {
+		response.ClsiServerId = newClsiServerId
+	}
+
 	switch res.StatusCode {
 	case http.StatusOK:
 		responseBody := &compileResponseBody{
-			Response: response,
+			Response: &response.CompileResponse,
 		}
 		err = json.NewDecoder(res.Body).Decode(responseBody)
 		if err != nil {

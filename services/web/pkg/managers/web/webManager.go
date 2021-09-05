@@ -38,6 +38,9 @@ type Manager interface {
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
 	dum, err := documentUpdater.New(options.APIs.DocumentUpdater.Options, client)
 	if err != nil {
 		return nil, err

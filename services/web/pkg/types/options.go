@@ -17,6 +17,9 @@
 package types
 
 import (
+	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
@@ -28,20 +31,42 @@ type Options struct {
 	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
 
 	APIs struct {
+		Clsi struct {
+			URL         sharedTypes.URL `json:"url"`
+			Persistence struct {
+				CookieName string        `json:"cookie_name"`
+				TTL        time.Duration `json:"ttl"`
+			} `json:"persistence"`
+		} `json:"clsi"`
 		Docstore struct {
 			Options *docstoreTypes.Options `json:"options"`
 		} `json:"docstore"`
 		DocumentUpdater struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
 		} `json:"document_updater"`
-		TrackChanges struct {
-			URL sharedTypes.URL `json:"url"`
-		} `json:"track_changes"`
-		Clsi struct {
-			URL sharedTypes.URL `json:"url"`
-		} `json:"clsi"`
 		Filestore struct {
 			URL sharedTypes.URL `json:"url"`
 		} `json:"filestore"`
 	} `json:"apis"`
+}
+
+func (o *Options) Validate() error {
+	if err := o.APIs.Clsi.URL.Validate(); err != nil {
+		return errors.Tag(err, "apis.clsi.url is invalid")
+	}
+	if o.APIs.Clsi.Persistence.TTL <= 0 {
+		return &errors.ValidationError{
+			Msg: "apis.clsi.persistence.ttl must be greater than zero",
+		}
+	}
+	if err := o.APIs.Docstore.Options.Validate(); err != nil {
+		return errors.Tag(err, "apis.docstore.options is invalid")
+	}
+	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
+		return errors.Tag(err, "apis.document_updater.options is invalid")
+	}
+	if err := o.APIs.Filestore.URL.Validate(); err != nil {
+		return errors.Tag(err, "apis.filestore.url is invalid")
+	}
+	return nil
 }
