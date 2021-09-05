@@ -49,6 +49,18 @@ type Manager interface {
 		options types.SignedCompileProjectRequestOptions,
 		clsiServerId types.ClsiServerId,
 	) error
+
+	SyncFromCode(
+		ctx context.Context,
+		request *types.SyncFromCodeRequest,
+		positions *clsiTypes.PDFPositions,
+	) error
+
+	SyncFromPDF(
+		ctx context.Context,
+		request *types.SyncFromPDFRequest,
+		positions *clsiTypes.CodePositions,
+	) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, pm project.Manager) (Manager, error) {
@@ -77,6 +89,14 @@ func unexpectedStatus(res *http.Response) error {
 	blob, _ := io.ReadAll(res.Body)
 	err := errors.New(res.Status + ": " + string(blob))
 	return errors.Tag(err, "non-success status code from clsi")
+}
+
+func (m *manager) getImageName(raw clsiTypes.ImageName) clsiTypes.ImageName {
+	if m.options.TeXLiveImageNameOverride == "" {
+		return raw
+	}
+	idx := strings.LastIndexByte(string(raw), '/')
+	return m.options.TeXLiveImageNameOverride + "/" + raw[idx+1:]
 }
 
 func (m *manager) ClearCache(ctx context.Context, request types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId) error {
@@ -110,11 +130,7 @@ func (m *manager) ClearCache(ctx context.Context, request types.SignedCompilePro
 }
 
 func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
-	if m.options.TeXLiveImageNameOverride != "" {
-		idx := strings.LastIndexByte(string(request.ImageName), '/')
-		request.ImageName = m.options.TeXLiveImageNameOverride + "/" +
-			request.ImageName[idx+1:]
-	}
+	request.ImageName = m.getImageName(request.ImageName)
 
 	syncState := clsiTypes.SyncState("TODO")
 

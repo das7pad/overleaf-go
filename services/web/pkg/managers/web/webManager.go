@@ -22,6 +22,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
@@ -40,6 +41,18 @@ type Manager interface {
 		ctx context.Context,
 		request *types.CompileProjectRequest,
 		response *types.CompileProjectResponse,
+	) error
+
+	SyncFromCode(
+		ctx context.Context,
+		request *types.SyncFromCodeRequest,
+		positions *clsiTypes.PDFPositions,
+	) error
+
+	SyncFromPDF(
+		ctx context.Context,
+		request *types.SyncFromPDFRequest,
+		positions *clsiTypes.CodePositions,
 	) error
 }
 
@@ -70,6 +83,14 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 
 type manager struct {
 	cm compile.Manager
+}
+
+func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
+	return m.cm.SyncFromCode(ctx, request, positions)
+}
+
+func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error {
+	return m.cm.SyncFromPDF(ctx, request, positions)
 }
 
 func (m *manager) ClearProjectCache(ctx context.Context, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId) error {

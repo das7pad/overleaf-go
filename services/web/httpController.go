@@ -91,6 +91,16 @@ func (h *httpController) GetRouter(
 		Methods(http.MethodPost).
 		Path("/compile").
 		HandlerFunc(h.compileProject)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
+		Path("/sync/code").
+		HandlerFunc(h.syncFromCode)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
+		Path("/sync/pdf").
+		HandlerFunc(h.syncFromPDF)
 	return router
 }
 
@@ -378,4 +388,50 @@ func (h *httpController) compileProject(w http.ResponseWriter, r *http.Request) 
 		response,
 	)
 	respond(w, r, 200, response, err, "cannot compile project")
+}
+
+func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
+	so, err := getSignedCompileProjectOptionsFromJwt(r)
+	if err != nil || so == nil {
+		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+		return
+	}
+
+	request := &types.SyncFromCodeRequest{}
+	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+		return
+	}
+	request.SignedCompileProjectRequestOptions = *so
+
+	response := &clsiTypes.PDFPositions{}
+	err = h.wm.SyncFromCode(
+		r.Context(),
+		request,
+		response,
+	)
+	respond(w, r, http.StatusOK, response, err, "cannot sync from code")
+}
+
+func (h *httpController) syncFromPDF(w http.ResponseWriter, r *http.Request) {
+	so, err := getSignedCompileProjectOptionsFromJwt(r)
+	if err != nil || so == nil {
+		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+		return
+	}
+
+	request := &types.SyncFromPDFRequest{}
+	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+		return
+	}
+	request.SignedCompileProjectRequestOptions = *so
+
+	response := &clsiTypes.CodePositions{}
+	err = h.wm.SyncFromPDF(
+		r.Context(),
+		request,
+		response,
+	)
+	respond(w, r, http.StatusOK, response, err, "cannot sync from pdf")
 }
