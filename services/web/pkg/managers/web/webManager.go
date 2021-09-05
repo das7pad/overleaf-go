@@ -30,6 +30,12 @@ import (
 )
 
 type Manager interface {
+	ClearProjectCache(
+		ctx context.Context,
+		options types.SignedCompileProjectRequestOptions,
+		clsiServerId types.ClsiServerId,
+	) error
+
 	CompileProject(
 		ctx context.Context,
 		request *types.CompileProjectRequest,
@@ -64,6 +70,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 
 type manager struct {
 	cm compile.Manager
+}
+
+func (m *manager) ClearProjectCache(ctx context.Context, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId) error {
+	return m.cm.ClearCache(ctx, options, clsiServerId)
 }
 
 func (m *manager) CompileProject(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {

@@ -91,6 +91,18 @@ func (m *manager) getServerId(ctx context.Context, options types.SignedCompilePr
 	return m.assignNewServerId(ctx, options)
 }
 
+func (m *manager) clearServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) error {
+	if m.options.APIs.Clsi.Persistence.CookieName == "" {
+		return nil
+	}
+	k := getPersistenceKey(options)
+	err := m.client.Del(ctx, k).Err()
+	if err != nil && err != redis.Nil {
+		return errors.Tag(err, "cannot clear persistence in redis")
+	}
+	return nil
+}
+
 func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedCompileProjectRequestOptions, r *http.Request) (*http.Response, types.ClsiServerId, error) {
 	clsiServerId, err := m.getServerId(ctx, options)
 	if err != nil {
@@ -118,4 +130,12 @@ func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedC
 		clsiServerId = newClsiServerId
 	}
 	return res, clsiServerId, nil
+}
+
+//goland:noinspection SpellCheckingInspection
+const clsiServerIdQueryParam = "clsiserverid"
+
+func (m *manager) doStaticRequest(clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, error) {
+	r.URL.Query().Set(clsiServerIdQueryParam, string(clsiServerId))
+	return m.pool.Do(r)
 }

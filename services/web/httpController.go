@@ -84,6 +84,11 @@ func (h *httpController) GetRouter(
 	projectRouter.
 		NewRoute().
 		Methods(http.MethodPost).
+		Path("/clear-cache").
+		HandlerFunc(h.clearProjectCache)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
 		Path("/compile").
 		HandlerFunc(h.compileProject)
 	return router
@@ -327,6 +332,30 @@ func respond(
 		}
 		_ = json.NewEncoder(w).Encode(body)
 	}
+}
+
+type clearProjectCacheRequestBody struct {
+	types.ClsiServerId `json:"clsi_server_id"`
+}
+
+func (h *httpController) clearProjectCache(w http.ResponseWriter, r *http.Request) {
+	so, err := getSignedCompileProjectOptionsFromJwt(r)
+	if err != nil || so == nil {
+		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+		return
+	}
+
+	request := &clearProjectCacheRequestBody{}
+	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+		return
+	}
+	err = h.wm.ClearProjectCache(
+		r.Context(),
+		*so,
+		request.ClsiServerId,
+	)
+	respond(w, r, http.StatusNoContent, nil, err, "cannot clear project cache")
 }
 
 func (h *httpController) compileProject(w http.ResponseWriter, r *http.Request) {

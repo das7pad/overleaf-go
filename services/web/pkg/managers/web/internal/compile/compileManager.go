@@ -43,6 +43,12 @@ type Manager interface {
 		request *types.CompileProjectRequest,
 		response *types.CompileProjectResponse,
 	) error
+
+	ClearCache(
+		ctx context.Context,
+		options types.SignedCompileProjectRequestOptions,
+		clsiServerId types.ClsiServerId,
+	) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, pm project.Manager) (Manager, error) {
@@ -65,6 +71,42 @@ type manager struct {
 	dm      docstore.Manager
 	pm      project.Manager
 	pool    *http.Client
+}
+
+func unexpectedStatus(res *http.Response) error {
+	blob, _ := io.ReadAll(res.Body)
+	err := errors.New(res.Status + ": " + string(blob))
+	return errors.Tag(err, "non-success status code from clsi")
+}
+
+func (m *manager) ClearCache(ctx context.Context, request types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId) error {
+	clearPersistenceError := m.clearServerId(ctx, request)
+
+	u := m.baseURL
+	u += "/project/" + request.ProjectId.Hex()
+	u += "/user/" + request.UserId.Hex()
+
+	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
+	if err != nil {
+		return errors.Tag(err, "cannot create clear cache request")
+	}
+	res, err := m.doStaticRequest(clsiServerId, r)
+	if err != nil {
+		return errors.Tag(err, "cannot action clear cache request")
+	}
+	defer func() {
+		_ = res.Body.Close()
+	}()
+
+	switch res.StatusCode {
+	case http.StatusNoContent:
+		if clearPersistenceError != nil {
+			return clearPersistenceError
+		}
+		return nil
+	default:
+		return unexpectedStatus(res)
+	}
 }
 
 func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
@@ -276,9 +318,6 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 	case http.StatusConflict:
 		return &errors.InvalidStateError{}
 	default:
-		blob, err = io.ReadAll(res.Body)
-		return errors.New(
-			"non-success status code from clsi: " + res.Status + ": " + string(blob),
-		)
+		return unexpectedStatus(res)
 	}
 }
