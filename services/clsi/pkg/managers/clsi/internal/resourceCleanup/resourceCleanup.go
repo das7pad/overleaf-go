@@ -32,6 +32,7 @@ var PreserveFilesPrefixes = []string{
 	"output-",
 }
 
+//goland:noinspection SpellCheckingInspection
 var PreserveFilesSuffixes = []string{
 	// knitr cache
 	".aux",

@@ -34,6 +34,7 @@ func New() Manager {
 type manager struct {
 }
 
+//goland:noinspection SpellCheckingInspection
 const (
 	usesTikzExternalize      = "\\tikzexternalize"
 	usesPsTool               = "{pstool}"

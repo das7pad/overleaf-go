@@ -22,10 +22,11 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+//goland:noinspection SpellCheckingInspection
 type SeccompPolicy struct {
 	DefaultAction string   `json:"defaultAction"`
 	Architectures []string `json:"architectures"`
-	Syscalls      []struct {
+	SysCalls      []struct {
 		Name   string `json:"name"`
 		Action string `json:"action"`
 		Args   []struct {

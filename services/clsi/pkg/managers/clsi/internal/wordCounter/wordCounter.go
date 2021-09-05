@@ -61,6 +61,7 @@ func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, na
 	}
 	defer files.Cleanup(compileDir)
 
+	//goland:noinspection SpellCheckingInspection
 	cmd := types.CommandLine{
 		"texcount",
 		"-inc",

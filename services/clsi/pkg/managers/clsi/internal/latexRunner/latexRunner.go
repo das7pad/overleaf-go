@@ -43,6 +43,7 @@ type latexRunner struct {
 	options *types.Options
 }
 
+//goland:noinspection SpellCheckingInspection
 var (
 	compilerFlag = map[types.Compiler]string{
 		types.Latex:    "-pdfdvi",
@@ -114,6 +115,7 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 			break
 		}
 	}
+	//goland:noinspection SpellCheckingInspection
 	cmd := types.CommandLine{
 		"latexmk",
 		"-cd",
@@ -132,14 +134,17 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 	isTexFile := sharedTypes.PathName(request.RootResourcePath).Type() == "tex"
 	checkMode := request.Options.Check
 	if checkMode != types.NoCheck && isTexFile {
+		//goland:noinspection SpellCheckingInspection
 		env = append(
 			env,
 			"CHKTEX_OPTIONS=-nall -e9 -e10 -w15 -w16",
 			"CHKTEX_ULIMIT_OPTIONS=-t 5 -v 64000",
 		)
 		if checkMode == types.ErrorCheck {
+			//goland:noinspection SpellCheckingInspection
 			env = append(env, "CHKTEX_EXIT_ON_ERROR=1")
 		} else if checkMode == types.ValidateCheck {
+			//goland:noinspection SpellCheckingInspection
 			env = append(env, "CHKTEX_VALIDATE=1")
 		}
 	}

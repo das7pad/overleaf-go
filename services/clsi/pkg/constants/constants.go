@@ -28,8 +28,9 @@ const OutputDirPlaceHolder = "$OUTPUT_DIR"
 const CompileOutputLabel = "compile-output"
 const ProjectSyncStateFilename = ".project-sync-state"
 
-const Cancelled = "cancelled"
+//goland:noinspection SpellCheckingInspection
 const TimedOut = "timedout"
+const Cancelled = "cancelled"
 const Terminated = "terminated"
 const Success = "success"
 const Failure = "failure"

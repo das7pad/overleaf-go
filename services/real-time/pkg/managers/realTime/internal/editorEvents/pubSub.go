@@ -44,6 +44,7 @@ const (
 	ClientTrackingClientUpdated = "clientTracking.clientUpdated"
 )
 
+//goland:noinspection SpellCheckingInspection
 var nonRestrictedMessages = []string{
 	// File Tree events
 	// NOTE: The actual event names have a typo.

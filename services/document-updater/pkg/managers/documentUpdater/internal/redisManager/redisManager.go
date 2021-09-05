@@ -156,6 +156,7 @@ func getDocVersionKey(docId primitive.ObjectID) string {
 	return "DocVersion:{" + docId.Hex() + "}"
 }
 func getUnFlushedTimeKey(docId primitive.ObjectID) string {
+	//goland:noinspection SpellCheckingInspection
 	return "UnflushedTime:{" + docId.Hex() + "}"
 }
 func getLastUpdatedCtxKey(docId primitive.ObjectID) string {

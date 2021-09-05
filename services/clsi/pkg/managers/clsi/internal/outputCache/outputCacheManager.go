@@ -117,7 +117,8 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 		src := compileDir.Join(fileName)
 		dest := compileOutputDir.Join(destFileName)
 		if resourceCleanup.ShouldDelete(fileName) {
-			// Optimization: Steal the file from the compile dir.
+			// Optimization: Steal the file from the compileDir.
+			// The next compile request would delete it anyways.
 			if err = syscall.Rename(src, dest); err != nil {
 				return nil, false, fmt.Errorf(
 					"cannot rename %s -> %s: %w",

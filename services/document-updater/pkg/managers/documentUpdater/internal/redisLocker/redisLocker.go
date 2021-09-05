@@ -148,7 +148,7 @@ func (l *locker) runWithLock(ctx context.Context, docId primitive.ObjectID, runn
 	workDone()
 
 	if time.Now().After(workDeadline) {
-		// Redis value has expired. There is not need for explicit redis calls.
+		// Redis value has expired. There is no need for explicit redis calls.
 		return nil
 	}
 

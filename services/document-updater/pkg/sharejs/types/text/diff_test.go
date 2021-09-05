@@ -23,6 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
+//goland:noinspection SpellCheckingInspection
 func TestDiff(t *testing.T) {
 	type args struct {
 		before sharedTypes.Snapshot

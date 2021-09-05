@@ -50,7 +50,7 @@ type DocContentsWithFullContext struct {
 	// Fetch DocInS3Field as well.
 	DocInS3Field `bson:"inline"`
 
-	// NOTE: DocOpsVersionField is not part of the docs collection entry.
+	// NOTE: DocOpsVersionField is not part of the `docs` collection entry.
 	DocOpsVersionField
 }
 
