@@ -33,9 +33,9 @@ type Words struct {
 	Messages    string `json:"messages"`
 }
 type WordCountRequest struct {
-	CompileGroup CompileGroup         `json:"compile_group"`
-	FileName     sharedTypes.PathName `json:"file_name"`
-	ImageName    ImageName            `json:"image_name"`
+	CompileGroup CompileGroup         `json:"compileGroup"`
+	FileName     sharedTypes.PathName `json:"fileName"`
+	ImageName    ImageName            `json:"imageName"`
 }
 
 func (r *WordCountRequest) Preprocess(options *Options) error {
