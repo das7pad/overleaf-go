@@ -100,12 +100,16 @@ func (h *httpController) GetRouter() http.Handler {
 			Methods(http.MethodGet).
 			Path("/sync/pdf").
 			HandlerFunc(h.syncFromPDF)
-		//goland:noinspection SpellCheckingInspection
 		compileRouter.
 			NewRoute().
 			Methods(http.MethodGet).
 			Path("/wordcount").
 			HandlerFunc(h.wordCount)
+		compileRouter.
+			NewRoute().
+			Methods(http.MethodPost).
+			Path("/wordcount").
+			HandlerFunc(h.wordCountPOST)
 		compileRouter.
 			NewRoute().
 			Methods(http.MethodGet, http.MethodPost).
@@ -425,7 +429,6 @@ type wordCountResponseBody struct {
 }
 
 func (h *httpController) wordCount(w http.ResponseWriter, r *http.Request) {
-	// TODO: refactor into POST request
 	var request types.WordCountRequest
 	if !decodeFromQuery(w, r, "file", request.FileName, &request.FileName) {
 		return
@@ -447,6 +450,24 @@ func (h *httpController) wordCount(w http.ResponseWriter, r *http.Request) {
 		body.NWords = &words
 	}
 	respond(w, r, http.StatusOK, body, err, "cannot count words")
+}
+
+func (h *httpController) wordCountPOST(w http.ResponseWriter, r *http.Request) {
+	var request types.WordCountRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var body types.Words
+	err := h.cm.WordCount(
+		r.Context(),
+		getId(r, "projectId"),
+		getId(r, "userId"),
+		&request,
+		&body,
+	)
+	respond(w, r, http.StatusOK, body, err, "cannot count words POST")
 }
 
 func (h *httpController) cookieStatus(w http.ResponseWriter, _ *http.Request) {
