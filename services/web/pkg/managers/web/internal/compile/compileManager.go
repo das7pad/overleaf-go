@@ -61,6 +61,12 @@ type Manager interface {
 		request *types.SyncFromPDFRequest,
 		positions *clsiTypes.CodePositions,
 	) error
+
+	WordCount(
+		ctx context.Context,
+		request *types.WordCountRequest,
+		words *clsiTypes.Words,
+	) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, pm project.Manager) (Manager, error) {

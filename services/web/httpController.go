@@ -101,6 +101,11 @@ func (h *httpController) GetRouter(
 		Methods(http.MethodPost).
 		Path("/sync/pdf").
 		HandlerFunc(h.syncFromPDF)
+	projectRouter.
+		NewRoute().
+		Methods(http.MethodPost).
+		Path("/wordcount").
+		HandlerFunc(h.wordCount)
 	return router
 }
 
@@ -434,4 +439,27 @@ func (h *httpController) syncFromPDF(w http.ResponseWriter, r *http.Request) {
 		response,
 	)
 	respond(w, r, http.StatusOK, response, err, "cannot sync from pdf")
+}
+
+func (h *httpController) wordCount(w http.ResponseWriter, r *http.Request) {
+	so, err := getSignedCompileProjectOptionsFromJwt(r)
+	if err != nil || so == nil {
+		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+		return
+	}
+
+	request := &types.WordCountRequest{}
+	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
+		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+		return
+	}
+	request.SignedCompileProjectRequestOptions = *so
+
+	response := &clsiTypes.Words{}
+	err = h.wm.WordCount(
+		r.Context(),
+		request,
+		response,
+	)
+	respond(w, r, http.StatusOK, response, err, "cannot count words")
 }

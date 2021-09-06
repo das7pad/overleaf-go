@@ -54,6 +54,12 @@ type Manager interface {
 		request *types.SyncFromPDFRequest,
 		positions *clsiTypes.CodePositions,
 	) error
+
+	WordCount(
+		ctx context.Context,
+		request *types.WordCountRequest,
+		words *clsiTypes.Words,
+	) error
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
@@ -83,6 +89,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 
 type manager struct {
 	cm compile.Manager
+}
+
+func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {
+	return m.cm.WordCount(ctx, request, words)
 }
 
 func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
