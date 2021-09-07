@@ -20,7 +20,7 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD)
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
-IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/filestore
+IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/web
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 
 PWD ?= $(realpath .)
