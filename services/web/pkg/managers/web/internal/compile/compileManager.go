@@ -143,8 +143,11 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	var resources clsiTypes.Resources
 	var rootDocPath clsiTypes.RootResourcePath
 	var err error
+	fetchContentPerf := response.Timings.FetchContent
 	if request.IncrementalCompilesEnabled {
+		fetchContentPerf.Begin()
 		resources, rootDocPath, err = m.fromRedis(ctx, request)
+		fetchContentPerf.End()
 	} else {
 		err = &errors.InvalidStateError{}
 	}
@@ -155,7 +158,9 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			syncType = clsiTypes.SyncTypeIncremental
 		} else if errors.IsInvalidState(err) {
 			syncType = clsiTypes.SyncTypeFullIncremental
+			fetchContentPerf.Begin()
 			resources, rootDocPath, err = m.fromMongo(ctx, request)
+			fetchContentPerf.End()
 			if err != nil {
 				return errors.Tag(err, "cannot get docs from mongo")
 			}
@@ -185,6 +190,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			}
 			return errors.Tag(err, "cannot compile")
 		}
+		response.Timings.FetchContent = fetchContentPerf
 		response.PDFDownloadDomain = m.options.PDFDownloadDomain
 		return nil
 	}

@@ -325,10 +325,11 @@ type OutputFile struct {
 type OutputFiles []OutputFile
 
 type Timings struct {
-	Compile    sharedTypes.Timed `json:"compile"`
-	CompileE2E sharedTypes.Timed `json:"compileE2E"`
-	Output     sharedTypes.Timed `json:"output"`
-	Sync       sharedTypes.Timed `json:"sync"`
+	FetchContent sharedTypes.Timed `json:"fetchContent"`
+	Compile      sharedTypes.Timed `json:"compile"`
+	CompileE2E   sharedTypes.Timed `json:"compileE2E"`
+	Output       sharedTypes.Timed `json:"output"`
+	Sync         sharedTypes.Timed `json:"sync"`
 }
 
 type CompileStatus string
