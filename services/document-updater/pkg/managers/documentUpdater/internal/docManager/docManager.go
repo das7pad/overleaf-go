@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -647,23 +648,38 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error) {
-	err := m.rm.CheckOrSetProjectState(ctx, projectId, newState)
-	if err != nil {
+	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return m.rm.CheckOrSetProjectState(pCtx, projectId, newState)
+	})
+	var docIds []primitive.ObjectID
+	eg.Go(func() error {
+		var err error
+		docIds, err = m.rm.GetDocIdsInProject(ctx, projectId)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
-	if err != nil {
-		return nil, err
-	}
+
 	docs := make([]*types.Doc, len(docIds))
-	for i, docId := range docIds {
-		doc, err2 := m.processUpdatesForDocAndMaybeFlushOld(
-			ctx, projectId, docId, true,
-		)
-		if err2 != nil {
-			return nil, errors.Tag(err2, projectId.Hex()+"/"+docId.Hex())
-		}
-		docs[i] = doc
+	eg, pCtx = errgroup.WithContext(ctx)
+	for j, id := range docIds {
+		i := j
+		docId := id
+		eg.Go(func() error {
+			doc, err := m.processUpdatesForDocAndMaybeFlushOld(
+				pCtx, projectId, docId, true,
+			)
+			if err != nil {
+				return errors.Tag(err, projectId.Hex()+"/"+docId.Hex())
+			}
+			docs[i] = doc
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 	return docs, nil
 }
