@@ -37,9 +37,9 @@ func getPersistenceKey(options types.SignedCompileProjectRequestOptions) string 
 	)
 }
 
-func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options types.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
+func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options types.SignedCompileProjectRequestOptions) types.ClsiServerId {
 	if m.options.APIs.Clsi.Persistence.CookieName == "" {
-		return "", nil
+		return ""
 	}
 	var clsiServerId types.ClsiServerId
 	for _, cookie := range res.Cookies() {
@@ -50,30 +50,25 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 	}
 	k := getPersistenceKey(options)
 	persistenceTTL := m.options.APIs.Clsi.Persistence.TTL
-	var err error
 	if clsiServerId == "" {
-		err = m.client.Expire(ctx, k, persistenceTTL).Err()
+		// Bump expiry of persistence in the background.
+		// It's ok to switch the backend occasionally.
+		go func() {
+			err := m.client.Expire(ctx, k, persistenceTTL).Err()
+			if err != nil {
+				log.Printf("cannot bump clsi persistence: %s", err.Error())
+			}
+		}()
 	} else {
-		err = m.client.Set(ctx, k, string(clsiServerId), persistenceTTL).Err()
+		// Race-Condition: Switch backend in foreground.
+		// We want to go to the same backend when re-syncing.
+		err := m.client.Set(ctx, k, string(clsiServerId), persistenceTTL).Err()
+		if err != nil {
+			// Persistence is a performance optimization and ok to fail.
+			log.Printf("cannot update clsi persistence: %s", err.Error())
+		}
 	}
-	return clsiServerId, err
-}
-
-func (m *manager) assignNewServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
-	u := m.baseURL
-	u += "/project/" + options.ProjectId.Hex()
-	u += "/user/" + options.UserId.Hex()
-	u += "/status"
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
-	if err != nil {
-		return "", errors.Tag(err, "cannot create cookie fetch request")
-	}
-	res, err := m.pool.Do(r)
-	if err != nil {
-		return "", errors.Tag(err, "cannot action cookie fetch request")
-	}
-
-	return m.populateServerIdFromResponse(ctx, res, options)
+	return clsiServerId
 }
 
 func (m *manager) getServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
@@ -85,10 +80,7 @@ func (m *manager) getServerId(ctx context.Context, options types.SignedCompilePr
 	if err != nil && err != redis.Nil {
 		return "", errors.Tag(err, "cannot get persistence id from redis")
 	}
-	if s != "" {
-		return types.ClsiServerId(s), nil
-	}
-	return m.assignNewServerId(ctx, options)
+	return types.ClsiServerId(s), nil
 }
 
 func (m *manager) clearServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) error {
@@ -106,7 +98,7 @@ func (m *manager) clearServerId(ctx context.Context, options types.SignedCompile
 func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedCompileProjectRequestOptions, r *http.Request) (*http.Response, types.ClsiServerId, error) {
 	clsiServerId, err := m.getServerId(ctx, options)
 	if err != nil {
-		return nil, "", err
+		log.Printf("cannot get clsi persistence: %s", err.Error())
 	}
 	if clsiServerId != "" {
 		r.AddCookie(&http.Cookie{
@@ -118,14 +110,7 @@ func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedC
 	if err != nil {
 		return nil, clsiServerId, err
 	}
-	newClsiServerId, err := m.populateServerIdFromResponse(
-		ctx, res, options,
-	)
-	if err != nil {
-		// Backend persistence is a performance optimization.
-		// It is ok to fail. We received a response, why discard it now?
-		log.Printf("cannot update clsi persistence: %s", err.Error())
-	}
+	newClsiServerId := m.populateServerIdFromResponse(ctx, res, options)
 	if newClsiServerId != "" {
 		clsiServerId = newClsiServerId
 	}
