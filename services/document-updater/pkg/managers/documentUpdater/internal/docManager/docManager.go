@@ -228,16 +228,8 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 		return nil, errors.Tag(err, "cannot get doc from mongo")
 	}
 	doc = flushedDoc.ToDoc(projectId, docId)
-	err = m.rm.PutDocInMemory(ctx, projectId, docId, doc)
-	if err != nil {
-		ids := projectId.Hex() + "/" + docId.Hex()
-		log.Println(
-			errors.Tag(
-				err, "cannot put doc in memory ("+ids+")",
-			).Error(),
-		)
-		// do not fail the request
-		return doc, nil
+	if err = m.rm.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
+		return nil, errors.Tag(err, "cannot put doc in memory")
 	}
 	return doc, nil
 }
