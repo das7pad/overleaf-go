@@ -38,26 +38,20 @@ type LastUpdatedCtx struct {
 	By primitive.ObjectID `json:"by,omitempty"`
 }
 
-type ProjectHistoryId int64
-type ProjectHistoryType string
-
 type FlushedDoc struct {
-	Lines              sharedTypes.Lines    `json:"lines"`
-	PathName           sharedTypes.PathName `json:"pathname"`
-	ProjectHistoryId   ProjectHistoryId     `json:"projectHistoryId,omitempty"`
-	ProjectHistoryType ProjectHistoryType   `json:"projectHistoryType,omitempty"`
-	Ranges             sharedTypes.Ranges   `json:"ranges"`
-	Version            sharedTypes.Version  `json:"version"`
+	Lines    sharedTypes.Lines    `json:"lines"`
+	PathName sharedTypes.PathName `json:"pathname"`
+	Ranges   sharedTypes.Ranges   `json:"ranges"`
+	Version  sharedTypes.Version  `json:"version"`
 }
 
 type DocCore struct {
-	Snapshot         sharedTypes.Snapshot `json:"snapshot"`
-	Hash             sharedTypes.Hash     `json:"hash"`
-	JsonRanges       json.RawMessage      `json:"json_ranges"`
-	Ranges           sharedTypes.Ranges   `json:"-"`
-	ProjectId        primitive.ObjectID   `json:"project_id"`
-	PathName         sharedTypes.PathName `json:"path_name"`
-	ProjectHistoryId ProjectHistoryId     `json:"project_history_id,omitempty"`
+	Snapshot   sharedTypes.Snapshot `json:"snapshot"`
+	Hash       sharedTypes.Hash     `json:"hash"`
+	JsonRanges json.RawMessage      `json:"json_ranges"`
+	Ranges     sharedTypes.Ranges   `json:"-"`
+	ProjectId  primitive.ObjectID   `json:"project_id"`
+	PathName   sharedTypes.PathName `json:"path_name"`
 }
 
 type Doc struct {
@@ -74,7 +68,6 @@ func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId primitive.Object
 	d.DocId = docId
 	d.JustLoadedIntoRedis = true
 	d.PathName = flushedDoc.PathName
-	d.ProjectHistoryId = flushedDoc.ProjectHistoryId
 	d.ProjectId = projectId
 	d.Ranges = flushedDoc.Ranges
 	d.Snapshot = flushedDoc.Lines.ToSnapshot()
@@ -187,13 +180,6 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 		return errors.Tag(err, "cannot parse pathName")
 	}
 
-	if string(parts[5]) == "NaN" || string(parts[5]) == "undefined" {
-		core.ProjectHistoryId = 0
-	} else {
-		if err = json.Unmarshal(parts[5], &core.ProjectHistoryId); err != nil {
-			return errors.Tag(err, "cannot parse projectHistoryId")
-		}
-	}
 	return nil
 }
 
