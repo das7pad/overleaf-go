@@ -225,7 +225,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get doc from mongo")
 	}
-	doc = flushedDoc.ToDoc(projectId, docId)
+	doc = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
 	if err = m.rm.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
 		return nil, errors.Tag(err, "cannot put doc in memory")
 	}

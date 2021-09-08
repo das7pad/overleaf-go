@@ -50,19 +50,6 @@ type FlushedDoc struct {
 	Version            sharedTypes.Version  `json:"version"`
 }
 
-func (d *FlushedDoc) ToDoc(projectId, docId primitive.ObjectID) *Doc {
-	doc := &Doc{}
-	doc.DocId = docId
-	doc.Snapshot = d.Lines.ToSnapshot()
-	doc.PathName = d.PathName
-	doc.ProjectHistoryId = d.ProjectHistoryId
-	doc.ProjectId = projectId
-	doc.Ranges = d.Ranges
-	doc.Version = d.Version
-	doc.JustLoadedIntoRedis = true
-	return doc
-}
-
 type DocCore struct {
 	Snapshot         sharedTypes.Snapshot `json:"snapshot"`
 	Hash             sharedTypes.Hash     `json:"hash"`
@@ -80,6 +67,19 @@ type Doc struct {
 	UnFlushedTime
 	DocId               primitive.ObjectID
 	JustLoadedIntoRedis bool
+}
+
+func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId primitive.ObjectID) *Doc {
+	d := &Doc{}
+	d.DocId = docId
+	d.JustLoadedIntoRedis = true
+	d.PathName = flushedDoc.PathName
+	d.ProjectHistoryId = flushedDoc.ProjectHistoryId
+	d.ProjectId = projectId
+	d.Ranges = flushedDoc.Ranges
+	d.Snapshot = flushedDoc.Lines.ToSnapshot()
+	d.Version = flushedDoc.Version
+	return d
 }
 
 type SetDocRequest struct {
