@@ -218,12 +218,10 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	if err == nil {
 		return doc, nil
 	}
-	err = errors.Tag(err, "cannot get doc from redis")
 	if !errors.IsNotFoundError(err) {
-		return nil, err
+		return nil, errors.Tag(err, "cannot get doc from redis")
 	}
-	var flushedDoc *types.FlushedDoc
-	flushedDoc, err = m.webApi.GetDoc(ctx, projectId, docId)
+	flushedDoc, err := m.webApi.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get doc from mongo")
 	}
