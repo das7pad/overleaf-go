@@ -262,6 +262,11 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 		}
 		revision = doc.Revision
 	} else if errors.IsDocNotFoundError(err) {
+		if version != 0 {
+			// Block 'creation' of documents with non-zero version.
+			return false, 0, err
+		}
+
 		modifiedContents = true
 		modifiedVersion = true
 		revision = 0
