@@ -17,6 +17,8 @@
 package project
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -26,6 +28,14 @@ type IdField struct {
 
 type NameField struct {
 	Name string `json:"name" bson:"name"`
+}
+
+type LastUpdatedAtField struct {
+	LastUpdatedAt time.Time `bson:"lastUpdated"`
+}
+
+type LastUpdatedByField struct {
+	LastUpdatedBy primitive.ObjectID `bson:"lastUpdatedBy"`
 }
 
 type TreeField struct {

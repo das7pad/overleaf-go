@@ -19,6 +19,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -30,6 +31,7 @@ import (
 
 type Manager interface {
 	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
+	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) (Manager, error) {
@@ -46,6 +48,25 @@ func rewriteMongoError(err error) error {
 	if err == mongo.ErrNoDocuments {
 		return &errors.ErrorDocNotFound{}
 	}
+	return err
+}
+
+func (m *manager) UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error {
+	v := WithLastUpdatedDetails{}
+	v.LastUpdatedAt = at
+	v.LastUpdatedBy = by
+	_, err := m.c.UpdateOne(
+		ctx,
+		bson.M{
+			"_id": projectId,
+			"lastUpdated": bson.M{
+				"$gt": at,
+			},
+		},
+		bson.M{
+			"$set": v,
+		},
+	)
 	return err
 }
 

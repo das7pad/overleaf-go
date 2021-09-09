@@ -19,3 +19,8 @@ package project
 type WithTree struct {
 	TreeField `bson:"inline"`
 }
+
+type WithLastUpdatedDetails struct {
+	LastUpdatedAtField `bson:"inline"`
+	LastUpdatedByField `bson:"inline"`
+}
