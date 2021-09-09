@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 
@@ -54,7 +55,11 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 		// Bump expiry of persistence in the background.
 		// It's ok to switch the backend occasionally.
 		go func() {
-			err := m.client.Expire(ctx, k, persistenceTTL).Err()
+			backgroundCtx, done := context.WithTimeout(
+				context.Background(), time.Second*10,
+			)
+			err := m.client.Expire(backgroundCtx, k, persistenceTTL).Err()
+			done()
 			if err != nil {
 				log.Printf("cannot bump clsi persistence: %s", err.Error())
 			}
