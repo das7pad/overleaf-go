@@ -69,27 +69,50 @@ var AbortWalk = errors.New("abort walk")
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
 
 func (t *Folder) Walk(fn TreeWalker) error {
-	err := t.walk(fn, "")
+	return t.walkIgnoreAbort(fn, walkModeAny)
+}
+
+func (t *Folder) WalkDocs(fn TreeWalker) error {
+	return t.walkIgnoreAbort(fn, walkModeDoc)
+}
+
+func (t *Folder) WalkFiles(fn TreeWalker) error {
+	return t.walkIgnoreAbort(fn, walkModeFiles)
+}
+
+const (
+	walkModeDoc = iota
+	walkModeFiles
+	walkModeAny
+)
+
+func (t *Folder) walkIgnoreAbort(fn TreeWalker, m int) error {
+	err := t.walk(fn, "", m)
 	if err != nil && err != AbortWalk {
 		return err
 	}
 	return nil
 }
 
-func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName) error {
-	for _, doc := range t.Docs {
-		if err := fn(doc, parent.Join(doc.Name)); err != nil {
-			return err
+func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m int) error {
+	if m == walkModeDoc || m == walkModeAny {
+		for _, doc := range t.Docs {
+			if err := fn(doc, parent.Join(doc.Name)); err != nil {
+				return err
+			}
 		}
 	}
-	for _, fileRef := range t.FileRefs {
-		err := fn(fileRef, parent.Join(fileRef.Name))
-		if err != nil {
-			return err
+	if m == walkModeFiles || m == walkModeAny {
+		for _, fileRef := range t.FileRefs {
+			err := fn(fileRef, parent.Join(fileRef.Name))
+			if err != nil {
+				return err
+			}
 		}
 	}
 	for _, folder := range t.Folders {
-		err := folder.walk(fn, sharedTypes.DirName(parent.Join(folder.Name)))
+		branch := sharedTypes.DirName(parent.Join(folder.Name))
+		err := folder.walk(fn, branch, m)
 		if err != nil {
 			return err
 		}
