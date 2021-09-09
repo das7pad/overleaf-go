@@ -22,11 +22,11 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
-	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 

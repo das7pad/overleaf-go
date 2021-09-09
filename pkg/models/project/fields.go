@@ -18,8 +18,6 @@ package project
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type IdField struct {
@@ -31,5 +29,5 @@ type NameField struct {
 }
 
 type TreeField struct {
-	RootFolder []types.Folder `json:"rootFolder" bson:"rootFolder"`
+	RootFolder []Folder `json:"rootFolder" bson:"rootFolder"`
 }

@@ -28,10 +28,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
-	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -213,11 +213,11 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 	files := make(clsiTypes.Resources, 0)
 	docs := make(map[primitive.ObjectID]sharedTypes.PathName, 0)
 
-	err = folder.Walk(func(e types.TreeElement, p sharedTypes.PathName) error {
+	err = folder.Walk(func(e project.TreeElement, p sharedTypes.PathName) error {
 		switch entry := e.(type) {
-		case types.Doc:
+		case project.Doc:
 			docs[entry.Id] = p
-		case types.FileRef:
+		case project.FileRef:
 			t := clsiTypes.ModifiedAt(entry.Created.Unix())
 			url := m.options.APIs.Filestore.URL.WithPath(
 				"/project/" + request.ProjectId.Hex() +

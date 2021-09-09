@@ -26,12 +26,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	models "github.com/das7pad/overleaf-go/services/web/pkg/models/project"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
-	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*types.Folder, error)
+	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
 }
 
 func New(db *mongo.Database) (Manager, error) {
@@ -51,8 +49,8 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*types.Folder, error) {
-	var project models.WithTree
+func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error) {
+	var project WithTree
 	err := m.c.FindOne(
 		ctx,
 		bson.M{
