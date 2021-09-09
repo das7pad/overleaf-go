@@ -24,8 +24,11 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
@@ -35,7 +38,18 @@ type Manager interface {
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error
 }
 
-func New(options *types.Options) (Manager, error) {
+func New(options *types.Options, db *mongo.Database) (Manager, error) {
+	if options.APIs.WebApi.Monolith {
+		dm, err := docstore.New(options.APIs.Docstore.Options, db)
+		if err != nil {
+			return nil, err
+		}
+		pm, err := project.New(db)
+		if err != nil {
+			return nil, err
+		}
+		return &monolithManager{dm: dm, pm: pm}, nil
+	}
 	return &manager{
 		baseURL: options.APIs.WebApi.URL.String(),
 		client: &http.Client{

@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
@@ -52,12 +53,12 @@ type Manager interface {
 	ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error
 }
 
-func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	dm, err := docManager.New(options, client)
+	dm, err := docManager.New(options, client, db)
 	if err != nil {
 		return nil, err
 	}

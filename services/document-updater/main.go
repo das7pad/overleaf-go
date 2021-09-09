@@ -22,9 +22,15 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 )
+
+func waitForDb(ctx context.Context, client *mongo.Client) error {
+	return client.Ping(ctx, readpref.Primary())
+}
 
 func waitForRedis(
 	ctx context.Context,
@@ -47,7 +53,17 @@ func main() {
 		panic(err)
 	}
 
-	dum, err := documentUpdater.New(o.options, redisClient)
+	client, err := mongo.Connect(ctx, o.mongoOptions)
+	if err != nil {
+		panic(err)
+	}
+	err = waitForDb(ctx, client)
+	if err != nil {
+		panic(err)
+	}
+	db := client.Database(o.dbName)
+
+	dum, err := documentUpdater.New(o.options, redisClient, db)
 	if err != nil {
 		panic(err)
 	}

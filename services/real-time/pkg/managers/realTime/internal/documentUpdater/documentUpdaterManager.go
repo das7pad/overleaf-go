@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -38,11 +39,12 @@ type Manager interface {
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
-func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	if options.APIs.DocumentUpdater.Options != nil {
 		return documentUpdater.New(
 			options.APIs.DocumentUpdater.Options,
 			client,
+			db,
 		)
 	}
 	return &manager{

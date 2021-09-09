@@ -22,10 +22,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	jwtMiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -51,6 +54,13 @@ func getStringFromEnv(key, fallback string) string {
 	return raw
 }
 
+func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
+	if v, exists := os.LookupEnv(key); !exists || v == "" {
+		return fallback
+	}
+	return time.Duration(getIntFromEnv(key, 0) * int64(time.Millisecond))
+}
+
 func getJSONFromEnv(key string, target interface{}) {
 	if v, exists := os.LookupEnv(key); !exists || v == "" {
 		panic(errors.New("missing " + key))
@@ -65,6 +75,8 @@ type realTimeOptions struct {
 	address string
 
 	jwtOptions   jwtMiddleware.Options
+	mongoOptions *options.ClientOptions
+	dbName       string
 	redisOptions *redis.UniversalOptions
 	options      *types.Options
 }
@@ -87,6 +99,36 @@ func getOptions() *realTimeOptions {
 		},
 		SigningMethod: jwt.SigningMethodHS512,
 	}
+
+	mongoConnectionString := os.Getenv("MONGO_CONNECTION_STRING")
+	if mongoConnectionString == "" {
+		mongoHost := os.Getenv("MONGO_HOST")
+		if mongoHost == "" {
+			mongoHost = "localhost"
+		}
+		mongoConnectionString = fmt.Sprintf(
+			"mongodb://%s/sharelatex", mongoHost,
+		)
+	}
+	o.mongoOptions = options.Client()
+	o.mongoOptions.ApplyURI(mongoConnectionString)
+	o.mongoOptions.SetAppName(os.Getenv("SERVICE_NAME"))
+	o.mongoOptions.SetMaxPoolSize(
+		uint64(getIntFromEnv("MONGO_POOL_SIZE", 10)),
+	)
+	o.mongoOptions.SetSocketTimeout(
+		getDurationFromEnv("MONGO_SOCKET_TIMEOUT", 30*time.Second),
+	)
+	o.mongoOptions.SetServerSelectionTimeout(getDurationFromEnv(
+		"MONGO_SERVER_SELECTION_TIMEOUT",
+		60*time.Second,
+	))
+
+	cs, err := connstring.Parse(mongoConnectionString)
+	if err != nil {
+		panic(err)
+	}
+	o.dbName = cs.Database
 
 	o.redisOptions = &redis.UniversalOptions{
 		Addrs: strings.Split(

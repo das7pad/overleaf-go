@@ -66,7 +66,9 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
-	dum, err := documentUpdater.New(options.APIs.DocumentUpdater.Options, client)
+	dum, err := documentUpdater.New(
+		options.APIs.DocumentUpdater.Options, client, db,
+	)
 	if err != nil {
 		return nil, err
 	}

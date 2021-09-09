@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -61,7 +62,7 @@ type Manager interface {
 	QueueFlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
-func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	rl, err := redisLocker.New(client)
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func New(options *types.Options, client redis.UniversalClient) (Manager, error) 
 	if err != nil {
 		return nil, err
 	}
-	web, err := webApi.New(options)
+	web, err := webApi.New(options, db)
 	if err != nil {
 		return nil, err
 	}

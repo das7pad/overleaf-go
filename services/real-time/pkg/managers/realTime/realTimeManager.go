@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -41,7 +42,7 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
+func New(ctx context.Context, options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	d, err := documentUpdater.New(options, client)
+	d, err := documentUpdater.New(options, client, db)
 	if err != nil {
 		return nil, err
 	}
