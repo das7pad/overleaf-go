@@ -27,10 +27,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
 	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
+	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
 }
 
@@ -68,6 +70,31 @@ func (m *manager) UpdateLastUpdated(ctx context.Context, projectId primitive.Obj
 		},
 	)
 	return err
+}
+
+func (m *manager) GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error) {
+	f, err := m.GetProjectRootFolder(ctx, projectId)
+	if err != nil {
+		return nil, "", errors.Tag(err, "cannot get tree")
+	}
+	var doc *Doc
+	var p sharedTypes.PathName
+	err = f.WalkDocs(func(element TreeElement, path sharedTypes.PathName) error {
+		if element.GetId() == docId {
+			d := element.(Doc)
+			doc = &d
+			p = path
+			return AbortWalk
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, "", errors.Tag(err, "cannot walk project tree")
+	}
+	if doc == nil {
+		return nil, "", &errors.NotFoundError{}
+	}
+	return doc, p, nil
 }
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error) {

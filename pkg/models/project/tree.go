@@ -26,12 +26,17 @@ import (
 )
 
 type TreeElement interface {
+	GetId() primitive.ObjectID
 	GetName() sharedTypes.Filename
 }
 
 type CommonTreeFields struct {
 	Id   primitive.ObjectID   `json:"_id" bson:"_id"`
 	Name sharedTypes.Filename `json:"name" bson:"name"`
+}
+
+func (c CommonTreeFields) GetId() primitive.ObjectID {
+	return c.Id
 }
 
 func (c CommonTreeFields) GetName() sharedTypes.Filename {
