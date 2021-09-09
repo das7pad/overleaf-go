@@ -126,15 +126,15 @@ func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, u
 				err, "cannot clear project state ahead of doc rename",
 			)
 		}
-
-		if _, err = m.rm.GetDocVersion(ctx, docId); err != nil {
-			if errors.IsNotFoundError(err) {
-				// Fast path: Doc is not loaded in redis yet.
-				return nil
-			}
-		}
-
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			if _, err = m.rm.GetDocVersion(ctx, docId); err != nil {
+				if errors.IsNotFoundError(err) {
+					// Fast path: Doc is not loaded in redis yet.
+					err = nil
+				}
+				return
+			}
+
 			var doc *types.Doc
 			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
