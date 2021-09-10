@@ -280,8 +280,10 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 	for i, doc := range docs {
 		p := doc.PathName
 		if p != "" {
-			// Paths are stored absolute in redis :/
-			p = p[1:]
+			// Paths used to be stored absolute in redis :/
+			if p[0] == '/' {
+				p = p[1:]
+			}
 		}
 		if doc.Id == request.RootDocId {
 			rootDocPath = clsiTypes.RootResourcePath(p)
