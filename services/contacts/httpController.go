@@ -59,7 +59,7 @@ func errorResponse(w http.ResponseWriter, code int, message string) {
 }
 
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("contacts is alive (go)\n"))
 }
 
@@ -70,29 +70,33 @@ type addContactRequestBody struct {
 func (h *httpController) addContacts(w http.ResponseWriter, r *http.Request) {
 	userId, err := primitive.ObjectIDFromHex(mux.Vars(r)["userId"])
 	if err != nil {
-		errorResponse(w, 400, "invalid userId")
+		errorResponse(w, http.StatusBadRequest, "invalid userId")
 		return
 	}
 	var requestBody addContactRequestBody
 	err = json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil {
-		errorResponse(w, 400, "invalid request body")
+		errorResponse(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	contactId, err := primitive.ObjectIDFromHex(requestBody.ContactId)
 	if err != nil {
-		errorResponse(w, 400, "invalid userId")
+		errorResponse(w, http.StatusBadRequest, "invalid userId")
 		return
 	}
 
 	err = h.cm.AddContacts(r.Context(), userId, contactId)
 	if err != nil {
 		log.Println(err)
-		errorResponse(w, 500, "cannot touch contacts for users")
+		errorResponse(
+			w,
+			http.StatusInternalServerError,
+			"cannot touch contacts for users",
+		)
 		return
 	}
 
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 const ContactLimit = 50
@@ -104,7 +108,7 @@ type getContactsResponseBody struct {
 func (h *httpController) getContacts(w http.ResponseWriter, r *http.Request) {
 	userId, err := primitive.ObjectIDFromHex(mux.Vars(r)["userId"])
 	if err != nil {
-		errorResponse(w, 400, "invalid userId")
+		errorResponse(w, http.StatusBadRequest, "invalid userId")
 		return
 	}
 	limit := ContactLimit
@@ -112,7 +116,7 @@ func (h *httpController) getContacts(w http.ResponseWriter, r *http.Request) {
 	if limitQueryParam != "" {
 		limit64, err := strconv.ParseInt(limitQueryParam, 10, 64)
 		if err != nil {
-			errorResponse(w, 400, "invalid limit")
+			errorResponse(w, http.StatusBadRequest, "invalid limit")
 			return
 		}
 		limit = int(limit64)
@@ -125,7 +129,11 @@ func (h *httpController) getContacts(w http.ResponseWriter, r *http.Request) {
 	contactIds, err := h.cm.GetContacts(r.Context(), userId, limit)
 	if err != nil {
 		log.Println(err)
-		errorResponse(w, 500, "cannot read contacts")
+		errorResponse(
+			w,
+			http.StatusInternalServerError,
+			"cannot read contacts",
+		)
 		return
 	}
 

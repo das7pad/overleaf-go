@@ -147,7 +147,7 @@ func errorResponse(w http.ResponseWriter, code int, message string) {
 }
 
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("document-updater is alive (go)\n"))
 }
 
@@ -226,7 +226,7 @@ func respond(
 }
 
 func (h *httpController) handle404(w http.ResponseWriter, r *http.Request) {
-	respond(w, r, 404, nil, errors.New("404"), "404")
+	respond(w, r, http.StatusNotFound, nil, errors.New("404"), "404")
 }
 
 func (h *httpController) checkDocExists(w http.ResponseWriter, r *http.Request) {

@@ -198,7 +198,7 @@ func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
 
 func (h *httpController) clientBlob(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("window.io='plain'"))
 }
 

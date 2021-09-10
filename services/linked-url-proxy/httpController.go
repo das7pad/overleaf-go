@@ -46,31 +46,31 @@ func (h *httpController) GetRouter() http.Handler {
 }
 
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("linked-url-proxy is alive (go)\n"))
 }
 
 func (h *httpController) proxy(w http.ResponseWriter, r *http.Request) {
 	if subtle.ConstantTimeCompare([]byte(r.URL.Path), []byte(h.proxyPathWithToken)) == 0 {
-		w.WriteHeader(403)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 	url := r.URL.Query().Get("url")
 	if url == "" {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	requestOut, err := http.NewRequestWithContext(r.Context(), "GET", url, http.NoBody)
 	if err != nil {
 		log.Println("request creation failed:", err)
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	responseOut, err := h.client.Do(requestOut)
 	if err != nil {
 		log.Println("request failed:", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	contentType := responseOut.Header.Get("Content-Type")

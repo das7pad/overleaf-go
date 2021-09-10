@@ -114,7 +114,7 @@ func validateAndSetId(name string) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id, err := primitive.ObjectIDFromHex(mux.Vars(r)[name])
 			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, 400, "invalid "+name)
+				errorResponse(w, http.StatusBadRequest, "invalid "+name)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -157,7 +157,7 @@ func errorResponse(w http.ResponseWriter, code int, message string) {
 }
 
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("chat is alive (go)\n"))
 }
 
@@ -183,11 +183,11 @@ func respond(
 ) {
 	if err != nil {
 		if errors.IsValidationError(err) {
-			errorResponse(w, 400, err.Error())
+			errorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, 500, msg)
+		errorResponse(w, http.StatusInternalServerError, msg)
 		return
 	}
 	w.WriteHeader(code)
@@ -201,12 +201,12 @@ const DefaultMessageLimit = 50
 func (h *httpController) getGlobalMessages(w http.ResponseWriter, r *http.Request) {
 	limit, err := getNumberFromQuery(r, "limit", DefaultMessageLimit)
 	if err != nil {
-		errorResponse(w, 400, "invalid limit parameter")
+		errorResponse(w, http.StatusBadRequest, "invalid limit parameter")
 		return
 	}
 	before, err := getNumberFromQuery(r, "before", 0)
 	if err != nil {
-		errorResponse(w, 400, "invalid before parameter")
+		errorResponse(w, http.StatusBadRequest, "invalid before parameter")
 		return
 	}
 
@@ -216,7 +216,7 @@ func (h *httpController) getGlobalMessages(w http.ResponseWriter, r *http.Reques
 		int64(limit),
 		before,
 	)
-	respond(w, r, 200, messages, err, "cannot get global messages")
+	respond(w, r, http.StatusOK, messages, err, "cannot get global messages")
 }
 
 type sendMessageRequestBody struct {
@@ -244,7 +244,7 @@ func parseSendMessageRequest(
 func (h *httpController) sendGlobalMessages(w http.ResponseWriter, r *http.Request) {
 	content, userId, validationError := parseSendMessageRequest(r)
 	if validationError != nil {
-		errorResponse(w, 400, validationError.Error())
+		errorResponse(w, http.StatusBadRequest, validationError.Error())
 		return
 	}
 	message, err := h.cm.SendGlobalMessage(
@@ -253,7 +253,7 @@ func (h *httpController) sendGlobalMessages(w http.ResponseWriter, r *http.Reque
 		content,
 		userId,
 	)
-	respond(w, r, 201, message, err, "cannot send global message")
+	respond(w, r, http.StatusCreated, message, err, "cannot send global message")
 }
 
 func (h *httpController) getAllThreads(w http.ResponseWriter, r *http.Request) {
@@ -261,13 +261,13 @@ func (h *httpController) getAllThreads(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		getId(r, "projectId"),
 	)
-	respond(w, r, 200, threads, err, "cannot get all threads")
+	respond(w, r, http.StatusOK, threads, err, "cannot get all threads")
 }
 
 func (h *httpController) sendThreadMessage(w http.ResponseWriter, r *http.Request) {
 	content, userId, validationError := parseSendMessageRequest(r)
 	if validationError != nil {
-		errorResponse(w, 400, validationError.Error())
+		errorResponse(w, http.StatusBadRequest, validationError.Error())
 		return
 	}
 	message, err := h.cm.SendThreadMessage(
@@ -277,7 +277,7 @@ func (h *httpController) sendThreadMessage(w http.ResponseWriter, r *http.Reques
 		content,
 		userId,
 	)
-	respond(w, r, 201, message, err, "cannot send thread message")
+	respond(w, r, http.StatusCreated, message, err, "cannot send thread message")
 }
 
 type resolveThreadRequestBody struct {
@@ -288,7 +288,7 @@ func (h *httpController) resolveThread(w http.ResponseWriter, r *http.Request) {
 	var requestBody resolveThreadRequestBody
 	err := json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil || requestBody.UserId == primitive.NilObjectID {
-		errorResponse(w, 400, "invalid user_id")
+		errorResponse(w, http.StatusBadRequest, "invalid user_id")
 		return
 	}
 	err = h.cm.ResolveThread(
@@ -297,7 +297,7 @@ func (h *httpController) resolveThread(w http.ResponseWriter, r *http.Request) {
 		getId(r, "threadId"),
 		requestBody.UserId,
 	)
-	respond(w, r, 204, nil, err, "cannot resolve thread")
+	respond(w, r, http.StatusNoContent, nil, err, "cannot resolve thread")
 }
 
 func (h *httpController) reopenThread(w http.ResponseWriter, r *http.Request) {
@@ -306,7 +306,7 @@ func (h *httpController) reopenThread(w http.ResponseWriter, r *http.Request) {
 		getId(r, "projectId"),
 		getId(r, "threadId"),
 	)
-	respond(w, r, 204, nil, err, "cannot reopen thread")
+	respond(w, r, http.StatusNoContent, nil, err, "cannot reopen thread")
 }
 
 func (h *httpController) deleteThread(w http.ResponseWriter, r *http.Request) {
@@ -315,7 +315,7 @@ func (h *httpController) deleteThread(w http.ResponseWriter, r *http.Request) {
 		getId(r, "projectId"),
 		getId(r, "threadId"),
 	)
-	respond(w, r, 204, nil, err, "cannot delete thread")
+	respond(w, r, http.StatusNoContent, nil, err, "cannot delete thread")
 }
 
 type editMessageRequestBody struct {
@@ -326,7 +326,7 @@ func (h *httpController) editMessage(w http.ResponseWriter, r *http.Request) {
 	var requestBody editMessageRequestBody
 	err := json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil {
-		errorResponse(w, 400, "invalid request")
+		errorResponse(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 	err = h.cm.EditMessage(
@@ -336,7 +336,7 @@ func (h *httpController) editMessage(w http.ResponseWriter, r *http.Request) {
 		getId(r, "messageId"),
 		requestBody.Content,
 	)
-	respond(w, r, 204, nil, err, "cannot edit message")
+	respond(w, r, http.StatusNoContent, nil, err, "cannot edit message")
 }
 
 func (h *httpController) deleteMessage(w http.ResponseWriter, r *http.Request) {
@@ -346,5 +346,5 @@ func (h *httpController) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		getId(r, "threadId"),
 		getId(r, "messageId"),
 	)
-	respond(w, r, 204, nil, err, "cannot delete message")
+	respond(w, r, http.StatusNoContent, nil, err, "cannot delete message")
 }

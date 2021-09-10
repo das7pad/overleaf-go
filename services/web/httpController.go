@@ -133,14 +133,18 @@ func checkEpochs(client redis.UniversalClient) mux.MiddlewareFunc {
 				return nil
 			})
 			if err != nil {
-				respond(w, r, 200, nil, err, "cannot validate epoch")
+				respond(w, r, http.StatusOK, nil, err, "cannot validate epoch")
 				return
 			}
 			for _, field := range ids {
 				stored := epochs[field].Val()
 				provided := getItemFromJwt(r, string("epoch_"+field))
 				if stored != provided {
-					errorResponse(w, 401, "epoch mismatch: "+string(field))
+					errorResponse(
+						w,
+						http.StatusUnauthorized,
+						"epoch mismatch: "+string(field),
+					)
 					return
 				}
 			}
@@ -392,7 +396,7 @@ func (h *httpController) compileProject(w http.ResponseWriter, r *http.Request) 
 		request,
 		response,
 	)
-	respond(w, r, 200, response, err, "cannot compile project")
+	respond(w, r, http.StatusOK, response, err, "cannot compile project")
 }
 
 func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
