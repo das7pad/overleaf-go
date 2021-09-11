@@ -54,10 +54,9 @@ type DockerContainerOptions struct {
 }
 
 type Options struct {
-	DefaultCompileGroup  CompileGroup   `json:"default_compile_group"`
-	DefaultImage         ImageName      `json:"default_image"`
-	AllowedImages        []ImageName    `json:"allowed_images"`
-	AllowedCompileGroups []CompileGroup `json:"allowed_compile_groups"`
+	DefaultCompileGroup CompileGroup `json:"default_compile_group"`
+	DefaultImage        ImageName    `json:"default_image"`
+	AllowedImages       []ImageName  `json:"allowed_images"`
 
 	ProjectCacheDuration    time.Duration `json:"project_cache_duration_ns"`
 	GetCapacityRefreshEvery time.Duration `json:"get_capacity_refresh_every_ns"`

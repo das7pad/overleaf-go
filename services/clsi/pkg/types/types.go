@@ -65,20 +65,23 @@ func (i BuildId) Age() (time.Duration, error) {
 	return time.Now().Sub(time.Unix(0, ns)), nil
 }
 
+var ValidCompileGroups = []CompileGroup{
+	"standard",
+	"priority",
+	"alpha",
+}
+
 type CompileGroup string
 
 func (c CompileGroup) IsStringParameter() bool {
 	return true
 }
 
-func (c CompileGroup) Validate(options *Options) error {
+func (c CompileGroup) Validate(*Options) error {
 	if c == "" {
 		return &errors.ValidationError{Msg: "compileGroup missing"}
 	}
-	if len(options.AllowedCompileGroups) == 0 {
-		return nil
-	}
-	for _, compileGroup := range options.AllowedCompileGroups {
+	for _, compileGroup := range ValidCompileGroups {
 		if c == compileGroup {
 			return nil
 		}
