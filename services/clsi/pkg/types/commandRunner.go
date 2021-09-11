@@ -34,7 +34,7 @@ const MaxTimeout = Timeout(10 * time.Minute)
 
 var maxTimeoutPretty = time.Duration(MaxTimeout).String()
 
-func (t Timeout) Validate(*Options) error {
+func (t Timeout) Validate() error {
 	if t <= 0 {
 		return &errors.ValidationError{Msg: "timeout must be greater zero"}
 	}

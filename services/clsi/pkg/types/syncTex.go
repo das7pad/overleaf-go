@@ -82,21 +82,21 @@ type SyncTexOptions struct {
 	ImageName    ImageName    `json:"imageName"`
 }
 
-func (o *SyncTexOptions) Preprocess(*Options) error {
+func (o *SyncTexOptions) Preprocess() error {
 	if o.BuildId == "" {
 		o.BuildId = allZeroBuildId
 	}
 	return nil
 }
 
-func (o *SyncTexOptions) Validate(options *Options) error {
-	if err := o.BuildId.Validate(options); err != nil {
+func (o *SyncTexOptions) Validate() error {
+	if err := o.BuildId.Validate(); err != nil {
 		return err
 	}
-	if err := o.CompileGroup.Validate(options); err != nil {
+	if err := o.CompileGroup.Validate(); err != nil {
 		return err
 	}
-	if err := o.ImageName.Validate(options); err != nil {
+	if err := o.ImageName.Validate(); err != nil {
 		return err
 	}
 	return nil
@@ -145,11 +145,11 @@ func (r *SyncFromCodeRequest) CommandLine() CommandLine {
 	}
 }
 
-func (r *SyncFromCodeRequest) Validate(options *Options) error {
+func (r *SyncFromCodeRequest) Validate() error {
 	if err := r.FileName.Validate(); err != nil {
 		return err
 	}
-	if err := r.SyncTexOptions.Validate(options); err != nil {
+	if err := r.SyncTexOptions.Validate(); err != nil {
 		return err
 	}
 	return nil
@@ -178,8 +178,8 @@ func (r *SyncFromPDFRequest) CommandLine() CommandLine {
 	}
 }
 
-func (r *SyncFromPDFRequest) Validate(options *Options) error {
-	if err := r.SyncTexOptions.Validate(options); err != nil {
+func (r *SyncFromPDFRequest) Validate() error {
+	if err := r.SyncTexOptions.Validate(); err != nil {
 		return err
 	}
 	return nil

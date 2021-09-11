@@ -36,7 +36,7 @@ var ValidCompilers = []Compiler{
 
 type Compiler string
 
-func (c Compiler) Validate(*Options) error {
+func (c Compiler) Validate() error {
 	for _, compiler := range ValidCompilers {
 		if c == compiler {
 			return nil
@@ -47,7 +47,7 @@ func (c Compiler) Validate(*Options) error {
 
 type DraftModeFlag bool
 
-func (d DraftModeFlag) Validate(*Options) error {
+func (d DraftModeFlag) Validate() error {
 	return nil
 }
 
@@ -64,7 +64,7 @@ var ValidCheckModes = []CheckMode{
 	NoCheck, SilentCheck, ErrorCheck, ValidateCheck,
 }
 
-func (c CheckMode) Validate(*Options) error {
+func (c CheckMode) Validate() error {
 	for _, checkMode := range ValidCheckModes {
 		if c == checkMode {
 			return nil
@@ -77,7 +77,7 @@ type SyncState string
 
 const SyncStateCleared = SyncState("__INTERNAL_CLEARED__")
 
-func (s SyncState) Validate(*Options) error {
+func (s SyncState) Validate() error {
 	// SyncTypeFull does not send any state :/
 	return nil
 }
@@ -96,7 +96,7 @@ func (s SyncType) IsFull() bool {
 	return s == SyncTypeFull || s == SyncTypeFullIncremental
 }
 
-func (s SyncType) Validate(*Options) error {
+func (s SyncType) Validate() error {
 	for _, syncType := range ValidSyncTypes {
 		if s == syncType {
 			return nil
@@ -123,7 +123,7 @@ func (r RootResourcePath) MakeSafe() (RootResourcePath, error) {
 	return r, nil
 }
 
-func (r RootResourcePath) Validate(*Options) error {
+func (r RootResourcePath) Validate() error {
 	if err := sharedTypes.PathName(r).Validate(); err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (r RootResourcePath) Validate(*Options) error {
 
 type ModifiedAt int64
 
-func (m *ModifiedAt) Validate(*Options) error {
+func (m *ModifiedAt) Validate() error {
 	if m == nil || *m == 0 {
 		return &errors.ValidationError{Msg: "missing modified timestamp"}
 	}
@@ -162,7 +162,7 @@ func (r *Resource) IsDoc() bool {
 	return r.Content != nil
 }
 
-func (r *Resource) Validate(options *Options) error {
+func (r *Resource) Validate() error {
 	if err := r.Path.Validate(); err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func (r *Resource) Validate(options *Options) error {
 				Msg: "missing file modified timestamp",
 			}
 		}
-		if err := r.ModifiedAt.Validate(options); err != nil {
+		if err := r.ModifiedAt.Validate(); err != nil {
 			return err
 		}
 	}
@@ -190,9 +190,9 @@ func (r *Resource) Validate(options *Options) error {
 
 type Resources []*Resource
 
-func (r Resources) Validate(options *Options) error {
+func (r Resources) Validate() error {
 	for _, resource := range r {
-		if err := resource.Validate(options); err != nil {
+		if err := resource.Validate(); err != nil {
 			return err
 		}
 	}
@@ -210,29 +210,29 @@ type CompileOptions struct {
 	Timeout      Timeout       `json:"timeout"`
 }
 
-func (c CompileOptions) Validate(options *Options) error {
-	if err := c.Check.Validate(options); err != nil {
+func (c CompileOptions) Validate() error {
+	if err := c.Check.Validate(); err != nil {
 		return err
 	}
-	if err := c.Compiler.Validate(options); err != nil {
+	if err := c.Compiler.Validate(); err != nil {
 		return err
 	}
-	if err := c.CompileGroup.Validate(options); err != nil {
+	if err := c.CompileGroup.Validate(); err != nil {
 		return err
 	}
-	if err := c.Draft.Validate(options); err != nil {
+	if err := c.Draft.Validate(); err != nil {
 		return err
 	}
-	if err := c.ImageName.Validate(options); err != nil {
+	if err := c.ImageName.Validate(); err != nil {
 		return err
 	}
-	if err := c.SyncState.Validate(options); err != nil {
+	if err := c.SyncState.Validate(); err != nil {
 		return err
 	}
-	if err := c.SyncType.Validate(options); err != nil {
+	if err := c.SyncType.Validate(); err != nil {
 		return err
 	}
-	if err := c.Timeout.Validate(options); err != nil {
+	if err := c.Timeout.Validate(); err != nil {
 		return err
 	}
 	return nil
@@ -248,7 +248,7 @@ type CompileRequest struct {
 	RootDocAliasResource *Resource `json:"-"`
 }
 
-func (c *CompileRequest) Preprocess(*Options) error {
+func (c *CompileRequest) Preprocess() error {
 	if c.RootResourcePath == "" {
 		c.RootResourcePath = "main.tex"
 	}
@@ -292,14 +292,14 @@ func (c *CompileRequest) Preprocess(*Options) error {
 	return nil
 }
 
-func (c *CompileRequest) Validate(options *Options) error {
-	if err := c.Options.Validate(options); err != nil {
+func (c *CompileRequest) Validate() error {
+	if err := c.Options.Validate(); err != nil {
 		return err
 	}
-	if err := c.Resources.Validate(options); err != nil {
+	if err := c.Resources.Validate(); err != nil {
 		return err
 	}
-	if err := c.RootResourcePath.Validate(options); err != nil {
+	if err := c.RootResourcePath.Validate(); err != nil {
 		return err
 	}
 	if c.RootDoc == nil {

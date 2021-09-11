@@ -38,21 +38,21 @@ type WordCountRequest struct {
 	ImageName    ImageName            `json:"imageName"`
 }
 
-func (r *WordCountRequest) Preprocess(*Options) error {
+func (r *WordCountRequest) Preprocess() error {
 	if r.FileName == "" {
 		r.FileName = "main.tex"
 	}
 	return nil
 }
 
-func (r *WordCountRequest) Validate(options *Options) error {
-	if err := r.CompileGroup.Validate(options); err != nil {
+func (r *WordCountRequest) Validate() error {
+	if err := r.CompileGroup.Validate(); err != nil {
 		return err
 	}
 	if err := r.FileName.Validate(); err != nil {
 		return err
 	}
-	if err := r.ImageName.Validate(options); err != nil {
+	if err := r.ImageName.Validate(); err != nil {
 		return err
 	}
 	return nil

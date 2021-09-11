@@ -16,14 +16,6 @@
 
 package types
 
-type Validator interface {
-	Validate(options *Options) error
-}
-
-type Preprocessor interface {
-	Preprocess(options *Options) error
-}
-
 type StringParameter interface {
 	IsStringParameter() bool
 }

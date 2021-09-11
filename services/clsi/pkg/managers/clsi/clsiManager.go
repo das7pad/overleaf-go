@@ -143,10 +143,10 @@ func (m *manager) ClearCache(ctx context.Context, projectId primitive.ObjectID, 
 
 func (m *manager) Compile(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.CompileRequest, response *types.CompileResponse) error {
 	response.Timings.CompileE2E.Begin()
-	if err := request.Preprocess(m.options); err != nil {
+	if err := request.Preprocess(); err != nil {
 		return err
 	}
-	if err := request.Validate(m.options); err != nil {
+	if err := request.Validate(); err != nil {
 		return err
 	}
 
@@ -299,10 +299,10 @@ func (m *manager) StopCompile(ctx context.Context, projectId primitive.ObjectID,
 }
 
 func (m *manager) SyncFromCode(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
-	if err := request.Preprocess(m.options); err != nil {
+	if err := request.Preprocess(); err != nil {
 		return err
 	}
-	if err := request.Validate(m.options); err != nil {
+	if err := request.Validate(); err != nil {
 		return err
 	}
 
@@ -317,10 +317,10 @@ func (m *manager) SyncFromCode(ctx context.Context, projectId primitive.ObjectID
 }
 
 func (m *manager) SyncFromPDF(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
-	if err := request.Preprocess(m.options); err != nil {
+	if err := request.Preprocess(); err != nil {
 		return err
 	}
-	if err := request.Validate(m.options); err != nil {
+	if err := request.Validate(); err != nil {
 		return err
 	}
 
@@ -335,10 +335,10 @@ func (m *manager) SyncFromPDF(ctx context.Context, projectId primitive.ObjectID,
 }
 
 func (m *manager) WordCount(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.WordCountRequest, words *types.Words) error {
-	if err := request.Preprocess(m.options); err != nil {
+	if err := request.Preprocess(); err != nil {
 		return err
 	}
-	if err := request.Validate(m.options); err != nil {
+	if err := request.Validate(); err != nil {
 		return err
 	}
 
