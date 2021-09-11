@@ -82,15 +82,9 @@ type SyncTexOptions struct {
 	ImageName    ImageName    `json:"imageName"`
 }
 
-func (o *SyncTexOptions) Preprocess(options *Options) error {
+func (o *SyncTexOptions) Preprocess(*Options) error {
 	if o.BuildId == "" {
 		o.BuildId = allZeroBuildId
-	}
-	if o.CompileGroup == "" {
-		o.CompileGroup = options.DefaultCompileGroup
-	}
-	if o.ImageName == "" {
-		o.ImageName = options.DefaultImage
 	}
 	return nil
 }

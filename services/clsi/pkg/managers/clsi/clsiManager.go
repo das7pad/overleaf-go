@@ -221,10 +221,12 @@ Hello world
 `)
 	req := &types.CompileRequest{
 		Options: types.CompileOptions{
-			Check:    types.NoCheck,
-			Compiler: types.PDFLatex,
-			SyncType: types.SyncTypeFull,
-			Timeout:  types.Timeout(10 * time.Second),
+			Check:        types.NoCheck,
+			CompileGroup: types.ValidCompileGroups[0],
+			Compiler:     types.PDFLatex,
+			ImageName:    m.options.AllowedImages[0],
+			SyncType:     types.SyncTypeFull,
+			Timeout:      types.Timeout(10 * time.Second),
 		},
 		Resources: types.Resources{
 			&types.Resource{

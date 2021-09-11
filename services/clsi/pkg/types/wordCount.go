@@ -38,15 +38,9 @@ type WordCountRequest struct {
 	ImageName    ImageName            `json:"imageName"`
 }
 
-func (r *WordCountRequest) Preprocess(options *Options) error {
-	if r.CompileGroup == "" {
-		r.CompileGroup = options.DefaultCompileGroup
-	}
+func (r *WordCountRequest) Preprocess(*Options) error {
 	if r.FileName == "" {
 		r.FileName = "main.tex"
-	}
-	if r.ImageName == "" {
-		r.ImageName = options.DefaultImage
 	}
 	return nil
 }

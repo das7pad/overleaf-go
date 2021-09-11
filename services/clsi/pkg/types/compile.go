@@ -248,18 +248,12 @@ type CompileRequest struct {
 	RootDocAliasResource *Resource `json:"-"`
 }
 
-func (c *CompileRequest) Preprocess(options *Options) error {
+func (c *CompileRequest) Preprocess(*Options) error {
 	if c.RootResourcePath == "" {
 		c.RootResourcePath = "main.tex"
 	}
-	if c.Options.CompileGroup == "" {
-		c.Options.CompileGroup = options.DefaultCompileGroup
-	}
 	if c.Options.Compiler == "" {
 		c.Options.Compiler = PDFLatex
-	}
-	if c.Options.ImageName == "" {
-		c.Options.ImageName = options.DefaultImage
 	}
 	if c.Options.Timeout == 0 {
 		// TODO: This is a bad default.
