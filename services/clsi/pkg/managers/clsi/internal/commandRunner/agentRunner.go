@@ -270,6 +270,9 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 
 	env := a.o.Env
 
+	if err := imageName.CheckIsAllowed(a.options.AllowedImages); err != nil {
+		return nil, err
+	}
 	year := imageName.Year()
 	PATH := "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/texlive/" + year + "/bin/x86_64-linux/"
 	env = append(env, "PATH="+PATH, "HOME=/tmp")

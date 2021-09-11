@@ -98,11 +98,20 @@ func (i ImageName) Year() string {
 	return m[1]
 }
 
+func (i ImageName) CheckIsAllowed(allowedImages []ImageName) error {
+	for _, image := range allowedImages {
+		if i == image {
+			return nil
+		}
+	}
+	return &errors.ValidationError{Msg: "imageName is not allowed"}
+}
+
 func (i ImageName) IsStringParameter() bool {
 	return true
 }
 
-func (i ImageName) Validate(options *Options) error {
+func (i ImageName) Validate(*Options) error {
 	if i == "" {
 		return &errors.ValidationError{
 			Msg: "imageName missing",
@@ -113,15 +122,7 @@ func (i ImageName) Validate(options *Options) error {
 			Msg: "imageName does not match year regex",
 		}
 	}
-	if len(options.AllowedImages) == 0 {
-		return nil
-	}
-	for _, image := range options.AllowedImages {
-		if i == image {
-			return nil
-		}
-	}
-	return &errors.ValidationError{Msg: "imageName is not allowed"}
+	return nil
 }
 
 var anonymousSuffix = "-" + primitive.NilObjectID.Hex()
