@@ -62,33 +62,9 @@ func (h *httpController) GetRouter() http.Handler {
 	router := mux.NewRouter()
 	router.HandleFunc("/status", h.status)
 
-	projectRouter := router.
-		PathPrefix("/project/{projectId}").
-		Subrouter()
-	projectRouter.Use(validateAndSetId("projectId"))
-
-	userRouter := projectRouter.
-		PathPrefix("/user/{userId}").
-		Subrouter()
-	userRouter.Use(validateAndSetId("userId"))
-
 	router.HandleFunc("/socket.io", h.ws)
 	router.HandleFunc("/socket.io/socket.io.js", h.clientBlob)
 	return router
-}
-
-func validateAndSetId(name string) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := primitive.ObjectIDFromHex(getRawIdFromRequest(r, name))
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			ctx := context.WithValue(r.Context(), name, id)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
 }
 
 const (
@@ -175,20 +151,6 @@ func (h *httpController) getWsBootstrap(r *http.Request) (*types.WsBootstrap, er
 	return &types.WsBootstrap{
 		ProjectId: projectId, User: user,
 	}, nil
-}
-
-func getParam(r *http.Request, name string) string {
-	return mux.Vars(r)[name]
-}
-func getRawIdFromRequest(r *http.Request, name string) string {
-	return getParam(r, name)
-}
-
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-
-	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
 }
 
 func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
