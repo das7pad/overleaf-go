@@ -24,10 +24,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docArchive"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
@@ -46,7 +45,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-	) (*models.DocContentsWithFullContext, error)
+	) (*doc.ContentsWithFullContext, error)
 
 	GetDocLines(
 		ctx context.Context,
@@ -58,17 +57,17 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		limit types.Limit,
-	) ([]models.DocName, error)
+	) ([]doc.Name, error)
 
 	GetAllRanges(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-	) ([]models.DocRanges, error)
+	) ([]doc.Ranges, error)
 
 	GetAllDocContents(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-	) ([]models.DocContents, error)
+	) ([]doc.Contents, error)
 
 	UpdateDoc(
 		ctx context.Context,
@@ -83,7 +82,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		meta models.DocMeta,
+		meta doc.Meta,
 	) error
 
 	ArchiveProject(
@@ -113,7 +112,7 @@ func New(options *types.Options, db *mongo.Database) (Manager, error) {
 		return nil, err
 	}
 
-	dm := docs.New(db)
+	dm := doc.New(db)
 
 	da, err := docArchive.New(options, dm)
 	if err != nil {
@@ -128,7 +127,7 @@ func New(options *types.Options, db *mongo.Database) (Manager, error) {
 
 type manager struct {
 	da             docArchive.Manager
-	dm             docs.Manager
+	dm             doc.Manager
 	maxDeletedDocs types.Limit
 }
 
@@ -143,9 +142,9 @@ func (m *manager) recoverDocError(ctx context.Context, projectId primitive.Objec
 	return err
 }
 
-func (m *manager) GetFullDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*models.DocContentsWithFullContext, error) {
+func (m *manager) GetFullDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*doc.ContentsWithFullContext, error) {
 	for {
-		doc, err := m.dm.GetDocContentsWithFullContext(ctx, projectId, docId)
+		d, err := m.dm.GetDocContentsWithFullContext(ctx, projectId, docId)
 		if err != nil {
 			if err = m.recoverDocError(ctx, projectId, docId, err); err != nil {
 				return nil, err
@@ -153,7 +152,7 @@ func (m *manager) GetFullDoc(ctx context.Context, projectId primitive.ObjectID, 
 			// The doc has been un-archived, retry.
 			continue
 		}
-		return doc, nil
+		return d, nil
 	}
 }
 
@@ -171,7 +170,7 @@ func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID,
 	}
 }
 
-func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit types.Limit) ([]models.DocName, error) {
+func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit types.Limit) ([]doc.Name, error) {
 	if limit == DefaultLimit {
 		limit = m.maxDeletedDocs
 	} else if limit < 1 {
@@ -189,7 +188,7 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 	return m.dm.PeakDeletedDocNames(ctx, projectId, int64(limit))
 }
 
-func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]models.DocRanges, error) {
+func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]doc.Ranges, error) {
 	for {
 		if err := m.da.UnArchiveDocs(ctx, projectId); err != nil {
 			return nil, err
@@ -206,7 +205,7 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 	}
 }
 
-func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) ([]models.DocContents, error) {
+func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) ([]doc.Contents, error) {
 	for {
 		if err := m.da.UnArchiveDocs(ctx, projectId); err != nil {
 			return nil, err
@@ -248,19 +247,19 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 	var modifiedVersion bool
 	var revision sharedTypes.Revision
 
-	if doc, err := m.GetFullDoc(ctx, projectId, docId); err == nil {
+	if d, err := m.GetFullDoc(ctx, projectId, docId); err == nil {
 		modifiedContents = false
 		modifiedVersion = false
-		if !doc.Lines.Equals(lines) {
+		if !d.Lines.Equals(lines) {
 			modifiedContents = true
 		}
-		if !doc.Ranges.Equals(ranges) {
+		if !d.Ranges.Equals(ranges) {
 			modifiedContents = true
 		}
-		if !doc.Version.Equals(version) {
+		if !d.Version.Equals(version) {
 			modifiedVersion = true
 		}
-		revision = doc.Revision
+		revision = d.Revision
 	} else if errors.IsDocNotFoundError(err) {
 		if version != 0 {
 			// Block 'creation' of documents with non-zero version.
@@ -303,7 +302,7 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 	return true, revision, nil
 }
 
-func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta models.DocMeta) error {
+func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta doc.Meta) error {
 	if meta.Deleted {
 		if meta.Name == "" {
 			return &errors.ValidationError{Msg: "missing name when deleting"}

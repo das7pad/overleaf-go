@@ -27,9 +27,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore/internal/docs"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
@@ -62,7 +62,7 @@ type Manager interface {
 	) error
 }
 
-func New(options *types.Options, dm docs.Manager) (Manager, error) {
+func New(options *types.Options, dm doc.Manager) (Manager, error) {
 	b, err := objectStorage.FromOptions(options.BackendOptions)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func New(options *types.Options, dm docs.Manager) (Manager, error) {
 type manager struct {
 	b       objectStorage.Backend
 	bucket  string
-	dm      docs.Manager
+	dm      doc.Manager
 	pLimits types.PLimits
 }
 
@@ -193,7 +193,7 @@ type archivedDocV1 struct {
 type archivedDocV0 sharedTypes.Lines
 
 func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
-	doc, err := m.dm.GetDocForArchiving(
+	d, err := m.dm.GetDocForArchiving(
 		ctx,
 		projectId,
 		docId,
@@ -206,14 +206,14 @@ func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, 
 		return err
 	}
 
-	if doc.Lines == nil {
+	if d.Lines == nil {
 		return fmt.Errorf("doc has no lines")
 	}
 
 	archivedDoc := archivedDocV1{}
 	archivedDoc.SchemaVersion = 1
-	archivedDoc.Lines = doc.Lines
-	archivedDoc.Ranges = doc.Ranges
+	archivedDoc.Lines = d.Lines
+	archivedDoc.Ranges = d.Ranges
 
 	key := docKey(projectId, docId)
 	blob, err := json.Marshal(archivedDoc)
@@ -226,7 +226,7 @@ func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, 
 		return err
 	}
 
-	return m.dm.MarkDocAsArchived(ctx, projectId, docId, doc.Revision)
+	return m.dm.MarkDocAsArchived(ctx, projectId, docId, d.Revision)
 }
 
 func (m *manager) UnArchiveDocs(ctx context.Context, projectId primitive.ObjectID) error {

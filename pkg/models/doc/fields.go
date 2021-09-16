@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package models
+package doc
 
 import (
 	"time"
@@ -24,45 +24,41 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type DocIdField struct {
+type IdField struct {
 	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }
 
-type DocLinesField struct {
+type ProjectIdField struct {
+	ProjectId primitive.ObjectID `json:"project_id" bson:"project_id"`
+}
+
+type LinesField struct {
 	Lines sharedTypes.Lines `json:"lines" bson:"lines"`
 }
 
-type DocRevisionField struct {
+type RevisionField struct {
 	Revision sharedTypes.Revision `json:"rev" bson:"rev"`
 }
 
-type DocNameField struct {
+type NameField struct {
 	Name string `json:"name" bson:"name"`
 }
 
-type DocDeletedField struct {
+type DeletedField struct {
 	Deleted bool `json:"deleted" bson:"deleted"`
 }
 
-type DocDeletedAtField struct {
+type DeletedAtField struct {
 	DeletedAt time.Time `json:"deletedAt" bson:"deletedAt"`
 }
-type DocInS3Field struct {
+type InS3Field struct {
 	InS3 bool `json:"inS3" bson:"inS3"`
 }
 
-func (f DocInS3Field) IsArchived() bool {
+func (f InS3Field) IsArchived() bool {
 	return f.InS3
 }
 
-type DocOpsVersionField struct {
-	Version sharedTypes.Version `json:"version" bson:"version"`
-}
-
-type DocOpsDocIdField struct {
-	DocId primitive.ObjectID `bson:"doc_id"`
-}
-
-type DocRangesField struct {
+type RangesField struct {
 	Ranges sharedTypes.Ranges `json:"ranges" bson:"ranges"`
 }

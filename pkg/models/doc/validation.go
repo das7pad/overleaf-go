@@ -14,24 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package models
+package doc
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type Validator interface {
-	Validate() error
-}
-
-func (f DocInS3Field) Validate() error {
+func (f InS3Field) Validate() error {
 	if f.IsArchived() {
 		return &errors.ErrorDocArchived{}
 	}
 	return nil
 }
 
-func (c DocRangesCollection) Validate() error {
+func (c RangesCollection) Validate() error {
 	for _, element := range c {
 		if err := element.Validate(); err != nil {
 			return err
@@ -40,7 +36,7 @@ func (c DocRangesCollection) Validate() error {
 	return nil
 }
 
-func (c DocContentsCollection) Validate() error {
+func (c ContentsCollection) Validate() error {
 	for _, element := range c {
 		if err := element.Validate(); err != nil {
 			return err

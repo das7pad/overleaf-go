@@ -28,9 +28,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/models"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
@@ -264,18 +264,18 @@ func (h *httpController) destroyProject(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
-	doc, err := h.dm.GetFullDoc(
+	d, err := h.dm.GetFullDoc(
 		r.Context(),
 		getId(r, "projectId"),
 		getId(r, "docId"),
 	)
 	if err == nil {
-		if doc.Deleted && r.URL.Query().Get("include_deleted") != "true" {
+		if d.Deleted && r.URL.Query().Get("include_deleted") != "true" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 	}
-	respond(w, r, http.StatusOK, doc, err, "cannot get full doc")
+	respond(w, r, http.StatusOK, d, err, "cannot get full doc")
 }
 
 func (h *httpController) getDocRaw(w http.ResponseWriter, r *http.Request) {
@@ -349,7 +349,7 @@ func (h *httpController) updateDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *httpController) patchDoc(w http.ResponseWriter, r *http.Request) {
-	var requestBody models.DocMeta
+	var requestBody doc.Meta
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 		errorResponse(w, http.StatusBadRequest, "invalid request body")
 		return
