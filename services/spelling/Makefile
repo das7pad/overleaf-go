@@ -57,6 +57,7 @@ docker/build/production: spelling
 		--tag $(IMAGE) \
 		--cache-from $(IMAGE) \
 		--cache-from $(IMAGE)-aspell-cache \
+		--cache-from $(IMAGE_ASPELL_CACHE) \
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
 		--build-arg RELEASE=$(RELEASE) \
