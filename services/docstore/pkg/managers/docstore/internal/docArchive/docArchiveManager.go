@@ -113,7 +113,7 @@ func (m *manager) pMap(ctx context.Context, projectId primitive.ObjectID, produc
 	}
 	doWork := func(docId primitive.ObjectID) error {
 		if err := worker(pCtx, projectId, docId); err != nil {
-			setErr(fmt.Errorf("failed for %v: %w", docId, err))
+			setErr(errors.Tag(err, "failed for "+docId.Hex()))
 			return err
 		}
 		return nil
@@ -192,6 +192,11 @@ type archivedDocV1 struct {
 
 type archivedDocV0 sharedTypes.Lines
 
+var (
+	errDocHasNoLines        = errors.New("doc has no lines")
+	errUnknownArchiveFormat = errors.New("unknown archive format")
+)
+
 func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
 	d, err := m.dm.GetDocForArchiving(
 		ctx,
@@ -207,7 +212,7 @@ func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, 
 	}
 
 	if d.Lines == nil {
-		return fmt.Errorf("doc has no lines")
+		return errDocHasNoLines
 	}
 
 	archivedDoc := archivedDocV1{}
@@ -291,7 +296,7 @@ func deserializeArchive(blob []byte) (sharedTypes.Lines, sharedTypes.Ranges, err
 	if err := json.Unmarshal(blob, &archiveV0); err == nil {
 		return sharedTypes.Lines(archiveV0), sharedTypes.Ranges{}, nil
 	}
-	return nil, sharedTypes.Ranges{}, fmt.Errorf("unknown archive format")
+	return nil, sharedTypes.Ranges{}, errUnknownArchiveFormat
 }
 
 func (m *manager) DestroyDocs(ctx context.Context, projectId primitive.ObjectID) error {

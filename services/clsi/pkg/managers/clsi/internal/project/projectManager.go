@@ -18,13 +18,13 @@ package project
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/draftMode"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/latexRunner"
@@ -114,6 +114,10 @@ type projectKey struct {
 	UserId    primitive.ObjectID
 }
 
+func (k projectKey) String() string {
+	return k.ProjectId.Hex() + "-" + k.UserId.Hex()
+}
+
 type projectsMap map[projectKey]Project
 
 type manager struct {
@@ -144,7 +148,7 @@ func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.T
 	for key, p := range m.getUnhealthyProjects(activeThreshold) {
 		// Trigger cleanup on instance.
 		if err := p.CleanupUnlessHealthy(ctx, activeThreshold); err != nil {
-			return fmt.Errorf("cleanup failed for %s: %w", key, err)
+			return errors.Tag(err, "cleanup failed for "+key.String())
 		}
 		if p.IsDead() {
 			// Serialize map access shortly when cleanup was actioned only.

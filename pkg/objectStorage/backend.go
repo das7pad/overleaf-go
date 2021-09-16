@@ -18,10 +18,11 @@ package objectStorage
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/url"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Options struct {
@@ -131,5 +132,5 @@ func FromOptions(options Options) (Backend, error) {
 	case "minio":
 		return initMinioBackend(options)
 	}
-	return nil, fmt.Errorf("unknown provider: %s", options.Provider)
+	return nil, errors.New("unknown provider: " + options.Provider)
 }

@@ -19,13 +19,14 @@ package aspellRunner
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"math"
 	"os/exec"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Worker interface {
@@ -88,6 +89,11 @@ const (
 
 	// BatchSize Send words in chunks of n.
 	BatchSize = 100
+)
+
+var (
+	errPipeClosedBeforeFinish = errors.New("pipe closed before read finished")
+	errProcessExisted         = errors.New("process exited")
 )
 
 type worker struct {
@@ -160,7 +166,7 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 		scanErr := w.scanner.Err()
 		if scanErr == nil {
 			// Scanner.Err() returns nil in case of EOF.
-			scanErr = fmt.Errorf("pipe closed before read finished")
+			scanErr = errPipeClosedBeforeFinish
 		}
 		return scanErr
 	})
@@ -222,7 +228,7 @@ func (w *worker) start() error {
 		var state string
 		if exitError == nil {
 			state = End
-			exitError = fmt.Errorf("process exited")
+			exitError = errProcessExisted
 		} else {
 			state = Killed
 		}

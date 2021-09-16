@@ -18,7 +18,6 @@ package resourceWriter
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 
@@ -289,13 +288,8 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 					compileDir,
 				)
 				if err != nil {
-					setErr(
-						fmt.Errorf(
-							"write failed for %s: %w",
-							resource.Path,
-							err,
-						),
-					)
+					p := resource.Path.String()
+					setErr(errors.Tag(err, "write failed for "+p))
 					return
 				}
 			}

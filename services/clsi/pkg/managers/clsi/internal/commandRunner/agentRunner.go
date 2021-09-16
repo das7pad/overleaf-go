@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -126,7 +125,7 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 
 	if o.SeccompPolicyPath != "" && o.SeccompPolicyPath != "-" {
 		if policy, err := loadSeccompPolicy(o.SeccompPolicyPath); err != nil {
-			return nil, fmt.Errorf("seccomp policy invalid: %w", err)
+			return nil, errors.Tag(err, "seccomp policy invalid")
 		} else {
 			runner.seccompPolicy = policy
 		}

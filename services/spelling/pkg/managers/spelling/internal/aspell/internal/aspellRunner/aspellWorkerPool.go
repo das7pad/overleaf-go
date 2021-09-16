@@ -18,9 +18,10 @@ package aspellRunner
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type WorkerPool interface {
@@ -36,6 +37,14 @@ const (
 	MaxWorkers     = 32
 	MaxIdleTime    = 1 * time.Second
 	MaxRequestTime = 1 * time.Minute
+)
+
+var (
+	errIdleWorker    = errors.New("idle worker")
+	errTimedOut      = errors.New("spell check timed out")
+	errPoolFull      = errors.New("maximum number of workers already running")
+	errCannotAcquire = errors.New("cannot acquire worker")
+	errMaxAgeHit     = errors.New("too many requests")
 )
 
 func newWorkerPool() WorkerPool {
@@ -72,7 +81,7 @@ func (e *workerPoolEntry) Release() bool {
 			// Worker is back in use as we acquired the lock.
 			return
 		}
-		e.Shutdown(fmt.Errorf("idle worker"))
+		e.Shutdown(errIdleWorker)
 		e.t = nil
 	})
 	return e.TransitionState(Busy, Ready)
@@ -99,7 +108,7 @@ func (wp *workerPool) CheckWords(ctx context.Context, language string, words []s
 		if ctx.Err() == context.Canceled {
 			return
 		}
-		w.Kill(fmt.Errorf("spell check timed out"))
+		w.Kill(errTimedOut)
 	}()
 
 	return w.CheckWords(ctx, words)
@@ -115,17 +124,21 @@ func (wp *workerPool) getWorker(language string) (*workerPoolEntry, error) {
 		}
 	}
 	if len(wp.processPool) == MaxWorkers {
-		return nil, fmt.Errorf("maximum number of workers already running")
+		return nil, errPoolFull
 	}
 	var w *workerPoolEntry
 	actualWorker, err := wp.createWorker(language)
 	if err != nil {
-		return nil, err
+		return nil, errors.Tag(err, "cannot create worker")
 	}
 	w = &workerPoolEntry{Worker: actualWorker, l: &sync.Mutex{}}
 
 	if !w.Acquire() {
-		return nil, fmt.Errorf("worker died before use: %w", w.Error())
+		err = w.Error()
+		if err == nil {
+			return nil, errCannotAcquire
+		}
+		return nil, errors.Tag(w.Error(), "worker died before use")
 	}
 	wp.processPool = append(wp.processPool, w)
 	go func() {
@@ -158,7 +171,7 @@ func (wp *workerPool) removeFromPool(w *workerPoolEntry) {
 
 func (wp *workerPool) returnWorker(w *workerPoolEntry) {
 	if w.Count() > MaxRequests {
-		w.Shutdown(fmt.Errorf("too many requests"))
+		w.Shutdown(errMaxAgeHit)
 		return
 	}
 	w.Release()

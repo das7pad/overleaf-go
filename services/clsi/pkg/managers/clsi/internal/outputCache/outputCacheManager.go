@@ -19,13 +19,13 @@ package outputCache
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
@@ -120,9 +120,8 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 			// Optimization: Steal the file from the compileDir.
 			// The next compile request would delete it anyways.
 			if err = syscall.Rename(src, dest); err != nil {
-				return nil, false, fmt.Errorf(
-					"cannot rename %s -> %s: %w",
-					src, dest, err,
+				return nil, false, errors.Tag(
+					err, "cannot rename "+src+" -> "+dest,
 				)
 			}
 		} else {
