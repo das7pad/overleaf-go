@@ -20,9 +20,7 @@ cat <<EOF
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pipeline {
-  agent {
-    label 'non_docker_builder'
-  }
+  agent none
 
   stages {
     stage('Fan out') {
@@ -34,19 +32,18 @@ for path in services/*/; do
   serviceName=${service#services/}
   cat <<EOF
         stage('${serviceName}') {
-          when {
-            beforeAgent true
-            changeset "${service}/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('${service}') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts '${service}/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         '${service}/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {

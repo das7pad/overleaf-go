@@ -14,9 +14,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+PACKAGE ?= github.com/das7pad/overleaf-go
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 BUILD_NUMBER ?= local
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
+GIT_PREVIOUS_SUCCESSFUL_COMMIT ?= origin/main
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
@@ -33,6 +35,26 @@ BUILD_IN = \
 	 	--workdir $(PWD) \
 	 	--env HOME=$(ROOT)/.cache/home/ \
 	 	--user $(shell id -u)
+
+run-ci-if-needed:
+	rm -f docker-image.digest.txt
+	$(MAKE) check-not-changed || $(MAKE) run-ci
+
+run-ci:
+	$(MAKE) docker/build/production
+	$(MAKE) docker/push
+
+check-not-changed:
+	$(BUILD_IN) golang:1.16-alpine3.13 go list -f '{{ join .Deps "\n" }}' \
+	| grep $(PACKAGE) | sed s,$(PACKAGE)/,../../, | xargs \
+	| xargs sh -e -c 'find . "$$@" -type f -name "*.go"' | sort | uniq \
+	| xargs git diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
+
+	git diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT) \
+		../../go.mod \
+		../../go.sum \
+		Dockerfile \
+		Makefile \
 
 .PHONY: real-time
 real-time:

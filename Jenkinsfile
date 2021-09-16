@@ -15,27 +15,24 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pipeline {
-  agent {
-    label 'non_docker_builder'
-  }
+  agent none
 
   stages {
     stage('Fan out') {
       parallel {
         stage('chat') {
-          when {
-            beforeAgent true
-            changeset "services/chat/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/chat') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/chat/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/chat/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -46,19 +43,18 @@ pipeline {
           }
         }
         stage('clsi') {
-          when {
-            beforeAgent true
-            changeset "services/clsi/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/clsi') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/clsi/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/clsi/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -69,19 +65,18 @@ pipeline {
           }
         }
         stage('contacts') {
-          when {
-            beforeAgent true
-            changeset "services/contacts/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/contacts') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/contacts/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/contacts/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -92,19 +87,18 @@ pipeline {
           }
         }
         stage('docstore') {
-          when {
-            beforeAgent true
-            changeset "services/docstore/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/docstore') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/docstore/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/docstore/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -115,19 +109,18 @@ pipeline {
           }
         }
         stage('document-updater') {
-          when {
-            beforeAgent true
-            changeset "services/document-updater/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/document-updater') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/document-updater/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/document-updater/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -138,19 +131,18 @@ pipeline {
           }
         }
         stage('filestore') {
-          when {
-            beforeAgent true
-            changeset "services/filestore/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/filestore') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/filestore/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/filestore/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -161,19 +153,18 @@ pipeline {
           }
         }
         stage('linked-url-proxy') {
-          when {
-            beforeAgent true
-            changeset "services/linked-url-proxy/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/linked-url-proxy') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/linked-url-proxy/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/linked-url-proxy/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -184,19 +175,18 @@ pipeline {
           }
         }
         stage('notifications') {
-          when {
-            beforeAgent true
-            changeset "services/notifications/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/notifications') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/notifications/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/notifications/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -207,19 +197,18 @@ pipeline {
           }
         }
         stage('real-time') {
-          when {
-            beforeAgent true
-            changeset "services/real-time/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/real-time') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/real-time/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/real-time/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -230,19 +219,18 @@ pipeline {
           }
         }
         stage('spelling') {
-          when {
-            beforeAgent true
-            changeset "services/spelling/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/spelling') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/spelling/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/spelling/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
@@ -253,19 +241,18 @@ pipeline {
           }
         }
         stage('web') {
-          when {
-            beforeAgent true
-            changeset "services/web/**"
-          }
           agent {
             label 'docker_builder'
           }
           steps {
             dir('services/web') {
-              sh 'make docker/build/production'
-              sh 'make docker/push'
+              sh 'make run-ci-if-needed'
             }
-            archiveArtifacts 'services/web/docker-image.digest.txt'
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'services/web/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
           }
           post {
             cleanup {
