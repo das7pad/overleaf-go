@@ -17,15 +17,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -41,103 +40,51 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
-	projectRouter := router.
-		PathPrefix("/project/{projectId}").
-		Subrouter()
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
+	projectRouter := router.Group("/project/:projectId")
 	projectRouter.Use(validateAndSetId("projectId"))
 
-	threadRouter := projectRouter.
-		PathPrefix("/thread/{threadId}").
-		Subrouter()
+	threadRouter := projectRouter.Group("/thread/:threadId")
 	threadRouter.Use(validateAndSetId("threadId"))
 
-	threadMessagesRouter := threadRouter.
-		PathPrefix("/messages/{messageId}").
-		Subrouter()
+	threadMessagesRouter := threadRouter.Group("/messages/:messageId")
 	threadMessagesRouter.Use(validateAndSetId("messageId"))
 
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/messages").
-		HandlerFunc(h.getGlobalMessages)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/messages").
-		HandlerFunc(h.sendGlobalMessages)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/threads").
-		HandlerFunc(h.getAllThreads)
+	projectRouter.GET("/messages", h.getGlobalMessages)
+	projectRouter.POST("/messages", h.sendGlobalMessages)
+	projectRouter.GET("/threads", h.getAllThreads)
 
-	threadRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/messages").
-		HandlerFunc(h.sendThreadMessage)
-	threadRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/resolve").
-		HandlerFunc(h.resolveThread)
-	threadRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/reopen").
-		HandlerFunc(h.reopenThread)
-	threadRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.deleteThread)
+	threadRouter.POST("/messages", h.sendThreadMessage)
+	threadRouter.POST("/resolve", h.resolveThread)
+	threadRouter.POST("/reopen", h.reopenThread)
+	threadRouter.DELETE("", h.deleteThread)
 
-	threadMessagesRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/edit").
-		HandlerFunc(h.editMessage)
-	threadMessagesRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.deleteMessage)
+	threadMessagesRouter.POST("/edit", h.editMessage)
+	threadMessagesRouter.DELETE("", h.deleteMessage)
 
 	return router
 }
 
-func validateAndSetId(name string) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := primitive.ObjectIDFromHex(mux.Vars(r)[name])
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
+func validateAndSetId(name string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := primitive.ObjectIDFromHex(c.Param(name))
+		if err != nil || id == primitive.NilObjectID {
+			errorResponse(c, http.StatusBadRequest, "invalid "+name)
+			c.Abort()
+			return
+		}
+		c.Set(name, id)
+		c.Next()
 	}
 }
 
-func getId(r *http.Request, name string) primitive.ObjectID {
-	id, err := primitive.ObjectIDFromHex(mux.Vars(r)[name])
-	if err != nil {
-		// The validation middleware should have blocked this request.
-		log.Printf(
-			"%s not validated on route %s %s",
-			name, r.Method, r.URL.Path,
-		)
-		panic(err)
-	}
-	return id
+func getId(c *gin.Context, name string) primitive.ObjectID {
+	return c.MustGet(name).(primitive.ObjectID)
 }
 
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-
+func errorResponse(c *gin.Context, code int, message string) {
 	// Align the error messages with the NodeJS implementation/tests.
 	if message == "invalid payload" {
 		// Realistically only the user_id field is of interest.
@@ -149,33 +96,19 @@ func errorResponse(w http.ResponseWriter, code int, message string) {
 		string(unicode.ToTitle(rune(message[0]))),
 		message[1:],
 	)
-	// Report errors is route parameter validation as projectId -> project_id.
+	// Report errors in route parameter validation as projectId -> project_id.
 	message = strings.ReplaceAll(message, "Id", "_id")
 
 	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
+	c.String(code, message)
 }
 
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("chat is alive (go)\n"))
-}
-
-func getNumberFromQuery(
-	r *http.Request,
-	key string,
-	fallback float64,
-) (float64, error) {
-	raw := r.URL.Query().Get(key)
-	if raw == "" {
-		return fallback, nil
-	}
-	return strconv.ParseFloat(raw, 64)
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "chat is alive (go)\n")
 }
 
 func respond(
-	w http.ResponseWriter,
-	r *http.Request,
+	c *gin.Context,
 	code int,
 	body interface{},
 	err error,
@@ -183,40 +116,43 @@ func respond(
 ) {
 	if err != nil {
 		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
+			errorResponse(c, http.StatusBadRequest, err.Error())
 			return
 		}
-		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
+		log.Printf("%s %s: %s: %v", c.Request.Method, c.Request.URL.Path, msg, err)
+		errorResponse(c, http.StatusInternalServerError, msg)
 		return
 	}
-	w.WriteHeader(code)
 	if body != nil {
-		_ = json.NewEncoder(w).Encode(body)
+		c.JSON(code, body)
+	} else {
+		c.Status(code)
 	}
 }
 
-const DefaultMessageLimit = 50
+const defaultMessageLimit = 50
 
-func (h *httpController) getGlobalMessages(w http.ResponseWriter, r *http.Request) {
-	limit, err := getNumberFromQuery(r, "limit", DefaultMessageLimit)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid limit parameter")
+type getGlobalMessagesRequestOptions struct {
+	Limit  int64   `form:"limit"`
+	Before float64 `form:"before"`
+}
+
+func (h *httpController) getGlobalMessages(c *gin.Context) {
+	var options getGlobalMessagesRequestOptions
+	if c.MustBindWith(&options, binding.Query) != nil {
 		return
 	}
-	before, err := getNumberFromQuery(r, "before", 0)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid before parameter")
-		return
+	if options.Limit == 0 {
+		options.Limit = defaultMessageLimit
 	}
 
 	messages, err := h.cm.GetGlobalMessages(
-		r.Context(),
-		getId(r, "projectId"),
-		int64(limit),
-		before,
+		c,
+		getId(c, "projectId"),
+		options.Limit,
+		options.Before,
 	)
-	respond(w, r, http.StatusOK, messages, err, "cannot get global messages")
+	respond(c, http.StatusOK, messages, err, "cannot get global messages")
 }
 
 type sendMessageRequestBody struct {
@@ -224,127 +160,104 @@ type sendMessageRequestBody struct {
 	UserId  primitive.ObjectID `json:"user_id"`
 }
 
-func parseSendMessageRequest(
-	r *http.Request,
-) (string, primitive.ObjectID, error) {
+func (h *httpController) sendGlobalMessages(c *gin.Context) {
 	var requestBody sendMessageRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		return "", primitive.NilObjectID, &errors.ValidationError{
-			Msg: "invalid payload",
-		}
-	}
-	if requestBody.UserId == primitive.NilObjectID {
-		return "", primitive.NilObjectID, &errors.ValidationError{
-			Msg: "invalid user_id",
-		}
-	}
-	return requestBody.Content, requestBody.UserId, nil
-}
-
-func (h *httpController) sendGlobalMessages(w http.ResponseWriter, r *http.Request) {
-	content, userId, validationError := parseSendMessageRequest(r)
-	if validationError != nil {
-		errorResponse(w, http.StatusBadRequest, validationError.Error())
+	if c.MustBindWith(&requestBody, binding.JSON) != nil {
 		return
 	}
 	message, err := h.cm.SendGlobalMessage(
-		r.Context(),
-		getId(r, "projectId"),
-		content,
-		userId,
+		c,
+		getId(c, "projectId"),
+		requestBody.Content,
+		requestBody.UserId,
 	)
-	respond(w, r, http.StatusCreated, message, err, "cannot send global message")
+	respond(c, http.StatusCreated, message, err, "cannot send global message")
 }
 
-func (h *httpController) getAllThreads(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getAllThreads(c *gin.Context) {
 	threads, err := h.cm.GetAllThreads(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		getId(c, "projectId"),
 	)
-	respond(w, r, http.StatusOK, threads, err, "cannot get all threads")
+	respond(c, http.StatusOK, threads, err, "cannot get all threads")
 }
 
-func (h *httpController) sendThreadMessage(w http.ResponseWriter, r *http.Request) {
-	content, userId, validationError := parseSendMessageRequest(r)
-	if validationError != nil {
-		errorResponse(w, http.StatusBadRequest, validationError.Error())
+func (h *httpController) sendThreadMessage(c *gin.Context) {
+	var requestBody sendMessageRequestBody
+	if c.MustBindWith(&requestBody, binding.JSON) != nil {
 		return
 	}
 	message, err := h.cm.SendThreadMessage(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "threadId"),
-		content,
-		userId,
+		c,
+		getId(c, "projectId"),
+		getId(c, "threadId"),
+		requestBody.Content,
+		requestBody.UserId,
 	)
-	respond(w, r, http.StatusCreated, message, err, "cannot send thread message")
+	respond(c, http.StatusCreated, message, err, "cannot send thread message")
 }
 
 type resolveThreadRequestBody struct {
 	UserId primitive.ObjectID `json:"user_id"`
 }
 
-func (h *httpController) resolveThread(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) resolveThread(c *gin.Context) {
 	var requestBody resolveThreadRequestBody
-	err := json.NewDecoder(r.Body).Decode(&requestBody)
-	if err != nil || requestBody.UserId == primitive.NilObjectID {
-		errorResponse(w, http.StatusBadRequest, "invalid user_id")
+	if c.MustBindWith(&requestBody, binding.JSON) != nil {
 		return
 	}
-	err = h.cm.ResolveThread(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "threadId"),
+	err := h.cm.ResolveThread(
+		c,
+		getId(c, "projectId"),
+		getId(c, "threadId"),
 		requestBody.UserId,
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot resolve thread")
+	respond(c, http.StatusNoContent, nil, err, "cannot resolve thread")
 }
 
-func (h *httpController) reopenThread(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) reopenThread(c *gin.Context) {
 	err := h.cm.ReopenThread(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "threadId"),
+		c,
+		getId(c, "projectId"),
+		getId(c, "threadId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot reopen thread")
+	respond(c, http.StatusNoContent, nil, err, "cannot reopen thread")
 }
 
-func (h *httpController) deleteThread(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) deleteThread(c *gin.Context) {
 	err := h.cm.DeleteThread(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "threadId"),
+		c,
+		getId(c, "projectId"),
+		getId(c, "threadId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot delete thread")
+	respond(c, http.StatusNoContent, nil, err, "cannot delete thread")
 }
 
 type editMessageRequestBody struct {
 	Content string `json:"content"`
 }
 
-func (h *httpController) editMessage(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) editMessage(c *gin.Context) {
 	var requestBody editMessageRequestBody
-	err := json.NewDecoder(r.Body).Decode(&requestBody)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request")
+	if c.MustBindWith(&requestBody, binding.JSON) != nil {
 		return
 	}
-	err = h.cm.EditMessage(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "threadId"),
-		getId(r, "messageId"),
+	err := h.cm.EditMessage(
+		c,
+		getId(c, "projectId"),
+		getId(c, "threadId"),
+		getId(c, "messageId"),
 		requestBody.Content,
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot edit message")
+	respond(c, http.StatusNoContent, nil, err, "cannot edit message")
 }
 
-func (h *httpController) deleteMessage(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) deleteMessage(c *gin.Context) {
 	err := h.cm.DeleteMessage(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "threadId"),
-		getId(r, "messageId"),
+		c,
+		getId(c, "projectId"),
+		getId(c, "threadId"),
+		getId(c, "messageId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot delete message")
+	respond(c, http.StatusNoContent, nil, err, "cannot delete message")
 }

@@ -9,6 +9,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
+	github.com/gin-gonic/gin v1.7.4
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
