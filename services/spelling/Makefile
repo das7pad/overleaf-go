@@ -61,7 +61,7 @@ check-not-changed:
 .PHONY: spelling
 spelling:
 	$(BUILD_IN) golang:1.16 sh -c \
- 		'go build && touch -m -d 2021-01-01T00:00Z $@'
+ 		'go build -tags nomsgpack && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true

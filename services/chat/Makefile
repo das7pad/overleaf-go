@@ -59,7 +59,7 @@ check-not-changed:
 .PHONY: chat
 chat:
 	$(BUILD_IN) golang:1.16-alpine3.13 sh -c \
-		'go build && touch -m -d 2021-01-01-00:00:00 $@'
+		'go build -tags nomsgpack && touch -m -d 2021-01-01-00:00:00 $@'
 
 docker/build/production: chat
 	docker build \
