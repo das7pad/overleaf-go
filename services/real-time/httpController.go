@@ -57,6 +57,7 @@ func (h *httpController) GetRouter() http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
+	router.HEAD("/status", h.status)
 
 	router.GET("/socket.io", h.ws)
 	router.GET("/socket.io/socket.io.js", h.clientBlob)

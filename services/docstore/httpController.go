@@ -42,6 +42,7 @@ func (h *httpController) GetRouter() http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
+	router.HEAD("/status", h.status)
 
 	projectRouter := router.Group("/project/:projectId")
 	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))

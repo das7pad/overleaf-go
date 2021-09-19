@@ -38,6 +38,7 @@ func (h *httpController) GetRouter() http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
+	router.HEAD("/status", h.status)
 	userRouter := router.Group("/user/:userId")
 	userRouter.Use(httpUtils.ValidateAndSetId("userId"))
 	userRouter.GET("/contacts", h.getContacts)

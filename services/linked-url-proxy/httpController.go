@@ -45,6 +45,7 @@ func (h *httpController) GetRouter() http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
+	router.HEAD("/status", h.status)
 	router.GET("/proxy/", h.proxy)
 	return router
 }

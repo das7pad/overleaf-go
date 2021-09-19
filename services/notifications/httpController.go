@@ -40,6 +40,7 @@ func (h *httpController) GetRouter(corsOptions httpUtils.CORSOptions,
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
+	router.HEAD("/status", h.status)
 
 	jwtRouter := router.Group("/jwt/notifications")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))

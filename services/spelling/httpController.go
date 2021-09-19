@@ -41,6 +41,7 @@ func (h *httpController) GetRouter(
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
+	router.HEAD("/status", h.status)
 
 	jwtRouter := router.Group("/jwt/spelling/v20200714")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
