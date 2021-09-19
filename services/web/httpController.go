@@ -17,20 +17,12 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"log"
 	"net/http"
-	"net/url"
-	"time"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -44,426 +36,161 @@ type httpController struct {
 	wm web.Manager
 }
 
-type CorsOptions struct {
-	AllowedOrigins []string
-	SiteUrl        string
-}
-
-type idField string
-
 const (
-	userIdField    idField = "userId"
-	projectIdField idField = "projectId"
+	userIdField    = "userId"
+	projectIdField = "projectId"
 )
 
 func (h *httpController) GetRouter(
-	corsOptions CorsOptions,
-	jwtOptions jwtMiddleware.Options,
+	corsOptions httpUtils.CORSOptions,
+	jwtOptions httpUtils.JWTOptions,
 	client redis.UniversalClient,
 ) http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
 
-	jwtRouter := router.PathPrefix("/jwt/web").Subrouter()
-	jwtRouter.Use(cors(corsOptions))
-	jwtRouter.Use(noCache())
-	jwtRouter.Use(jwtMiddleware.New(jwtOptions).Handler)
-	jwtRouter.Use(validateAndSetId(userIdField))
-	jwtRouter.
-		NewRoute().
-		Methods(http.MethodOptions).
-		HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNoContent)
-		})
+	jwtRouter := router.Group("/jwt/web")
+	jwtRouter.Use(httpUtils.CORS(corsOptions))
+	jwtRouter.Use(httpUtils.NoCache())
+	jwtRouter.Use(httpUtils.NewJWTHandler(jwtOptions).Middleware())
+	jwtRouter.Use(httpUtils.ValidateAndSetJWTId(userIdField))
 
-	projectRouter := jwtRouter.
-		PathPrefix("/project/{projectId}").
-		Subrouter()
-	projectRouter.Use(validateAndSetId(projectIdField))
-	projectRouter.Use(checkEpochs(client))
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/clear-cache").
-		HandlerFunc(h.clearProjectCache)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/compile").
-		HandlerFunc(h.compileProject)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/sync/code").
-		HandlerFunc(h.syncFromCode)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/sync/pdf").
-		HandlerFunc(h.syncFromPDF)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/wordcount").
-		HandlerFunc(h.wordCount)
+	projectRouter := jwtRouter.Group("/project/:projectId")
+	projectRouter.Use(httpUtils.ValidateAndSetJWTId(projectIdField))
+	projectRouter.Use(httpUtils.CheckEpochs(client))
+	projectRouter.POST("/clear-cache", h.clearProjectCache)
+	projectRouter.POST("/compile", h.compileProject)
+	projectRouter.POST("/sync/code", h.syncFromCode)
+	projectRouter.POST("/sync/pdf", h.syncFromPDF)
+	projectRouter.POST("/wordcount", h.wordCount)
 	return router
 }
 
-func noCache() mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Cache-Control", "no-cache")
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func checkEpochs(client redis.UniversalClient) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ids := r.Context().Value(validatedIds).([]idField)
-			epochs := make(map[idField]*redis.StringCmd)
-			_, err := client.Pipelined(r.Context(), func(p redis.Pipeliner) error {
-				for _, field := range ids {
-					epochs[field] = p.Get(
-						r.Context(),
-						"epoch:"+string(field)+":"+getId(r, field).Hex(),
-					)
-				}
-				return nil
-			})
-			if err != nil {
-				respond(w, r, http.StatusOK, nil, err, "cannot validate epoch")
-				return
-			}
-			for _, field := range ids {
-				stored := epochs[field].Val()
-				provided := getItemFromJwt(r, string("epoch_"+field))
-				if stored != provided {
-					errorResponse(
-						w,
-						http.StatusUnauthorized,
-						"epoch mismatch: "+string(field),
-					)
-					return
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func cors(options CorsOptions) mux.MiddlewareFunc {
-	siteUrl, err := url.Parse(options.SiteUrl)
+func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) *types.SignedCompileProjectRequestOptions {
+	compileGroupRaw, err := httpUtils.GetStringFromJwt(c, "compileGroup")
 	if err != nil {
-		panic(err)
+		httpUtils.RespondErr(c, err)
+		return nil
 	}
-	publicHost := siteUrl.Host
-	allowedOrigins := make(map[string]bool)
-	for _, origin := range options.AllowedOrigins {
-		allowedOrigins[origin] = true
-	}
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Host != publicHost {
-				w.Header().Add("Vary", "Origin")
-				origin := r.Header.Get("Origin")
-				if allowedOrigins[origin] {
-					w.Header().Set("Access-Control-Allow-Origin", origin)
-				}
-				w.Header().Set(
-					"Access-Control-Allow-Headers",
-					"Authorization,Content-Type",
-				)
-				w.Header().Set(
-					"Access-Control-Allow-Methods",
-					"DELETE, GET, OPTIONS",
-				)
-				w.Header().Set("Access-Control-Max-Age", "3600")
-			}
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-const (
-	validatedIds = "validatedIds"
-)
-
-func validateAndSetId(field idField) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			name := string(field)
-			idFromPath := getPathParam(r, name)
-			idFromJwt := getItemFromJwt(r, name)
-			rawId := idFromPath
-			if idFromJwt != "" {
-				if idFromPath != "" && idFromPath != idFromJwt {
-					errorResponse(
-						w,
-						http.StatusBadRequest,
-						"jwt id mismatches path id: "+name,
-					)
-					return
-				}
-				rawId = idFromJwt
-			}
-			id, err := primitive.ObjectIDFromHex(rawId)
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			var ids []idField
-			if previous := r.Context().Value(validatedIds); previous != nil {
-				ids = previous.([]idField)
-			}
-			ids = append(ids, field)
-			ctx := context.WithValue(r.Context(), field, id)
-			ctx = context.WithValue(ctx, validatedIds, ids)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-func getPathParam(r *http.Request, name string) string {
-	return mux.Vars(r)[name]
-}
-func getItemFromJwt(r *http.Request, name string) string {
-	user := r.Context().Value("user")
-	if user == nil {
-		return ""
-	}
-	token := user.(*jwt.Token)
-	if token == nil {
-		return ""
-	}
-	claims := token.Claims.(jwt.MapClaims)
-	idFromJwt := claims[name]
-	if idFromJwt == nil {
-		return ""
-	}
-	return idFromJwt.(string)
-}
-func getSignedCompileProjectOptionsFromJwt(r *http.Request) (*types.SignedCompileProjectRequestOptions, error) {
-	// Already validated further up in stack.
-	user := r.Context().Value("user")
-	token := user.(*jwt.Token)
-	claims := token.Claims.(jwt.MapClaims)
-
-	o := &types.SignedCompileProjectRequestOptions{
-		ProjectId: getId(r, "projectId"),
-		UserId:    getId(r, "userId"),
-	}
-	for field, raw := range claims {
-		if raw == nil {
-			continue
-		}
-		s, isString := raw.(string)
-		if !isString || s == "" {
-			continue
-		}
-		switch field {
-		case "compileGroup":
-			o.CompileGroup = clsiTypes.CompileGroup(s)
-		case "timeout":
-			d, err := time.ParseDuration(s)
-			if err != nil {
-				return nil, err
-			}
-			o.Timeout = clsiTypes.Timeout(d)
-		}
-	}
-	return o, nil
-}
-
-func getId(r *http.Request, field idField) primitive.ObjectID {
-	id := r.Context().Value(field)
-	if id == nil {
-		// The validation middleware should have blocked this request.
-		log.Printf(
-			"%s not validated on route %s %s",
-			field, r.Method, r.URL.Path,
-		)
-		panic("broken id validation")
-	}
-	return id.(primitive.ObjectID)
-}
-
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-
-	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
-}
-
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("web is alive (go)\n"))
-}
-
-func respond(
-	w http.ResponseWriter,
-	r *http.Request,
-	code int,
-	body interface{},
-	err error,
-	msg string,
-) {
+	timeoutRaw, err := httpUtils.GetDurationFromJwt(c, "timeout")
 	if err != nil {
-		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.IsNotAuthorizedError(err) {
-			errorResponse(w, http.StatusForbidden, err.Error())
-			return
-		}
-		if errors.IsNotFoundError(err) {
-			errorResponse(w, http.StatusNotFound, err.Error())
-			return
-		}
-		if errors.IsInvalidState(err) {
-			errorResponse(w, http.StatusConflict, err.Error())
-			return
-		}
-		if errors.IsUpdateRangeNotAvailableError(err) {
-			errorResponse(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-		log.Printf("%s %s: %s: %s", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
-		return
+		httpUtils.RespondErr(c, err)
+		return nil
 	}
-	if body == nil {
-		w.WriteHeader(code)
-	} else {
-		w.Header().Set(
-			"Content-Type",
-			"application/json; charset=utf-8",
-		)
-		if code != http.StatusOK {
-			w.WriteHeader(code)
-		}
-		_ = json.NewEncoder(w).Encode(body)
+	return &types.SignedCompileProjectRequestOptions{
+		ProjectId:    httpUtils.GetId(c, "projectId"),
+		UserId:       httpUtils.GetId(c, "userId"),
+		CompileGroup: clsiTypes.CompileGroup(compileGroupRaw),
+		Timeout:      clsiTypes.Timeout(timeoutRaw),
 	}
+}
+
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "web is alive (go)\n")
 }
 
 type clearProjectCacheRequestBody struct {
 	types.ClsiServerId `json:"clsiServerId"`
 }
 
-func (h *httpController) clearProjectCache(w http.ResponseWriter, r *http.Request) {
-	so, err := getSignedCompileProjectOptionsFromJwt(r)
-	if err != nil || so == nil {
-		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+func (h *httpController) clearProjectCache(c *gin.Context) {
+	so := mustGetSignedCompileProjectOptionsFromJwt(c)
+	if so == nil {
 		return
 	}
 
 	request := &clearProjectCacheRequestBody{}
-	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	err = h.wm.ClearProjectCache(
-		r.Context(),
+	err := h.wm.ClearProjectCache(
+		c,
 		*so,
 		request.ClsiServerId,
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot clear project cache")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) compileProject(w http.ResponseWriter, r *http.Request) {
-	so, err := getSignedCompileProjectOptionsFromJwt(r)
-	if err != nil || so == nil {
-		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+func (h *httpController) compileProject(c *gin.Context) {
+	so := mustGetSignedCompileProjectOptionsFromJwt(c)
+	if so == nil {
 		return
 	}
 
 	request := &types.CompileProjectRequest{}
-	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	request.SignedCompileProjectRequestOptions = *so
 	response := &types.CompileProjectResponse{}
-	err = h.wm.CompileProject(
-		r.Context(),
+	err := h.wm.CompileProject(
+		c,
 		request,
 		response,
 	)
-	respond(w, r, http.StatusOK, response, err, "cannot compile project")
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) syncFromCode(w http.ResponseWriter, r *http.Request) {
-	so, err := getSignedCompileProjectOptionsFromJwt(r)
-	if err != nil || so == nil {
-		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+func (h *httpController) syncFromCode(c *gin.Context) {
+	so := mustGetSignedCompileProjectOptionsFromJwt(c)
+	if so == nil {
 		return
 	}
 
 	request := &types.SyncFromCodeRequest{}
-	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	request.SignedCompileProjectRequestOptions = *so
 
 	response := &clsiTypes.PDFPositions{}
-	err = h.wm.SyncFromCode(
-		r.Context(),
+	err := h.wm.SyncFromCode(
+		c,
 		request,
 		response,
 	)
-	respond(w, r, http.StatusOK, response, err, "cannot sync from code")
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) syncFromPDF(w http.ResponseWriter, r *http.Request) {
-	so, err := getSignedCompileProjectOptionsFromJwt(r)
-	if err != nil || so == nil {
-		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+func (h *httpController) syncFromPDF(c *gin.Context) {
+	so := mustGetSignedCompileProjectOptionsFromJwt(c)
+	if so == nil {
 		return
 	}
 
 	request := &types.SyncFromPDFRequest{}
-	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	request.SignedCompileProjectRequestOptions = *so
 
 	response := &clsiTypes.CodePositions{}
-	err = h.wm.SyncFromPDF(
-		r.Context(),
+	err := h.wm.SyncFromPDF(
+		c,
 		request,
 		response,
 	)
-	respond(w, r, http.StatusOK, response, err, "cannot sync from pdf")
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) wordCount(w http.ResponseWriter, r *http.Request) {
-	so, err := getSignedCompileProjectOptionsFromJwt(r)
-	if err != nil || so == nil {
-		errorResponse(w, http.StatusBadRequest, "invalid options in jwt")
+func (h *httpController) wordCount(c *gin.Context) {
+	so := mustGetSignedCompileProjectOptionsFromJwt(c)
+	if so == nil {
 		return
 	}
 
 	request := &types.WordCountRequest{}
-	if err = json.NewDecoder(r.Body).Decode(request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid body: "+err.Error())
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	request.SignedCompileProjectRequestOptions = *so
 
 	response := &clsiTypes.Words{}
-	err = h.wm.WordCount(
-		r.Context(),
+	err := h.wm.WordCount(
+		c,
 		request,
 		response,
 	)
-	respond(w, r, http.StatusOK, response, err, "cannot count words")
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }

@@ -234,6 +234,9 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	for {
 		var err error
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {

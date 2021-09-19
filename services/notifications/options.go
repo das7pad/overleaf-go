@@ -23,11 +23,10 @@ import (
 	"strings"
 	"time"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/form3tech-oss/jwt-go"
-
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 )
 
 func getIntFromEnv(key string, fallback int) int {
@@ -59,8 +58,8 @@ func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
 
 type notificationsOptions struct {
 	address      string
-	corsOptions  CorsOptions
-	jwtOptions   jwtMiddleware.Options
+	corsOptions  httpUtils.CORSOptions
+	jwtOptions   httpUtils.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 }
@@ -75,21 +74,15 @@ func getOptions() *notificationsOptions {
 	if jwtSecret == "" {
 		panic("missing JWT_NOTIFICATIONS_VERIFY_SECRET")
 	}
-	o.jwtOptions = jwtMiddleware.Options{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
-		},
-		SigningMethod: jwt.SigningMethodHS512,
-	}
+	o.jwtOptions.Algorithm = "HS512"
+	o.jwtOptions.Key = jwtSecret
+
 	siteUrl := getStringFromEnv("PUBLIC_URL", "http://localhost:3000")
-	allowedOrigins := strings.Split(
+	allowOrigins := strings.Split(
 		getStringFromEnv("ALLOWED_ORIGINS", siteUrl),
 		",",
 	)
-	o.corsOptions = CorsOptions{
-		AllowedOrigins: allowedOrigins,
-		SiteUrl:        siteUrl,
-	}
+	o.corsOptions.AllowOrigins = allowOrigins
 
 	mongoConnectionString := os.Getenv("MONGO_CONNECTION_STRING")
 	if mongoConnectionString == "" {

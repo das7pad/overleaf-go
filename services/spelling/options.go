@@ -24,12 +24,10 @@ import (
 	"strings"
 	"time"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/form3tech-oss/jwt-go"
-
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -72,8 +70,8 @@ func getJSONFromEnv(key string, target interface{}) {
 
 type spellingOptions struct {
 	address      string
-	corsOptions  CorsOptions
-	jwtOptions   jwtMiddleware.Options
+	corsOptions  httpUtils.CORSOptions
+	jwtOptions   httpUtils.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 	options      *types.Options
@@ -89,21 +87,15 @@ func getOptions() *spellingOptions {
 	if jwtSecret == "" {
 		panic("missing JWT_SPELLING_VERIFY_SECRET")
 	}
-	o.jwtOptions = jwtMiddleware.Options{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
-		},
-		SigningMethod: jwt.SigningMethodHS512,
-	}
+	o.jwtOptions.Algorithm = "HS512"
+	o.jwtOptions.Key = jwtSecret
+
 	siteUrl := getStringFromEnv("PUBLIC_URL", "http://localhost:3000")
-	allowedOrigins := strings.Split(
+	allowOrigins := strings.Split(
 		getStringFromEnv("ALLOWED_ORIGINS", siteUrl),
 		",",
 	)
-	o.corsOptions = CorsOptions{
-		AllowedOrigins: allowedOrigins,
-		SiteUrl:        siteUrl,
-	}
+	o.corsOptions.AllowOrigins = allowOrigins
 
 	getJSONFromEnv("OPTIONS", &o.options)
 

@@ -17,16 +17,12 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
-	"strconv"
 
-	"github.com/gorilla/mux"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -44,323 +40,171 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := mux.NewRouter()
-	router.NotFoundHandler = http.HandlerFunc(h.handle404)
-	router.HandleFunc("/status", h.status)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
 
-	projectRouter := router.
-		PathPrefix("/project/{projectId}").
-		Subrouter()
-	projectRouter.Use(validateAndSetId("projectId"))
+	projectRouter := router.Group("/project/:projectId")
+	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
 
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.flushAndDeleteProject)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("").
-		HandlerFunc(h.processProjectUpdates)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/clearState").
-		HandlerFunc(h.clearProjectState)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/flush").
-		HandlerFunc(h.flushProject)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/get_and_flush_if_old").
-		HandlerFunc(h.getAndFlushIfOld)
+	projectRouter.DELETE("", h.flushAndDeleteProject)
+	projectRouter.POST("", h.processProjectUpdates)
+	projectRouter.POST("/clearState", h.clearProjectState)
+	projectRouter.POST("/flush", h.flushProject)
+	projectRouter.POST("/get_and_flush_if_old", h.getAndFlushIfOld)
 
-	docRouter := projectRouter.
-		PathPrefix("/doc/{docId}").
-		Subrouter()
-	docRouter.Use(validateAndSetId("docId"))
+	docRouter := projectRouter.Group("/doc/:docId")
+	docRouter.Use(httpUtils.ValidateAndSetId("docId"))
 
-	docRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("").
-		HandlerFunc(h.getDoc)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("").
-		HandlerFunc(h.setDoc)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.flushAndDeleteDoc)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/flush").
-		HandlerFunc(h.flushDocIfLoaded)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodGet, http.MethodHead).
-		Path("/exists").
-		HandlerFunc(h.checkDocExists)
-
+	docRouter.GET("", h.getDoc)
+	docRouter.POST("", h.setDoc)
+	docRouter.DELETE("", h.flushAndDeleteDoc)
+	docRouter.POST("/flush", h.flushDocIfLoaded)
+	docRouter.GET("/exists", h.checkDocExists)
+	docRouter.HEAD("/exists", h.checkDocExists)
 	return router
 }
 
-func validateAndSetId(name string) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := primitive.ObjectIDFromHex(mux.Vars(r)[name])
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "document-updater is alive (go)\n")
 }
 
-func getId(r *http.Request, name string) primitive.ObjectID {
-	id, err := primitive.ObjectIDFromHex(mux.Vars(r)[name])
-	if err != nil {
-		// The validation middleware should have blocked this request.
-		log.Printf(
-			"%s not validated on route %s %s",
-			name, r.Method, r.URL.Path,
-		)
-		panic(err)
-	}
-	return id
+func (h *httpController) handle404(c *gin.Context) {
+	httpUtils.Respond(c, http.StatusNotFound, nil, errors.New("404"))
 }
 
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-
-	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
-}
-
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("document-updater is alive (go)\n"))
-}
-
-func getVersionFromQuery(
-	r *http.Request,
-	key string,
-	fallback sharedTypes.Version,
-) (sharedTypes.Version, error) {
-	raw := r.URL.Query().Get(key)
-	if raw == "" {
-		return fallback, nil
-	}
-	i, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return sharedTypes.Version(i), nil
-}
-func getIntFromHeaders(
-	r *http.Request,
-	key string,
-	fallback int64,
-) (int64, error) {
-	raw := r.Header.Get(key)
-	if raw == "" {
-		return fallback, nil
-	}
-	return strconv.ParseInt(raw, 10, 64)
-}
-
-func respond(
-	w http.ResponseWriter,
-	r *http.Request,
-	code int,
-	body interface{},
-	err error,
-	msg string,
-) {
-	if err != nil {
-		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.IsNotAuthorizedError(err) {
-			errorResponse(w, http.StatusForbidden, err.Error())
-			return
-		}
-		if errors.IsNotFoundError(err) {
-			errorResponse(w, http.StatusNotFound, err.Error())
-			return
-		}
-		if errors.IsInvalidState(err) {
-			errorResponse(w, http.StatusConflict, err.Error())
-			return
-		}
-		if errors.IsUpdateRangeNotAvailableError(err) {
-			errorResponse(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-		log.Printf("%s %s: %s: %s", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
-		return
-	}
-	if body == nil {
-		w.WriteHeader(code)
-	} else {
-		w.Header().Set(
-			"Content-Type",
-			"application/json; charset=utf-8",
-		)
-		if code != http.StatusOK {
-			w.WriteHeader(code)
-		}
-		_ = json.NewEncoder(w).Encode(body)
-	}
-}
-
-func (h *httpController) handle404(w http.ResponseWriter, r *http.Request) {
-	respond(w, r, http.StatusNotFound, nil, errors.New("404"), "404")
-}
-
-func (h *httpController) checkDocExists(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) checkDocExists(c *gin.Context) {
 	err := h.dum.CheckDocExists(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot check doc exists")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
-	fromVersion, err := getVersionFromQuery(r, "fromVersion", -1)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid fromVersion")
+type getDocRequestOptions struct {
+	FromVersion sharedTypes.Version `form:"fromVersion" binding:"required"`
+}
+
+func (h *httpController) getDoc(c *gin.Context) {
+	requestOptions := &getDocRequestOptions{}
+	if err := c.ShouldBindQuery(requestOptions); err != nil {
+		httpUtils.RespondErr(c, &errors.ValidationError{
+			Msg: "invalid fromVersion",
+		})
 		return
 	}
 	doc, err := h.dum.GetDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
-		fromVersion,
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
+		requestOptions.FromVersion,
 	)
-	respond(w, r, http.StatusOK, doc, err, "cannot get doc")
+	httpUtils.Respond(c, http.StatusOK, doc, err)
 }
 
 const (
 	maxSetDocRequestSize = 8 * 1024 * 1024
 )
 
-func (h *httpController) setDoc(w http.ResponseWriter, r *http.Request) {
-	n, err := getIntFromHeaders(r, "Content-Length", 0)
-	if err != nil || n < 1 {
-		errorResponse(w, http.StatusBadRequest, "missing request size")
-		return
-	}
+func (h *httpController) setDoc(c *gin.Context) {
+	n := c.Request.ContentLength
 	if n > maxSetDocRequestSize {
-		errorResponse(w, http.StatusRequestEntityTooLarge, "too large")
+		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
 		return
 	}
-	var request types.SetDocRequest
-	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "bad request")
+	request := &types.SetDocRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	if err = request.Validate(); err != nil {
+	if err := request.Validate(); err != nil {
 		if err == sharedTypes.ErrDocIsTooLarge {
-			errorResponse(w, http.StatusNotAcceptable, err.Error())
+			c.JSON(http.StatusNotAcceptable, gin.H{"message": err.Error()})
 			return
 		}
-		errorResponse(w, http.StatusBadRequest, err.Error())
+		httpUtils.RespondErr(c, err)
 		return
 	}
-	err = h.dum.SetDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
-		&request,
+	err := h.dum.SetDoc(
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
+		request,
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete doc")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushProject(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) flushProject(c *gin.Context) {
 	err := h.dum.FlushProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot flush project")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushDocIfLoaded(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) flushDocIfLoaded(c *gin.Context) {
 	err := h.dum.FlushDocIfLoaded(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot flush doc")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushAndDeleteDoc(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) flushAndDeleteDoc(c *gin.Context) {
 	err := h.dum.FlushAndDeleteDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete doc")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushAndDeleteProject(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) flushAndDeleteProject(c *gin.Context) {
 	err := h.dum.FlushAndDeleteProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete project")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getAndFlushIfOld(w http.ResponseWriter, r *http.Request) {
-	state := r.URL.Query().Get("state")
+func (h *httpController) getAndFlushIfOld(c *gin.Context) {
+	state := c.Query("state")
 	var docs interface{}
 	var err error
-	if r.URL.Query().Get("snapshot") == "true" {
+	if c.Query("snapshot") == "true" {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldSnapshot(
-			r.Context(),
-			getId(r, "projectId"),
+			c,
+			httpUtils.GetId(c, "projectId"),
 			state,
 		)
 	} else {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldLines(
-			r.Context(),
-			getId(r, "projectId"),
+			c,
+			httpUtils.GetId(c, "projectId"),
 			state,
 		)
 	}
-	respond(w, r, http.StatusOK, docs, err, "cannot get and flush old")
+	httpUtils.Respond(c, http.StatusOK, docs, err)
 }
 
-func (h *httpController) clearProjectState(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) clearProjectState(c *gin.Context) {
 	err := h.dum.ClearProjectState(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot clear state")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) processProjectUpdates(w http.ResponseWriter, r *http.Request) {
-	var request types.ProcessProjectUpdatesRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		errorResponse(w, http.StatusBadRequest, "bad request")
+func (h *httpController) processProjectUpdates(c *gin.Context) {
+	request := &types.ProcessProjectUpdatesRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	err := h.dum.ProcessProjectUpdates(
-		r.Context(),
-		getId(r, "projectId"),
-		&request,
+		c,
+		httpUtils.GetId(c, "projectId"),
+		request,
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot flush and delete doc")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

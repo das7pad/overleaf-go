@@ -27,7 +27,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-const NoLimit = -1
+const (
+	DefaultLimit = 50
+	NoLimit      = -1
+)
 
 type ContactManager interface {
 	GetContacts(
@@ -111,14 +114,17 @@ func (cm *contactManager) GetContacts(
 	})
 
 	responseSize := len(contacts)
+	if limit == 0 {
+		limit = DefaultLimit
+	}
 	if limit != NoLimit && responseSize > limit {
 		responseSize = limit
 	}
 	contactIds := make([]primitive.ObjectID, responseSize)
 	for i := 0; i < responseSize; i++ {
-		id, err := primitive.ObjectIDFromHex(contacts[i].UserId)
-		if err != nil {
-			return nil, err
+		id, err2 := primitive.ObjectIDFromHex(contacts[i].UserId)
+		if err2 != nil {
+			return nil, err2
 		}
 		contactIds[i] = id
 	}

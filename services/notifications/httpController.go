@@ -17,19 +17,11 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"log"
 	"net/http"
-	"net/url"
 
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/gin-gonic/gin"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/notifications/pkg/managers/notifications"
 )
 
@@ -41,235 +33,48 @@ type httpController struct {
 	nm notifications.Manager
 }
 
-type CorsOptions struct {
-	AllowedOrigins []string
-	SiteUrl        string
-}
+func (h *httpController) GetRouter(corsOptions httpUtils.CORSOptions,
+	jwtOptions httpUtils.JWTOptions,
 
-func (h *httpController) GetRouter(
-	corsOptions CorsOptions,
-	jwtOptions jwtMiddleware.Options,
 ) http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
 
-	jwtRouter := router.PathPrefix("/jwt/notifications").Subrouter()
-	jwtRouter.Use(cors(corsOptions))
-	jwtRouter.Use(noCache())
-	jwtRouter.Use(jwtMiddleware.New(jwtOptions).Handler)
-	jwtRouter.Use(validateAndSetId("userId"))
-	jwtRouter.
-		NewRoute().
-		Methods(http.MethodOptions).
-		HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNoContent)
-		})
-	jwtRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("").
-		HandlerFunc(h.getNotifications)
-	jwtNotificationRouter := jwtRouter.
-		PathPrefix("/{notificationId}").
-		Subrouter()
-	jwtNotificationRouter.Use(validateAndSetId("notificationId"))
-	jwtNotificationRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.removeNotificationById)
+	jwtRouter := router.Group("/jwt/notifications")
+	jwtRouter.Use(httpUtils.CORS(corsOptions))
+	jwtRouter.Use(httpUtils.NoCache())
+	jwtRouter.Use(httpUtils.NewJWTHandler(jwtOptions).Middleware())
+	jwtRouter.Use(httpUtils.ValidateAndSetJWTId("userId"))
+	jwtRouter.GET("", h.getNotifications)
+	jwtNotificationRouter := jwtRouter.Group("/:notificationId")
+	jwtNotificationRouter.Use(httpUtils.ValidateAndSetId("notificationId"))
+	jwtNotificationRouter.DELETE("", h.removeNotificationById)
 
-	userRouter := router.
-		PathPrefix("/user/{userId}").
-		Subrouter()
-	userRouter.Use(validateAndSetId("userId"))
-	userRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("").
-		HandlerFunc(h.getNotifications)
-	userRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("").
-		HandlerFunc(h.addNotification)
-	userRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.removeNotificationByKey)
+	userRouter := router.Group("/user/:userId")
+	userRouter.Use(httpUtils.ValidateAndSetId("userId"))
+	userRouter.GET("", h.getNotifications)
+	userRouter.POST("", h.addNotification)
+	userRouter.DELETE("", h.removeNotificationByKey)
 
-	userNotificationRouter := userRouter.
-		PathPrefix("/notification/{notificationId}").
-		Subrouter()
-	userNotificationRouter.Use(validateAndSetId("notificationId"))
-	userNotificationRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.removeNotificationById)
+	userNotificationRouter := userRouter.Group("/notification/:notificationId")
+	userNotificationRouter.Use(httpUtils.ValidateAndSetId("notificationId"))
+	userNotificationRouter.DELETE("", h.removeNotificationById)
 
-	router.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("/key/{notificationKey}").
-		HandlerFunc(h.removeNotificationByKeyOnly)
+	router.DELETE("/key/:notificationKey", h.removeNotificationByKeyOnly)
 	return router
 }
 
-func noCache() mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Cache-Control", "no-cache")
-			next.ServeHTTP(w, r)
-		})
-	}
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "notifications is alive (go)\n")
 }
 
-func cors(options CorsOptions) mux.MiddlewareFunc {
-	siteUrl, err := url.Parse(options.SiteUrl)
-	if err != nil {
-		panic(err)
-	}
-	publicHost := siteUrl.Host
-	allowedOrigins := make(map[string]bool)
-	for _, origin := range options.AllowedOrigins {
-		allowedOrigins[origin] = true
-	}
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Host != publicHost {
-				w.Header().Add("Vary", "Origin")
-				origin := r.Header.Get("Origin")
-				if allowedOrigins[origin] {
-					w.Header().Set("Access-Control-Allow-Origin", origin)
-				}
-				w.Header().Set(
-					"Access-Control-Allow-Headers",
-					"Authorization,Content-Type",
-				)
-				w.Header().Set(
-					"Access-Control-Allow-Methods",
-					"DELETE, GET, OPTIONS",
-				)
-				w.Header().Set("Access-Control-Max-Age", "3600")
-			}
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func validateAndSetId(name string) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := primitive.ObjectIDFromHex(getRawIdFromRequest(r, name))
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			ctx := context.WithValue(r.Context(), name, id)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-func getParam(r *http.Request, name string) string {
-	return mux.Vars(r)[name]
-}
-func getRawIdFromRequest(r *http.Request, name string) string {
-	rawId := getRawIdFromPath(r, name)
-	if rawId != "" {
-		return rawId
-	}
-	return getRawIdFromJwt(r, name)
-}
-func getRawIdFromPath(r *http.Request, name string) string {
-	return getParam(r, name)
-}
-func getRawIdFromJwt(r *http.Request, name string) string {
-	user := r.Context().Value("user")
-	if user == nil {
-		return ""
-	}
-	token := user.(*jwt.Token)
-	if token == nil {
-		return ""
-	}
-	claims := token.Claims.(jwt.MapClaims)
-	idFromJwt := claims[name]
-	if idFromJwt == nil {
-		return ""
-	}
-	return idFromJwt.(string)
-}
-
-func getId(r *http.Request, name string) primitive.ObjectID {
-	id := r.Context().Value(name)
-	if id == nil {
-		// The validation middleware should have blocked this request.
-		log.Printf(
-			"%s not validated on route %s %s",
-			name, r.Method, r.URL.Path,
-		)
-		panic("broken id validation")
-	}
-	return id.(primitive.ObjectID)
-}
-
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-
-	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
-}
-
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("notifications is alive (go)\n"))
-}
-
-func respond(
-	w http.ResponseWriter,
-	r *http.Request,
-	code int,
-	body interface{},
-	err error,
-	msg string,
-) {
-	if err != nil {
-		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
-		return
-	}
-	if body == nil {
-		w.WriteHeader(code)
-	} else {
-		w.Header().Set(
-			"Content-Type",
-			"application/json; charset=utf-8",
-		)
-		if code != http.StatusOK {
-			w.WriteHeader(code)
-		}
-		_ = json.NewEncoder(w).Encode(body)
-	}
-}
-
-func (h *httpController) getNotifications(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getNotifications(c *gin.Context) {
 	n, err := h.nm.GetUserNotifications(
-		r.Context(),
-		getId(r, "userId"),
+		c,
+		httpUtils.GetId(c, "userId"),
 	)
-	respond(w, r, http.StatusOK, n, err, "cannot get notifications")
+	httpUtils.Respond(c, http.StatusOK, n, err)
 }
 
 type addNotificationRequestBody struct {
@@ -277,55 +82,53 @@ type addNotificationRequestBody struct {
 	ForceCreate bool `json:"forceCreate"`
 }
 
-func (h *httpController) addNotification(w http.ResponseWriter, r *http.Request) {
-	var requestBody addNotificationRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request body")
+func (h *httpController) addNotification(c *gin.Context) {
+	requestBody := &addNotificationRequestBody{}
+	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
 
 	err := h.nm.AddNotification(
-		r.Context(),
-		getId(r, "userId"),
+		c,
+		httpUtils.GetId(c, "userId"),
 		requestBody.Notification,
 		requestBody.ForceCreate,
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot add notification")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
-func (h *httpController) removeNotificationById(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) removeNotificationById(c *gin.Context) {
 	err := h.nm.RemoveNotificationById(
-		r.Context(),
-		getId(r, "userId"),
-		getId(r, "notificationId"),
+		c,
+		httpUtils.GetId(c, "userId"),
+		httpUtils.GetId(c, "notificationId"),
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot remove notification by id")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
 type removeNotificationByKeyRequestBody struct {
 	Key string `json:"key"`
 }
 
-func (h *httpController) removeNotificationByKey(w http.ResponseWriter, r *http.Request) {
-	var requestBody removeNotificationByKeyRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request body")
+func (h *httpController) removeNotificationByKey(c *gin.Context) {
+	requestBody := &removeNotificationByKeyRequestBody{}
+	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
 
 	err := h.nm.RemoveNotificationByKey(
-		r.Context(),
-		getId(r, "userId"),
+		c,
+		httpUtils.GetId(c, "userId"),
 		requestBody.Key,
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot remove notification by key")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
-func (h *httpController) removeNotificationByKeyOnly(w http.ResponseWriter, r *http.Request) {
-	notificationKey := getParam(r, "notificationKey")
+func (h *httpController) removeNotificationByKeyOnly(c *gin.Context) {
+	notificationKey := c.Param("notificationKey")
 	err := h.nm.RemoveNotificationByKeyOnly(
-		r.Context(),
+		c,
 		notificationKey,
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot remove notification by key only")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }

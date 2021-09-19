@@ -24,14 +24,13 @@ import (
 	"strings"
 	"time"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/form3tech-oss/jwt-go"
 	"github.com/go-redis/redis/v8"
 
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -74,8 +73,8 @@ func getJSONFromEnv(key string, target interface{}) {
 
 type webOptions struct {
 	address      string
-	corsOptions  CorsOptions
-	jwtOptions   jwtMiddleware.Options
+	corsOptions  httpUtils.CORSOptions
+	jwtOptions   httpUtils.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 	redisOptions *redis.UniversalOptions
@@ -94,21 +93,15 @@ func getOptions() *webOptions {
 	if jwtSecret == "" {
 		panic("missing JWT_WEB_VERIFY_SECRET")
 	}
-	o.jwtOptions = jwtMiddleware.Options{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
-		},
-		SigningMethod: jwt.SigningMethodHS512,
-	}
+	o.jwtOptions.Algorithm = "HS512"
+	o.jwtOptions.Key = jwtSecret
+
 	siteUrl := getStringFromEnv("PUBLIC_URL", "http://localhost:3000")
-	allowedOrigins := strings.Split(
+	allowOrigins := strings.Split(
 		getStringFromEnv("ALLOWED_ORIGINS", siteUrl),
 		",",
 	)
-	o.corsOptions = CorsOptions{
-		AllowedOrigins: allowedOrigins,
-		SiteUrl:        siteUrl,
-	}
+	o.corsOptions.AllowOrigins = allowOrigins
 
 	mongoConnectionString := os.Getenv("MONGO_CONNECTION_STRING")
 	if mongoConnectionString == "" {

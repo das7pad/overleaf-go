@@ -24,13 +24,12 @@ import (
 	"strings"
 	"time"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/form3tech-oss/jwt-go"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -74,7 +73,7 @@ func getJSONFromEnv(key string, target interface{}) {
 type realTimeOptions struct {
 	address string
 
-	jwtOptions   jwtMiddleware.Options
+	jwtOptions   httpUtils.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 	redisOptions *redis.UniversalOptions
@@ -93,12 +92,8 @@ func getOptions() *realTimeOptions {
 	if jwtSecret == "" {
 		panic("missing JWT_REAL_TIME_VERIFY_SECRET")
 	}
-	o.jwtOptions = jwtMiddleware.Options{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
-		},
-		SigningMethod: jwt.SigningMethodHS512,
-	}
+	o.jwtOptions.Algorithm = "HS512"
+	o.jwtOptions.Key = jwtSecret
 
 	mongoConnectionString := os.Getenv("MONGO_CONNECTION_STRING")
 	if mongoConnectionString == "" {

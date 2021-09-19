@@ -18,10 +18,13 @@ package main
 
 import (
 	"crypto/subtle"
-	"io"
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 )
 
 func newHttpController(timeout time.Duration, proxyToken string) httpController {
@@ -39,50 +42,63 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/status", h.status)
-	mux.HandleFunc("/proxy/", h.proxy)
-	return mux
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
+	router.GET("/proxy/", h.proxy)
+	return router
 }
 
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("linked-url-proxy is alive (go)\n"))
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "linked-url-proxy is alive (go)\n")
 }
 
-func (h *httpController) proxy(w http.ResponseWriter, r *http.Request) {
-	if subtle.ConstantTimeCompare([]byte(r.URL.Path), []byte(h.proxyPathWithToken)) == 0 {
-		w.WriteHeader(http.StatusForbidden)
+func (h *httpController) checkAuth(c *gin.Context) error {
+	a := []byte(c.Request.URL.Path)
+	b := []byte(h.proxyPathWithToken)
+	if subtle.ConstantTimeCompare(a, b) == 1 {
+		return nil
+	}
+	return &errors.NotAuthorizedError{}
+}
+
+func (h *httpController) proxy(c *gin.Context) {
+	if err := h.checkAuth(c); err != nil {
+		httpUtils.RespondErr(c, err)
 		return
 	}
-	url := r.URL.Query().Get("url")
+	url := c.Query("url")
 	if url == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		httpUtils.RespondErr(c, &errors.ValidationError{Msg: "url missing"})
 		return
 	}
 
-	requestOut, err := http.NewRequestWithContext(r.Context(), "GET", url, http.NoBody)
+	request, err := http.NewRequestWithContext(
+		c, http.MethodGet, url, http.NoBody,
+	)
 	if err != nil {
-		log.Println("request creation failed:", err)
-		w.WriteHeader(http.StatusBadRequest)
+		httpUtils.RespondErr(c, errors.Tag(err, "request creation failed"))
 		return
 	}
-	responseOut, err := h.client.Do(requestOut)
+	response, err := h.client.Do(request)
 	if err != nil {
-		log.Println("request failed:", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		httpUtils.RespondErr(c, errors.Tag(err, "request failed"))
 		return
 	}
-	contentType := responseOut.Header.Get("Content-Type")
+	defer func() {
+		_ = response.Body.Close()
+	}()
+	contentType := response.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	w.Header().Add("Content-Type", contentType)
-	w.Header().Add("Content-Disposition", "attachment; filename=\"response\"")
-	w.WriteHeader(responseOut.StatusCode)
-
-	_, err = io.Copy(w, responseOut.Body)
-	if err != nil {
-		log.Println("proxy failed:", err)
-	}
+	c.DataFromReader(
+		response.StatusCode,
+		response.ContentLength,
+		contentType,
+		response.Body,
+		map[string]string{
+			"Content-Disposition": `attachment; filename="response"`,
+		},
+	)
 }

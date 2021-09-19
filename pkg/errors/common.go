@@ -139,6 +139,33 @@ func IsInvalidState(err error) bool {
 	return ok
 }
 
+type UnauthorizedError struct {
+	Reason string
+}
+
+func (e *UnauthorizedError) Error() string {
+	return "unauthorized: " + e.Reason
+}
+
+func (e *UnauthorizedError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: e.Error(),
+	}
+}
+
+func (e *UnauthorizedError) IsFatal() bool {
+	return true
+}
+
+func IsUnauthorizedError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*UnauthorizedError)
+	return ok
+}
+
 type NotAuthorizedError struct {
 }
 

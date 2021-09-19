@@ -17,17 +17,13 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
@@ -43,272 +39,143 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
 
-	projectRouter := router.
-		PathPrefix("/project/{projectId}").
-		Subrouter()
-	projectRouter.Use(validateAndSetId("projectId"))
+	projectRouter := router.Group("/project/:projectId")
+	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
 
-	docRouter := projectRouter.
-		PathPrefix("/doc/{docId}").
-		Subrouter()
-	docRouter.Use(validateAndSetId("docId"))
+	docRouter := projectRouter.Group("/doc/:docId")
+	docRouter.Use(httpUtils.ValidateAndSetId("docId"))
 
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/doc-deleted").
-		HandlerFunc(h.peakDeletedDocNames)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/doc").
-		HandlerFunc(h.getAllDocContents)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/ranges").
-		HandlerFunc(h.getAllRanges)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/archive").
-		HandlerFunc(h.archiveProject)
+	projectRouter.GET("/doc-deleted", h.peakDeletedDocNames)
+	projectRouter.GET("/doc", h.getAllDocContents)
+	projectRouter.GET("/ranges", h.getAllRanges)
+	projectRouter.POST("/archive", h.archiveProject)
 	//goland:noinspection SpellCheckingInspection
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/unarchive").
-		HandlerFunc(h.unArchiveProject)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/destroy").
-		HandlerFunc(h.destroyProject)
+	projectRouter.POST("/unarchive", h.unArchiveProject)
+	projectRouter.POST("/destroy", h.destroyProject)
 
-	docRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("").
-		HandlerFunc(h.getDoc)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/raw").
-		HandlerFunc(h.getDocRaw)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/deleted").
-		HandlerFunc(h.isDocDeleted)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("").
-		HandlerFunc(h.updateDoc)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodPatch).
-		Path("").
-		HandlerFunc(h.patchDoc)
-	docRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("/archive").
-		HandlerFunc(h.archiveDoc)
+	docRouter.GET("", h.getDoc)
+	docRouter.GET("/raw", h.getDocRaw)
+	docRouter.GET("/deleted", h.isDocDeleted)
+	docRouter.POST("", h.updateDoc)
+	docRouter.PATCH("", h.patchDoc)
+	docRouter.POST("/archive", h.archiveDoc)
 
 	return router
 }
 
-func validateAndSetId(name string) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := primitive.ObjectIDFromHex(getRawIdFromRequest(r, name))
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			ctx := context.WithValue(r.Context(), name, id)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "docstore is alive (go)\n")
 }
 
-func getParam(r *http.Request, name string) string {
-	return mux.Vars(r)[name]
-}
-func getRawIdFromRequest(r *http.Request, name string) string {
-	return getParam(r, name)
+type peakDeletedDocNamesOptions struct {
+	Limit types.Limit `form:"limit"`
 }
 
-func getId(r *http.Request, name string) primitive.ObjectID {
-	id := r.Context().Value(name)
-	if id == nil {
-		// The validation middleware should have blocked this request.
-		log.Printf(
-			"%s not validated on route %s %s",
-			name, r.Method, r.URL.Path,
-		)
-		panic("broken id validation")
-	}
-	return id.(primitive.ObjectID)
-}
-
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-
-	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
-}
-
-func respond(
-	w http.ResponseWriter,
-	r *http.Request,
-	code int,
-	body interface{},
-	err error,
-	msg string,
-) {
-	if err != nil {
-		if errors.IsBodyTooLargeError(err) {
-			errorResponse(w, http.StatusRequestEntityTooLarge, err.Error())
-			return
-		}
-		if errors.IsDocNotFoundError(err) {
-			errorResponse(w, http.StatusNotFound, err.Error())
-			return
-		}
-		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
-		return
-	}
-	if body == nil {
-		w.WriteHeader(code)
-	} else {
-		w.Header().Set(
-			"Content-Type",
-			"application/json; charset=utf-8",
-		)
-		if code != http.StatusOK {
-			w.WriteHeader(code)
-		}
-		_ = json.NewEncoder(w).Encode(body)
-	}
-}
-
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("docstore is alive (go)\n"))
-}
-
-func (h *httpController) peakDeletedDocNames(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) peakDeletedDocNames(c *gin.Context) {
+	requestOptions := &peakDeletedDocNamesOptions{}
+	_ = c.ShouldBindQuery(requestOptions)
 	limit := docstore.DefaultLimit
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		if limitRaw, err := strconv.ParseInt(raw, 10, 64); err == nil {
-			limit = types.Limit(limitRaw)
-		}
+	if requestOptions.Limit > 0 {
+		limit = requestOptions.Limit
 	}
 
 	docNames, err := h.dm.PeakDeletedDocNames(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 		limit,
 	)
-	respond(w, r, http.StatusOK, docNames, err, "cannot peak deleted doc names")
+	httpUtils.Respond(c, http.StatusOK, docNames, err)
 }
 
-func (h *httpController) getAllDocContents(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getAllDocContents(c *gin.Context) {
 	docs, err := h.dm.GetAllDocContents(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusOK, docs, err, "cannot get all doc contents")
+	httpUtils.Respond(c, http.StatusOK, docs, err)
 }
 
-func (h *httpController) getAllRanges(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getAllRanges(c *gin.Context) {
 	docNames, err := h.dm.GetAllRanges(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusOK, docNames, err, "cannot get all ranges")
+	httpUtils.Respond(c, http.StatusOK, docNames, err)
 }
 
-func (h *httpController) archiveProject(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) archiveProject(c *gin.Context) {
 	err := h.dm.ArchiveProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot archive project")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) unArchiveProject(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) unArchiveProject(c *gin.Context) {
 	err := h.dm.UnArchiveProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot un-archive project")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
-func (h *httpController) destroyProject(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) destroyProject(c *gin.Context) {
 	err := h.dm.DestroyProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot destroy project")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getDoc(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getDoc(c *gin.Context) {
 	d, err := h.dm.GetFullDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
 	if err == nil {
-		if d.Deleted && r.URL.Query().Get("include_deleted") != "true" {
-			w.WriteHeader(http.StatusNotFound)
+		if d.Deleted && c.Query("include_deleted") != "true" {
+			c.Status(http.StatusNotFound)
 			return
 		}
 	}
-	respond(w, r, http.StatusOK, d, err, "cannot get full doc")
+	httpUtils.Respond(c, http.StatusOK, d, err)
 }
 
-func (h *httpController) getDocRaw(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getDocRaw(c *gin.Context) {
 	lines, err := h.dm.GetDocLines(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
 	if err != nil {
-		respond(w, r, http.StatusOK, lines, err, "cannot get doc lines")
+		httpUtils.Respond(c, http.StatusOK, lines, err)
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(strings.Join(lines, "\n")))
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.String(http.StatusOK, strings.Join(lines, "\n"))
 }
 
 type isDocDeletedResponseBody struct {
 	Deleted bool `json:"deleted"`
 }
 
-func (h *httpController) isDocDeleted(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) isDocDeleted(c *gin.Context) {
 	deleted, err := h.dm.IsDocDeleted(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
 
 	body := isDocDeletedResponseBody{}
 	if err == nil {
 		body.Deleted = deleted
 	}
-	respond(w, r, http.StatusOK, body, err, "cannot get delete state of doc")
+	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
 type updateDocRequestBody struct {
@@ -321,20 +188,21 @@ type updateDocResponseBody struct {
 	Modified docstore.Modified    `json:"modified"`
 }
 
-func (h *httpController) updateDoc(w http.ResponseWriter, r *http.Request) {
-	var requestBody updateDocRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request body")
+func (h *httpController) updateDoc(c *gin.Context) {
+	requestBody := &updateDocRequestBody{}
+	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
 	if requestBody.Version == nil {
-		errorResponse(w, http.StatusBadRequest, "missing version")
+		httpUtils.RespondErr(c, &errors.ValidationError{
+			Msg: "missing version",
+		})
 		return
 	}
 	modified, revision, err := h.dm.UpdateDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 		requestBody.Lines,
 		*requestBody.Version,
 		requestBody.Ranges,
@@ -345,30 +213,29 @@ func (h *httpController) updateDoc(w http.ResponseWriter, r *http.Request) {
 		body.Revision = revision
 		body.Modified = modified
 	}
-	respond(w, r, http.StatusOK, body, err, "cannot update doc")
+	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
-func (h *httpController) patchDoc(w http.ResponseWriter, r *http.Request) {
-	var requestBody doc.Meta
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request body")
+func (h *httpController) patchDoc(c *gin.Context) {
+	requestBody := &doc.Meta{}
+	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
 	err := h.dm.PatchDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
-		requestBody,
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
+		*requestBody,
 	)
 
-	respond(w, r, http.StatusNoContent, nil, err, "cannot patch doc")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) archiveDoc(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) archiveDoc(c *gin.Context) {
 	err := h.dm.ArchiveDoc(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "docId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "docId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot archive doc")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

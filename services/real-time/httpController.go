@@ -21,160 +21,102 @@ import (
 	"log"
 	"net/http"
 
-	jwtMiddleware "github.com/auth0/go-jwt-middleware"
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func newHttpController(rtm realTime.Manager, jwtOptions jwtMiddleware.Options) httpController {
-	jwtOptions.Extractor = jwtMiddleware.FromParameter(jwtQueryParameter)
-	jwtOptions.UserProperty = jwtQueryParameter
-	jwtOptions.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err string) {
-		// noop. We are handling the error after the ws upgrade.
-	}
+func newHttpController(rtm realTime.Manager, jwtOptions httpUtils.JWTOptions) httpController {
+	jwtOptions.FromQuery = jwtQueryParameter
 	return httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
 			Subprotocols: []string{"v5.real-time.overleaf.com"},
 		},
-		jwt: jwtMiddleware.New(jwtOptions),
+		jwt: httpUtils.NewJWTHandler(jwtOptions),
 	}
 }
 
 type httpController struct {
 	rtm realTime.Manager
 	u   websocket.Upgrader
-	jwt *jwtMiddleware.JWTMiddleware
+	jwt *httpUtils.JWTHandler
 }
 
 const jwtQueryParameter = "bootstrap"
 
 func (h *httpController) GetRouter() http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
 
-	router.HandleFunc("/socket.io", h.ws)
-	router.HandleFunc("/socket.io/socket.io.js", h.clientBlob)
+	router.GET("/socket.io", h.ws)
+	router.GET("/socket.io/socket.io.js", h.clientBlob)
 	return router
 }
 
-const (
-	emailField     = "email"
-	firstNameField = "firstName"
-	idField        = "user_id"
-	lastNameField  = "lastName"
-)
+type WsBootstrapUser struct {
+	Id    primitive.ObjectID `json:"user_id"`
+	Email string             `json:"email"`
+	// TODO: align these with the client tracking fields in v6
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
 
-var (
-	userFields = []string{
-		emailField,
-		firstNameField,
-		idField,
-		lastNameField,
-	}
-)
+type WsBootstrapClaims struct {
+	*jwt.StandardClaims
+	User      WsBootstrapUser    `json:"user"`
+	ProjectId primitive.ObjectID `json:"projectId"`
+}
 
-func (h *httpController) getWsBootstrap(r *http.Request) (*types.WsBootstrap, error) {
-	if err := h.jwt.CheckJWT(nil, r); err != nil {
-		return nil, err
+func (h *httpController) getWsBootstrap(c *gin.Context) (*types.WsBootstrap, error) {
+	genericClaims, jwtError := h.jwt.Parse(c, &WsBootstrapClaims{})
+	if jwtError != nil {
+		return nil, jwtError
 	}
-
-	rawToken := r.Context().Value(jwtQueryParameter)
-	if rawToken == nil {
-		return nil, &errors.ValidationError{Msg: "missing jwt"}
-	}
-	token, ok := rawToken.(*jwt.Token)
-	if !ok {
-		return nil, &errors.ValidationError{Msg: "malformed jwt"}
-	}
-	claims := token.Claims.(jwt.MapClaims)
-	rawUser := claims["user"]
-	user := &types.User{}
-	if rawUser == nil {
-		user.Id = primitive.NilObjectID
-	} else {
-		userDetails, ok2 := rawUser.(map[string]interface{})
-		if !ok2 {
-			return nil, &errors.ValidationError{
-				Msg: "corrupt jwt: malformed user",
-			}
-		}
-		for _, f := range userFields {
-			if userDetails[f] == nil {
-				return nil, &errors.ValidationError{
-					Msg: "corrupt jwt: malformed user." + f,
-				}
-			}
-			s, ok3 := userDetails[f].(string)
-			if !ok3 {
-
-			}
-			switch f {
-			case emailField:
-				user.Email = s
-			case firstNameField:
-				user.FirstName = s
-			case idField:
-				userId, err := primitive.ObjectIDFromHex(s)
-				if err != nil {
-					return nil, &errors.ValidationError{
-						Msg: "corrupt jwt: malformed user.id",
-					}
-				}
-				user.Id = userId
-			case lastNameField:
-				user.LastName = s
-			}
-		}
-	}
-	rawProjectId := claims["projectId"]
-	if rawProjectId == nil {
-		return nil, &errors.ValidationError{
-			Msg: "corrupt jwt: missing projectId",
-		}
-	}
-	projectId, err := primitive.ObjectIDFromHex(rawProjectId.(string))
-	if err != nil {
-		return nil, &errors.ValidationError{
-			Msg: "corrupt jwt: malformed projectId",
-		}
+	claims := genericClaims.(*WsBootstrapClaims)
+	projectId := claims.ProjectId
+	user := &types.User{
+		Id:        claims.User.Id,
+		FirstName: claims.User.FirstName,
+		LastName:  claims.User.LastName,
+		Email:     claims.User.Email,
 	}
 	return &types.WsBootstrap{
 		ProjectId: projectId, User: user,
 	}, nil
 }
 
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("real-time is alive (go)\n"))
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "real-time is alive (go)\n")
 }
 
-func (h *httpController) clientBlob(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/javascript")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("window.io='plain'"))
+func (h *httpController) clientBlob(c *gin.Context) {
+	c.Header("Content-Type", "application/javascript")
+	c.String(http.StatusOK, "window.io='plain'")
 }
 
-func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) ws(requestCtx *gin.Context) {
 	setupTime := sharedTypes.Timed{}
 	setupTime.Begin()
-	conn, upgradeErr := h.u.Upgrade(w, r, nil)
+	conn, upgradeErr := h.u.Upgrade(
+		requestCtx.Writer, requestCtx.Request, nil,
+	)
 	if upgradeErr != nil {
 		// A 4xx has been generated already.
 		return
 	}
 	defer func() { _ = conn.Close() }()
 
-	wsBootstrap, jwtErr := h.getWsBootstrap(r)
+	wsBootstrap, jwtErr := h.getWsBootstrap(requestCtx)
 	if jwtErr != nil {
 		log.Println("jwt auth failed: " + jwtErr.Error())
 		_ = conn.WritePreparedMessage(
@@ -203,7 +145,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		writerChanges <- false
 	}()
 
-	ctx, cancel := context.WithCancel(r.Context())
+	ctx, cancel := context.WithCancel(requestCtx)
 	defer cancel()
 
 	c, clientErr := types.NewClient(wsBootstrap, writerChanges, writeQueue, cancel)

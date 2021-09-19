@@ -17,18 +17,15 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 )
@@ -43,324 +40,184 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
 
-	projectRouter := router.
-		PathPrefix("/project/{projectId}").
-		Subrouter()
-	projectRouter.Use(validateAndSetId("projectId"))
-	projectFileRouter := projectRouter.
-		PathPrefix("/file/{fileId}").
-		Subrouter()
-	projectFileRouter.Use(validateAndSetId("fileId"))
+	projectRouter := router.Group("/project/:projectId")
+	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
+	projectFileRouter := projectRouter.Group("/file/:fileId")
+	projectFileRouter.Use(httpUtils.ValidateAndSetId("fileId"))
 
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.deleteProject)
-	projectRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("/size").
-		HandlerFunc(h.getProjectSize)
+	projectRouter.DELETE("", h.deleteProject)
+	projectRouter.GET("/size", h.getProjectSize)
 
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodDelete).
-		Path("").
-		HandlerFunc(h.deleteProjectFile)
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodGet).
-		Path("").
-		HandlerFunc(h.getProjectFile)
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodHead).
-		Path("").
-		HandlerFunc(h.getProjectFileHEAD)
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodPost).
-		Path("").
-		HandlerFunc(h.sendProjectFile)
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodPut).
-		Path("").
-		HandlerFunc(h.copyProjectFile)
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodPut).
-		Path("/upload").
-		HandlerFunc(h.sendProjectFileViaPUT)
-	projectFileRouter.
-		NewRoute().
-		Methods(http.MethodPut).
-		Path("/copy").
-		HandlerFunc(h.copyProjectFile)
+	projectFileRouter.DELETE("", h.deleteProjectFile)
+	projectFileRouter.GET("", h.getProjectFile)
+	projectFileRouter.HEAD("", h.getProjectFileHEAD)
+	projectFileRouter.POST("", h.sendProjectFile)
+	projectFileRouter.PUT("", h.copyProjectFile)
+	projectFileRouter.PUT("/upload", h.sendProjectFileViaPUT)
+	projectFileRouter.PUT("/copy", h.copyProjectFile)
 	return router
 }
 
-func validateAndSetId(name string) mux.MiddlewareFunc {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := primitive.ObjectIDFromHex(getRawIdFromRequest(r, name))
-			if err != nil || id == primitive.NilObjectID {
-				errorResponse(w, http.StatusBadRequest, "invalid "+name)
-				return
-			}
-			ctx := context.WithValue(r.Context(), name, id)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-func getParam(r *http.Request, name string) string {
-	return mux.Vars(r)[name]
-}
-func getRawIdFromRequest(r *http.Request, name string) string {
-	return getParam(r, name)
-}
-
-func getId(r *http.Request, name string) primitive.ObjectID {
-	id := r.Context().Value(name)
-	if id == nil {
-		// The validation middleware should have blocked this request.
-		log.Printf(
-			"%s not validated on route %s %s",
-			name, r.Method, r.URL.Path,
-		)
-		panic("broken id validation")
-	}
-	return id.(primitive.ObjectID)
-}
-
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.Header().Set("X-Coded", "true")
-	w.WriteHeader(code)
-
-	// Flush it and ignore any errors.
-	_, _ = w.Write([]byte(message))
-}
-
-func respond(
-	w http.ResponseWriter,
-	r *http.Request,
-	code int,
-	body interface{},
-	err error,
-	msg string,
-) {
-	if err != nil {
-		if errors.IsValidationError(err) {
-			errorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.IsNotFoundError(err) {
-			errorResponse(w, http.StatusNotFound, err.Error())
-			return
-		}
-		log.Printf("%s %s: %s: %v", r.Method, r.URL.Path, msg, err)
-		errorResponse(w, http.StatusInternalServerError, msg)
-		return
-	}
-	if body == nil {
-		w.WriteHeader(code)
-	} else {
-		w.Header().Set(
-			"Content-Type",
-			"application/json; charset=utf-8",
-		)
-		if code != http.StatusOK {
-			w.WriteHeader(code)
-		}
-		_ = json.NewEncoder(w).Encode(body)
-	}
-}
-
 func redirect(
-	w http.ResponseWriter,
-	r *http.Request,
+	c *gin.Context,
 	u *url.URL,
 	err error,
-	msg string,
 ) {
 	if err == nil {
-		w.Header().Set("Location", u.String())
+		c.Redirect(http.StatusTemporaryRedirect, u.String())
 	}
-	respond(w, r, http.StatusTemporaryRedirect, nil, err, msg)
+	httpUtils.Respond(c, http.StatusTemporaryRedirect, nil, err)
 }
 
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("filestore is alive (go)\n"))
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "filestore is alive (go)\n")
 }
 
-func (h *httpController) deleteProject(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) deleteProject(c *gin.Context) {
 	err := h.fm.DeleteProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot delete project")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 type getProjectSizeResponseBody struct {
 	TotalSize int64 `json:"total bytes"`
 }
 
-func (h *httpController) getProjectSize(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getProjectSize(c *gin.Context) {
 	s, err := h.fm.GetSizeOfProject(
-		r.Context(),
-		getId(r, "projectId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
 	)
 	body := getProjectSizeResponseBody{TotalSize: s}
-	respond(w, r, http.StatusOK, body, err, "cannot get project size")
+	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
-func (h *httpController) deleteProjectFile(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) deleteProjectFile(c *gin.Context) {
 	err := h.fm.DeleteProjectFile(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "fileId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "fileId"),
 	)
-	respond(w, r, http.StatusNoContent, nil, err, "cannot delete project file")
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getProjectFile(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getProjectFile(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForGETOnProjectFile(
-			r.Context(),
-			getId(r, "projectId"),
-			getId(r, "fileId"),
+			c,
+			httpUtils.GetId(c, "projectId"),
+			httpUtils.GetId(c, "fileId"),
 		)
-		redirect(w, r, u, err, "cannot redirect GET on project file")
+		redirect(c, u, err)
 		return
 	}
 	options := objectStorage.GetOptions{}
 	body, err := h.fm.GetReadStreamForProjectFile(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "fileId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "fileId"),
 		options,
 	)
 	if err != nil {
-		respond(w, r, http.StatusOK, nil, err, "cannot GET project file")
+		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	_, _ = io.Copy(w, body)
+	c.Header("Content-Type", "application/octet-stream")
+	_, _ = io.Copy(c.Writer, body)
 }
 
-func (h *httpController) getProjectFileHEAD(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) getProjectFileHEAD(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForHEADOnProjectFile(
-			r.Context(),
-			getId(r, "projectId"),
-			getId(r, "fileId"),
+			c,
+			httpUtils.GetId(c, "projectId"),
+			httpUtils.GetId(c, "fileId"),
 		)
-		redirect(w, r, u, err, "cannot redirect HEAD on project file")
+		redirect(c, u, err)
 		return
 	}
 	size, err := h.fm.GetSizeOfProjectFile(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "fileId"),
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "fileId"),
 	)
 	if err == nil {
-		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+		c.Header("Content-Length", strconv.FormatInt(size, 10))
 	}
-	respond(w, r, http.StatusOK, nil, err, "cannot get project file size")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
-func getBodySize(r *http.Request) int64 {
-	raw := r.Header.Get("Content-Length")
-	if raw == "" {
-		return -1
-	}
-	bodySize, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return -1
-	}
-	return bodySize
-}
-
-func (h *httpController) sendProjectFile(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) sendProjectFile(c *gin.Context) {
 	// NOTE: This is a POST request. We cannot redirect to a PUT URL.
 	//       Redirecting to a singed POST URL does not work unless additional
 	//        POST form data is amended.
 	//       This needs an API rework for uploading via PUT.
 
 	options := objectStorage.SendOptions{
-		ContentSize:     getBodySize(r),
-		ContentEncoding: r.Header.Get("Content-Encoding"),
-		ContentType:     r.Header.Get("Content-Type"),
+		ContentSize:     c.Request.ContentLength,
+		ContentEncoding: c.GetHeader("Content-Encoding"),
+		ContentType:     c.GetHeader("Content-Type"),
 	}
 	err := h.fm.SendStreamForProjectFile(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "fileId"),
-		r.Body,
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "fileId"),
+		c.Request.Body,
 		options,
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot POST project file")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
-func (h *httpController) sendProjectFileViaPUT(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) sendProjectFileViaPUT(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForPUTOnProjectFile(
-			r.Context(),
-			getId(r, "projectId"),
-			getId(r, "fileId"),
+			c,
+			httpUtils.GetId(c, "projectId"),
+			httpUtils.GetId(c, "fileId"),
 		)
-		redirect(w, r, u, err, "cannot redirect PUT on project file")
+		redirect(c, u, err)
 		return
 	}
 
 	options := objectStorage.SendOptions{
-		ContentSize:     getBodySize(r),
-		ContentEncoding: r.Header.Get("Content-Encoding"),
-		ContentType:     r.Header.Get("Content-Type"),
+		ContentSize:     c.Request.ContentLength,
+		ContentEncoding: c.GetHeader("Content-Encoding"),
+		ContentType:     c.GetHeader("Content-Type"),
 	}
 	err := h.fm.SendStreamForProjectFile(
-		r.Context(),
-		getId(r, "projectId"),
-		getId(r, "fileId"),
-		r.Body,
+		c,
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "fileId"),
+		c.Request.Body,
 		options,
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot PUT project file")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
 type copyProjectRequestBody struct {
 	Source struct {
-		ProjectId primitive.ObjectID `json:"project_id"`
-		FileId    primitive.ObjectID `json:"file_id"`
-	} `json:"source"`
+		ProjectId primitive.ObjectID `json:"project_id" binding:"required"`
+		FileId    primitive.ObjectID `json:"file_id" binding:"required"`
+	} `json:"source" binding:"required"`
 }
 
-func (h *httpController) copyProjectFile(w http.ResponseWriter, r *http.Request) {
-	var requestBody copyProjectRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if requestBody.Source.ProjectId == primitive.NilObjectID {
-		errorResponse(w, http.StatusBadRequest, "source.project_id missing")
-		return
-	}
-	if requestBody.Source.FileId == primitive.NilObjectID {
-		errorResponse(w, http.StatusBadRequest, "source.file_id missing")
+func (h *httpController) copyProjectFile(c *gin.Context) {
+	requestBody := &copyProjectRequestBody{}
+	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
 	err := h.fm.CopyProjectFile(
-		r.Context(),
+		c,
 		requestBody.Source.ProjectId,
 		requestBody.Source.FileId,
-		getId(r, "projectId"),
-		getId(r, "fileId"),
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "fileId"),
 	)
-	respond(w, r, http.StatusOK, nil, err, "cannot copy project file")
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }

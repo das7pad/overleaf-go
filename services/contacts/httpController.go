@@ -17,14 +17,12 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
-	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 )
 
@@ -37,107 +35,50 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := mux.NewRouter()
-	router.HandleFunc("/status", h.status)
-	router.
-		NewRoute().
-		Methods("GET").
-		Path("/user/{userId}/contacts").
-		HandlerFunc(h.getContacts)
-	router.
-		NewRoute().
-		Methods("POST").
-		Path("/user/{userId}/contacts").
-		HandlerFunc(h.addContacts)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/status", h.status)
+	userRouter := router.Group("/user/:userId")
+	userRouter.Use(httpUtils.ValidateAndSetId("userId"))
+	userRouter.GET("/contacts", h.getContacts)
+	userRouter.POST("/contacts", h.addContacts)
 
 	return router
 }
 
-func errorResponse(w http.ResponseWriter, code int, message string) {
-	w.WriteHeader(code)
-	_, _ = w.Write([]byte(message))
-}
-
-func (h *httpController) status(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("contacts is alive (go)\n"))
+func (h *httpController) status(c *gin.Context) {
+	c.String(http.StatusOK, "contacts is alive (go)\n")
 }
 
 type addContactRequestBody struct {
-	ContactId string `json:"contact_id"`
+	ContactId primitive.ObjectID `json:"contact_id"`
 }
 
-func (h *httpController) addContacts(w http.ResponseWriter, r *http.Request) {
-	userId, err := primitive.ObjectIDFromHex(mux.Vars(r)["userId"])
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid userId")
+func (h *httpController) addContacts(c *gin.Context) {
+	userId := httpUtils.GetId(c, "userId")
+	requestBody := &addContactRequestBody{}
+	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
-	var requestBody addContactRequestBody
-	err = json.NewDecoder(r.Body).Decode(&requestBody)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	contactId, err := primitive.ObjectIDFromHex(requestBody.ContactId)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid userId")
-		return
-	}
-
-	err = h.cm.AddContacts(r.Context(), userId, contactId)
-	if err != nil {
-		log.Println(err)
-		errorResponse(
-			w,
-			http.StatusInternalServerError,
-			"cannot touch contacts for users",
-		)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	err := h.cm.AddContacts(c, userId, requestBody.ContactId)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-const ContactLimit = 50
+type getContactsOptions struct {
+	Limit int `form:"limit"`
+}
 
 type getContactsResponseBody struct {
 	ContactIds []primitive.ObjectID `json:"contact_ids"`
 }
 
-func (h *httpController) getContacts(w http.ResponseWriter, r *http.Request) {
-	userId, err := primitive.ObjectIDFromHex(mux.Vars(r)["userId"])
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "invalid userId")
-		return
-	}
-	limit := ContactLimit
-	limitQueryParam := r.URL.Query().Get("limit")
-	if limitQueryParam != "" {
-		limit64, err := strconv.ParseInt(limitQueryParam, 10, 64)
-		if err != nil {
-			errorResponse(w, http.StatusBadRequest, "invalid limit")
-			return
-		}
-		limit = int(limit64)
-		if limit > ContactLimit {
-			// silently limit response size
-			limit = ContactLimit
-		}
-	}
+func (h *httpController) getContacts(c *gin.Context) {
+	userId := httpUtils.GetId(c, "userId")
 
-	contactIds, err := h.cm.GetContacts(r.Context(), userId, limit)
-	if err != nil {
-		log.Println(err)
-		errorResponse(
-			w,
-			http.StatusInternalServerError,
-			"cannot read contacts",
-		)
-		return
-	}
+	options := &getContactsOptions{}
+	_ = c.ShouldBindQuery(options)
 
-	err = json.NewEncoder(w).Encode(
-		&getContactsResponseBody{ContactIds: contactIds},
-	)
+	contactIds, err := h.cm.GetContacts(c, userId, options.Limit)
+	body := &getContactsResponseBody{ContactIds: contactIds}
+	httpUtils.Respond(c, http.StatusOK, body, err)
 }
