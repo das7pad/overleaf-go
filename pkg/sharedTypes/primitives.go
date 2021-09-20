@@ -1,4 +1,4 @@
-// Golang port of the Overleaf clsi service
+// Golang port of Overleaf
 // Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
