@@ -31,9 +31,9 @@ func waitForDb(ctx context.Context, client *mongo.Client) error {
 }
 
 func main() {
-	address, mongoOptions, dbName := getOptions()
+	o := getOptions()
 	ctx := context.Background()
-	client, err := mongo.Connect(ctx, mongoOptions)
+	client, err := mongo.Connect(ctx, o.mongoOptions)
 	if err != nil {
 		panic(err)
 	}
@@ -41,12 +41,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	db := client.Database(dbName)
+	db := client.Database(o.dbName)
 	cm := chat.New(db)
 	handler := newHttpController(cm)
 
 	server := http.Server{
-		Addr:    address,
+		Addr:    o.address,
 		Handler: handler.GetRouter(),
 	}
 	err = server.ListenAndServe()

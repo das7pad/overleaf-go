@@ -14,24 +14,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package corsOptions
 
 import (
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"strings"
 
-	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type contactsOptions struct {
-	address      string
-	mongoOptions *options.ClientOptions
-	dbName       string
-}
+func Parse(allowWebsockets ...bool) httpUtils.CORSOptions {
+	siteUrl := utils.GetStringFromEnv("PUBLIC_URL", "http://localhost:3000")
+	allowOrigins := strings.Split(
+		utils.GetStringFromEnv("ALLOWED_ORIGINS", siteUrl),
+		",",
+	)
 
-func getOptions() *contactsOptions {
-	o := &contactsOptions{}
-	o.address = listenAddress.Parse(3036)
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
-	return o
+	if len(allowWebsockets) == 0 {
+		allowWebsockets = []bool{false}
+	}
+	return httpUtils.CORSOptions{
+		AllowOrigins:    allowOrigins,
+		AllowWebsockets: allowWebsockets[0],
+	}
 }

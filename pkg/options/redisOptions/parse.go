@@ -14,24 +14,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package redisOptions
 
 import (
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"strings"
 
-	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
+	"github.com/go-redis/redis/v8"
+
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type contactsOptions struct {
-	address      string
-	mongoOptions *options.ClientOptions
-	dbName       string
-}
-
-func getOptions() *contactsOptions {
-	o := &contactsOptions{}
-	o.address = listenAddress.Parse(3036)
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
-	return o
+func Parse() *redis.UniversalOptions {
+	return &redis.UniversalOptions{
+		Addrs: strings.Split(
+			utils.GetStringFromEnv("REDIS_HOST", "localhost:6379"),
+			",",
+		),
+		Password: utils.GetStringFromEnv("REDIS_PASSWORD", ""),
+		MaxRetries: utils.GetIntFromEnv(
+			"REDIS_MAX_RETRIES_PER_REQUEST", 20,
+		),
+		PoolSize: utils.GetIntFromEnv("REDIS_POOL_SIZE", 0),
+	}
 }

@@ -14,24 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package jwtOptions
 
 import (
-	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type contactsOptions struct {
-	address      string
-	mongoOptions *options.ClientOptions
-	dbName       string
-}
-
-func getOptions() *contactsOptions {
-	o := &contactsOptions{}
-	o.address = listenAddress.Parse(3036)
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
-	return o
+func Parse(key string) httpUtils.JWTOptions {
+	return httpUtils.JWTOptions{
+		Algorithm: "HS512",
+		Key:       utils.MustGetStringFromEnv(key),
+	}
 }

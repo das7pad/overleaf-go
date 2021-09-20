@@ -17,78 +17,42 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"strconv"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-func getIntFromEnv(key string, fallback int64) int64 {
-	raw := os.Getenv(key)
-	if raw == "" {
-		return fallback
-	}
-	parsed, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return parsed
-}
-
-func getStringFromEnv(key, fallback string) string {
-	raw := os.Getenv(key)
-	if raw == "" {
-		return fallback
-	}
-	return raw
-}
-
-func getJSONFromEnv(key string, target interface{}) {
-	if v, exists := os.LookupEnv(key); !exists || v == "" {
-		panic(errors.New("missing " + key))
-	}
-	err := json.Unmarshal([]byte(os.Getenv(key)), target)
-	if err != nil {
-		panic(fmt.Errorf("malformed %s: %w", key, err))
-	}
-}
-
 type clsiOptions struct {
-	address      string
+	address string
+	options *types.Options
+
 	loadAddress  string
 	loadShedding bool
 
 	copyExecAgent    bool
 	copyExecAgentSrc string
 	copyExecAgentDst string
-
-	options *types.Options
 }
 
 func getOptions() *clsiOptions {
 	o := &clsiOptions{}
-	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
-	port := getIntFromEnv("PORT", 3013)
-	o.address = fmt.Sprintf("%s:%d", listenAddress, port)
 
-	loadPort := getIntFromEnv("LOAD_PORT", 3048)
-	o.loadAddress = fmt.Sprintf("%s:%d", listenAddress, loadPort)
-	o.loadShedding = getStringFromEnv("LOAD_SHEDDING", "false") == "true"
+	utils.ParseJSONFromEnv("OPTIONS", &o.options)
+	o.address = listenAddress.Parse(3013)
 
-	o.copyExecAgentSrc = getStringFromEnv("COPY_EXEC_AGENT_SRC", "")
-	o.copyExecAgentDst = getStringFromEnv("COPY_EXEC_AGENT_DST", "")
-	o.copyExecAgent = getStringFromEnv("COPY_EXEC_AGENT", "false") == "true"
+	loadPort := utils.GetIntFromEnv("LOAD_PORT", 3048)
+	o.loadAddress = listenAddress.Parse(loadPort)
+	o.loadShedding =
+		utils.GetStringFromEnv("LOAD_SHEDDING", "false") == "true"
 
-	getJSONFromEnv("OPTIONS", &o.options)
+	o.copyExecAgentSrc = utils.GetStringFromEnv("COPY_EXEC_AGENT_SRC", "")
+	o.copyExecAgentDst = utils.GetStringFromEnv("COPY_EXEC_AGENT_DST", "")
+	o.copyExecAgent =
+		utils.GetStringFromEnv("COPY_EXEC_AGENT", "false") == "true"
 
 	if o.options.DockerContainerOptions.SeccompPolicyPath == "" {
-		o.options.DockerContainerOptions.SeccompPolicyPath = getStringFromEnv(
-			"SECCOMP_POLICY_PATH",
-			"-",
-		)
+		o.options.DockerContainerOptions.SeccompPolicyPath =
+			utils.GetStringFromEnv("SECCOMP_POLICY_PATH", "-")
 	}
 
 	return o

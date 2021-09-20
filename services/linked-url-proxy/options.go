@@ -17,43 +17,11 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"strconv"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
-
-func getIntFromEnv(key string, fallback int) int {
-	raw := os.Getenv(key)
-	if raw == "" {
-		return fallback
-	}
-	parsed, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return int(parsed)
-}
-
-func getStringFromEnv(key, fallback string) string {
-	raw := os.Getenv(key)
-	if raw == "" {
-		return fallback
-	}
-	return raw
-}
-
-func getDurationFromEnv(key string, fallback time.Duration) time.Duration {
-	timeoutRaw := os.Getenv(key)
-	if timeoutRaw == "" {
-		return fallback
-	}
-	timeout, err := strconv.ParseInt(timeoutRaw, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return time.Duration(timeout * int64(time.Millisecond))
-}
 
 type linkedUrlProxyOptions struct {
 	address    string
@@ -63,16 +31,10 @@ type linkedUrlProxyOptions struct {
 
 func getOptions() *linkedUrlProxyOptions {
 	o := &linkedUrlProxyOptions{}
-
-	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
-	port := getIntFromEnv("PORT", 8080)
-	o.address = fmt.Sprintf("%s:%d", listenAddress, port)
-
-	o.timeout = getDurationFromEnv("LINKED_URL_PROXY_TIMEOUT", 28*time.Second)
-
-	o.proxyToken = getStringFromEnv("PROXY_TOKEN", "")
-	if o.proxyToken == "" {
-		panic("missing PROXY_TOKEN")
-	}
+	o.address = listenAddress.Parse(8080)
+	o.proxyToken = utils.MustGetStringFromEnv("PROXY_TOKEN")
+	o.timeout = utils.GetDurationFromEnv(
+		"LINKED_URL_PROXY_TIMEOUT", 28*time.Second,
+	)
 	return o
 }

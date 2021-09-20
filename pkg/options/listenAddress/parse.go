@@ -14,24 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package listenAddress
 
 import (
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"fmt"
 
-	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type contactsOptions struct {
-	address      string
-	mongoOptions *options.ClientOptions
-	dbName       string
-}
-
-func getOptions() *contactsOptions {
-	o := &contactsOptions{}
-	o.address = listenAddress.Parse(3036)
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
-	return o
+func Parse(port int) string {
+	listenAddress := utils.GetStringFromEnv("LISTEN_ADDRESS", "localhost")
+	port = utils.GetIntFromEnv("PORT", port)
+	return fmt.Sprintf("%s:%d", listenAddress, port)
 }

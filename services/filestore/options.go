@@ -17,43 +17,10 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"strconv"
-
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
-
-func getIntFromEnv(key string, fallback int) int {
-	raw := os.Getenv(key)
-	if raw == "" {
-		return fallback
-	}
-	parsed, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return int(parsed)
-}
-
-func getStringFromEnv(key, fallback string) string {
-	raw := os.Getenv(key)
-	if raw == "" {
-		return fallback
-	}
-	return raw
-}
-
-func getJSONFromEnv(key string, target interface{}) {
-	if v, exists := os.LookupEnv(key); !exists || v == "" {
-		panic(fmt.Errorf("missing %s", key))
-	}
-	err := json.Unmarshal([]byte(os.Getenv(key)), target)
-	if err != nil {
-		panic(fmt.Errorf("malformed %s: %w", key, err))
-	}
-}
 
 type filestoreOptions struct {
 	address string
@@ -62,10 +29,7 @@ type filestoreOptions struct {
 
 func getOptions() *filestoreOptions {
 	o := &filestoreOptions{}
-	listenAddress := getStringFromEnv("LISTEN_ADDRESS", "localhost")
-	port := getIntFromEnv("PORT", 3009)
-	o.address = fmt.Sprintf("%s:%d", listenAddress, port)
-
-	getJSONFromEnv("OPTIONS", &o.options)
+	utils.ParseJSONFromEnv("OPTIONS", &o.options)
+	o.address = listenAddress.Parse(3009)
 	return o
 }
