@@ -14,45 +14,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package views
+package user
 
 import (
-	"reflect"
-	"strings"
-
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type View bson.M
-
-func GetProjectionFor(model interface{}) View {
-	projection := View{
-		"_id": false,
-	}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, projection)
-	return projection
+type FeaturesField struct {
+	Features Features `json:"features" bson:"features"`
 }
 
-func GetFieldsOf(model interface{}) View {
-	fields := View{}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, fields)
-	return fields
+type IdField struct {
+	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }
 
-func collectFieldsFrom(v reflect.Type, view View) {
-	for i := 0; i < v.NumField(); i++ {
-		element := v.Field(i)
-		bsonTag, exists := element.Tag.Lookup("bson")
-		if !exists {
-			continue
-		}
-		if bsonTag == "inline" {
-			collectFieldsFrom(element.Type, view)
-		} else {
-			name := strings.Split(bsonTag, ",")[0]
-			view[name] = true
-		}
-	}
+type FirstNameField struct {
+	FirstName string `json:"first_name" bson:"first_name"`
+}
+
+type LastNameField struct {
+	LastName string `json:"last_name" bson:"last_name"`
+}
+
+type EmailField struct {
+	Email string `json:"email" bson:"email"`
 }

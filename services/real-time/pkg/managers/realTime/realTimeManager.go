@@ -56,7 +56,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err != nil {
 		return nil, err
 	}
-	w, err := webApi.New(options)
+	w, err := webApi.New(options, db)
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +165,14 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		)
 	}
 
+	projectRaw, err := json.Marshal(r.Project)
+	if err != nil {
+		return errors.Tag(
+			err,
+			"encoding project failed for "+args.ProjectId.Hex(),
+		)
+	}
+
 	levelRaw, err := json.Marshal(r.PrivilegeLevel)
 	if err != nil {
 		return errors.Tag(
@@ -182,7 +190,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	}
 
 	res := types.JoinProjectResponse{
-		r.Project,
+		projectRaw,
 		json.RawMessage(levelRaw),
 		json.RawMessage("5"),
 		usersBlob,

@@ -31,8 +31,9 @@ import (
 )
 
 type Manager interface {
-	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
+	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
+	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
 }
 
@@ -104,10 +105,7 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 		bson.M{
 			"_id": projectId,
 		},
-		options.FindOne().SetProjection(bson.M{
-			"_id":        false,
-			"rootFolder": true,
-		}),
+		options.FindOne().SetProjection(getProjection(project)),
 	).Decode(&project)
 	if err != nil {
 		return nil, rewriteMongoError(err)
@@ -121,4 +119,26 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 		}
 	}
 	return &project.RootFolder[0], nil
+}
+
+func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error) {
+	var project JoinProjectViewPrivate
+	projection := getProjection(project)
+	if userId.IsZero() {
+		for s := range membersProjection {
+			projection[s] = false
+		}
+	}
+
+	err := m.c.FindOne(
+		ctx,
+		bson.M{
+			"_id": projectId,
+		},
+		options.FindOne().SetProjection(projection),
+	).Decode(&project)
+	if err != nil {
+		return nil, rewriteMongoError(err)
+	}
+	return &project, nil
 }

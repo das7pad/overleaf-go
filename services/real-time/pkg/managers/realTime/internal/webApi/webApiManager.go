@@ -22,7 +22,11 @@ import (
 	"net/http"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -30,7 +34,21 @@ type Manager interface {
 	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error)
 }
 
-func New(options *types.Options) (Manager, error) {
+func New(options *types.Options, db *mongo.Database) (Manager, error) {
+	if options.APIs.WebApi.Monolith {
+		pm, err := project.New(db)
+		if err != nil {
+			return nil, err
+		}
+		um, err := user.New(db)
+		if err != nil {
+			return nil, err
+		}
+		return &monolithManager{
+			pm: pm,
+			um: um,
+		}, nil
+	}
 	return &manager{
 		baseURL: options.APIs.WebApi.URL.String(),
 		client: &http.Client{

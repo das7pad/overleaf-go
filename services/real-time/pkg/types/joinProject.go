@@ -20,6 +20,9 @@ import (
 	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type JoinProjectRequest struct {
@@ -30,7 +33,14 @@ type JoinProjectRequest struct {
 type JoinProjectResponse []json.RawMessage
 
 type JoinProjectWebApiResponse struct {
-	Project          json.RawMessage  `json:"project"`
-	PrivilegeLevel   PrivilegeLevel   `json:"privilegeLevel"`
-	IsRestrictedUser IsRestrictedUser `json:"isRestrictedUser"`
+	Project          JoinProjectDetails `json:"project"`
+	PrivilegeLevel   PrivilegeLevel     `json:"privilegeLevel"`
+	IsRestrictedUser IsRestrictedUser   `json:"isRestrictedUser"`
+}
+
+type JoinProjectDetails struct {
+	project.JoinProjectViewPublic
+	Features user.Features         `json:"features"`
+	Owner    user.WithPublicInfo   `json:"owner"`
+	Members  []user.WithPublicInfo `json:"members"`
 }

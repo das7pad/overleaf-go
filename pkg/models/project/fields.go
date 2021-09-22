@@ -20,14 +20,27 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
+
+//goland:noinspection SpellCheckingInspection
+type CollaboratorRefsField struct {
+	CollaboratorRefs []primitive.ObjectID `bson:"collaberator_refs"`
+}
+
+type CompilerField struct {
+	// TODO: move Compiler into sharedTypes
+	Compiler clsiTypes.Compiler `json:"compiler" bson:"compiler"`
+}
 
 type IdField struct {
 	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }
 
-type NameField struct {
-	Name string `json:"name" bson:"name"`
+type ImageNameField struct {
+	// TODO: move ImageName into sharedTypes
+	ImageName clsiTypes.ImageName `json:"imageName" bson:"imageName"`
 }
 
 type LastUpdatedAtField struct {
@@ -36,6 +49,47 @@ type LastUpdatedAtField struct {
 
 type LastUpdatedByField struct {
 	LastUpdatedBy primitive.ObjectID `bson:"lastUpdatedBy"`
+}
+
+type NameField struct {
+	Name string `json:"name" bson:"name"`
+}
+
+type OwnerRefField struct {
+	OwnerRef primitive.ObjectID `bson:"owner_ref"`
+}
+
+//goland:noinspection SpellCheckingInspection
+type PublicAccessLevelField struct {
+	PublicAccessLevel string `json:"publicAccesLevel" bson:"publicAccesLevel"`
+}
+
+type ReadOnlyRefsField struct {
+	ReadOnlyRefs []primitive.ObjectID `bson:"readOnly_refs"`
+}
+
+type RootDocIdField struct {
+	RootDocId primitive.ObjectID `json:"rootDoc_id" bson:"rootDoc_id"`
+}
+
+type SpellCheckLanguageField struct {
+	SpellCheckLanguage string `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
+}
+
+type TokenAccessReadAndWriteRefsField struct {
+	TokenAccessReadAndWriteRefs []primitive.ObjectID `bson:"tokenAccessReadAndWrite_refs"`
+}
+
+type TokenAccessReadOnlyRefsField struct {
+	TokenAccessReadOnlyRefs []primitive.ObjectID `bson:"tokenAccessReadOnly_refs"`
+}
+
+type TokensField struct {
+	Tokens Tokens `json:"tokens" bson:"tokens"`
+}
+
+type TrackChangesStateField struct {
+	TrackChangesState map[string]bool `json:"trackChangesState" bson:"track_changes"`
 }
 
 type TreeField struct {

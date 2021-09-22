@@ -14,45 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package views
+package project
 
-import (
-	"reflect"
-	"strings"
-
-	"go.mongodb.org/mongo-driver/bson"
-)
-
-type View bson.M
-
-func GetProjectionFor(model interface{}) View {
-	projection := View{
-		"_id": false,
-	}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, projection)
-	return projection
-}
-
-func GetFieldsOf(model interface{}) View {
-	fields := View{}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, fields)
-	return fields
-}
-
-func collectFieldsFrom(v reflect.Type, view View) {
-	for i := 0; i < v.NumField(); i++ {
-		element := v.Field(i)
-		bsonTag, exists := element.Tag.Lookup("bson")
-		if !exists {
-			continue
-		}
-		if bsonTag == "inline" {
-			collectFieldsFrom(element.Type, view)
-		} else {
-			name := strings.Split(bsonTag, ",")[0]
-			view[name] = true
-		}
-	}
+type Tokens struct {
+	ReadOnly           string `json:"readOnly" bson:"readOnly"`
+	ReadAndWrite       string `json:"readAndWrite" bson:"readAndWrite"`
+	ReadAndWritePrefix string `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
 }

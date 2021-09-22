@@ -31,7 +31,8 @@ type Options struct {
 			URL     sharedTypes.URL               `json:"url"`
 		} `json:"document_updater"`
 		WebApi struct {
-			URL sharedTypes.URL `json:"url"`
+			Monolith bool            `json:"monolith"`
+			URL      sharedTypes.URL `json:"url"`
 		} `json:"web_api"`
 	} `json:"apis"`
 }

@@ -166,9 +166,15 @@ func (c *Client) AddKnownDoc(id primitive.ObjectID) {
 type PrivilegeLevel string
 type IsRestrictedUser bool
 
+const (
+	PrivilegeLevelOwner        PrivilegeLevel = "owner"
+	PrivilegeLevelReadAndWrite PrivilegeLevel = "readAndWrite"
+	PrivilegeLevelReadOnly     PrivilegeLevel = "readOnly"
+)
+
 func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestrictedUser IsRestrictedUser) {
 	switch privilegeLevel {
-	case "owner", "readAndWrite":
+	case PrivilegeLevelOwner, PrivilegeLevelReadAndWrite:
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanEditContent *
@@ -177,7 +183,7 @@ func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestricted
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
-	case "readOnly":
+	case PrivilegeLevelReadOnly:
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanSeeOtherClients *

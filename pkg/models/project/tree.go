@@ -64,9 +64,9 @@ type FileRef struct {
 type Folder struct {
 	CommonTreeFields `bson:"inline"`
 
-	Docs     []Doc     `bson:"docs"`
-	FileRefs []FileRef `bson:"fileRefs"`
-	Folders  []Folder
+	Docs     []Doc     `json:"docs" bson:"docs"`
+	FileRefs []FileRef `json:"fileRefs" bson:"fileRefs"`
+	Folders  []Folder  `json:"folders" bson:"folders"`
 }
 
 var AbortWalk = errors.New("abort walk")

@@ -14,45 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package views
+package user
 
-import (
-	"reflect"
-	"strings"
-
-	"go.mongodb.org/mongo-driver/bson"
-)
-
-type View bson.M
-
-func GetProjectionFor(model interface{}) View {
-	projection := View{
-		"_id": false,
-	}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, projection)
-	return projection
+type WithPublicInfo struct {
+	EmailField     `bson:"inline"`
+	FirstNameField `bson:"inline"`
+	IdField        `bson:"inline"`
+	LastNameField  `bson:"inline"`
 }
 
-func GetFieldsOf(model interface{}) View {
-	fields := View{}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, fields)
-	return fields
-}
-
-func collectFieldsFrom(v reflect.Type, view View) {
-	for i := 0; i < v.NumField(); i++ {
-		element := v.Field(i)
-		bsonTag, exists := element.Tag.Lookup("bson")
-		if !exists {
-			continue
-		}
-		if bsonTag == "inline" {
-			collectFieldsFrom(element.Type, view)
-		} else {
-			name := strings.Split(bsonTag, ",")[0]
-			view[name] = true
-		}
-	}
+type WithPublicInfoAndFeatures struct {
+	FeaturesField  `bson:"inline"`
+	WithPublicInfo `bson:"inline"`
 }

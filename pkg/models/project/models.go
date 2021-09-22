@@ -16,6 +16,31 @@
 
 package project
 
+type JoinProjectViewPrivate struct {
+	JoinProjectViewPublic `bson:"inline"`
+	Members               `bson:"inline"`
+	OwnerRefField         `bson:"inline"`
+}
+type JoinProjectViewPublic struct {
+	IdField                 `bson:"inline"`
+	CompilerField           `bson:"inline"`
+	ImageNameField          `bson:"inline"`
+	NameField               `bson:"inline"`
+	PublicAccessLevelField  `bson:"inline"`
+	RootDocIdField          `bson:"inline"`
+	SpellCheckLanguageField `bson:"inline"`
+	TokensField             `bson:"inline"`
+	TrackChangesStateField  `bson:"inline"`
+	TreeField               `bson:"inline"`
+}
+
+type Members struct {
+	CollaboratorRefsField            `bson:"inline"`
+	ReadOnlyRefsField                `bson:"inline"`
+	TokenAccessReadAndWriteRefsField `bson:"inline"`
+	TokenAccessReadOnlyRefsField     `bson:"inline"`
+}
+
 type WithTree struct {
 	TreeField `bson:"inline"`
 }

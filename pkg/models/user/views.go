@@ -14,45 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package views
+package user
 
 import (
-	"reflect"
-	"strings"
+	"fmt"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/das7pad/overleaf-go/pkg/models/internal/views"
 )
 
-type View bson.M
+var (
+	withPublicInfoAndFeaturesProjection = views.GetProjectionFor(WithPublicInfoAndFeatures{})
+	withPublicInfo                      = views.GetProjectionFor(WithPublicInfo{})
+)
 
-func GetProjectionFor(model interface{}) View {
-	projection := View{
-		"_id": false,
+func getProjection(model interface{}) views.View {
+	switch model.(type) {
+	case WithPublicInfoAndFeatures:
+		return withPublicInfoAndFeaturesProjection
+	case []WithPublicInfo:
+		return withPublicInfo
 	}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, projection)
-	return projection
-}
-
-func GetFieldsOf(model interface{}) View {
-	fields := View{}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, fields)
-	return fields
-}
-
-func collectFieldsFrom(v reflect.Type, view View) {
-	for i := 0; i < v.NumField(); i++ {
-		element := v.Field(i)
-		bsonTag, exists := element.Tag.Lookup("bson")
-		if !exists {
-			continue
-		}
-		if bsonTag == "inline" {
-			collectFieldsFrom(element.Type, view)
-		} else {
-			name := strings.Split(bsonTag, ",")[0]
-			view[name] = true
-		}
-	}
+	panic(fmt.Sprintf("missing projection for %v", model))
 }

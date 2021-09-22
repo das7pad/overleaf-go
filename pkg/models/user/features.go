@@ -14,45 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package views
+package user
 
 import (
-	"reflect"
-	"strings"
-
-	"go.mongodb.org/mongo-driver/bson"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-type View bson.M
-
-func GetProjectionFor(model interface{}) View {
-	projection := View{
-		"_id": false,
-	}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, projection)
-	return projection
-}
-
-func GetFieldsOf(model interface{}) View {
-	fields := View{}
-	v := reflect.TypeOf(model)
-	collectFieldsFrom(v, fields)
-	return fields
-}
-
-func collectFieldsFrom(v reflect.Type, view View) {
-	for i := 0; i < v.NumField(); i++ {
-		element := v.Field(i)
-		bsonTag, exists := element.Tag.Lookup("bson")
-		if !exists {
-			continue
-		}
-		if bsonTag == "inline" {
-			collectFieldsFrom(element.Type, view)
-		} else {
-			name := strings.Split(bsonTag, ",")[0]
-			view[name] = true
-		}
-	}
+type Features struct {
+	Collaborators       int                    `json:"collaborators" bson:"collaborators"`
+	Versioning          bool                   `json:"versioning" bson:"versioning"`
+	CompileTimeout      clsiTypes.Timeout      `json:"compileTimeout" bson:"compileTimeout"`
+	CompileGroup        clsiTypes.CompileGroup `json:"compileGroup" bson:"compileGroup"`
+	TrackChanges        bool                   `json:"trackChanges" bson:"trackChanges"`
+	TrackChangesVisible bool                   `json:"trackChangesVisible"`
 }
