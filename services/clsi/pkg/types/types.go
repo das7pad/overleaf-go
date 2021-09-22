@@ -29,10 +29,6 @@ import (
 
 type BuildId string
 
-func (i BuildId) IsStringParameter() bool {
-	return true
-}
-
 func (i BuildId) Validate() error {
 	return i.validate()
 }
@@ -73,10 +69,6 @@ var ValidCompileGroups = []CompileGroup{
 
 type CompileGroup string
 
-func (c CompileGroup) IsStringParameter() bool {
-	return true
-}
-
 func (c CompileGroup) Validate() error {
 	if c == "" {
 		return &errors.ValidationError{Msg: "compileGroup missing"}
@@ -105,10 +97,6 @@ func (i ImageName) CheckIsAllowed(allowedImages []ImageName) error {
 		}
 	}
 	return &errors.ValidationError{Msg: "imageName is not allowed"}
-}
-
-func (i ImageName) IsStringParameter() bool {
-	return true
 }
 
 func (i ImageName) Validate() error {

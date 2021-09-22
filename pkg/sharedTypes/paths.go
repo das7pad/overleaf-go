@@ -81,10 +81,6 @@ func (p PathName) IsDir() bool {
 	return false
 }
 
-func (p PathName) IsStringParameter() bool {
-	return true
-}
-
 func (p PathName) String() string {
 	return string(p)
 }
