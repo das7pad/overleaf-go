@@ -47,6 +47,24 @@ func ValidateAndSetId(name string) gin.HandlerFunc {
 	}
 }
 
+func ValidateAndSetIdZeroOK(name string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		raw := c.Param(name)
+		if raw == "000000000000000000000000" {
+			c.Set(name, primitive.NilObjectID)
+		} else {
+			id, err := primitive.ObjectIDFromHex(raw)
+			if err != nil || id == primitive.NilObjectID {
+				c.String(http.StatusBadRequest, "invalid "+name)
+				c.Abort()
+				return
+			}
+			c.Set(name, id)
+		}
+		c.Next()
+	}
+}
+
 func ValidateAndSetJWTId(name string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := GetIdFromJwt(c, name)

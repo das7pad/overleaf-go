@@ -46,7 +46,7 @@ func (h *httpController) GetRouter() http.Handler {
 	projectRouter := router.Group("/project/:projectId")
 	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
 	userRouter := projectRouter.Group("/user/:userId")
-	userRouter.Use(httpUtils.ValidateAndSetId("userId"))
+	userRouter.Use(httpUtils.ValidateAndSetIdZeroOK("userId"))
 
 	userRouter.POST("/compile", h.compile)
 	userRouter.POST("/compile/stop", h.stopCompile)
