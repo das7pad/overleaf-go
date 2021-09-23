@@ -126,7 +126,7 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId p
 	projection := getProjection(project)
 	if userId.IsZero() {
 		for s := range membersProjection {
-			projection[s] = false
+			delete(projection, s)
 		}
 	}
 
