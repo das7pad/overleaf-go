@@ -51,8 +51,10 @@ func (o *Options) Validate() error {
 	} else if err := o.APIs.DocumentUpdater.URL.Validate(); err != nil {
 		return errors.Tag(err, "apis.document_updater.url is invalid")
 	}
-	if err := o.APIs.WebApi.URL.Validate(); err != nil {
-		return errors.Tag(err, "apis.web_api.url is invalid")
+	if !o.APIs.WebApi.Monolith {
+		if err := o.APIs.WebApi.URL.Validate(); err != nil {
+			return errors.Tag(err, "apis.web_api.url is invalid")
+		}
 	}
 	return nil
 }
