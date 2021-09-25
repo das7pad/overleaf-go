@@ -18,9 +18,10 @@ package types
 
 import (
 	"bytes"
+	secureRand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"math/rand"
+	weakRand "math/rand"
 	"strconv"
 	"time"
 
@@ -92,7 +93,7 @@ type WriteQueue chan<- *WriteQueueEntry
 //  another 16 hex char long random string.
 func generatePublicId() (sharedTypes.PublicId, error) {
 	buf := make([]byte, 8)
-	_, err := rand.Read(buf)
+	_, err := secureRand.Read(buf)
 	if err != nil {
 		return "", err
 	}
@@ -160,7 +161,7 @@ func (c *Client) AddKnownDoc(id primitive.ObjectID) {
 	if len(c.knownDocs) < MaxKnownDocsToKeep {
 		c.knownDocs = append(c.knownDocs, id)
 	} else {
-		c.knownDocs[rand.Int63n(MaxKnownDocsToKeep)] = id
+		c.knownDocs[weakRand.Int63n(MaxKnownDocsToKeep)] = id
 	}
 }
 

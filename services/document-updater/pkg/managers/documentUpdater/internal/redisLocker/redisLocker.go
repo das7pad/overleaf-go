@@ -18,10 +18,10 @@ package redisLocker
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"sync/atomic"
 	"time"

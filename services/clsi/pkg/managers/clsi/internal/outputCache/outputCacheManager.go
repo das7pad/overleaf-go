@@ -18,8 +18,8 @@ package outputCache
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
 	"os"
 	"strconv"
 	"syscall"
