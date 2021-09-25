@@ -24,7 +24,8 @@ import (
 
 var (
 	withTreeProjection               = views.GetProjectionFor(WithTree{})
-	membersProjection                = views.GetProjectionFor(Members{})
+	withMembersProjection            = views.GetProjectionFor(WithMembers{})
+	withTokenMembersProjection       = views.GetProjectionFor(WithTokenMembers{})
 	joinProjectViewPrivateProjection = views.GetProjectionFor(JoinProjectViewPrivate{})
 )
 
@@ -32,8 +33,10 @@ func getProjection(model interface{}) views.View {
 	switch model.(type) {
 	case JoinProjectViewPrivate:
 		return joinProjectViewPrivateProjection
-	case Members:
-		return membersProjection
+	case WithMembers:
+		return withMembersProjection
+	case WithTokenMembers:
+		return withTokenMembersProjection
 	case WithTree:
 		return withTreeProjection
 	}

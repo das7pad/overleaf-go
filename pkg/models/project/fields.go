@@ -26,7 +26,7 @@ import (
 
 //goland:noinspection SpellCheckingInspection
 type CollaboratorRefsField struct {
-	CollaboratorRefs []primitive.ObjectID `bson:"collaberator_refs"`
+	CollaboratorRefs Refs `bson:"collaberator_refs"`
 }
 
 type CompilerField struct {
@@ -61,11 +61,11 @@ type OwnerRefField struct {
 
 //goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
-	PublicAccessLevel string `json:"publicAccesLevel" bson:"publicAccesLevel"`
+	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" bson:"publicAccesLevel"`
 }
 
 type ReadOnlyRefsField struct {
-	ReadOnlyRefs []primitive.ObjectID `bson:"readOnly_refs"`
+	ReadOnlyRefs Refs `bson:"readOnly_refs"`
 }
 
 type RootDocIdField struct {
@@ -77,11 +77,11 @@ type SpellCheckLanguageField struct {
 }
 
 type TokenAccessReadAndWriteRefsField struct {
-	TokenAccessReadAndWriteRefs []primitive.ObjectID `bson:"tokenAccessReadAndWrite_refs"`
+	TokenAccessReadAndWriteRefs Refs `bson:"tokenAccessReadAndWrite_refs"`
 }
 
 type TokenAccessReadOnlyRefsField struct {
-	TokenAccessReadOnlyRefs []primitive.ObjectID `bson:"tokenAccessReadOnly_refs"`
+	TokenAccessReadOnlyRefs Refs `bson:"tokenAccessReadOnly_refs"`
 }
 
 type TokensField struct {

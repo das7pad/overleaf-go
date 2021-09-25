@@ -125,8 +125,19 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId p
 	var project JoinProjectViewPrivate
 	projection := getProjection(project)
 	if userId.IsZero() {
-		for s := range membersProjection {
+		for s := range withMembersProjection {
 			delete(projection, s)
+		}
+	} else {
+		limitToUser := bson.M{
+			"$elemMatch": bson.M{
+				"$eq": userId,
+			},
+		}
+		// These fields are used for an authorization check only, we do not
+		//  need to fetch all of them.
+		for s := range withTokenMembersProjection {
+			projection[s] = limitToUser
 		}
 	}
 

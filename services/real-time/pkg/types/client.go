@@ -28,6 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -163,18 +164,9 @@ func (c *Client) AddKnownDoc(id primitive.ObjectID) {
 	}
 }
 
-type PrivilegeLevel string
-type IsRestrictedUser bool
-
-const (
-	PrivilegeLevelOwner        PrivilegeLevel = "owner"
-	PrivilegeLevelReadAndWrite PrivilegeLevel = "readAndWrite"
-	PrivilegeLevelReadOnly     PrivilegeLevel = "readOnly"
-)
-
-func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestrictedUser IsRestrictedUser) {
+func (c *Client) ResolveCapabilities(privilegeLevel project.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser) {
 	switch privilegeLevel {
-	case PrivilegeLevelOwner, PrivilegeLevelReadAndWrite:
+	case project.PrivilegeLevelOwner, project.PrivilegeLevelReadAndWrite:
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanEditContent *
@@ -183,7 +175,7 @@ func (c *Client) ResolveCapabilities(privilegeLevel PrivilegeLevel, isRestricted
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
-	case PrivilegeLevelReadOnly:
+	case project.PrivilegeLevelReadOnly:
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanSeeOtherClients *

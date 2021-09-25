@@ -75,7 +75,7 @@ func (m *manager) JoinProject(ctx context.Context, client *types.Client, request
 	if err != nil {
 		return nil, "", err
 	}
-	r.Header.Set(anonymousAccessTokenHeader, request.AnonymousAccessToken)
+	r.Header.Set(anonymousAccessTokenHeader, string(request.AnonymousAccessToken))
 	res, err := m.client.Do(r)
 	if err != nil {
 		return nil, "", err

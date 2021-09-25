@@ -17,28 +17,40 @@
 package project
 
 type JoinProjectViewPrivate struct {
-	JoinProjectViewPublic `bson:"inline"`
-	Members               `bson:"inline"`
-	OwnerRefField         `bson:"inline"`
+	JoinProjectViewPublic    `bson:"inline"`
+	WithAuthorizationDetails `bson:"inline"`
 }
 type JoinProjectViewPublic struct {
 	IdField                 `bson:"inline"`
 	CompilerField           `bson:"inline"`
 	ImageNameField          `bson:"inline"`
 	NameField               `bson:"inline"`
-	PublicAccessLevelField  `bson:"inline"`
 	RootDocIdField          `bson:"inline"`
 	SpellCheckLanguageField `bson:"inline"`
-	TokensField             `bson:"inline"`
 	TrackChangesStateField  `bson:"inline"`
 	TreeField               `bson:"inline"`
 }
 
-type Members struct {
-	CollaboratorRefsField            `bson:"inline"`
-	ReadOnlyRefsField                `bson:"inline"`
+type WithTokenMembers struct {
 	TokenAccessReadAndWriteRefsField `bson:"inline"`
 	TokenAccessReadOnlyRefsField     `bson:"inline"`
+}
+
+type WithInvitedMembers struct {
+	CollaboratorRefsField `bson:"inline"`
+	ReadOnlyRefsField     `bson:"inline"`
+}
+
+type WithMembers struct {
+	WithTokenMembers   `bson:"inline"`
+	WithInvitedMembers `bson:"inline"`
+}
+
+type WithAuthorizationDetails struct {
+	WithMembers            `bson:"inline"`
+	OwnerRefField          `bson:"inline"`
+	PublicAccessLevelField `bson:"inline"`
+	TokensField            `bson:"inline"`
 }
 
 type WithTree struct {

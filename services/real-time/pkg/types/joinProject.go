@@ -26,20 +26,22 @@ import (
 )
 
 type JoinProjectRequest struct {
-	ProjectId            primitive.ObjectID `json:"project_id"`
-	AnonymousAccessToken string             `json:"anonymousAccessToken"`
+	ProjectId            primitive.ObjectID  `json:"project_id"`
+	AnonymousAccessToken project.AccessToken `json:"anonymousAccessToken"`
 }
 
 type JoinProjectResponse []json.RawMessage
 
 type JoinProjectWebApiResponse struct {
-	Project          JoinProjectDetails `json:"project"`
-	PrivilegeLevel   PrivilegeLevel     `json:"privilegeLevel"`
-	IsRestrictedUser IsRestrictedUser   `json:"isRestrictedUser"`
+	Project          JoinProjectDetails       `json:"project"`
+	PrivilegeLevel   project.PrivilegeLevel   `json:"privilegeLevel"`
+	IsRestrictedUser project.IsRestrictedUser `json:"isRestrictedUser"`
 }
 
 type JoinProjectDetails struct {
 	project.JoinProjectViewPublic
+	project.PublicAccessLevelField
+	project.TokensField
 	Features user.Features         `json:"features"`
 	Owner    user.WithPublicInfo   `json:"owner"`
 	Members  []user.WithPublicInfo `json:"members"`

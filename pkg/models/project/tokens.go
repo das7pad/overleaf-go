@@ -16,8 +16,18 @@
 
 package project
 
+import (
+	"crypto/subtle"
+)
+
+type AccessToken string
+
+func (t AccessToken) EqualsTimingSafe(other AccessToken) bool {
+	return subtle.ConstantTimeCompare([]byte(t), []byte(other)) == 1
+}
+
 type Tokens struct {
-	ReadOnly           string `json:"readOnly" bson:"readOnly"`
-	ReadAndWrite       string `json:"readAndWrite" bson:"readAndWrite"`
-	ReadAndWritePrefix string `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
+	ReadOnly           AccessToken `json:"readOnly" bson:"readOnly"`
+	ReadAndWrite       AccessToken `json:"readAndWrite" bson:"readAndWrite"`
+	ReadAndWritePrefix string      `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
 }
