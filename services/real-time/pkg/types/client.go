@@ -57,7 +57,7 @@ func (c Capabilities) CheckIncludes(action CapabilityComponent) error {
 }
 
 func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
-	if err := c.CheckIncludes(action); err != nil {
+	if !c.Includes(action) {
 		return c
 	}
 	return Capabilities(int(c) / int(action))
