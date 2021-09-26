@@ -65,6 +65,9 @@ var nonRestrictedMessages = []string{
 
 	// Auth
 	"project:publicAccessLevel:changed",
+
+	// System
+	"forceDisconnect",
 }
 
 func (r *ProjectRoom) Handle(raw string) {
