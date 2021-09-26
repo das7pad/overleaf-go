@@ -97,6 +97,13 @@ func (h *httpController) getWsBootstrap(c *gin.Context) (*types.WsBootstrap, err
 }
 
 func (h *httpController) status(c *gin.Context) {
+	if h.rtm.IsShuttingDown() {
+		c.String(
+			http.StatusServiceUnavailable,
+			"real-time is shutting down (go)\n",
+		)
+		return
+	}
 	c.String(http.StatusOK, "real-time is alive (go)\n")
 }
 
