@@ -19,9 +19,11 @@ package broadcaster
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -30,6 +32,7 @@ import (
 type Broadcaster interface {
 	Join(ctx context.Context, client *types.Client, id primitive.ObjectID) error
 	Leave(client *types.Client, id primitive.ObjectID) error
+	TriggerGracefulReconnect() int
 }
 
 type NewRoom func(room *TrackingRoom) Room
@@ -43,7 +46,7 @@ func New(ctx context.Context, c channel.Manager, newRoom NewRoom) Broadcaster {
 		mux:      sync.RWMutex{},
 		rooms:    make(map[primitive.ObjectID]Room),
 	}
-	go b.processQueue(ctx)
+	go b.processQueue()
 	go b.listen(ctx)
 	return b
 }
@@ -65,6 +68,7 @@ const (
 	cleanup operation = iota
 	join
 	leave
+	pause
 )
 
 type onDone chan pendingOperation.PendingOperation
@@ -77,21 +81,62 @@ type action struct {
 	onDone    onDone
 }
 
-func (b *broadcaster) processQueue(ctx context.Context) {
-	done := ctx.Done()
-	for {
-		select {
-		case <-done:
-			return
-		case a := <-b.queue:
-			switch a.operation {
-			case cleanup:
-				b.cleanup(a.id)
-			case join:
-				a.onDone <- b.join(a)
-			case leave:
-				a.onDone <- b.leave(a)
+func (b *broadcaster) TriggerGracefulReconnect() int {
+	total := 0
+	for _, c := range "0123456789abcdef" {
+		suffix := uint8(c)
+		n := 0
+		b.pauseQueueFor(func() {
+			for _, r := range b.rooms {
+				for _, client := range r.Clients() {
+					// The last character is a random hex char.
+					if client.PublicId[32] != suffix {
+						continue
+					}
+					n++
+					_ = client.QueueMessage(events.ReconnectGracefullyPrepared)
+				}
 			}
+		})
+		total += n
+		if n > 100 {
+			// Estimate > 1600 clients.
+			// Worst case for the shutdown is ~2min per full cycle.
+			time.Sleep(10 * time.Second)
+		} else if n > 10 {
+			// Estimate 160 < total < 1600 clients.
+			// Worst case for the shutdown is ~2s per full cycle.
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	return total
+}
+
+func (b *broadcaster) pauseQueueFor(fn func()) {
+	done := make(onDone)
+	defer close(done)
+	a := action{
+		operation: pause,
+		onDone:    done,
+	}
+	b.queue <- a
+	<-done
+	fn()
+	go b.processQueue()
+}
+
+func (b *broadcaster) processQueue() {
+	for a := range b.queue {
+		switch a.operation {
+		case cleanup:
+			b.cleanup(a.id)
+		case join:
+			a.onDone <- b.join(a)
+		case leave:
+			a.onDone <- b.leave(a)
+		case pause:
+			a.onDone <- nil
+			return
 		}
 	}
 }
@@ -253,23 +298,13 @@ func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {
 	r.broadcast(message.Msg)
 }
 
-func (b *broadcaster) handleAllMessage(message *channel.PubSubMessage) {
-	b.mux.RLock()
-	rooms := make([]Room, len(b.rooms))
-	i := 0
-	for _, r := range b.rooms {
-		rooms[i] = r
-		i++
-	}
-	b.mux.RUnlock()
-	for _, r := range rooms {
-		r.broadcast(message.Msg)
-	}
-}
-
 func (b *broadcaster) processAllMessages() {
 	for message := range b.allQueue {
-		b.handleAllMessage(message)
+		b.pauseQueueFor(func() {
+			for _, r := range b.rooms {
+				r.broadcast(message.Msg)
+			}
+		})
 	}
 }
 

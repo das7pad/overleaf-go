@@ -36,6 +36,9 @@ import (
 )
 
 type Manager interface {
+	GracefulShutdown()
+	IsShuttingDown() bool
+
 	PeriodicCleanup(ctx context.Context)
 
 	RPC(rpc *types.RPC)
@@ -65,6 +68,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 		return nil, err
 	}
 	return &manager{
+		shuttingDown:    false,
 		options:         options,
 		appliedOps:      a,
 		clientTracking:  c,
@@ -75,7 +79,8 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 }
 
 type manager struct {
-	options *types.Options
+	options      *types.Options
+	shuttingDown bool
 
 	clientTracking  clientTracking.Manager
 	appliedOps      appliedOps.Manager
@@ -84,8 +89,25 @@ type manager struct {
 	webApi          webApi.Manager
 }
 
+func (m *manager) IsShuttingDown() bool {
+	return m.shuttingDown
+}
+
 func (m *manager) PeriodicCleanup(ctx context.Context) {
 	<-ctx.Done()
+}
+
+func (m *manager) GracefulShutdown() {
+	time.Sleep(m.options.GracefulShutdown.Delay)
+
+	m.shuttingDown = true
+
+	deadLine := time.Now().Add(m.options.GracefulShutdown.Timeout)
+	for m.editorEvents.TriggerGracefulReconnect() > 0 &&
+		time.Now().Before(deadLine) {
+
+		time.Sleep(3 * time.Second)
+	}
 }
 
 func (m *manager) RPC(rpc *types.RPC) {

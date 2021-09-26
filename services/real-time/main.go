@@ -20,6 +20,8 @@ import (
 	"context"
 	"math/rand"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -49,40 +51,49 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	o := getOptions()
-	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
-		context.Background(),
+	triggerExitCtx, triggerExit := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
 	)
+	defer triggerExit()
 
 	redisClient := redis.NewUniversalClient(o.redisOptions)
-	err := waitForRedis(backgroundTaskCtx, redisClient)
+	err := waitForRedis(triggerExitCtx, redisClient)
 	if err != nil {
 		panic(err)
 	}
 
-	client, err := mongo.Connect(backgroundTaskCtx, o.mongoOptions)
+	client, err := mongo.Connect(triggerExitCtx, o.mongoOptions)
 	if err != nil {
 		panic(err)
 	}
-	err = waitForDb(backgroundTaskCtx, client)
+	err = waitForDb(triggerExitCtx, client)
 	if err != nil {
 		panic(err)
 	}
 	db := client.Database(o.dbName)
 
-	rtm, err := realTime.New(backgroundTaskCtx, o.options, redisClient, db)
+	rtm, err := realTime.New(context.Background(), o.options, redisClient, db)
 	if err != nil {
 		panic(err)
 	}
-	go rtm.PeriodicCleanup(backgroundTaskCtx)
+	go rtm.PeriodicCleanup(triggerExitCtx)
 
 	handler := newHttpController(rtm, o.jwtOptions)
 	server := http.Server{
 		Addr:    o.address,
 		Handler: handler.GetRouter(),
 	}
-	err = server.ListenAndServe()
-	shutdownBackgroundTasks()
-	if err != nil && err != http.ErrServerClosed {
+	go func() {
+		errServe := server.ListenAndServe()
+		triggerExit()
+		if errServe != nil && errServe != http.ErrServerClosed {
+			panic(errServe)
+		}
+	}()
+
+	<-triggerExitCtx.Done()
+	rtm.GracefulShutdown()
+	if err = server.Close(); err != nil {
 		panic(err)
 	}
 }

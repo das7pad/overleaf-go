@@ -43,3 +43,21 @@ var ConnectionRejectedInternalErrorResponse = &types.RPCResponse{
 var ConnectionRejectedInternalErrorPrepared = prepareBulkMessageOffline(
 	ConnectionRejectedInternalErrorResponse,
 )
+
+var ConnectionRejectedRetryResponse = &types.RPCResponse{
+	Name: "connectionRejected",
+	Error: &errors.JavaScriptError{
+		Message: "retry",
+	},
+	FatalError: true,
+}
+var ConnectionRejectedRetryPrepared = prepareBulkMessageOffline(
+	ConnectionRejectedRetryResponse,
+)
+
+var ReconnectGracefullyResponse = &types.RPCResponse{
+	Name: "reconnectGracefully",
+}
+var ReconnectGracefullyPrepared = prepareBulkMessageOffline(
+	ReconnectGracefullyResponse,
+)

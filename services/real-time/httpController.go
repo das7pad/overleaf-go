@@ -105,6 +105,10 @@ func (h *httpController) clientBlob(c *gin.Context) {
 	c.String(http.StatusOK, "window.io='plain'")
 }
 
+func sendAndForget(conn *websocket.Conn, entry *types.WriteQueueEntry) {
+	_ = conn.WritePreparedMessage(entry.Msg)
+}
+
 func (h *httpController) ws(requestCtx *gin.Context) {
 	setupTime := sharedTypes.Timed{}
 	setupTime.Begin()
@@ -117,12 +121,15 @@ func (h *httpController) ws(requestCtx *gin.Context) {
 	}
 	defer func() { _ = conn.Close() }()
 
+	if h.rtm.IsShuttingDown() {
+		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
+		return
+	}
+
 	wsBootstrap, jwtErr := h.getWsBootstrap(requestCtx)
 	if jwtErr != nil {
 		log.Println("jwt auth failed: " + jwtErr.Error())
-		_ = conn.WritePreparedMessage(
-			events.ConnectionRejectedBadWsBootstrapPrepared.Msg,
-		)
+		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
 
@@ -152,9 +159,12 @@ func (h *httpController) ws(requestCtx *gin.Context) {
 	c, clientErr := types.NewClient(wsBootstrap, writerChanges, writeQueue, cancel)
 	if clientErr != nil {
 		log.Println("client setup failed: " + clientErr.Error())
-		_ = conn.WritePreparedMessage(
-			events.ConnectionRejectedInternalErrorPrepared.Msg,
-		)
+		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
+		return
+	}
+
+	if h.rtm.IsShuttingDown() {
+		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
 	}
 

@@ -17,6 +17,8 @@
 package types
 
 import (
+	"time"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -24,6 +26,11 @@ import (
 
 type Options struct {
 	PendingUpdatesListShardCount int64 `json:"pending_updates_list_shard_count"`
+
+	GracefulShutdown struct {
+		Delay   time.Duration `json:"delay"`
+		Timeout time.Duration `json:"timeout"`
+	} `json:"graceful_shutdown"`
 
 	APIs struct {
 		DocumentUpdater struct {
@@ -41,6 +48,12 @@ func (o *Options) Validate() error {
 	if o.PendingUpdatesListShardCount <= 0 {
 		return &errors.ValidationError{
 			Msg: "pending_updates_list_shard_count must be greater than 0",
+		}
+	}
+
+	if o.GracefulShutdown.Timeout <= 0 {
+		return &errors.ValidationError{
+			Msg: "graceful_shutdown.timeout must be greater than 0",
 		}
 	}
 
