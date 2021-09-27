@@ -26,3 +26,10 @@ type JoinDocRequest struct {
 	DocId       primitive.ObjectID
 	FromVersion sharedTypes.Version `json:"fromVersion"`
 }
+
+type JoinDocResponse struct {
+	Snapshot sharedTypes.Snapshot         `json:"snapshot,omitempty"`
+	Version  sharedTypes.Version          `json:"version"`
+	Updates  []sharedTypes.DocumentUpdate `json:"updates,omitempty"`
+	Ranges   sharedTypes.Ranges           `json:"ranges"`
+}

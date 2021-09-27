@@ -17,8 +17,6 @@
 package types
 
 import (
-	"encoding/json"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -30,7 +28,11 @@ type JoinProjectRequest struct {
 	AnonymousAccessToken project.AccessToken `json:"anonymousAccessToken"`
 }
 
-type JoinProjectResponse []json.RawMessage
+type JoinProjectResponse struct {
+	Project          JoinProjectDetails     `json:"project"`
+	PrivilegeLevel   project.PrivilegeLevel `json:"privilegeLevel"`
+	ConnectedClients ConnectedClients       `json:"connectedClients"`
+}
 
 type JoinProjectWebApiResponse struct {
 	Project          JoinProjectDetails       `json:"project"`

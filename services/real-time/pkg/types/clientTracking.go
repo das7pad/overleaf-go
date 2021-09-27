@@ -43,3 +43,7 @@ type ConnectedClient struct {
 }
 
 type ConnectedClients []*ConnectedClient
+
+type GetConnectedUsersResponse struct {
+	ConnectedClients ConnectedClients `json:"connectedClients"`
+}

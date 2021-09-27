@@ -25,7 +25,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/gorilla/websocket"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -39,7 +38,7 @@ func newHttpController(rtm realTime.Manager, jwtOptions httpUtils.JWTOptions) ht
 	return httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
-			Subprotocols: []string{"v5.real-time.overleaf.com"},
+			Subprotocols: []string{"v6.real-time.overleaf.com"},
 		},
 		jwt: httpUtils.NewJWTHandler(jwtOptions),
 	}
@@ -64,18 +63,9 @@ func (h *httpController) GetRouter() http.Handler {
 	return router
 }
 
-type WsBootstrapUser struct {
-	Id    primitive.ObjectID `json:"user_id"`
-	Email string             `json:"email"`
-	// TODO: align these with the client tracking fields in v6
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-}
-
 type WsBootstrapClaims struct {
 	*jwt.StandardClaims
-	User      WsBootstrapUser    `json:"user"`
-	ProjectId primitive.ObjectID `json:"projectId"`
+	types.WsBootstrap
 }
 
 func (h *httpController) getWsBootstrap(c *gin.Context) (*types.WsBootstrap, error) {
@@ -84,16 +74,7 @@ func (h *httpController) getWsBootstrap(c *gin.Context) (*types.WsBootstrap, err
 		return nil, jwtError
 	}
 	claims := genericClaims.(*WsBootstrapClaims)
-	projectId := claims.ProjectId
-	user := &types.User{
-		Id:        claims.User.Id,
-		FirstName: claims.User.FirstName,
-		LastName:  claims.User.LastName,
-		Email:     claims.User.Email,
-	}
-	return &types.WsBootstrap{
-		ProjectId: projectId, User: user,
-	}, nil
+	return &claims.WsBootstrap, nil
 }
 
 func (h *httpController) status(c *gin.Context) {

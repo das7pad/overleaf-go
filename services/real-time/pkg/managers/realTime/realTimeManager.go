@@ -184,35 +184,14 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		)
 	}
 
-	projectRaw, err := json.Marshal(r.Project)
-	if err != nil {
-		return errors.Tag(
-			err,
-			"encoding project failed for "+args.ProjectId.Hex(),
-		)
-	}
-
-	levelRaw, err := json.Marshal(r.PrivilegeLevel)
-	if err != nil {
-		return errors.Tag(
-			err,
-			"encoding PrivilegeLevel failed for "+args.ProjectId.Hex(),
-		)
-	}
-
 	// Wait for the fetch, but ignore any fetch errors.
 	// Instead, let the client fetch any connectedClients via a 2nd rpc call.
 	<-fetchUsersCtx.Done()
-	usersBlob, err := json.Marshal(connectedClients)
-	if err != nil {
-		return errors.Tag(err, "cannot serialize connectedClients")
-	}
 
-	res := types.JoinProjectResponse{
-		projectRaw,
-		json.RawMessage(levelRaw),
-		json.RawMessage("5"),
-		usersBlob,
+	res := &types.JoinProjectResponse{
+		Project:          r.Project,
+		PrivilegeLevel:   r.PrivilegeLevel,
+		ConnectedClients: connectedClients,
 	}
 	body, err := json.Marshal(res)
 	if err != nil {
@@ -270,32 +249,11 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 		r.Ranges.Comments = sharedTypes.Comments{}
 	}
 
-	s, err := json.Marshal(r.Snapshot)
-	if err != nil {
-		return errors.Tag(
-			err,
-			"encoding snapshot failed for "+args.DocId.Hex(),
-		)
-	}
-	ops, err := json.Marshal(r.Ops)
-	if err != nil {
-		return errors.Tag(
-			err,
-			"encoding ops failed for "+args.DocId.Hex(),
-		)
-	}
-	ranges, err := json.Marshal(r.Ranges)
-	if err != nil {
-		return errors.Tag(
-			err,
-			"encoding ranges failed for "+args.DocId.Hex(),
-		)
-	}
-	body := []json.RawMessage{
-		s,
-		json.RawMessage(r.Version.String()),
-		ops,
-		ranges,
+	body := &types.JoinDocResponse{
+		Snapshot: r.Snapshot,
+		Version:  r.Version,
+		Updates:  r.Ops,
+		Ranges:   r.Ranges,
 	}
 	blob, err := json.Marshal(body)
 	if err != nil {
@@ -384,19 +342,16 @@ func (m *manager) addComment(rpc *types.RPC) error {
 	return m.appliedOps.QueueUpdate(rpc, args)
 }
 func (m *manager) getConnectedUsers(rpc *types.RPC) error {
-	users, err := m.clientTracking.GetConnectedClients(rpc, rpc.Client)
+	clients, err := m.clientTracking.GetConnectedClients(rpc, rpc.Client)
 	if err != nil {
 		return err
 	}
-	blob, err := json.Marshal(users)
+	body := &types.GetConnectedUsersResponse{ConnectedClients: clients}
+	blob, err := json.Marshal(body)
 	if err != nil {
 		return errors.Tag(err, "cannot serialize users")
 	}
-	body, err := json.Marshal([]json.RawMessage{blob})
-	if err != nil {
-		return errors.Tag(err, "cannot wrap users")
-	}
-	rpc.Response.Body = body
+	rpc.Response.Body = blob
 	return nil
 }
 func (m *manager) updatePosition(rpc *types.RPC) error {

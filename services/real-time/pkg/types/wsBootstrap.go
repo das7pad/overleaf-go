@@ -22,5 +22,5 @@ import (
 
 type WsBootstrap struct {
 	ProjectId primitive.ObjectID `json:"projectId"`
-	User      *User              `json:"user"`
+	User      User               `json:"user"`
 }

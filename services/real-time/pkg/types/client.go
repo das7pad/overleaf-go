@@ -126,7 +126,7 @@ type Client struct {
 	DocId     *primitive.ObjectID
 	PublicId  sharedTypes.PublicId
 	ProjectId *primitive.ObjectID
-	User      *User
+	User      User
 
 	knownDocs []primitive.ObjectID
 

@@ -26,7 +26,7 @@ import (
 func ConnectionAcceptedResponse(id sharedTypes.PublicId, setupTime sharedTypes.Timed) *types.RPCResponse {
 	return &types.RPCResponse{
 		Name:    "connectionAccepted",
-		Body:    json.RawMessage("[null,\"" + id + "\"]"),
+		Body:    json.RawMessage(`{"publicId":"` + id + `"}`),
 		Latency: setupTime,
 	}
 }
