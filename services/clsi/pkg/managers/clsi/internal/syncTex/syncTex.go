@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -140,9 +141,9 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 			}
 			switch label {
 			case "Line":
-				p.Row = types.Row(i)
+				p.Row = sharedTypes.Row(i)
 			case "Column":
-				p.Column = types.Column(i)
+				p.Column = sharedTypes.Column(i)
 			}
 		}
 	}

@@ -39,22 +39,10 @@ func (v Vertical) String() string {
 	return sharedTypes.Float(v).String()
 }
 
-type Row int64
-
-func (r Row) String() string {
-	return sharedTypes.Int(r).String()
-}
-
-type Column int64
-
-func (c Column) String() string {
-	return sharedTypes.Int(c).String()
-}
-
 type CodePosition struct {
 	FileName sharedTypes.PathName `json:"file"`
-	Row      Row                  `json:"line"`
-	Column   Column               `json:"column"`
+	Row      sharedTypes.Row      `json:"line"`
+	Column   sharedTypes.Column   `json:"column"`
 }
 
 type CodePositions []*CodePosition
@@ -123,8 +111,8 @@ func (o SyncTexOptions) OutputSyncTexGzPath() string {
 type SyncFromCodeRequest struct {
 	SyncTexOptions
 	FileName sharedTypes.PathName `json:"fileName"`
-	Row      Row                  `json:"line"`
-	Column   Column               `json:"column"`
+	Row      sharedTypes.Row      `json:"line"`
+	Column   sharedTypes.Column   `json:"column"`
 }
 
 func (r *SyncFromCodeRequest) Options() *SyncTexOptions {

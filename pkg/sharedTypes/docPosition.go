@@ -14,32 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
-import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+type Row int64
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-)
-
-type ClientPosition struct {
-	Row    sharedTypes.Row    `json:"row"`
-	Column sharedTypes.Column `json:"column"`
-	DocId  primitive.ObjectID `json:"doc_id"`
+func (r Row) String() string {
+	return Int(r).String()
 }
 
-type ClientPositionUpdateNotification struct {
-	Source sharedTypes.PublicId `json:"id"`
-	Row    sharedTypes.Row      `json:"row"`
-	Column sharedTypes.Column   `json:"column"`
-	DocId  primitive.ObjectID   `json:"doc_id"`
+type Column int64
+
+func (c Column) String() string {
+	return Int(c).String()
 }
-
-type ConnectedClient struct {
-	ClientId sharedTypes.PublicId `json:"client_id"`
-	User
-
-	ClientPosition *ClientPosition `json:"cursorData,omitempty"`
-}
-
-type ConnectedClients []*ConnectedClient
