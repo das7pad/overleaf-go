@@ -212,8 +212,11 @@ func (c *Client) requireJoinedProjectAndDoc() error {
 }
 
 func (c *Client) CanJoinProject(id primitive.ObjectID) error {
-	if id.Hex() != c.lockedProjectId.Hex() {
-		return &errors.NotAuthorizedError{}
+	if id != c.lockedProjectId {
+		return errors.Tag(
+			&errors.NotAuthorizedError{},
+			"rejecting cross project join "+id.Hex(),
+		)
 	}
 	return nil
 }

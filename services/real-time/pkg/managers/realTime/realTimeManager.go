@@ -138,10 +138,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
 	if err := rpc.Client.CanJoinProject(args.ProjectId); err != nil {
-		return errors.Tag(
-			err,
-			"rejecting cross project join "+args.ProjectId.Hex(),
-		)
+		return err
 	}
 
 	r, by, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
