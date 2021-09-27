@@ -17,14 +17,10 @@
 package types
 
 import (
-	"time"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
-
-type Timeout time.Duration
 
 type SignedCompileProjectRequestOptions struct {
 	CompileGroup clsiTypes.CompileGroup
