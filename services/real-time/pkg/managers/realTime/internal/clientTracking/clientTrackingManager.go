@@ -73,7 +73,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	if len(rawIds) == 0 ||
 		len(rawIds) == 1 && rawIds[0] == string(client.PublicId) {
 		// Fast path: no connected clients or just the RPC client.
-		return make(types.ConnectedClients, 0), err
+		return make(types.ConnectedClients, 0), nil
 	}
 	ids := make([]sharedTypes.PublicId, len(rawIds))
 	idxSelf := -1
