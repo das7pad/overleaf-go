@@ -24,6 +24,10 @@ import (
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
+type ActiveField struct {
+	Active bool `bson:"active"`
+}
+
 //goland:noinspection SpellCheckingInspection
 type CollaboratorRefsField struct {
 	CollaboratorRefs Refs `bson:"collaberator_refs"`
@@ -41,6 +45,10 @@ type IdField struct {
 type ImageNameField struct {
 	// TODO: move ImageName into sharedTypes
 	ImageName clsiTypes.ImageName `json:"imageName" bson:"imageName"`
+}
+
+type LastOpenedField struct {
+	LastOpened time.Time `bson:"lastOpened"`
 }
 
 type LastUpdatedAtField struct {

@@ -34,6 +34,9 @@ type Manager interface {
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
 	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
+	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
+	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
+	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
 }
 
@@ -43,14 +46,27 @@ func New(db *mongo.Database) (Manager, error) {
 	}, nil
 }
 
-type manager struct {
-	c *mongo.Collection
-}
-
 func rewriteMongoError(err error) error {
 	if err == mongo.ErrNoDocuments {
 		return &errors.ErrorDocNotFound{}
 	}
+	return err
+}
+
+type manager struct {
+	c *mongo.Collection
+}
+
+func (m *manager) set(ctx context.Context, projectId primitive.ObjectID, update interface{}) error {
+	_, err := m.c.UpdateOne(
+		ctx,
+		IdField{
+			Id: projectId,
+		},
+		bson.M{
+			"$set": update,
+		},
+	)
 	return err
 }
 
@@ -152,4 +168,16 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId p
 		return nil, rewriteMongoError(err)
 	}
 	return &project, nil
+}
+
+func (m *manager) MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error {
+	return m.set(ctx, projectId, &ActiveField{Active: true})
+}
+
+func (m *manager) MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error {
+	return m.set(ctx, projectId, &ActiveField{Active: false})
+}
+
+func (m *manager) MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error {
+	return m.set(ctx, projectId, &LastOpenedField{LastOpened: time.Now()})
 }
