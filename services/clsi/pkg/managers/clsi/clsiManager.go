@@ -97,15 +97,15 @@ func New(options *types.Options) (Manager, error) {
 		return nil, err
 	}
 
-	nCores := int64(runtime.NumCPU())
-	nCompileCores := nCores
+	nCores := float64(runtime.NumCPU())
+	maxSystemLoad := nCores
 	if nCores > 1 {
-		nCompileCores = nCores - 1
+		maxSystemLoad -= 0.25
 	}
 
 	return &manager{
 		options:       options,
-		nCompileCores: nCompileCores,
+		maxSystemLoad: maxSystemLoad,
 
 		healthCheckMux:       sync.Mutex{},
 		healthCheckExpiresAt: time.Now(),
@@ -119,7 +119,7 @@ func New(options *types.Options) (Manager, error) {
 
 type manager struct {
 	options       *types.Options
-	nCompileCores int64
+	maxSystemLoad float64
 
 	healthCheckMux       sync.Mutex
 	healthCheckErr       error
@@ -175,7 +175,7 @@ func (m *manager) GetCapacity() (int64, error) {
 	return capacity, err
 }
 
-const loadBase = float64(1 << 16)
+const loadBase = 1 << 16
 
 func (m *manager) refreshGetCapacity() (int64, error) {
 	var info syscall.Sysinfo_t
@@ -183,13 +183,9 @@ func (m *manager) refreshGetCapacity() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	load := float64(info.Loads[0]) / loadBase
+	load1 := float64(info.Loads[0]) / loadBase
+	capacity := int64(100 * (m.maxSystemLoad - load1) / m.maxSystemLoad)
 
-	capacity := int64(
-		100 *
-			(float64(m.nCompileCores) - load) /
-			float64(m.nCompileCores),
-	)
 	if capacity < 0 {
 		capacity = 0
 	}
