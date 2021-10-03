@@ -18,6 +18,7 @@ package sharedTypes
 
 import (
 	"encoding/json"
+	"math"
 	"time"
 )
 
@@ -48,7 +49,13 @@ func (t *Timed) String() string {
 	return t.diff.String()
 }
 
+func (t *Timed) MS() string {
+	v := math.Ceil(float64(t.diff.Nanoseconds())/1e3) / 1e3
+	return Float(v).String()
+}
+
 func (t *Timed) Stage() string {
+	t.End()
 	s := t.diff.String()
 	t.Begin()
 	return s

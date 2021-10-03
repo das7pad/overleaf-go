@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -169,6 +170,10 @@ func (h *httpController) editorLocals(c *gin.Context) {
 		),
 	}
 	response := &types.LoadEditorResponse{}
+	t := &sharedTypes.Timed{}
+	t.Begin()
 	err := h.wm.LoadEditor(c, request, response)
+	t.End()
+	c.Header("Server-Timing", "editorLocals;dur="+t.MS())
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
