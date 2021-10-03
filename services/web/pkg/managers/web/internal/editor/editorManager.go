@@ -145,11 +145,24 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 			})
 		}
 
-		o := &user.FeaturesField{}
+		c := m.jwtCompile.New().(*compileJWT.Claims)
+		c.ProjectId = projectId
+		c.UserId = userId
+
 		egInner.Go(func() error {
+			if err2 := c.EpochItems().Populate(ctx); err2 != nil {
+				return errors.Tag(err2, "cannot get epochs")
+			}
+			return nil
+		})
+
+		egInner.Go(func() error {
+			o := &user.FeaturesField{}
 			if err2 := m.um.GetUser(pCtxInner, p.OwnerRef, o); err2 != nil {
 				return errors.Tag(err2, "cannot get project owner features")
 			}
+			c.CompileGroup = o.Features.CompileGroup
+			c.Timeout = o.Features.CompileTimeout
 			return nil
 		})
 
@@ -157,7 +170,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 			return err2
 		}
 
-		s, err2 := m.genJWTCompile(ctx, projectId, userId, o.Features)
+		s, err2 := m.jwtCompile.Sign(c)
 		if err2 != nil {
 			return errors.Tag(err, "cannot get compile jwt")
 		}
