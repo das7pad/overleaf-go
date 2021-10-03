@@ -30,6 +30,6 @@ type JoinDocRequest struct {
 type JoinDocResponse struct {
 	Snapshot sharedTypes.Snapshot         `json:"snapshot,omitempty"`
 	Version  sharedTypes.Version          `json:"version"`
-	Updates  []sharedTypes.DocumentUpdate `json:"updates,omitempty"`
+	Updates  []sharedTypes.DocumentUpdate `json:"updates"`
 	Ranges   sharedTypes.Ranges           `json:"ranges"`
 }
