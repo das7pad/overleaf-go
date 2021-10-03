@@ -20,14 +20,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
-const (
-	validatedIds = "httpUtils.validatedIds"
 )
 
 func GetId(c *gin.Context, name string) primitive.ObjectID {
@@ -60,60 +53,6 @@ func ValidateAndSetIdZeroOK(name string) gin.HandlerFunc {
 				return
 			}
 			c.Set(name, id)
-		}
-		c.Next()
-	}
-}
-
-func ValidateAndSetJWTId(name string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, err := GetIdFromJwt(c, name)
-		if err != nil {
-			RespondErr(c, err)
-			return
-		}
-		if rawPathId, exists := c.Params.Get(name); exists {
-			if rawPathId != id.Hex() {
-				RespondErr(c, &errors.ValidationError{
-					Msg: "jwt id mismatches path id: " + name,
-				})
-				return
-			}
-		}
-		ids := c.GetStringSlice(validatedIds)
-		ids = append(ids, name)
-		c.Set(validatedIds, ids)
-		c.Set(name, id)
-		c.Next()
-	}
-}
-
-func CheckEpochs(client redis.UniversalClient) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ids := c.Value(validatedIds).([]string)
-		epochs := make(map[string]*redis.StringCmd)
-		_, err := client.Pipelined(c, func(p redis.Pipeliner) error {
-			for _, field := range ids {
-				epochs[field] = p.Get(
-					c,
-					"epoch:"+string(field)+":"+GetId(c, field).Hex(),
-				)
-			}
-			return nil
-		})
-		if err != nil {
-			RespondErr(c, errors.Tag(err, "cannot validate epoch"))
-			return
-		}
-		for _, field := range ids {
-			stored := epochs[field].Val()
-			provided, err2 := GetStringFromJwt(c, "epoch_"+field)
-			if err2 != nil || stored != provided {
-				RespondErr(c, &errors.UnauthorizedError{
-					Reason: "epoch mismatch: " + field,
-				})
-				return
-			}
 		}
 		c.Next()
 	}

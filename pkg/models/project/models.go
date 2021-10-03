@@ -17,8 +17,8 @@
 package project
 
 type JoinProjectViewPrivate struct {
-	JoinProjectViewPublic    `bson:"inline"`
-	WithAuthorizationDetails `bson:"inline"`
+	JoinProjectViewPublic   `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
 }
 type JoinProjectViewPublic struct {
 	IdField                 `bson:"inline"`
@@ -29,6 +29,21 @@ type JoinProjectViewPublic struct {
 	SpellCheckLanguageField `bson:"inline"`
 	TrackChangesStateField  `bson:"inline"`
 	TreeField               `bson:"inline"`
+}
+
+type LoadEditorViewPrivate struct {
+	LoadEditorViewPublic    `bson:"inline"`
+	ActiveField             `bson:"inline"`
+	EpochField              `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
+}
+
+type LoadEditorViewPublic struct {
+	CompilerField  `bson:"inline"`
+	IdField        `bson:"inline"`
+	ImageNameField `bson:"inline"`
+	NameField      `bson:"inline"`
+	RootDocIdField `bson:"inline"`
 }
 
 type WithTokenMembers struct {
@@ -46,7 +61,7 @@ type WithMembers struct {
 	WithInvitedMembers `bson:"inline"`
 }
 
-type WithAuthorizationDetails struct {
+type ForAuthorizationDetails struct {
 	WithMembers            `bson:"inline"`
 	OwnerRefField          `bson:"inline"`
 	PublicAccessLevelField `bson:"inline"`

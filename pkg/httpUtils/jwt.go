@@ -17,93 +17,42 @@
 package httpUtils
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
+	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 )
 
 const (
 	jwtCacheKey = "httpUtils.jwtClaims"
 )
 
-func GetJWTClaims(c *gin.Context) jwt.MapClaims {
-	raw := c.MustGet(jwtCacheKey)
-	return raw.(jwt.MapClaims)
+type PopulateClaims interface {
+	Populate(c *gin.Context)
 }
 
-func GetStringFromJwt(c *gin.Context, name string) (string, error) {
-	claims := GetJWTClaims(c)
-	if item, exists := claims[name]; exists || item != nil {
-		if s, ok := item.(string); ok {
-			return s, nil
-		}
-	}
-	return "", &errors.UnauthorizedError{
-		Reason: "missing jwt entry " + name,
+func NewJWTHandlerFromQuery(handler jwtHandler.JWTHandler, fromQuery string) *JWTHTTPHandler {
+	return &JWTHTTPHandler{
+		parser:    handler,
+		fromQuery: fromQuery,
 	}
 }
 
-func GetDurationFromJwt(c *gin.Context, name string) (time.Duration, error) {
-	raw, err := GetStringFromJwt(c, name)
-	if err != nil {
-		return 0, err
-	}
-	return time.ParseDuration(raw)
-}
-
-func GetIdFromJwt(c *gin.Context, name string) (primitive.ObjectID, error) {
-	rawId, err := GetStringFromJwt(c, name)
-	if err != nil || rawId == "" {
-		return primitive.NilObjectID, &errors.UnauthorizedError{
-			Reason: "missing jwt entry for " + name,
-		}
-	}
-	if rawId == "000000000000000000000000" {
-		// Allow explicitly signed all-zero id.
-		return primitive.NilObjectID, nil
-	}
-	id, err := primitive.ObjectIDFromHex(rawId)
-	if err != nil || id == primitive.NilObjectID {
-		// Reject on error or parse-to-all-zero-id.
-		return primitive.NilObjectID, &errors.UnauthorizedError{
-			Reason: "invalid " + name,
-		}
-	}
-	return id, nil
-}
-
-type JWTOptions struct {
-	Algorithm string `json:"algo"`
-	Key       string `json:"key"`
-	FromQuery string `json:"from_query"`
-}
-
-func NewJWTHandler(options JWTOptions) *JWTHandler {
-	parser := jwt.Parser{
-		ValidMethods: []string{options.Algorithm},
-	}
-	keyBlob := []byte(options.Key)
-	var keyFn jwt.Keyfunc = func(_ *jwt.Token) (interface{}, error) {
-		return keyBlob, nil
-	}
-	return &JWTHandler{
-		parser:    parser,
-		keyFn:     keyFn,
-		fromQuery: options.FromQuery,
+func NewJWTHandler(handler jwtHandler.JWTHandler) *JWTHTTPHandler {
+	return &JWTHTTPHandler{
+		parser:    handler,
+		fromQuery: "",
 	}
 }
 
-type JWTHandler struct {
-	parser    jwt.Parser
-	keyFn     jwt.Keyfunc
+type JWTHTTPHandler struct {
+	parser    jwtHandler.JWTHandler
 	fromQuery string
 }
 
-func (h *JWTHandler) Parse(c *gin.Context, claims jwt.Claims) (jwt.Claims, error) {
+func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
 	var blob string
 	if h.fromQuery != "" {
 		blob = c.Query(h.fromQuery)
@@ -118,18 +67,27 @@ func (h *JWTHandler) Parse(c *gin.Context, claims jwt.Claims) (jwt.Claims, error
 		return nil, &errors.UnauthorizedError{Reason: "missing jwt"}
 	}
 
-	t, err := h.parser.ParseWithClaims(blob, claims, h.keyFn)
+	claims, err := h.parser.Parse(blob)
 	if err != nil {
 		return nil, &errors.UnauthorizedError{Reason: "invalid jwt"}
 	}
 
-	c.Set(jwtCacheKey, t.Claims)
-	return t.Claims, nil
+	if epochClaims, ok := claims.(epochJWT.EpochClaims); ok {
+		if err = epochClaims.EpochItems().Check(c); err != nil {
+			return nil, err
+		}
+	}
+
+	c.Set(jwtCacheKey, claims)
+	if populateClaims, ok := claims.(PopulateClaims); ok {
+		populateClaims.Populate(c)
+	}
+	return claims, nil
 }
 
-func (h *JWTHandler) Middleware() gin.HandlerFunc {
+func (h *JWTHTTPHandler) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, err := h.Parse(c, jwt.MapClaims{})
+		_, err := h.Parse(c)
 		if err != nil {
 			RespondErr(c, err)
 			return

@@ -28,18 +28,25 @@ import (
 )
 
 type Manager interface {
-	GetUserWithPublicInfoAndFeatures(ctx context.Context, userId primitive.ObjectID) (*WithPublicInfoAndFeatures, error)
+	GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error)
+	GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error
 	GetUsersWithPublicInfo(ctx context.Context, users []primitive.ObjectID) ([]WithPublicInfo, error)
 }
 
-func New(db *mongo.Database) (Manager, error) {
+func New(db *mongo.Database) Manager {
 	return &manager{
 		c: db.Collection("users"),
-	}, nil
+	}
 }
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error) {
+	p := &EpochField{}
+	err := m.GetUser(ctx, userId, p)
+	return p.Epoch, err
 }
 
 func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []primitive.ObjectID) ([]WithPublicInfo, error) {
@@ -72,17 +79,14 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) GetUserWithPublicInfoAndFeatures(ctx context.Context, userId primitive.ObjectID) (*WithPublicInfoAndFeatures, error) {
-	var user WithPublicInfoAndFeatures
+func (m *manager) GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error {
 	err := m.c.FindOne(
 		ctx,
-		bson.M{
-			"_id": userId,
-		},
-		options.FindOne().SetProjection(getProjection(user)),
-	).Decode(&user)
+		IdField{Id: userId},
+		options.FindOne().SetProjection(getProjection(target)),
+	).Decode(target)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return rewriteMongoError(err)
 	}
-	return &user, nil
+	return nil
 }

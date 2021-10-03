@@ -34,7 +34,6 @@ import (
 type webOptions struct {
 	address      string
 	corsOptions  httpUtils.CORSOptions
-	jwtOptions   httpUtils.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 	redisOptions *redis.UniversalOptions
@@ -46,7 +45,9 @@ func getOptions() *webOptions {
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
-	o.jwtOptions = jwtOptions.Parse("JWT_WEB_VERIFY_SECRET")
+	o.options.JWT.Compile = jwtOptions.Parse("JWT_WEB_VERIFY_SECRET")
+	o.options.JWT.Spelling = jwtOptions.Parse("JWT_SPELLING_VERIFY_SECRET")
+	o.options.JWT.RealTime = jwtOptions.Parse("JWT_REAL_TIME_VERIFY_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 	return o

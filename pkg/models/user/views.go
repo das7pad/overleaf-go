@@ -23,14 +23,27 @@ import (
 )
 
 var (
+	epochFieldProjection                = views.GetProjectionFor(EpochField{})
+	featuresFieldProjection             = views.GetProjectionFor(FeaturesField{})
+	withLoadEditorInfoProjection        = views.GetProjectionFor(WithLoadEditorInfo{})
 	withPublicInfoAndFeaturesProjection = views.GetProjectionFor(WithPublicInfoAndFeatures{})
 	withPublicInfo                      = views.GetProjectionFor(WithPublicInfo{})
 )
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
+	case *EpochField:
+		return epochFieldProjection
+	case *FeaturesField:
+		return featuresFieldProjection
 	case WithPublicInfoAndFeatures:
 		return withPublicInfoAndFeaturesProjection
+	case *WithPublicInfoAndFeatures:
+		return withPublicInfoAndFeaturesProjection
+	case WithLoadEditorInfo:
+		return withLoadEditorInfoProjection
+	case *WithLoadEditorInfo:
+		return withLoadEditorInfoProjection
 	case []WithPublicInfo:
 		return withPublicInfo
 	}

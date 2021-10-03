@@ -31,19 +31,22 @@ import (
 )
 
 type Manager interface {
+	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
+	GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error)
 	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
+	GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error
 	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
 }
 
-func New(db *mongo.Database) (Manager, error) {
+func New(db *mongo.Database) Manager {
 	return &manager{
 		c: db.Collection("projects"),
-	}, nil
+	}
 }
 
 func rewriteMongoError(err error) error {
@@ -55,6 +58,12 @@ func rewriteMongoError(err error) error {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error) {
+	p := &EpochField{}
+	err := m.GetProject(ctx, projectId, p)
+	return p.Epoch, err
 }
 
 func (m *manager) set(ctx context.Context, projectId primitive.ObjectID, update interface{}) error {
@@ -138,8 +147,25 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error) {
-	var project JoinProjectViewPrivate
-	projection := getProjection(project)
+	project := &JoinProjectViewPrivate{}
+	err := m.fetchWithMinimalAuthorizationDetails(ctx, projectId, userId, project)
+	if err != nil {
+		return nil, err
+	}
+	return project, nil
+}
+
+func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error) {
+	project := &LoadEditorViewPrivate{}
+	err := m.fetchWithMinimalAuthorizationDetails(ctx, projectId, userId, project)
+	if err != nil {
+		return nil, err
+	}
+	return project, nil
+}
+
+func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, target interface{}) error {
+	projection := getProjection(target)
 	if userId.IsZero() {
 		for s := range withMembersProjection {
 			delete(projection, s)
@@ -159,15 +185,25 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId p
 
 	err := m.c.FindOne(
 		ctx,
-		bson.M{
-			"_id": projectId,
-		},
+		IdField{Id: projectId},
 		options.FindOne().SetProjection(projection),
-	).Decode(&project)
+	).Decode(target)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return rewriteMongoError(err)
 	}
-	return &project, nil
+	return nil
+}
+
+func (m *manager) GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error {
+	err := m.c.FindOne(
+		ctx,
+		IdField{Id: projectId},
+		options.FindOne().SetProjection(getProjection(target)),
+	).Decode(target)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error {

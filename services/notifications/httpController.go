@@ -22,6 +22,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
+	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/services/notifications/pkg/managers/notifications"
 )
 
@@ -33,9 +35,9 @@ type httpController struct {
 	nm notifications.Manager
 }
 
-func (h *httpController) GetRouter(corsOptions httpUtils.CORSOptions,
-	jwtOptions httpUtils.JWTOptions,
-
+func (h *httpController) GetRouter(
+	corsOptions httpUtils.CORSOptions,
+	jwtOptions jwtOptions.JWTOptions,
 ) http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -45,8 +47,9 @@ func (h *httpController) GetRouter(corsOptions httpUtils.CORSOptions,
 	jwtRouter := router.Group("/jwt/notifications")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
 	jwtRouter.Use(httpUtils.NoCache())
-	jwtRouter.Use(httpUtils.NewJWTHandler(jwtOptions).Middleware())
-	jwtRouter.Use(httpUtils.ValidateAndSetJWTId("userId"))
+	jwtRouter.Use(
+		httpUtils.NewJWTHandler(userIdJWT.New(jwtOptions)).Middleware(),
+	)
 	jwtRouter.GET("", h.getNotifications)
 	jwtNotificationRouter := jwtRouter.Group("/:notificationId")
 	jwtNotificationRouter.Use(httpUtils.ValidateAndSetId("notificationId"))
@@ -63,6 +66,7 @@ func (h *httpController) GetRouter(corsOptions httpUtils.CORSOptions,
 	userNotificationRouter.DELETE("", h.removeNotificationById)
 
 	router.DELETE("/key/:notificationKey", h.removeNotificationByKeyOnly)
+
 	return router
 }
 

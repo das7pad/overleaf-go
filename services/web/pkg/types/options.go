@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
@@ -48,6 +49,12 @@ type Options struct {
 			URL sharedTypes.URL `json:"url"`
 		} `json:"filestore"`
 	} `json:"apis"`
+
+	JWT struct {
+		Compile  jwtOptions.JWTOptions `json:"compile"`
+		Spelling jwtOptions.JWTOptions `json:"spelling"`
+		RealTime jwtOptions.JWTOptions `json:"realTime"`
+	} `json:"jwt"`
 }
 
 func (o *Options) Validate() error {

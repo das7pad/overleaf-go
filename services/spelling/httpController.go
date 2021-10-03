@@ -22,6 +22,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
+	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -36,7 +38,7 @@ type httpController struct {
 
 func (h *httpController) GetRouter(
 	corsOptions httpUtils.CORSOptions,
-	jwtOptions httpUtils.JWTOptions,
+	jwtOptions jwtOptions.JWTOptions,
 ) http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -46,8 +48,9 @@ func (h *httpController) GetRouter(
 	jwtRouter := router.Group("/jwt/spelling/v20200714")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
 	jwtRouter.Use(httpUtils.NoCache())
-	jwtRouter.Use(httpUtils.NewJWTHandler(jwtOptions).Middleware())
-	jwtRouter.Use(httpUtils.ValidateAndSetJWTId("userId"))
+	jwtRouter.Use(
+		httpUtils.NewJWTHandler(userIdJWT.New(jwtOptions)).Middleware(),
+	)
 	jwtRouter.POST("/check", h.check)
 	jwtRouter.GET("/dict", h.getDictionary)
 	jwtRouter.GET("/learn", h.learn)

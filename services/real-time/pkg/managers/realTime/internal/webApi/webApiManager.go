@@ -36,14 +36,8 @@ type Manager interface {
 
 func New(options *types.Options, db *mongo.Database) (Manager, error) {
 	if options.APIs.WebApi.Monolith {
-		pm, err := project.New(db)
-		if err != nil {
-			return nil, err
-		}
-		um, err := user.New(db)
-		if err != nil {
-			return nil, err
-		}
+		pm := project.New(db)
+		um := user.New(db)
 		return &monolithManager{
 			pm: pm,
 			um: um,

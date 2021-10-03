@@ -14,24 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package jwtOptions
+package wsBootstrap
 
 import (
-	"time"
+	"github.com/golang-jwt/jwt/v4"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type JWTOptions struct {
-	Algorithm string        `json:"algo"`
-	Key       interface{}   `json:"key"`
-	ExpiresIn time.Duration `json:"expires_in"`
+type Claims struct {
+	jwt.StandardClaims
+	ProjectId primitive.ObjectID `json:"projectId"`
+	User      types.User         `json:"user"`
 }
 
-func Parse(key string) JWTOptions {
-	return JWTOptions{
-		Algorithm: "HS512",
-		Key:       []byte(utils.MustGetStringFromEnv(key)),
-		ExpiresIn: time.Hour,
-	}
+func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
+	return jwtHandler.New(options, func() jwt.Claims {
+		return &Claims{}
+	})
 }

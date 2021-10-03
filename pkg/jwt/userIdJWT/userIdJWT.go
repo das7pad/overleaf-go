@@ -14,24 +14,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package jwtOptions
+package userIdJWT
 
 import (
-	"time"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
 
-type JWTOptions struct {
-	Algorithm string        `json:"algo"`
-	Key       interface{}   `json:"key"`
-	ExpiresIn time.Duration `json:"expires_in"`
+type Claims struct {
+	jwt.StandardClaims
+	UserId primitive.ObjectID `json:"userId"`
 }
 
-func Parse(key string) JWTOptions {
-	return JWTOptions{
-		Algorithm: "HS512",
-		Key:       []byte(utils.MustGetStringFromEnv(key)),
-		ExpiresIn: time.Hour,
-	}
+func (c *Claims) Populate(target *gin.Context) {
+	target.Set("userId", c.UserId)
+}
+
+func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
+	return jwtHandler.New(options, func() jwt.Claims {
+		return &Claims{}
+	})
 }

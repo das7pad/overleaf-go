@@ -44,10 +44,7 @@ func New(options *types.Options, db *mongo.Database) (Manager, error) {
 		if err != nil {
 			return nil, err
 		}
-		pm, err := project.New(db)
-		if err != nil {
-			return nil, err
-		}
+		pm := project.New(db)
 		return &monolithManager{dm: dm, pm: pm}, nil
 	}
 	return &manager{

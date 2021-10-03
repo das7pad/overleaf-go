@@ -70,7 +70,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    o.address,
-		Handler: handler.GetRouter(o.corsOptions, o.jwtOptions, redisClient),
+		Handler: handler.GetRouter(o.corsOptions),
 	}
 	err = server.ListenAndServe()
 	if err != nil {

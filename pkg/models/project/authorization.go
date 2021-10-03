@@ -18,11 +18,14 @@ package project
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type PrivilegeLevel string
 type PublicAccessLevel string
 type IsRestrictedUser bool
+type IsTokenMember bool
 
 const (
 	PrivilegeLevelOwner        PrivilegeLevel = "owner"
@@ -31,6 +34,12 @@ const (
 
 	TokenBasedAccess PublicAccessLevel = "tokenBased"
 )
+
+type AuthorizationDetails struct {
+	PrivilegeLevel   PrivilegeLevel   `json:"privilegeLevel"`
+	IsRestrictedUser IsRestrictedUser `json:"isRestrictedTokenMember"`
+	IsTokenMember    IsTokenMember    `json:"isTokenMember"`
+}
 
 type Refs []primitive.ObjectID
 
@@ -43,9 +52,13 @@ func (r Refs) Contains(userId primitive.ObjectID) bool {
 	return false
 }
 
-func (p *WithAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, accessToken AccessToken) (PrivilegeLevel, IsRestrictedUser) {
+func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, accessToken AccessToken) (*AuthorizationDetails, error) {
 	if p.OwnerRef == userId {
-		return PrivilegeLevelOwner, false
+		return &AuthorizationDetails{
+			PrivilegeLevel:   PrivilegeLevelOwner,
+			IsRestrictedUser: false,
+			IsTokenMember:    false,
+		}, nil
 	}
 	if userId.IsZero() {
 		if p.PublicAccessLevel == TokenBasedAccess && accessToken != "" {
@@ -53,30 +66,54 @@ func (p *WithAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, 
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 				// ReadAndWrite tokens start with numeric characters.
 				if p.Tokens.ReadAndWrite.EqualsTimingSafe(accessToken) {
-					return PrivilegeLevelReadAndWrite, false
+					return &AuthorizationDetails{
+						PrivilegeLevel:   PrivilegeLevelReadAndWrite,
+						IsRestrictedUser: false,
+						IsTokenMember:    true,
+					}, nil
 				}
 			default:
 				// ReadOnly tokens are composed of alpha characters only.
 				if p.Tokens.ReadOnly.EqualsTimingSafe(accessToken) {
-					return PrivilegeLevelReadOnly, true
+					return &AuthorizationDetails{
+						PrivilegeLevel:   PrivilegeLevelReadOnly,
+						IsRestrictedUser: true,
+						IsTokenMember:    true,
+					}, nil
 				}
 			}
 		}
 	} else {
 		if p.CollaboratorRefs.Contains(userId) {
-			return PrivilegeLevelReadAndWrite, false
+			return &AuthorizationDetails{
+				PrivilegeLevel:   PrivilegeLevelReadAndWrite,
+				IsRestrictedUser: false,
+				IsTokenMember:    false,
+			}, nil
 		}
 		if p.ReadOnlyRefs.Contains(userId) {
-			return PrivilegeLevelReadOnly, false
+			return &AuthorizationDetails{
+				PrivilegeLevel:   PrivilegeLevelReadOnly,
+				IsRestrictedUser: false,
+				IsTokenMember:    false,
+			}, nil
 		}
 		if p.PublicAccessLevel == TokenBasedAccess {
 			if p.TokenAccessReadAndWriteRefs.Contains(userId) {
-				return PrivilegeLevelReadAndWrite, false
+				return &AuthorizationDetails{
+					PrivilegeLevel:   PrivilegeLevelReadAndWrite,
+					IsRestrictedUser: false,
+					IsTokenMember:    true,
+				}, nil
 			}
 			if p.TokenAccessReadOnlyRefs.Contains(userId) {
-				return PrivilegeLevelReadOnly, true
+				return &AuthorizationDetails{
+					PrivilegeLevel:   PrivilegeLevelReadOnly,
+					IsRestrictedUser: true,
+					IsTokenMember:    true,
+				}, nil
 			}
 		}
 	}
-	return "", false
+	return nil, &errors.NotAuthorizedError{}
 }

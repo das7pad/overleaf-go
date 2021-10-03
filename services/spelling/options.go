@@ -31,7 +31,7 @@ import (
 type spellingOptions struct {
 	address      string
 	corsOptions  httpUtils.CORSOptions
-	jwtOptions   httpUtils.JWTOptions
+	jwtOptions   jwtOptions.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 	options      *types.Options

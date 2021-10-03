@@ -22,15 +22,21 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
+	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
+	GetCompileJWTHandler() jwtHandler.JWTHandler
+
 	ClearProjectCache(
 		ctx context.Context,
 		options types.SignedCompileProjectRequestOptions,
@@ -60,6 +66,8 @@ type Manager interface {
 		request *types.WordCountRequest,
 		words *clsiTypes.Words,
 	) error
+
+	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
@@ -76,21 +84,35 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
-	pm, err := project.New(db)
-	if err != nil {
-		return nil, err
-	}
+	pm := project.New(db)
+	um := user.New(db)
 	cm, err := compile.New(options, client, dum, dm, pm)
 	if err != nil {
 		return nil, err
 	}
+	compileJWTHandler := compileJWT.New(
+		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
+	)
+	em := editor.New(options, pm, um, dm, compileJWTHandler)
 	return &manager{
-		cm: cm,
+		cm:                cm,
+		compileJWTHandler: compileJWTHandler,
+		em:                em,
 	}, nil
 }
 
 type manager struct {
-	cm compile.Manager
+	cm                compile.Manager
+	compileJWTHandler jwtHandler.JWTHandler
+	em                editor.Manager
+}
+
+func (m *manager) GetCompileJWTHandler() jwtHandler.JWTHandler {
+	return m.compileJWTHandler
+}
+
+func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error {
+	return m.em.LoadEditor(ctx, request, response)
 }
 
 func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {

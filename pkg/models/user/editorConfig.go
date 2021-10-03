@@ -16,22 +16,16 @@
 
 package user
 
-type WithPublicInfo struct {
-	EmailField     `bson:"inline"`
-	FirstNameField `bson:"inline"`
-	IdField        `bson:"inline"`
-	LastNameField  `bson:"inline"`
-}
-
-type WithPublicInfoAndFeatures struct {
-	FeaturesField  `bson:"inline"`
-	WithPublicInfo `bson:"inline"`
-}
-
-type WithLoadEditorInfo struct {
-	AlphaProgramField         `bson:"inline"`
-	BetaProgramField          `bson:"inline"`
-	EditorConfigField         `bson:"inline"`
-	IsAdminField              `bson:"inline"`
-	WithPublicInfoAndFeatures `bson:"inline"`
+type EditorConfig struct {
+	Mode               string `json:"mode" bson:"mode"`
+	Theme              string `json:"theme" bson:"theme"`
+	OverallTheme       string `json:"overallTheme" bson:"overallTheme"`
+	FontSize           int    `json:"fontSize" bson:"fontSize"`
+	AutoComplete       bool   `json:"autoComplete" bson:"autoComplete"`
+	AutoPairDelimiters bool   `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
+	SpellCheckLanguage string `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
+	PDFViewer          string `json:"pdfViewer" bson:"pdfViewer"`
+	SyntaxValidation   bool   `json:"syntaxValidation" bson:"syntaxValidation"`
+	FontFamily         string `json:"fontFamily" bson:"fontFamily"`
+	LineHeight         string `json:"lineHeight" bson:"lineHeight"`
 }

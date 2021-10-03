@@ -38,6 +38,10 @@ type CompilerField struct {
 	Compiler clsiTypes.Compiler `json:"compiler" bson:"compiler"`
 }
 
+type EpochField struct {
+	Epoch int64 `bson:"epoch"`
+}
+
 type IdField struct {
 	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }

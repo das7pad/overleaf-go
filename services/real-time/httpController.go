@@ -22,32 +22,34 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
-
 	"github.com/gorilla/websocket"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
+	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func newHttpController(rtm realTime.Manager, jwtOptions httpUtils.JWTOptions) httpController {
-	jwtOptions.FromQuery = jwtQueryParameter
+func newHttpController(rtm realTime.Manager, jwtOptions jwtOptions.JWTOptions) httpController {
+	handler := httpUtils.NewJWTHandlerFromQuery(
+		wsBootstrap.New(jwtOptions), jwtQueryParameter,
+	)
 	return httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
 			Subprotocols: []string{"v6.real-time.overleaf.com"},
 		},
-		jwt: httpUtils.NewJWTHandler(jwtOptions),
+		jwt: handler,
 	}
 }
 
 type httpController struct {
 	rtm realTime.Manager
 	u   websocket.Upgrader
-	jwt *httpUtils.JWTHandler
+	jwt *httpUtils.JWTHTTPHandler
 }
 
 const jwtQueryParameter = "bootstrap"
@@ -63,18 +65,12 @@ func (h *httpController) GetRouter() http.Handler {
 	return router
 }
 
-type WsBootstrapClaims struct {
-	*jwt.StandardClaims
-	types.WsBootstrap
-}
-
-func (h *httpController) getWsBootstrap(c *gin.Context) (*types.WsBootstrap, error) {
-	genericClaims, jwtError := h.jwt.Parse(c, &WsBootstrapClaims{})
+func (h *httpController) getWsBootstrap(c *gin.Context) (*wsBootstrap.Claims, error) {
+	genericClaims, jwtError := h.jwt.Parse(c)
 	if jwtError != nil {
 		return nil, jwtError
 	}
-	claims := genericClaims.(*WsBootstrapClaims)
-	return &claims.WsBootstrap, nil
+	return genericClaims.(*wsBootstrap.Claims), nil
 }
 
 func (h *httpController) status(c *gin.Context) {
@@ -114,7 +110,7 @@ func (h *httpController) ws(requestCtx *gin.Context) {
 		return
 	}
 
-	wsBootstrap, jwtErr := h.getWsBootstrap(requestCtx)
+	claims, jwtErr := h.getWsBootstrap(requestCtx)
 	if jwtErr != nil {
 		log.Println("jwt auth failed: " + jwtErr.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
@@ -144,7 +140,10 @@ func (h *httpController) ws(requestCtx *gin.Context) {
 	ctx, cancel := context.WithCancel(requestCtx)
 	defer cancel()
 
-	c, clientErr := types.NewClient(wsBootstrap, writerChanges, writeQueue, cancel)
+	c, clientErr := types.NewClient(
+		claims.ProjectId, claims.User,
+		writerChanges, writeQueue, cancel,
+	)
 	if clientErr != nil {
 		log.Println("client setup failed: " + clientErr.Error())
 		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)

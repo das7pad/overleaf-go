@@ -29,7 +29,7 @@ import (
 type notificationsOptions struct {
 	address      string
 	corsOptions  httpUtils.CORSOptions
-	jwtOptions   httpUtils.JWTOptions
+	jwtOptions   jwtOptions.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 }

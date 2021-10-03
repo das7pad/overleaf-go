@@ -104,15 +104,15 @@ func generatePublicId() (sharedTypes.PublicId, error) {
 	return id, nil
 }
 
-func NewClient(wsBootstrap *WsBootstrap, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
+func NewClient(projectId primitive.ObjectID, user User, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
 	}
 	return &Client{
-		lockedProjectId: wsBootstrap.ProjectId,
+		lockedProjectId: projectId,
 		PublicId:        publicId,
-		User:            wsBootstrap.User,
+		User:            user,
 		writerChanges:   writerChanges,
 		writeQueue:      writeQueue,
 		disconnect:      disconnect,

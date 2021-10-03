@@ -20,9 +20,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -36,55 +37,39 @@ type httpController struct {
 	wm web.Manager
 }
 
-const (
-	userIdField    = "userId"
-	projectIdField = "projectId"
-)
-
 func (h *httpController) GetRouter(
 	corsOptions httpUtils.CORSOptions,
-	jwtOptions httpUtils.JWTOptions,
-	client redis.UniversalClient,
 ) http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
 	router.HEAD("/status", h.status)
 
+	internalRouter := router.Group("")
+	internalProjectRouter := internalRouter.Group("/project/:projectId")
+	internalProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
+	internalProjectUserRouter := internalProjectRouter.Group("/user/:userId")
+	internalProjectUserRouter.Use(httpUtils.ValidateAndSetId("userId"))
+	internalProjectUserRouter.GET("/editorLocals", h.editorLocals)
+
 	jwtRouter := router.Group("/jwt/web")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
 	jwtRouter.Use(httpUtils.NoCache())
-	jwtRouter.Use(httpUtils.NewJWTHandler(jwtOptions).Middleware())
-	jwtRouter.Use(httpUtils.ValidateAndSetJWTId(userIdField))
 
-	projectRouter := jwtRouter.Group("/project/:projectId")
-	projectRouter.Use(httpUtils.ValidateAndSetJWTId(projectIdField))
-	projectRouter.Use(httpUtils.CheckEpochs(client))
-	projectRouter.POST("/clear-cache", h.clearProjectCache)
-	projectRouter.POST("/compile", h.compileProject)
-	projectRouter.POST("/sync/code", h.syncFromCode)
-	projectRouter.POST("/sync/pdf", h.syncFromPDF)
-	projectRouter.POST("/wordcount", h.wordCount)
+	compileJWTRouter := jwtRouter.Group("/project/:projectId")
+	compileJWTRouter.Use(
+		httpUtils.NewJWTHandler(h.wm.GetCompileJWTHandler()).Middleware(),
+	)
+	compileJWTRouter.POST("/clear-cache", h.clearProjectCache)
+	compileJWTRouter.POST("/compile", h.compileProject)
+	compileJWTRouter.POST("/sync/code", h.syncFromCode)
+	compileJWTRouter.POST("/sync/pdf", h.syncFromPDF)
+	compileJWTRouter.POST("/wordcount", h.wordCount)
 	return router
 }
 
-func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) *types.SignedCompileProjectRequestOptions {
-	compileGroupRaw, err := httpUtils.GetStringFromJwt(c, "compileGroup")
-	if err != nil {
-		httpUtils.RespondErr(c, err)
-		return nil
-	}
-	timeoutRaw, err := httpUtils.GetDurationFromJwt(c, "timeout")
-	if err != nil {
-		httpUtils.RespondErr(c, err)
-		return nil
-	}
-	return &types.SignedCompileProjectRequestOptions{
-		ProjectId:    httpUtils.GetId(c, "projectId"),
-		UserId:       httpUtils.GetId(c, "userId"),
-		CompileGroup: clsiTypes.CompileGroup(compileGroupRaw),
-		Timeout:      clsiTypes.Timeout(timeoutRaw),
-	}
+func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompileProjectRequestOptions {
+	return compileJWT.MustGet(c).SignedCompileProjectRequestOptions
 }
 
 func (h *httpController) status(c *gin.Context) {
@@ -96,34 +81,25 @@ type clearProjectCacheRequestBody struct {
 }
 
 func (h *httpController) clearProjectCache(c *gin.Context) {
-	so := mustGetSignedCompileProjectOptionsFromJwt(c)
-	if so == nil {
-		return
-	}
-
 	request := &clearProjectCacheRequestBody{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	err := h.wm.ClearProjectCache(
 		c,
-		*so,
+		mustGetSignedCompileProjectOptionsFromJwt(c),
 		request.ClsiServerId,
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) compileProject(c *gin.Context) {
-	so := mustGetSignedCompileProjectOptionsFromJwt(c)
-	if so == nil {
-		return
-	}
-
 	request := &types.CompileProjectRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions = *so
+	request.SignedCompileProjectRequestOptions =
+		mustGetSignedCompileProjectOptionsFromJwt(c)
 	response := &types.CompileProjectResponse{}
 	err := h.wm.CompileProject(
 		c,
@@ -134,16 +110,12 @@ func (h *httpController) compileProject(c *gin.Context) {
 }
 
 func (h *httpController) syncFromCode(c *gin.Context) {
-	so := mustGetSignedCompileProjectOptionsFromJwt(c)
-	if so == nil {
-		return
-	}
-
 	request := &types.SyncFromCodeRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions = *so
+	request.SignedCompileProjectRequestOptions =
+		mustGetSignedCompileProjectOptionsFromJwt(c)
 
 	response := &clsiTypes.PDFPositions{}
 	err := h.wm.SyncFromCode(
@@ -155,16 +127,12 @@ func (h *httpController) syncFromCode(c *gin.Context) {
 }
 
 func (h *httpController) syncFromPDF(c *gin.Context) {
-	so := mustGetSignedCompileProjectOptionsFromJwt(c)
-	if so == nil {
-		return
-	}
-
 	request := &types.SyncFromPDFRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions = *so
+	request.SignedCompileProjectRequestOptions =
+		mustGetSignedCompileProjectOptionsFromJwt(c)
 
 	response := &clsiTypes.CodePositions{}
 	err := h.wm.SyncFromPDF(
@@ -176,16 +144,12 @@ func (h *httpController) syncFromPDF(c *gin.Context) {
 }
 
 func (h *httpController) wordCount(c *gin.Context) {
-	so := mustGetSignedCompileProjectOptionsFromJwt(c)
-	if so == nil {
-		return
-	}
-
 	request := &types.WordCountRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions = *so
+	request.SignedCompileProjectRequestOptions =
+		mustGetSignedCompileProjectOptionsFromJwt(c)
 
 	response := &clsiTypes.Words{}
 	err := h.wm.WordCount(
@@ -193,5 +157,18 @@ func (h *httpController) wordCount(c *gin.Context) {
 		request,
 		response,
 	)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) editorLocals(c *gin.Context) {
+	request := &types.LoadEditorRequest{
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		UserId:    httpUtils.GetId(c, "userId"),
+		AnonymousAccessToken: project.AccessToken(
+			c.Query("anonymousAccessToken"),
+		),
+	}
+	response := &types.LoadEditorResponse{}
+	err := h.wm.LoadEditor(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }

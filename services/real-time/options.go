@@ -20,7 +20,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
@@ -31,7 +30,7 @@ import (
 
 type realTimeOptions struct {
 	address      string
-	jwtOptions   httpUtils.JWTOptions
+	jwtOptions   jwtOptions.JWTOptions
 	mongoOptions *options.ClientOptions
 	dbName       string
 	redisOptions *redis.UniversalOptions

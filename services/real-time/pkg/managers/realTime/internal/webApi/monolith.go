@@ -42,26 +42,24 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		return nil, self, errors.Tag(err, "cannot get project")
 	}
 
-	privilegeLevel, isRestrictedUser := p.GetPrivilegeLevel(
+	authorizationDetails, err := p.GetPrivilegeLevel(
 		userId, request.AnonymousAccessToken,
 	)
-	if privilegeLevel == "" {
-		return nil, self, &errors.NotAuthorizedError{}
+	if err != nil {
+		return nil, self, err
 	}
 
-	var owner *user.WithPublicInfoAndFeatures
+	owner := &user.WithPublicInfoAndFeatures{}
 	members := make([]user.WithPublicInfo, 0)
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		var err2 error
-		owner, err2 = m.um.GetUserWithPublicInfoAndFeatures(pCtx, p.OwnerRef)
-		if err2 != nil {
+		if err2 := m.um.GetUser(pCtx, p.OwnerRef, owner); err2 != nil {
 			return errors.Tag(err2, "cannot get project owner")
 		}
 		return nil
 	})
-	if !isRestrictedUser {
+	if !authorizationDetails.IsRestrictedUser {
 		eg.Go(func() error {
 			n := len(p.CollaboratorRefs) + len(p.ReadOnlyRefs)
 			if n == 0 {
@@ -84,7 +82,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	// Expose a subset of link sharing tokens.
 	var tokens project.Tokens
-	switch privilegeLevel {
+	switch authorizationDetails.PrivilegeLevel {
 	case project.PrivilegeLevelOwner:
 		tokens = p.Tokens
 	case project.PrivilegeLevelReadAndWrite:
@@ -94,7 +92,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	}
 
 	// Hide owner details for restricted users
-	if isRestrictedUser {
+	if authorizationDetails.IsRestrictedUser {
 		owner.WithPublicInfo = user.WithPublicInfo{
 			IdField: user.IdField{Id: p.OwnerRef},
 		}
@@ -114,7 +112,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	return &types.JoinProjectWebApiResponse{
 		Project:          details,
-		PrivilegeLevel:   privilegeLevel,
-		IsRestrictedUser: isRestrictedUser,
+		PrivilegeLevel:   authorizationDetails.PrivilegeLevel,
+		IsRestrictedUser: authorizationDetails.IsRestrictedUser,
 	}, self, nil
 }

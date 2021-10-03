@@ -20,22 +20,42 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type FeaturesField struct {
-	Features Features `json:"features" bson:"features"`
+type AlphaProgramField struct {
+	AlphaProgram bool `json:"alphaProgram" bson:"alphaProgram"`
 }
 
-type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+type BetaProgramField struct {
+	BetaProgram bool `json:"betaProgram" bson:"betaProgram"`
+}
+
+type EditorConfigField struct {
+	EditorConfig EditorConfig `json:"ace" bson:"ace"`
+}
+
+type EmailField struct {
+	Email string `json:"email" bson:"email"`
+}
+
+type EpochField struct {
+	Epoch int64 `bson:"epoch"`
+}
+
+type FeaturesField struct {
+	Features Features `json:"features" bson:"features"`
 }
 
 type FirstNameField struct {
 	FirstName string `json:"first_name" bson:"first_name"`
 }
 
-type LastNameField struct {
-	LastName string `json:"last_name" bson:"last_name"`
+type IdField struct {
+	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }
 
-type EmailField struct {
-	Email string `json:"email" bson:"email"`
+type IsAdminField struct {
+	IsAdmin bool `json:"isAdmin" bson:"isAdmin"`
+}
+
+type LastNameField struct {
+	LastName string `json:"last_name" bson:"last_name"`
 }
