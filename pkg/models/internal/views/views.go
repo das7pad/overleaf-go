@@ -25,6 +25,14 @@ import (
 
 type View bson.M
 
+func (v View) CloneForWriting() View {
+	c := make(View, len(v))
+	for s := range v {
+		c[s] = v[s]
+	}
+	return c
+}
+
 func GetProjectionFor(model interface{}) View {
 	projection := View{
 		"_id": false,

@@ -165,7 +165,7 @@ func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId pr
 }
 
 func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, target interface{}) error {
-	projection := getProjection(target)
+	projection := getProjection(target).CloneForWriting()
 	if userId.IsZero() {
 		for s := range withMembersProjection {
 			delete(projection, s)
