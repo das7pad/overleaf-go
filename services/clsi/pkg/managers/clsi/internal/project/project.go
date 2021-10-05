@@ -236,13 +236,7 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	}
 	p.state = request.Options.SyncState
 
-	cmdOutputFiles, err := p.latexRunner.Run(
-		ctx,
-		p.run,
-		p.namespace,
-		request,
-		response,
-	)
+	err = p.latexRunner.Run(ctx, p.run, p.namespace, request, response)
 	if err != nil {
 		return err
 	}
@@ -250,7 +244,6 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	response.Timings.Output.Begin()
 	outputFiles, hasOutputPDF, err := p.outputCache.SaveOutputFiles(
 		ctx,
-		cmdOutputFiles,
 		cache,
 		p.namespace,
 	)

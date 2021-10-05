@@ -32,7 +32,7 @@ type LatexRunner interface {
 		namespace types.Namespace,
 		request *types.CompileRequest,
 		response *types.CompileResponse,
-	) (*types.CommandOutputFiles, error)
+	) error
 }
 
 func New(options *types.Options) LatexRunner {
@@ -59,10 +59,10 @@ var (
 	}
 )
 
-func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.CompileRequest, response *types.CompileResponse) (*types.CommandOutputFiles, error) {
-	cmd, err := r.composeCommandOptions(namespace, request, response)
+func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.CompileRequest, response *types.CompileResponse) error {
+	cmd, err := r.composeCommandOptions(request, response)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	code, err := run(ctx, cmd)
@@ -82,7 +82,7 @@ func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, 
 		cmd.CommandOutputFiles.Cleanup(
 			r.options.CompileBaseDir.CompileDir(namespace),
 		)
-		return nil, err
+		return err
 	}
 	if request.Options.Check == types.ValidateCheck {
 		status = constants.ValidationPass
@@ -96,17 +96,10 @@ func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, 
 	}
 	response.Status = status
 
-	return &cmd.CommandOutputFiles, nil
+	return nil
 }
 
-func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *types.CompileRequest, response *types.CompileResponse) (*types.CommandOptions, error) {
-	files, err := commandRunner.CreateCommandOutput(
-		r.options.CompileBaseDir.CompileDir(namespace),
-	)
-	if err != nil {
-		return nil, err
-	}
-
+func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, response *types.CompileResponse) (*types.CommandOptions, error) {
 	mainFile := string(request.RootResourcePath)
 	fileType := sharedTypes.PathName(mainFile).Type()
 	for _, preProcessedFileType := range preProcessedFileTypes {
@@ -149,13 +142,17 @@ func (r *latexRunner) composeCommandOptions(namespace types.Namespace, request *
 		}
 	}
 
+	files := types.CommandOutputFiles{
+		StdErr: "output.stderr",
+		StdOut: "output.stdout",
+	}
 	return &types.CommandOptions{
 		CommandLine:        cmd,
 		Environment:        env,
 		ImageName:          request.Options.ImageName,
 		Timeout:            request.Options.Timeout,
 		CompileGroup:       request.Options.CompileGroup,
-		CommandOutputFiles: *files,
+		CommandOutputFiles: files,
 		Timed:              &response.Timings.Compile,
 	}, nil
 }

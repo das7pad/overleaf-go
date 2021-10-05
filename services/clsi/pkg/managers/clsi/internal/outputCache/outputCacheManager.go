@@ -38,7 +38,6 @@ import (
 type Manager interface {
 	SaveOutputFiles(
 		ctx context.Context,
-		files *types.CommandOutputFiles,
 		allResources resourceWriter.ResourceCache,
 		namespace types.Namespace,
 	) (types.OutputFiles, HasOutputPDF, error)
@@ -60,7 +59,7 @@ type manager struct {
 
 type HasOutputPDF bool
 
-func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutputFiles, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error) {
+func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error) {
 	buildId, err := getBuildId()
 	if err != nil {
 		return nil, false, err
@@ -103,19 +102,12 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 			hasOutputPDF = true
 		}
 
-		destFileName := fileName
-		if fileName == files.StdErr {
-			destFileName = "output.stderr"
-		} else if fileName == files.StdOut {
-			destFileName = "output.stdout"
-		}
-
-		if err = dirHelper.EnsureIsWritable(destFileName); err != nil {
+		if err = dirHelper.EnsureIsWritable(fileName); err != nil {
 			return nil, false, err
 		}
 
 		src := compileDir.Join(fileName)
-		dest := compileOutputDir.Join(destFileName)
+		dest := compileOutputDir.Join(fileName)
 		if resourceCleanup.ShouldDelete(fileName) {
 			// Optimization: Steal the file from the compileDir.
 			// The next compile request would delete it anyways.
@@ -132,9 +124,9 @@ func (m *manager) SaveOutputFiles(ctx context.Context, files *types.CommandOutpu
 
 		file := types.OutputFile{
 			Build:        buildId,
-			DownloadPath: getDownloadPath(namespace, buildId, destFileName),
-			Path:         destFileName,
-			Type:         destFileName.Type(),
+			DownloadPath: getDownloadPath(namespace, buildId, fileName),
+			Path:         fileName,
+			Type:         fileName.Type(),
 			Size:         size,
 		}
 		outputFiles = append(outputFiles, file)
