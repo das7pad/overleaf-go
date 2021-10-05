@@ -61,6 +61,7 @@ func ShouldDelete(file sharedTypes.PathName) bool {
 		file == "output.log" ||
 		file == "output.stderr" ||
 		file == "output.stdout" ||
+		file == "output.synctex.gz" ||
 		file == "output.xdv"
 	if isGenericOutputFile {
 		return true

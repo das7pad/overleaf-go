@@ -33,8 +33,6 @@ func (i BuildId) Validate() error {
 	return i.validate()
 }
 
-const allZeroBuildId = BuildId("0000000000000000-0000000000000000")
-
 var buildIdRegex = regexp.MustCompile("^[a-f0-9]{16}-[a-f0-9]{16}$")
 
 func (i BuildId) validate() error {

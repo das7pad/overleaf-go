@@ -295,9 +295,6 @@ func (m *manager) StopCompile(ctx context.Context, projectId primitive.ObjectID,
 }
 
 func (m *manager) SyncFromCode(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
-	if err := request.Preprocess(); err != nil {
-		return err
-	}
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -313,9 +310,6 @@ func (m *manager) SyncFromCode(ctx context.Context, projectId primitive.ObjectID
 }
 
 func (m *manager) SyncFromPDF(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
-	if err := request.Preprocess(); err != nil {
-		return err
-	}
 	if err := request.Validate(); err != nil {
 		return err
 	}

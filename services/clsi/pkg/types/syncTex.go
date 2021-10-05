@@ -70,13 +70,6 @@ type SyncTexOptions struct {
 	ImageName    ImageName    `json:"imageName"`
 }
 
-func (o *SyncTexOptions) Preprocess() error {
-	if o.BuildId == "" {
-		o.BuildId = allZeroBuildId
-	}
-	return nil
-}
-
 func (o *SyncTexOptions) Validate() error {
 	if err := o.BuildId.Validate(); err != nil {
 		return err
@@ -91,10 +84,6 @@ func (o *SyncTexOptions) Validate() error {
 }
 
 func (o SyncTexOptions) getPathFor(name sharedTypes.PathName) string {
-	if o.BuildId == allZeroBuildId {
-		return CompileDir(constants.CompileDirPlaceHolder).
-			Join(name)
-	}
 	return OutputDir(constants.OutputDirPlaceHolder).
 		CompileOutputDir(o.BuildId).
 		Join(name)
