@@ -133,6 +133,8 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
+		var ownerFeatures *user.Features
+		isOwner := p.OwnerRef == userId
 		egInner, pCtxInner := errgroup.WithContext(pCtx)
 		if isAnonymous {
 			u = defaultUser
@@ -140,6 +142,9 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 			egInner.Go(func() error {
 				if err2 := m.um.GetUser(pCtxInner, userId, u); err2 != nil {
 					return errors.Tag(err2, "cannot get user details")
+				}
+				if isOwner {
+					ownerFeatures = &u.Features
 				}
 				return nil
 			})
@@ -156,19 +161,22 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 			return nil
 		})
 
-		egInner.Go(func() error {
-			o := &user.FeaturesField{}
-			if err2 := m.um.GetUser(pCtxInner, p.OwnerRef, o); err2 != nil {
-				return errors.Tag(err2, "cannot get project owner features")
-			}
-			c.CompileGroup = o.Features.CompileGroup
-			c.Timeout = o.Features.CompileTimeout
-			return nil
-		})
+		if !isOwner {
+			egInner.Go(func() error {
+				o := &user.FeaturesField{}
+				if err2 := m.um.GetUser(pCtxInner, p.OwnerRef, o); err2 != nil {
+					return errors.Tag(err2, "cannot get project owner features")
+				}
+				ownerFeatures = &o.Features
+				return nil
+			})
+		}
 
 		if err2 := egInner.Wait(); err2 != nil {
 			return err2
 		}
+		c.CompileGroup = ownerFeatures.CompileGroup
+		c.Timeout = ownerFeatures.CompileTimeout
 
 		s, err2 := m.jwtCompile.Sign(c)
 		if err2 != nil {
