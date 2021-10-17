@@ -50,7 +50,7 @@ func (h *httpController) GetRouter(
 	internalProjectRouter := internalRouter.Group("/project/:projectId")
 	internalProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
 	internalProjectUserRouter := internalProjectRouter.Group("/user/:userId")
-	internalProjectUserRouter.Use(httpUtils.ValidateAndSetId("userId"))
+	internalProjectUserRouter.Use(httpUtils.ValidateAndSetIdZeroOK("userId"))
 	internalProjectUserRouter.GET("/editorLocals", h.editorLocals)
 
 	internalUserRouter := internalRouter.Group("/user/:userId")
