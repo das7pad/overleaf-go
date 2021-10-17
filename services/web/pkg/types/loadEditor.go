@@ -26,6 +26,7 @@ import (
 type LoadEditorRequest struct {
 	ProjectId            primitive.ObjectID
 	UserId               primitive.ObjectID
+	UserEpoch            int64               `form:"userEpoch"`
 	AnonymousAccessToken project.AccessToken `form:"anonymousAccessToken"`
 }
 

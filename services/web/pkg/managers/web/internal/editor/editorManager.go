@@ -120,88 +120,75 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		request.AnonymousAccessToken = ""
 	}
 
-	p, err := m.pm.GetLoadEditorDetails(ctx, projectId, userId)
-	if err != nil {
-		return err
-	}
-	authorizationDetails, err := p.GetPrivilegeLevel(
-		userId, request.AnonymousAccessToken,
-	)
-	if err != nil {
-		return err
-	}
-
+	var p *project.LoadEditorViewPrivate
 	u := &user.WithLoadEditorInfo{}
+	var ownerFeatures *user.Features
 
+	// Fan out 1 -- fetch primary mongo details
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		var ownerFeatures *user.Features
-		isOwner := p.OwnerRef == userId
-		egInner, pCtxInner := errgroup.WithContext(pCtx)
-		if isAnonymous {
-			u = defaultUser
-		} else {
-			egInner.Go(func() error {
-				if err2 := m.um.GetUser(pCtxInner, userId, u); err2 != nil {
-					return errors.Tag(err2, "cannot get user details")
-				}
-				if isOwner {
-					ownerFeatures = &u.Features
-				}
-				return nil
-			})
+		var err error
+		p, err = m.pm.GetLoadEditorDetails(ctx, projectId, userId)
+		if err != nil {
+			return errors.Tag(err, "cannot get project details")
 		}
 
-		c := m.jwtCompile.New().(*compileJWT.Claims)
-		c.ProjectId = projectId
-		c.UserId = userId
+		authorizationDetails, err := p.GetPrivilegeLevel(
+			userId, request.AnonymousAccessToken,
+		)
+		if err != nil {
+			return err
+		}
+		response.AuthorizationDetails = *authorizationDetails
+		return nil
+	})
 
-		egInner.Go(func() error {
-			if err2 := c.EpochItems().Populate(ctx); err2 != nil {
-				return errors.Tag(err2, "cannot get epochs")
+	if isAnonymous {
+		u = defaultUser
+	} else {
+		eg.Go(func() error {
+			if err := m.um.GetUser(pCtx, userId, u); err != nil {
+				return errors.Tag(err, "cannot get user details")
 			}
 			return nil
 		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 
-		if !isOwner {
-			egInner.Go(func() error {
-				o := &user.FeaturesField{}
-				if err2 := m.um.GetUser(pCtxInner, p.OwnerRef, o); err2 != nil {
-					return errors.Tag(err2, "cannot get project owner features")
-				}
-				ownerFeatures = &o.Features
-				return nil
-			})
-		}
+	// Fan out 2 -- compute only for owned, unarchived projects
+	eg, pCtx = errgroup.WithContext(ctx)
 
-		if err2 := egInner.Wait(); err2 != nil {
-			return err2
-		}
-		c.CompileGroup = ownerFeatures.CompileGroup
-		c.Timeout = ownerFeatures.CompileTimeout
+	if p.OwnerRef == userId {
+		ownerFeatures = &u.Features
+	} else {
+		eg.Go(func() error {
+			o := &user.FeaturesField{}
+			if err := m.um.GetUser(pCtx, p.OwnerRef, o); err != nil {
+				return errors.Tag(err, "cannot get project owner features")
+			}
+			ownerFeatures = &o.Features
+			return nil
+		})
+	}
 
-		s, err2 := m.jwtCompile.Sign(c)
-		if err2 != nil {
-			return errors.Tag(err, "cannot get compile jwt")
-		}
-		response.JWTCompile = s
-
-		response.WSBootstrap, err2 = m.genWSBootstrap(
-			projectId, u.WithPublicInfo,
-		)
-		if err2 != nil {
+	eg.Go(func() error {
+		b, err := m.genWSBootstrap(projectId, u.WithPublicInfo)
+		if err != nil {
 			return errors.Tag(err, "cannot get wsBootstrap")
 		}
+		response.WSBootstrap = b
 		return nil
 	})
 
 	if !p.Active {
 		eg.Go(func() error {
-			if err2 := m.dm.UnArchiveProject(pCtx, projectId); err2 != nil {
-				return errors.Tag(err2, "cannot un-archive project")
+			if err := m.dm.UnArchiveProject(pCtx, projectId); err != nil {
+				return errors.Tag(err, "cannot un-archive project")
 			}
-			if err2 := m.pm.MarkAsActive(pCtx, projectId); err2 != nil {
-				return errors.Tag(err2, "cannot mark project as active")
+			if err := m.pm.MarkAsActive(pCtx, projectId); err != nil {
+				return errors.Tag(err, "cannot mark project as active")
 			}
 			return nil
 		})
@@ -221,8 +208,8 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 
 	if !isAnonymous {
 		eg.Go(func() error {
-			s, err2 := m.genJWTSpelling(userId)
-			if err2 != nil {
+			s, err := m.genJWTSpelling(userId)
+			if err != nil {
 				return errors.Tag(err, "cannot get spelling jwt")
 			}
 			response.JWTSpelling = s
@@ -230,13 +217,28 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		})
 	}
 
-	if err = eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		return err
+	}
+
+	{
+		c := m.jwtCompile.New().(*compileJWT.Claims)
+		c.CompileGroup = ownerFeatures.CompileGroup
+		c.EpochProject = p.Epoch
+		c.EpochUser = request.UserEpoch
+		c.ProjectId = projectId
+		c.Timeout = ownerFeatures.CompileTimeout
+		c.UserId = userId
+
+		s, err := m.jwtCompile.Sign(c)
+		if err != nil {
+			return errors.Tag(err, "cannot get compile jwt")
+		}
+		response.JWTCompile = s
 	}
 
 	response.Anonymous = isAnonymous
 	response.AnonymousAccessToken = request.AnonymousAccessToken
-	response.AuthorizationDetails = *authorizationDetails
 	response.Project = p.LoadEditorViewPublic
 	response.User = *u
 	return nil
