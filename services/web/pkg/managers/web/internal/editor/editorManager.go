@@ -18,6 +18,8 @@ package editor
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/sync/errgroup"
@@ -205,12 +207,17 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		})
 	}
 
-	eg.Go(func() error {
-		if err2 := m.pm.MarkAsOpened(pCtx, projectId); err2 != nil {
-			return errors.Tag(err2, "cannot mark project as opened")
+	go func() {
+		bCtx, done := context.WithTimeout(context.Background(), time.Second*10)
+		defer done()
+		if err := m.pm.MarkAsOpened(bCtx, projectId); err != nil {
+			log.Println(
+				errors.Tag(
+					err, "cannot mark project as opened: "+projectId.Hex(),
+				).Error(),
+			)
 		}
-		return nil
-	})
+	}()
 
 	if !isAnonymous {
 		eg.Go(func() error {
