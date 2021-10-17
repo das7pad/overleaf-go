@@ -20,10 +20,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
@@ -169,9 +169,9 @@ func (h *httpController) editorLocals(c *gin.Context) {
 	request := &types.LoadEditorRequest{
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		UserId:    httpUtils.GetId(c, "userId"),
-		AnonymousAccessToken: project.AccessToken(
-			c.Query("anonymousAccessToken"),
-		),
+	}
+	if err := c.MustBindWith(request, binding.Query); err != nil {
+		return
 	}
 	response := &types.LoadEditorResponse{}
 	t := &sharedTypes.Timed{}
