@@ -68,6 +68,27 @@ func (i *JWTEpochItem) fromMongo(ctx context.Context, p redis.Pipeliner) error {
 	return nil
 }
 
+func (i *JWTEpochItem) check(expected int64) error {
+	actual := i.Epoch
+	if actual == nil || *actual != expected {
+		return &errors.UnauthorizedError{Reason: "epoch mismatch: " + i.Field}
+	}
+	return nil
+}
+
+func (i *JWTEpochItem) backFillOnMatch(ctx context.Context, p redis.UniversalClient) error {
+	expected, err := i.Fetch(ctx, i.Id)
+	if err != nil {
+		return errors.Tag(err, "cannot get "+i.Field+" from mongo")
+	}
+	if err = i.check(expected); err != nil {
+		return err
+	}
+	_ = p.SetNX(ctx, i.Key(), expected, oneDay)
+	i.Cmd = p.Get(ctx, i.Key())
+	return nil
+}
+
 func (i FetchJWTEpochItems) Check(ctx context.Context) error {
 	_, err := i.Client.Pipelined(ctx, func(p redis.Pipeliner) error {
 		for _, fetchJWTEpochItem := range i.Items {
@@ -75,19 +96,39 @@ func (i FetchJWTEpochItems) Check(ctx context.Context) error {
 		}
 		return nil
 	})
-	if err != nil && err != redis.Nil {
-		return errors.Tag(err, "cannot get epochs from redis")
-	}
-	for _, fetchJWTEpochItem := range i.Items {
-		actual := fetchJWTEpochItem.Epoch
-		expected, err2 := fetchJWTEpochItem.Cmd.Int64()
-		if err2 != nil || actual == nil || *actual != expected {
-			return &errors.UnauthorizedError{
-				Reason: "epoch mismatch: " + fetchJWTEpochItem.Field,
+	if err == nil {
+		// All epochs are still in redis, check fetched details only.
+		for _, fetchJWTEpochItem := range i.Items {
+			expected, err2 := fetchJWTEpochItem.Cmd.Int64()
+			if err2 != nil {
+				return errors.Tag(
+					err, "cannot parse stored epoch "+fetchJWTEpochItem.Field,
+				)
+			}
+			if err2 = fetchJWTEpochItem.check(expected); err2 != nil {
+				return err2
 			}
 		}
+		return nil
+	} else if err == redis.Nil {
+		// Some epochs are no longer in redis, back-fill valid ones as needed.
+		// Back-filling all 'missing' epochs could lead to DOS.
+		_, err = i.Client.Pipelined(ctx, func(p redis.Pipeliner) error {
+			for _, fetchJWTEpochItem := range i.Items {
+				err2 := fetchJWTEpochItem.backFillOnMatch(ctx, i.Client)
+				if err2 != nil {
+					return err2
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Tag(err, "cannot back-fill epochs into redis")
+		}
+		return nil
+	} else {
+		return errors.Tag(err, "cannot get epochs from redis")
 	}
-	return nil
 }
 
 func (i FetchJWTEpochItems) Populate(ctx context.Context) error {
