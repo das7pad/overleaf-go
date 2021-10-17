@@ -51,9 +51,10 @@ type Options struct {
 	} `json:"apis"`
 
 	JWT struct {
-		Compile  jwtOptions.JWTOptions `json:"compile"`
-		Spelling jwtOptions.JWTOptions `json:"spelling"`
-		RealTime jwtOptions.JWTOptions `json:"realTime"`
+		Compile       jwtOptions.JWTOptions `json:"compile"`
+		Notifications jwtOptions.JWTOptions `json:"notifications"`
+		Spelling      jwtOptions.JWTOptions `json:"spelling"`
+		RealTime      jwtOptions.JWTOptions `json:"realTime"`
 	} `json:"jwt"`
 }
 

@@ -28,6 +28,10 @@ type ActiveField struct {
 	Active bool `bson:"active"`
 }
 
+type ArchivedByField struct {
+	ArchivedBy Refs `bson:"archived"`
+}
+
 //goland:noinspection SpellCheckingInspection
 type CollaboratorRefsField struct {
 	CollaboratorRefs Refs `bson:"collaberator_refs"`
@@ -68,7 +72,7 @@ type NameField struct {
 }
 
 type OwnerRefField struct {
-	OwnerRef primitive.ObjectID `bson:"owner_ref"`
+	OwnerRef primitive.ObjectID `bson:"owner_ref" json:"owner_ref"`
 }
 
 //goland:noinspection SpellCheckingInspection
@@ -102,6 +106,10 @@ type TokensField struct {
 
 type TrackChangesStateField struct {
 	TrackChangesState map[string]bool `json:"trackChangesState" bson:"track_changes"`
+}
+
+type TrashedByField struct {
+	TrashedBy Refs `bson:"trashed"`
 }
 
 type TreeField struct {

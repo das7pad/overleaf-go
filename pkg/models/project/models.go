@@ -31,6 +31,16 @@ type JoinProjectViewPublic struct {
 	TreeField               `bson:"inline"`
 }
 
+type ListViewPrivate struct {
+	ArchivedByField         `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
+	IdField                 `bson:"inline"`
+	LastUpdatedAtField      `bson:"inline"`
+	LastUpdatedByField      `bson:"inline"`
+	NameField               `bson:"inline"`
+	TrashedByField          `bson:"inline"`
+}
+
 type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic    `bson:"inline"`
 	ActiveField             `bson:"inline"`

@@ -28,6 +28,7 @@ var (
 	withMembersProjection            = views.GetProjectionFor(WithMembers{})
 	withTokenMembersProjection       = views.GetProjectionFor(WithTokenMembers{})
 	joinProjectViewPrivateProjection = views.GetProjectionFor(JoinProjectViewPrivate{})
+	listViewPrivateProjection        = views.GetProjectionFor(ListViewPrivate{})
 	loadEditorViewPrivateProjection  = views.GetProjectionFor(LoadEditorViewPrivate{})
 )
 
@@ -43,6 +44,8 @@ func getProjection(model interface{}) views.View {
 		return loadEditorViewPrivateProjection
 	case *LoadEditorViewPrivate:
 		return loadEditorViewPrivateProjection
+	case []ListViewPrivate:
+		return listViewPrivateProjection
 	case WithMembers:
 		return withMembersProjection
 	case WithTokenMembers:

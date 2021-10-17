@@ -14,29 +14,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package tag
 
-type ProjectListViewCaller struct {
-	WithPublicInfo `bson:"inline"`
-	EmailsField    `bson:"inline"`
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type IdField struct {
+	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }
 
-type WithPublicInfo struct {
-	EmailField     `bson:"inline"`
-	FirstNameField `bson:"inline"`
-	IdField        `bson:"inline"`
-	LastNameField  `bson:"inline"`
+type NameField struct {
+	Name string `json:"name" bson:"name"`
 }
 
-type WithPublicInfoAndFeatures struct {
-	FeaturesField  `bson:"inline"`
-	WithPublicInfo `bson:"inline"`
+type ProjectIdsField struct {
+	ProjectIds []primitive.ObjectID `json:"project_ids" bson:"project_ids"`
 }
 
-type WithLoadEditorInfo struct {
-	AlphaProgramField         `bson:"inline"`
-	BetaProgramField          `bson:"inline"`
-	EditorConfigField         `bson:"inline"`
-	IsAdminField              `bson:"inline"`
-	WithPublicInfoAndFeatures `bson:"inline"`
+type UserIdField struct {
+	UserId string `json:"user_id" bson:"user_id"`
 }

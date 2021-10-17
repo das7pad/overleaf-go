@@ -14,29 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package tag
 
-type ProjectListViewCaller struct {
-	WithPublicInfo `bson:"inline"`
-	EmailsField    `bson:"inline"`
-}
-
-type WithPublicInfo struct {
-	EmailField     `bson:"inline"`
-	FirstNameField `bson:"inline"`
-	IdField        `bson:"inline"`
-	LastNameField  `bson:"inline"`
-}
-
-type WithPublicInfoAndFeatures struct {
-	FeaturesField  `bson:"inline"`
-	WithPublicInfo `bson:"inline"`
-}
-
-type WithLoadEditorInfo struct {
-	AlphaProgramField         `bson:"inline"`
-	BetaProgramField          `bson:"inline"`
-	EditorConfigField         `bson:"inline"`
-	IsAdminField              `bson:"inline"`
-	WithPublicInfoAndFeatures `bson:"inline"`
+type Full struct {
+	IdField         `bson:"inline"`
+	NameField       `bson:"inline"`
+	ProjectIdsField `bson:"inline"`
 }

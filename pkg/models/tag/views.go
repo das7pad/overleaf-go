@@ -14,29 +14,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package tag
 
-type ProjectListViewCaller struct {
-	WithPublicInfo `bson:"inline"`
-	EmailsField    `bson:"inline"`
-}
+import (
+	"fmt"
 
-type WithPublicInfo struct {
-	EmailField     `bson:"inline"`
-	FirstNameField `bson:"inline"`
-	IdField        `bson:"inline"`
-	LastNameField  `bson:"inline"`
-}
+	"github.com/das7pad/overleaf-go/pkg/models/internal/views"
+)
 
-type WithPublicInfoAndFeatures struct {
-	FeaturesField  `bson:"inline"`
-	WithPublicInfo `bson:"inline"`
-}
+var (
+	fullProjection = views.GetProjectionFor(Full{})
+)
 
-type WithLoadEditorInfo struct {
-	AlphaProgramField         `bson:"inline"`
-	BetaProgramField          `bson:"inline"`
-	EditorConfigField         `bson:"inline"`
-	IsAdminField              `bson:"inline"`
-	WithPublicInfoAndFeatures `bson:"inline"`
+func getProjection(model interface{}) views.View {
+	switch model.(type) {
+	case []Full:
+		return fullProjection
+	}
+	panic(fmt.Sprintf("missing projection for %v", model))
 }

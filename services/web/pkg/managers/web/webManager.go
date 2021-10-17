@@ -25,12 +25,14 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -68,6 +70,7 @@ type Manager interface {
 	) error
 
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
+	projectList.Manager
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
@@ -85,6 +88,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		return nil, err
 	}
 	pm := project.New(db)
+	tm := tag.New(db)
 	um := user.New(db)
 	cm, err := compile.New(options, client, dum, dm, pm)
 	if err != nil {
@@ -94,10 +98,12 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
 	)
 	em := editor.New(options, pm, um, dm, compileJWTHandler)
+	plm := projectList.New(options, pm, tm, um)
 	return &manager{
 		cm:                cm,
 		compileJWTHandler: compileJWTHandler,
 		em:                em,
+		plm:               plm,
 	}, nil
 }
 
@@ -105,6 +111,11 @@ type manager struct {
 	cm                compile.Manager
 	compileJWTHandler jwtHandler.JWTHandler
 	em                editor.Manager
+	plm               projectList.Manager
+}
+
+func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error {
+	return m.plm.ProjectList(ctx, request, response)
 }
 
 func (m *manager) GetCompileJWTHandler() jwtHandler.JWTHandler {

@@ -46,6 +46,8 @@ func getOptions() *webOptions {
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
 	o.options.JWT.Compile = jwtOptions.Parse("JWT_WEB_VERIFY_SECRET")
+	o.options.JWT.Notifications =
+		jwtOptions.Parse("JWT_NOTIFICATIONS_VERIFY_SECRET")
 	o.options.JWT.Spelling = jwtOptions.Parse("JWT_SPELLING_VERIFY_SECRET")
 	o.options.JWT.RealTime = jwtOptions.Parse("JWT_REAL_TIME_VERIFY_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()

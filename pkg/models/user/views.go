@@ -25,6 +25,7 @@ import (
 var (
 	epochFieldProjection                = views.GetProjectionFor(EpochField{})
 	featuresFieldProjection             = views.GetProjectionFor(FeaturesField{})
+	projectListViewCaller               = views.GetProjectionFor(ProjectListViewCaller{})
 	withLoadEditorInfoProjection        = views.GetProjectionFor(WithLoadEditorInfo{})
 	withPublicInfoAndFeaturesProjection = views.GetProjectionFor(WithPublicInfoAndFeatures{})
 	withPublicInfo                      = views.GetProjectionFor(WithPublicInfo{})
@@ -36,6 +37,8 @@ func getProjection(model interface{}) views.View {
 		return epochFieldProjection
 	case *FeaturesField:
 		return featuresFieldProjection
+	case *ProjectListViewCaller:
+		return projectListViewCaller
 	case WithPublicInfoAndFeatures:
 		return withPublicInfoAndFeaturesProjection
 	case *WithPublicInfoAndFeatures:

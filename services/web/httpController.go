@@ -53,6 +53,10 @@ func (h *httpController) GetRouter(
 	internalProjectUserRouter.Use(httpUtils.ValidateAndSetId("userId"))
 	internalProjectUserRouter.GET("/editorLocals", h.editorLocals)
 
+	internalUserRouter := internalRouter.Group("/user/:userId")
+	internalUserRouter.Use(httpUtils.ValidateAndSetId("userId"))
+	internalUserRouter.GET("/projectListLocals", h.projectListLocals)
+
 	jwtRouter := router.Group("/jwt/web")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
 	jwtRouter.Use(httpUtils.NoCache())
@@ -175,5 +179,18 @@ func (h *httpController) editorLocals(c *gin.Context) {
 	err := h.wm.LoadEditor(c, request, response)
 	t.End()
 	c.Header("Server-Timing", "editorLocals;dur="+t.MS())
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) projectListLocals(c *gin.Context) {
+	request := &types.ProjectListRequest{
+		UserId: httpUtils.GetId(c, "userId"),
+	}
+	response := &types.ProjectListResponse{}
+	t := &sharedTypes.Timed{}
+	t.Begin()
+	err := h.wm.ProjectList(c, request, response)
+	t.End()
+	c.Header("Server-Timing", "projectListLocals;dur="+t.MS())
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }

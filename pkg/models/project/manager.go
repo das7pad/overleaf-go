@@ -37,6 +37,7 @@ type Manager interface {
 	GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error)
 	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
 	GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error
+	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
 	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
@@ -58,6 +59,54 @@ func rewriteMongoError(err error) error {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error) {
+	var projects []ListViewPrivate
+	projection := getProjection(projects).CloneForWriting()
+
+	limitToUser := bson.M{
+		"$elemMatch": bson.M{
+			"$eq": userId,
+		},
+	}
+	// These fields are used for an authorization check only, we do not
+	//  need to fetch all of them.
+	for s := range withMembersProjection {
+		projection[s] = limitToUser
+	}
+	projection["archived"] = limitToUser
+	projection["trashed"] = limitToUser
+
+	//goland:noinspection SpellCheckingInspection
+	q := bson.M{
+		"$or": bson.A{
+			OwnerRefField{OwnerRef: userId},
+			bson.M{
+				"tokenAccessReadAndWrite_refs": userId,
+				"publicAccesLevel":             TokenBasedAccess,
+			},
+			bson.M{
+				"tokenAccessReadOnly_refs": userId,
+				"publicAccesLevel":         TokenBasedAccess,
+			},
+			bson.M{
+				"collaberator_refs": userId,
+			},
+			bson.M{
+				"readOnly_refs": userId,
+			},
+		},
+	}
+
+	r, err := m.c.Find(ctx, q, options.Find().SetProjection(projection))
+	if err != nil {
+		return projects, rewriteMongoError(err)
+	}
+	if err = r.All(ctx, &projects); err != nil {
+		return projects, rewriteMongoError(err)
+	}
+	return projects, nil
 }
 
 func (m *manager) GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error) {

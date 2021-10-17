@@ -36,6 +36,10 @@ type EmailField struct {
 	Email string `json:"email" bson:"email"`
 }
 
+type EmailsField struct {
+	Emails []EmailDetails `json:"emails" bson:"emails"`
+}
+
 type EpochField struct {
 	Epoch int64 `bson:"epoch"`
 }
