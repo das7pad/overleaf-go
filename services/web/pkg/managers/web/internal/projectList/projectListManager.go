@@ -140,7 +140,9 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 	})
 
 	eg.Go(func() error {
-		b, err := m.jwtNotifications.Sign(userIdJWT.Claims{UserId: userId})
+		c := m.jwtNotifications.New().(*userIdJWT.Claims)
+		c.UserId = userId
+		b, err := m.jwtNotifications.Sign(c)
 		if err != nil {
 			return errors.Tag(err, "cannot get notifications jwt")
 		}
