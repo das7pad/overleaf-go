@@ -202,10 +202,8 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 	concurrency := r.options.ParallelResourceWrite
 
 	work := make(chan *types.Resource, concurrency)
-	cleanupWork := make(chan sharedTypes.PathName, concurrency)
 	go func() {
 		defer close(work)
-		defer close(cleanupWork)
 
 		// Working with allFiles is very performant, but not thread-safe.
 		// Fetch and access it from this fan-out thread only.
