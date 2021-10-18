@@ -142,7 +142,7 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 	eg.Go(func() error {
 		c := m.jwtNotifications.New().(*userIdJWT.Claims)
 		c.UserId = userId
-		b, err := m.jwtNotifications.Sign(c)
+		b, err := m.jwtNotifications.SetExpiryAndSign(c)
 		if err != nil {
 			return errors.Tag(err, "cannot get notifications jwt")
 		}

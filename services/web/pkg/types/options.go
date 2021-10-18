@@ -76,5 +76,18 @@ func (o *Options) Validate() error {
 	if err := o.APIs.Filestore.URL.Validate(); err != nil {
 		return errors.Tag(err, "apis.filestore.url is invalid")
 	}
+
+	if err := o.JWT.Compile.Validate(); err != nil {
+		return errors.Tag(err, "jwt.compile is invalid")
+	}
+	if err := o.JWT.Notifications.Validate(); err != nil {
+		return errors.Tag(err, "jwt.notifications is invalid")
+	}
+	if err := o.JWT.RealTime.Validate(); err != nil {
+		return errors.Tag(err, "jwt.realTime is invalid")
+	}
+	if err := o.JWT.Spelling.Validate(); err != nil {
+		return errors.Tag(err, "jwt.spelling is invalid")
+	}
 	return nil
 }

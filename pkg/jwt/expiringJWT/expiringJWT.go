@@ -14,44 +14,44 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package jwtOptions
+package expiringJWT
 
 import (
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type JWTOptions struct {
-	Algorithm string        `json:"algo"`
-	Key       interface{}   `json:"key"`
-	ExpiresIn time.Duration `json:"expires_in"`
+type ExpiringJWT interface {
+	jwt.Claims
+	SetExpiry(expiresIn time.Duration)
 }
 
-func (j *JWTOptions) Validate() error {
-	if j.Algorithm == "" {
-		return &errors.ValidationError{Msg: "missing algo"}
-	}
-	if j.Key == nil {
-		return &errors.ValidationError{Msg: "missing key"}
-	}
-	if j.ExpiresIn == 0 {
-		return &errors.ValidationError{Msg: "missing expires_in"}
+var Expired = errors.New("jwt expired")
+
+type Claims struct {
+	expiresIn time.Duration
+	ExpiresAt int64 `json:"exp"`
+}
+
+func (j *Claims) SetExpiry(expiresIn time.Duration) {
+	j.expiresIn = expiresIn
+	j.ExpiresAt = time.Now().Add(expiresIn).Unix()
+}
+
+func (j Claims) ExpiresIn() time.Duration {
+	return j.expiresIn
+}
+
+// Valid validates the given expiry timestamp.
+// jwt.StandardClaims.Valid() ignores a timestamp of 0.
+func (j *Claims) Valid() error {
+	now := time.Now()
+	expiresAt := time.Unix(j.ExpiresAt, 0)
+	if now.After(expiresAt) {
+		return Expired
 	}
 	return nil
-}
-
-func (j *JWTOptions) FillFromEnv(name string) {
-	if j.Algorithm != "" || j.Key != nil {
-		return
-	}
-	j.Algorithm = "HS512"
-	j.Key = []byte(utils.MustGetStringFromEnv(name))
-}
-
-func Parse(key string) JWTOptions {
-	j := &JWTOptions{}
-	j.FillFromEnv(key)
-	return *j
 }

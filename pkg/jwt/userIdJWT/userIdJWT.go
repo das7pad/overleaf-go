@@ -18,15 +18,15 @@ package userIdJWT
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
 
 type Claims struct {
-	jwt.StandardClaims
+	expiringJWT.Claims
 	UserId primitive.ObjectID `json:"userId"`
 }
 
@@ -35,7 +35,7 @@ func (c *Claims) Populate(target *gin.Context) {
 }
 
 func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() jwt.Claims {
+	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
 		return &Claims{}
 	})
 }

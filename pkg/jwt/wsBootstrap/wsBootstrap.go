@@ -17,22 +17,22 @@
 package wsBootstrap
 
 import (
-	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Claims struct {
-	jwt.StandardClaims
+	expiringJWT.Claims
 	ProjectId primitive.ObjectID `json:"projectId"`
 	User      types.User         `json:"user"`
 }
 
 func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() jwt.Claims {
+	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
 		return &Claims{}
 	})
 }

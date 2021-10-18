@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
@@ -45,11 +44,10 @@ func getOptions() *webOptions {
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
-	o.options.JWT.Compile = jwtOptions.Parse("JWT_WEB_VERIFY_SECRET")
-	o.options.JWT.Notifications =
-		jwtOptions.Parse("JWT_NOTIFICATIONS_VERIFY_SECRET")
-	o.options.JWT.Spelling = jwtOptions.Parse("JWT_SPELLING_VERIFY_SECRET")
-	o.options.JWT.RealTime = jwtOptions.Parse("JWT_REAL_TIME_VERIFY_SECRET")
+	o.options.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
+	o.options.JWT.Notifications.FillFromEnv("JWT_NOTIFICATIONS_VERIFY_SECRET")
+	o.options.JWT.Spelling.FillFromEnv("JWT_SPELLING_VERIFY_SECRET")
+	o.options.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 	return o

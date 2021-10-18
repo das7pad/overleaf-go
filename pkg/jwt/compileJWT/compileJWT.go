@@ -19,16 +19,16 @@ package compileJWT
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
+	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Claims struct {
-	jwt.StandardClaims
+	expiringJWT.Claims
 	types.SignedCompileProjectRequestOptions
 	EpochProject int64 `json:"epoch_projectId"`
 	EpochUser    int64 `json:"epoch_userId"`
@@ -74,7 +74,7 @@ func MustGet(ctx *gin.Context) *Claims {
 }
 
 func New(options jwtOptions.JWTOptions, fetchProjectEpoch, fetchUserEpoch epochJWT.FetchEpochFromMongo, client redis.UniversalClient) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() jwt.Claims {
+	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
 		return &Claims{
 			fetchProjectEpoch: fetchProjectEpoch,
 			fetchUserEpoch:    fetchUserEpoch,

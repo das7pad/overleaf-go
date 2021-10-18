@@ -84,13 +84,13 @@ func (m *manager) genJWTCompile(ctx context.Context, projectId, userId primitive
 	if err := c.EpochItems().Populate(ctx); err != nil {
 		return "", err
 	}
-	return m.jwtCompile.Sign(c)
+	return m.jwtCompile.SetExpiryAndSign(c)
 }
 
 func (m *manager) genJWTSpelling(userId primitive.ObjectID) (string, error) {
 	c := m.jwtSpelling.New().(*userIdJWT.Claims)
 	c.UserId = userId
-	return m.jwtSpelling.Sign(c)
+	return m.jwtSpelling.SetExpiryAndSign(c)
 }
 
 func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublicInfo) (types.WSBootstrap, error) {
@@ -101,13 +101,13 @@ func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublic
 	c.User.FirstName = u.FirstName
 	c.User.LastName = u.LastName
 
-	blob, err := m.wsBootstrap.Sign(c)
+	blob, err := m.wsBootstrap.SetExpiryAndSign(c)
 	if err != nil {
 		return types.WSBootstrap{}, err
 	}
 	return types.WSBootstrap{
 		JWT:       blob,
-		ExpiresIn: int64(m.wsBootstrap.ExpiresIn().Seconds()),
+		ExpiresIn: int64(c.ExpiresIn().Seconds()),
 	}, nil
 }
 
@@ -230,7 +230,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		c.Timeout = ownerFeatures.CompileTimeout
 		c.UserId = userId
 
-		s, err := m.jwtCompile.Sign(c)
+		s, err := m.jwtCompile.SetExpiryAndSign(c)
 		if err != nil {
 			return errors.Tag(err, "cannot get compile jwt")
 		}

@@ -21,17 +21,17 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 
+	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
 
 type JWTHandler interface {
-	New() jwt.Claims
-	ExpiresIn() time.Duration
-	Parse(blob string) (jwt.Claims, error)
-	Sign(claims jwt.Claims) (string, error)
+	New() expiringJWT.ExpiringJWT
+	Parse(blob string) (expiringJWT.ExpiringJWT, error)
+	SetExpiryAndSign(claims expiringJWT.ExpiringJWT) (string, error)
 }
 
-type NewClaims func() jwt.Claims
+type NewClaims func() expiringJWT.ExpiringJWT
 
 func New(options jwtOptions.JWTOptions, newClaims NewClaims) JWTHandler {
 	method := jwt.GetSigningMethod(options.Algorithm)
@@ -62,23 +62,20 @@ type handler struct {
 	p         jwt.Parser
 }
 
-func (h *handler) ExpiresIn() time.Duration {
-	return h.expiresIn
-}
-
-func (h *handler) New() jwt.Claims {
+func (h *handler) New() expiringJWT.ExpiringJWT {
 	return h.newClaims()
 }
 
-func (h *handler) Parse(blob string) (jwt.Claims, error) {
+func (h *handler) Parse(blob string) (expiringJWT.ExpiringJWT, error) {
 	t, err := h.p.ParseWithClaims(blob, h.newClaims(), h.keyFn)
 	if err != nil {
 		return nil, err
 	}
-	return t.Claims, nil
+	return t.Claims.(expiringJWT.ExpiringJWT), nil
 }
 
-func (h *handler) Sign(claims jwt.Claims) (string, error) {
+func (h *handler) SetExpiryAndSign(claims expiringJWT.ExpiringJWT) (string, error) {
+	claims.SetExpiry(h.expiresIn)
 	t := jwt.NewWithClaims(h.method, claims)
 	return t.SignedString(h.key)
 }
