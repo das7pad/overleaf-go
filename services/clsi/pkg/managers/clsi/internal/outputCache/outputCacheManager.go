@@ -94,11 +94,11 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 		var size int64
 		if fileName == "output.pdf" {
 			// Fetch the file stats before potentially moving the file.
-			if info, err2 := d.Info(); err2 != nil {
+			info, err2 := d.Info()
+			if err2 != nil {
 				return nil, false, err2
-			} else {
-				size = info.Size()
 			}
+			size = info.Size()
 			hasOutputPDF = true
 		}
 
@@ -118,7 +118,9 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 			}
 		} else {
 			if err = copyFile.NonAtomic(src, dest); err != nil {
-				return nil, false, err
+				return nil, false, errors.Tag(
+					err, "cannot copy "+src+" -> "+dest,
+				)
 			}
 		}
 
