@@ -201,7 +201,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 
 	concurrency := r.options.ParallelResourceWrite
 
-	work := make(chan *types.Resource, concurrency)
+	work := make(chan *types.Resource, concurrency*3)
 	go func() {
 		defer close(work)
 
