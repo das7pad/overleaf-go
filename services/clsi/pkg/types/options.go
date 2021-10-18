@@ -60,6 +60,7 @@ type Options struct {
 	GetCapacityRefreshEvery time.Duration `json:"get_capacity_refresh_every_ns"`
 	HealthCheckRefreshEvery time.Duration `json:"health_check_refresh_every_ns"`
 
+	ParallelOutputWrite       int64 `json:"parallel_output_write"`
 	ParallelResourceWrite     int64 `json:"parallel_resource_write"`
 	MaxFilesAndDirsPerProject int64 `json:"max_files_and_dirs_per_project"`
 
@@ -95,6 +96,11 @@ func (o *Options) Validate() error {
 	if o.OutputBaseDir == "" {
 		return &errors.ValidationError{
 			Msg: "missing output_base_dir",
+		}
+	}
+	if o.ParallelOutputWrite == 0 {
+		return &errors.ValidationError{
+			Msg: "missing parallel_output_write",
 		}
 	}
 	if o.ParallelResourceWrite == 0 {

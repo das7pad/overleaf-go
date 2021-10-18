@@ -25,6 +25,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
@@ -79,59 +81,86 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 	if err != nil {
 		return nil, false, err
 	}
+
+	eg, pCtx := errgroup.WithContext(ctx)
+	concurrency := m.options.ParallelOutputWrite
+	work := make(chan sharedTypes.PathName, 3*concurrency)
 	outputFiles := make(types.OutputFiles, 0)
 	hasOutputPDF := HasOutputPDF(false)
-	for fileName, d := range allFiles.FileStats {
-		if _, isResource := allResources[fileName]; isResource {
-			continue
-		}
-
-		// Take the file mode from bulk scan results.
-		if !d.Type().IsRegular() {
-			continue
-		}
-
-		var size int64
-		if fileName == "output.pdf" {
-			// Fetch the file stats before potentially moving the file.
-			info, err2 := d.Info()
-			if err2 != nil {
-				return nil, false, err2
+	eg.Go(func() error {
+		defer close(work)
+		aborted := pCtx.Done()
+		for fileName, d := range allFiles.FileStats {
+			if _, isResource := allResources[fileName]; isResource {
+				continue
 			}
-			size = info.Size()
-			hasOutputPDF = true
-		}
 
-		if err = dirHelper.EnsureIsWritable(fileName); err != nil {
-			return nil, false, err
-		}
-
-		src := compileDir.Join(fileName)
-		dest := compileOutputDir.Join(fileName)
-		if resourceCleanup.ShouldDelete(fileName) {
-			// Optimization: Steal the file from the compileDir.
-			// The next compile request would delete it anyways.
-			if err = syscall.Rename(src, dest); err != nil {
-				return nil, false, errors.Tag(
-					err, "cannot rename "+src+" -> "+dest,
-				)
+			// Take the file mode from bulk scan results.
+			if !d.Type().IsRegular() {
+				continue
 			}
-		} else {
-			if err = copyFile.NonAtomic(src, dest); err != nil {
-				return nil, false, errors.Tag(
-					err, "cannot copy "+src+" -> "+dest,
-				)
+
+			if err2 := pCtx.Err(); err2 != nil {
+				return err2
+			}
+
+			var size int64
+			if fileName == "output.pdf" {
+				// Fetch the file stats before potentially moving the file.
+				info, err2 := d.Info()
+				if err2 != nil {
+					return err2
+				}
+				size = info.Size()
+				hasOutputPDF = true
+			}
+
+			if err2 := dirHelper.EnsureIsWritable(fileName); err2 != nil {
+				return err2
+			}
+
+			file := types.OutputFile{
+				Build:        buildId,
+				DownloadPath: getDownloadPath(namespace, buildId, fileName),
+				Path:         fileName,
+				Type:         fileName.Type(),
+				Size:         size,
+			}
+			outputFiles = append(outputFiles, file)
+			select {
+			case work <- fileName:
+				continue
+			case <-aborted:
+				return pCtx.Err()
 			}
 		}
+		return nil
+	})
 
-		file := types.OutputFile{
-			Build:        buildId,
-			DownloadPath: getDownloadPath(namespace, buildId, fileName),
-			Path:         fileName,
-			Type:         fileName.Type(),
-			Size:         size,
-		}
-		outputFiles = append(outputFiles, file)
+	for i := int64(0); i < concurrency; i++ {
+		eg.Go(func() error {
+			for fileName := range work {
+				src := compileDir.Join(fileName)
+				dest := compileOutputDir.Join(fileName)
+				if resourceCleanup.ShouldDelete(fileName) {
+					// Optimization: Steal the file from the compileDir.
+					// The next compile request would delete it anyways.
+					if err2 := syscall.Rename(src, dest); err2 != nil {
+						return errors.Tag(
+							err2, "cannot rename "+src+" -> "+dest,
+						)
+					}
+				} else {
+					if err2 := copyFile.NonAtomic(src, dest); err2 != nil {
+						return errors.Tag(err2, "cannot copy "+src+" -> "+dest)
+					}
+				}
+			}
+			return nil
+		})
+	}
+	if err = eg.Wait(); err != nil {
+		return nil, false, err
 	}
 	cleanupExpired(outputDir, buildId, namespace)
 	return outputFiles, hasOutputPDF, nil
