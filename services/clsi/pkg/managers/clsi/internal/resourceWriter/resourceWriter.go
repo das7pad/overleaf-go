@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -188,43 +189,31 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 		return err
 	}
 
-	workCtx, cancelWork := context.WithCancel(ctx)
-	defer cancelWork()
-
-	var triggerError error
-	setErr := func(err error) {
-		if triggerError == nil {
-			triggerError = err
-		}
-		cancelWork()
-	}
-
+	eg, workCtx := errgroup.WithContext(ctx)
 	concurrency := r.options.ParallelResourceWrite
 
 	work := make(chan *types.Resource, concurrency*3)
-	go func() {
+	eg.Go(func() error {
 		defer close(work)
 
 		// Working with allFiles is very performant, but not thread-safe.
 		// Fetch and access it from this fan-out thread only.
 		allFiles, finderErr := r.finder.FindAll(workCtx, compileDir)
 		if finderErr != nil {
-			setErr(finderErr)
-			return
+			return finderErr
 		}
 
+		aborted := workCtx.Done()
 		for _, resource := range request.Resources {
 			err := allFiles.EnsureIsWritable(resource.Path, compileDir)
 			if err != nil {
-				setErr(err)
-				return
+				return err
 			}
 			select {
 			case work <- resource:
 				continue
-			case <-workCtx.Done():
-				setErr(workCtx.Err())
-				return
+			case <-aborted:
+				return workCtx.Err()
 			}
 		}
 		foundResources := 0
@@ -245,13 +234,11 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 				continue
 			}
 			if err := allFiles.Delete(fileName, compileDir); err != nil {
-				setErr(err)
-				return
+				return err
 			}
 			// Check context on slow path only.
 			if err := workCtx.Err(); err != nil {
-				setErr(err)
-				return
+				return err
 			}
 		}
 		if foundResources != len(allResources) {
@@ -265,19 +252,13 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 				missing = append(missing, s)
 			}
 			flat := strings.Join(missing, ", ")
-			setErr(&errors.InvalidStateError{
-				Msg: "missing files: " + flat,
-			})
-			return
+			return &errors.InvalidStateError{Msg: "missing files: " + flat}
 		}
-	}()
+		return nil
+	})
 
-	workDone := make(chan bool)
 	for i := int64(0); i < concurrency; i++ {
-		go func() {
-			defer func() {
-				workDone <- true
-			}()
+		eg.Go(func() error {
 			for resource := range work {
 				err := r.writeResource(
 					workCtx,
@@ -287,17 +268,20 @@ func (r *resourceWriter) sync(ctx context.Context, projectId primitive.ObjectID,
 				)
 				if err != nil {
 					p := resource.Path.String()
-					setErr(errors.Tag(err, "write failed for "+p))
-					return
+					return errors.Tag(err, "write failed for "+p)
 				}
 			}
-		}()
+			return nil
+		})
 	}
 
-	for i := int64(0); i < concurrency; i++ {
-		<-workDone
+	if err := eg.Wait(); err != nil {
+		for range work {
+			// Flush the queue.
+		}
+		return err
 	}
-	return triggerError
+	return nil
 }
 
 func (r *resourceWriter) writeResource(ctx context.Context, projectId primitive.ObjectID, resource *types.Resource, compileDir types.CompileDir) error {
