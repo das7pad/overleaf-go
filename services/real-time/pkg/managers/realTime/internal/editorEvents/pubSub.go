@@ -71,7 +71,7 @@ var nonRestrictedMessages = []string{
 }
 
 func (r *ProjectRoom) Handle(raw string) {
-	var msg types.EditorEventsMessage
+	var msg sharedTypes.EditorEventsMessage
 	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
 		log.Println("cannot parse editorEvents message: " + err.Error())
 		return
@@ -153,7 +153,7 @@ func (r *ProjectRoom) refreshClientPositions() error {
 	r.nextProjectRefresh = t.Add(clientTracking.RefreshProjectEvery)
 	return nil
 }
-func (r *ProjectRoom) handleClientTrackingUpdated(msg *types.EditorEventsMessage) error {
+func (r *ProjectRoom) handleClientTrackingUpdated(msg *sharedTypes.EditorEventsMessage) error {
 	var notification types.ClientPositionUpdateNotification
 	if err := json.Unmarshal(msg.Payload, &notification); err != nil {
 		return errors.Tag(err, "cannot decode notification")
@@ -161,11 +161,11 @@ func (r *ProjectRoom) handleClientTrackingUpdated(msg *types.EditorEventsMessage
 	return r.handleMessageFromSource(msg, notification.Source)
 }
 
-func (r *ProjectRoom) handleMessage(msg *types.EditorEventsMessage) error {
+func (r *ProjectRoom) handleMessage(msg *sharedTypes.EditorEventsMessage) error {
 	return r.handleMessageFromSource(msg, "")
 }
 
-func (r *ProjectRoom) handleMessageFromSource(msg *types.EditorEventsMessage, id sharedTypes.PublicId) error {
+func (r *ProjectRoom) handleMessageFromSource(msg *sharedTypes.EditorEventsMessage, id sharedTypes.PublicId) error {
 	resp := types.RPCResponse{
 		Name: msg.Message,
 		Body: msg.Payload,

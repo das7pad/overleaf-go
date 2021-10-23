@@ -377,12 +377,12 @@ func (m *manager) updatePosition(rpc *types.RPC) error {
 	if err != nil {
 		return errors.Tag(err, "cannot encode notification")
 	}
-	msg := types.EditorEventsMessage{
+	msg := &sharedTypes.EditorEventsMessage{
 		RoomId:  *rpc.Client.ProjectId,
 		Message: editorEvents.ClientTrackingClientUpdated,
 		Payload: body,
 	}
-	if err = m.editorEvents.Publish(rpc, &msg); err != nil {
+	if err = m.editorEvents.Publish(rpc, msg); err != nil {
 		return errors.Tag(err, "cannot send notification")
 	}
 	if rpc.Request.Callback == 0 {
@@ -425,14 +425,14 @@ func (m *manager) cleanupClientTracking(client *types.Client) (bool, error) {
 	nowEmpty := m.clientTracking.DeleteClientPosition(client)
 
 	body := json.RawMessage("\"" + client.PublicId + "\"")
-	msg := types.EditorEventsMessage{
+	msg := &sharedTypes.EditorEventsMessage{
 		RoomId:  *client.ProjectId,
 		Message: "clientTracking.clientDisconnected",
 		Payload: body,
 	}
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	if err := m.editorEvents.Publish(ctx, &msg); err != nil {
+	if err := m.editorEvents.Publish(ctx, msg); err != nil {
 		return nowEmpty, errors.Tag(
 			err, "cannot send notification for disconnect",
 		)
