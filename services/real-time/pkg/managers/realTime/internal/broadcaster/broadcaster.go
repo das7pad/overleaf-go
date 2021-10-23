@@ -23,6 +23,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/pendingOperation"
@@ -32,12 +33,13 @@ import (
 type Broadcaster interface {
 	Join(ctx context.Context, client *types.Client, id primitive.ObjectID) error
 	Leave(client *types.Client, id primitive.ObjectID) error
+	StartListening(ctx context.Context) error
 	TriggerGracefulReconnect() int
 }
 
 type NewRoom func(room *TrackingRoom) Room
 
-func New(ctx context.Context, c channel.Manager, newRoom NewRoom) Broadcaster {
+func New(c channel.Manager, newRoom NewRoom) Broadcaster {
 	b := &broadcaster{
 		c:        c,
 		newRoom:  newRoom,
@@ -46,8 +48,6 @@ func New(ctx context.Context, c channel.Manager, newRoom NewRoom) Broadcaster {
 		mux:      sync.RWMutex{},
 		rooms:    make(map[primitive.ObjectID]Room),
 	}
-	go b.processQueue()
-	go b.listen(ctx)
 	return b
 }
 
@@ -308,22 +308,31 @@ func (b *broadcaster) processAllMessages() {
 	}
 }
 
-func (b *broadcaster) listen(ctx context.Context) {
+func (b *broadcaster) StartListening(ctx context.Context) error {
+	c, err := b.c.Listen(ctx)
+	if err != nil {
+		return errors.Tag(err, "cannot listen on all channel")
+	}
+
+	go b.processQueue()
 	go b.processAllMessages()
-	defer close(b.allQueue)
-	for raw := range b.c.Listen(ctx) {
-		switch raw.Action {
-		case channel.Unsubscribed:
-			b.queue <- action{
-				operation: cleanup,
-				id:        raw.Channel,
-			}
-		case channel.Message:
-			if raw.Channel == primitive.NilObjectID {
-				b.allQueue <- raw
-			} else {
-				b.handleMessage(raw)
+	go func() {
+		defer close(b.allQueue)
+		for raw := range c {
+			switch raw.Action {
+			case channel.Unsubscribed:
+				b.queue <- action{
+					operation: cleanup,
+					id:        raw.Channel,
+				}
+			case channel.Message:
+				if raw.Channel == primitive.NilObjectID {
+					b.allQueue <- raw
+				} else {
+					b.handleMessage(raw)
+				}
 			}
 		}
-	}
+	}()
+	return nil
 }

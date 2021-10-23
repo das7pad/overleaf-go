@@ -17,7 +17,6 @@
 package appliedOps
 
 import (
-	"context"
 	"encoding/json"
 	"math/rand"
 
@@ -36,19 +35,15 @@ type Manager interface {
 	QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate) error
 }
 
-func New(ctx context.Context, options *types.Options, client redis.UniversalClient) (Manager, error) {
-	c, err := channel.New(ctx, client, "applied-ops")
-	if err != nil {
-		return nil, err
-	}
-	b := broadcaster.New(ctx, c, newRoom)
-	m := manager{
+func New(options *types.Options, client redis.UniversalClient) Manager {
+	c := channel.New(client, "applied-ops")
+	b := broadcaster.New(c, newRoom)
+	return &manager{
 		Broadcaster:                  b,
 		channel:                      c,
 		client:                       client,
 		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
 	}
-	return &m, nil
 }
 
 type manager struct {

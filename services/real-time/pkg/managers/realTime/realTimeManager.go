@@ -50,13 +50,13 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 		return nil, err
 	}
 
-	a, err := appliedOps.New(ctx, options, client)
-	if err != nil {
+	a := appliedOps.New(options, client)
+	if err := a.StartListening(ctx); err != nil {
 		return nil, err
 	}
 	c := clientTracking.New(client)
-	e, err := editorEvents.New(ctx, client, c)
-	if err != nil {
+	e := editorEvents.New(client, c)
+	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
 	w, err := webApi.New(options, db)

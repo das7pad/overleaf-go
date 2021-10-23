@@ -35,11 +35,8 @@ type Manager interface {
 	Broadcast(ctx context.Context, message *types.EditorEventsMessage) error
 }
 
-func New(ctx context.Context, client redis.UniversalClient, clientTracking clientTracking.Manager) (Manager, error) {
-	c, err := channel.New(ctx, client, "editor-events")
-	if err != nil {
-		return nil, err
-	}
+func New(client redis.UniversalClient, clientTracking clientTracking.Manager) Manager {
+	c := channel.New(client, "editor-events")
 	newRoom := func(room *broadcaster.TrackingRoom) broadcaster.Room {
 		now := time.Now()
 		return &ProjectRoom{
@@ -49,11 +46,11 @@ func New(ctx context.Context, client redis.UniversalClient, clientTracking clien
 			nextClientRefresh:  now,
 		}
 	}
-	b := broadcaster.New(ctx, c, newRoom)
+	b := broadcaster.New(c, newRoom)
 	return &manager{
 		Broadcaster: b,
 		c:           c,
-	}, nil
+	}
 }
 
 type manager struct {

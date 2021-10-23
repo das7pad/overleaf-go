@@ -42,7 +42,7 @@ type Manager interface {
 	Subscribe(ctx context.Context, id primitive.ObjectID) error
 	Unsubscribe(ctx context.Context, id primitive.ObjectID) error
 	Publish(ctx context.Context, id primitive.ObjectID, msg string) error
-	Listen(ctx context.Context) <-chan *PubSubMessage
+	Listen(ctx context.Context) (<-chan *PubSubMessage, error)
 	Close()
 }
 
@@ -64,18 +64,11 @@ func (c BaseChannel) parseIdFromChannel(s string) primitive.ObjectID {
 	return id
 }
 
-func New(ctx context.Context, client redis.UniversalClient, baseChannel BaseChannel) (Manager, error) {
-	p := client.Subscribe(ctx, string(baseChannel))
-
-	if _, err := p.Receive(ctx); err != nil {
-		return nil, err
-	}
-
+func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
 	return &manager{
 		client: client,
-		p:      p,
 		base:   baseChannel,
-	}, nil
+	}
 }
 
 type manager struct {
@@ -96,7 +89,12 @@ func (m *manager) Publish(ctx context.Context, id primitive.ObjectID, msg string
 	return m.client.Publish(ctx, string(m.base.join(id)), msg).Err()
 }
 
-func (m *manager) Listen(ctx context.Context) <-chan *PubSubMessage {
+func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
+	m.p = m.client.Subscribe(ctx, string(m.base))
+	if _, err := m.p.Receive(ctx); err != nil {
+		return nil, err
+	}
+
 	rawC := make(chan *PubSubMessage, 100)
 	go func() {
 		defer close(rawC)
@@ -133,7 +131,7 @@ func (m *manager) Listen(ctx context.Context) <-chan *PubSubMessage {
 			}
 		}
 	}()
-	return rawC
+	return rawC, nil
 }
 
 func (m *manager) Close() {
