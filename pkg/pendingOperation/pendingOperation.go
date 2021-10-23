@@ -61,7 +61,7 @@ func (c *pendingOperation) Wait(ctx context.Context) error {
 		}
 		return ctx.Err()
 	case <-c.Done():
-		return c.Err()
+		return c.err
 	}
 }
 
@@ -77,4 +77,10 @@ func newPendingOperation() (PendingOperation, func(err error)) {
 		err: OperationStillPending,
 	}
 	return pending, pending.setErr
+}
+
+func TrackOperation(fn func() error) PendingOperation {
+	p, setErr := newPendingOperation()
+	go setErr(fn())
+	return p
 }

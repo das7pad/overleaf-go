@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -34,7 +35,7 @@ type Project interface {
 	IsDead() bool
 	IsHealthy(activeThreshold time.Time) bool
 
-	Cleanup() PendingOperation
+	Cleanup() pendingOperation.PendingOperation
 
 	CleanupUnlessHealthy(
 		ctx context.Context,
@@ -122,14 +123,14 @@ type project struct {
 
 	state          types.SyncState
 	stateMux       sync.RWMutex
-	pendingCleanup PendingOperation
+	pendingCleanup pendingOperation.PendingOperation
 
 	runnerSetupValidUntil time.Time
 	runnerSetupMux        sync.RWMutex
-	pendingRunnerSetup    PendingOperationWithCancel
+	pendingRunnerSetup    pendingOperation.WithCancel
 
 	compileMux     sync.Mutex
-	pendingCompile PendingOperationWithCancel
+	pendingCompile pendingOperation.WithCancel
 
 	*managers
 }
@@ -142,7 +143,7 @@ func (p *project) IsHealthy(activeThreshold time.Time) bool {
 	return !p.IsDead() && p.lastAccess.After(activeThreshold)
 }
 
-func (p *project) Cleanup() PendingOperation {
+func (p *project) Cleanup() pendingOperation.PendingOperation {
 	p.dead = true
 	pending := p.triggerCleanup()
 	return pending
@@ -202,7 +203,7 @@ func (p *project) Compile(ctx context.Context, request *types.CompileRequest, re
 		return &errors.AlreadyCompilingError{}
 	}
 
-	p.pendingCompile = trackOperationWithCancel(
+	p.pendingCompile = pendingOperation.TrackOperationWithCancel(
 		ctx,
 		func(compileCtx context.Context) error {
 			return p.doCompile(compileCtx, request, response)
@@ -389,7 +390,7 @@ func (p *project) doCleanup() error {
 	return nil
 }
 
-func (p *project) triggerCleanup() PendingOperation {
+func (p *project) triggerCleanup() pendingOperation.PendingOperation {
 	pendingBeforeLock := p.pendingCleanup
 	if pendingBeforeLock != nil && pendingBeforeLock.IsPending() {
 		return pendingBeforeLock
@@ -412,7 +413,7 @@ func (p *project) triggerCleanup() PendingOperation {
 		return nextPending
 	}
 
-	p.pendingCleanup = trackOperation(p.doCleanup)
+	p.pendingCleanup = pendingOperation.TrackOperation(p.doCleanup)
 	return p.pendingCleanup
 }
 
@@ -486,7 +487,7 @@ func (p *project) setupRunner(ctx context.Context, imageName types.ImageName) er
 	return nil
 }
 
-func (p *project) triggerRunnerSetup(ctx context.Context, imageName types.ImageName) (PendingOperation, error) {
+func (p *project) triggerRunnerSetup(ctx context.Context, imageName types.ImageName) (pendingOperation.PendingOperation, error) {
 	pendingBeforeLock := p.pendingRunnerSetup
 	if pendingBeforeLock != nil && pendingBeforeLock.IsPending() {
 		return pendingBeforeLock, nil
@@ -507,7 +508,7 @@ func (p *project) triggerRunnerSetup(ctx context.Context, imageName types.ImageN
 		return nextPending, nil
 	}
 
-	p.pendingRunnerSetup = trackOperationWithCancel(
+	p.pendingRunnerSetup = pendingOperation.TrackOperationWithCancel(
 		ctx,
 		func(setupCtx context.Context) error {
 			validUntil, err := p.runner.Setup(setupCtx, p.namespace, imageName)
