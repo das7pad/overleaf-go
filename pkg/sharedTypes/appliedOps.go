@@ -222,6 +222,10 @@ type AppliedOpsMessage struct {
 	ProcessedBy string                  `json:"processed_by,omitempty"`
 }
 
+func (m *AppliedOpsMessage) ChannelId() primitive.ObjectID {
+	return m.DocId
+}
+
 func (m *AppliedOpsMessage) Validate() error {
 	if m.Update != nil {
 		if err := m.Update.Validate(); err != nil {

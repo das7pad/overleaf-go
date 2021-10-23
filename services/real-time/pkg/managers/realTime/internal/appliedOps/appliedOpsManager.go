@@ -23,10 +23,10 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 

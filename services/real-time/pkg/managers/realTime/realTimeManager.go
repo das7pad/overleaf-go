@@ -382,7 +382,7 @@ func (m *manager) updatePosition(rpc *types.RPC) error {
 		Message: editorEvents.ClientTrackingClientUpdated,
 		Payload: body,
 	}
-	if err = m.editorEvents.Broadcast(rpc, &msg); err != nil {
+	if err = m.editorEvents.Publish(rpc, &msg); err != nil {
 		return errors.Tag(err, "cannot send notification")
 	}
 	if rpc.Request.Callback == 0 {
@@ -432,7 +432,7 @@ func (m *manager) cleanupClientTracking(client *types.Client) (bool, error) {
 	}
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	if err := m.editorEvents.Broadcast(ctx, &msg); err != nil {
+	if err := m.editorEvents.Publish(ctx, &msg); err != nil {
 		return nowEmpty, errors.Tag(
 			err, "cannot send notification for disconnect",
 		)

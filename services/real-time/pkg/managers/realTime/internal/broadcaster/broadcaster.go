@@ -25,8 +25,8 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -325,7 +325,7 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 					operation: cleanup,
 					id:        raw.Channel,
 				}
-			case channel.Message:
+			case channel.IncomingMessage:
 				if raw.Channel == primitive.NilObjectID {
 					b.allQueue <- raw
 				} else {

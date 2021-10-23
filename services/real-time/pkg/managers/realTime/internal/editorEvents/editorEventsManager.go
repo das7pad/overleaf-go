@@ -17,22 +17,18 @@
 package editorEvents
 
 import (
-	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Manager interface {
 	broadcaster.Broadcaster
-
-	Broadcast(ctx context.Context, message *types.EditorEventsMessage) error
+	channel.Writer
 }
 
 func New(client redis.UniversalClient, clientTracking clientTracking.Manager) Manager {
@@ -49,20 +45,11 @@ func New(client redis.UniversalClient, clientTracking clientTracking.Manager) Ma
 	b := broadcaster.New(c, newRoom)
 	return &manager{
 		Broadcaster: b,
-		c:           c,
+		Writer:      c,
 	}
 }
 
 type manager struct {
 	broadcaster.Broadcaster
-
-	c channel.Manager
-}
-
-func (m *manager) Broadcast(ctx context.Context, message *types.EditorEventsMessage) error {
-	body, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-	return m.c.Publish(ctx, message.RoomId, string(body))
+	channel.Writer
 }

@@ -31,6 +31,10 @@ type EditorEventsMessage struct {
 	Payload     json.RawMessage    `json:"payload"`
 }
 
+func (m *EditorEventsMessage) ChannelId() primitive.ObjectID {
+	return m.RoomId
+}
+
 func (m *EditorEventsMessage) Validate() error {
 	if m.HealthCheck {
 		return nil

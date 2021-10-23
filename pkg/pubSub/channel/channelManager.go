@@ -18,17 +18,20 @@ package channel
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Action int
 
 const (
-	Message Action = iota
+	IncomingMessage Action = iota
 	Unsubscribed
 )
 
@@ -38,10 +41,19 @@ type PubSubMessage struct {
 	Action  Action
 }
 
+type Message interface {
+	ChannelId() primitive.ObjectID
+}
+
+type Writer interface {
+	Publish(ctx context.Context, msg Message) error
+	PublishVia(ctx context.Context, runner redis.Cmdable, msg Message) (*redis.IntCmd, error)
+}
+
 type Manager interface {
+	Writer
 	Subscribe(ctx context.Context, id primitive.ObjectID) error
 	Unsubscribe(ctx context.Context, id primitive.ObjectID) error
-	Publish(ctx context.Context, id primitive.ObjectID, msg string) error
 	Listen(ctx context.Context) (<-chan *PubSubMessage, error)
 	Close()
 }
@@ -85,8 +97,24 @@ func (m *manager) Unsubscribe(ctx context.Context, id primitive.ObjectID) error 
 	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
 }
 
-func (m *manager) Publish(ctx context.Context, id primitive.ObjectID, msg string) error {
-	return m.client.Publish(ctx, string(m.base.join(id)), msg).Err()
+func (m *manager) Publish(ctx context.Context, msg Message) error {
+	cmd, err := m.PublishVia(ctx, m.client, msg)
+	if err != nil {
+		return err
+	}
+	if err = cmd.Err(); err != nil {
+		return errors.Tag(err, "cannot send message")
+	}
+	return nil
+}
+
+func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Message) (*redis.IntCmd, error) {
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot encode message for publishing")
+	}
+	id := msg.ChannelId()
+	return runner.Publish(ctx, string(m.base.join(id)), body), nil
 }
 
 func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
@@ -126,7 +154,7 @@ func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
 				rawC <- &PubSubMessage{
 					Msg:     msg.Payload,
 					Channel: m.base.parseIdFromChannel(msg.Channel),
-					Action:  Message,
+					Action:  IncomingMessage,
 				}
 			}
 		}
