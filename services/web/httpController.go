@@ -90,7 +90,7 @@ func (h *httpController) clearProjectCache(c *gin.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	err := h.wm.ClearProjectCache(
+	err := h.wm.ClearCache(
 		c,
 		mustGetSignedCompileProjectOptionsFromJwt(c),
 		request.ClsiServerId,
@@ -106,7 +106,7 @@ func (h *httpController) compileProject(c *gin.Context) {
 	request.SignedCompileProjectRequestOptions =
 		mustGetSignedCompileProjectOptionsFromJwt(c)
 	response := &types.CompileProjectResponse{}
-	err := h.wm.CompileProject(
+	err := h.wm.Compile(
 		c,
 		request,
 		response,

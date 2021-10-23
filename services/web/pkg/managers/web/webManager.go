@@ -17,8 +17,6 @@
 package web
 
 import (
-	"context"
-
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -27,7 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
@@ -39,37 +36,8 @@ import (
 type Manager interface {
 	GetCompileJWTHandler() jwtHandler.JWTHandler
 
-	ClearProjectCache(
-		ctx context.Context,
-		options types.SignedCompileProjectRequestOptions,
-		clsiServerId types.ClsiServerId,
-	) error
-
-	CompileProject(
-		ctx context.Context,
-		request *types.CompileProjectRequest,
-		response *types.CompileProjectResponse,
-	) error
-
-	SyncFromCode(
-		ctx context.Context,
-		request *types.SyncFromCodeRequest,
-		positions *clsiTypes.PDFPositions,
-	) error
-
-	SyncFromPDF(
-		ctx context.Context,
-		request *types.SyncFromPDFRequest,
-		positions *clsiTypes.CodePositions,
-	) error
-
-	WordCount(
-		ctx context.Context,
-		request *types.WordCountRequest,
-		words *clsiTypes.Words,
-	) error
-
-	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
+	compile.Manager
+	editor.Manager
 	projectList.Manager
 }
 
@@ -100,48 +68,24 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	em := editor.New(options, pm, um, dm, compileJWTHandler)
 	plm := projectList.New(options, pm, tm, um)
 	return &manager{
-		cm:                cm,
-		compileJWTHandler: compileJWTHandler,
-		em:                em,
-		plm:               plm,
+		compileJWTHandler:  compileJWTHandler,
+		compileManager:     cm,
+		editorManager:      em,
+		projectListManager: plm,
 	}, nil
 }
 
-type manager struct {
-	cm                compile.Manager
-	compileJWTHandler jwtHandler.JWTHandler
-	em                editor.Manager
-	plm               projectList.Manager
-}
+type compileManager = compile.Manager
+type editorManager = editor.Manager
+type projectListManager = projectList.Manager
 
-func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error {
-	return m.plm.ProjectList(ctx, request, response)
+type manager struct {
+	compileManager
+	editorManager
+	projectListManager
+	compileJWTHandler jwtHandler.JWTHandler
 }
 
 func (m *manager) GetCompileJWTHandler() jwtHandler.JWTHandler {
 	return m.compileJWTHandler
-}
-
-func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error {
-	return m.em.LoadEditor(ctx, request, response)
-}
-
-func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {
-	return m.cm.WordCount(ctx, request, words)
-}
-
-func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
-	return m.cm.SyncFromCode(ctx, request, positions)
-}
-
-func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error {
-	return m.cm.SyncFromPDF(ctx, request, positions)
-}
-
-func (m *manager) ClearProjectCache(ctx context.Context, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId) error {
-	return m.cm.ClearCache(ctx, options, clsiServerId)
-}
-
-func (m *manager) CompileProject(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
-	return m.cm.Compile(ctx, request, response)
 }
