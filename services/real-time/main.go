@@ -83,17 +83,19 @@ func main() {
 		Addr:    o.address,
 		Handler: handler.GetRouter(),
 	}
+	var errServe error
 	go func() {
-		errServe := server.ListenAndServe()
+		errServe = server.ListenAndServe()
 		triggerExit()
-		if errServe != nil && errServe != http.ErrServerClosed {
-			panic(errServe)
-		}
 	}()
 
 	<-triggerExitCtx.Done()
 	rtm.GracefulShutdown()
-	if err = server.Close(); err != nil {
-		panic(err)
+	errClose := server.Close()
+	if errServe != nil && errServe != http.ErrServerClosed {
+		panic(errServe)
+	}
+	if errClose != nil {
+		panic(errClose)
 	}
 }
