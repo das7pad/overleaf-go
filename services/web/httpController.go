@@ -76,6 +76,13 @@ func (h *httpController) GetRouter(
 	compileJWTRouter.POST("/sync/pdf", h.syncFromPDF)
 	compileJWTRouter.POST("/wordcount", h.wordCount)
 
+	compileJWTRouter.GET("/metadata", h.getMetadataForProject)
+
+	compileJWTDocRouter := compileJWTRouter.Group("/doc/:docId")
+	compileJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
+
+	compileJWTDocRouter.POST("/metadata", h.getMetadataForDoc)
+
 	loggedInUserJWTRouter.GET("/system/messages", h.getSystemMessages)
 	return router
 }
@@ -205,4 +212,21 @@ func (h *httpController) projectListLocals(c *gin.Context) {
 func (h *httpController) getSystemMessages(c *gin.Context) {
 	m := h.wm.GetAllCached(c, httpUtils.GetId(c, "userId"))
 	httpUtils.Respond(c, http.StatusOK, m, nil)
+}
+
+func (h *httpController) getMetadataForProject(c *gin.Context) {
+	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
+	resp, err := h.wm.GetMetadataForProject(c, projectId)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) getMetadataForDoc(c *gin.Context) {
+	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
+	docId := httpUtils.GetId(c, "docId")
+	request := &types.ProjectDocMetadataRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	resp, err := h.wm.GetMetadataForDoc(c, projectId, docId, request)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

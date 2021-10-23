@@ -24,6 +24,7 @@ import (
 
 var (
 	epochFieldProjection             = views.GetProjectionFor(EpochField{})
+	lastUpdatedAtFieldProjection     = views.GetProjectionFor(LastUpdatedAtField{})
 	withTreeProjection               = views.GetProjectionFor(WithTree{})
 	withMembersProjection            = views.GetProjectionFor(WithMembers{})
 	withTokenMembersProjection       = views.GetProjectionFor(WithTokenMembers{})
@@ -36,6 +37,8 @@ func getProjection(model interface{}) views.View {
 	switch model.(type) {
 	case *EpochField:
 		return epochFieldProjection
+	case *LastUpdatedAtField:
+		return lastUpdatedAtFieldProjection
 	case JoinProjectViewPrivate:
 		return joinProjectViewPrivateProjection
 	case *JoinProjectViewPrivate:

@@ -31,6 +31,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -42,6 +43,7 @@ type Manager interface {
 	compile.Manager
 	editor.Manager
 	projectList.Manager
+	projectMetadata.Manager
 	systemMessage.Manager
 }
 
@@ -75,12 +77,14 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		options, pm, um, dm, compileJWTHandler, loggedInUserJWTHandler,
 	)
 	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)
+	pmm := projectMetadata.New(client, pm, dm, dum)
 	return &manager{
 		compileJWTHandler:      compileJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
 		compileManager:         cm,
 		editorManager:          em,
 		projectListManager:     plm,
+		projectMetadataManager: pmm,
 		systemMessageManager:   sm,
 	}, nil
 }
@@ -88,12 +92,14 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type projectListManager = projectList.Manager
+type projectMetadataManager = projectMetadata.Manager
 type systemMessageManager = systemMessage.Manager
 
 type manager struct {
 	compileManager
 	editorManager
 	projectListManager
+	projectMetadataManager
 	systemMessageManager
 	compileJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler
