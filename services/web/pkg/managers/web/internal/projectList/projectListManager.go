@@ -24,6 +24,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
@@ -35,11 +36,12 @@ type Manager interface {
 	ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error
 }
 
-func New(options *types.Options, pm project.Manager, tm tag.Manager, um user.Manager) Manager {
+func New(options *types.Options, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
 	return &manager{
 		pm:               pm,
 		tm:               tm,
 		um:               um,
+		jwtLoggedInUser:  jwtLoggedInUser,
 		jwtNotifications: userIdJWT.New(options.JWT.Notifications),
 	}
 }
@@ -48,6 +50,7 @@ type manager struct {
 	pm               project.Manager
 	tm               tag.Manager
 	um               user.Manager
+	jwtLoggedInUser  jwtHandler.JWTHandler
 	jwtNotifications jwtHandler.JWTHandler
 }
 
@@ -147,6 +150,17 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 			return errors.Tag(err, "cannot get notifications jwt")
 		}
 		response.JWTNotifications = b
+		return nil
+	})
+
+	eg.Go(func() error {
+		c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+		c.UserId = userId
+		b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
+		if err != nil {
+			return errors.Tag(err, "cannot get LoggedInUserJWT")
+		}
+		response.JWTLoggedInUser = b
 		return nil
 	})
 

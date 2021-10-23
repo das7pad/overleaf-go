@@ -47,6 +47,7 @@ type ProjectListProjectView struct {
 
 type ProjectListResponse struct {
 	Projects         []*ProjectListProjectView          `json:"projects"`
+	JWTLoggedInUser  string                             `json:"jwtLoggedInUser"`
 	JWTNotifications string                             `json:"jwtNotifications"`
 	Tags             []tag.Full                         `json:"tags"`
 	UserEmails       []user.EmailDetailsWithDefaultFlag `json:"userEmails"`

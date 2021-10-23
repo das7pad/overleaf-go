@@ -61,6 +61,11 @@ func (h *httpController) GetRouter(
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
 	jwtRouter.Use(httpUtils.NoCache())
 
+	loggedInUserJWTRouter := jwtRouter.Group("")
+	loggedInUserJWTRouter.Use(
+		httpUtils.NewJWTHandler(h.wm.GetLoggedInUserJWTHandler()).Middleware(),
+	)
+
 	compileJWTRouter := jwtRouter.Group("/project/:projectId")
 	compileJWTRouter.Use(
 		httpUtils.NewJWTHandler(h.wm.GetCompileJWTHandler()).Middleware(),
@@ -70,6 +75,8 @@ func (h *httpController) GetRouter(
 	compileJWTRouter.POST("/sync/code", h.syncFromCode)
 	compileJWTRouter.POST("/sync/pdf", h.syncFromPDF)
 	compileJWTRouter.POST("/wordcount", h.wordCount)
+
+	loggedInUserJWTRouter.GET("/system/messages", h.getSystemMessages)
 	return router
 }
 
@@ -193,4 +200,9 @@ func (h *httpController) projectListLocals(c *gin.Context) {
 	t.End()
 	c.Header("Server-Timing", "projectListLocals;dur="+t.MS())
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) getSystemMessages(c *gin.Context) {
+	m := h.wm.GetAllCached(c, httpUtils.GetId(c, "userId"))
+	httpUtils.Respond(c, http.StatusOK, m, nil)
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -39,24 +40,26 @@ type Manager interface {
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 }
 
-func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, compileJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, compileJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
-		dm:          dm,
-		jwtCompile:  compileJWTHandler,
-		jwtSpelling: userIdJWT.New(options.JWT.Spelling),
-		pm:          pm,
-		um:          um,
-		wsBootstrap: wsBootstrap.New(options.JWT.RealTime),
+		dm:              dm,
+		jwtCompile:      compileJWTHandler,
+		jwtLoggedInUser: loggedInUserJWTHandler,
+		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
+		pm:              pm,
+		um:              um,
+		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
 	}
 }
 
 type manager struct {
-	dm          docstore.Manager
-	jwtCompile  jwtHandler.JWTHandler
-	jwtSpelling jwtHandler.JWTHandler
-	pm          project.Manager
-	um          user.Manager
-	wsBootstrap jwtHandler.JWTHandler
+	dm              docstore.Manager
+	jwtCompile      jwtHandler.JWTHandler
+	jwtLoggedInUser jwtHandler.JWTHandler
+	jwtSpelling     jwtHandler.JWTHandler
+	pm              project.Manager
+	um              user.Manager
+	wsBootstrap     jwtHandler.JWTHandler
 }
 
 var (
@@ -85,6 +88,12 @@ func (m *manager) genJWTCompile(ctx context.Context, projectId, userId primitive
 		return "", err
 	}
 	return m.jwtCompile.SetExpiryAndSign(c)
+}
+
+func (m *manager) genJWTLoggedInUser(userId primitive.ObjectID) (string, error) {
+	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+	c.UserId = userId
+	return m.jwtLoggedInUser.SetExpiryAndSign(c)
 }
 
 func (m *manager) genJWTSpelling(userId primitive.ObjectID) (string, error) {
@@ -213,6 +222,14 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 				return errors.Tag(err, "cannot get spelling jwt")
 			}
 			response.JWTSpelling = s
+			return nil
+		})
+		eg.Go(func() error {
+			s, err := m.genJWTLoggedInUser(userId)
+			if err != nil {
+				return errors.Tag(err, "cannot get LoggedInUserJWT")
+			}
+			response.JWTLoggedInUser = s
 			return nil
 		})
 	}

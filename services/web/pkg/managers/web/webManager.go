@@ -22,6 +22,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -30,15 +31,18 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	GetCompileJWTHandler() jwtHandler.JWTHandler
+	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
 	compile.Manager
 	editor.Manager
 	projectList.Manager
+	systemMessage.Manager
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
@@ -56,6 +60,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		return nil, err
 	}
 	pm := project.New(db)
+	sm := systemMessage.New(db)
 	tm := tag.New(db)
 	um := user.New(db)
 	cm, err := compile.New(options, client, dum, dm, pm)
@@ -65,27 +70,39 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	compileJWTHandler := compileJWT.New(
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
 	)
-	em := editor.New(options, pm, um, dm, compileJWTHandler)
-	plm := projectList.New(options, pm, tm, um)
+	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
+	em := editor.New(
+		options, pm, um, dm, compileJWTHandler, loggedInUserJWTHandler,
+	)
+	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)
 	return &manager{
-		compileJWTHandler:  compileJWTHandler,
-		compileManager:     cm,
-		editorManager:      em,
-		projectListManager: plm,
+		compileJWTHandler:      compileJWTHandler,
+		loggedInUserJWTHandler: loggedInUserJWTHandler,
+		compileManager:         cm,
+		editorManager:          em,
+		projectListManager:     plm,
+		systemMessageManager:   sm,
 	}, nil
 }
 
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type projectListManager = projectList.Manager
+type systemMessageManager = systemMessage.Manager
 
 type manager struct {
 	compileManager
 	editorManager
 	projectListManager
-	compileJWTHandler jwtHandler.JWTHandler
+	systemMessageManager
+	compileJWTHandler      jwtHandler.JWTHandler
+	loggedInUserJWTHandler jwtHandler.JWTHandler
 }
 
 func (m *manager) GetCompileJWTHandler() jwtHandler.JWTHandler {
 	return m.compileJWTHandler
+}
+
+func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {
+	return m.loggedInUserJWTHandler
 }

@@ -52,6 +52,7 @@ type Options struct {
 
 	JWT struct {
 		Compile       jwtOptions.JWTOptions `json:"compile"`
+		LoggedInUser  jwtOptions.JWTOptions `json:"logged_in_user"`
 		Notifications jwtOptions.JWTOptions `json:"notifications"`
 		Spelling      jwtOptions.JWTOptions `json:"spelling"`
 		RealTime      jwtOptions.JWTOptions `json:"realTime"`
@@ -79,6 +80,9 @@ func (o *Options) Validate() error {
 
 	if err := o.JWT.Compile.Validate(); err != nil {
 		return errors.Tag(err, "jwt.compile is invalid")
+	}
+	if err := o.JWT.LoggedInUser.Validate(); err != nil {
+		return errors.Tag(err, "jwt.logged_in_user is invalid")
 	}
 	if err := o.JWT.Notifications.Validate(); err != nil {
 		return errors.Tag(err, "jwt.notifications is invalid")

@@ -36,6 +36,7 @@ type LoadEditorResponse struct {
 	Anonymous            bool                         `json:"anonymous"`
 	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
 	JWTCompile           string                       `json:"jwtCompile"`
+	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
 	JWTSpelling          string                       `json:"jwtSpelling"`
 	User                 user.WithLoadEditorInfo      `json:"user"`
 	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
