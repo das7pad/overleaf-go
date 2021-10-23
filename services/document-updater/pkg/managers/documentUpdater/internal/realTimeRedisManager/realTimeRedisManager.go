@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -55,12 +56,14 @@ func New(client redis.UniversalClient) (Manager, error) {
 	}
 
 	return &manager{
+		c:        channel.NewWriter(client, "applied-ops"),
 		client:   client,
 		hostname: hostname,
 	}, nil
 }
 
 type manager struct {
+	c        channel.Writer
 	client   redis.UniversalClient
 	hostname string
 }
@@ -120,7 +123,7 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 				}
 			}
 
-			_, err := m.sendMessageVia(ctx, p, &sharedTypes.AppliedOpsMessage{
+			_, err := m.c.PublishVia(ctx, p, &sharedTypes.AppliedOpsMessage{
 				DocId:       update.DocId,
 				Update:      &update,
 				ProcessedBy: m.hostname,
@@ -147,25 +150,5 @@ func (m *manager) ReportError(ctx context.Context, docId primitive.ObjectID, err
 			Code:    "hidden",
 		}
 	}
-	return m.sendMessage(ctx, message)
-}
-
-func (m *manager) sendMessage(ctx context.Context, message *sharedTypes.AppliedOpsMessage) error {
-	cmd, err := m.sendMessageVia(ctx, m.client, message)
-	if err != nil {
-		return err
-	}
-	if err = cmd.Err(); err != nil {
-		return errors.Tag(err, "cannot send message")
-	}
-	return nil
-}
-
-func (m *manager) sendMessageVia(ctx context.Context, runner redis.Cmdable, message *sharedTypes.AppliedOpsMessage) (*redis.IntCmd, error) {
-	blob, err := json.Marshal(message)
-	if err != nil {
-		return nil, errors.Tag(err, "cannot serialize message")
-	}
-	channel := "applied-ops:" + message.DocId.Hex()
-	return runner.Publish(ctx, channel, blob), nil
+	return m.c.Publish(ctx, message)
 }

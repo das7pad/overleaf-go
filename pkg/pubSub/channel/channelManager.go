@@ -83,6 +83,10 @@ func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
 	}
 }
 
+func NewWriter(client redis.UniversalClient, baseChannel BaseChannel) Writer {
+	return New(client, baseChannel)
+}
+
 type manager struct {
 	client redis.UniversalClient
 	p      *redis.PubSub
