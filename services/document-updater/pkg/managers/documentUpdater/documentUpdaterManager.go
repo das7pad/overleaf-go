@@ -44,7 +44,7 @@ type Manager interface {
 		fromVersion sharedTypes.Version,
 	) (*types.GetDocResponse, error)
 	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentLines, error)
-	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentSnapshot, error)
+	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) (types.DocContentSnapshots, error)
 	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
@@ -160,12 +160,12 @@ func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectI
 	return docContentsLines, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentSnapshot, error) {
+func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) (types.DocContentSnapshots, error) {
 	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
 	if err != nil {
 		return nil, err
 	}
-	docContentsSnapshot := make([]*types.DocContentSnapshot, len(docs))
+	docContentsSnapshot := make(types.DocContentSnapshots, len(docs))
 	for i, doc := range docs {
 		docContentsSnapshot[i] = doc.ToDocContentSnapshot()
 	}

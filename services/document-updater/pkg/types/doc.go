@@ -21,6 +21,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -123,10 +124,11 @@ type DocContentLines struct {
 }
 
 type DocContentSnapshot struct {
-	Id       primitive.ObjectID   `json:"_id"`
-	Snapshot sharedTypes.Snapshot `json:"snapshot"`
-	PathName sharedTypes.PathName `json:"pathname"`
-	Version  sharedTypes.Version  `json:"v"`
+	Id            primitive.ObjectID   `json:"_id"`
+	Snapshot      sharedTypes.Snapshot `json:"snapshot"`
+	PathName      sharedTypes.PathName `json:"pathname"`
+	Version       sharedTypes.Version  `json:"v"`
+	LastUpdatedAt int64                `json:"-"`
 }
 
 func (d *Doc) ToDocContentLines() *DocContentLines {
@@ -140,11 +142,29 @@ func (d *Doc) ToDocContentLines() *DocContentLines {
 
 func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 	return &DocContentSnapshot{
-		Id:       d.DocId,
-		Snapshot: d.Snapshot,
-		PathName: d.PathName,
-		Version:  d.Version,
+		Id:            d.DocId,
+		Snapshot:      d.Snapshot,
+		PathName:      d.PathName,
+		Version:       d.Version,
+		LastUpdatedAt: d.LastUpdatedCtx.At,
 	}
+}
+
+type DocContentSnapshots []*DocContentSnapshot
+
+var unixEpochStart = time.Unix(0, 0)
+
+func (l *DocContentSnapshots) LastUpdatedAt() time.Time {
+	if l == nil {
+		return unixEpochStart
+	}
+	max := int64(0)
+	for _, snapshot := range *l {
+		if snapshot.LastUpdatedAt > max {
+			max = snapshot.LastUpdatedAt
+		}
+	}
+	return time.Unix(0, max*int64(time.Millisecond))
 }
 
 func deserializeDocCoreV0(core *DocCore, blob []byte) error {

@@ -27,6 +27,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -67,7 +68,8 @@ func (m *manager) setCacheEntry(ctx context.Context, projectId primitive.ObjectI
 
 func (m *manager) getForProjectWithCache(ctx context.Context, projectId primitive.ObjectID) (types.LightProjectMetadata, error) {
 	var cached *cacheEntry
-	var projectVersion time.Time
+	var projectVersionFlushed time.Time
+	var recentlyEdited documentUpdaterTypes.DocContentSnapshots
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		cached, _ = m.getCacheEntry(pCtx, projectId)
@@ -78,17 +80,34 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId primitiv
 		if err := m.pm.GetProject(pCtx, projectId, p); err != nil {
 			return errors.Tag(err, "cannot get project from mongo")
 		}
-		projectVersion = p.LastUpdatedAt
+		projectVersionFlushed = p.LastUpdatedAt
+		return nil
+	})
+	eg.Go(func() error {
+		docs, err := m.dum.GetProjectDocsAndFlushIfOldSnapshot(
+			pCtx,
+			projectId,
+			"TODO",
+		)
+		if err != nil {
+			return errors.Tag(err, "cannot get docs from redis")
+		}
+		recentlyEdited = docs
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
+	projectVersionLive := recentlyEdited.LastUpdatedAt()
+	projectVersion := projectVersionFlushed
+	if projectVersionLive.After(projectVersionFlushed) {
+		projectVersion = projectVersionLive
+	}
 	if cached != nil && cached.ProjectVersion.Equal(projectVersion) {
 		return cached.ProjectMeta, nil
 	}
 
-	meta, err := m.getForProjectWithoutCache(ctx, projectId)
+	meta, err := m.getForProjectWithoutCache(ctx, projectId, recentlyEdited)
 	if err != nil {
 		return nil, err
 	}

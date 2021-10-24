@@ -22,14 +22,11 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -102,33 +99,10 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId primit
 	return nil, nil
 }
 
-func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId primitive.ObjectID) (types.LightProjectMetadata, error) {
-	var recentlyEdited []*documentUpdaterTypes.DocContentSnapshot
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		syncState := clsiTypes.SyncState("TODO")
-		docs, err := m.dum.GetProjectDocsAndFlushIfOldSnapshot(
-			pCtx,
-			projectId,
-			string(syncState),
-		)
-		if err != nil {
-			return errors.Tag(err, "cannot get docs from redis")
-		}
-		recentlyEdited = docs
-		return nil
-	})
-	var flushed []doc.Contents
-	eg.Go(func() error {
-		docs, err := m.dm.GetAllDocContents(pCtx, projectId)
-		if err != nil {
-			return errors.Tag(err, "cannot get docs from mongo")
-		}
-		flushed = docs
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return nil, err
+func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId primitive.ObjectID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {
+	flushed, err := m.dm.GetAllDocContents(ctx, projectId)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot get docs from mongo")
 	}
 
 	docs := make(map[primitive.ObjectID]sharedTypes.Snapshot, len(flushed))
