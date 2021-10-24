@@ -18,6 +18,8 @@ PWD ?= $(realpath .)
 ROOT = $(abspath $(PWD)/../../)
 SERVICE = $(notdir $(PWD))
 PACKAGE ?= github.com/das7pad/overleaf-go
+ROOT_DOCKER = /go/src/$(PACKAGE)
+PWD_DOCKER = $(ROOT_DOCKER)/services/$(SERVICE)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 BUILD_NUMBER ?= local
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
@@ -32,10 +34,10 @@ IMAGE_ASPELL_CACHE = $(IMAGE_BARE):go-aspell-cache
 BUILD_IN = \
 	docker run \
  		--rm \
-	 	--volume $(ROOT):$(ROOT) \
+	 	--volume $(ROOT):$(ROOT_DOCKER) \
 	 	--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
-	 	--workdir $(PWD) \
-	 	--env HOME=$(ROOT)/.cache/home/ \
+	 	--workdir $(PWD_DOCKER) \
+	 	--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 	 	--user $(shell id -u)
 
 run-ci-if-needed:
