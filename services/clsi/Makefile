@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+PWD ?= $(realpath .)
+ROOT = $(abspath $(PWD)/../../)
+SERVICE = $(notdir $(PWD))
 PACKAGE ?= github.com/das7pad/overleaf-go
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 BUILD_NUMBER ?= local
@@ -22,11 +25,9 @@ GIT_PREVIOUS_SUCCESSFUL_COMMIT ?= origin/main
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
-IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/clsi
+IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/$(SERVICE)
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 
-PWD ?= $(realpath .)
-ROOT = $(abspath $(PWD)/../../)
 BUILD_IN = \
 	docker run \
  		--rm \
@@ -34,7 +35,7 @@ BUILD_IN = \
 	 	--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
 	 	--workdir $(PWD) \
 	 	--env HOME=$(ROOT)/.cache/home/ \
-	 	--user $(shell id -u) \
+	 	--user $(shell id -u)
 
 run-ci-if-needed:
 	rm -f docker-image.digest.txt
@@ -58,8 +59,8 @@ check-not-changed:
 		cmd/execAgent/execAgent.go \
 		seccomp/policy.json \
 
-.PHONY: clsi
-clsi:
+.PHONY: $(SERVICE)
+$(SERVICE):
 	$(BUILD_IN) golang:1.17-alpine3.14 sh -c \
 		'go build -tags nomsgpack && touch -m -d 2021-01-01-00:00:00 $@'
 
@@ -67,10 +68,10 @@ clsi:
 .PHONY: execAgent
 execAgent:
 	$(BUILD_IN) golang:1.17 sh -c \
- 		'go build cmd/execAgent/execAgent.go && touch -m -d 2021-01-01T00:00Z $@'
+		'go build cmd/execAgent/execAgent.go && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/build/production: execAgent
-docker/build/production: clsi
+docker/build/production: $(SERVICE)
 	docker build \
 		--tag $(IMAGE) \
 		--build-arg COMMIT=$(GIT_COMMIT) \

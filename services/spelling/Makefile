@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+PWD ?= $(realpath .)
+ROOT = $(abspath $(PWD)/../../)
+SERVICE = $(notdir $(PWD))
 PACKAGE ?= github.com/das7pad/overleaf-go
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 BUILD_NUMBER ?= local
@@ -22,12 +25,10 @@ GIT_PREVIOUS_SUCCESSFUL_COMMIT ?= origin/main
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
-IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/spelling
+IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/$(SERVICE)
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 IMAGE_ASPELL_CACHE = $(IMAGE_BARE):go-aspell-cache
 
-PWD ?= $(realpath .)
-ROOT = $(abspath $(PWD)/../../)
 BUILD_IN = \
 	docker run \
  		--rm \
@@ -58,8 +59,8 @@ check-not-changed:
 		Makefile \
 		install_deps.sh \
 
-.PHONY: spelling
-spelling:
+.PHONY: $(SERVICE)
+$(SERVICE):
 	$(BUILD_IN) golang:1.17 sh -c \
  		'go build -tags nomsgpack && touch -m -d 2021-01-01T00:00Z $@'
 
@@ -68,7 +69,7 @@ docker/pull/apell-cache:
 	docker tag $(IMAGE_ASPELL_CACHE) $(IMAGE)-aspell-cache || true
 
 docker/build/production: docker/pull/apell-cache
-docker/build/production: spelling
+docker/build/production: $(SERVICE)
 	docker build \
 		--tag $(IMAGE_ASPELL_CACHE) \
 		--cache-from $(IMAGE)-aspell-cache \
