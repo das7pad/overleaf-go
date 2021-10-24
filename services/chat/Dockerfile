@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM alpine:3.13
+FROM alpine:3.14
 ENV SERVICE_NAME="chat"
 ENTRYPOINT ["chat"]
 COPY ./chat /usr/local/bin/

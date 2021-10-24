@@ -45,7 +45,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.16-alpine3.13 go list -f '{{ join .Deps "\n" }}' \
+	$(BUILD_IN) golang:1.17-alpine3.14 go list -f '{{ join .Deps "\n" }}' \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,../../, | xargs \
 	| xargs sh -e -c 'find . "$$@" -type f -name "*.go"' | sort | uniq \
 	| xargs git diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
@@ -58,7 +58,7 @@ check-not-changed:
 
 .PHONY: document-updater
 document-updater:
-	$(BUILD_IN) golang:1.16-alpine3.13 sh -c \
+	$(BUILD_IN) golang:1.17-alpine3.14 sh -c \
  		'go build -tags nomsgpack && touch -m -d 2021-01-01-00:00:00 $@'
 
 docker/build/production: document-updater
