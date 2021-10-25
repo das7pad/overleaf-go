@@ -117,15 +117,24 @@ func (l *locker) runWithLock(ctx context.Context, docId primitive.ObjectID, runn
 		ctx, acquireLockDeadline,
 	)
 	defer doneAcquireLock()
-	var workDeadline time.Time
-	testInterval := LockTestInterval
 
+	// Work that does not finish before workDeadline has the potential to
+	//  overrun the lock.
+	var workDeadline time.Time
+	// We can be sure that the lock has expired after lockExpiredAfter.
+	var lockExpiredAfter time.Time
+
+	testInterval := LockTestInterval
 	for {
-		var gotLock bool
-		var err error
-		workDeadline, gotLock, err = l.getLock(acquireLockCtx, key, lockValue)
+		workDeadline = time.Now().Add(LockTTL)
+		gotLock, timedOut, err := l.tryGetLock(acquireLockCtx, key, lockValue)
+		lockExpiredAfter = time.Now().Add(LockTTL)
 		if err != nil {
-			return err
+			err2 := l.releaseLock(key, lockValue, lockExpiredAfter)
+			if poll && timedOut && err2 == nil && acquireLockCtx.Err() == nil {
+				continue
+			}
+			return errors.Tag(err, "cannot check/acquire lock")
 		}
 		if gotLock {
 			break
@@ -144,38 +153,35 @@ func (l *locker) runWithLock(ctx context.Context, docId primitive.ObjectID, runn
 	doneAcquireLock()
 
 	workCtx, workDone := context.WithDeadline(ctx, workDeadline)
+	defer workDone()
 	runner(workCtx)
-	workDone()
 
-	if time.Now().After(workDeadline) {
-		// Redis value has expired. There is no need for explicit redis calls.
-		return nil
-	}
-
-	return l.releaseLock(key, lockValue, workDeadline)
+	return l.releaseLock(key, lockValue, lockExpiredAfter)
 }
 
-func (l *locker) getLock(ctx context.Context, key string, lockValue string) (time.Time, bool, error) {
-	workDeadline := time.Now().Add(LockTTL)
+func (l *locker) tryGetLock(ctx context.Context, key string, lockValue string) (bool, bool, error) {
 	getLockCtx, cancel := context.WithTimeout(ctx, MaxRedisRequestLength)
 	defer cancel()
 
 	ok, err := l.client.SetNX(getLockCtx, key, lockValue, LockTTL).Result()
 	if err != nil {
-		err2 := l.releaseLock(key, lockValue, workDeadline)
-		if err == context.DeadlineExceeded && ctx.Err() == nil {
-			return workDeadline, false, err2
-		}
-		return workDeadline, false, errors.Tag(err, "cannot check/acquire lock")
+		attemptTimedOut :=
+			err == context.DeadlineExceeded && ctx.Err() == nil
+		return false, attemptTimedOut, err
 	}
-	return workDeadline, ok, nil
+	return ok, false, nil
 }
 
-func (l *locker) releaseLock(key string, lockValue string, workDeadline time.Time) error {
+func (l *locker) releaseLock(key string, lockValue string, lockExpiredAfter time.Time) error {
+	if time.Now().After(lockExpiredAfter) {
+		// The lock has expired. There is no need for explicit redis calls.
+		return nil
+	}
+
 	keys := []string{key}
 	argv := []interface{}{lockValue}
 
-	ctx, done := context.WithDeadline(context.Background(), workDeadline)
+	ctx, done := context.WithDeadline(context.Background(), lockExpiredAfter)
 	defer done()
 	res, err := unlockScript.Run(ctx, l.client, keys, argv).Result()
 	if err != nil {
