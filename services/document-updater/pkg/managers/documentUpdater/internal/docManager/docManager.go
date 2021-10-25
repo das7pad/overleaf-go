@@ -320,7 +320,24 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 }
 
 func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error {
-	_, err := m.processUpdatesForDocAndMaybeFlushOld(ctx, projectId, docId, false)
+	var err error
+	for {
+		err = nil
+		lockErr := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) {
+			_, err = m.processUpdatesForDoc(ctx, projectId, docId)
+		})
+		if lockErr == redisLocker.ErrLocked {
+			// Someone else is processing updates already.
+			return nil
+		}
+		if err == errPartialFlush {
+			continue
+		}
+		if err == nil && lockErr != nil {
+			err = lockErr
+		}
+		break
+	}
 	if err != nil && !errors.IsAlreadyReported(err) {
 		m.reportError(projectId, docId, err)
 		err = errors.MarkAsReported(err)
@@ -332,17 +349,17 @@ const (
 	maxUnFlushedAge = 5 * time.Minute
 )
 
-func (m *manager) processUpdatesForDocAndMaybeFlushOld(ctx context.Context, projectId, docId primitive.ObjectID, flushOld bool) (*types.Doc, error) {
+func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
 	var doc *types.Doc
 	var err error
 
 	for {
-		lockErr := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) {
+		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
 			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
-			if flushOld && doc.UnFlushedTime != 0 {
+			if doc.UnFlushedTime != 0 {
 				maxAge := types.UnFlushedTime(
 					time.Now().Add(-maxUnFlushedAge).Unix(),
 				)
@@ -353,9 +370,6 @@ func (m *manager) processUpdatesForDocAndMaybeFlushOld(ctx context.Context, proj
 				}
 			}
 		})
-		if lockErr == redisLocker.ErrLocked {
-			return nil, nil
-		}
 		if err == errPartialFlush {
 			err = nil
 			continue
@@ -662,8 +676,8 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId pri
 		i := j
 		docId := id
 		eg.Go(func() error {
-			doc, err := m.processUpdatesForDocAndMaybeFlushOld(
-				pCtx, projectId, docId, true,
+			doc, err := m.processUpdatesForDocAndFlushOld(
+				pCtx, projectId, docId,
 			)
 			if err != nil {
 				return errors.Tag(err, projectId.Hex()+"/"+docId.Hex())
