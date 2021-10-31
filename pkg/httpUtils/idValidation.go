@@ -36,7 +36,6 @@ func ValidateAndSetId(name string) gin.HandlerFunc {
 			return
 		}
 		c.Set(name, id)
-		c.Next()
 	}
 }
 
@@ -54,6 +53,5 @@ func ValidateAndSetIdZeroOK(name string) gin.HandlerFunc {
 			}
 			c.Set(name, id)
 		}
-		c.Next()
 	}
 }
