@@ -18,6 +18,8 @@ package user
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AlphaProgramField struct {
@@ -33,7 +35,7 @@ type EditorConfigField struct {
 }
 
 type EmailField struct {
-	Email string `json:"email" bson:"email"`
+	Email sharedTypes.Email `json:"email" bson:"email"`
 }
 
 type EmailsField struct {
@@ -60,6 +62,18 @@ type IsAdminField struct {
 	IsAdmin bool `json:"isAdmin" bson:"isAdmin"`
 }
 
+type HashedPasswordField struct {
+	HashedPassword string `json:"-" bson:"hashedPassword"`
+}
+
 type LastNameField struct {
 	LastName string `json:"last_name" bson:"last_name"`
+}
+
+type MustReconfirmField struct {
+	MustReconfirm bool `bson:"must_reconfirm"`
+}
+
+type ReferralIdField struct {
+	ReferralId string `bson:"referal_id"`
 }

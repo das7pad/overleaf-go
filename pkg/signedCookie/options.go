@@ -14,17 +14,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package signedCookie
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type User struct {
-	Id        primitive.ObjectID `json:"user_id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     sharedTypes.Email  `json:"email"`
+type Options struct {
+	Domain  string        `json:"domain"`
+	Expiry  time.Duration `json:"expiry"`
+	Name    string        `json:"name"`
+	Path    string        `json:"path"`
+	Secrets []string      `json:"secrets"`
+}
+
+func (o *Options) Validate() error {
+	if o.Domain == "" {
+		return &errors.ValidationError{Msg: "missing domain"}
+	}
+	if o.Expiry == 0 {
+		return &errors.ValidationError{Msg: "missing expiry"}
+	}
+	if o.Name == "" {
+		return &errors.ValidationError{Msg: "missing name"}
+	}
+	if o.Path == "" {
+		return &errors.ValidationError{Msg: "missing path"}
+	}
+	if len(o.Secrets) == 0 {
+		return &errors.ValidationError{Msg: "missing secrets"}
+	}
+	return nil
 }

@@ -57,9 +57,14 @@ func (h *httpController) GetRouter(
 	internalUserRouter.Use(httpUtils.ValidateAndSetId("userId"))
 	internalUserRouter.GET("/projectListLocals", h.projectListLocals)
 
-	jwtRouter := router.Group("/jwt/web")
-	jwtRouter.Use(httpUtils.CORS(corsOptions))
-	jwtRouter.Use(httpUtils.NoCache())
+	publicRouter := router.Group("")
+	publicRouter.Use(httpUtils.CORS(corsOptions))
+	publicRouter.Use(httpUtils.NoCache())
+
+	publicApiRouter := publicRouter.Group("/api")
+	publicApiRouter.POST("/login", h.login)
+
+	jwtRouter := publicRouter.Group("/jwt/web")
 
 	loggedInUserJWTRouter := jwtRouter.Group("")
 	loggedInUserJWTRouter.Use(
@@ -228,5 +233,25 @@ func (h *httpController) getMetadataForDoc(c *gin.Context) {
 		return
 	}
 	resp, err := h.wm.GetMetadataForDoc(c, projectId, docId, request)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) login(c *gin.Context) {
+	resp := &types.LoginResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.LoginRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	request.IPAddress = c.ClientIP()
+	err = h.wm.Login(c, request, resp)
+	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
+		err = err2
+	}
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

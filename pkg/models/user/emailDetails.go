@@ -20,12 +20,14 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type EmailDetails struct {
 	Id               primitive.ObjectID `bson:"_id"`
 	CreatedAt        time.Time          `json:"createdAt" bson:"createdAt"`
-	Email            string             `json:"email" bson:"email"`
+	Email            sharedTypes.Email  `json:"email" bson:"email"`
 	ReversedHostname string             `json:"reversedHostname" bson:"reversedHostname"`
 }
 

@@ -14,17 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package sharedTypes
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"strings"
 )
 
-type User struct {
-	Id        primitive.ObjectID `json:"user_id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     sharedTypes.Email  `json:"email"`
+type Email string
+
+func (e Email) Normalize() Email {
+	return Email(strings.ToLower(string(e)))
+}
+
+func (e Email) Validate() error {
+	return nil
 }

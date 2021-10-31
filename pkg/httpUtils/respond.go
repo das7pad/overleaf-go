@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -67,6 +68,11 @@ func Respond(
 		}
 		if body == nil {
 			body = gin.H{"message": errMessage}
+		} else if r, ok := body.(*asyncForm.Response); ok {
+			r.Message = &asyncForm.Message{
+				Text: errMessage,
+				Type: asyncForm.Error,
+			}
 		}
 	}
 	c.Abort()

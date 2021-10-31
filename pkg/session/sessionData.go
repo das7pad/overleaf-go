@@ -14,17 +14,29 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package session
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type User struct {
-	Id        primitive.ObjectID `json:"user_id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     sharedTypes.Email  `json:"email"`
+	Id             primitive.ObjectID `json:"_id,omitempty"`
+	IsAdmin        bool               `json:"isAdmin,omitempty"`
+	FirstName      string             `json:"first_name,omitempty"`
+	LastName       string             `json:"last_name,omitempty"`
+	Email          sharedTypes.Email  `json:"email"`
+	Epoch          int64              `json:"epoch,omitempty"`
+	ReferralId     string             `json:"referal_id"`
+	IPAddress      string             `json:"ip_address"`
+	SessionCreated time.Time          `json:"session_created"`
+}
+
+type Data struct {
+	User              *User  `json:"user,omitempty"`
+	PostLoginRedirect string `json:"postLoginRedirect,omitempty"`
 }

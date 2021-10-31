@@ -14,17 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package user
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type User struct {
-	Id        primitive.ObjectID `json:"user_id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     sharedTypes.Email  `json:"email"`
+type AuditLogEntry struct {
+	Info        interface{}        `bson:"info,omitempty"`
+	InitiatorId primitive.ObjectID `bson:"initiatorId"`
+	IpAddress   string             `bson:"ipAddress"`
+	Operation   string             `bson:"operation"`
+	Timestamp   time.Time          `bson:"timestamp"`
 }

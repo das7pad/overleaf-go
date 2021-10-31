@@ -17,14 +17,34 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"github.com/das7pad/overleaf-go/pkg/asyncForm"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type User struct {
-	Id        primitive.ObjectID `json:"user_id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     sharedTypes.Email  `json:"email"`
+type LoginRequest struct {
+	Session   *session.Session  `json:"-"`
+	IPAddress string            `json:"-"`
+	Email     sharedTypes.Email `json:"email"`
+	Password  string            `json:"password"`
 }
+
+func (r *LoginRequest) Preprocess() {
+	r.Email = r.Email.Normalize()
+}
+
+func (r *LoginRequest) Validate() error {
+	if len(r.Password) < 6 {
+		return &errors.ValidationError{Msg: "password too short, min 6"}
+	}
+	if len(r.Password) > 72 {
+		return &errors.ValidationError{Msg: "password too long, max 72"}
+	}
+	if err := r.Email.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type LoginResponse = asyncForm.Response

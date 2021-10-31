@@ -27,6 +27,7 @@ var (
 	featuresFieldProjection             = views.GetProjectionFor(FeaturesField{})
 	projectListViewCaller               = views.GetProjectionFor(ProjectListViewCaller{})
 	withLoadEditorInfoProjection        = views.GetProjectionFor(WithLoadEditorInfo{})
+	withLoginInfoProjection             = views.GetProjectionFor(WithLoginInfo{})
 	withPublicInfoAndFeaturesProjection = views.GetProjectionFor(WithPublicInfoAndFeatures{})
 	withPublicInfo                      = views.GetProjectionFor(WithPublicInfo{})
 )
@@ -49,6 +50,8 @@ func getProjection(model interface{}) views.View {
 		return withLoadEditorInfoProjection
 	case []WithPublicInfo:
 		return withPublicInfo
+	case *WithLoginInfo:
+		return withLoginInfoProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

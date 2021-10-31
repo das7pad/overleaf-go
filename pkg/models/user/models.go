@@ -40,3 +40,12 @@ type WithLoadEditorInfo struct {
 	IsAdminField              `bson:"inline"`
 	WithPublicInfoAndFeatures `bson:"inline"`
 }
+
+type WithLoginInfo struct {
+	EpochField          `bson:"inline"`
+	IsAdminField        `bson:"inline"`
+	MustReconfirmField  `bson:"inline"`
+	ReferralIdField     `bson:"inline"`
+	HashedPasswordField `bson:"inline"`
+	WithPublicInfo      `bson:"inline"`
+}

@@ -26,10 +26,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
@@ -42,8 +44,10 @@ type Manager interface {
 
 	compile.Manager
 	editor.Manager
+	login.Manager
 	projectList.Manager
 	projectMetadata.Manager
+	session.Manager
 	systemMessage.Manager
 }
 
@@ -62,7 +66,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		return nil, err
 	}
 	pm := project.New(db)
-	sm := systemMessage.New(db)
+	smm := systemMessage.New(db)
 	tm := tag.New(db)
 	um := user.New(db)
 	cm, err := compile.New(options, client, dum, dm, pm)
@@ -76,30 +80,38 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	em := editor.New(
 		options, pm, um, dm, compileJWTHandler, loggedInUserJWTHandler,
 	)
+	lm := login.New(um)
 	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, pm, dm, dum)
+	sm := session.New(options.SessionCookie, client)
 	return &manager{
 		compileJWTHandler:      compileJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
 		compileManager:         cm,
 		editorManager:          em,
+		loginManager:           lm,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
-		systemMessageManager:   sm,
+		sessions:               sm,
+		systemMessageManager:   smm,
 	}, nil
 }
 
 type compileManager = compile.Manager
 type editorManager = editor.Manager
+type loginManager = login.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
+type sessions = session.Manager
 type systemMessageManager = systemMessage.Manager
 
 type manager struct {
 	compileManager
 	editorManager
+	loginManager
 	projectListManager
 	projectMetadataManager
+	sessions
 	systemMessageManager
 	compileJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler

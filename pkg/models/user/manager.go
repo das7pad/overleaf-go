@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -25,12 +26,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
 	GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error)
 	GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error
+	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
 	GetUsersWithPublicInfo(ctx context.Context, users []primitive.ObjectID) ([]WithPublicInfo, error)
+	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -41,6 +45,38 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+const MaxAuditLogEntries = 200
+
+func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error {
+	now := time.Now().UTC()
+	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+		"$inc": bson.M{
+			"loginCount": 1,
+		},
+		"$set": bson.M{
+			"lastLoggedIn": now,
+			"lastLoginIp":  ip,
+		},
+		"$push": bson.M{
+			"auditLog": bson.M{
+				"$each": bson.A{
+					AuditLogEntry{
+						InitiatorId: userId,
+						IpAddress:   ip,
+						Operation:   "login",
+						Timestamp:   now,
+					},
+				},
+				"$slice": -MaxAuditLogEntries,
+			},
+		},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error) {
@@ -80,9 +116,17 @@ func rewriteMongoError(err error) error {
 }
 
 func (m *manager) GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error {
+	return m.getUser(ctx, &IdField{Id: userId}, target)
+}
+
+func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error {
+	return m.getUser(ctx, &EmailField{Email: email}, target)
+}
+
+func (m *manager) getUser(ctx context.Context, filter interface{}, target interface{}) error {
 	err := m.c.FindOne(
 		ctx,
-		IdField{Id: userId},
+		filter,
 		options.FindOne().SetProjection(getProjection(target)),
 	).Decode(target)
 	if err != nil {

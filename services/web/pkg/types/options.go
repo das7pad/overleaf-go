@@ -22,6 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -57,6 +58,8 @@ type Options struct {
 		Spelling      jwtOptions.JWTOptions `json:"spelling"`
 		RealTime      jwtOptions.JWTOptions `json:"realTime"`
 	} `json:"jwt"`
+
+	SessionCookie signedCookie.Options `json:"session_cookie"`
 }
 
 func (o *Options) Validate() error {
@@ -92,6 +95,10 @@ func (o *Options) Validate() error {
 	}
 	if err := o.JWT.Spelling.Validate(); err != nil {
 		return errors.Tag(err, "jwt.spelling is invalid")
+	}
+
+	if err := o.SessionCookie.Validate(); err != nil {
+		return errors.Tag(err, "session_cookie is invalid")
 	}
 	return nil
 }
