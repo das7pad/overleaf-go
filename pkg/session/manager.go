@@ -21,6 +21,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"hash"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -56,6 +57,16 @@ type manager struct {
 	signer       hash.Hash
 	verifier     []hash.Hash
 }
+
+var cookieTriggerCyclingOfCSRFSecret = (&http.Cookie{
+	Name:     "_csrf",
+	Value:    "",
+	Path:     "/",
+	MaxAge:   -1,
+	Secure:   true,
+	HttpOnly: true,
+	SameSite: http.SameSiteLaxMode,
+}).String()
 
 func (m *manager) new(id Id, before []byte) *Session {
 	return &Session{
@@ -112,5 +123,8 @@ func (m *manager) Flush(c *gin.Context, session *Session) error {
 		return nil
 	}
 	m.signedCookie.Set(c, string(session.id))
+
+	// Trigger cycling of the csrf secret when cycling/clearing session id.
+	c.Writer.Header().Add("Set-Cookie", cookieTriggerCyclingOfCSRFSecret)
 	return nil
 }
