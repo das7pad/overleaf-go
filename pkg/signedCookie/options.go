@@ -17,9 +17,11 @@
 package signedCookie
 
 import (
+	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
 type Options struct {
@@ -28,6 +30,13 @@ type Options struct {
 	Name    string        `json:"name"`
 	Path    string        `json:"path"`
 	Secrets []string      `json:"secrets"`
+}
+
+func (o *Options) FillFromEnv(name string) {
+	if len(o.Secrets) > 0 {
+		return
+	}
+	o.Secrets = strings.Split(utils.MustGetStringFromEnv(name), ",")
 }
 
 func (o *Options) Validate() error {

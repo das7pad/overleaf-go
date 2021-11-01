@@ -49,6 +49,7 @@ func getOptions() *webOptions {
 	o.options.JWT.Notifications.FillFromEnv("JWT_NOTIFICATIONS_VERIFY_SECRET")
 	o.options.JWT.Spelling.FillFromEnv("JWT_SPELLING_VERIFY_SECRET")
 	o.options.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
+	o.options.SessionCookie.FillFromEnv("SESSION_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 	return o
