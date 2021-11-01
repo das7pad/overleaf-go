@@ -23,6 +23,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
+type LogoutRequest struct {
+	Session *session.Session `json:"-"`
+}
+
+type LogoutResponse = asyncForm.Response
+
 type LoginRequest struct {
 	Session   *session.Session  `json:"-"`
 	IPAddress string            `json:"-"`

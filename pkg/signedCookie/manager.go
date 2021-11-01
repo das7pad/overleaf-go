@@ -62,6 +62,9 @@ func (m *manager) Get(c *gin.Context) (string, error) {
 		}
 		return "", err
 	}
+	if s == "" {
+		return "", ErrNoCookie
+	}
 
 	if len(s) != m.size || s[m.posDot] != '.' || s[0] != 's' || s[1] != ':' {
 		return "", ErrBadCookieFormat
@@ -71,10 +74,19 @@ func (m *manager) Get(c *gin.Context) (string, error) {
 
 func (m *manager) Set(c *gin.Context, s string) {
 	c.SetSameSite(http.SameSiteLaxMode)
+	var v string
+	var expiry int
+	if s == "" {
+		v = ""
+		expiry = -1
+	} else {
+		v = m.sign(s)
+		expiry = int(m.Expiry.Seconds())
+	}
 	c.SetCookie(
 		m.Name,
-		m.sign(s),
-		int(m.Expiry.Seconds()),
+		v,
+		expiry,
 		m.Path,
 		m.Domain,
 		true,

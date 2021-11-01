@@ -31,6 +31,7 @@ import (
 
 type Manager interface {
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
+	LogOut(ctx context.Context, request *types.LogoutRequest) error
 }
 
 func New(um user.Manager) Manager {
@@ -39,6 +40,10 @@ func New(um user.Manager) Manager {
 
 type manager struct {
 	um user.Manager
+}
+
+func (m *manager) LogOut(ctx context.Context, request *types.LogoutRequest) error {
+	return request.Session.Destroy(ctx)
 }
 
 func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.LoginResponse) error {

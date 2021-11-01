@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -32,12 +33,13 @@ type Session struct {
 	// Block full access on the session data. Read/Write individual details.
 	*internalDataAccessOnly
 
-	persistedId Id
-	persisted   []byte
-	client      redis.UniversalClient
-	expiry      time.Duration
-	id          Id
-	noAutoSave  bool
+	client         redis.UniversalClient
+	expiry         time.Duration
+	id             Id
+	incomingUserId *primitive.ObjectID
+	noAutoSave     bool
+	persisted      []byte
+	providedId     Id
 }
 
 func (s *Session) SetNoAutoSave() {
@@ -54,11 +56,12 @@ func (s *Session) Cycle(ctx context.Context) error {
 		return err
 	}
 
-	if s.User != nil && !s.User.Id.IsZero() {
+	u := s.User
+	if u != nil && !u.Id.IsZero() {
 		// Multi/EXEC skips over nil error from `SET NX`.
 		// Perform tracking calls after getting session id.
 		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
-			key := userSessionsKey(s.User.Id)
+			key := userSessionsKey(u.Id)
 			tx.SAdd(ctx, key, string(r.id))
 			tx.Expire(ctx, key, s.expiry)
 			return nil
@@ -74,7 +77,7 @@ func (s *Session) Cycle(ctx context.Context) error {
 			delCtx, done :=
 				context.WithTimeout(context.Background(), 10*time.Second)
 			defer done()
-			_ = destroySession(delCtx, s.client, oldId)
+			_ = s.destroyOldSession(delCtx, oldId)
 		}()
 	}
 
@@ -84,19 +87,42 @@ func (s *Session) Cycle(ctx context.Context) error {
 	return nil
 }
 
-func destroySession(ctx context.Context, client redis.UniversalClient, id Id) error {
+func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 	if id == "" {
 		return nil
 	}
-	err := client.Del(ctx, id.toKey()).Err()
+	err := s.client.Del(ctx, id.toKey()).Err()
 	if err != nil && err != redis.Nil {
 		return err
+	}
+	userId := s.incomingUserId
+	if userId != nil && !userId.IsZero() {
+		// Multi/EXEC skips over nil error from `DEL`.
+		// Perform tracking calls after deleting session id.
+		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
+			key := userSessionsKey(*userId)
+			tx.SRem(ctx, key, string(id))
+			tx.Expire(ctx, key, s.expiry)
+			return nil
+		})
+		if err2 != nil {
+			return err2
+		}
 	}
 	return nil
 }
 
 func (s *Session) Destroy(ctx context.Context) error {
-	return destroySession(ctx, s.client, s.id)
+	id := s.id
+	// Any following writes must error out.
+	s.internalDataAccessOnly = nil
+	s.noAutoSave = true
+	s.id = ""
+	s.persisted = nil
+	if err := s.destroyOldSession(ctx, id); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Session) Save(ctx context.Context) (bool, error) {

@@ -63,6 +63,7 @@ func (h *httpController) GetRouter(
 
 	publicApiRouter := publicRouter.Group("/api")
 	publicApiRouter.POST("/login", h.login)
+	publicApiRouter.POST("/logout", h.logout)
 
 	jwtRouter := publicRouter.Group("/jwt/web")
 
@@ -250,6 +251,23 @@ func (h *httpController) login(c *gin.Context) {
 	request.Session = s
 	request.IPAddress = c.ClientIP()
 	err = h.wm.Login(c, request, resp)
+	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
+		err = err2
+	}
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) logout(c *gin.Context) {
+	resp := &types.LogoutResponse{
+		RedirectTo: "/login",
+	}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.LogoutRequest{Session: s}
+	err = h.wm.LogOut(c, request)
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}

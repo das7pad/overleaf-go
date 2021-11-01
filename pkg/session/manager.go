@@ -85,7 +85,7 @@ func (m *manager) GetSessionById(c context.Context, id Id) (*Session, error) {
 	}
 	sess := m.new(id, raw)
 	sess.internalDataAccessOnly = data
-	sess.persistedId = id
+	sess.providedId = id
 	return sess, nil
 }
 
@@ -105,10 +105,10 @@ func (m *manager) Flush(c *gin.Context, session *Session) error {
 		if err != nil {
 			return err
 		}
-		if skipped && session.id == session.persistedId {
+		if skipped || session.id == session.providedId {
 			return nil
 		}
-	} else if session.id == session.persistedId {
+	} else if session.id == session.providedId && session.id != "" {
 		return nil
 	}
 	m.signedCookie.Set(c, string(session.id))
