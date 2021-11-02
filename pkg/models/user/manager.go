@@ -47,7 +47,10 @@ type manager struct {
 	c *mongo.Collection
 }
 
-const MaxAuditLogEntries = 200
+const (
+	AnonymousUserEpoch = 0
+	MaxAuditLogEntries = 200
+)
 
 func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error {
 	now := time.Now().UTC()
@@ -80,6 +83,9 @@ func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip 
 }
 
 func (m *manager) GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error) {
+	if userId.IsZero() {
+		return AnonymousUserEpoch, nil
+	}
 	p := &EpochField{}
 	err := m.GetUser(ctx, userId, p)
 	return p.Epoch, err

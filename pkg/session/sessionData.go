@@ -22,11 +22,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 var (
-	anonymousUser = &User{}
+	anonymousUser = &User{
+		Epoch: user.AnonymousUserEpoch,
+	}
 )
 
 type User struct {
