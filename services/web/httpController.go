@@ -65,6 +65,10 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/login", h.login)
 	publicApiRouter.POST("/logout", h.logout)
 
+	publicApiProjectRouter := publicApiRouter.Group("/project/:projectId")
+	publicApiProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
+	publicApiProjectRouter.POST("/jwt", h.getCompileJWT)
+
 	jwtRouter := publicRouter.Group("/jwt/web")
 
 	loggedInUserJWTRouter := jwtRouter.Group("")
@@ -271,5 +275,20 @@ func (h *httpController) logout(c *gin.Context) {
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) getCompileJWT(c *gin.Context) {
+	resp := types.GetCompileJWTResponse("")
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GetCompileJWTRequest{
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		Session:   s,
+	}
+	err = h.wm.GetCompileJWT(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

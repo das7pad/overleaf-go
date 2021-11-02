@@ -38,6 +38,7 @@ import (
 
 type Manager interface {
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
+	GetCompileJWT(ctx context.Context, request *types.GetCompileJWTRequest, response *types.GetCompileJWTResponse) error
 }
 
 func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, compileJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
@@ -78,18 +79,6 @@ var (
 	}
 )
 
-func (m *manager) genJWTCompile(ctx context.Context, projectId, userId primitive.ObjectID, ownerFeatures user.Features) (string, error) {
-	c := m.jwtCompile.New().(*compileJWT.Claims)
-	c.ProjectId = projectId
-	c.UserId = userId
-	c.CompileGroup = ownerFeatures.CompileGroup
-	c.Timeout = ownerFeatures.CompileTimeout
-	if err := c.EpochItems().Populate(ctx); err != nil {
-		return "", err
-	}
-	return m.jwtCompile.SetExpiryAndSign(c)
-}
-
 func (m *manager) genJWTLoggedInUser(userId primitive.ObjectID) (string, error) {
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 	c.UserId = userId
@@ -120,6 +109,42 @@ func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublic
 	}, nil
 }
 
+func (m *manager) GetCompileJWT(ctx context.Context, request *types.GetCompileJWTRequest, response *types.GetCompileJWTResponse) error {
+	projectId := request.ProjectId
+	userId := request.Session.User.Id
+
+	p := &project.ForAuthorizationDetails{}
+	if err := m.pm.GetProject(ctx, projectId, p); err != nil {
+		return errors.Tag(err, "cannot get project from mongo")
+	}
+
+	accessToken := request.Session.AnonTokenAccess[projectId.Hex()]
+	authorizationDetails, err := p.GetPrivilegeLevel(userId, accessToken)
+	if err != nil {
+		return err
+	}
+
+	o := &user.FeaturesField{}
+	if err = m.um.GetUser(ctx, p.OwnerRef, o); err != nil {
+		return errors.Tag(err, "cannot get project owner features")
+	}
+
+	c := m.jwtCompile.New().(*compileJWT.Claims)
+	c.ProjectId = projectId
+	c.UserId = userId
+	c.CompileGroup = o.Features.CompileGroup
+	c.Timeout = o.Features.CompileTimeout
+	c.EpochUser = request.Session.User.Epoch
+	c.EpochProject = authorizationDetails.Epoch
+
+	s, err := m.jwtCompile.SetExpiryAndSign(c)
+	if err != nil {
+		return errors.Tag(err, "cannot sign jwt")
+	}
+	*response = types.GetCompileJWTResponse(s)
+	return nil
+}
+
 func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error {
 	projectId := request.ProjectId
 	userId := request.UserId
@@ -132,6 +157,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 	var p *project.LoadEditorViewPrivate
 	u := &user.WithLoadEditorInfo{}
 	var ownerFeatures *user.Features
+	var authorizationDetails *project.AuthorizationDetails
 
 	// Fan out 1 -- fetch primary mongo details
 	eg, pCtx := errgroup.WithContext(ctx)
@@ -142,13 +168,12 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 			return errors.Tag(err, "cannot get project details")
 		}
 
-		authorizationDetails, err := p.GetPrivilegeLevel(
+		authorizationDetails, err = p.GetPrivilegeLevel(
 			userId, request.AnonymousAccessToken,
 		)
 		if err != nil {
 			return err
 		}
-		response.AuthorizationDetails = *authorizationDetails
 		return nil
 	})
 
@@ -241,7 +266,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 	{
 		c := m.jwtCompile.New().(*compileJWT.Claims)
 		c.CompileGroup = ownerFeatures.CompileGroup
-		c.EpochProject = p.Epoch
+		c.EpochProject = authorizationDetails.Epoch
 		c.EpochUser = request.UserEpoch
 		c.ProjectId = projectId
 		c.Timeout = ownerFeatures.CompileTimeout
@@ -256,6 +281,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 
 	response.Anonymous = isAnonymous
 	response.AnonymousAccessToken = request.AnonymousAccessToken
+	response.AuthorizationDetails = *authorizationDetails
 	response.Project = p.LoadEditorViewPublic
 	response.User = *u
 	return nil

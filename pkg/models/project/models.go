@@ -44,7 +44,6 @@ type ListViewPrivate struct {
 type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic    `bson:"inline"`
 	ActiveField             `bson:"inline"`
-	EpochField              `bson:"inline"`
 	ForAuthorizationDetails `bson:"inline"`
 }
 
@@ -73,6 +72,7 @@ type WithMembers struct {
 
 type ForAuthorizationDetails struct {
 	WithMembers            `bson:"inline"`
+	EpochField             `bson:"inline"`
 	OwnerRefField          `bson:"inline"`
 	PublicAccessLevelField `bson:"inline"`
 	TokensField            `bson:"inline"`

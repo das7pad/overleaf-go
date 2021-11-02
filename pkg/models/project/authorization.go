@@ -41,6 +41,7 @@ const (
 )
 
 type AuthorizationDetails struct {
+	Epoch            int64            `json:"-"`
 	PrivilegeLevel   PrivilegeLevel   `json:"privilegeLevel"`
 	IsRestrictedUser IsRestrictedUser `json:"isRestrictedTokenMember"`
 	IsTokenMember    IsTokenMember    `json:"isTokenMember"`
@@ -65,6 +66,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 			// ReadAndWrite tokens start with numeric characters.
 			if p.Tokens.ReadAndWrite.EqualsTimingSafe(accessToken) {
 				return &AuthorizationDetails{
+					Epoch:            p.Epoch,
 					AccessSource:     AccessSourceToken,
 					PrivilegeLevel:   PrivilegeLevelReadAndWrite,
 					IsRestrictedUser: false,
@@ -75,6 +77,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 			// ReadOnly tokens are composed of alpha characters only.
 			if p.Tokens.ReadOnly.EqualsTimingSafe(accessToken) {
 				return &AuthorizationDetails{
+					Epoch:            p.Epoch,
 					AccessSource:     AccessSourceToken,
 					PrivilegeLevel:   PrivilegeLevelReadOnly,
 					IsRestrictedUser: true,
@@ -89,6 +92,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitive.ObjectID) (*AuthorizationDetails, error) {
 	if p.OwnerRef == userId {
 		return &AuthorizationDetails{
+			Epoch:            p.Epoch,
 			AccessSource:     AccessSourceOwner,
 			PrivilegeLevel:   PrivilegeLevelOwner,
 			IsRestrictedUser: false,
@@ -97,6 +101,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 	}
 	if p.CollaboratorRefs.Contains(userId) {
 		return &AuthorizationDetails{
+			Epoch:            p.Epoch,
 			AccessSource:     AccessSourceInvite,
 			PrivilegeLevel:   PrivilegeLevelReadAndWrite,
 			IsRestrictedUser: false,
@@ -105,6 +110,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 	}
 	if p.ReadOnlyRefs.Contains(userId) {
 		return &AuthorizationDetails{
+			Epoch:            p.Epoch,
 			AccessSource:     AccessSourceInvite,
 			PrivilegeLevel:   PrivilegeLevelReadOnly,
 			IsRestrictedUser: false,
@@ -114,6 +120,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 	if p.PublicAccessLevel == TokenBasedAccess {
 		if p.TokenAccessReadAndWriteRefs.Contains(userId) {
 			return &AuthorizationDetails{
+				Epoch:            p.Epoch,
 				AccessSource:     AccessSourceToken,
 				PrivilegeLevel:   PrivilegeLevelReadAndWrite,
 				IsRestrictedUser: false,
@@ -122,6 +129,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 		}
 		if p.TokenAccessReadOnlyRefs.Contains(userId) {
 			return &AuthorizationDetails{
+				Epoch:            p.Epoch,
 				AccessSource:     AccessSourceToken,
 				PrivilegeLevel:   PrivilegeLevelReadOnly,
 				IsRestrictedUser: true,

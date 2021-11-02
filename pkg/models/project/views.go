@@ -23,20 +23,23 @@ import (
 )
 
 var (
-	epochFieldProjection             = views.GetProjectionFor(EpochField{})
-	lastUpdatedAtFieldProjection     = views.GetProjectionFor(LastUpdatedAtField{})
-	withTreeProjection               = views.GetProjectionFor(WithTree{})
-	withMembersProjection            = views.GetProjectionFor(WithMembers{})
-	withTokenMembersProjection       = views.GetProjectionFor(WithTokenMembers{})
-	joinProjectViewPrivateProjection = views.GetProjectionFor(JoinProjectViewPrivate{})
-	listViewPrivateProjection        = views.GetProjectionFor(ListViewPrivate{})
-	loadEditorViewPrivateProjection  = views.GetProjectionFor(LoadEditorViewPrivate{})
+	epochFieldProjection              = views.GetProjectionFor(EpochField{})
+	lastUpdatedAtFieldProjection      = views.GetProjectionFor(LastUpdatedAtField{})
+	forAuthorizationDetailsProjection = views.GetProjectionFor(ForAuthorizationDetails{})
+	withTreeProjection                = views.GetProjectionFor(WithTree{})
+	withMembersProjection             = views.GetProjectionFor(WithMembers{})
+	withTokenMembersProjection        = views.GetProjectionFor(WithTokenMembers{})
+	joinProjectViewPrivateProjection  = views.GetProjectionFor(JoinProjectViewPrivate{})
+	listViewPrivateProjection         = views.GetProjectionFor(ListViewPrivate{})
+	loadEditorViewPrivateProjection   = views.GetProjectionFor(LoadEditorViewPrivate{})
 )
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
 	case *EpochField:
 		return epochFieldProjection
+	case *ForAuthorizationDetails:
+		return forAuthorizationDetailsProjection
 	case *LastUpdatedAtField:
 		return lastUpdatedAtFieldProjection
 	case JoinProjectViewPrivate:
