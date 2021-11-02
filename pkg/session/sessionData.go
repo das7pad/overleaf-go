@@ -21,7 +21,12 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
+var (
+	anonymousUser = &User{}
 )
 
 type User struct {
@@ -36,7 +41,10 @@ type User struct {
 	SessionCreated time.Time          `json:"session_created"`
 }
 
+type AnonTokenAccess map[string]project.AccessToken
+
 type Data struct {
-	User              *User  `json:"user,omitempty"`
-	PostLoginRedirect string `json:"postLoginRedirect,omitempty"`
+	AnonTokenAccess   AnonTokenAccess `json:"anonTokenAccess,omitempty"`
+	PostLoginRedirect string          `json:"postLoginRedirect,omitempty"`
+	User              *User           `json:"user,omitempty"`
 }

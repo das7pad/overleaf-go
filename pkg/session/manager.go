@@ -68,12 +68,18 @@ var cookieTriggerCyclingOfCSRFSecret = (&http.Cookie{
 	SameSite: http.SameSiteLaxMode,
 }).String()
 
-func (m *manager) new(id Id, before []byte) *Session {
+func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
+	if data.User == nil {
+		data.User = anonymousUser
+	}
 	return &Session{
-		persisted: before,
-		client:    m.client,
-		expiry:    m.Expiry,
-		id:        id,
+		client:                 m.client,
+		expiry:                 m.Expiry,
+		id:                     id,
+		incomingUserId:         &data.User.Id,
+		internalDataAccessOnly: data,
+		persisted:              persisted,
+		providedId:             id,
 	}
 }
 
@@ -94,17 +100,14 @@ func (m *manager) GetSessionById(c context.Context, id Id) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	sess := m.new(id, raw)
-	sess.internalDataAccessOnly = data
-	sess.providedId = id
+	sess := m.new(id, raw, data)
 	return sess, nil
 }
 
 func (m *manager) GetOrCreateSession(c *gin.Context) (*Session, error) {
 	sess, err := m.GetSession(c)
 	if err == redis.Nil || err == signedCookie.ErrNoCookie {
-		sess = m.new("", nil)
-		sess.internalDataAccessOnly = &Data{}
+		sess = m.new("", nil, &Data{})
 		return sess, nil
 	}
 	return sess, err

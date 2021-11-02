@@ -89,7 +89,7 @@ func (s *Session) newSessionIdOnceVia(ctx context.Context, runner redis.Cmdable)
 	if err != nil {
 		return nil, err
 	}
-	blob, err := serializeSession(id, s.internalDataAccessOnly)
+	blob, err := s.serializeWithId(id)
 	if err != nil {
 		return nil, err
 	}

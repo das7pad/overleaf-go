@@ -56,12 +56,11 @@ func (s *Session) Cycle(ctx context.Context) error {
 		return err
 	}
 
-	u := s.User
-	if u != nil && !u.Id.IsZero() {
+	if s.User.Id.IsZero() {
 		// Multi/EXEC skips over nil error from `SET NX`.
 		// Perform tracking calls after getting session id.
 		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
-			key := userSessionsKey(u.Id)
+			key := userSessionsKey(s.User.Id)
 			tx.SAdd(ctx, key, string(r.id))
 			tx.Expire(ctx, key, s.expiry)
 			return nil
@@ -95,12 +94,11 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 	if err != nil && err != redis.Nil {
 		return err
 	}
-	userId := s.incomingUserId
-	if userId != nil && !userId.IsZero() {
+	if !s.incomingUserId.IsZero() {
 		// Multi/EXEC skips over nil error from `DEL`.
 		// Perform tracking calls after deleting session id.
 		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
-			key := userSessionsKey(*userId)
+			key := userSessionsKey(*s.incomingUserId)
 			tx.SRem(ctx, key, string(id))
 			tx.Expire(ctx, key, s.expiry)
 			return nil
@@ -113,15 +111,14 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 }
 
 func (s *Session) Destroy(ctx context.Context) error {
-	id := s.id
-	// Any following writes must error out.
+	// Any following access/writes must error out.
 	s.internalDataAccessOnly = nil
 	s.noAutoSave = true
-	s.id = ""
 	s.persisted = nil
-	if err := s.destroyOldSession(ctx, id); err != nil {
+	if err := s.destroyOldSession(ctx, s.id); err != nil {
 		return err
 	}
+	s.id = ""
 	return nil
 }
 
@@ -134,9 +131,9 @@ func (s *Session) Save(ctx context.Context) (bool, error) {
 		r.Populate(s)
 		return false, nil
 	}
-	b, err := serializeSession(s.id, s.internalDataAccessOnly)
+	b, err := s.serializeWithId(s.id)
 	if err != nil {
-		return false, errors.Tag(err, "cannot serialize session")
+		return false, err
 	}
 
 	if bytes.Equal(b, s.persisted) {
@@ -149,4 +146,16 @@ func (s *Session) Save(ctx context.Context) (bool, error) {
 	}
 	s.persisted = b
 	return false, nil
+}
+
+func (s *Session) serializeWithId(id Id) ([]byte, error) {
+	data := *s.internalDataAccessOnly
+	if data.User == anonymousUser {
+		data.User = nil
+	}
+	b, err := serializeSession(id, data)
+	if err != nil {
+		return b, errors.Tag(err, "cannot serialize session")
+	}
+	return b, nil
 }

@@ -40,10 +40,10 @@ func (s *sessionDataWithDeSyncProtection) Validate(id Id) error {
 	return nil
 }
 
-func serializeSession(id Id, data *Data) ([]byte, error) {
+func serializeSession(id Id, data Data) ([]byte, error) {
 	return json.Marshal(&sessionDataWithDeSyncProtection{
 		ValidationToken: id.toSessionValidationToken(),
-		Data:            *data,
+		Data:            data,
 	})
 }
 
