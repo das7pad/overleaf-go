@@ -34,6 +34,7 @@ type Manager interface {
 	GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
 	GetUsersWithPublicInfo(ctx context.Context, users []primitive.ObjectID) ([]WithPublicInfo, error)
+	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 }
 
@@ -110,6 +111,23 @@ func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []primitiv
 	}
 	if err = c.All(ctx, &users); err != nil {
 		return nil, rewriteMongoError(err)
+	}
+	return users, nil
+}
+
+func (m *manager) GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error) {
+	flatIds := make([]primitive.ObjectID, 0, len(ids))
+	for id := range ids {
+		flatIds = append(flatIds, id)
+	}
+	flatUsers, err := m.GetUsersWithPublicInfo(ctx, flatIds)
+	if err != nil {
+		return nil, err
+	}
+	users := make(UsersForBackFilling, len(flatUsers))
+	for i := range flatUsers {
+		usr := flatUsers[i]
+		users[usr.Id] = &usr
 	}
 	return users, nil
 }

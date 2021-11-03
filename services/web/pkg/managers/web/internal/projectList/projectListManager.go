@@ -75,7 +75,7 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 		projects := make([]*types.ProjectListProjectView, len(projectsRaw))
 		response.Projects = projects
 
-		lookUpUserIds := make(map[primitive.ObjectID]bool)
+		lookUpUserIds := make(user.UniqUserIds)
 		for i, p := range projectsRaw {
 			authorizationDetails, err2 :=
 				p.GetPrivilegeLevelAuthenticated(userId)
@@ -111,20 +111,9 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 			return nil
 		}
 
-		flatUserIds := make([]primitive.ObjectID, 0, len(lookUpUserIds))
-		for id := range lookUpUserIds {
-			flatUserIds = append(flatUserIds, id)
-		}
-		flatUsers, err := m.um.GetUsersWithPublicInfo(pCtx, flatUserIds)
+		users, err := m.um.GetUsersForBackFilling(pCtx, lookUpUserIds)
 		if err != nil {
 			return errors.Tag(err, "cannot get other user details")
-		}
-		users := make(
-			map[primitive.ObjectID]*user.WithPublicInfo, len(flatUsers),
-		)
-		for i := range flatUsers {
-			usr := flatUsers[i]
-			users[usr.Id] = &usr
 		}
 		for _, p := range projects {
 			p.LastUpdatedBy = users[p.LastUpdatedByUserId]
