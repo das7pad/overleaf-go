@@ -29,6 +29,10 @@ type PopulateClaims interface {
 	Populate(c *gin.Context)
 }
 
+type CheckParamsClaims interface {
+	CheckParams(c *gin.Context) error
+}
+
 func NewJWTHandlerFromQuery(handler jwtHandler.JWTHandler, fromQuery string) *JWTHTTPHandler {
 	return &JWTHTTPHandler{
 		parser:    handler,
@@ -66,6 +70,12 @@ func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
 	claims, err := h.parser.Parse(blob)
 	if err != nil {
 		return nil, &errors.UnauthorizedError{Reason: "invalid jwt"}
+	}
+
+	if populateClaims, ok := claims.(CheckParamsClaims); ok {
+		if err = populateClaims.CheckParams(c); err != nil {
+			return nil, err
+		}
 	}
 
 	if epochClaims, ok := claims.(epochJWT.EpochClaims); ok {

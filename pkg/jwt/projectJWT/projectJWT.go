@@ -51,6 +51,10 @@ var ErrMissingPrivilegeLevel = errors.New(
 	"incomplete jwt: missing PrivilegeLevel",
 )
 
+var ErrMismatchingProjectId = &errors.ValidationError{
+	Msg: "mismatching projectId between jwt and path",
+}
+
 func (c *Claims) Valid() error {
 	if err := c.Claims.Valid(); err != nil {
 		return err
@@ -79,6 +83,14 @@ func (c *Claims) EpochItems() epochJWT.FetchJWTEpochItems {
 		},
 		Client: c.client,
 	}
+}
+
+func (c *Claims) CheckParams(gc *gin.Context) error {
+	p := gc.Param(projectIdField)
+	if p == "" || p != c.ProjectId.Hex() {
+		return ErrMismatchingProjectId
+	}
+	return nil
 }
 
 func (c *Claims) Populate(target *gin.Context) {
