@@ -30,8 +30,8 @@ import (
 type Claims struct {
 	expiringJWT.Claims
 	types.SignedCompileProjectRequestOptions
-	EpochProject int64 `json:"epoch_projectId"`
-	EpochUser    int64 `json:"epoch_userId"`
+	EpochProject int64 `json:"ep"`
+	EpochUser    int64 `json:"eu"`
 
 	fetchProjectEpoch epochJWT.FetchEpochFromMongo
 	fetchUserEpoch    epochJWT.FetchEpochFromMongo

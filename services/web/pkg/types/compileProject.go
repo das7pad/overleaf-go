@@ -23,10 +23,10 @@ import (
 )
 
 type SignedCompileProjectRequestOptions struct {
-	CompileGroup clsiTypes.CompileGroup
-	ProjectId    primitive.ObjectID
-	UserId       primitive.ObjectID
-	Timeout      clsiTypes.Timeout
+	CompileGroup clsiTypes.CompileGroup `json:"c"`
+	ProjectId    primitive.ObjectID     `json:"p"`
+	UserId       primitive.ObjectID     `json:"u"`
+	Timeout      clsiTypes.Timeout      `json:"t"`
 }
 
 type CompileProjectRequest struct {
