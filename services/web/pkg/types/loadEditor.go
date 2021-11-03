@@ -31,13 +31,15 @@ type LoadEditorRequest struct {
 }
 
 type LoadEditorResponse struct {
-	project.AuthorizationDetails
-	Project              project.LoadEditorViewPublic `json:"project"`
 	Anonymous            bool                         `json:"anonymous"`
 	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
+	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
+	IsTokenMember        project.IsTokenMember        `json:"isTokenMember"`
 	JWTCompile           string                       `json:"jwtCompile"`
 	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
 	JWTSpelling          string                       `json:"jwtSpelling"`
+	PrivilegeLevel       project.PrivilegeLevel       `json:"privilegeLevel"`
+	Project              project.LoadEditorViewPublic `json:"project"`
 	User                 user.WithLoadEditorInfo      `json:"user"`
 	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
 }
