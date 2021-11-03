@@ -27,10 +27,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type EpochClaims interface {
-	EpochItems() FetchJWTEpochItems
-}
-
 type FetchEpochFromMongo func(ctx context.Context, id primitive.ObjectID) (int64, error)
 
 type JWTEpochItem struct {

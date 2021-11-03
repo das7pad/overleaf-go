@@ -30,8 +30,9 @@ type Claims struct {
 	UserId primitive.ObjectID `json:"userId"`
 }
 
-func (c *Claims) Populate(target *gin.Context) {
+func (c *Claims) PostProcess(target *gin.Context) error {
 	target.Set("userId", c.UserId)
+	return nil
 }
 
 func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {

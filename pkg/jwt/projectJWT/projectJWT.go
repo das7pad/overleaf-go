@@ -85,16 +85,18 @@ func (c *Claims) EpochItems() epochJWT.FetchJWTEpochItems {
 	}
 }
 
-func (c *Claims) CheckParams(gc *gin.Context) error {
-	p := gc.Param(projectIdField)
+func (c *Claims) PostProcess(target *gin.Context) error {
+	p := target.Param(projectIdField)
 	if p == "" || p != c.ProjectId.Hex() {
 		return ErrMismatchingProjectId
 	}
-	return nil
-}
 
-func (c *Claims) Populate(target *gin.Context) {
+	if err := c.EpochItems().Check(target); err != nil {
+		return err
+	}
+
 	target.Set(jwtField, c)
+	return nil
 }
 
 func MustGet(ctx *gin.Context) *Claims {

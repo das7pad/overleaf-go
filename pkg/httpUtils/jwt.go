@@ -21,16 +21,11 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 )
 
-type PopulateClaims interface {
-	Populate(c *gin.Context)
-}
-
-type CheckParamsClaims interface {
-	CheckParams(c *gin.Context) error
+type PostProcessClaims interface {
+	PostProcess(c *gin.Context) error
 }
 
 func NewJWTHandlerFromQuery(handler jwtHandler.JWTHandler, fromQuery string) *JWTHTTPHandler {
@@ -72,21 +67,12 @@ func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
 		return nil, &errors.UnauthorizedError{Reason: "invalid jwt"}
 	}
 
-	if populateClaims, ok := claims.(CheckParamsClaims); ok {
-		if err = populateClaims.CheckParams(c); err != nil {
+	if postProcessClaims, ok := claims.(PostProcessClaims); ok {
+		if err = postProcessClaims.PostProcess(c); err != nil {
 			return nil, err
 		}
 	}
 
-	if epochClaims, ok := claims.(epochJWT.EpochClaims); ok {
-		if err = epochClaims.EpochItems().Check(c); err != nil {
-			return nil, err
-		}
-	}
-
-	if populateClaims, ok := claims.(PopulateClaims); ok {
-		populateClaims.Populate(c)
-	}
 	return claims, nil
 }
 
