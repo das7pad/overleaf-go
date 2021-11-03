@@ -25,43 +25,14 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
-
-type Manager interface {
-	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
-	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
-}
-
-func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
-	return &manager{
-		dm:              dm,
-		jwtProject:      projectJWTHandler,
-		jwtLoggedInUser: loggedInUserJWTHandler,
-		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
-		pm:              pm,
-		um:              um,
-		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
-	}
-}
-
-type manager struct {
-	dm              docstore.Manager
-	jwtProject      jwtHandler.JWTHandler
-	jwtLoggedInUser jwtHandler.JWTHandler
-	jwtSpelling     jwtHandler.JWTHandler
-	pm              project.Manager
-	um              user.Manager
-	wsBootstrap     jwtHandler.JWTHandler
-}
 
 var (
 	defaultUser = &user.WithLoadEditorInfo{
@@ -107,42 +78,6 @@ func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublic
 		JWT:       blob,
 		ExpiresIn: int64(c.ExpiresIn().Seconds()),
 	}, nil
-}
-
-func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error {
-	projectId := request.ProjectId
-	userId := request.Session.User.Id
-
-	p := &project.ForAuthorizationDetails{}
-	if err := m.pm.GetProject(ctx, projectId, p); err != nil {
-		return errors.Tag(err, "cannot get project from mongo")
-	}
-
-	accessToken := request.Session.AnonTokenAccess[projectId.Hex()]
-	authorizationDetails, err := p.GetPrivilegeLevel(userId, accessToken)
-	if err != nil {
-		return err
-	}
-
-	o := &user.FeaturesField{}
-	if err = m.um.GetUser(ctx, p.OwnerRef, o); err != nil {
-		return errors.Tag(err, "cannot get project owner features")
-	}
-
-	c := m.jwtProject.New().(*projectJWT.Claims)
-	c.ProjectId = projectId
-	c.UserId = userId
-	c.CompileGroup = o.Features.CompileGroup
-	c.Timeout = o.Features.CompileTimeout
-	c.EpochUser = request.Session.User.Epoch
-	c.AuthorizationDetails = *authorizationDetails
-
-	s, err := m.jwtProject.SetExpiryAndSign(c)
-	if err != nil {
-		return errors.Tag(err, "cannot sign jwt")
-	}
-	*response = types.GetProjectJWTResponse(s)
-	return nil
 }
 
 func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error {
