@@ -135,7 +135,7 @@ func (m *manager) GetCompileJWT(ctx context.Context, request *types.GetCompileJW
 	c.CompileGroup = o.Features.CompileGroup
 	c.Timeout = o.Features.CompileTimeout
 	c.EpochUser = request.Session.User.Epoch
-	c.EpochProject = authorizationDetails.Epoch
+	c.AuthorizationDetails = *authorizationDetails
 
 	s, err := m.jwtCompile.SetExpiryAndSign(c)
 	if err != nil {
@@ -266,11 +266,11 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 	{
 		c := m.jwtCompile.New().(*compileJWT.Claims)
 		c.CompileGroup = ownerFeatures.CompileGroup
-		c.EpochProject = authorizationDetails.Epoch
 		c.EpochUser = request.UserEpoch
 		c.ProjectId = projectId
 		c.Timeout = ownerFeatures.CompileTimeout
 		c.UserId = userId
+		c.AuthorizationDetails = *authorizationDetails
 
 		s, err := m.jwtCompile.SetExpiryAndSign(c)
 		if err != nil {

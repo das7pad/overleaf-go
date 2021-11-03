@@ -41,10 +41,10 @@ const (
 )
 
 type AuthorizationDetails struct {
-	Epoch            int64            `json:"-"`
-	PrivilegeLevel   PrivilegeLevel   `json:"privilegeLevel"`
-	IsRestrictedUser IsRestrictedUser `json:"isRestrictedTokenMember"`
-	IsTokenMember    IsTokenMember    `json:"isTokenMember"`
+	Epoch            int64            `json:"e,omitempty"`
+	PrivilegeLevel   PrivilegeLevel   `json:"l"`
+	IsRestrictedUser IsRestrictedUser `json:"r,omitempty"`
+	IsTokenMember    IsTokenMember    `json:"tm,omitempty"`
 	AccessSource     AccessSource     `json:"-"`
 }
 

@@ -20,18 +20,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Claims struct {
 	expiringJWT.Claims
+	project.AuthorizationDetails
 	types.SignedCompileProjectRequestOptions
-	EpochProject int64 `json:"ep"`
-	EpochUser    int64 `json:"eu"`
+	EpochUser int64 `json:"eu"`
 
 	fetchProjectEpoch epochJWT.FetchEpochFromMongo
 	fetchUserEpoch    epochJWT.FetchEpochFromMongo
@@ -45,13 +47,27 @@ const (
 	jwtField = "compileJWT.Claims"
 )
 
+var ErrMissingPrivilegeLevel = errors.New(
+	"incomplete jwt: missing PrivilegeLevel",
+)
+
+func (c *Claims) Valid() error {
+	if err := c.Claims.Valid(); err != nil {
+		return err
+	}
+	if c.AuthorizationDetails.PrivilegeLevel == "" {
+		return ErrMissingPrivilegeLevel
+	}
+	return nil
+}
+
 func (c *Claims) EpochItems() epochJWT.FetchJWTEpochItems {
 	return epochJWT.FetchJWTEpochItems{
 		Items: epochJWT.JWTEpochItems{
 			{
 				Field: projectIdField,
 				Id:    c.ProjectId,
-				Epoch: &c.EpochProject,
+				Epoch: &c.AuthorizationDetails.Epoch,
 				Fetch: c.fetchProjectEpoch,
 			},
 			{
