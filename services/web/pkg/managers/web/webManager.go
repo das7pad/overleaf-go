@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
@@ -55,6 +56,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
+	chatM := chat.New(db)
 	dum, err := documentUpdater.New(
 		options.APIs.DocumentUpdater.Options, client, db,
 	)
@@ -78,7 +80,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	)
 	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
 	em := editor.New(
-		options, pm, um, dm, projectJWTHandler, loggedInUserJWTHandler,
+		options, pm, um, chatM, dm, projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(um)
 	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)

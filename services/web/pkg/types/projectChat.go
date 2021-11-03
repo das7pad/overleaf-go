@@ -14,19 +14,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package types
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
-type UniqUserIds map[primitive.ObjectID]bool
+type GetProjectChatMessagesRequest struct {
+	ProjectId primitive.ObjectID `form:"-"`
+	Before    float64            `form:"before"`
+	Limit     int64              `form:"limit"`
+}
 
-type UsersForBackFilling map[primitive.ObjectID]*WithPublicInfo
+type GetProjectChatMessagesResponse []*ChatMessage
 
-type UsersForBackFillingNonStandardId map[primitive.ObjectID]*WithPublicInfoAndNonStandardId
-
-type WithPublicInfoAndNonStandardId struct {
-	WithPublicInfo `bson:"inline"`
-	IdNoUnderscore primitive.ObjectID `json:"id"`
+type ChatMessage struct {
+	types.Message
+	User *user.WithPublicInfoAndNonStandardId `json:"user"`
 }

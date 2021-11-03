@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -88,6 +89,13 @@ func (h *httpController) GetRouter(
 
 	projectJWTRouter.GET("/metadata", h.getMetadataForProject)
 
+	{
+		// block access for token users with readOnly project access
+		r := projectJWTRouter.Group("")
+		r.Use(blockRestrictedUsers)
+		r.GET("/messages", h.getProjectMessages)
+	}
+
 	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
 	projectJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
 
@@ -95,6 +103,17 @@ func (h *httpController) GetRouter(
 
 	loggedInUserJWTRouter.GET("/system/messages", h.getSystemMessages)
 	return router
+}
+
+var (
+	err403 = &errors.NotAuthorizedError{}
+)
+
+func blockRestrictedUsers(c *gin.Context) {
+	if projectJWT.MustGet(c).IsRestrictedUser() {
+		httpUtils.Respond(c, http.StatusOK, nil, err403)
+		return
+	}
 }
 
 func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompileProjectRequestOptions {
@@ -291,4 +310,15 @@ func (h *httpController) getProjectJWT(c *gin.Context) {
 	}
 	err = h.wm.GetProjectJWT(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) getProjectMessages(c *gin.Context) {
+	request := &types.GetProjectChatMessagesRequest{}
+	if err := c.MustBindWith(request, binding.Query); err != nil {
+		return
+	}
+	request.ProjectId = projectJWT.MustGet(c).ProjectId
+	response := &types.GetProjectChatMessagesResponse{}
+	err := h.wm.GetProjectMessages(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }

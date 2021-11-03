@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -31,10 +32,12 @@ import (
 type Manager interface {
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
+	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
 }
 
-func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, pm project.Manager, um user.Manager, cm chat.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
+		cm:              cm,
 		dm:              dm,
 		jwtProject:      projectJWTHandler,
 		jwtLoggedInUser: loggedInUserJWTHandler,
@@ -46,6 +49,7 @@ func New(options *types.Options, pm project.Manager, um user.Manager, dm docstor
 }
 
 type manager struct {
+	cm              chat.Manager
 	dm              docstore.Manager
 	jwtProject      jwtHandler.JWTHandler
 	jwtLoggedInUser jwtHandler.JWTHandler

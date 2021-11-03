@@ -35,6 +35,7 @@ type Manager interface {
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
 	GetUsersWithPublicInfo(ctx context.Context, users []primitive.ObjectID) ([]WithPublicInfo, error)
 	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
+	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 }
 
@@ -128,6 +129,25 @@ func (m *manager) GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (
 	for i := range flatUsers {
 		usr := flatUsers[i]
 		users[usr.Id] = &usr
+	}
+	return users, nil
+}
+
+func (m *manager) GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error) {
+	flatIds := make([]primitive.ObjectID, 0, len(ids))
+	for id := range ids {
+		flatIds = append(flatIds, id)
+	}
+	flatUsers, err := m.GetUsersWithPublicInfo(ctx, flatIds)
+	if err != nil {
+		return nil, err
+	}
+	users := make(UsersForBackFillingNonStandardId, len(flatUsers))
+	for _, usr := range flatUsers {
+		users[usr.Id] = &WithPublicInfoAndNonStandardId{
+			WithPublicInfo: usr,
+			IdNoUnderscore: usr.Id,
+		}
 	}
 	return users, nil
 }
