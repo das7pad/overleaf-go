@@ -47,4 +47,5 @@ type JoinProjectDetails struct {
 	Features user.Features         `json:"features"`
 	Owner    user.WithPublicInfo   `json:"owner"`
 	Members  []user.WithPublicInfo `json:"members"`
+	Invites  []interface{}         `json:"invites"`
 }

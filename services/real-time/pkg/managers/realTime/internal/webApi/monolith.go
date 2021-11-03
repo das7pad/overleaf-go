@@ -108,6 +108,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		Owner:                  owner.WithPublicInfo,
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
+		Invites:                make([]interface{}, 0),
 	}
 
 	return &types.JoinProjectWebApiResponse{
