@@ -281,7 +281,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 
 	response.Anonymous = isAnonymous
 	response.AnonymousAccessToken = request.AnonymousAccessToken
-	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser
+	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()
 	response.IsTokenMember = authorizationDetails.IsTokenMember
 	response.PrivilegeLevel = authorizationDetails.PrivilegeLevel
 	response.Project = p.LoadEditorViewPublic

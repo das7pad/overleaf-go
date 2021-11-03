@@ -41,11 +41,16 @@ const (
 )
 
 type AuthorizationDetails struct {
-	Epoch            int64            `json:"e,omitempty"`
-	PrivilegeLevel   PrivilegeLevel   `json:"l"`
-	IsRestrictedUser IsRestrictedUser `json:"r,omitempty"`
-	IsTokenMember    IsTokenMember    `json:"tm,omitempty"`
-	AccessSource     AccessSource     `json:"-"`
+	Epoch          int64          `json:"e,omitempty"`
+	PrivilegeLevel PrivilegeLevel `json:"l"`
+	IsTokenMember  IsTokenMember  `json:"tm,omitempty"`
+	AccessSource   AccessSource   `json:"-"`
+}
+
+func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
+	return IsRestrictedUser(
+		a.IsTokenMember && a.PrivilegeLevel == PrivilegeLevelReadOnly,
+	)
 }
 
 type Refs []primitive.ObjectID
@@ -66,22 +71,20 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 			// ReadAndWrite tokens start with numeric characters.
 			if p.Tokens.ReadAndWrite.EqualsTimingSafe(accessToken) {
 				return &AuthorizationDetails{
-					Epoch:            p.Epoch,
-					AccessSource:     AccessSourceToken,
-					PrivilegeLevel:   PrivilegeLevelReadAndWrite,
-					IsRestrictedUser: false,
-					IsTokenMember:    true,
+					Epoch:          p.Epoch,
+					AccessSource:   AccessSourceToken,
+					PrivilegeLevel: PrivilegeLevelReadAndWrite,
+					IsTokenMember:  true,
 				}, nil
 			}
 		default:
 			// ReadOnly tokens are composed of alpha characters only.
 			if p.Tokens.ReadOnly.EqualsTimingSafe(accessToken) {
 				return &AuthorizationDetails{
-					Epoch:            p.Epoch,
-					AccessSource:     AccessSourceToken,
-					PrivilegeLevel:   PrivilegeLevelReadOnly,
-					IsRestrictedUser: true,
-					IsTokenMember:    true,
+					Epoch:          p.Epoch,
+					AccessSource:   AccessSourceToken,
+					PrivilegeLevel: PrivilegeLevelReadOnly,
+					IsTokenMember:  true,
 				}, nil
 			}
 		}
@@ -92,48 +95,43 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitive.ObjectID) (*AuthorizationDetails, error) {
 	if p.OwnerRef == userId {
 		return &AuthorizationDetails{
-			Epoch:            p.Epoch,
-			AccessSource:     AccessSourceOwner,
-			PrivilegeLevel:   PrivilegeLevelOwner,
-			IsRestrictedUser: false,
-			IsTokenMember:    false,
+			Epoch:          p.Epoch,
+			AccessSource:   AccessSourceOwner,
+			PrivilegeLevel: PrivilegeLevelOwner,
+			IsTokenMember:  false,
 		}, nil
 	}
 	if p.CollaboratorRefs.Contains(userId) {
 		return &AuthorizationDetails{
-			Epoch:            p.Epoch,
-			AccessSource:     AccessSourceInvite,
-			PrivilegeLevel:   PrivilegeLevelReadAndWrite,
-			IsRestrictedUser: false,
-			IsTokenMember:    false,
+			Epoch:          p.Epoch,
+			AccessSource:   AccessSourceInvite,
+			PrivilegeLevel: PrivilegeLevelReadAndWrite,
+			IsTokenMember:  false,
 		}, nil
 	}
 	if p.ReadOnlyRefs.Contains(userId) {
 		return &AuthorizationDetails{
-			Epoch:            p.Epoch,
-			AccessSource:     AccessSourceInvite,
-			PrivilegeLevel:   PrivilegeLevelReadOnly,
-			IsRestrictedUser: false,
-			IsTokenMember:    false,
+			Epoch:          p.Epoch,
+			AccessSource:   AccessSourceInvite,
+			PrivilegeLevel: PrivilegeLevelReadOnly,
+			IsTokenMember:  false,
 		}, nil
 	}
 	if p.PublicAccessLevel == TokenBasedAccess {
 		if p.TokenAccessReadAndWriteRefs.Contains(userId) {
 			return &AuthorizationDetails{
-				Epoch:            p.Epoch,
-				AccessSource:     AccessSourceToken,
-				PrivilegeLevel:   PrivilegeLevelReadAndWrite,
-				IsRestrictedUser: false,
-				IsTokenMember:    true,
+				Epoch:          p.Epoch,
+				AccessSource:   AccessSourceToken,
+				PrivilegeLevel: PrivilegeLevelReadAndWrite,
+				IsTokenMember:  true,
 			}, nil
 		}
 		if p.TokenAccessReadOnlyRefs.Contains(userId) {
 			return &AuthorizationDetails{
-				Epoch:            p.Epoch,
-				AccessSource:     AccessSourceToken,
-				PrivilegeLevel:   PrivilegeLevelReadOnly,
-				IsRestrictedUser: true,
-				IsTokenMember:    true,
+				Epoch:          p.Epoch,
+				AccessSource:   AccessSourceToken,
+				PrivilegeLevel: PrivilegeLevelReadOnly,
+				IsTokenMember:  true,
 			}, nil
 		}
 	}

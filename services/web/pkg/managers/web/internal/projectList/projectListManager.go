@@ -96,7 +96,7 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 				Trashed:             isTrashed && !isArchived,
 				OwnerRef:            p.OwnerRef,
 			}
-			if !authorizationDetails.IsRestrictedUser {
+			if !authorizationDetails.IsRestrictedUser() {
 				lookUpUserIds[p.OwnerRef] = true
 				lookUpUserIds[p.LastUpdatedBy] = true
 			}

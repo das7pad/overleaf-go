@@ -59,7 +59,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		}
 		return nil
 	})
-	if !authorizationDetails.IsRestrictedUser {
+	if !authorizationDetails.IsRestrictedUser() {
 		eg.Go(func() error {
 			n := len(p.CollaboratorRefs) + len(p.ReadOnlyRefs)
 			if n == 0 {
@@ -92,7 +92,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	}
 
 	// Hide owner details for restricted users
-	if authorizationDetails.IsRestrictedUser {
+	if authorizationDetails.IsRestrictedUser() {
 		owner.WithPublicInfo = user.WithPublicInfo{
 			IdField: user.IdField{Id: p.OwnerRef},
 		}
@@ -113,6 +113,6 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	return &types.JoinProjectWebApiResponse{
 		Project:          details,
 		PrivilegeLevel:   authorizationDetails.PrivilegeLevel,
-		IsRestrictedUser: authorizationDetails.IsRestrictedUser,
+		IsRestrictedUser: authorizationDetails.IsRestrictedUser(),
 	}, self, nil
 }
