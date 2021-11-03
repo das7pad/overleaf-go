@@ -23,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
@@ -67,7 +67,7 @@ func (h *httpController) GetRouter(
 
 	publicApiProjectRouter := publicApiRouter.Group("/project/:projectId")
 	publicApiProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
-	publicApiProjectRouter.POST("/jwt", h.getCompileJWT)
+	publicApiProjectRouter.POST("/jwt", h.getProjectJWT)
 
 	jwtRouter := publicRouter.Group("/jwt/web")
 
@@ -76,29 +76,29 @@ func (h *httpController) GetRouter(
 		httpUtils.NewJWTHandler(h.wm.GetLoggedInUserJWTHandler()).Middleware(),
 	)
 
-	compileJWTRouter := jwtRouter.Group("/project/:projectId")
-	compileJWTRouter.Use(
-		httpUtils.NewJWTHandler(h.wm.GetCompileJWTHandler()).Middleware(),
+	projectJWTRouter := jwtRouter.Group("/project/:projectId")
+	projectJWTRouter.Use(
+		httpUtils.NewJWTHandler(h.wm.GetProjectJWTHandler()).Middleware(),
 	)
-	compileJWTRouter.POST("/clear-cache", h.clearProjectCache)
-	compileJWTRouter.POST("/compile", h.compileProject)
-	compileJWTRouter.POST("/sync/code", h.syncFromCode)
-	compileJWTRouter.POST("/sync/pdf", h.syncFromPDF)
-	compileJWTRouter.POST("/wordcount", h.wordCount)
+	projectJWTRouter.POST("/clear-cache", h.clearProjectCache)
+	projectJWTRouter.POST("/compile", h.compileProject)
+	projectJWTRouter.POST("/sync/code", h.syncFromCode)
+	projectJWTRouter.POST("/sync/pdf", h.syncFromPDF)
+	projectJWTRouter.POST("/wordcount", h.wordCount)
 
-	compileJWTRouter.GET("/metadata", h.getMetadataForProject)
+	projectJWTRouter.GET("/metadata", h.getMetadataForProject)
 
-	compileJWTDocRouter := compileJWTRouter.Group("/doc/:docId")
-	compileJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
+	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
+	projectJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
 
-	compileJWTDocRouter.POST("/metadata", h.getMetadataForDoc)
+	projectJWTDocRouter.POST("/metadata", h.getMetadataForDoc)
 
 	loggedInUserJWTRouter.GET("/system/messages", h.getSystemMessages)
 	return router
 }
 
 func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompileProjectRequestOptions {
-	return compileJWT.MustGet(c).SignedCompileProjectRequestOptions
+	return projectJWT.MustGet(c).SignedCompileProjectRequestOptions
 }
 
 func (h *httpController) status(c *gin.Context) {
@@ -278,17 +278,17 @@ func (h *httpController) logout(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getCompileJWT(c *gin.Context) {
-	resp := types.GetCompileJWTResponse("")
+func (h *httpController) getProjectJWT(c *gin.Context) {
+	resp := types.GetProjectJWTResponse("")
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, resp, err)
 		return
 	}
-	request := &types.GetCompileJWTRequest{
+	request := &types.GetProjectJWTRequest{
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		Session:   s,
 	}
-	err = h.wm.GetCompileJWT(c, request, &resp)
+	err = h.wm.GetProjectJWT(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

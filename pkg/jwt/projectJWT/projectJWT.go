@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package compileJWT
+package projectJWT
 
 import (
 	"github.com/gin-gonic/gin"
@@ -44,7 +44,7 @@ const (
 	userIdField    = "userId"
 	projectIdField = "projectId"
 
-	jwtField = "compileJWT.Claims"
+	jwtField = "projectJWT.Claims"
 )
 
 var ErrMissingPrivilegeLevel = errors.New(

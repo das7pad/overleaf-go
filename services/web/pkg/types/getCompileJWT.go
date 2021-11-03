@@ -22,10 +22,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
-type GetCompileJWTRequest struct {
+type GetProjectJWTRequest struct {
 	Session *session.Session `json:"-"`
 
 	ProjectId primitive.ObjectID `json:"-"`
 }
 
-type GetCompileJWTResponse string
+type GetProjectJWTResponse string

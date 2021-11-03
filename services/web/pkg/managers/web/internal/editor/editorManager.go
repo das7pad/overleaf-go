@@ -25,9 +25,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -38,13 +38,13 @@ import (
 
 type Manager interface {
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
-	GetCompileJWT(ctx context.Context, request *types.GetCompileJWTRequest, response *types.GetCompileJWTResponse) error
+	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 }
 
-func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, compileJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, pm project.Manager, um user.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
 		dm:              dm,
-		jwtCompile:      compileJWTHandler,
+		jwtProject:      projectJWTHandler,
 		jwtLoggedInUser: loggedInUserJWTHandler,
 		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
 		pm:              pm,
@@ -55,7 +55,7 @@ func New(options *types.Options, pm project.Manager, um user.Manager, dm docstor
 
 type manager struct {
 	dm              docstore.Manager
-	jwtCompile      jwtHandler.JWTHandler
+	jwtProject      jwtHandler.JWTHandler
 	jwtLoggedInUser jwtHandler.JWTHandler
 	jwtSpelling     jwtHandler.JWTHandler
 	pm              project.Manager
@@ -109,7 +109,7 @@ func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublic
 	}, nil
 }
 
-func (m *manager) GetCompileJWT(ctx context.Context, request *types.GetCompileJWTRequest, response *types.GetCompileJWTResponse) error {
+func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error {
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
 
@@ -129,7 +129,7 @@ func (m *manager) GetCompileJWT(ctx context.Context, request *types.GetCompileJW
 		return errors.Tag(err, "cannot get project owner features")
 	}
 
-	c := m.jwtCompile.New().(*compileJWT.Claims)
+	c := m.jwtProject.New().(*projectJWT.Claims)
 	c.ProjectId = projectId
 	c.UserId = userId
 	c.CompileGroup = o.Features.CompileGroup
@@ -137,11 +137,11 @@ func (m *manager) GetCompileJWT(ctx context.Context, request *types.GetCompileJW
 	c.EpochUser = request.Session.User.Epoch
 	c.AuthorizationDetails = *authorizationDetails
 
-	s, err := m.jwtCompile.SetExpiryAndSign(c)
+	s, err := m.jwtProject.SetExpiryAndSign(c)
 	if err != nil {
 		return errors.Tag(err, "cannot sign jwt")
 	}
-	*response = types.GetCompileJWTResponse(s)
+	*response = types.GetProjectJWTResponse(s)
 	return nil
 }
 
@@ -264,7 +264,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 	}
 
 	{
-		c := m.jwtCompile.New().(*compileJWT.Claims)
+		c := m.jwtProject.New().(*projectJWT.Claims)
 		c.CompileGroup = ownerFeatures.CompileGroup
 		c.EpochUser = request.UserEpoch
 		c.ProjectId = projectId
@@ -272,11 +272,11 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		c.UserId = userId
 		c.AuthorizationDetails = *authorizationDetails
 
-		s, err := m.jwtCompile.SetExpiryAndSign(c)
+		s, err := m.jwtProject.SetExpiryAndSign(c)
 		if err != nil {
 			return errors.Tag(err, "cannot get compile jwt")
 		}
-		response.JWTCompile = s
+		response.JwtProject = s
 	}
 
 	response.Anonymous = isAnonymous

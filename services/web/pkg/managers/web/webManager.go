@@ -20,9 +20,9 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/jwt/compileJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -39,7 +39,7 @@ import (
 )
 
 type Manager interface {
-	GetCompileJWTHandler() jwtHandler.JWTHandler
+	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
 	compile.Manager
@@ -73,19 +73,19 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
-	compileJWTHandler := compileJWT.New(
+	projectJWTHandler := projectJWT.New(
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
 	)
 	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
 	em := editor.New(
-		options, pm, um, dm, compileJWTHandler, loggedInUserJWTHandler,
+		options, pm, um, dm, projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(um)
 	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, pm, dm, dum)
 	sm := session.New(options.SessionCookie, client)
 	return &manager{
-		compileJWTHandler:      compileJWTHandler,
+		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
 		compileManager:         cm,
 		editorManager:          em,
@@ -113,12 +113,12 @@ type manager struct {
 	projectMetadataManager
 	sessions
 	systemMessageManager
-	compileJWTHandler      jwtHandler.JWTHandler
+	projectJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler
 }
 
-func (m *manager) GetCompileJWTHandler() jwtHandler.JWTHandler {
-	return m.compileJWTHandler
+func (m *manager) GetProjectJWTHandler() jwtHandler.JWTHandler {
+	return m.projectJWTHandler
 }
 
 func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {

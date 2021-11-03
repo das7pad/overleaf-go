@@ -35,7 +35,7 @@ type LoadEditorResponse struct {
 	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
 	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
 	IsTokenMember        project.IsTokenMember        `json:"isTokenMember"`
-	JWTCompile           string                       `json:"jwtCompile"`
+	JwtProject           string                       `json:"jwtCompile"`
 	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
 	JWTSpelling          string                       `json:"jwtSpelling"`
 	PrivilegeLevel       project.PrivilegeLevel       `json:"privilegeLevel"`
