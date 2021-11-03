@@ -25,10 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 )
 
-const (
-	jwtCacheKey = "httpUtils.jwtClaims"
-)
-
 type PopulateClaims interface {
 	Populate(c *gin.Context)
 }
@@ -78,7 +74,6 @@ func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
 		}
 	}
 
-	c.Set(jwtCacheKey, claims)
 	if populateClaims, ok := claims.(PopulateClaims); ok {
 		populateClaims.Populate(c)
 	}
