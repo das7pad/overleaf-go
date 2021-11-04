@@ -38,10 +38,10 @@ type Manager interface {
 	GetMetadataForDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
 }
 
-func New(client redis.UniversalClient, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager) Manager {
+func New(client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager) Manager {
 	return &manager{
 		client: client,
-		c:      channel.NewWriter(client, "editor-events"),
+		c:      editorEvents,
 		pm:     pm,
 		dm:     dm,
 		dum:    dum,

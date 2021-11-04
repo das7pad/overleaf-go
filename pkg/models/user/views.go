@@ -42,7 +42,7 @@ func getProjection(model interface{}) views.View {
 		return projectListViewCaller
 	case WithPublicInfoAndFeatures:
 		return withPublicInfoAndFeaturesProjection
-	case *WithPublicInfoAndFeatures:
+	case *WithPublicInfoAndFeatures, *WithPublicInfoAndNonStandardId:
 		return withPublicInfoAndFeaturesProjection
 	case WithLoadEditorInfo:
 		return withLoadEditorInfoProjection

@@ -18,9 +18,11 @@ package editor
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -47,5 +49,36 @@ func (m *manager) GetProjectMessages(ctx context.Context, request *types.GetProj
 		}
 	}
 	*response = messages
+	return nil
+}
+
+func (m *manager) SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error {
+	rawMessage, err := m.cm.SendGlobalMessage(ctx, request.ProjectId, request.Content, request.UserId)
+	if err != nil {
+		return errors.Tag(err, "cannot persist message")
+	}
+
+	// NOTE: Silently bail out when the broadcast fails.
+	//       The message has been persisted and re-sending would result in
+	//        duplicate messages in the DB.
+	u := &user.WithPublicInfoAndNonStandardId{}
+	if err = m.um.GetUser(ctx, request.UserId, u); err != nil {
+		return nil
+	}
+	u.IdNoUnderscore = u.Id
+
+	message := types.ChatMessage{
+		Message: *rawMessage,
+		User:    u,
+	}
+	blob, err := json.Marshal(message)
+	if err != nil {
+		return nil
+	}
+	_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
+		RoomId:  request.ProjectId,
+		Message: "new-chat-message",
+		Payload: blob,
+	})
 	return nil
 }

@@ -35,3 +35,9 @@ type ChatMessage struct {
 	types.Message
 	User *user.WithPublicInfoAndNonStandardId `json:"user"`
 }
+
+type SendProjectChatMessageRequest struct {
+	ProjectId primitive.ObjectID `json:"-"`
+	UserId    primitive.ObjectID `json:"-"`
+	Content   string             `json:"content"`
+}

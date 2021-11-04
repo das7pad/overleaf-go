@@ -94,6 +94,7 @@ func (h *httpController) GetRouter(
 		r := projectJWTRouter.Group("")
 		r.Use(blockRestrictedUsers)
 		r.GET("/messages", h.getProjectMessages)
+		r.POST("/messages", h.sendProjectMessage)
 	}
 
 	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
@@ -321,4 +322,15 @@ func (h *httpController) getProjectMessages(c *gin.Context) {
 	response := &types.GetProjectChatMessagesResponse{}
 	err := h.wm.GetProjectMessages(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) sendProjectMessage(c *gin.Context) {
+	request := &types.SendProjectChatMessageRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = projectJWT.MustGet(c).ProjectId
+	request.UserId = projectJWT.MustGet(c).UserId
+	err := h.wm.SendProjectMessage(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
