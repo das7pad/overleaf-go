@@ -25,6 +25,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -32,20 +34,40 @@ import (
 )
 
 type Manager interface {
+	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
 	LogOut(ctx context.Context, request *types.LogoutRequest) error
 }
 
-func New(client redis.UniversalClient, um user.Manager) Manager {
+func New(client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
 	return &manager{
-		client: client,
-		um:     um,
+		client:          client,
+		jwtLoggedInUser: jwtLoggedInUser,
+		um:              um,
 	}
 }
 
 type manager struct {
-	client redis.UniversalClient
-	um     user.Manager
+	client          redis.UniversalClient
+	jwtLoggedInUser jwtHandler.JWTHandler
+	um              user.Manager
+}
+
+var errNotLoggedIn = &errors.UnauthorizedError{}
+
+func (m *manager) GetLoggedInUserJWT(_ context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error {
+	userId := request.Session.User.Id
+	if userId.IsZero() {
+		return errNotLoggedIn
+	}
+	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+	c.UserId = userId
+	b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
+	if err != nil {
+		return errors.Tag(err, "cannot get LoggedInUserJWT")
+	}
+	*response = types.GetLoggedInUserJWTResponse(b)
+	return nil
 }
 
 func (m *manager) LogOut(ctx context.Context, request *types.LogoutRequest) error {

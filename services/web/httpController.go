@@ -63,6 +63,7 @@ func (h *httpController) GetRouter(
 	publicRouter.Use(httpUtils.NoCache())
 
 	publicApiRouter := publicRouter.Group("/api")
+	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.POST("/login", h.login)
 	publicApiRouter.POST("/logout", h.logout)
 
@@ -295,6 +296,20 @@ func (h *httpController) logout(c *gin.Context) {
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) getLoggedInUserJWT(c *gin.Context) {
+	resp := types.GetLoggedInUserJWTResponse("")
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GetLoggedInUserJWTRequest{
+		Session: s,
+	}
+	err = h.wm.GetLoggedInUserJWT(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 

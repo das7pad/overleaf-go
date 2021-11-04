@@ -54,3 +54,9 @@ func (r *LoginRequest) Validate() error {
 }
 
 type LoginResponse = asyncForm.Response
+
+type GetLoggedInUserJWTRequest struct {
+	Session *session.Session `json:"-"`
+}
+
+type GetLoggedInUserJWTResponse string
