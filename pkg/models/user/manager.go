@@ -30,6 +30,7 @@ import (
 )
 
 type Manager interface {
+	BumpEpoch(ctx context.Context, userId primitive.ObjectID) error
 	GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error)
 	GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
@@ -53,6 +54,16 @@ const (
 	AnonymousUserEpoch = 0
 	MaxAuditLogEntries = 200
 )
+
+func (m *manager) BumpEpoch(ctx context.Context, userId primitive.ObjectID) error {
+	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+		"$inc": &EpochField{Epoch: 1},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
 
 func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error {
 	now := time.Now().UTC()

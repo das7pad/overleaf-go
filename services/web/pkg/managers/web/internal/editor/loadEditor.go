@@ -201,7 +201,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 	{
 		c := m.jwtProject.New().(*projectJWT.Claims)
 		c.CompileGroup = ownerFeatures.CompileGroup
-		c.EpochUser = request.UserEpoch
+		c.EpochUser = u.Epoch
 		c.ProjectId = projectId
 		c.Timeout = ownerFeatures.CompileTimeout
 		c.UserId = userId

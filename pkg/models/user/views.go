@@ -30,6 +30,7 @@ var (
 	withLoginInfoProjection             = views.GetProjectionFor(WithLoginInfo{})
 	withPublicInfoAndFeaturesProjection = views.GetProjectionFor(WithPublicInfoAndFeatures{})
 	withPublicInfo                      = views.GetProjectionFor(WithPublicInfo{})
+	withEpochAndFeatures                = views.GetProjectionFor(WithEpochAndFeatures{})
 )
 
 func getProjection(model interface{}) views.View {
@@ -52,6 +53,8 @@ func getProjection(model interface{}) views.View {
 		return withPublicInfo
 	case *WithLoginInfo:
 		return withLoginInfoProjection
+	case *WithEpochAndFeatures:
+		return withEpochAndFeatures
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

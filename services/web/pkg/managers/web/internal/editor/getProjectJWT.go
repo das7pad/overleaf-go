@@ -19,6 +19,8 @@ package editor
 import (
 	"context"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -41,17 +43,45 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 		return err
 	}
 
-	o := &user.FeaturesField{}
-	if err = m.um.GetUser(ctx, p.OwnerRef, o); err != nil {
-		return errors.Tag(err, "cannot get project owner features")
+	var ownerFeatures user.Features
+	var userEpoch user.EpochField
+	eg, pCtx := errgroup.WithContext(ctx)
+	if p.OwnerRef == userId {
+		eg.Go(func() error {
+			u := &user.WithEpochAndFeatures{}
+			if err2 := m.um.GetUser(pCtx, userId, u); err2 != nil {
+				return errors.Tag(err2, "cannot get epoch/owner features")
+			}
+			ownerFeatures = u.Features
+			userEpoch = u.EpochField
+			return nil
+		})
+	} else {
+		eg.Go(func() error {
+			u := &user.FeaturesField{}
+			if err2 := m.um.GetUser(pCtx, p.OwnerRef, u); err2 != nil {
+				return errors.Tag(err2, "cannot get owner features")
+			}
+			ownerFeatures = u.Features
+			return nil
+		})
+		eg.Go(func() error {
+			if err2 := m.um.GetUser(pCtx, userId, &userEpoch); err2 != nil {
+				return errors.Tag(err2, "cannot get user epoch")
+			}
+			return nil
+		})
+	}
+	if err = eg.Wait(); err != nil {
+		return err
 	}
 
 	c := m.jwtProject.New().(*projectJWT.Claims)
 	c.ProjectId = projectId
 	c.UserId = userId
-	c.CompileGroup = o.Features.CompileGroup
-	c.Timeout = o.Features.CompileTimeout
-	c.EpochUser = request.Session.User.Epoch
+	c.CompileGroup = ownerFeatures.CompileGroup
+	c.Timeout = ownerFeatures.CompileTimeout
+	c.EpochUser = userEpoch.Epoch
 	c.AuthorizationDetails = *authorizationDetails
 
 	s, err := m.jwtProject.SetExpiryAndSign(c)

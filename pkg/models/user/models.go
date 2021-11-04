@@ -37,6 +37,7 @@ type WithLoadEditorInfo struct {
 	AlphaProgramField         `bson:"inline"`
 	BetaProgramField          `bson:"inline"`
 	EditorConfigField         `bson:"inline"`
+	EpochField                `bson:"inline"`
 	IsAdminField              `bson:"inline"`
 	WithPublicInfoAndFeatures `bson:"inline"`
 }
@@ -48,4 +49,9 @@ type WithLoginInfo struct {
 	ReferralIdField     `bson:"inline"`
 	HashedPasswordField `bson:"inline"`
 	WithPublicInfo      `bson:"inline"`
+}
+
+type WithEpochAndFeatures struct {
+	EpochField    `bson:"inline"`
+	FeaturesField `bson:"inline"`
 }

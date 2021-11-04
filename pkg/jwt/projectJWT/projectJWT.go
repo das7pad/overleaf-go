@@ -17,8 +17,11 @@
 package projectJWT
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
@@ -99,8 +102,19 @@ func (c *Claims) PostProcess(target *gin.Context) error {
 	return nil
 }
 
-func MustGet(ctx *gin.Context) *Claims {
-	return ctx.MustGet(jwtField).(*Claims)
+func ClearUserField(ctx context.Context, client redis.UniversalClient, userId primitive.ObjectID) error {
+	i := &epochJWT.JWTEpochItem{
+		Field: userIdField,
+		Id:    userId,
+	}
+	if err := i.Delete(ctx, client); err != nil {
+		return errors.Tag(err, "cannot clear user epoch")
+	}
+	return nil
+}
+
+func MustGet(c *gin.Context) *Claims {
+	return c.MustGet(jwtField).(*Claims)
 }
 
 func New(options jwtOptions.JWTOptions, fetchProjectEpoch, fetchUserEpoch epochJWT.FetchEpochFromMongo, client redis.UniversalClient) jwtHandler.JWTHandler {

@@ -21,9 +21,11 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -34,15 +36,31 @@ type Manager interface {
 	LogOut(ctx context.Context, request *types.LogoutRequest) error
 }
 
-func New(um user.Manager) Manager {
-	return &manager{um: um}
+func New(client redis.UniversalClient, um user.Manager) Manager {
+	return &manager{
+		client: client,
+		um:     um,
+	}
 }
 
 type manager struct {
-	um user.Manager
+	client redis.UniversalClient
+	um     user.Manager
 }
 
 func (m *manager) LogOut(ctx context.Context, request *types.LogoutRequest) error {
+	userId := request.Session.User.Id
+	if !userId.IsZero() {
+		_ = projectJWT.ClearUserField(ctx, m.client, userId)
+		errBump := m.um.BumpEpoch(ctx, userId)
+		errClearAgain := projectJWT.ClearUserField(ctx, m.client, userId)
+		if errBump != nil {
+			return errBump
+		}
+		if errClearAgain != nil {
+			return errClearAgain
+		}
+	}
 	return request.Session.Destroy(ctx)
 }
 

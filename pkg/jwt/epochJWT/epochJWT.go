@@ -48,6 +48,10 @@ func (i *JWTEpochItem) Key() string {
 	return "epoch:" + i.Field + ":" + i.Id.Hex()
 }
 
+func (i *JWTEpochItem) Delete(ctx context.Context, client redis.UniversalClient) error {
+	return client.Del(ctx, i.Key()).Err()
+}
+
 func (i *JWTEpochItem) fromRedis(ctx context.Context, p redis.Pipeliner) {
 	i.Cmd = p.Get(ctx, i.Key())
 }
