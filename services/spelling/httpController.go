@@ -53,8 +53,8 @@ func (h *httpController) GetRouter(
 	)
 	jwtRouter.POST("/check", h.check)
 	jwtRouter.GET("/dict", h.getDictionary)
-	jwtRouter.GET("/learn", h.learn)
-	jwtRouter.GET("/unlearn", h.unlearn)
+	jwtRouter.POST("/learn", h.learn)
+	jwtRouter.POST("/unlearn", h.unlearn)
 
 	prefixes := []string{"", "/v20200714"}
 	for _, prefix := range prefixes {
