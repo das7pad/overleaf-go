@@ -63,6 +63,8 @@ func (h *httpController) GetRouter(
 	publicRouter.Use(httpUtils.NoCache())
 
 	publicApiRouter := publicRouter.Group("/api")
+	publicApiRouter.POST("/beta/opt-in", h.optInBetaProgram)
+	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.POST("/login", h.login)
 	publicApiRouter.POST("/logout", h.logout)
@@ -347,5 +349,27 @@ func (h *httpController) sendProjectMessage(c *gin.Context) {
 	request.ProjectId = projectJWT.MustGet(c).ProjectId
 	request.UserId = projectJWT.MustGet(c).UserId
 	err := h.wm.SendProjectMessage(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) optInBetaProgram(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.OptInBetaProgramRequest{Session: s}
+	err = h.wm.OptInBetaProgram(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) optOutBetaProgram(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.OptOutBetaProgramRequest{Session: s}
+	err = h.wm.OptOutBetaProgram(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
@@ -44,6 +45,7 @@ type Manager interface {
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
+	betaProgram.Manager
 	compile.Manager
 	editor.Manager
 	login.Manager
@@ -73,6 +75,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	smm := systemMessage.New(db)
 	tm := tag.New(db)
 	um := user.New(db)
+	bm := betaProgram.New(um)
 	cm, err := compile.New(options, client, dum, dm, pm)
 	if err != nil {
 		return nil, err
@@ -95,6 +98,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
+		betaProgramManager:     bm,
 		compileManager:         cm,
 		editorManager:          em,
 		loginManager:           lm,
@@ -105,6 +109,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	}, nil
 }
 
+type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type loginManager = login.Manager
@@ -114,6 +119,7 @@ type sessions = session.Manager
 type systemMessageManager = systemMessage.Manager
 
 type manager struct {
+	betaProgramManager
 	compileManager
 	editorManager
 	loginManager

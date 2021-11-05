@@ -37,6 +37,7 @@ type Manager interface {
 	GetUsersWithPublicInfo(ctx context.Context, users []primitive.ObjectID) ([]WithPublicInfo, error)
 	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
+	SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 }
 
@@ -58,6 +59,16 @@ const (
 func (m *manager) BumpEpoch(ctx context.Context, userId primitive.ObjectID) error {
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": &EpochField{Epoch: 1},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error {
+	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+		"$set": &BetaProgramField{BetaProgram: joined},
 	})
 	if err != nil {
 		return rewriteMongoError(err)
