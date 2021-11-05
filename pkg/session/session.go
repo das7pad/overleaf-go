@@ -42,6 +42,19 @@ type Session struct {
 	providedId     Id
 }
 
+var errNotLoggedIn = &errors.UnauthorizedError{}
+
+func (s *Session) CheckIsLoggedIn() error {
+	if !s.IsLoggedIn() {
+		return errNotLoggedIn
+	}
+	return nil
+}
+
+func (s *Session) IsLoggedIn() bool {
+	return !s.User.Id.IsZero()
+}
+
 func (s *Session) SetNoAutoSave() {
 	s.noAutoSave = true
 }
@@ -56,7 +69,7 @@ func (s *Session) Cycle(ctx context.Context) error {
 		return err
 	}
 
-	if s.User.Id.IsZero() {
+	if s.IsLoggedIn() {
 		// Multi/EXEC skips over nil error from `SET NX`.
 		// Perform tracking calls after getting session id.
 		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {

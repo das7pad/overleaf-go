@@ -53,15 +53,12 @@ type manager struct {
 	um              user.Manager
 }
 
-var errNotLoggedIn = &errors.UnauthorizedError{}
-
 func (m *manager) GetLoggedInUserJWT(_ context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error {
-	userId := request.Session.User.Id
-	if userId.IsZero() {
-		return errNotLoggedIn
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
 	}
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
-	c.UserId = userId
+	c.UserId = request.Session.User.Id
 	b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 	if err != nil {
 		return errors.Tag(err, "cannot get LoggedInUserJWT")
@@ -71,8 +68,8 @@ func (m *manager) GetLoggedInUserJWT(_ context.Context, request *types.GetLogged
 }
 
 func (m *manager) LogOut(ctx context.Context, request *types.LogoutRequest) error {
-	userId := request.Session.User.Id
-	if !userId.IsZero() {
+	if request.Session.IsLoggedIn() {
+		userId := request.Session.User.Id
 		_ = projectJWT.ClearUserField(ctx, m.client, userId)
 		errBump := m.um.BumpEpoch(ctx, userId)
 		errClearAgain := projectJWT.ClearUserField(ctx, m.client, userId)
