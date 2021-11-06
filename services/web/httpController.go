@@ -25,6 +25,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
@@ -65,6 +66,8 @@ func (h *httpController) GetRouter(
 	publicApiRouter := publicRouter.Group("/api")
 	publicApiRouter.POST("/beta/opt-in", h.optInBetaProgram)
 	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
+	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
+	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.GET("/user/projects", h.getUserProjects)
 	publicApiRouter.POST("/login", h.login)
@@ -400,5 +403,41 @@ func (h *httpController) getProjectEntities(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
 	err = h.wm.GetProjectEntities(c, request, resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) grantTokenAccessReadAndWrite(c *gin.Context) {
+	resp := &types.GrantTokenAccessResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GrantTokenAccessRequest{
+		Session: s,
+		Token:   project.AccessToken(c.Param("token")),
+	}
+	err = h.wm.GrantTokenAccessReadAndWrite(c, request, resp)
+	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
+		err = err2
+	}
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) grantTokenAccessReadOnly(c *gin.Context) {
+	resp := &types.GrantTokenAccessResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GrantTokenAccessRequest{
+		Session: s,
+		Token:   project.AccessToken(c.Param("token")),
+	}
+	err = h.wm.GrantTokenAccessReadOnly(c, request, resp)
+	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
+		err = err2
+	}
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

@@ -18,12 +18,45 @@ package project
 
 import (
 	"crypto/subtle"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type AccessToken string
 
 func (t AccessToken) EqualsTimingSafe(other AccessToken) bool {
 	return subtle.ConstantTimeCompare([]byte(t), []byte(other)) == 1
+}
+
+var ErrInvalidTokenFormat = &errors.ValidationError{Msg: "invalid token format"}
+
+func (t AccessToken) ValidateReadAndWrite() error {
+	if len(t) != 22 {
+		return ErrInvalidTokenFormat
+	}
+	for i := 0; i < 10; i++ {
+		if t[i] < '0' || t[i] > '9' {
+			return ErrInvalidTokenFormat
+		}
+	}
+	for i := 10; i < 22; i++ {
+		if t[i] < 'a' || t[i] > 'z' {
+			return ErrInvalidTokenFormat
+		}
+	}
+	return nil
+}
+
+func (t AccessToken) ValidateReadOnly() error {
+	if len(t) != 12 {
+		return ErrInvalidTokenFormat
+	}
+	for i := 0; i < 12; i++ {
+		if t[i] < 'a' || t[i] > 'z' {
+			return ErrInvalidTokenFormat
+		}
+	}
+	return nil
 }
 
 type Tokens struct {

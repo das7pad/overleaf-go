@@ -39,6 +39,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tokenAccess"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -55,6 +56,7 @@ type Manager interface {
 	projectMetadata.Manager
 	session.Manager
 	systemMessage.Manager
+	tokenAccess.Manager
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
@@ -98,6 +100,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	sm := session.New(options.SessionCookie, client)
+	tam := tokenAccess.New(pm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -110,6 +113,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		projectMetadataManager: pmm,
 		sessions:               sm,
 		systemMessageManager:   smm,
+		tokenAccessManager:     tam,
 	}, nil
 }
 
@@ -122,6 +126,7 @@ type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
 type sessions = session.Manager
 type systemMessageManager = systemMessage.Manager
+type tokenAccessManager = tokenAccess.Manager
 
 type manager struct {
 	betaProgramManager
@@ -133,6 +138,7 @@ type manager struct {
 	projectMetadataManager
 	sessions
 	systemMessageManager
+	tokenAccessManager
 	projectJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler
 }

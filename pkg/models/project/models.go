@@ -78,6 +78,11 @@ type ForAuthorizationDetails struct {
 	TokensField            `bson:"inline"`
 }
 
+type forTokenAccessCheck struct {
+	IdField                 `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
+}
+
 type WithTree struct {
 	TreeField `bson:"inline"`
 }

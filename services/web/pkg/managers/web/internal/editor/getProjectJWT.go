@@ -37,7 +37,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 		return errors.Tag(err, "cannot get project from mongo")
 	}
 
-	accessToken := request.Session.AnonTokenAccess[projectId.Hex()]
+	accessToken := request.Session.GetAnonTokenAccess(projectId)
 	authorizationDetails, err := p.GetPrivilegeLevel(userId, accessToken)
 	if err != nil {
 		return err

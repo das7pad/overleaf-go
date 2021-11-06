@@ -40,6 +40,23 @@ const (
 	TokenBasedAccess PublicAccessLevel = "tokenBased"
 )
 
+func (l PrivilegeLevel) score() int {
+	switch l {
+	case PrivilegeLevelOwner:
+		return 3
+	case PrivilegeLevelReadAndWrite:
+		return 2
+	case PrivilegeLevelReadOnly:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (l PrivilegeLevel) IsHigherThan(other PrivilegeLevel) bool {
+	return l.score() > other.score()
+}
+
 type AuthorizationDetails struct {
 	Epoch          int64          `json:"e,omitempty"`
 	PrivilegeLevel PrivilegeLevel `json:"l"`
@@ -144,4 +161,17 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, a
 	} else {
 		return p.GetPrivilegeLevelAuthenticated(userId)
 	}
+}
+
+type TokenAccessResult struct {
+	ProjectId primitive.ObjectID
+	Fresh     *AuthorizationDetails
+	Existing  *AuthorizationDetails
+}
+
+func (r *TokenAccessResult) ShouldGrantHigherAccess() bool {
+	if r.Existing == nil {
+		return true
+	}
+	return r.Fresh.PrivilegeLevel.IsHigherThan(r.Existing.PrivilegeLevel)
 }

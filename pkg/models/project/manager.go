@@ -36,6 +36,10 @@ type Manager interface {
 	GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error)
 	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
 	GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error
+	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
+	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
+	GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
+	GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
 	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
@@ -188,7 +192,9 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error) {
 	project := &JoinProjectViewPrivate{}
-	err := m.fetchWithMinimalAuthorizationDetails(ctx, projectId, userId, project)
+	err := m.fetchWithMinimalAuthorizationDetails(
+		ctx, &IdField{Id: projectId}, userId, project,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -197,14 +203,16 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId p
 
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error) {
 	project := &LoadEditorViewPrivate{}
-	err := m.fetchWithMinimalAuthorizationDetails(ctx, projectId, userId, project)
+	err := m.fetchWithMinimalAuthorizationDetails(
+		ctx, &IdField{Id: projectId}, userId, project,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return project, nil
 }
 
-func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, target interface{}) error {
+func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q interface{}, userId primitive.ObjectID, target interface{}) error {
 	projection := getProjection(target).CloneForWriting()
 	if userId.IsZero() {
 		for s := range withMembersProjection {
@@ -225,7 +233,7 @@ func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, proj
 
 	err := m.c.FindOne(
 		ctx,
-		IdField{Id: projectId},
+		q,
 		options.FindOne().SetProjection(projection),
 	).Decode(target)
 	if err != nil {
@@ -241,6 +249,79 @@ func (m *manager) GetProject(ctx context.Context, projectId primitive.ObjectID, 
 		options.FindOne().SetProjection(getProjection(target)),
 	).Decode(target)
 	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
+	if err := token.ValidateReadAndWrite(); err != nil {
+		return nil, err
+	}
+	q := &bson.M{
+		"$and": bson.A{
+			PublicAccessLevelField{PublicAccessLevel: TokenBasedAccess},
+			bson.M{"tokens.readAndWritePrefix": token[0:10]},
+		},
+	}
+	return m.getProjectByToken(ctx, q, userId, token)
+}
+
+func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
+	if err := token.ValidateReadOnly(); err != nil {
+		return nil, err
+	}
+	q := &bson.M{
+		"$and": bson.A{
+			PublicAccessLevelField{PublicAccessLevel: TokenBasedAccess},
+			bson.M{"tokens.readOnly": token},
+		},
+	}
+	return m.getProjectByToken(ctx, q, userId, token)
+}
+
+func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
+	p := &forTokenAccessCheck{}
+	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
+	if err != nil {
+		return nil, rewriteMongoError(err)
+	}
+	freshAccess, err := p.GetPrivilegeLevelAnonymous(token)
+	if err != nil {
+		return nil, err
+	}
+	r := &TokenAccessResult{
+		ProjectId: p.Id,
+		Fresh:     freshAccess,
+	}
+	if userId.IsZero() {
+		return r, nil
+	}
+	r.Existing, _ = p.GetPrivilegeLevelAuthenticated(userId)
+	return r, nil
+}
+
+func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	q := &IdField{Id: projectId}
+	u := &bson.M{
+		"$addToSet": &bson.M{
+			"tokenAccessReadAndWrite_refs": userId,
+		},
+	}
+	if _, err := m.c.UpdateOne(ctx, q, u); err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	q := &IdField{Id: projectId}
+	u := &bson.M{
+		"$addToSet": &bson.M{
+			"tokenAccessReadOnly_refs": userId,
+		},
+	}
+	if _, err := m.c.UpdateOne(ctx, q, u); err != nil {
 		return rewriteMongoError(err)
 	}
 	return nil

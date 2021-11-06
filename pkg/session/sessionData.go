@@ -44,10 +44,21 @@ type User struct {
 	SessionCreated time.Time          `json:"session_created"`
 }
 
-type AnonTokenAccess map[string]project.AccessToken
+type anonTokenAccess map[string]project.AccessToken
 
 type Data struct {
-	AnonTokenAccess   AnonTokenAccess `json:"anonTokenAccess,omitempty"`
+	AnonTokenAccess   anonTokenAccess `json:"anonTokenAccess,omitempty"`
 	PostLoginRedirect string          `json:"postLoginRedirect,omitempty"`
 	User              *User           `json:"user,omitempty"`
+}
+
+func (d *Data) GetAnonTokenAccess(projectId primitive.ObjectID) project.AccessToken {
+	return d.AnonTokenAccess[projectId.Hex()]
+}
+
+func (d *Data) AddAnonTokenAccess(projectId primitive.ObjectID, token project.AccessToken) {
+	if d.AnonTokenAccess == nil {
+		d.AnonTokenAccess = make(anonTokenAccess, 1)
+	}
+	d.AnonTokenAccess[projectId.Hex()] = token
 }
