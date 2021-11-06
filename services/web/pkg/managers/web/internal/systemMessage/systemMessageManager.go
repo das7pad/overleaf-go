@@ -29,12 +29,11 @@ import (
 )
 
 type Manager interface {
-	systemMessage.Manager
 	GetAllCached(ctx context.Context, userId primitive.ObjectID) []systemMessage.Full
 }
 
 type manager struct {
-	systemMessage.Manager
+	sm systemMessage.Manager
 
 	l       sync.Mutex
 	expires time.Time
@@ -45,8 +44,8 @@ var noMessages = make([]systemMessage.Full, 0)
 
 func New(db *mongo.Database) Manager {
 	return &manager{
-		Manager: systemMessage.New(db),
-		cached:  noMessages,
+		sm:     systemMessage.New(db),
+		cached: noMessages,
 	}
 }
 
@@ -65,7 +64,7 @@ func (m *manager) GetAllCached(ctx context.Context, userId primitive.ObjectID) [
 		// Another goroutine refreshed the cache already.
 		return m.cached
 	}
-	messages, err := m.Manager.GetAll(ctx)
+	messages, err := m.sm.GetAll(ctx)
 	if err != nil {
 		// Ignore refresh errors.
 		return m.cached
