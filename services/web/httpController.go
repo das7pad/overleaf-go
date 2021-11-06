@@ -73,6 +73,22 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/login", h.login)
 	publicApiRouter.POST("/logout", h.logout)
 
+	{
+		// Tag routes
+		r := publicApiRouter.Group("/tag")
+		r.POST("", h.createTag)
+
+		rt := r.Group("/:tagId")
+		rt.Use(httpUtils.ValidateAndSetId("tagId"))
+		rt.DELETE("", h.deleteTag)
+		rt.POST("/rename", h.renameTag)
+
+		rtp := rt.Group("/project/:projectId")
+		rtp.Use(httpUtils.ValidateAndSetId("projectId"))
+		rtp.DELETE("", h.removeProjectToTag)
+		rtp.POST("", h.addProjectToTag)
+	}
+
 	publicApiProjectRouter := publicApiRouter.Group("/project/:projectId")
 	publicApiProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
 	publicApiProjectRouter.GET("/entities", h.getProjectEntities)
@@ -440,4 +456,80 @@ func (h *httpController) grantTokenAccessReadOnly(c *gin.Context) {
 		err = err2
 	}
 	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) addProjectToTag(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.AddProjectToTagRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		TagId:     httpUtils.GetId(c, "tagId"),
+	}
+	err = h.wm.AddProjectToTag(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) createTag(c *gin.Context) {
+	resp := &types.CreateTagResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.CreateTagRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	err = h.wm.CreateTag(c, request, resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) deleteTag(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.DeleteTagRequest{
+		Session: s,
+		TagId:   httpUtils.GetId(c, "tagId"),
+	}
+	err = h.wm.DeleteTag(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) renameTag(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.RenameTagRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.TagId = httpUtils.GetId(c, "tagId")
+	request.Session = s
+	err = h.wm.RenameTag(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) removeProjectToTag(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.RemoveProjectToTagRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		TagId:     httpUtils.GetId(c, "tagId"),
+	}
+	err = h.wm.RemoveProjectFromTag(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

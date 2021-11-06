@@ -24,7 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/tag"
+	tagModel "github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -39,6 +39,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tag"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tokenAccess"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -56,6 +57,7 @@ type Manager interface {
 	projectMetadata.Manager
 	session.Manager
 	systemMessage.Manager
+	tag.Manager
 	tokenAccess.Manager
 }
 
@@ -77,7 +79,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	}
 	pm := project.New(db)
 	smm := systemMessage.New(db)
-	tm := tag.New(db)
+	tm := tagModel.New(db)
 	um := user.New(db)
 	bm := betaProgram.New(um)
 	cm, err := compile.New(options, client, dum, dm, pm)
@@ -100,6 +102,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	plm := projectList.New(options, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	sm := session.New(options.SessionCookie, client)
+	tagM := tag.New(tm)
 	tam := tokenAccess.New(pm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
@@ -113,6 +116,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		projectMetadataManager: pmm,
 		sessions:               sm,
 		systemMessageManager:   smm,
+		tagManager:             tagM,
 		tokenAccessManager:     tam,
 	}, nil
 }
@@ -126,6 +130,7 @@ type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
 type sessions = session.Manager
 type systemMessageManager = systemMessage.Manager
+type tagManager = tag.Manager
 type tokenAccessManager = tokenAccess.Manager
 
 type manager struct {
@@ -138,6 +143,7 @@ type manager struct {
 	projectMetadataManager
 	sessions
 	systemMessageManager
+	tagManager
 	tokenAccessManager
 	projectJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler

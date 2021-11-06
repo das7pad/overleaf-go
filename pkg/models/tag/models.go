@@ -21,3 +21,13 @@ type Full struct {
 	NameField       `bson:"inline"`
 	ProjectIdsField `bson:"inline"`
 }
+
+type userIdAndTagId struct {
+	IdField     `bson:"inline"`
+	UserIdField `bson:"inline"`
+}
+
+type userIdAndTagName struct {
+	NameField   `bson:"inline"`
+	UserIdField `bson:"inline"`
+}

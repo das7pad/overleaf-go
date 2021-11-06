@@ -28,7 +28,7 @@ var (
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
-	case []Full:
+	case []Full, *Full:
 		return fullProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
