@@ -33,6 +33,7 @@ import (
 )
 
 type Manager interface {
+	GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error
 	ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error
 }
 
@@ -52,6 +53,32 @@ type manager struct {
 	um               user.Manager
 	jwtLoggedInUser  jwtHandler.JWTHandler
 	jwtNotifications jwtHandler.JWTHandler
+}
+
+func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+
+	userId := request.Session.User.Id
+	projectsRaw, err := m.pm.ListProjects(ctx, userId)
+	if err != nil {
+		return errors.Tag(err, "cannot get projects")
+	}
+	projects := make([]types.GetUserProjectsEntry, len(projectsRaw))
+	for i, p := range projectsRaw {
+		d, err2 := p.GetPrivilegeLevelAuthenticated(userId)
+		if err2 != nil {
+			return errors.New("listed project w/o access: " + p.Id.Hex())
+		}
+		projects[i] = types.GetUserProjectsEntry{
+			Id:             p.Id,
+			Name:           p.Name,
+			PrivilegeLevel: d.PrivilegeLevel,
+		}
+	}
+	response.Projects = projects
+	return nil
 }
 
 func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error {

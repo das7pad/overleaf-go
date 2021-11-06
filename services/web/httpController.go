@@ -66,6 +66,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/beta/opt-in", h.optInBetaProgram)
 	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
+	publicApiRouter.GET("/user/projects", h.getUserProjects)
 	publicApiRouter.POST("/login", h.login)
 	publicApiRouter.POST("/logout", h.logout)
 
@@ -245,6 +246,18 @@ func (h *httpController) projectListLocals(c *gin.Context) {
 func (h *httpController) getSystemMessages(c *gin.Context) {
 	m := h.wm.GetAllCached(c, httpUtils.GetId(c, "userId"))
 	httpUtils.Respond(c, http.StatusOK, m, nil)
+}
+
+func (h *httpController) getUserProjects(c *gin.Context) {
+	resp := &types.GetUserProjectsResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GetUserProjectsRequest{Session: s}
+	err = h.wm.GetUserProjects(c, request, resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) getMetadataForProject(c *gin.Context) {
