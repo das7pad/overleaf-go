@@ -17,6 +17,7 @@
 package project
 
 import (
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -123,4 +124,16 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m int) error {
 		}
 	}
 	return nil
+}
+
+func (p *TreeField) GetRootFolder() (*Folder, error) {
+	if len(p.RootFolder) != 1 {
+		return nil, &errors.ValidationError{
+			Msg: fmt.Sprintf(
+				"expected rootFolder to have 1 entry, got %d",
+				len(p.RootFolder),
+			),
+		}
+	}
+	return &p.RootFolder[0], nil
 }

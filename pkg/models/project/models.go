@@ -82,6 +82,11 @@ type WithTree struct {
 	TreeField `bson:"inline"`
 }
 
+type WithTreeAndAuth struct {
+	ForAuthorizationDetails `bson:"inline"`
+	TreeField               `bson:"inline"`
+}
+
 type WithLastUpdatedDetails struct {
 	LastUpdatedAtField `bson:"inline"`
 	LastUpdatedByField `bson:"inline"`

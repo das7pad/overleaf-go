@@ -72,6 +72,7 @@ func (h *httpController) GetRouter(
 
 	publicApiProjectRouter := publicApiRouter.Group("/project/:projectId")
 	publicApiProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
+	publicApiProjectRouter.GET("/entities", h.getProjectEntities)
 	publicApiProjectRouter.POST("/jwt", h.getProjectJWT)
 
 	jwtRouter := publicRouter.Group("/jwt/web")
@@ -385,4 +386,19 @@ func (h *httpController) optOutBetaProgram(c *gin.Context) {
 	request := &types.OptOutBetaProgramRequest{Session: s}
 	err = h.wm.OptOutBetaProgram(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) getProjectEntities(c *gin.Context) {
+	resp := &types.GetProjectEntitiesResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GetProjectEntitiesRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.GetProjectEntities(c, request, resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

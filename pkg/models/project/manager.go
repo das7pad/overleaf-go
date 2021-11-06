@@ -18,7 +18,6 @@ package project
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -184,15 +183,7 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 	if err != nil {
 		return nil, rewriteMongoError(err)
 	}
-	if len(project.RootFolder) != 1 {
-		return nil, &errors.ValidationError{
-			Msg: fmt.Sprintf(
-				"expected rootFolder to have 1 entry, got %d",
-				len(project.RootFolder),
-			),
-		}
-	}
-	return &project.RootFolder[0], nil
+	return project.GetRootFolder()
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error) {

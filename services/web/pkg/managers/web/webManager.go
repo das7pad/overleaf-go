@@ -34,6 +34,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
@@ -48,6 +49,7 @@ type Manager interface {
 	betaProgram.Manager
 	compile.Manager
 	editor.Manager
+	fileTree.Manager
 	login.Manager
 	projectList.Manager
 	projectMetadata.Manager
@@ -80,6 +82,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
+	ftm := fileTree.New(pm)
 	projectJWTHandler := projectJWT.New(
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
 	)
@@ -101,6 +104,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		betaProgramManager:     bm,
 		compileManager:         cm,
 		editorManager:          em,
+		fileTreeManager:        ftm,
 		loginManager:           lm,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
@@ -112,6 +116,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
+type fileTreeManager = fileTree.Manager
 type loginManager = login.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
@@ -122,6 +127,7 @@ type manager struct {
 	betaProgramManager
 	compileManager
 	editorManager
+	fileTreeManager
 	loginManager
 	projectListManager
 	projectMetadataManager

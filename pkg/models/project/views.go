@@ -32,6 +32,7 @@ var (
 	joinProjectViewPrivateProjection  = views.GetProjectionFor(JoinProjectViewPrivate{})
 	listViewPrivateProjection         = views.GetProjectionFor(ListViewPrivate{})
 	loadEditorViewPrivateProjection   = views.GetProjectionFor(LoadEditorViewPrivate{})
+	withTreeAndAuth                   = views.GetProjectionFor(WithTreeAndAuth{})
 )
 
 func getProjection(model interface{}) views.View {
@@ -58,6 +59,8 @@ func getProjection(model interface{}) views.View {
 		return withTokenMembersProjection
 	case WithTree:
 		return withTreeProjection
+	case *WithTreeAndAuth:
+		return withTreeAndAuth
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }
