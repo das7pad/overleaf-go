@@ -81,9 +81,12 @@ type action struct {
 	onDone    onDone
 }
 
+//goland:noinspection SpellCheckingInspection
+const hexChars = "0123456789abcdef"
+
 func (b *broadcaster) TriggerGracefulReconnect() int {
 	total := 0
-	for _, c := range "0123456789abcdef" {
+	for _, c := range hexChars {
 		suffix := uint8(c)
 		n := 0
 		b.pauseQueueFor(func() {

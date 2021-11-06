@@ -27,6 +27,7 @@ type Message struct {
 	Type MessageType `json:"type"`
 }
 
+//goland:noinspection SpellCheckingInspection
 type Response struct {
 	Message    *Message `json:"message,omitempty"`
 	RedirectTo string   `json:"redir,omitempty"`

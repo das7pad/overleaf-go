@@ -32,6 +32,7 @@ var (
 	}
 )
 
+//goland:noinspection SpellCheckingInspection
 type User struct {
 	Id             primitive.ObjectID `json:"_id,omitempty"`
 	IsAdmin        bool               `json:"isAdmin,omitempty"`

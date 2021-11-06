@@ -24,7 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-//go:embed packageMapping.json
+//go:embed data/packageMapping.json
 var _packageMappingRaw []byte
 var packageMapping types.LatexPackages
 

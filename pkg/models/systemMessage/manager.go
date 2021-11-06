@@ -33,6 +33,7 @@ type Manager interface {
 }
 
 func New(db *mongo.Database) Manager {
+	//goland:noinspection SpellCheckingInspection
 	return &manager{
 		c: db.Collection("systemmessages"),
 	}

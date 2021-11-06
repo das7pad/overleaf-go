@@ -74,6 +74,7 @@ type MustReconfirmField struct {
 	MustReconfirm bool `bson:"must_reconfirm"`
 }
 
+//goland:noinspection SpellCheckingInspection
 type ReferralIdField struct {
 	ReferralId string `bson:"referal_id"`
 }
