@@ -57,7 +57,7 @@ type LinkedFileData struct {
 type FileRef struct {
 	CommonTreeFields `bson:"inline"`
 
-	LinkedFileData *LinkedFileData  `json:"linked_file_data,omitempty" bson:"linked_file_data,omitempty"`
+	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" bson:"linkedFileData,omitempty"`
 	Hash           sharedTypes.Hash `json:"hash" bson:"hash"`
 	Created        time.Time        `json:"created" bson:"created"`
 }
