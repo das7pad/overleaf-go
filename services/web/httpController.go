@@ -68,6 +68,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
 	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
 	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
+	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.GET("/user/projects", h.getUserProjects)
 	publicApiRouter.POST("/login", h.login)
@@ -532,4 +533,16 @@ func (h *httpController) removeProjectToTag(c *gin.Context) {
 	}
 	err = h.wm.RemoveProjectFromTag(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) getUserContacts(c *gin.Context) {
+	resp := &types.GetUserContactsResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GetUserContactsRequest{Session: s}
+	err = h.wm.GetUserContacts(c, request, resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
+	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
@@ -67,6 +68,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	}
 	editorEvents := channel.NewWriter(client, "editor-events")
 	chatM := chat.New(db)
+	csm := contacts.New(db)
 	dum, err := documentUpdater.New(
 		options.APIs.DocumentUpdater.Options, client, db,
 	)
@@ -95,7 +97,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		options,
 		editorEvents,
 		pm, um,
-		chatM, dm,
+		chatM, csm, dm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(client, um, loggedInUserJWTHandler)

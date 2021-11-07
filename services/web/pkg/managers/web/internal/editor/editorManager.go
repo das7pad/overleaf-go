@@ -26,20 +26,23 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
+	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
+	GetUserContacts(ctx context.Context, request *types.GetUserContactsRequest, response *types.GetUserContactsResponse) error
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
 	SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error
 }
 
-func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm chat.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
 		cm:              cm,
+		csm:             csm,
 		dm:              dm,
 		editorEvents:    editorEvents,
 		jwtProject:      projectJWTHandler,
@@ -53,6 +56,7 @@ func New(options *types.Options, editorEvents channel.Writer, pm project.Manager
 
 type manager struct {
 	cm              chat.Manager
+	csm             contacts.Manager
 	dm              docstore.Manager
 	editorEvents    channel.Writer
 	jwtProject      jwtHandler.JWTHandler
