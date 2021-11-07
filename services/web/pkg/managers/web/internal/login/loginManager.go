@@ -74,10 +74,10 @@ func (m *manager) LogOut(ctx context.Context, request *types.LogoutRequest) erro
 		errBump := m.um.BumpEpoch(ctx, userId)
 		errClearAgain := projectJWT.ClearUserField(ctx, m.client, userId)
 		if errBump != nil {
-			return errBump
+			return errors.Tag(errBump, "cannot bump user epoch in mongo")
 		}
 		if errClearAgain != nil {
-			return errClearAgain
+			return errors.Tag(errClearAgain, "cannot clear epoch in redis")
 		}
 	}
 	return request.Session.Destroy(ctx)
@@ -115,7 +115,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 
 	ip := r.IPAddress
 	if err = m.um.TrackLogin(ctx, u.Id, ip); err != nil {
-		return err
+		return errors.Tag(err, "cannot track login")
 	}
 
 	redirect := r.Session.PostLoginRedirect
@@ -133,7 +133,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 		SessionCreated: time.Now().UTC(),
 	}
 	if err = r.Session.Cycle(ctx); err != nil {
-		return err
+		return errors.Tag(err, "cannot cycle session")
 	}
 
 	if redirect != "" {
