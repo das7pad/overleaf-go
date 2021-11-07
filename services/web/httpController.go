@@ -638,7 +638,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Writer.Header().Set("Content-Disposition", cd)
-	c.DataFromReader(http.StatusOK, -1, contentTypeOctetStream, response.Reader, nil)
+	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
 }
 
 func (h *httpController) getProjectFileSize(c *gin.Context) {

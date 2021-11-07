@@ -56,12 +56,13 @@ func (m *manager) GetProjectFile(ctx context.Context, request *types.GetProjectF
 	}
 
 	o := objectStorage.GetOptions{}
-	r, err := m.fm.GetReadStreamForProjectFile(ctx, projectId, fileId, o)
+	s, r, err := m.fm.GetReadStreamForProjectFile(ctx, projectId, fileId, o)
 	if err != nil {
 		return errors.Tag(err, "cannot get filestream")
 	}
 	response.Filename = name
 	response.Reader = r
+	response.Size = s
 	return nil
 }
 

@@ -34,7 +34,7 @@ type Manager interface {
 		projectId primitive.ObjectID,
 		fileId primitive.ObjectID,
 		options objectStorage.GetOptions,
-	) (io.Reader, error)
+	) (int64, io.Reader, error)
 
 	GetRedirectURLForGETOnProjectFile(
 		ctx context.Context,
@@ -127,7 +127,7 @@ func getProjectFileKey(projectId, fileId primitive.ObjectID) string {
 	return fmt.Sprintf("%s/%s", projectId.Hex(), fileId.Hex())
 }
 
-func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, options objectStorage.GetOptions) (io.Reader, error) {
+func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, options objectStorage.GetOptions) (int64, io.Reader, error) {
 	return m.b.GetReadStream(
 		ctx,
 		m.buckets.UserFiles,

@@ -76,19 +76,29 @@ func (m *minioBackend) SendFromStream(ctx context.Context, bucket string, key st
 	return err
 }
 
-func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key string, options GetOptions) (io.Reader, error) {
+func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key string, options GetOptions) (int64, io.Reader, error) {
 	opts := minio.GetObjectOptions{}
 	if options.Start != 0 || options.End != 0 {
 		if err := opts.SetRange(options.Start, options.End); err != nil {
-			return nil, err
+			return 0, nil, err
 		}
 	}
 
 	r, err := m.mc.GetObject(ctx, bucket, key, opts)
 	if err != nil {
-		return nil, rewriteError(err)
+		return 0, nil, rewriteError(err)
 	}
-	return r, nil
+	// We need to peek into the s3.GetObject response.
+	// This _saves_ one s3.HeadObject request for the size.
+	_, err = r.Read(make([]byte, 0))
+	if err != nil {
+		return 0, nil, rewriteError(err)
+	}
+	s, err := r.Stat()
+	if err != nil {
+		return 0, nil, rewriteError(err)
+	}
+	return s.Size, r, nil
 }
 
 func (m *minioBackend) GetRedirectURLForGET(ctx context.Context, bucket string, key string) (*url.URL, error) {

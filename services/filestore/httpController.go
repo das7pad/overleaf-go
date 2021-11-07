@@ -17,7 +17,6 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -108,6 +107,8 @@ func (h *httpController) deleteProjectFile(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
+const contentTypeOctetStream = "application/octet-stream"
+
 func (h *httpController) getProjectFile(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForGETOnProjectFile(
@@ -119,7 +120,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 		return
 	}
 	options := objectStorage.GetOptions{}
-	body, err := h.fm.GetReadStreamForProjectFile(
+	s, body, err := h.fm.GetReadStreamForProjectFile(
 		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "fileId"),
@@ -129,8 +130,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
 	}
-	c.Header("Content-Type", "application/octet-stream")
-	_, _ = io.Copy(c.Writer, body)
+	c.DataFromReader(http.StatusOK, s, contentTypeOctetStream, body, nil)
 }
 
 func (h *httpController) getProjectFileHEAD(c *gin.Context) {

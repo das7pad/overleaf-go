@@ -250,7 +250,7 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 	key := docKey(projectId, docId)
 
 	getOptions := objectStorage.GetOptions{}
-	reader, err := m.b.GetReadStream(ctx, m.bucket, key, getOptions)
+	s, reader, err := m.b.GetReadStream(ctx, m.bucket, key, getOptions)
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
 			return err
@@ -269,6 +269,9 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 	blob, err := io.ReadAll(reader)
 	if err != nil {
 		return err
+	}
+	if int64(len(blob)) != s {
+		return errors.New("partial download")
 	}
 	lines, ranges, err := deserializeArchive(blob)
 	if err != nil {
