@@ -28,10 +28,13 @@ import (
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
+	GetProjectFile(ctx context.Context, request *types.GetProjectFileRequest, response *types.GetProjectFileResponse) error
+	GetProjectFileSize(ctx context.Context, request *types.GetProjectFileSizeRequest, response *types.GetProjectFileSizeResponse) error
 	GetUserContacts(ctx context.Context, request *types.GetUserContactsRequest, response *types.GetUserContactsResponse) error
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
@@ -39,12 +42,13 @@ type Manager interface {
 	SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error
 }
 
-func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
 		cm:              cm,
 		csm:             csm,
 		dm:              dm,
 		editorEvents:    editorEvents,
+		fm:              fm,
 		jwtProject:      projectJWTHandler,
 		jwtLoggedInUser: loggedInUserJWTHandler,
 		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
@@ -59,6 +63,7 @@ type manager struct {
 	csm             contacts.Manager
 	dm              docstore.Manager
 	editorEvents    channel.Writer
+	fm              filestore.Manager
 	jwtProject      jwtHandler.JWTHandler
 	jwtLoggedInUser jwtHandler.JWTHandler
 	jwtSpelling     jwtHandler.JWTHandler

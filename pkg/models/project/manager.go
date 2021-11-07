@@ -30,6 +30,7 @@ import (
 )
 
 type Manager interface {
+	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
 	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
@@ -38,6 +39,7 @@ type Manager interface {
 	GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
+	GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error)
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
@@ -192,6 +194,16 @@ func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) (
 		return projects, rewriteMongoError(err)
 	}
 	return projects, nil
+}
+
+func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error) {
+	p := &ForAuthorizationDetails{}
+	q := &IdField{Id: projectId}
+	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot get project from mongo")
+	}
+	return p.GetPrivilegeLevel(userId, token)
 }
 
 func (m *manager) GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error) {
@@ -360,6 +372,16 @@ func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId p
 		},
 	}
 	return m.getProjectByToken(ctx, q, userId, token)
+}
+
+func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error) {
+	p := &WithTreeAndAuth{}
+	q := &IdField{Id: projectId}
+	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {

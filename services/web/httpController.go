@@ -17,7 +17,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -100,6 +102,11 @@ func (h *httpController) GetRouter(
 		r.POST("/jwt", h.getProjectJWT)
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
+
+		rFile := r.Group("/file/:fileId")
+		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
+		rFile.GET("", h.getProjectFile)
+		rFile.HEAD("", h.getProjectFileSize)
 	}
 
 	jwtRouter := publicRouter.Group("/jwt/web")
@@ -608,4 +615,47 @@ func (h *httpController) unTrashProject(c *gin.Context) {
 	}
 	err = h.wm.UnTrashProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+const contentTypeOctetStream = "application/octet-stream"
+
+func (h *httpController) getProjectFile(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.GetProjectFileRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		FileId:    httpUtils.GetId(c, "fileId"),
+	}
+	response := &types.GetProjectFileResponse{}
+	err = h.wm.GetProjectFile(c, request, response)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
+	c.Writer.Header().Set("Content-Disposition", cd)
+	c.DataFromReader(http.StatusOK, -1, contentTypeOctetStream, response.Reader, nil)
+}
+
+func (h *httpController) getProjectFileSize(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.GetProjectFileSizeRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		FileId:    httpUtils.GetId(c, "fileId"),
+	}
+	response := &types.GetProjectFileSizeResponse{}
+	err = h.wm.GetProjectFileSize(c, request, response)
+	if err == nil {
+		c.Header("Content-Length", strconv.FormatInt(response.Size, 10))
+	}
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }

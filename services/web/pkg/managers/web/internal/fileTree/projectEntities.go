@@ -31,11 +31,11 @@ func (m *manager) GetProjectEntities(ctx context.Context, request *types.GetProj
 	}
 
 	userId := request.Session.User.Id
-	p := &project.WithTreeAndAuth{}
-	if err := m.pm.GetProject(ctx, request.ProjectId, p); err != nil {
+	p, err := m.pm.GetTreeAndAuth(ctx, request.ProjectId, userId)
+	if err != nil {
 		return errors.Tag(err, "cannot get project")
 	}
-	if _, err := p.GetPrivilegeLevelAuthenticated(userId); err != nil {
+	if _, err = p.GetPrivilegeLevelAuthenticated(userId); err != nil {
 		return err
 	}
 

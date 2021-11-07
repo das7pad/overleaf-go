@@ -32,6 +32,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
@@ -88,6 +89,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
+	fm, err := filestore.New(options.APIs.Filestore.Options)
+	if err != nil {
+		return nil, err
+	}
 	ftm := fileTree.New(pm)
 	projectJWTHandler := projectJWT.New(
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
@@ -97,7 +102,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		options,
 		editorEvents,
 		pm, um,
-		chatM, csm, dm,
+		chatM, csm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(client, um, loggedInUserJWTHandler)

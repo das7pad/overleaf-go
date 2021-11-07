@@ -26,6 +26,7 @@ import (
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
+	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
 type Options struct {
@@ -47,7 +48,8 @@ type Options struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
 		} `json:"document_updater"`
 		Filestore struct {
-			URL sharedTypes.URL `json:"url"`
+			URL     sharedTypes.URL         `json:"url"`
+			Options *filestoreTypes.Options `json:"options"`
 		} `json:"filestore"`
 	} `json:"apis"`
 
