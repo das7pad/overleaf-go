@@ -17,7 +17,10 @@
 package sharedTypes
 
 import (
+	"net/mail"
 	"strings"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Email string
@@ -27,5 +30,9 @@ func (e Email) Normalize() Email {
 }
 
 func (e Email) Validate() error {
+	_, err := mail.ParseAddress(string(e))
+	if err != nil {
+		return &errors.ValidationError{Msg: "invalid email address"}
+	}
 	return nil
 }
