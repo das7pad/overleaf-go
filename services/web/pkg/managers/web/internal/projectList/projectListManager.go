@@ -35,6 +35,10 @@ import (
 type Manager interface {
 	GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error
 	ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error
+	ArchiveProject(ctx context.Context, request *types.ArchiveProjectRequest) error
+	UnArchiveProject(ctx context.Context, request *types.UnArchiveProjectRequest) error
+	TrashProject(ctx context.Context, request *types.TrashProjectRequest) error
+	UnTrashProject(ctx context.Context, request *types.UnTrashProjectRequest) error
 }
 
 func New(options *types.Options, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {

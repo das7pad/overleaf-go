@@ -53,6 +53,17 @@ func (l PrivilegeLevel) score() int {
 	}
 }
 
+func (l PrivilegeLevel) CheckIsAtLeast(other PrivilegeLevel) error {
+	if !l.IsAtLeast(other) {
+		return &errors.NotAuthorizedError{}
+	}
+	return nil
+}
+
+func (l PrivilegeLevel) IsAtLeast(other PrivilegeLevel) bool {
+	return l.score() >= other.score()
+}
+
 func (l PrivilegeLevel) IsHigherThan(other PrivilegeLevel) bool {
 	return l.score() > other.score()
 }

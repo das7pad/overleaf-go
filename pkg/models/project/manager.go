@@ -45,6 +45,10 @@ type Manager interface {
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
+	ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
+	UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
+	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
+	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -62,6 +66,84 @@ func rewriteMongoError(err error) error {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	return m.checkAccessAndUpdate(
+		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+			"$addToSet": bson.M{
+				"archived": userId,
+			},
+			"$pull": bson.M{
+				"trashed": userId,
+			},
+		},
+	)
+}
+
+func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	return m.checkAccessAndUpdate(
+		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+			"$pull": bson.M{
+				"archived": userId,
+			},
+		},
+	)
+}
+
+func (m *manager) TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	return m.checkAccessAndUpdate(
+		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+			"$addToSet": bson.M{
+				"trashed": userId,
+			},
+			"$pull": bson.M{
+				"archived": userId,
+			},
+		},
+	)
+}
+
+func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	return m.checkAccessAndUpdate(
+		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+			"$pull": bson.M{
+				"trashed": userId,
+			},
+		},
+	)
+}
+
+var ErrEpochIsNotStable = errors.New("epoch is not stable")
+
+func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId primitive.ObjectID, minLevel PrivilegeLevel, u interface{}) error {
+	for i := 0; i < 10; i++ {
+		p := &ForAuthorizationDetails{}
+		qId := &IdField{Id: projectId}
+		err := m.fetchWithMinimalAuthorizationDetails(ctx, qId, userId, p)
+		if err != nil {
+			return err
+		}
+		d, err := p.GetPrivilegeLevelAuthenticated(userId)
+		if err != nil {
+			return err
+		}
+		if err = d.PrivilegeLevel.CheckIsAtLeast(minLevel); err != nil {
+			return err
+		}
+		withEpochGuard := withIdAndEpoch{}
+		withEpochGuard.Id = projectId
+		withEpochGuard.Epoch = d.Epoch
+		r, err := m.c.UpdateOne(ctx, withEpochGuard, u)
+		if err != nil {
+			return err
+		}
+		if r.MatchedCount != 1 {
+			continue
+		}
+		return nil
+	}
+	return ErrEpochIsNotStable
 }
 
 func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error) {

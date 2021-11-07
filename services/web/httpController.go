@@ -90,10 +90,17 @@ func (h *httpController) GetRouter(
 		rtp.POST("", h.addProjectToTag)
 	}
 
-	publicApiProjectRouter := publicApiRouter.Group("/project/:projectId")
-	publicApiProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
-	publicApiProjectRouter.GET("/entities", h.getProjectEntities)
-	publicApiProjectRouter.POST("/jwt", h.getProjectJWT)
+	{
+		// Project routes with session auth
+		r := publicApiRouter.Group("/project/:projectId")
+		r.Use(httpUtils.ValidateAndSetId("projectId"))
+		r.DELETE("/archive", h.unArchiveProject)
+		r.POST("/archive", h.archiveProject)
+		r.GET("/entities", h.getProjectEntities)
+		r.POST("/jwt", h.getProjectJWT)
+		r.DELETE("/trash", h.unTrashProject)
+		r.POST("/trash", h.trashProject)
+	}
 
 	jwtRouter := publicRouter.Group("/jwt/web")
 
@@ -545,4 +552,60 @@ func (h *httpController) getUserContacts(c *gin.Context) {
 	request := &types.GetUserContactsRequest{Session: s}
 	err = h.wm.GetUserContacts(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) archiveProject(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.ArchiveProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.ArchiveProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) unArchiveProject(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.UnArchiveProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.UnArchiveProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) trashProject(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.TrashProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.TrashProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) unTrashProject(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.UnTrashProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.UnTrashProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
