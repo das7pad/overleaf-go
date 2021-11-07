@@ -42,7 +42,7 @@ func main() {
 		panic(err)
 	}
 	db := client.Database(o.dbName)
-	cm := contacts.NewContactManager(db)
+	cm := contacts.New(db)
 	handler := newHttpController(cm)
 
 	server := http.Server{

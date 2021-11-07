@@ -26,12 +26,12 @@ import (
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 )
 
-func newHttpController(cm contacts.ContactManager) httpController {
+func newHttpController(cm contacts.Manager) httpController {
 	return httpController{cm: cm}
 }
 
 type httpController struct {
-	cm contacts.ContactManager
+	cm contacts.Manager
 }
 
 func (h *httpController) GetRouter() http.Handler {

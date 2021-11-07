@@ -32,7 +32,7 @@ const (
 	NoLimit      = -1
 )
 
-type ContactManager interface {
+type Manager interface {
 	GetContacts(
 		ctx context.Context,
 		userId primitive.ObjectID,
@@ -45,7 +45,7 @@ type ContactManager interface {
 	) error
 }
 
-func NewContactManager(db *mongo.Database) ContactManager {
+func New(db *mongo.Database) Manager {
 	contactsCollection := db.Collection("contacts")
 	return &contactManager{contactsCollection: contactsCollection}
 }
