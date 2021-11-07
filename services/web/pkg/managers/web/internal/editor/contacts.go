@@ -44,8 +44,12 @@ func (m *manager) GetUserContacts(ctx context.Context, request *types.GetUserCon
 	}
 	userContacts := make([]*types.UserContact, 0, len(users))
 	for _, id := range sortedIds {
+		usr, exists := users[id]
+		if !exists {
+			continue
+		}
 		userContacts = append(userContacts, &types.UserContact{
-			WithPublicInfoAndNonStandardId: users[id],
+			WithPublicInfoAndNonStandardId: usr,
 			Type:                           "user",
 		})
 	}
