@@ -74,15 +74,11 @@ type RenameFileUpdate struct {
 	coreProjectUpdate
 	PathName    sharedTypes.PathName `json:"pathname"`
 	NewPathName sharedTypes.PathName `json:"newPathname"`
-	URL         string               `json:"url"`
 }
 
 func (r *RenameFileUpdate) Validate() error {
 	if r.PathName == "" {
 		return &errors.ValidationError{Msg: "missing old path"}
-	}
-	if r.URL == "" {
-		return &errors.ValidationError{Msg: "missing url"}
 	}
 	return nil
 }
@@ -122,7 +118,6 @@ func (g *GenericProjectUpdate) RenameFileUpdate() *RenameFileUpdate {
 		coreProjectUpdate: g.coreProjectUpdate,
 		PathName:          g.PathName,
 		NewPathName:       g.NewPathName,
-		URL:               g.URL,
 	}
 }
 
