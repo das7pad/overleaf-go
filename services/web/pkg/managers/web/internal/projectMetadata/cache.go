@@ -87,7 +87,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId primitiv
 		docs, err := m.dum.GetProjectDocsAndFlushIfOldSnapshot(
 			pCtx,
 			projectId,
-			"TODO",
+			"",
 		)
 		if err != nil {
 			return errors.Tag(err, "cannot get docs from redis")

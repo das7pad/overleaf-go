@@ -657,9 +657,11 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 
 func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error) {
 	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return m.rm.CheckOrSetProjectState(pCtx, projectId, newState)
-	})
+	if newState != "" {
+		eg.Go(func() error {
+			return m.rm.CheckOrSetProjectState(pCtx, projectId, newState)
+		})
+	}
 	var docIds []primitive.ObjectID
 	eg.Go(func() error {
 		var err error
