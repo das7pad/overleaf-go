@@ -80,6 +80,27 @@ func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublic
 	}, nil
 }
 
+func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootstrapRequest, response *types.GetWSBootstrapResponse) error {
+	projectId := request.ProjectId
+	userId := request.Session.User.Id
+	token := request.Session.GetAnonTokenAccess(projectId)
+	_, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
+	if err != nil {
+		return err
+	}
+	u := user.WithPublicInfo{}
+	u.Id = request.Session.User.Id
+	u.Email = request.Session.User.Email
+	u.FirstName = request.Session.User.FirstName
+	u.LastName = request.Session.User.LastName
+	b, err := m.genWSBootstrap(projectId, u)
+	if err != nil {
+		return errors.Tag(err, "cannot gen jwt")
+	}
+	*response = b
+	return nil
+}
+
 func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error {
 	projectId := request.ProjectId
 	userId := request.UserId

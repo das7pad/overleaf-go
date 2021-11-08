@@ -102,6 +102,7 @@ func (h *httpController) GetRouter(
 		r.POST("/jwt", h.getProjectJWT)
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
+		r.POST("/ws/bootstrap", h.getWSBootstrap)
 
 		rFile := r.Group("/file/:fileId")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
@@ -375,6 +376,21 @@ func (h *httpController) getProjectJWT(c *gin.Context) {
 		Session:   s,
 	}
 	err = h.wm.GetProjectJWT(c, request, &resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) getWSBootstrap(c *gin.Context) {
+	resp := types.GetWSBootstrapResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.GetWSBootstrapRequest{
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		Session:   s,
+	}
+	err = h.wm.GetWSBootstrap(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
