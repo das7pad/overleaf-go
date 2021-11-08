@@ -69,6 +69,8 @@ type Manager interface {
 		projectId primitive.ObjectID,
 	) ([]doc.Contents, error)
 
+	CreateDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
+
 	UpdateDoc(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -234,6 +236,20 @@ func validateDocLines(lines sharedTypes.Lines) error {
 	}
 	if sum > MaxLineLength {
 		return &errors.BodyTooLargeError{}
+	}
+	return nil
+}
+
+var emptyDocLines = make(sharedTypes.Lines, 0)
+
+func (m *manager) CreateDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	_, err := m.dm.UpsertDoc(ctx, projectId, docId, emptyDocLines, sharedTypes.Ranges{})
+	if err != nil {
+		return errors.Tag(err, "cannot set doc")
+	}
+	err = m.dm.SetDocVersion(ctx, docId, 0)
+	if err != nil {
+		return errors.Tag(err, "cannot set doc version")
 	}
 	return nil
 }
