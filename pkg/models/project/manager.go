@@ -152,7 +152,7 @@ func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) (
 	var projects []ListViewPrivate
 	projection := getProjection(projects).CloneForWriting()
 
-	limitToUser := bson.M{
+	limitToUser := &bson.M{
 		"$elemMatch": bson.M{
 			"$eq": userId,
 		},
@@ -162,6 +162,7 @@ func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) (
 	for s := range withMembersProjection {
 		projection[s] = limitToUser
 	}
+	projection["_id"] = true
 	projection["archived"] = limitToUser
 	projection["trashed"] = limitToUser
 
@@ -313,16 +314,18 @@ func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q in
 			delete(projection, s)
 		}
 	} else {
-		limitToUser := bson.M{
+		limitToUser := &bson.M{
 			"$elemMatch": bson.M{
 				"$eq": userId,
 			},
 		}
+		getId := projection["_id"]
 		// These fields are used for an authorization check only, we do not
 		//  need to fetch all of them.
 		for s := range withTokenMembersProjection {
 			projection[s] = limitToUser
 		}
+		projection["_id"] = getId
 	}
 
 	err := m.c.FindOne(
