@@ -19,18 +19,34 @@ package fileTree
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
+	AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error
 	GetProjectEntities(ctx context.Context, request *types.GetProjectEntitiesRequest, response *types.GetProjectEntitiesResponse) error
 }
 
-func New(pm project.Manager) Manager {
-	return &manager{pm: pm}
+func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, editorEvents channel.Writer) Manager {
+	return &manager{
+		db:           db,
+		dm:           dm,
+		dum:          dum,
+		editorEvents: editorEvents,
+		pm:           pm,
+	}
 }
 
 type manager struct {
-	pm project.Manager
+	db           *mongo.Database
+	dm           docstore.Manager
+	dum          documentUpdater.Manager
+	editorEvents channel.Writer
+	pm           project.Manager
 }

@@ -30,6 +30,7 @@ import (
 )
 
 type Manager interface {
+	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
 	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
@@ -68,6 +69,28 @@ func rewriteMongoError(err error) error {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+	q := &withIdAndVersion{}
+	q.Id = projectId
+	q.Version = version
+
+	u := &bson.M{
+		"$push": bson.M{
+			string(mongoPath): element,
+		},
+		"$inc": VersionField{Version: 1},
+	}
+
+	r, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.MatchedCount != 1 {
+		return &errors.InvalidStateError{Msg: "project version changed"}
+	}
+	return nil
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {

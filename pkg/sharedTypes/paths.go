@@ -18,6 +18,7 @@ package sharedTypes
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -27,11 +28,36 @@ type FileType string
 type Filename string
 
 func (f Filename) Validate() error {
+	if f == "" {
+		return &errors.ValidationError{Msg: "filename cannot be empty"}
+	}
 	if f == "." || f == ".." {
 		return &errors.ValidationError{Msg: "filename cannot be '.' or '..'"}
 	}
-	if strings.ContainsRune(string(f), '/') {
-		return &errors.ValidationError{Msg: "filename cannot contain '/'"}
+	if len(f) > 150 {
+		return &errors.ValidationError{Msg: "filename too long, max 150"}
+	}
+	if unicode.IsSpace(rune(f[0])) {
+		return &errors.ValidationError{Msg: "filename cannot start with whitespace"}
+	}
+	if unicode.IsSpace(rune(f[len(f)-1])) {
+		return &errors.ValidationError{Msg: "filename cannot end with whitespace"}
+	}
+	for _, c := range f {
+		if c == '/' {
+			return &errors.ValidationError{Msg: "filename cannot contain '/'"}
+		}
+		if c == '\\' {
+			return &errors.ValidationError{Msg: "filename cannot contain '\\'"}
+		}
+		if c == '*' {
+			return &errors.ValidationError{Msg: "filename cannot contain '*'"}
+		}
+		if unicode.Is(unicode.C, c) {
+			return &errors.ValidationError{
+				Msg: "filename cannot contain unicode control character",
+			}
+		}
 	}
 	return nil
 }

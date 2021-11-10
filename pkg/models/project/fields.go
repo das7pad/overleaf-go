@@ -21,6 +21,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -114,4 +115,8 @@ type TrashedByField struct {
 
 type TreeField struct {
 	RootFolder []Folder `json:"rootFolder" bson:"rootFolder"`
+}
+
+type VersionField struct {
+	Version sharedTypes.Version `json:"version" bson:"version"`
 }

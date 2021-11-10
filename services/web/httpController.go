@@ -130,6 +130,12 @@ func (h *httpController) GetRouter(
 	projectJWTRouter.GET("/metadata", h.getMetadataForProject)
 
 	{
+		// Write endpoints
+		r := projectJWTRouter.Group("")
+		r.Use(requireWriteAccess)
+		r.POST("/doc", h.addDocToProject)
+	}
+	{
 		// block access for token users with readOnly project access
 		r := projectJWTRouter.Group("")
 		r.Use(blockRestrictedUsers)
@@ -153,6 +159,16 @@ var (
 func blockRestrictedUsers(c *gin.Context) {
 	if projectJWT.MustGet(c).IsRestrictedUser() {
 		httpUtils.Respond(c, http.StatusOK, nil, err403)
+		return
+	}
+}
+
+func requireWriteAccess(c *gin.Context) {
+	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
+		project.PrivilegeLevelReadAndWrite,
+	)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
 	}
 }
@@ -674,4 +690,17 @@ func (h *httpController) getProjectFileSize(c *gin.Context) {
 		c.Header("Content-Length", strconv.FormatInt(response.Size, 10))
 	}
 	httpUtils.Respond(c, http.StatusOK, nil, err)
+}
+
+func (h *httpController) addDocToProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.AddDocRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	response := &types.AddDocResponse{}
+	err := h.wm.AddDocToProject(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }

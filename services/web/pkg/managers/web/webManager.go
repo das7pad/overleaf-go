@@ -93,7 +93,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
-	ftm := fileTree.New(pm)
+	ftm := fileTree.New(db, pm, dm, dum, editorEvents)
 	projectJWTHandler := projectJWT.New(
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
 	)

@@ -41,6 +41,20 @@ func (a *AddDocUpdate) Validate() error {
 	return nil
 }
 
+func (a *AddDocUpdate) ToGeneric() *GenericProjectUpdate {
+	return &GenericProjectUpdate{
+		coreProjectUpdate: a.coreProjectUpdate,
+	}
+}
+
+func NewAddDocUpdate(id primitive.ObjectID, path sharedTypes.PathName) *AddDocUpdate {
+	return &AddDocUpdate{coreProjectUpdate: coreProjectUpdate{
+		Id:       id,
+		PathName: path,
+		Type:     "add-doc",
+	}}
+}
+
 type AddFileUpdate struct {
 	coreProjectUpdate
 	URL string `json:"url"`

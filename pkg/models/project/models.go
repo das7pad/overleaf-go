@@ -88,13 +88,19 @@ type withIdAndEpoch struct {
 	EpochField `bson:"inline"`
 }
 
+type withIdAndVersion struct {
+	IdField      `bson:"inline"`
+	VersionField `bson:"inline"`
+}
+
 type WithTree struct {
-	TreeField `bson:"inline"`
+	TreeField    `bson:"inline"`
+	VersionField `bson:"inline"`
 }
 
 type WithTreeAndAuth struct {
 	ForAuthorizationDetails `bson:"inline"`
-	TreeField               `bson:"inline"`
+	WithTree                `bson:"inline"`
 }
 
 type WithLastUpdatedDetails struct {
