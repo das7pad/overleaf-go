@@ -24,14 +24,14 @@ import (
 )
 
 type coreProjectUpdate struct {
-	Id      primitive.ObjectID `json:"id"`
-	Version string             `json:"version"`
-	Type    string             `json:"type"`
+	Id       primitive.ObjectID   `json:"id"`
+	PathName sharedTypes.PathName `json:"pathname"`
+	Version  string               `json:"version"`
+	Type     string               `json:"type"`
 }
 
 type AddDocUpdate struct {
 	coreProjectUpdate
-	PathName sharedTypes.PathName `json:"pathname"`
 }
 
 func (a *AddDocUpdate) Validate() error {
@@ -43,8 +43,7 @@ func (a *AddDocUpdate) Validate() error {
 
 type AddFileUpdate struct {
 	coreProjectUpdate
-	PathName sharedTypes.PathName `json:"pathname"`
-	URL      string               `json:"url"`
+	URL string `json:"url"`
 }
 
 func (a *AddFileUpdate) Validate() error {
@@ -59,7 +58,6 @@ func (a *AddFileUpdate) Validate() error {
 
 type RenameDocUpdate struct {
 	coreProjectUpdate
-	PathName    sharedTypes.PathName `json:"pathname"`
 	NewPathName sharedTypes.PathName `json:"newPathname"`
 }
 
@@ -72,7 +70,6 @@ func (r *RenameDocUpdate) Validate() error {
 
 type RenameFileUpdate struct {
 	coreProjectUpdate
-	PathName    sharedTypes.PathName `json:"pathname"`
 	NewPathName sharedTypes.PathName `json:"newPathname"`
 }
 
@@ -85,7 +82,6 @@ func (r *RenameFileUpdate) Validate() error {
 
 type GenericProjectUpdate struct {
 	coreProjectUpdate
-	PathName    sharedTypes.PathName `json:"pathname"`
 	NewPathName sharedTypes.PathName `json:"newPathname"`
 	URL         string               `json:"url"`
 }
@@ -93,14 +89,12 @@ type GenericProjectUpdate struct {
 func (g *GenericProjectUpdate) AddDocUpdate() *AddDocUpdate {
 	return &AddDocUpdate{
 		coreProjectUpdate: g.coreProjectUpdate,
-		PathName:          g.PathName,
 	}
 }
 
 func (g *GenericProjectUpdate) AddFileUpdate() *AddFileUpdate {
 	return &AddFileUpdate{
 		coreProjectUpdate: g.coreProjectUpdate,
-		PathName:          g.PathName,
 		URL:               g.URL,
 	}
 }
@@ -108,7 +102,6 @@ func (g *GenericProjectUpdate) AddFileUpdate() *AddFileUpdate {
 func (g *GenericProjectUpdate) RenameDocUpdate() *RenameDocUpdate {
 	return &RenameDocUpdate{
 		coreProjectUpdate: g.coreProjectUpdate,
-		PathName:          g.PathName,
 		NewPathName:       g.NewPathName,
 	}
 }
@@ -116,7 +109,6 @@ func (g *GenericProjectUpdate) RenameDocUpdate() *RenameDocUpdate {
 func (g *GenericProjectUpdate) RenameFileUpdate() *RenameFileUpdate {
 	return &RenameFileUpdate{
 		coreProjectUpdate: g.coreProjectUpdate,
-		PathName:          g.PathName,
 		NewPathName:       g.NewPathName,
 	}
 }
