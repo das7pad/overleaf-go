@@ -78,6 +78,18 @@ type Folder struct {
 	Folders  []Folder  `json:"folders" bson:"folders"`
 }
 
+func NewFolder(name sharedTypes.Filename) *Folder {
+	return &Folder{
+		CommonTreeFields: CommonTreeFields{
+			Id:   primitive.NewObjectID(),
+			Name: name,
+		},
+		Docs:     make([]Doc, 0),
+		FileRefs: make([]FileRef, 0),
+		Folders:  make([]Folder, 0),
+	}
+}
+
 var AbortWalk = errors.New("abort walk")
 
 type MongoPath string

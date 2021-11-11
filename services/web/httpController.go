@@ -134,6 +134,7 @@ func (h *httpController) GetRouter(
 		r := projectJWTRouter.Group("")
 		r.Use(requireWriteAccess)
 		r.POST("/doc", h.addDocToProject)
+		r.POST("/folder", h.addFolderToProject)
 	}
 	{
 		// block access for token users with readOnly project access
@@ -702,5 +703,18 @@ func (h *httpController) addDocToProject(c *gin.Context) {
 	request.UserId = o.UserId
 	response := &types.AddDocResponse{}
 	err := h.wm.AddDocToProject(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) addFolderToProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.AddFolderRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	response := &types.AddFolderResponse{}
+	err := h.wm.AddFolderToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
