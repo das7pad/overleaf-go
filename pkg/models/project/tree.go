@@ -49,6 +49,13 @@ type Doc struct {
 	CommonTreeFields `bson:"inline"`
 }
 
+func NewDoc(name sharedTypes.Filename) *Doc {
+	return &Doc{CommonTreeFields: CommonTreeFields{
+		Id:   primitive.NewObjectID(),
+		Name: name,
+	}}
+}
+
 type LinkedFileData struct {
 	Provider         string `json:"provider" bson:"provider"`
 	SourceProjectId  string `json:"source_project_id" bson:"source_project_id"`

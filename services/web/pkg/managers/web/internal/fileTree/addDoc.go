@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
@@ -36,18 +34,15 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 		return err
 	}
 	projectId := request.ProjectId
-	folderId := request.FolderId
+	parentFolderId := request.ParentFolderId
 	userId := request.UserId
-	docId := primitive.NewObjectID()
 	name := request.Name
 	source := "editor"
 
 	var projectVersion sharedTypes.Version
 	var docPath sharedTypes.PathName
 
-	doc := &project.Doc{}
-	doc.Id = docId
-	doc.Name = name
+	doc := project.NewDoc(name)
 
 	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
@@ -62,11 +57,11 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 		var target *project.Folder
 		var mongoPath project.MongoPath
-		if folderId.IsZero() {
-			folderId = t.Id
+		if parentFolderId.IsZero() {
+			parentFolderId = t.Id
 		}
 		err = t.WalkFoldersMongo(func(f *project.Folder, fPath sharedTypes.DirName, mPath project.MongoPath) error {
-			if f.GetId() == folderId {
+			if f.GetId() == parentFolderId {
 				target = f
 				mongoPath = mPath + ".docs"
 				docPath = fPath.Join(name)
@@ -78,14 +73,14 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 			return err
 		}
 		if target == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown folderId")
+			return errors.Tag(&errors.NotFoundError{}, "unknown parentFolderId")
 		}
 
 		if err = target.CheckIsUniqueName(name); err != nil {
 			return err
 		}
 
-		if err = m.dm.CreateDoc(sCtx, projectId, docId); err != nil {
+		if err = m.dm.CreateDoc(sCtx, projectId, doc.Id); err != nil {
 			return errors.Tag(err, "cannot create empty doc")
 		}
 		err = m.pm.AddTreeElement(sCtx, projectId, p.Version, mongoPath, doc)
@@ -108,7 +103,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	defer done()
 	{
 		// Notify document-updater
-		u := documentUpdaterTypes.NewAddDocUpdate(docId, docPath)
+		u := documentUpdaterTypes.NewAddDocUpdate(doc.Id, docPath)
 		r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
 			ProjectVersion: projectVersion,
 			Updates: []documentUpdaterTypes.GenericProjectUpdate{
@@ -120,7 +115,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 	{
 		// Notify real-time
-		payload := []interface{}{folderId, doc, source, userId}
+		payload := []interface{}{parentFolderId, doc, source, userId}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
