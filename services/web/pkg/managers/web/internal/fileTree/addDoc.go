@@ -36,7 +36,6 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	parentFolderId := request.ParentFolderId
 	userId := request.UserId
 	name := request.Name
-	source := "editor"
 
 	var projectVersion sharedTypes.Version
 	var docPath sharedTypes.PathName
@@ -114,7 +113,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 	{
 		// Notify real-time
-		payload := []interface{}{parentFolderId, doc, source, userId}
+		payload := []interface{}{parentFolderId, doc}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
