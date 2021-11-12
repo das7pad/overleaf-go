@@ -20,6 +20,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -223,14 +224,16 @@ func (h *httpController) ws(requestCtx *gin.Context) {
 		response := types.RPCResponse{
 			Callback: request.Callback,
 		}
+		tCtx, finishedRPC := context.WithTimeout(ctx, time.Second*10)
 		rpc := types.RPC{
-			Context:  ctx,
+			Context:  tCtx,
 			Client:   c,
 			Request:  &request,
 			Response: &response,
 		}
 		response.Latency.Begin()
 		h.rtm.RPC(&rpc)
+		finishedRPC()
 		if rpc.Response != nil {
 			rpc.Response.Latency.End()
 			failed := !c.EnsureQueueResponse(&response)
