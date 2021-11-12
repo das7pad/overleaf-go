@@ -72,6 +72,8 @@ type manager struct {
 	c *mongo.Collection
 }
 
+var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}
+
 func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
 	q := &withIdAndVersion{}
 	q.Id = projectId
@@ -89,7 +91,7 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.Object
 		return rewriteMongoError(err)
 	}
 	if r.MatchedCount != 1 {
-		return &errors.InvalidStateError{Msg: "project version changed"}
+		return ErrVersionChanged
 	}
 	return nil
 }
@@ -111,7 +113,7 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.Obj
 		return rewriteMongoError(err)
 	}
 	if r.MatchedCount != 1 {
-		return &errors.InvalidStateError{Msg: "project version changed"}
+		return ErrVersionChanged
 	}
 	return nil
 }

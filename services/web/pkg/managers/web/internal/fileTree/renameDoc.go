@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -43,8 +42,9 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	var doc *project.Doc
 	var projectVersion sharedTypes.Version
 
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
+	var lastErr error
+	for i := 0; i < retriesFileTreeOperation; i++ {
+		p, err := m.pm.GetTreeAndAuth(ctx, projectId, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
 		}
@@ -75,7 +75,7 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		}
 		if doc.Name == name {
 			// Already renamed.
-			return errAlreadyRenamed
+			return nil
 		}
 
 		if err = parent.CheckIsUniqueName(name); err != nil {
@@ -84,18 +84,18 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 
 		doc.Name = name
 		newFsPath = oldFsPath.Dir().Join(name)
-		err = m.pm.RenameTreeElement(sCtx, projectId, p.Version, mongoPath, doc)
+		err = m.pm.RenameTreeElement(ctx, projectId, p.Version, mongoPath, doc)
 		if err != nil {
+			if err == project.ErrVersionChanged {
+				lastErr = err
+				continue
+			}
 			return errors.Tag(err, "cannot rename element in tree")
 		}
-		return nil
-	})
-
-	if err != nil {
-		if err == errAlreadyRenamed {
-			return nil
-		}
-		return err
+		break
+	}
+	if lastErr != nil {
+		return lastErr
 	}
 
 	// The doc has been renamed.

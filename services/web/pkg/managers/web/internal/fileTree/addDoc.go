@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -44,7 +43,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 	doc := project.NewDoc(name)
 
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+	err := m.txWithRetries(ctx, func(sCtx context.Context) error {
 		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")

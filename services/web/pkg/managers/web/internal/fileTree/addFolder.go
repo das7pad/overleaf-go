@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -39,8 +38,9 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 
 	folder := project.NewFolder(name)
 
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
+	var lastErr error
+	for i := 0; i < retriesFileTreeOperation; i++ {
+		p, err := m.pm.GetTreeAndAuth(ctx, projectId, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
 		}
@@ -74,15 +74,18 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 			return err
 		}
 
-		err = m.pm.AddTreeElement(sCtx, projectId, p.Version, mongoPath, folder)
+		err = m.pm.AddTreeElement(ctx, projectId, p.Version, mongoPath, folder)
 		if err != nil {
+			if err == project.ErrVersionChanged {
+				lastErr = err
+				continue
+			}
 			return errors.Tag(err, "cannot add element into tree")
 		}
-		return nil
-	})
-
-	if err != nil {
-		return err
+		break
+	}
+	if lastErr != nil {
+		return lastErr
 	}
 
 	*response = *folder
