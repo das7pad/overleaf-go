@@ -94,20 +94,11 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive
 				return err
 			}
 		case "rename-file":
-			err := m.dm.RenameFile(ctx, projectId, update.RenameFileUpdate())
-			if err != nil {
-				return err
-			}
+			// noop
 		case "add-doc":
-			err := m.dm.AddDoc(ctx, projectId, update.AddDocUpdate())
-			if err != nil {
-				return err
-			}
+			// noop
 		case "add-file":
-			err := m.dm.AddFile(ctx, projectId, update.AddFileUpdate())
-			if err != nil {
-				return err
-			}
+			// noop
 		}
 	}
 	return nil
