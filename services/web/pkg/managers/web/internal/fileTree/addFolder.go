@@ -96,7 +96,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	defer done()
 	{
 		// Notify real-time
-		payload := []interface{}{parentFolderId, folder, userId}
+		payload := []interface{}{parentFolderId, folder}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
