@@ -135,6 +135,18 @@ func (h *httpController) GetRouter(
 		r.Use(requireWriteAccess)
 		r.POST("/doc", h.addDocToProject)
 		r.POST("/folder", h.addFolderToProject)
+
+		rDoc := r.Group("/doc/:docId")
+		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
+		rDoc.POST("/rename", h.renameDocInProject)
+
+		rFile := r.Group("/file/:fileId")
+		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
+		rFile.POST("/rename", h.renameFileInProject)
+
+		rFolder := r.Group("/folder/:folderId")
+		rFolder.Use(httpUtils.ValidateAndSetId("folderId"))
+		rFolder.POST("/rename", h.renameFolderInProject)
 	}
 	{
 		// block access for token users with readOnly project access
@@ -717,4 +729,43 @@ func (h *httpController) addFolderToProject(c *gin.Context) {
 	response := &types.AddFolderResponse{}
 	err := h.wm.AddFolderToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) renameDocInProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RenameDocRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	request.DocId = httpUtils.GetId(c, "docId")
+	err := h.wm.RenameDocInProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) renameFileInProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RenameFileRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	request.FileId = httpUtils.GetId(c, "fileId")
+	err := h.wm.RenameFileInProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) renameFolderInProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RenameFolderRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	request.FolderId = httpUtils.GetId(c, "folderId")
+	err := h.wm.RenameFolderInProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

@@ -215,9 +215,9 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 
 	err = folder.Walk(func(e project.TreeElement, p sharedTypes.PathName) error {
 		switch entry := e.(type) {
-		case project.Doc:
+		case *project.Doc:
 			docs[entry.Id] = p
-		case project.FileRef:
+		case *project.FileRef:
 			t := clsiTypes.ModifiedAt(entry.Created.Unix())
 			url := m.options.APIs.Filestore.URL.WithPath(
 				"/project/" + request.ProjectId.Hex() +

@@ -87,7 +87,7 @@ func (d DirName) String() string {
 }
 
 func (d DirName) Join(f Filename) PathName {
-	if d == "" {
+	if d == "" || d == "." {
 		return PathName(f)
 	}
 	return PathName(string(d) + "/" + string(f))

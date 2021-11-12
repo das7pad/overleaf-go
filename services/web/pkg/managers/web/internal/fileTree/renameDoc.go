@@ -29,42 +29,40 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error {
+func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameDocRequest) error {
 	if err := request.Name.Validate(); err != nil {
 		return err
 	}
 	projectId := request.ProjectId
-	parentFolderId := request.ParentFolderId
+	docId := request.DocId
 	userId := request.UserId
 	name := request.Name
-	source := "editor"
 
+	var oldFsPath sharedTypes.PathName
+	var newFsPath sharedTypes.PathName
+	var doc *project.Doc
 	var projectVersion sharedTypes.Version
-	var docPath sharedTypes.PathName
-
-	doc := project.NewDoc(name)
 
 	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
 		}
+		projectVersion = p.Version
 
 		t, err := p.GetRootFolder()
 		if err != nil {
 			return err
 		}
 
-		var target *project.Folder
+		var parent *project.Folder
 		var mongoPath project.MongoPath
-		if parentFolderId.IsZero() {
-			parentFolderId = t.Id
-		}
-		err = t.WalkFoldersMongo(func(_, f *project.Folder, fPath sharedTypes.DirName, mPath project.MongoPath) error {
-			if f.GetId() == parentFolderId {
-				target = f
-				mongoPath = mPath + ".docs"
-				docPath = fPath.Join(name)
+		err = t.WalkDocsMongo(func(f *project.Folder, element project.TreeElement, path sharedTypes.PathName, mPath project.MongoPath) error {
+			if element.GetId() == docId {
+				parent = f
+				doc = element.(*project.Doc)
+				oldFsPath = path
+				mongoPath = mPath
 				return project.AbortWalk
 			}
 			return nil
@@ -72,55 +70,60 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 		if err != nil {
 			return err
 		}
-		if target == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown parentFolderId")
+		if doc == nil {
+			return errors.Tag(&errors.NotFoundError{}, "unknown docId")
+		}
+		if doc.Name == name {
+			// Already renamed.
+			return errAlreadyRenamed
 		}
 
-		if err = target.CheckIsUniqueName(name); err != nil {
+		if err = parent.CheckIsUniqueName(name); err != nil {
 			return err
 		}
 
-		if err = m.dm.CreateDoc(sCtx, projectId, doc.Id); err != nil {
-			return errors.Tag(err, "cannot create empty doc")
-		}
-		err = m.pm.AddTreeElement(sCtx, projectId, p.Version, mongoPath, doc)
+		doc.Name = name
+		newFsPath = oldFsPath.Dir().Join(name)
+		err = m.pm.RenameTreeElement(sCtx, projectId, p.Version, mongoPath, doc)
 		if err != nil {
-			return errors.Tag(err, "cannot add element into tree")
+			return errors.Tag(err, "cannot rename element in tree")
 		}
-		projectVersion = p.Version + 1
 		return nil
 	})
 
 	if err != nil {
+		if err == errAlreadyRenamed {
+			return nil
+		}
 		return err
 	}
 
-	*response = *doc
-
-	// The new doc has been created.
-	// Failing the request and retrying now would result in duplicates.
+	// The doc has been renamed.
+	// Failing the request and retrying now would result in duplicate updates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	{
 		// Notify document-updater
-		u := documentUpdaterTypes.NewAddDocUpdate(doc.Id, docPath)
 		r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
 			ProjectVersion: projectVersion,
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
-				u.ToGeneric(),
+				documentUpdaterTypes.NewRenameDocUpdate(
+					doc.GetId(),
+					oldFsPath,
+					newFsPath,
+				).ToGeneric(),
 			},
 		}
 		_ = m.dum.ProcessProjectUpdates(ctx, projectId, r)
 	}
-
 	{
 		// Notify real-time
-		payload := []interface{}{parentFolderId, doc, source, userId}
+		payload := []interface{}{doc.Id, name}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
 				RoomId:  projectId,
-				Message: "reciveNewDoc",
+				Message: "reciveEntityRename",
 				Payload: b,
 			})
 		}

@@ -55,7 +55,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 		if parentFolderId.IsZero() {
 			parentFolderId = t.Id
 		}
-		err = t.WalkFoldersMongo(func(f *project.Folder, _ sharedTypes.DirName, mPath project.MongoPath) error {
+		err = t.WalkFoldersMongo(func(_, f *project.Folder, _ sharedTypes.DirName, mPath project.MongoPath) error {
 			if f.GetId() == parentFolderId {
 				target = f
 				mongoPath = mPath + ".folders"

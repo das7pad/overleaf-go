@@ -114,7 +114,7 @@ type TrashedByField struct {
 }
 
 type TreeField struct {
-	RootFolder []Folder `json:"rootFolder" bson:"rootFolder"`
+	RootFolder []*Folder `json:"rootFolder" bson:"rootFolder"`
 }
 
 type VersionField struct {

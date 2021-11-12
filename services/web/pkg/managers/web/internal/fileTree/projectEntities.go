@@ -46,12 +46,12 @@ func (m *manager) GetProjectEntities(ctx context.Context, request *types.GetProj
 	entities := make([]types.GetProjectEntitiesEntry, 0)
 	err = f.Walk(func(e project.TreeElement, path sharedTypes.PathName) error {
 		switch e.(type) {
-		case project.Doc:
+		case *project.Doc:
 			entities = append(entities, types.GetProjectEntitiesEntry{
 				Path: "/" + path,
 				Type: "doc",
 			})
-		case project.FileRef:
+		case *project.FileRef:
 			entities = append(entities, types.GetProjectEntitiesEntry{
 				Path: "/" + path,
 				Type: "file",

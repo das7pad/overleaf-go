@@ -82,6 +82,24 @@ func (r *RenameDocUpdate) Validate() error {
 	return nil
 }
 
+func (r *RenameDocUpdate) ToGeneric() *GenericProjectUpdate {
+	return &GenericProjectUpdate{
+		coreProjectUpdate: r.coreProjectUpdate,
+		NewPathName:       r.NewPathName,
+	}
+}
+
+func NewRenameDocUpdate(id primitive.ObjectID, oldPath, newPath sharedTypes.PathName) *RenameDocUpdate {
+	return &RenameDocUpdate{
+		coreProjectUpdate: coreProjectUpdate{
+			Id:       id,
+			PathName: oldPath,
+			Type:     "rename-doc",
+		},
+		NewPathName: newPath,
+	}
+}
+
 type RenameFileUpdate struct {
 	coreProjectUpdate
 	NewPathName sharedTypes.PathName `json:"newPathname"`
@@ -92,6 +110,24 @@ func (r *RenameFileUpdate) Validate() error {
 		return &errors.ValidationError{Msg: "missing old path"}
 	}
 	return nil
+}
+
+func (r *RenameFileUpdate) ToGeneric() *GenericProjectUpdate {
+	return &GenericProjectUpdate{
+		coreProjectUpdate: r.coreProjectUpdate,
+		NewPathName:       r.NewPathName,
+	}
+}
+
+func NewRenameFileUpdate(id primitive.ObjectID, oldPath, newPath sharedTypes.PathName) *RenameFileUpdate {
+	return &RenameFileUpdate{
+		coreProjectUpdate: coreProjectUpdate{
+			Id:       id,
+			PathName: oldPath,
+			Type:     "rename-file",
+		},
+		NewPathName: newPath,
+	}
 }
 
 type GenericProjectUpdate struct {
@@ -128,8 +164,8 @@ func (g *GenericProjectUpdate) RenameFileUpdate() *RenameFileUpdate {
 }
 
 type ProcessProjectUpdatesRequest struct {
-	ProjectVersion sharedTypes.Version    `json:"version"`
-	Updates        []GenericProjectUpdate `json:"updates"`
+	ProjectVersion sharedTypes.Version     `json:"version"`
+	Updates        []*GenericProjectUpdate `json:"updates"`
 }
 
 func (p *ProcessProjectUpdatesRequest) Validate() error {

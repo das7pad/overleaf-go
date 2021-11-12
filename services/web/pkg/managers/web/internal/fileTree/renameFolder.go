@@ -29,42 +29,45 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error {
+var errAlreadyRenamed = &errors.InvalidStateError{Msg: "already renamed"}
+
+func (m *manager) RenameFolderInProject(ctx context.Context, request *types.RenameFolderRequest) error {
 	if err := request.Name.Validate(); err != nil {
 		return err
 	}
 	projectId := request.ProjectId
-	parentFolderId := request.ParentFolderId
+	folderId := request.FolderId
 	userId := request.UserId
 	name := request.Name
-	source := "editor"
 
+	var oldFsPath sharedTypes.DirName
+	var newFsPath sharedTypes.DirName
+	var folder *project.Folder
 	var projectVersion sharedTypes.Version
-	var docPath sharedTypes.PathName
-
-	doc := project.NewDoc(name)
 
 	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
 		}
+		projectVersion = p.Version
 
 		t, err := p.GetRootFolder()
 		if err != nil {
 			return err
 		}
-
-		var target *project.Folder
-		var mongoPath project.MongoPath
-		if parentFolderId.IsZero() {
-			parentFolderId = t.Id
+		if folderId == t.Id {
+			return errors.Tag(&errors.NotFoundError{}, "cannot rename rootFolder")
 		}
-		err = t.WalkFoldersMongo(func(_, f *project.Folder, fPath sharedTypes.DirName, mPath project.MongoPath) error {
-			if f.GetId() == parentFolderId {
-				target = f
-				mongoPath = mPath + ".docs"
-				docPath = fPath.Join(name)
+
+		var parent *project.Folder
+		var mongoPath project.MongoPath
+		err = t.WalkFoldersMongo(func(p, f *project.Folder, path sharedTypes.DirName, mPath project.MongoPath) error {
+			if f.GetId() == folderId {
+				parent = p
+				folder = f
+				oldFsPath = path
+				mongoPath = mPath
 				return project.AbortWalk
 			}
 			return nil
@@ -72,55 +75,70 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 		if err != nil {
 			return err
 		}
-		if target == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown parentFolderId")
+		if folder == nil {
+			return errors.Tag(&errors.NotFoundError{}, "unknown folderId")
+		}
+		if folder.Name == name {
+			// Already renamed.
+			return errAlreadyRenamed
 		}
 
-		if err = target.CheckIsUniqueName(name); err != nil {
+		if err = parent.CheckIsUniqueName(name); err != nil {
 			return err
 		}
 
-		if err = m.dm.CreateDoc(sCtx, projectId, doc.Id); err != nil {
-			return errors.Tag(err, "cannot create empty doc")
-		}
-		err = m.pm.AddTreeElement(sCtx, projectId, p.Version, mongoPath, doc)
+		folder.Name = name
+		newFsPath = sharedTypes.DirName(oldFsPath.Dir().Join(name))
+		err = m.pm.RenameTreeElement(sCtx, projectId, p.Version, mongoPath, folder)
 		if err != nil {
-			return errors.Tag(err, "cannot add element into tree")
+			return errors.Tag(err, "cannot rename element in tree")
 		}
-		projectVersion = p.Version + 1
 		return nil
 	})
 
 	if err != nil {
+		if err == errAlreadyRenamed {
+			return nil
+		}
 		return err
 	}
 
-	*response = *doc
-
-	// The new doc has been created.
-	// Failing the request and retrying now would result in duplicates.
+	// The folder has been renamed.
+	// Failing the request and retrying now would result in duplicate updates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	{
 		// Notify document-updater
-		u := documentUpdaterTypes.NewAddDocUpdate(doc.Id, docPath)
-		r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: projectVersion,
-			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
-				u.ToGeneric(),
+		updates := make([]*documentUpdaterTypes.GenericProjectUpdate, 0)
+		err2 := folder.WalkDocs(
+			func(e project.TreeElement, p sharedTypes.PathName) error {
+				updates = append(
+					updates,
+					documentUpdaterTypes.NewRenameDocUpdate(
+						e.GetId(),
+						oldFsPath.Join(sharedTypes.Filename(p)),
+						newFsPath.Join(sharedTypes.Filename(p)),
+					).ToGeneric(),
+				)
+				return nil
 			},
+		)
+		if err2 == nil {
+			r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
+				ProjectVersion: projectVersion,
+				Updates:        updates,
+			}
+			_ = m.dum.ProcessProjectUpdates(ctx, projectId, r)
 		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, r)
 	}
-
 	{
 		// Notify real-time
-		payload := []interface{}{parentFolderId, doc, source, userId}
+		payload := []interface{}{folder.Id, name}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
 				RoomId:  projectId,
-				Message: "reciveNewDoc",
+				Message: "reciveEntityRename",
 				Payload: b,
 			})
 		}

@@ -73,9 +73,9 @@ type FileRef struct {
 type Folder struct {
 	CommonTreeFields `bson:"inline"`
 
-	Docs     []Doc     `json:"docs" bson:"docs"`
-	FileRefs []FileRef `json:"fileRefs" bson:"fileRefs"`
-	Folders  []Folder  `json:"folders" bson:"folders"`
+	Docs     []*Doc     `json:"docs" bson:"docs"`
+	FileRefs []*FileRef `json:"fileRefs" bson:"fileRefs"`
+	Folders  []*Folder  `json:"folders" bson:"folders"`
 }
 
 func NewFolder(name sharedTypes.Filename) *Folder {
@@ -84,9 +84,9 @@ func NewFolder(name sharedTypes.Filename) *Folder {
 			Id:   primitive.NewObjectID(),
 			Name: name,
 		},
-		Docs:     make([]Doc, 0),
-		FileRefs: make([]FileRef, 0),
-		Folders:  make([]Folder, 0),
+		Docs:     make([]*Doc, 0),
+		FileRefs: make([]*FileRef, 0),
+		Folders:  make([]*Folder, 0),
 	}
 }
 
@@ -95,13 +95,18 @@ var AbortWalk = errors.New("abort walk")
 type MongoPath string
 
 type DirWalker func(folder *Folder, path sharedTypes.DirName) error
-type DirWalkerMongo func(folder *Folder, path sharedTypes.DirName, mongoPath MongoPath) error
+type DirWalkerMongo func(parent, folder *Folder, path sharedTypes.DirName, mongoPath MongoPath) error
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
+type TreeWalkerMongo func(parent *Folder, element TreeElement, path sharedTypes.PathName, mongoPath MongoPath) error
 
 var (
 	ErrDuplicateNameInFolder = &errors.InvalidStateError{
 		Msg: "folder already has entry with given name",
 	}
+)
+
+const (
+	baseMongoPath MongoPath = "rootFolder.0"
 )
 
 func (t *Folder) CheckIsUniqueName(needle sharedTypes.Filename) error {
@@ -138,8 +143,16 @@ func (t *Folder) WalkDocs(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, "", walkModeDoc))
 }
 
+func (t *Folder) WalkDocsMongo(fn TreeWalkerMongo) error {
+	return ignoreAbort(t.walkMongo(fn, "", baseMongoPath, walkModeDoc))
+}
+
 func (t *Folder) WalkFiles(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, "", walkModeFiles))
+}
+
+func (t *Folder) WalkFilesMongo(fn TreeWalkerMongo) error {
+	return ignoreAbort(t.walkMongo(fn, "", baseMongoPath, walkModeFiles))
 }
 
 func (t *Folder) WalkFolders(fn DirWalker) error {
@@ -147,7 +160,7 @@ func (t *Folder) WalkFolders(fn DirWalker) error {
 }
 
 func (t *Folder) WalkFoldersMongo(fn DirWalkerMongo) error {
-	return ignoreAbort(t.walkDirsMongo(fn, "", "rootFolder.0"))
+	return ignoreAbort(t.walkDirsMongo(nil, fn, "", baseMongoPath))
 }
 
 type walkMode int
@@ -186,15 +199,15 @@ func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 	return nil
 }
 
-func (t *Folder) walkDirsMongo(fn DirWalkerMongo, parent sharedTypes.DirName, mongoParent MongoPath) error {
-	if err := fn(t, parent, mongoParent); err != nil {
+func (t *Folder) walkDirsMongo(parent *Folder, fn DirWalkerMongo, parentPath sharedTypes.DirName, mongoParent MongoPath) error {
+	if err := fn(parent, t, parentPath, mongoParent); err != nil {
 		return err
 	}
 	mongoParent += ".folders."
 	for i, folder := range t.Folders {
-		branch := sharedTypes.DirName(parent.Join(folder.Name))
+		branch := sharedTypes.DirName(parentPath.Join(folder.Name))
 		s := MongoPath(strconv.FormatInt(int64(i), 10))
-		if err := folder.walkDirsMongo(fn, branch, mongoParent+s); err != nil {
+		if err := folder.walkDirsMongo(t, fn, branch, mongoParent+s); err != nil {
 			return err
 		}
 	}
@@ -225,6 +238,36 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 	return nil
 }
 
+func (t *Folder) walkMongo(fn TreeWalkerMongo, parentPath sharedTypes.DirName, mongoParent MongoPath, m walkMode) error {
+	if m == walkModeDoc || m == walkModeAny {
+		mp := mongoParent + ".docs."
+		for i, doc := range t.Docs {
+			s := MongoPath(strconv.FormatInt(int64(i), 10))
+			if err := fn(t, doc, parentPath.Join(doc.Name), mp+s); err != nil {
+				return err
+			}
+		}
+	}
+	if m == walkModeFiles || m == walkModeAny {
+		mp := mongoParent + ".files."
+		for i, fileRef := range t.FileRefs {
+			s := MongoPath(strconv.FormatInt(int64(i), 10))
+			if err := fn(t, fileRef, parentPath.Join(fileRef.Name), mp+s); err != nil {
+				return err
+			}
+		}
+	}
+	mongoParent += ".folders."
+	for i, folder := range t.Folders {
+		branch := sharedTypes.DirName(parentPath.Join(folder.Name))
+		s := MongoPath(strconv.FormatInt(int64(i), 10))
+		if err := folder.walkMongo(fn, branch, mongoParent+s, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *TreeField) GetRootFolder() (*Folder, error) {
 	if len(p.RootFolder) != 1 {
 		return nil, &errors.ValidationError{
@@ -234,5 +277,5 @@ func (p *TreeField) GetRootFolder() (*Folder, error) {
 			),
 		}
 	}
-	return &p.RootFolder[0], nil
+	return p.RootFolder[0], nil
 }
