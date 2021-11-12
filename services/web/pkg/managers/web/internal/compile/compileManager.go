@@ -206,7 +206,7 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 		return nil, "", errors.Tag(err, "cannot get docs from mongo")
 	}
 
-	folder, err := m.pm.GetProjectRootFolder(ctx, request.ProjectId)
+	folder, _, err := m.pm.GetProjectRootFolder(ctx, request.ProjectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get folder from mongo")
 	}

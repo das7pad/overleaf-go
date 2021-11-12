@@ -25,7 +25,6 @@ import (
 
 type AddDocRequest struct {
 	ProjectId      primitive.ObjectID   `json:"-"`
-	UserId         primitive.ObjectID   `json:"-"`
 	Name           sharedTypes.Filename `json:"name"`
 	ParentFolderId primitive.ObjectID   `json:"parent_folder_id"`
 }

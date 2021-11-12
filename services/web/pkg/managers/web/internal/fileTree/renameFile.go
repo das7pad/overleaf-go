@@ -34,7 +34,6 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 	}
 	projectId := request.ProjectId
 	fileId := request.FileId
-	userId := request.UserId
 	name := request.Name
 
 	var oldFsPath sharedTypes.PathName
@@ -43,15 +42,9 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 	var projectVersion sharedTypes.Version
 
 	for i := 0; i < retriesFileTreeOperation; i++ {
-		p, err := m.pm.GetTreeAndAuth(ctx, projectId, userId)
+		t, v, err := m.pm.GetProjectRootFolder(ctx, projectId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
-		}
-		projectVersion = p.Version
-
-		t, err := p.GetRootFolder()
-		if err != nil {
-			return err
 		}
 
 		var parent *project.Folder
@@ -83,13 +76,14 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 
 		fileRef.Name = name
 		newFsPath = oldFsPath.Dir().Join(name)
-		err = m.pm.RenameTreeElement(ctx, projectId, p.Version, mongoPath, fileRef)
+		err = m.pm.RenameTreeElement(ctx, projectId, v, mongoPath, fileRef)
 		if err != nil {
 			if err == project.ErrVersionChanged {
 				continue
 			}
 			return errors.Tag(err, "cannot rename element in tree")
 		}
+		projectVersion = v + 1
 		break
 	}
 

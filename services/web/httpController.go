@@ -712,7 +712,6 @@ func (h *httpController) addDocToProject(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
 	response := &types.AddDocResponse{}
 	err := h.wm.AddDocToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
@@ -725,7 +724,6 @@ func (h *httpController) addFolderToProject(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
 	response := &types.AddFolderResponse{}
 	err := h.wm.AddFolderToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
@@ -738,7 +736,6 @@ func (h *httpController) renameDocInProject(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.RenameDocInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -751,7 +748,6 @@ func (h *httpController) renameFileInProject(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.RenameFileInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -764,7 +760,6 @@ func (h *httpController) renameFolderInProject(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.RenameFolderInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)

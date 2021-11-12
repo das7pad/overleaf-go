@@ -37,7 +37,7 @@ type Manager interface {
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error)
-	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error)
+	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, sharedTypes.Version, error)
 	GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
@@ -294,7 +294,7 @@ func (m *manager) UpdateLastUpdated(ctx context.Context, projectId primitive.Obj
 }
 
 func (m *manager) GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error) {
-	f, err := m.GetProjectRootFolder(ctx, projectId)
+	f, _, err := m.GetProjectRootFolder(ctx, projectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get tree")
 	}
@@ -317,7 +317,7 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId primitive.Obj
 	return doc, p, nil
 }
 
-func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, error) {
+func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, sharedTypes.Version, error) {
 	var project WithTree
 	err := m.c.FindOne(
 		ctx,
@@ -327,9 +327,13 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 		options.FindOne().SetProjection(getProjection(project)),
 	).Decode(&project)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return nil, 0, rewriteMongoError(err)
 	}
-	return project.GetRootFolder()
+	t, err := project.GetRootFolder()
+	if err != nil {
+		return nil, 0, err
+	}
+	return t, project.Version, nil
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error) {

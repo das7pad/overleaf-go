@@ -24,7 +24,6 @@ import (
 
 type RenameFileRequest struct {
 	ProjectId primitive.ObjectID   `json:"-"`
-	UserId    primitive.ObjectID   `json:"-"`
 	FileId    primitive.ObjectID   `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }

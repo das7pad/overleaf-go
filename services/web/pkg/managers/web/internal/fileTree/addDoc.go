@@ -34,7 +34,6 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	}
 	projectId := request.ProjectId
 	parentFolderId := request.ParentFolderId
-	userId := request.UserId
 	name := request.Name
 
 	var projectVersion sharedTypes.Version
@@ -43,14 +42,9 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	doc := project.NewDoc(name)
 
 	err := m.txWithRetries(ctx, func(sCtx context.Context) error {
-		p, err := m.pm.GetTreeAndAuth(sCtx, projectId, userId)
+		t, v, err := m.pm.GetProjectRootFolder(sCtx, projectId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
-		}
-
-		t, err := p.GetRootFolder()
-		if err != nil {
-			return err
 		}
 
 		var target *project.Folder
@@ -81,11 +75,11 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 		if err = m.dm.CreateDoc(sCtx, projectId, doc.Id); err != nil {
 			return errors.Tag(err, "cannot create empty doc")
 		}
-		err = m.pm.AddTreeElement(sCtx, projectId, p.Version, mongoPath, doc)
+		err = m.pm.AddTreeElement(sCtx, projectId, v, mongoPath, doc)
 		if err != nil {
 			return errors.Tag(err, "cannot add element into tree")
 		}
-		projectVersion = p.Version + 1
+		projectVersion = v + 1
 		return nil
 	})
 

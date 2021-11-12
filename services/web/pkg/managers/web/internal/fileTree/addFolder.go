@@ -33,21 +33,15 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	}
 	projectId := request.ProjectId
 	parentFolderId := request.ParentFolderId
-	userId := request.UserId
 	name := request.Name
 
 	folder := project.NewFolder(name)
 
 	var lastErr error
 	for i := 0; i < retriesFileTreeOperation; i++ {
-		p, err := m.pm.GetTreeAndAuth(ctx, projectId, userId)
+		t, v, err := m.pm.GetProjectRootFolder(ctx, projectId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project")
-		}
-
-		t, err := p.GetRootFolder()
-		if err != nil {
-			return err
 		}
 
 		var target *project.Folder
@@ -74,7 +68,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 			return err
 		}
 
-		err = m.pm.AddTreeElement(ctx, projectId, p.Version, mongoPath, folder)
+		err = m.pm.AddTreeElement(ctx, projectId, v, mongoPath, folder)
 		if err != nil {
 			if err == project.ErrVersionChanged {
 				lastErr = err
