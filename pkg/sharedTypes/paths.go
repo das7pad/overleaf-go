@@ -93,6 +93,13 @@ func (d DirName) Join(f Filename) PathName {
 	return PathName(string(d) + "/" + string(f))
 }
 
+func (d DirName) JoinDir(f Filename) DirName {
+	if d == "" || d == "." {
+		return DirName(f)
+	}
+	return DirName(string(d) + "/" + string(f))
+}
+
 type PathName string
 
 func (p PathName) Dir() DirName {

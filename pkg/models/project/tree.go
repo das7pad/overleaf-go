@@ -191,7 +191,7 @@ func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 		return err
 	}
 	for _, folder := range t.Folders {
-		branch := sharedTypes.DirName(parent.Join(folder.Name))
+		branch := parent.JoinDir(folder.Name)
 		if err := folder.walkDirs(fn, branch); err != nil {
 			return err
 		}
@@ -205,7 +205,7 @@ func (t *Folder) walkDirsMongo(parent *Folder, fn DirWalkerMongo, parentPath sha
 	}
 	mongoParent += ".folders."
 	for i, folder := range t.Folders {
-		branch := sharedTypes.DirName(parentPath.Join(folder.Name))
+		branch := parentPath.JoinDir(folder.Name)
 		s := MongoPath(strconv.FormatInt(int64(i), 10))
 		if err := folder.walkDirsMongo(t, fn, branch, mongoParent+s); err != nil {
 			return err
@@ -230,7 +230,7 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 		}
 	}
 	for _, folder := range t.Folders {
-		branch := sharedTypes.DirName(parent.Join(folder.Name))
+		branch := parent.JoinDir(folder.Name)
 		if err := folder.walk(fn, branch, m); err != nil {
 			return err
 		}
@@ -259,7 +259,7 @@ func (t *Folder) walkMongo(fn TreeWalkerMongo, parentPath sharedTypes.DirName, m
 	}
 	mongoParent += ".folders."
 	for i, folder := range t.Folders {
-		branch := sharedTypes.DirName(parentPath.Join(folder.Name))
+		branch := parentPath.JoinDir(folder.Name)
 		s := MongoPath(strconv.FormatInt(int64(i), 10))
 		if err := folder.walkMongo(fn, branch, mongoParent+s, m); err != nil {
 			return err
