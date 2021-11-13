@@ -64,7 +64,7 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{doc.Id, doc.Name}
+		payload := []interface{}{doc.Id, doc.Name, r.projectVersion}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{

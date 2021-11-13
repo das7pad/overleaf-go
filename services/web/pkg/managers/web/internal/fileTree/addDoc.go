@@ -107,7 +107,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 	{
 		// Notify real-time
-		payload := []interface{}{parentFolderId, doc}
+		payload := []interface{}{parentFolderId, doc, projectVersion}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{

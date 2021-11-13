@@ -74,7 +74,7 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{folder.Id, folder.Name}
+		payload := []interface{}{folder.Id, folder.Name, r.projectVersion}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{

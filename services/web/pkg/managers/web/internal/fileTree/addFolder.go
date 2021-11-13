@@ -35,6 +35,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	parentFolderId := request.ParentFolderId
 	name := request.Name
 
+	var projectVersion sharedTypes.Version
 	folder := project.NewFolder(name)
 
 	var lastErr error
@@ -76,6 +77,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 			}
 			return errors.Tag(err, "cannot add element into tree")
 		}
+		projectVersion = v + 1
 		break
 	}
 	if lastErr != nil {
@@ -90,7 +92,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	defer done()
 	{
 		// Notify real-time
-		payload := []interface{}{parentFolderId, folder}
+		payload := []interface{}{parentFolderId, folder, projectVersion}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
