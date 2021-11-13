@@ -57,8 +57,8 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 					updates,
 					documentUpdaterTypes.NewRenameDocUpdate(
 						e.GetId(),
-						oldFsPath.Join(sharedTypes.Filename(p)),
-						newFsPath.Join(sharedTypes.Filename(p)),
+						oldFsPath.JoinPath(p),
+						newFsPath.JoinPath(p),
 					).ToGeneric(),
 				)
 				return nil
