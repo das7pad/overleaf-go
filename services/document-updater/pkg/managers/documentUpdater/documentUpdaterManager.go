@@ -36,15 +36,14 @@ type Manager interface {
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
 	) error
-	ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error
 	GetDoc(
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
 		fromVersion sharedTypes.Version,
 	) (*types.GetDocResponse, error)
-	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentLines, error)
-	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) (types.DocContentSnapshots, error)
+	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID) ([]*types.DocContentLines, error)
+	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID) (types.DocContentSnapshots, error)
 	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
@@ -104,10 +103,6 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive
 	return nil
 }
 
-func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {
-	return m.dm.ClearProjectState(ctx, projectId)
-}
-
 func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {
 	_, err := m.dm.GetDoc(ctx, projectId, docId)
 	return err
@@ -139,8 +134,8 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	return response, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.DocContentLines, error) {
-	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
+func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID) ([]*types.DocContentLines, error) {
+	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +146,8 @@ func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectI
 	return docContentsLines, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID, newState string) (types.DocContentSnapshots, error) {
-	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId, newState)
+func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID) (types.DocContentSnapshots, error) {
+	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
 	if err != nil {
 		return nil, err
 	}

@@ -40,11 +40,9 @@ import (
 )
 
 type Manager interface {
-	ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error
-
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
-	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error)
+	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID) ([]*types.Doc, error)
 
 	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
 
@@ -128,10 +126,6 @@ func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, u
 		}
 		return nil
 	}
-}
-
-func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {
-	return m.rm.ClearProjectState(ctx, projectId)
 }
 
 func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
@@ -609,25 +603,14 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 	return nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID, newState string) ([]*types.Doc, error) {
-	eg, pCtx := errgroup.WithContext(ctx)
-	if newState != "" {
-		eg.Go(func() error {
-			return m.rm.CheckOrSetProjectState(pCtx, projectId, newState)
-		})
-	}
-	var docIds []primitive.ObjectID
-	eg.Go(func() error {
-		var err error
-		docIds, err = m.rm.GetDocIdsInProject(ctx, projectId)
-		return err
-	})
-	if err := eg.Wait(); err != nil {
+func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID) ([]*types.Doc, error) {
+	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
+	if err != nil {
 		return nil, err
 	}
 
 	docs := make([]*types.Doc, len(docIds))
-	eg, pCtx = errgroup.WithContext(ctx)
+	eg, pCtx := errgroup.WithContext(ctx)
 	for j, id := range docIds {
 		i := j
 		docId := id

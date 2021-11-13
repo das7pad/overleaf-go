@@ -39,6 +39,7 @@ type CompileProjectRequest struct {
 	ImageName                  clsiTypes.ImageName     `json:"imageName"`
 	IncrementalCompilesEnabled bool                    `json:"incrementalCompilesEnabled"`
 	RootDocId                  primitive.ObjectID      `json:"rootDocId"`
+	SyncState                  clsiTypes.SyncState     `json:"syncState"`
 }
 
 type ClsiServerId string

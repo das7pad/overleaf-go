@@ -138,7 +138,7 @@ func (m *manager) ClearCache(ctx context.Context, request types.SignedCompilePro
 func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
 	request.ImageName = m.getImageName(request.ImageName)
 
-	syncState := clsiTypes.SyncState("TODO")
+	syncState := request.SyncState
 
 	var resources clsiTypes.Resources
 	var rootDocPath clsiTypes.RootResourcePath
@@ -265,11 +265,9 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 }
 
 func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, clsiTypes.RootResourcePath, error) {
-	syncState := clsiTypes.SyncState("TODO")
 	docs, err := m.dum.GetProjectDocsAndFlushIfOldSnapshot(
 		ctx,
 		request.ProjectId,
-		string(syncState),
 	)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get docs from redis")

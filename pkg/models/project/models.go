@@ -29,6 +29,7 @@ type JoinProjectViewPublic struct {
 	SpellCheckLanguageField `bson:"inline"`
 	TrackChangesStateField  `bson:"inline"`
 	TreeField               `bson:"inline"`
+	VersionField            `bson:"inline"`
 }
 
 type ListViewPrivate struct {
@@ -53,6 +54,7 @@ type LoadEditorViewPublic struct {
 	ImageNameField `bson:"inline"`
 	NameField      `bson:"inline"`
 	RootDocIdField `bson:"inline"`
+	VersionField   `bson:"inline"`
 }
 
 type WithTokenMembers struct {

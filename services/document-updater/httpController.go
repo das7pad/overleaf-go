@@ -170,31 +170,24 @@ func (h *httpController) flushAndDeleteProject(c *gin.Context) {
 }
 
 func (h *httpController) getAndFlushIfOld(c *gin.Context) {
-	state := c.Query("state")
 	var docs interface{}
 	var err error
 	if c.Query("snapshot") == "true" {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldSnapshot(
 			c,
 			httpUtils.GetId(c, "projectId"),
-			state,
 		)
 	} else {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldLines(
 			c,
 			httpUtils.GetId(c, "projectId"),
-			state,
 		)
 	}
 	httpUtils.Respond(c, http.StatusOK, docs, err)
 }
 
 func (h *httpController) clearProjectState(c *gin.Context) {
-	err := h.dum.ClearProjectState(
-		c,
-		httpUtils.GetId(c, "projectId"),
-	)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+	httpUtils.Respond(c, http.StatusNoContent, nil, nil)
 }
 
 func (h *httpController) processProjectUpdates(c *gin.Context) {

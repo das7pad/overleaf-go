@@ -48,17 +48,6 @@ type Manager interface {
 		docId primitive.ObjectID,
 	) error
 
-	CheckOrSetProjectState(
-		ctx context.Context,
-		projectId primitive.ObjectID,
-		newState string,
-	) error
-
-	ClearProjectState(
-		ctx context.Context,
-		projectId primitive.ObjectID,
-	) error
-
 	GetDoc(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -146,9 +135,6 @@ type manager struct {
 func getDocsInProjectKey(projectId primitive.ObjectID) string {
 	return "DocsIn:{" + projectId.Hex() + "}"
 }
-func getProjectStateKey(projectId primitive.ObjectID) string {
-	return "ProjectState:{" + projectId.Hex() + "}"
-}
 func getDocCoreKey(docId primitive.ObjectID) string {
 	return "docCore:{" + docId.Hex() + "}"
 }
@@ -203,35 +189,11 @@ func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId primitive.O
 		return errors.Tag(err, "cannot cleanup doc details")
 	}
 
-	_, err = m.rClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		p.SRem(ctx, getDocsInProjectKey(projectId), docId.Hex())
-		p.Del(ctx, getProjectStateKey(projectId))
-		return nil
-	})
+	err = m.rClient.SRem(ctx, getDocsInProjectKey(projectId), docId.Hex()).Err()
 	if err != nil {
 		return errors.Tag(err, "cannot cleanup project tracking")
 	}
 	return nil
-}
-
-func (m *manager) CheckOrSetProjectState(ctx context.Context, projectId primitive.ObjectID, newState string) error {
-	var res *redis.StringCmd
-	_, err := m.rClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		res = p.GetSet(ctx, getProjectStateKey(projectId), newState)
-		p.Expire(ctx, getProjectStateKey(projectId), 30*time.Minute)
-		return nil
-	})
-	if err != nil && err != redis.Nil {
-		return errors.Tag(err, "cannot check/swap state")
-	}
-	if res == nil || res.Val() != newState {
-		return &errors.InvalidStateError{}
-	}
-	return nil
-}
-
-func (m *manager) ClearProjectState(ctx context.Context, projectId primitive.ObjectID) error {
-	return m.rClient.Del(ctx, getProjectStateKey(projectId)).Err()
 }
 
 func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*types.Doc, error) {
