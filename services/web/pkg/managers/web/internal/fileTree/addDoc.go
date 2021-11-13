@@ -55,7 +55,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 		err = t.WalkFoldersMongo(func(_, f *project.Folder, fPath sharedTypes.DirName, mPath project.MongoPath) error {
 			if f.GetId() == parentFolderId {
 				target = f
-				mongoPath = mPath + ".docs"
+				mongoPath = mPath
 				docPath = fPath.Join(name)
 				return project.AbortWalk
 			}

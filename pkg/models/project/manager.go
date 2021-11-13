@@ -18,6 +18,7 @@ package project
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,11 +27,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
 	RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
 	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
@@ -81,7 +84,7 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.Object
 
 	u := &bson.M{
 		"$push": bson.M{
-			string(mongoPath): element,
+			string(mongoPath + "." + element.FieldNameInFolder()): element,
 		},
 		"$inc": VersionField{Version: 1},
 	}
@@ -92,6 +95,50 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.Object
 	}
 	if r.MatchedCount != 1 {
 		return ErrVersionChanged
+	}
+	return nil
+}
+
+func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error {
+	q := &withIdAndVersion{}
+	q.Id = projectId
+	q.Version = version
+
+	// Cut off the array position
+	from = from[0:strings.LastIndexByte(string(from), '.')]
+
+	// NOTE: Mongo allows one operation per field only.
+	//       We need to push/pull into/from the same rootFolder.
+	//       Use a transaction for the move operation.
+	// NOTE: Array indexes can change after pulling. Push first.
+	u1 := &bson.M{
+		"$push": bson.M{
+			string(to + "." + element.FieldNameInFolder()): element,
+		},
+	}
+	u2 := &bson.M{
+		"$pull": bson.M{
+			string(from): CommonTreeFields{
+				Id:   element.GetId(),
+				Name: element.GetName(),
+			},
+		},
+		"$inc": VersionField{Version: 1},
+	}
+	err := mongoTx.For(m.c.Database(), ctx, func(ctx context.Context) error {
+		for _, u := range []interface{}{u1, u2} {
+			r, err := m.c.UpdateOne(ctx, q, u)
+			if err != nil {
+				return rewriteMongoError(err)
+			}
+			if r.MatchedCount != 1 {
+				return ErrVersionChanged
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }

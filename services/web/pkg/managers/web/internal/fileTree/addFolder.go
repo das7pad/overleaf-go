@@ -53,7 +53,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 		err = t.WalkFoldersMongo(func(_, f *project.Folder, _ sharedTypes.DirName, mPath project.MongoPath) error {
 			if f.GetId() == parentFolderId {
 				target = f
-				mongoPath = mPath + ".folders"
+				mongoPath = mPath
 				return project.AbortWalk
 			}
 			return nil

@@ -32,6 +32,9 @@ type Manager interface {
 	AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error
 	AddFolderToProject(ctx context.Context, request *types.AddFolderRequest, response *types.AddFolderResponse) error
 	GetProjectEntities(ctx context.Context, request *types.GetProjectEntitiesRequest, response *types.GetProjectEntitiesResponse) error
+	MoveDocInProject(ctx context.Context, request *types.MoveDocRequest) error
+	MoveFileInProject(ctx context.Context, request *types.MoveFileRequest) error
+	MoveFolderInProject(ctx context.Context, request *types.MoveFolderRequest) error
 	RenameDocInProject(ctx context.Context, request *types.RenameDocRequest) error
 	RenameFileInProject(ctx context.Context, request *types.RenameFileRequest) error
 	RenameFolderInProject(ctx context.Context, request *types.RenameFolderRequest) error

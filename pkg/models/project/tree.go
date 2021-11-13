@@ -31,6 +31,7 @@ type TreeElement interface {
 	GetId() primitive.ObjectID
 	GetName() sharedTypes.Filename
 	SetName(name sharedTypes.Filename)
+	FieldNameInFolder() MongoPath
 }
 
 type CommonTreeFields struct {
@@ -54,6 +55,10 @@ type Doc struct {
 	CommonTreeFields `bson:"inline"`
 }
 
+func (d *Doc) FieldNameInFolder() MongoPath {
+	return "docs"
+}
+
 func NewDoc(name sharedTypes.Filename) *Doc {
 	return &Doc{CommonTreeFields: CommonTreeFields{
 		Id:   primitive.NewObjectID(),
@@ -75,12 +80,20 @@ type FileRef struct {
 	Created        time.Time        `json:"created" bson:"created"`
 }
 
+func (f *FileRef) FieldNameInFolder() MongoPath {
+	return "fileRefs"
+}
+
 type Folder struct {
 	CommonTreeFields `bson:"inline"`
 
 	Docs     []*Doc     `json:"docs" bson:"docs"`
 	FileRefs []*FileRef `json:"fileRefs" bson:"fileRefs"`
 	Folders  []*Folder  `json:"folders" bson:"folders"`
+}
+
+func (t *Folder) FieldNameInFolder() MongoPath {
+	return "folders"
 }
 
 func NewFolder(name sharedTypes.Filename) *Folder {
