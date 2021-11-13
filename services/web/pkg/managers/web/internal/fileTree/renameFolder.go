@@ -21,82 +21,28 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-var errAlreadyRenamed = &errors.InvalidStateError{Msg: "already renamed"}
-
 func (m *manager) RenameFolderInProject(ctx context.Context, request *types.RenameFolderRequest) error {
 	if err := request.Name.Validate(); err != nil {
 		return err
 	}
 	projectId := request.ProjectId
-	folderId := request.FolderId
-	name := request.Name
+	folder := &project.Folder{}
+	folder.Id = request.FolderId
+	folder.Name = request.Name
 
-	var oldFsPath sharedTypes.DirName
-	var newFsPath sharedTypes.DirName
-	var folder *project.Folder
-	var projectVersion sharedTypes.Version
-
-	var lastErr error
-	for i := 0; i < retriesFileTreeOperation; i++ {
-		t, v, err := m.pm.GetProjectRootFolder(ctx, projectId)
-		if err != nil {
-			return errors.Tag(err, "cannot get project")
-		}
-
-		if folderId == t.Id {
-			return errors.Tag(&errors.NotFoundError{}, "cannot rename rootFolder")
-		}
-
-		var parent *project.Folder
-		var mongoPath project.MongoPath
-		err = t.WalkFoldersMongo(func(p, f *project.Folder, path sharedTypes.DirName, mPath project.MongoPath) error {
-			if f.GetId() == folderId {
-				parent = p
-				folder = f
-				oldFsPath = path
-				mongoPath = mPath
-				return project.AbortWalk
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if folder == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown folderId")
-		}
-		if folder.Name == name {
-			// Already renamed.
-			return errAlreadyRenamed
-		}
-
-		if err = parent.CheckIsUniqueName(name); err != nil {
-			return err
-		}
-
-		folder.Name = name
-		newFsPath = sharedTypes.DirName(oldFsPath.Dir().Join(name))
-		err = m.pm.RenameTreeElement(ctx, projectId, v, mongoPath, folder)
-		if err != nil {
-			if err == project.ErrVersionChanged {
-				lastErr = err
-				continue
-			}
-			return errors.Tag(err, "cannot rename element in tree")
-		}
-		projectVersion = v + 1
-		break
+	r, err := m.rename(ctx, projectId, folder)
+	if err != nil {
+		return ignoreAlreadyRenamedErr(err)
 	}
-	if lastErr != nil {
-		return lastErr
-	}
+	folder = r.element.(*project.Folder)
+	oldFsPath := r.oldFsPath.(sharedTypes.DirName)
+	newFsPath := r.newFsPath.(sharedTypes.DirName)
 
 	// The folder has been renamed.
 	// Failing the request and retrying now would result in duplicate updates.
@@ -119,16 +65,16 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 			},
 		)
 		if err2 == nil {
-			r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-				ProjectVersion: projectVersion,
+			p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
+				ProjectVersion: r.projectVersion,
 				Updates:        updates,
 			}
-			_ = m.dum.ProcessProjectUpdates(ctx, projectId, r)
+			_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
 		}
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{folder.Id, name}
+		payload := []interface{}{folder.Id, folder.Name}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{

@@ -31,7 +31,7 @@ import (
 
 type Manager interface {
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
-	RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
 	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
@@ -96,14 +96,14 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.Object
 	return nil
 }
 
-func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error {
 	q := &withIdAndVersion{}
 	q.Id = projectId
 	q.Version = version
 
 	u := &bson.M{
 		"$set": bson.M{
-			string(mongoPath) + ".name": element.GetName(),
+			string(mongoPath) + ".name": name,
 		},
 		"$inc": VersionField{Version: 1},
 	}

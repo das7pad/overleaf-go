@@ -30,6 +30,7 @@ import (
 type TreeElement interface {
 	GetId() primitive.ObjectID
 	GetName() sharedTypes.Filename
+	SetName(name sharedTypes.Filename)
 }
 
 type CommonTreeFields struct {
@@ -43,6 +44,10 @@ func (c CommonTreeFields) GetId() primitive.ObjectID {
 
 func (c CommonTreeFields) GetName() sharedTypes.Filename {
 	return c.Name
+}
+
+func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
+	c.Name = name
 }
 
 type Doc struct {

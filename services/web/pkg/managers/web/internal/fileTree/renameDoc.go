@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -33,64 +32,17 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		return err
 	}
 	projectId := request.ProjectId
-	docId := request.DocId
-	name := request.Name
+	doc := &project.Doc{}
+	doc.Id = request.DocId
+	doc.Name = request.Name
 
-	var oldFsPath sharedTypes.PathName
-	var newFsPath sharedTypes.PathName
-	var doc *project.Doc
-	var projectVersion sharedTypes.Version
-
-	var lastErr error
-	for i := 0; i < retriesFileTreeOperation; i++ {
-		t, v, err := m.pm.GetProjectRootFolder(ctx, projectId)
-		if err != nil {
-			return errors.Tag(err, "cannot get project")
-		}
-
-		var parent *project.Folder
-		var mongoPath project.MongoPath
-		err = t.WalkDocsMongo(func(f *project.Folder, element project.TreeElement, path sharedTypes.PathName, mPath project.MongoPath) error {
-			if element.GetId() == docId {
-				parent = f
-				doc = element.(*project.Doc)
-				oldFsPath = path
-				mongoPath = mPath
-				return project.AbortWalk
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if doc == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown docId")
-		}
-		if doc.Name == name {
-			// Already renamed.
-			return nil
-		}
-
-		if err = parent.CheckIsUniqueName(name); err != nil {
-			return err
-		}
-
-		doc.Name = name
-		newFsPath = oldFsPath.Dir().Join(name)
-		err = m.pm.RenameTreeElement(ctx, projectId, v, mongoPath, doc)
-		if err != nil {
-			if err == project.ErrVersionChanged {
-				lastErr = err
-				continue
-			}
-			return errors.Tag(err, "cannot rename element in tree")
-		}
-		projectVersion = v + 1
-		break
+	r, err := m.rename(ctx, projectId, doc)
+	if err != nil {
+		return ignoreAlreadyRenamedErr(err)
 	}
-	if lastErr != nil {
-		return lastErr
-	}
+	doc = r.element.(*project.Doc)
+	oldFsPath := r.oldFsPath.(sharedTypes.PathName)
+	newFsPath := r.newFsPath.(sharedTypes.PathName)
 
 	// The doc has been renamed.
 	// Failing the request and retrying now would result in duplicate updates.
@@ -98,8 +50,8 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	defer done()
 	{
 		// Notify document-updater
-		r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: projectVersion,
+		n := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
+			ProjectVersion: r.projectVersion,
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
 					doc.GetId(),
@@ -108,11 +60,11 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 				).ToGeneric(),
 			},
 		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, r)
+		_ = m.dum.ProcessProjectUpdates(ctx, projectId, n)
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{doc.Id, name}
+		payload := []interface{}{doc.Id, doc.Name}
 		if b, err2 := json.Marshal(payload); err2 == nil {
 			//goland:noinspection SpellCheckingInspection
 			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
