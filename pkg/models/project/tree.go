@@ -249,7 +249,7 @@ func (t *Folder) walkMongo(fn TreeWalkerMongo, parentPath sharedTypes.DirName, m
 		}
 	}
 	if m == walkModeFiles || m == walkModeAny {
-		mp := mongoParent + ".files."
+		mp := mongoParent + ".fileRefs."
 		for i, fileRef := range t.FileRefs {
 			s := MongoPath(strconv.FormatInt(int64(i), 10))
 			if err := fn(t, fileRef, parentPath.Join(fileRef.Name), mp+s); err != nil {
