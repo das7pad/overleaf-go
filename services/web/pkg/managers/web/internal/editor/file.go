@@ -44,7 +44,7 @@ func (m *manager) GetProjectFile(ctx context.Context, request *types.GetProjectF
 	}
 
 	var name sharedTypes.Filename
-	err = t.Walk(func(e project.TreeElement, path sharedTypes.PathName) error {
+	err = t.WalkFiles(func(e project.TreeElement, path sharedTypes.PathName) error {
 		if e.GetId() == fileId {
 			name = e.GetName()
 			return project.AbortWalk
