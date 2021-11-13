@@ -64,7 +64,7 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 				return nil
 			},
 		)
-		if err2 == nil {
+		if err2 == nil && len(updates) > 0 {
 			p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
 				ProjectVersion: r.projectVersion,
 				Updates:        updates,
