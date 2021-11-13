@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -41,27 +40,11 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 		return ignoreAlreadyRenamedErr(err)
 	}
 	fileRef = r.element.(*project.FileRef)
-	oldFsPath := r.oldFsPath.(sharedTypes.PathName)
-	newFsPath := r.newFsPath.(sharedTypes.PathName)
 
 	// The file has been renamed.
 	// Failing the request and retrying now would result in duplicate updates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	{
-		// Notify document-updater
-		n := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: r.projectVersion,
-			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
-				documentUpdaterTypes.NewRenameFileUpdate(
-					fileRef.GetId(),
-					oldFsPath,
-					newFsPath,
-				).ToGeneric(),
-			},
-		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, n)
-	}
 	{
 		// Notify real-time
 		payload := []interface{}{fileRef.Id, fileRef.Name, r.projectVersion}
