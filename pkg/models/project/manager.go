@@ -38,6 +38,7 @@ type Manager interface {
 	MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
 	RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
+	BumpEpoch(ctx context.Context, projectId primitive.ObjectID) error
 	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
@@ -357,6 +358,16 @@ func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId
 		return nil, errors.Tag(err, "cannot get project from mongo")
 	}
 	return p.GetPrivilegeLevel(userId, token)
+}
+
+func (m *manager) BumpEpoch(ctx context.Context, projectId primitive.ObjectID) error {
+	_, err := m.c.UpdateOne(ctx, &IdField{Id: projectId}, &bson.M{
+		"$inc": &EpochField{Epoch: 1},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error) {

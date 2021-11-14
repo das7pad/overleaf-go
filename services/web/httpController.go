@@ -167,6 +167,15 @@ func (h *httpController) GetRouter(
 		r.GET("/messages", h.getProjectMessages)
 		r.POST("/messages", h.sendProjectMessage)
 	}
+	{
+		// admin endpoints
+		r := projectJWTRouter.Group("")
+		r.Use(requireAdminAccess)
+
+		rInvite := r.Group("/invite/:inviteId")
+		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
+		rInvite.DELETE("", h.revokeProjectInvite)
+	}
 
 	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
 	projectJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
@@ -184,6 +193,16 @@ var (
 func blockRestrictedUsers(c *gin.Context) {
 	if projectJWT.MustGet(c).IsRestrictedUser() {
 		httpUtils.Respond(c, http.StatusOK, nil, err403)
+		return
+	}
+}
+
+func requireAdminAccess(c *gin.Context) {
+	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
+		project.PrivilegeLevelOwner,
+	)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
 	}
 }
@@ -879,4 +898,14 @@ func (h *httpController) acceptProjectInvite(c *gin.Context) {
 	}
 	err = h.wm.AcceptProjectInvite(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) revokeProjectInvite(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RevokeProjectInviteRequest{
+		ProjectId: o.ProjectId,
+		InviteId:  httpUtils.GetId(c, "inviteId"),
+	}
+	err := h.wm.RevokeProjectInvite(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

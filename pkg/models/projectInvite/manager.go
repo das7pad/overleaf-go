@@ -27,7 +27,7 @@ import (
 )
 
 type Manager interface {
-	Delete(ctx context.Context, inviteId primitive.ObjectID) error
+	Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error
 	Get(ctx context.Context, projectId primitive.ObjectID, token Token) (*WithoutToken, error)
 	GetAllForProject(ctx context.Context, projectId primitive.ObjectID) ([]*WithoutToken, error)
 }
@@ -49,9 +49,16 @@ type manager struct {
 	c *mongo.Collection
 }
 
-func (m *manager) Delete(ctx context.Context, inviteId primitive.ObjectID) error {
-	if _, err := m.c.DeleteOne(ctx, IdField{Id: inviteId}); err != nil {
+func (m *manager) Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error {
+	q := projectIdAndInviteId{}
+	q.Id = inviteId
+	q.ProjectId = projectId
+	r, err := m.c.DeleteOne(ctx, q)
+	if err != nil {
 		return rewriteMongoError(err)
+	}
+	if r.DeletedCount != 1 {
+		return &errors.NotFoundError{}
 	}
 	return nil
 }

@@ -30,3 +30,8 @@ type projectIdAndToken struct {
 	ProjectIdField `bson:"inline"`
 	TokenField     `bson:"inline"`
 }
+
+type projectIdAndInviteId struct {
+	IdField        `bson:"inline"`
+	ProjectIdField `bson:"inline"`
+}

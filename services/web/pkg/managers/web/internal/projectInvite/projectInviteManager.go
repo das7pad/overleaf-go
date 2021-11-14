@@ -36,6 +36,7 @@ import (
 
 type Manager interface {
 	AcceptProjectInvite(ctx context.Context, request *types.AcceptProjectInviteRequest, response *types.AcceptProjectInviteResponse) error
+	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
 }
 
 func New(client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, cm contacts.Manager, nm notifications.Manager) Manager {

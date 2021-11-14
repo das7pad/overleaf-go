@@ -65,7 +65,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			// The contact hints are transparent to the user and OK to fail.
 			_ = m.cm.AddContacts(ctx, invitingUserId, userId)
 
-			if err = m.pim.Delete(ctx, pi.Id); err != nil {
+			if err = m.pim.Delete(ctx, projectId, pi.Id); err != nil {
 				return errors.Tag(err, "cannot delete invite")
 			}
 
@@ -73,7 +73,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			//  any stale notifications.
 			key := "project-invite-" + pi.Id.Hex()
 			if err = m.nm.RemoveNotificationByKeyOnly(ctx, key); err != nil {
-				return errors.Tag(err, "cannot delete invite")
+				return errors.Tag(err, "cannot delete invite notification")
 			}
 
 			if grantAccess {
