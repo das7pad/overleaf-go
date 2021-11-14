@@ -332,11 +332,6 @@ func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, do
 	if err := m.dm.CheckDocExists(ctx, projectId, docId); err != nil {
 		return err
 	}
-	if meta.Deleted {
-		if err := m.da.ArchiveDoc(ctx, projectId, docId); err != nil {
-			return err
-		}
-	}
 	return m.dm.PatchDocMeta(ctx, projectId, docId, meta)
 }
 
