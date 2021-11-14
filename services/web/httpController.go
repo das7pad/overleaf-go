@@ -138,16 +138,19 @@ func (h *httpController) GetRouter(
 
 		rDoc := r.Group("/doc/:docId")
 		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
+		rDoc.DELETE("", h.deleteDocFromProject)
 		rDoc.POST("/rename", h.renameDocInProject)
 		rDoc.POST("/move", h.moveDocInProject)
 
 		rFile := r.Group("/file/:fileId")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
+		rFile.DELETE("", h.deleteFileFromProject)
 		rFile.POST("/rename", h.renameFileInProject)
 		rFile.POST("/move", h.moveFileInProject)
 
 		rFolder := r.Group("/folder/:folderId")
 		rFolder.Use(httpUtils.ValidateAndSetId("folderId"))
+		rFolder.DELETE("", h.deleteFolderFromProject)
 		rFolder.POST("/rename", h.renameFolderInProject)
 		rFolder.POST("/move", h.moveFolderInProject)
 	}
@@ -730,6 +733,42 @@ func (h *httpController) addFolderToProject(c *gin.Context) {
 	response := &types.AddFolderResponse{}
 	err := h.wm.AddFolderToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) deleteDocFromProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.DeleteDocRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.DocId = httpUtils.GetId(c, "docId")
+	err := h.wm.DeleteDocFromProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) deleteFileFromProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.DeleteFileRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.FileId = httpUtils.GetId(c, "fileId")
+	err := h.wm.DeleteFileFromProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) deleteFolderFromProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.DeleteFolderRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.FolderId = httpUtils.GetId(c, "folderId")
+	err := h.wm.DeleteFolderFromProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) moveDocInProject(c *gin.Context) {

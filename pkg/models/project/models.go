@@ -100,6 +100,11 @@ type WithTree struct {
 	VersionField `bson:"inline"`
 }
 
+type WithTreeAndRootDoc struct {
+	RootDocIdField `bson:"inline"`
+	WithTree       `bson:"inline"`
+}
+
 type WithTreeAndAuth struct {
 	ForAuthorizationDetails `bson:"inline"`
 	WithTree                `bson:"inline"`

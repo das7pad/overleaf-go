@@ -33,6 +33,8 @@ import (
 
 type Manager interface {
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
 	RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
@@ -71,6 +73,10 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
+func removeArrayIndex(path MongoPath) MongoPath {
+	return path[0:strings.LastIndexByte(string(path), '.')]
+}
+
 type manager struct {
 	c *mongo.Collection
 }
@@ -99,13 +105,48 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.Object
 	return nil
 }
 
-func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error {
+func (m *manager) DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+	return m.deleteTreeElementAndMaybeRootDoc(ctx, projectId, version, mongoPath, element, false)
+}
+
+func (m *manager) DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+	return m.deleteTreeElementAndMaybeRootDoc(ctx, projectId, version, mongoPath, element, true)
+}
+
+func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement, unsetRootDoc bool) error {
 	q := &withIdAndVersion{}
 	q.Id = projectId
 	q.Version = version
 
-	// Cut off the array position
-	from = from[0:strings.LastIndexByte(string(from), '.')]
+	u := bson.M{
+		"$pull": bson.M{
+			string(removeArrayIndex(mongoPath)): CommonTreeFields{
+				Id:   element.GetId(),
+				Name: element.GetName(),
+			},
+		},
+		"$inc": VersionField{Version: 1},
+	}
+	if unsetRootDoc {
+		u["$unset"] = bson.M{
+			"rootDoc_id": true,
+		}
+	}
+
+	r, err := m.c.UpdateOne(ctx, q, &u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.MatchedCount != 1 {
+		return ErrVersionChanged
+	}
+	return nil
+}
+
+func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error {
+	q := &withIdAndVersion{}
+	q.Id = projectId
+	q.Version = version
 
 	// NOTE: Mongo allows one operation per field only.
 	//       We need to push/pull into/from the same rootFolder.
@@ -118,7 +159,7 @@ func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.Objec
 	}
 	u2 := &bson.M{
 		"$pull": bson.M{
-			string(from): CommonTreeFields{
+			string(removeArrayIndex(from)): CommonTreeFields{
 				Id:   element.GetId(),
 				Name: element.GetName(),
 			},

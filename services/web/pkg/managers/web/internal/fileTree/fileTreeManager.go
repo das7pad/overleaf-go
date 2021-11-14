@@ -21,6 +21,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/models/deletedFile"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
@@ -31,6 +32,9 @@ import (
 type Manager interface {
 	AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error
 	AddFolderToProject(ctx context.Context, request *types.AddFolderRequest, response *types.AddFolderResponse) error
+	DeleteDocFromProject(ctx context.Context, request *types.DeleteDocRequest) error
+	DeleteFileFromProject(ctx context.Context, request *types.DeleteFileRequest) error
+	DeleteFolderFromProject(ctx context.Context, request *types.DeleteFolderRequest) error
 	GetProjectEntities(ctx context.Context, request *types.GetProjectEntitiesRequest, response *types.GetProjectEntitiesResponse) error
 	MoveDocInProject(ctx context.Context, request *types.MoveDocRequest) error
 	MoveFileInProject(ctx context.Context, request *types.MoveFileRequest) error
@@ -43,6 +47,7 @@ type Manager interface {
 func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, editorEvents channel.Writer) Manager {
 	return &manager{
 		db:           db,
+		dfm:          deletedFile.New(db),
 		dm:           dm,
 		dum:          dum,
 		editorEvents: editorEvents,
@@ -52,6 +57,7 @@ func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum docume
 
 type manager struct {
 	db           *mongo.Database
+	dfm          deletedFile.Manager
 	dm           docstore.Manager
 	dum          documentUpdater.Manager
 	editorEvents channel.Writer
