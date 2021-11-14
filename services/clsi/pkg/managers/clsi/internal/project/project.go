@@ -360,7 +360,7 @@ func (p *project) checkSyncState(syncType types.SyncType, state types.SyncState)
 	needsFullSync := p.state == "" || p.state == types.SyncStateCleared
 	if needsFullSync {
 		return &errors.InvalidStateError{
-			Msg: "local sync type empty and incoming syncType!=full",
+			Msg: "local sync state empty and incoming syncType!=full",
 		}
 	}
 
