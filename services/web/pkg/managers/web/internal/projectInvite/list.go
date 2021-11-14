@@ -14,33 +14,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package projectInvite
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"context"
 
-	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
-	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type AcceptProjectInviteRequest struct {
-	Session   *session.Session    `json:"-"`
-	ProjectId primitive.ObjectID  `json:"-"`
-	Token     projectInvite.Token `json:"-"`
-}
-
-type AcceptProjectInviteResponse = asyncForm.Response
-
-type RevokeProjectInviteRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	InviteId  primitive.ObjectID `json:"-"`
-}
-
-type ListProjectInvitesRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-}
-
-type ListProjectInvitesResponse struct {
-	Invites []*projectInvite.WithoutToken `json:"invites"`
+func (m *manager) ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error {
+	invites, err := m.pim.GetAllForProject(ctx, request.ProjectId)
+	if err != nil {
+		return err
+	}
+	response.Invites = invites
+	return nil
 }

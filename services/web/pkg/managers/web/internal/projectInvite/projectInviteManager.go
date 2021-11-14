@@ -36,6 +36,7 @@ import (
 
 type Manager interface {
 	AcceptProjectInvite(ctx context.Context, request *types.AcceptProjectInviteRequest, response *types.AcceptProjectInviteResponse) error
+	ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error
 	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
 }
 

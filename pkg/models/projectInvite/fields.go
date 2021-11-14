@@ -25,15 +25,15 @@ import (
 )
 
 type CreatedAtField struct {
-	CreatedAt time.Time `bson:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" bson:"createdAt"`
 }
 
 type EmailField struct {
-	Email string `bson:"email"`
+	Email string `json:"email" bson:"email"`
 }
 
 type ExpiresAtField struct {
-	Expires time.Time `bson:"expires"`
+	Expires time.Time `json:"expires" bson:"expires"`
 }
 
 type IdField struct {
@@ -41,17 +41,17 @@ type IdField struct {
 }
 
 type PrivilegeLevelField struct {
-	PrivilegeLevel project.PrivilegeLevel `bson:"privileges"`
+	PrivilegeLevel project.PrivilegeLevel `json:"privileges" bson:"privileges"`
 }
 
 type ProjectIdField struct {
-	ProjectId primitive.ObjectID `bson:"projectId"`
+	ProjectId primitive.ObjectID `json:"projectId" bson:"projectId"`
 }
 
 type SendingUserIdField struct {
-	SendingUserId primitive.ObjectID `bson:"sendingUserId"`
+	SendingUserId primitive.ObjectID `json:"sendingUserId" bson:"sendingUserId"`
 }
 
 type TokenField struct {
-	Token Token `bson:"token"`
+	Token Token `json:"-" bson:"token"`
 }
