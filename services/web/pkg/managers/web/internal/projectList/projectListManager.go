@@ -29,6 +29,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -39,10 +40,12 @@ type Manager interface {
 	UnArchiveProject(ctx context.Context, request *types.UnArchiveProjectRequest) error
 	TrashProject(ctx context.Context, request *types.TrashProjectRequest) error
 	UnTrashProject(ctx context.Context, request *types.UnTrashProjectRequest) error
+	RenameProject(ctx context.Context, request *types.RenameProjectRequest) error
 }
 
-func New(options *types.Options, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
 	return &manager{
+		editorEvents:     editorEvents,
 		pm:               pm,
 		tm:               tm,
 		um:               um,
@@ -52,6 +55,7 @@ func New(options *types.Options, pm project.Manager, tm tag.Manager, um user.Man
 }
 
 type manager struct {
+	editorEvents     channel.Writer
 	pm               project.Manager
 	tm               tag.Manager
 	um               user.Manager

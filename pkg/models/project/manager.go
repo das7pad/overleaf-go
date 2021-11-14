@@ -58,6 +58,7 @@ type Manager interface {
 	UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
+	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -79,6 +80,20 @@ func removeArrayIndex(path MongoPath) MongoPath {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error {
+	err := m.checkAccessAndUpdate(
+		ctx, projectId, userId, PrivilegeLevelOwner, &bson.M{
+			"$set": NameField{
+				Name: name,
+			},
+		},
+	)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}

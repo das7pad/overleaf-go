@@ -100,6 +100,7 @@ func (h *httpController) GetRouter(
 		r.POST("/archive", h.archiveProject)
 		r.GET("/entities", h.getProjectEntities)
 		r.POST("/jwt", h.getProjectJWT)
+		r.POST("/rename", h.renameProject)
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
 		r.POST("/ws/bootstrap", h.getWSBootstrap)
@@ -840,5 +841,21 @@ func (h *httpController) renameFolderInProject(c *gin.Context) {
 	request.ProjectId = o.ProjectId
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.RenameFolderInProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) renameProject(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.RenameProjectRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	request.ProjectId = httpUtils.GetId(c, "projectId")
+	err = h.wm.RenameProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
