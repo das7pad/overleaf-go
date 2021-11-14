@@ -117,7 +117,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 			}
 		}
 	}
-	return nil, &errors.NotAuthorizedError{}
+	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitive.ObjectID) (*AuthorizationDetails, error) {
@@ -163,7 +163,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 			}, nil
 		}
 	}
-	return nil, &errors.NotAuthorizedError{}
+	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, accessToken AccessToken) (*AuthorizationDetails, error) {

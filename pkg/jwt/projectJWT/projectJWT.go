@@ -102,6 +102,17 @@ func (c *Claims) PostProcess(target *gin.Context) error {
 	return nil
 }
 
+func ClearProjectField(ctx context.Context, client redis.UniversalClient, projectId primitive.ObjectID) error {
+	i := &epochJWT.JWTEpochItem{
+		Field: projectIdField,
+		Id:    projectId,
+	}
+	if err := i.Delete(ctx, client); err != nil {
+		return errors.Tag(err, "cannot clear project epoch")
+	}
+	return nil
+}
+
 func ClearUserField(ctx context.Context, client redis.UniversalClient, userId primitive.ObjectID) error {
 	i := &epochJWT.JWTEpochItem{
 		Field: userIdField,

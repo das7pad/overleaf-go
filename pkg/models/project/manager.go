@@ -47,6 +47,7 @@ type Manager interface {
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error)
+	GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
@@ -539,6 +540,47 @@ func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId primitiv
 		return nil, err
 	}
 	return p, nil
+}
+
+func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level PrivilegeLevel) error {
+	q := withIdAndEpoch{}
+	q.Id = projectId
+	q.Epoch = epoch
+
+	u := bson.M{
+		// Use the epoch as guard for concurrent write operations, this
+		//  includes revoking of invitations.
+		"$inc": EpochField{Epoch: 1},
+	}
+	switch level {
+	case PrivilegeLevelReadAndWrite:
+		//goland:noinspection SpellCheckingInspection
+		u["$addToSet"] = bson.M{
+			"collaberator_refs": userId,
+		}
+		u["$pull"] = bson.M{
+			"readOnly_refs": userId,
+		}
+	case PrivilegeLevelReadOnly:
+		u["$addToSet"] = bson.M{
+			"readOnly_refs": userId,
+		}
+		//goland:noinspection SpellCheckingInspection
+		u["$pull"] = bson.M{
+			"collaberator_refs": userId,
+		}
+	default:
+		return errors.New("invalid member access level: " + string(level))
+	}
+
+	r, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return err
+	}
+	if r.MatchedCount != 1 {
+		return ErrEpochIsNotStable
+	}
+	return nil
 }
 
 func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {

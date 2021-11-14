@@ -33,11 +33,13 @@ import (
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
+	"github.com/das7pad/overleaf-go/services/notifications/pkg/managers/notifications"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
@@ -55,6 +57,7 @@ type Manager interface {
 	editor.Manager
 	fileTree.Manager
 	login.Manager
+	projectInvite.Manager
 	projectList.Manager
 	projectMetadata.Manager
 	session.Manager
@@ -80,6 +83,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
+	nm := notifications.New(db)
 	pm := project.New(db)
 	smm := systemMessage.New(db)
 	tm := tagModel.New(db)
@@ -111,6 +115,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	sm := session.New(options.SessionCookie, client)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(pm)
+	pim := projectInvite.New(client, db, editorEvents, pm, csm, nm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -119,6 +124,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		editorManager:          em,
 		fileTreeManager:        ftm,
 		loginManager:           lm,
+		projectInviteManager:   pim,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
 		sessions:               sm,
@@ -133,6 +139,7 @@ type compileManager = compile.Manager
 type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
 type loginManager = login.Manager
+type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
 type sessions = session.Manager
@@ -146,6 +153,7 @@ type manager struct {
 	editorManager
 	fileTreeManager
 	loginManager
+	projectInviteManager
 	projectListManager
 	projectMetadataManager
 	sessions

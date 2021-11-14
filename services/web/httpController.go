@@ -28,6 +28,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
@@ -109,6 +110,10 @@ func (h *httpController) GetRouter(
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
 		rFile.GET("", h.getProjectFile)
 		rFile.HEAD("", h.getProjectFileSize)
+
+		rInvite := r.Group("/invite")
+		rTokenInvite := rInvite.Group("/token/:token")
+		rTokenInvite.POST("/accept", h.acceptProjectInvite)
 	}
 
 	jwtRouter := publicRouter.Group("/jwt/web")
@@ -858,4 +863,20 @@ func (h *httpController) renameProject(c *gin.Context) {
 	request.ProjectId = httpUtils.GetId(c, "projectId")
 	err = h.wm.RenameProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) acceptProjectInvite(c *gin.Context) {
+	response := &types.AcceptProjectInviteResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, response, err)
+		return
+	}
+	request := &types.AcceptProjectInviteRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		Token:     projectInvite.Token(c.Param("token")),
+	}
+	err = h.wm.AcceptProjectInvite(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
