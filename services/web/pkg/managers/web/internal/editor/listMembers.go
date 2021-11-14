@@ -14,25 +14,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package editor
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"context"
 
-	"github.com/das7pad/overleaf-go/pkg/session"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type GetUserProjectsRequest struct {
-	Session *session.Session `json:"-"`
-}
-
-type GetUserProjectsEntry struct {
-	Id             primitive.ObjectID         `json:"_id"`
-	Name           string                     `json:"name"`
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"accessLevel"`
-}
-
-type GetUserProjectsResponse struct {
-	Projects []GetUserProjectsEntry `json:"projects"`
+func (m *manager) ListProjectMembers(ctx context.Context, request *types.ListProjectMembersRequest, response *types.ListProjectMembersResponse) error {
+	p := &project.WithInvitedMembers{}
+	if err := m.pm.GetProject(ctx, request.ProjectId, p); err != nil {
+		return errors.Tag(err, "cannot get project")
+	}
+	members, err := m.um.GetProjectMembers(
+		ctx, p.ReadOnlyRefs, p.CollaboratorRefs,
+	)
+	if err != nil {
+		return errors.Tag(err, "cannot get users")
+	}
+	response.Members = members
+	return nil
 }

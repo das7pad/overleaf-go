@@ -165,9 +165,9 @@ func (c *Client) AddKnownDoc(id primitive.ObjectID) {
 	}
 }
 
-func (c *Client) ResolveCapabilities(privilegeLevel project.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser) {
+func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser) {
 	switch privilegeLevel {
-	case project.PrivilegeLevelOwner, project.PrivilegeLevelReadAndWrite:
+	case sharedTypes.PrivilegeLevelOwner, sharedTypes.PrivilegeLevelReadAndWrite:
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanEditContent *
@@ -176,7 +176,7 @@ func (c *Client) ResolveCapabilities(privilegeLevel project.PrivilegeLevel, isRe
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
-	case project.PrivilegeLevelReadOnly:
+	case sharedTypes.PrivilegeLevelReadOnly:
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanSeeOtherClients *

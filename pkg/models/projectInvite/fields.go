@@ -21,7 +21,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type CreatedAtField struct {
@@ -41,7 +41,7 @@ type IdField struct {
 }
 
 type PrivilegeLevelField struct {
-	PrivilegeLevel project.PrivilegeLevel `json:"privileges" bson:"privileges"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" bson:"privileges"`
 }
 
 type ProjectIdField struct {

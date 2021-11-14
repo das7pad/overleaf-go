@@ -48,7 +48,7 @@ type Manager interface {
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error)
-	GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level PrivilegeLevel) error
+	GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
@@ -86,7 +86,7 @@ type manager struct {
 
 func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error {
 	err := m.checkAccessAndUpdate(
-		ctx, projectId, userId, PrivilegeLevelOwner, &bson.M{
+		ctx, projectId, userId, sharedTypes.PrivilegeLevelOwner, &bson.M{
 			"$set": NameField{
 				Name: name,
 			},
@@ -225,7 +225,7 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.Obj
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
 	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$addToSet": bson.M{
 				"archived": userId,
 			},
@@ -238,7 +238,7 @@ func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitiv
 
 func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
 	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$pull": bson.M{
 				"archived": userId,
 			},
@@ -248,7 +248,7 @@ func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId primit
 
 func (m *manager) TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
 	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$addToSet": bson.M{
 				"trashed": userId,
 			},
@@ -261,7 +261,7 @@ func (m *manager) TrashForUser(ctx context.Context, projectId, userId primitive.
 
 func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
 	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, PrivilegeLevelReadOnly, &bson.M{
+		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$pull": bson.M{
 				"trashed": userId,
 			},
@@ -271,7 +271,7 @@ func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitiv
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
-func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId primitive.ObjectID, minLevel PrivilegeLevel, u interface{}) error {
+func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId primitive.ObjectID, minLevel sharedTypes.PrivilegeLevel, u interface{}) error {
 	for i := 0; i < 10; i++ {
 		p := &ForAuthorizationDetails{}
 		qId := &IdField{Id: projectId}
@@ -553,7 +553,7 @@ func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId primitiv
 	return p, nil
 }
 
-func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level PrivilegeLevel) error {
+func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error {
 	q := withIdAndEpoch{}
 	q.Id = projectId
 	q.Epoch = epoch
@@ -564,7 +564,7 @@ func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.Obj
 		"$inc": EpochField{Epoch: 1},
 	}
 	switch level {
-	case PrivilegeLevelReadAndWrite:
+	case sharedTypes.PrivilegeLevelReadAndWrite:
 		//goland:noinspection SpellCheckingInspection
 		u["$addToSet"] = bson.M{
 			"collaberator_refs": userId,
@@ -572,7 +572,7 @@ func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.Obj
 		u["$pull"] = bson.M{
 			"readOnly_refs": userId,
 		}
-	case PrivilegeLevelReadOnly:
+	case sharedTypes.PrivilegeLevelReadOnly:
 		u["$addToSet"] = bson.M{
 			"readOnly_refs": userId,
 		}

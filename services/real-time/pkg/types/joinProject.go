@@ -22,6 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type JoinProjectRequest struct {
@@ -30,24 +31,24 @@ type JoinProjectRequest struct {
 }
 
 type JoinProjectResponse struct {
-	Project          JoinProjectDetails     `json:"project"`
-	PrivilegeLevel   project.PrivilegeLevel `json:"privilegeLevel"`
-	ConnectedClients ConnectedClients       `json:"connectedClients"`
+	Project          JoinProjectDetails         `json:"project"`
+	PrivilegeLevel   sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
+	ConnectedClients ConnectedClients           `json:"connectedClients"`
 }
 
 type JoinProjectWebApiResponse struct {
-	Project          JoinProjectDetails       `json:"project"`
-	PrivilegeLevel   project.PrivilegeLevel   `json:"privilegeLevel"`
-	IsRestrictedUser project.IsRestrictedUser `json:"isRestrictedUser"`
+	Project          JoinProjectDetails         `json:"project"`
+	PrivilegeLevel   sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
+	IsRestrictedUser project.IsRestrictedUser   `json:"isRestrictedUser"`
 }
 
 type JoinProjectDetails struct {
 	project.JoinProjectViewPublic
 	project.PublicAccessLevelField
 	project.TokensField
-	DeletedDocs []doc.Name            `json:"deletedDocs"`
-	Features    user.Features         `json:"features"`
-	Owner       user.WithPublicInfo   `json:"owner"`
-	Members     []user.WithPublicInfo `json:"members"`
-	Invites     []interface{}         `json:"invites"`
+	DeletedDocs []doc.Name             `json:"deletedDocs"`
+	Features    user.Features          `json:"features"`
+	Owner       user.WithPublicInfo    `json:"owner"`
+	Members     []user.AsProjectMember `json:"members"`
+	Invites     []interface{}          `json:"invites"`
 }

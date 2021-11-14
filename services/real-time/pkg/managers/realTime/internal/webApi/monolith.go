@@ -19,13 +19,13 @@ package webApi
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
@@ -54,7 +54,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	var deletedDocs []doc.Name
 	owner := &user.WithPublicInfoAndFeatures{}
-	members := make([]user.WithPublicInfo, 0)
+	members := make([]user.AsProjectMember, 0)
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -73,15 +73,13 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	})
 	if !authorizationDetails.IsRestrictedUser() {
 		eg.Go(func() error {
-			n := len(p.CollaboratorRefs) + len(p.ReadOnlyRefs)
-			if n == 0 {
+			if n := len(p.CollaboratorRefs) + len(p.ReadOnlyRefs); n == 0 {
 				return nil
 			}
-			allIds := make([]primitive.ObjectID, n)
-			copy(allIds, p.CollaboratorRefs)
-			copy(allIds[len(p.CollaboratorRefs):], p.ReadOnlyRefs)
 			var err2 error
-			members, err2 = m.um.GetUsersWithPublicInfo(pCtx, allIds)
+			members, err2 = m.um.GetProjectMembers(
+				pCtx, p.ReadOnlyRefs, p.CollaboratorRefs,
+			)
 			if err2 != nil {
 				return errors.Tag(err2, "cannot get members")
 			}
@@ -95,11 +93,11 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	// Expose a subset of link sharing tokens.
 	var tokens project.Tokens
 	switch authorizationDetails.PrivilegeLevel {
-	case project.PrivilegeLevelOwner:
+	case sharedTypes.PrivilegeLevelOwner:
 		tokens = p.Tokens
-	case project.PrivilegeLevelReadAndWrite:
+	case sharedTypes.PrivilegeLevelReadAndWrite:
 		tokens = project.Tokens{ReadAndWrite: p.Tokens.ReadAndWrite}
-	case project.PrivilegeLevelReadOnly:
+	case sharedTypes.PrivilegeLevelReadOnly:
 		tokens = project.Tokens{ReadOnly: p.Tokens.ReadOnly}
 	}
 

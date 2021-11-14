@@ -27,6 +27,7 @@ var (
 	lastUpdatedAtFieldProjection      = views.GetProjectionFor(LastUpdatedAtField{})
 	forAuthorizationDetailsProjection = views.GetProjectionFor(ForAuthorizationDetails{})
 	forTokenAccessCheckProjection     = views.GetProjectionFor(forTokenAccessCheck{})
+	withInvitedMembersProjection      = views.GetProjectionFor(WithInvitedMembers{})
 	withTreeProjection                = views.GetProjectionFor(WithTree{})
 	withMembersProjection             = views.GetProjectionFor(WithMembers{})
 	withTokenMembersProjection        = views.GetProjectionFor(WithTokenMembers{})
@@ -59,6 +60,8 @@ func getProjection(model interface{}) views.View {
 		return listViewPrivateProjection
 	case WithMembers:
 		return withMembersProjection
+	case *WithInvitedMembers:
+		return withInvitedMembersProjection
 	case WithTokenMembers:
 		return withTokenMembersProjection
 	case WithTree:

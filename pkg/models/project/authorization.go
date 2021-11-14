@@ -20,10 +20,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AccessSource string
-type PrivilegeLevel string
 type PublicAccessLevel string
 type IsRestrictedUser bool
 type IsTokenMember bool
@@ -33,51 +33,19 @@ const (
 	AccessSourceToken  AccessSource = "token"
 	AccessSourceInvite AccessSource = "invite"
 
-	PrivilegeLevelOwner        PrivilegeLevel = "owner"
-	PrivilegeLevelReadAndWrite PrivilegeLevel = "readAndWrite"
-	PrivilegeLevelReadOnly     PrivilegeLevel = "readOnly"
-
 	TokenBasedAccess PublicAccessLevel = "tokenBased"
 )
 
-func (l PrivilegeLevel) score() int {
-	switch l {
-	case PrivilegeLevelOwner:
-		return 3
-	case PrivilegeLevelReadAndWrite:
-		return 2
-	case PrivilegeLevelReadOnly:
-		return 1
-	default:
-		return 0
-	}
-}
-
-func (l PrivilegeLevel) CheckIsAtLeast(other PrivilegeLevel) error {
-	if !l.IsAtLeast(other) {
-		return &errors.NotAuthorizedError{}
-	}
-	return nil
-}
-
-func (l PrivilegeLevel) IsAtLeast(other PrivilegeLevel) bool {
-	return l.score() >= other.score()
-}
-
-func (l PrivilegeLevel) IsHigherThan(other PrivilegeLevel) bool {
-	return l.score() > other.score()
-}
-
 type AuthorizationDetails struct {
-	Epoch          int64          `json:"e,omitempty"`
-	PrivilegeLevel PrivilegeLevel `json:"l"`
-	IsTokenMember  IsTokenMember  `json:"tm,omitempty"`
-	AccessSource   AccessSource   `json:"-"`
+	Epoch          int64                      `json:"e,omitempty"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"l"`
+	IsTokenMember  IsTokenMember              `json:"tm,omitempty"`
+	AccessSource   AccessSource               `json:"-"`
 }
 
 func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
 	return IsRestrictedUser(
-		a.IsTokenMember && a.PrivilegeLevel == PrivilegeLevelReadOnly,
+		a.IsTokenMember && a.PrivilegeLevel == sharedTypes.PrivilegeLevelReadOnly,
 	)
 }
 
@@ -101,7 +69,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 				return &AuthorizationDetails{
 					Epoch:          p.Epoch,
 					AccessSource:   AccessSourceToken,
-					PrivilegeLevel: PrivilegeLevelReadAndWrite,
+					PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
 					IsTokenMember:  true,
 				}, nil
 			}
@@ -111,7 +79,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 				return &AuthorizationDetails{
 					Epoch:          p.Epoch,
 					AccessSource:   AccessSourceToken,
-					PrivilegeLevel: PrivilegeLevelReadOnly,
+					PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
 					IsTokenMember:  true,
 				}, nil
 			}
@@ -125,7 +93,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceOwner,
-			PrivilegeLevel: PrivilegeLevelOwner,
+			PrivilegeLevel: sharedTypes.PrivilegeLevelOwner,
 			IsTokenMember:  false,
 		}, nil
 	}
@@ -133,7 +101,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceInvite,
-			PrivilegeLevel: PrivilegeLevelReadAndWrite,
+			PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
 			IsTokenMember:  false,
 		}, nil
 	}
@@ -141,7 +109,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceInvite,
-			PrivilegeLevel: PrivilegeLevelReadOnly,
+			PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
 			IsTokenMember:  false,
 		}, nil
 	}
@@ -150,7 +118,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 			return &AuthorizationDetails{
 				Epoch:          p.Epoch,
 				AccessSource:   AccessSourceToken,
-				PrivilegeLevel: PrivilegeLevelReadAndWrite,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
 				IsTokenMember:  true,
 			}, nil
 		}
@@ -158,7 +126,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 			return &AuthorizationDetails{
 				Epoch:          p.Epoch,
 				AccessSource:   AccessSourceToken,
-				PrivilegeLevel: PrivilegeLevelReadOnly,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
 				IsTokenMember:  true,
 			}, nil
 		}

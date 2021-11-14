@@ -19,20 +19,13 @@ package types
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/session"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
-type GetUserProjectsRequest struct {
-	Session *session.Session `json:"-"`
+type ListProjectMembersRequest struct {
+	ProjectId primitive.ObjectID `json:"-"`
 }
 
-type GetUserProjectsEntry struct {
-	Id             primitive.ObjectID         `json:"_id"`
-	Name           string                     `json:"name"`
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"accessLevel"`
-}
-
-type GetUserProjectsResponse struct {
-	Projects []GetUserProjectsEntry `json:"projects"`
+type ListProjectMembersResponse struct {
+	Members []user.AsProjectMember `json:"members"`
 }

@@ -173,6 +173,7 @@ func (h *httpController) GetRouter(
 		r.Use(requireAdminAccess)
 
 		r.GET("/invites", h.listProjectInvites)
+		r.GET("/members", h.listProjectMembers)
 
 		rInvite := r.Group("/invite/:inviteId")
 		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
@@ -201,7 +202,7 @@ func blockRestrictedUsers(c *gin.Context) {
 
 func requireAdminAccess(c *gin.Context) {
 	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
-		project.PrivilegeLevelOwner,
+		sharedTypes.PrivilegeLevelOwner,
 	)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -211,7 +212,7 @@ func requireAdminAccess(c *gin.Context) {
 
 func requireWriteAccess(c *gin.Context) {
 	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
-		project.PrivilegeLevelReadAndWrite,
+		sharedTypes.PrivilegeLevelReadAndWrite,
 	)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -919,5 +920,15 @@ func (h *httpController) listProjectInvites(c *gin.Context) {
 	}
 	response := &types.ListProjectInvitesResponse{}
 	err := h.wm.ListProjectInvites(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) listProjectMembers(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.ListProjectMembersRequest{
+		ProjectId: o.ProjectId,
+	}
+	response := &types.ListProjectMembersResponse{}
+	err := h.wm.ListProjectMembers(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }

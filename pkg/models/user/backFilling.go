@@ -18,6 +18,8 @@ package user
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type UniqUserIds map[primitive.ObjectID]bool
@@ -29,4 +31,9 @@ type UsersForBackFillingNonStandardId map[primitive.ObjectID]*WithPublicInfoAndN
 type WithPublicInfoAndNonStandardId struct {
 	WithPublicInfo `bson:"inline"`
 	IdNoUnderscore primitive.ObjectID `json:"id"`
+}
+
+type AsProjectMember struct {
+	*WithPublicInfo
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
 }

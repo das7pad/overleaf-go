@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ProjectListRequest struct {
@@ -31,18 +32,18 @@ type ProjectListRequest struct {
 }
 
 type ProjectListProjectView struct {
-	Id                  primitive.ObjectID        `json:"id"`
-	Name                string                    `json:"name"`
-	LastUpdatedAt       time.Time                 `json:"lastUpdated"`
-	LastUpdatedByUserId primitive.ObjectID        `json:"-"`
-	LastUpdatedBy       *user.WithPublicInfo      `json:"lastUpdatedBy"`
-	PublicAccessLevel   project.PublicAccessLevel `json:"publicAccessLevel"`
-	AccessLevel         project.PrivilegeLevel    `json:"accessLevel"`
-	AccessSource        project.AccessSource      `json:"source"`
-	Archived            bool                      `json:"archived"`
-	Trashed             bool                      `json:"trashed"`
-	OwnerRef            primitive.ObjectID        `json:"owner_ref"`
-	Owner               *user.WithPublicInfo      `json:"owner"`
+	Id                  primitive.ObjectID         `json:"id"`
+	Name                string                     `json:"name"`
+	LastUpdatedAt       time.Time                  `json:"lastUpdated"`
+	LastUpdatedByUserId primitive.ObjectID         `json:"-"`
+	LastUpdatedBy       *user.WithPublicInfo       `json:"lastUpdatedBy"`
+	PublicAccessLevel   project.PublicAccessLevel  `json:"publicAccessLevel"`
+	AccessLevel         sharedTypes.PrivilegeLevel `json:"accessLevel"`
+	AccessSource        project.AccessSource       `json:"source"`
+	Archived            bool                       `json:"archived"`
+	Trashed             bool                       `json:"trashed"`
+	OwnerRef            primitive.ObjectID         `json:"owner_ref"`
+	Owner               *user.WithPublicInfo       `json:"owner"`
 }
 
 type ProjectListResponse struct {
