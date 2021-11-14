@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -36,9 +37,14 @@ type Manager interface {
 
 func New(options *types.Options, db *mongo.Database) (Manager, error) {
 	if options.APIs.WebApi.Monolith {
+		dm, err := docstore.New(options.APIs.Docstore.Options, db)
+		if err != nil {
+			return nil, err
+		}
 		pm := project.New(db)
 		um := user.New(db)
 		return &monolithManager{
+			dm: dm,
 			pm: pm,
 			um: um,
 		}, nil

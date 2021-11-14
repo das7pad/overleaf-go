@@ -23,12 +23,15 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type monolithManager struct {
+	dm docstore.Manager
 	pm project.Manager
 	um user.Manager
 }
@@ -49,10 +52,19 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		return nil, self, err
 	}
 
+	var deletedDocs []doc.Name
 	owner := &user.WithPublicInfoAndFeatures{}
 	members := make([]user.WithPublicInfo, 0)
 
 	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		var err2 error
+		deletedDocs, err2 = m.dm.PeakDeletedDocNames(pCtx, request.ProjectId, -1)
+		if err2 != nil {
+			return errors.Tag(err, "cannot get deleted doc names")
+		}
+		return nil
+	})
 	eg.Go(func() error {
 		if err2 := m.um.GetUser(pCtx, p.OwnerRef, owner); err2 != nil {
 			return errors.Tag(err2, "cannot get project owner")
@@ -102,6 +114,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	owner.Features.TrackChangesVisible = true
 
 	details := types.JoinProjectDetails{
+		DeletedDocs:            deletedDocs,
 		Features:               owner.Features,
 		JoinProjectViewPublic:  p.JoinProjectViewPublic,
 		Members:                members,

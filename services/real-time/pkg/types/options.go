@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
@@ -33,6 +34,9 @@ type Options struct {
 	} `json:"graceful_shutdown"`
 
 	APIs struct {
+		Docstore struct {
+			Options *docstoreTypes.Options `json:"options"`
+		} `json:"docstore"`
 		DocumentUpdater struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
 			URL     sharedTypes.URL               `json:"url"`
@@ -64,7 +68,16 @@ func (o *Options) Validate() error {
 	} else if err := o.APIs.DocumentUpdater.URL.Validate(); err != nil {
 		return errors.Tag(err, "apis.document_updater.url is invalid")
 	}
-	if !o.APIs.WebApi.Monolith {
+	if o.APIs.WebApi.Monolith {
+		if o.APIs.Docstore.Options == nil {
+			return &errors.ValidationError{
+				Msg: "apis.docstore.options is missing",
+			}
+		}
+		if err := o.APIs.Docstore.Options.Validate(); err != nil {
+			return errors.Tag(err, "apis.docstore.options is invalid")
+		}
+	} else {
 		if err := o.APIs.WebApi.URL.Validate(); err != nil {
 			return errors.Tag(err, "apis.web_api.url is invalid")
 		}

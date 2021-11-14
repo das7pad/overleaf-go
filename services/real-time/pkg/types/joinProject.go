@@ -19,6 +19,7 @@ package types
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
@@ -44,8 +45,9 @@ type JoinProjectDetails struct {
 	project.JoinProjectViewPublic
 	project.PublicAccessLevelField
 	project.TokensField
-	Features user.Features         `json:"features"`
-	Owner    user.WithPublicInfo   `json:"owner"`
-	Members  []user.WithPublicInfo `json:"members"`
-	Invites  []interface{}         `json:"invites"`
+	DeletedDocs []doc.Name            `json:"deletedDocs"`
+	Features    user.Features         `json:"features"`
+	Owner       user.WithPublicInfo   `json:"owner"`
+	Members     []user.WithPublicInfo `json:"members"`
+	Invites     []interface{}         `json:"invites"`
 }
