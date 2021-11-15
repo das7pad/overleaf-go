@@ -101,6 +101,7 @@ func (h *httpController) GetRouter(
 		r.POST("/archive", h.archiveProject)
 		r.GET("/entities", h.getProjectEntities)
 		r.POST("/jwt", h.getProjectJWT)
+		r.POST("/leave", h.leaveProject)
 		r.POST("/rename", h.renameProject)
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
@@ -957,5 +958,19 @@ func (h *httpController) setMemberPrivilegeLevelInProject(c *gin.Context) {
 	request.ProjectId = o.ProjectId
 	request.UserId = httpUtils.GetId(c, "userId")
 	err := h.wm.SetMemberPrivilegeLevelInProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) leaveProject(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.LeaveProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.LeaveProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

@@ -20,8 +20,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
+
+type LeaveProjectRequest struct {
+	Session   *session.Session   `json:"-"`
+	ProjectId primitive.ObjectID `json:"-"`
+}
 
 type ListProjectMembersRequest struct {
 	ProjectId primitive.ObjectID `json:"-"`

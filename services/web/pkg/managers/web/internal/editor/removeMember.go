@@ -30,9 +30,33 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+func (m *manager) LeaveProject(ctx context.Context, request *types.LeaveProjectRequest) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	projectId := request.ProjectId
+	userId := request.Session.User.Id
+	d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
+	if err != nil {
+		if errors.IsNotAuthorizedError(err) {
+			// Already removed.
+			return nil
+		}
+		return errors.Tag(err, "cannot check auth")
+	}
+	if d.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
+		return &errors.InvalidStateError{Msg: "cannot leave owned project"}
+	}
+	return m.removeMemberFromProject(ctx, projectId, userId)
+}
+
 func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error {
 	projectId := request.ProjectId
 	userId := request.UserId
+	return m.removeMemberFromProject(ctx, projectId, userId)
+}
+
+func (m *manager) removeMemberFromProject(ctx context.Context, projectId, userId primitive.ObjectID) error {
 	err := mongoTx.For(m.db, ctx, func(ctx context.Context) error {
 		if err := m.pm.RemoveMember(ctx, projectId, userId); err != nil {
 			return errors.Tag(err, "cannot remove user from project")

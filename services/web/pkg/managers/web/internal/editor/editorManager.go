@@ -41,6 +41,7 @@ type Manager interface {
 	GetProjectFileSize(ctx context.Context, request *types.GetProjectFileSizeRequest, response *types.GetProjectFileSizeResponse) error
 	GetUserContacts(ctx context.Context, request *types.GetUserContactsRequest, response *types.GetUserContactsResponse) error
 	ListProjectMembers(ctx context.Context, request *types.ListProjectMembersRequest, response *types.ListProjectMembersResponse) error
+	LeaveProject(ctx context.Context, request *types.LeaveProjectRequest) error
 	RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error
 	SetMemberPrivilegeLevelInProject(ctx context.Context, request *types.SetMemberPrivilegeLevelInProjectRequest) error
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
