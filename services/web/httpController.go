@@ -182,6 +182,7 @@ func (h *httpController) GetRouter(
 		rUser := r.Group("/users/:userId")
 		rUser.Use(httpUtils.ValidateAndSetId("userId"))
 		rUser.DELETE("", h.removeMemberFromProject)
+		rUser.PUT("", h.setMemberPrivilegeLevelInProject)
 	}
 
 	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
@@ -944,5 +945,17 @@ func (h *httpController) removeMemberFromProject(c *gin.Context) {
 		UserId:    httpUtils.GetId(c, "userId"),
 	}
 	err := h.wm.RemoveMemberFromProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setMemberPrivilegeLevelInProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetMemberPrivilegeLevelInProjectRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = httpUtils.GetId(c, "userId")
+	err := h.wm.SetMemberPrivilegeLevelInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

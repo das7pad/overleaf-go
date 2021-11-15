@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ListProjectMembersRequest struct {
@@ -33,4 +34,10 @@ type ListProjectMembersResponse struct {
 type RemoveProjectMemberRequest struct {
 	ProjectId primitive.ObjectID `json:"-"`
 	UserId    primitive.ObjectID `json:"-"`
+}
+
+type SetMemberPrivilegeLevelInProjectRequest struct {
+	ProjectId      primitive.ObjectID         `json:"-"`
+	UserId         primitive.ObjectID         `json:"-"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 }
