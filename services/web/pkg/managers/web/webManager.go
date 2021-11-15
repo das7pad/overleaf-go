@@ -52,18 +52,18 @@ type Manager interface {
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
-	betaProgram.Manager
-	compile.Manager
-	editor.Manager
-	fileTree.Manager
-	login.Manager
-	projectInvite.Manager
-	projectList.Manager
-	projectMetadata.Manager
-	session.Manager
-	systemMessage.Manager
-	tag.Manager
-	tokenAccess.Manager
+	betaProgramManager
+	compileManager
+	editorManager
+	fileTreeManager
+	loginManager
+	projectInviteManager
+	projectListManager
+	projectMetadataManager
+	sessionManager
+	systemMessageManager
+	tagManager
+	tokenAccessManager
 }
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
@@ -128,7 +128,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		projectInviteManager:   pim,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
-		sessions:               sm,
+		sessionManager:         sm,
 		systemMessageManager:   smm,
 		tagManager:             tagM,
 		tokenAccessManager:     tam,
@@ -143,7 +143,7 @@ type loginManager = login.Manager
 type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
-type sessions = session.Manager
+type sessionManager = session.Manager
 type systemMessageManager = systemMessage.Manager
 type tagManager = tag.Manager
 type tokenAccessManager = tokenAccess.Manager
@@ -157,7 +157,7 @@ type manager struct {
 	projectInviteManager
 	projectListManager
 	projectMetadataManager
-	sessions
+	sessionManager
 	systemMessageManager
 	tagManager
 	tokenAccessManager
