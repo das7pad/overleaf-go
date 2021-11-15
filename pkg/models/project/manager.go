@@ -61,6 +61,7 @@ type Manager interface {
 	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error
+	RemoveMember(ctx context.Context, projectId, userId primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -651,4 +652,23 @@ func (m *manager) MarkAsInActive(ctx context.Context, projectId primitive.Object
 
 func (m *manager) MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error {
 	return m.set(ctx, projectId, &LastOpenedField{LastOpened: time.Now()})
+}
+
+func (m *manager) RemoveMember(ctx context.Context, projectId, userId primitive.ObjectID) error {
+	q := &IdField{Id: projectId}
+	u := bson.M{
+		"$inc": EpochField{Epoch: 1},
+	}
+
+	pull := bson.M{}
+	for s := range forMemberRemovalFields {
+		pull[s] = userId
+	}
+	u["$pull"] = pull
+
+	_, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }

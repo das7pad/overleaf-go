@@ -178,6 +178,10 @@ func (h *httpController) GetRouter(
 		rInvite := r.Group("/invite/:inviteId")
 		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
 		rInvite.DELETE("", h.revokeProjectInvite)
+
+		rUser := r.Group("/users/:userId")
+		rUser.Use(httpUtils.ValidateAndSetId("userId"))
+		rUser.DELETE("", h.removeMemberFromProject)
 	}
 
 	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
@@ -931,4 +935,14 @@ func (h *httpController) listProjectMembers(c *gin.Context) {
 	response := &types.ListProjectMembersResponse{}
 	err := h.wm.ListProjectMembers(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) removeMemberFromProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RemoveProjectMemberRequest{
+		ProjectId: o.ProjectId,
+		UserId:    httpUtils.GetId(c, "userId"),
+	}
+	err := h.wm.RemoveMemberFromProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

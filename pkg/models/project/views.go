@@ -23,6 +23,8 @@ import (
 )
 
 var (
+	forMemberRemovalFields = views.GetFieldsOf(forMemberRemoval{})
+
 	epochFieldProjection              = views.GetProjectionFor(EpochField{})
 	lastUpdatedAtFieldProjection      = views.GetProjectionFor(LastUpdatedAtField{})
 	forAuthorizationDetailsProjection = views.GetProjectionFor(ForAuthorizationDetails{})

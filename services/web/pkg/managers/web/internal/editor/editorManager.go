@@ -19,10 +19,14 @@ package editor
 import (
 	"context"
 
+	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
@@ -37,6 +41,7 @@ type Manager interface {
 	GetProjectFileSize(ctx context.Context, request *types.GetProjectFileSizeRequest, response *types.GetProjectFileSizeResponse) error
 	GetUserContacts(ctx context.Context, request *types.GetUserContactsRequest, response *types.GetUserContactsResponse) error
 	ListProjectMembers(ctx context.Context, request *types.ListProjectMembersRequest, response *types.ListProjectMembersResponse) error
+	RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
@@ -44,10 +49,12 @@ type Manager interface {
 	SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error
 }
 
-func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
+		client:          client,
 		cm:              cm,
 		csm:             csm,
+		db:              db,
 		dm:              dm,
 		editorEvents:    editorEvents,
 		fm:              fm,
@@ -55,14 +62,17 @@ func New(options *types.Options, editorEvents channel.Writer, pm project.Manager
 		jwtLoggedInUser: loggedInUserJWTHandler,
 		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
 		pm:              pm,
+		tm:              tm,
 		um:              um,
 		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
 	}
 }
 
 type manager struct {
+	client          redis.UniversalClient
 	cm              chat.Manager
 	csm             contacts.Manager
+	db              *mongo.Database
 	dm              docstore.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager
@@ -70,6 +80,7 @@ type manager struct {
 	jwtLoggedInUser jwtHandler.JWTHandler
 	jwtSpelling     jwtHandler.JWTHandler
 	pm              project.Manager
+	tm              tag.Manager
 	um              user.Manager
 	wsBootstrap     jwtHandler.JWTHandler
 }

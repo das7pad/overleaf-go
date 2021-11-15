@@ -114,3 +114,9 @@ type WithLastUpdatedDetails struct {
 	LastUpdatedAtField `bson:"inline"`
 	LastUpdatedByField `bson:"inline"`
 }
+
+type forMemberRemoval struct {
+	WithMembers     `bson:"inline"`
+	ArchivedByField `bson:"inline"`
+	TrashedByField  `bson:"inline"`
+}

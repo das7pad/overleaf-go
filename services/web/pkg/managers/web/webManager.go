@@ -104,8 +104,9 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
 	em := editor.New(
 		options,
+		client, db,
 		editorEvents,
-		pm, um,
+		pm, tm, um,
 		chatM, csm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)

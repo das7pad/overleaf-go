@@ -29,3 +29,8 @@ type ListProjectMembersRequest struct {
 type ListProjectMembersResponse struct {
 	Members []user.AsProjectMember `json:"members"`
 }
+
+type RemoveProjectMemberRequest struct {
+	ProjectId primitive.ObjectID `json:"-"`
+	UserId    primitive.ObjectID `json:"-"`
+}
