@@ -72,7 +72,7 @@ func New(db *mongo.Database) Manager {
 
 func rewriteMongoError(err error) error {
 	if err == mongo.ErrNoDocuments {
-		return &errors.ErrorDocNotFound{}
+		return &errors.NotFoundError{}
 	}
 	return err
 }

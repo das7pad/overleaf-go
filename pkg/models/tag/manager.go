@@ -49,7 +49,7 @@ type manager struct {
 
 func rewriteMongoError(err error) error {
 	if err == mongo.ErrNoDocuments {
-		return &errors.ErrorDocNotFound{}
+		return &errors.NotFoundError{}
 	}
 	return err
 }
