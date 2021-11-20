@@ -179,6 +179,7 @@ func (h *httpController) GetRouter(
 		rInvite := r.Group("/invite/:inviteId")
 		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
 		rInvite.DELETE("", h.revokeProjectInvite)
+		rInvite.POST("/resend", h.resendProjectInvite)
 
 		rUser := r.Group("/users/:userId")
 		rUser.Use(httpUtils.ValidateAndSetId("userId"))
@@ -907,6 +908,17 @@ func (h *httpController) acceptProjectInvite(c *gin.Context) {
 	}
 	err = h.wm.AcceptProjectInvite(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) resendProjectInvite(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.ResendProjectInviteRequest{
+		ProjectId:    o.ProjectId,
+		SenderUserId: o.UserId,
+		InviteId:     httpUtils.GetId(c, "inviteId"),
+	}
+	err := h.wm.ResendProjectInvite(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) revokeProjectInvite(c *gin.Context) {

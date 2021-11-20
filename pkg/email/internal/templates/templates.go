@@ -14,29 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package projectInvite
+package templates
 
-type WithoutToken struct {
-	CreatedAtField      `bson:"inline"`
-	EmailField          `bson:"inline"`
-	ExpiresAtField      `bson:"inline"`
-	IdField             `bson:"inline"`
-	PrivilegeLevelField `bson:"inline"`
-	ProjectIdField      `bson:"inline"`
-	SendingUserIdField  `bson:"inline"`
-}
+import (
+	"embed"
+	"html/template"
+)
 
-type WithToken struct {
-	WithoutToken `bson:"inline"`
-	TokenField   `bson:"inline"`
-}
+//go:embed *.gohtml
+var _templatesRaw embed.FS
 
-type projectIdAndToken struct {
-	ProjectIdField `bson:"inline"`
-	TokenField     `bson:"inline"`
-}
+var CTA *template.Template
+var NoCTA *template.Template
 
-type projectIdAndInviteId struct {
-	IdField        `bson:"inline"`
-	ProjectIdField `bson:"inline"`
+func init() {
+	CTA = template.Must(template.ParseFS(_templatesRaw,
+		"base.gohtml", "ctaBody.gohtml",
+	))
+	NoCTA = template.Must(template.ParseFS(_templatesRaw,
+		"base.gohtml", "noCTABody.gohtml",
+	))
+	_templatesRaw = embed.FS{}
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -43,7 +44,8 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 		}
 		epoch := d.Epoch
 
-		pi, err := m.pim.Get(ctx, projectId, request.Token)
+		pi := &projectInvite.WithoutToken{}
+		err = m.pim.GetByToken(ctx, projectId, request.Token, pi)
 		if err != nil {
 			return errors.Tag(err, "cannot get invite")
 		}

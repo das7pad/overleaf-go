@@ -32,6 +32,12 @@ type AcceptProjectInviteRequest struct {
 
 type AcceptProjectInviteResponse = asyncForm.Response
 
+type ResendProjectInviteRequest struct {
+	ProjectId    primitive.ObjectID `json:"-"`
+	InviteId     primitive.ObjectID `json:"-"`
+	SenderUserId primitive.ObjectID `json:"-"`
+}
+
 type RevokeProjectInviteRequest struct {
 	ProjectId primitive.ObjectID `json:"-"`
 	InviteId  primitive.ObjectID `json:"-"`

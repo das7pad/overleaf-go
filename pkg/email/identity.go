@@ -14,44 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package projectInvite
+package email
 
 import (
-	"time"
+	"net/mail"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type CreatedAtField struct {
-	CreatedAt time.Time `json:"createdAt" bson:"createdAt"`
+type Identity struct {
+	Address     sharedTypes.Email `json:"address"`
+	DisplayName string            `json:"display_name"`
+	FirstName   string            `json:"first_name"`
 }
 
-type EmailField struct {
-	Email sharedTypes.Email `json:"email" bson:"email"`
+func (i *Identity) String() string {
+	a := &mail.Address{
+		Address: string(i.Address),
+		Name:    i.DisplayName,
+	}
+	return a.String()
 }
 
-type ExpiresAtField struct {
-	Expires time.Time `json:"expires" bson:"expires"`
-}
-
-type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
-}
-
-type PrivilegeLevelField struct {
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" bson:"privileges"`
-}
-
-type ProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"projectId" bson:"projectId"`
-}
-
-type SendingUserIdField struct {
-	SendingUserId primitive.ObjectID `json:"sendingUserId" bson:"sendingUserId"`
-}
-
-type TokenField struct {
-	Token Token `json:"-" bson:"token"`
+func (i *Identity) Validate() error {
+	if i == nil {
+		return errors.New("missing identity")
+	}
+	return i.Address.Validate()
 }

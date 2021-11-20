@@ -14,37 +14,44 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sharedTypes
+package email
 
 import (
-	"net/mail"
-	"strings"
+	"io"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type Email string
-
-func (e Email) LocalPart() string {
-	s := string(e)
-	idx := strings.LastIndexByte(s, '@')
-	return s[:idx]
+type Email struct {
+	Content Content
+	ReplyTo *Identity
+	Subject string
+	To      *Identity
 }
 
-func (e Email) Host() string {
-	s := string(e)
-	idx := strings.LastIndexByte(s, '@')
-	return s[idx+1:]
-}
-
-func (e Email) Normalize() Email {
-	return Email(strings.ToLower(string(e)))
-}
-
-func (e Email) Validate() error {
-	_, err := mail.ParseAddress(string(e))
-	if err != nil {
-		return &errors.ValidationError{Msg: "invalid email address"}
+func (e *Email) Validate() error {
+	if err := e.Content.Validate(); err != nil {
+		return errors.New("invalid content: " + err.Error())
+	}
+	if e.ReplyTo != nil {
+		if err := e.ReplyTo.Validate(); err != nil {
+			return errors.New("invalid recipient: " + err.Error())
+		}
+	}
+	if len(e.Subject) == 0 {
+		return errors.New("missing subject")
+	}
+	if err := e.To.Validate(); err != nil {
+		return errors.New("invalid recipient: " + err.Error())
 	}
 	return nil
+}
+
+func (e *Email) writeHTML(w io.Writer) error {
+	return e.Content.Template().Execute(w, e.Content)
+}
+
+func (e *Email) writePlainText(w io.Writer) error {
+	_, err := io.WriteString(w, e.Content.PlainText())
+	return err
 }

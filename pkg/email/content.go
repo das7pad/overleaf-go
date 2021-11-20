@@ -14,29 +14,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package projectInvite
+package email
 
-type WithoutToken struct {
-	CreatedAtField      `bson:"inline"`
-	EmailField          `bson:"inline"`
-	ExpiresAtField      `bson:"inline"`
-	IdField             `bson:"inline"`
-	PrivilegeLevelField `bson:"inline"`
-	ProjectIdField      `bson:"inline"`
-	SendingUserIdField  `bson:"inline"`
+import (
+	"html/template"
+	"strings"
+)
+
+type Content interface {
+	Validate() error
+	Template() *template.Template
+	PlainText() string
 }
 
-type WithToken struct {
-	WithoutToken `bson:"inline"`
-	TokenField   `bson:"inline"`
+type PublicOptions struct {
+	AppName          string
+	CustomFooter     string
+	CustomFooterHTML template.HTML
+	SiteURL          string
 }
 
-type projectIdAndToken struct {
-	ProjectIdField `bson:"inline"`
-	TokenField     `bson:"inline"`
-}
+type Message []string
 
-type projectIdAndInviteId struct {
-	IdField        `bson:"inline"`
-	ProjectIdField `bson:"inline"`
+func (m Message) String() string {
+	return strings.Join(m, "\n")
 }

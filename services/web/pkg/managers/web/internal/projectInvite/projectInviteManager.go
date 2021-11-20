@@ -19,14 +19,22 @@ package projectInvite
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/email"
+	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
+	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
@@ -37,18 +45,22 @@ import (
 type Manager interface {
 	AcceptProjectInvite(ctx context.Context, request *types.AcceptProjectInviteRequest, response *types.AcceptProjectInviteResponse) error
 	ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error
+	ResendProjectInvite(ctx context.Context, request *types.ResendProjectInviteRequest) error
 	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
 }
 
-func New(client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, cm contacts.Manager, nm notifications.Manager) Manager {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contacts.Manager, nm notifications.Manager) Manager {
 	return &manager{
 		client:       client,
 		cm:           cm,
 		db:           db,
 		editorEvents: editorEvents,
+		emailOptions: options.EmailOptions(),
 		nm:           nm,
+		options:      options,
 		pim:          projectInvite.New(db),
 		pm:           pm,
+		um:           um,
 	}
 }
 
@@ -57,9 +69,12 @@ type manager struct {
 	cm           contacts.Manager
 	db           *mongo.Database
 	editorEvents channel.Writer
+	emailOptions *types.EmailOptions
 	nm           notifications.Manager
+	options      *types.Options
 	pim          projectInvite.Manager
 	pm           project.Manager
+	um           user.Manager
 }
 
 type refreshMembershipDetails struct {
@@ -79,4 +94,93 @@ func (m *manager) notifyEditorAboutChanges(projectId primitive.ObjectID, r *refr
 			Payload: b,
 		})
 	}
+}
+
+func (m *manager) getInviteURL(p *project.WithIdAndName, pi *projectInvite.WithToken, s *user.WithPublicInfo) string {
+	inviteURL := m.options.SiteURL.WithPath(fmt.Sprintf(
+		"/project/%s/invite/token/%s",
+		p.Id.Hex(), pi.Token,
+	))
+
+	q := url.Values{}
+	q.Set("project_name", p.Name)
+	q.Set("user_first_name", s.DisplayName())
+	inviteURL.RawQuery = q.Encode()
+
+	return inviteURL.String()
+}
+
+func (m *manager) createNotification(ctx context.Context, p *project.WithIdAndName, s, u *user.WithPublicInfo, pi *projectInvite.WithToken) error {
+	key := "project-invite-" + pi.Id.Hex()
+	userId := u.Id
+
+	opts := &bson.M{
+		"userName":    s.DisplayName(),
+		"projectName": p.Name,
+		"projectId":   pi.ProjectId.Hex(),
+		"token":       pi.Token,
+	}
+	n := notifications.Notification{
+		Key:            key,
+		UserId:         userId,
+		Expires:        pi.Expires,
+		TemplateKey:    "notification_project_invite",
+		MessageOptions: opts,
+	}
+	if err := m.nm.AddNotification(ctx, userId, n, true); err != nil {
+		return errors.Tag(err, "cannot create invite notification")
+	}
+	return nil
+}
+
+func (m *manager) sendEmail(ctx context.Context, p *project.WithIdAndName, pi *projectInvite.WithToken, s, u *user.WithPublicInfo) error {
+	inviteURL := m.getInviteURL(p, pi, s)
+	message := fmt.Sprintf(
+		"%s wants to share %s with you.",
+		spamSafe.GetSafeEmail(s.Email, "a collaborator"),
+		spamSafe.GetSafeProjectName(p.Name, "a new project"),
+	)
+	title := fmt.Sprintf(
+		"%s - shared by %s",
+		spamSafe.GetSafeProjectName(p.Name, "New Project"),
+		spamSafe.GetSafeEmail(s.Email, "a collaborator"),
+	)
+
+	e := email.Email{
+		Content: &email.CTAContent{
+			PublicOptions: m.emailOptions.Public,
+			Message:       email.Message{message},
+			Title:         title,
+			CTAText:       "View project",
+			CTAURL:        inviteURL,
+			GmailGoToAction: &gmailGoToAction.GmailGoToAction{
+				Target: inviteURL,
+				Name:   "View project",
+				Description: fmt.Sprintf(
+					"Join %s at %s",
+					spamSafe.GetSafeProjectName(p.Name, "project"),
+					m.options.AppName,
+				),
+			},
+		},
+		ReplyTo: &email.Identity{
+			Address:   s.Email,
+			FirstName: spamSafe.GetSafeUserName(s.FirstName, ""),
+			DisplayName: spamSafe.GetSafeUserName(
+				s.DisplayName(), "Project owner",
+			),
+		},
+		Subject: title,
+		To: &email.Identity{
+			Address:   u.Email,
+			FirstName: spamSafe.GetSafeUserName(u.FirstName, ""),
+			DisplayName: spamSafe.GetSafeUserName(
+				u.DisplayName(), "",
+			),
+		},
+	}
+	if err := e.Send(ctx, m.emailOptions.Send); err != nil {
+		return errors.Tag(err, "cannot send email")
+	}
+	return nil
 }

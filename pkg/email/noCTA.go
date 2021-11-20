@@ -14,37 +14,46 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sharedTypes
+package email
 
 import (
-	"net/mail"
-	"strings"
+	"html/template"
 
+	"github.com/das7pad/overleaf-go/pkg/email/internal/templates"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type Email string
+type NoCTAContent struct {
+	*PublicOptions
 
-func (e Email) LocalPart() string {
-	s := string(e)
-	idx := strings.LastIndexByte(s, '@')
-	return s[:idx]
+	Message Message
+	Title   string
 }
 
-func (e Email) Host() string {
-	s := string(e)
-	idx := strings.LastIndexByte(s, '@')
-	return s[idx+1:]
-}
-
-func (e Email) Normalize() Email {
-	return Email(strings.ToLower(string(e)))
-}
-
-func (e Email) Validate() error {
-	_, err := mail.ParseAddress(string(e))
-	if err != nil {
-		return &errors.ValidationError{Msg: "invalid email address"}
+func (c *NoCTAContent) Validate() error {
+	if len(c.Message) == 0 || len(c.Message[0]) == 0 {
+		return errors.New("missing Message")
+	}
+	if len(c.Title) == 0 {
+		return errors.New("missing Title")
 	}
 	return nil
+}
+
+func (c *NoCTAContent) Template() *template.Template {
+	return templates.NoCTA
+}
+
+func (c *NoCTAContent) PlainText() string {
+	s := "Hi," + "\n" +
+		"\n" +
+		c.Message.String() + "\n" +
+		"\n" +
+		"Regards," + "\n" +
+		"The " + c.AppName + " Team - " + c.SiteURL
+
+	if c.CustomFooter != "" {
+		s += "\n\n" + c.CustomFooter
+	}
+	return s
 }

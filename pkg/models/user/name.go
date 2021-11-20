@@ -14,29 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package projectInvite
+package user
 
-type WithoutToken struct {
-	CreatedAtField      `bson:"inline"`
-	EmailField          `bson:"inline"`
-	ExpiresAtField      `bson:"inline"`
-	IdField             `bson:"inline"`
-	PrivilegeLevelField `bson:"inline"`
-	ProjectIdField      `bson:"inline"`
-	SendingUserIdField  `bson:"inline"`
-}
+import (
+	"strings"
+)
 
-type WithToken struct {
-	WithoutToken `bson:"inline"`
-	TokenField   `bson:"inline"`
-}
-
-type projectIdAndToken struct {
-	ProjectIdField `bson:"inline"`
-	TokenField     `bson:"inline"`
-}
-
-type projectIdAndInviteId struct {
-	IdField        `bson:"inline"`
-	ProjectIdField `bson:"inline"`
+func (u *WithPublicInfo) DisplayName() string {
+	s := u.FirstName + " " + u.LastName
+	s = strings.TrimSpace(s)
+	if s != "" {
+		return s
+	}
+	return string(u.Email)
 }

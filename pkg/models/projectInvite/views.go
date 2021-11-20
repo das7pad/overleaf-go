@@ -24,12 +24,15 @@ import (
 
 var (
 	withoutTokenProjection = views.GetProjectionFor(WithoutToken{})
+	withTokenProjection    = views.GetProjectionFor(WithToken{})
 )
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
 	case *WithoutToken, []*WithoutToken, []WithoutToken:
 		return withoutTokenProjection
+	case *WithToken, []*WithToken, []WithToken:
+		return withTokenProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

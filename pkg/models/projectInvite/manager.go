@@ -28,7 +28,8 @@ import (
 
 type Manager interface {
 	Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error
-	Get(ctx context.Context, projectId primitive.ObjectID, token Token) (*WithoutToken, error)
+	GetById(ctx context.Context, projectId, inviteId primitive.ObjectID, target interface{}) error
+	GetByToken(ctx context.Context, projectId primitive.ObjectID, token Token, target interface{}) error
 	GetAllForProject(ctx context.Context, projectId primitive.ObjectID) ([]*WithoutToken, error)
 }
 
@@ -63,19 +64,30 @@ func (m *manager) Delete(ctx context.Context, projectId, inviteId primitive.Obje
 	return nil
 }
 
-func (m *manager) Get(ctx context.Context, projectId primitive.ObjectID, token Token) (*WithoutToken, error) {
+func (m *manager) GetById(ctx context.Context, projectId, inviteId primitive.ObjectID, target interface{}) error {
+	q := projectIdAndInviteId{}
+	q.ProjectId = projectId
+	q.Id = inviteId
+
+	return m.get(ctx, q, target)
+}
+
+func (m *manager) GetByToken(ctx context.Context, projectId primitive.ObjectID, token Token, target interface{}) error {
 	q := projectIdAndToken{}
 	q.ProjectId = projectId
 	q.Token = token
 
-	pi := &WithoutToken{}
+	return m.get(ctx, q, target)
+}
+
+func (m *manager) get(ctx context.Context, q interface{}, target interface{}) error {
 	err := m.c.FindOne(
-		ctx, q, options.FindOne().SetProjection(getProjection(pi)),
-	).Decode(pi)
+		ctx, q, options.FindOne().SetProjection(getProjection(target)),
+	).Decode(target)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return rewriteMongoError(err)
 	}
-	return pi, nil
+	return nil
 }
 
 func (m *manager) GetAllForProject(ctx context.Context, projectId primitive.ObjectID) ([]*WithoutToken, error) {

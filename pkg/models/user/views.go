@@ -49,7 +49,7 @@ func getProjection(model interface{}) views.View {
 		return withLoadEditorInfoProjection
 	case *WithLoadEditorInfo:
 		return withLoadEditorInfoProjection
-	case []WithPublicInfo:
+	case []WithPublicInfo, *WithPublicInfo:
 		return withPublicInfo
 	case *WithLoginInfo:
 		return withLoginInfoProjection

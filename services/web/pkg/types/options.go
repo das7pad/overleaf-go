@@ -17,8 +17,11 @@
 package types
 
 import (
+	"html/template"
+	"net/smtp"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -30,7 +33,18 @@ import (
 )
 
 type Options struct {
+	AppName string `json:"app_name"`
+	Email   struct {
+		CustomFooter     string            `json:"custom_footer"`
+		CustomFooterHTML template.HTML     `json:"custom_footer_html"`
+		From             *email.Identity   `json:"from"`
+		FallbackReplyTo  *email.Identity   `json:"fallback_reply_to"`
+		SMTPAddress      email.SMTPAddress `json:"smtp_address"`
+		SMTPUser         string            `json:"smtp_user"`
+		SMTPPassword     string            `json:"smtp_password"`
+	} `json:"email"`
 	PDFDownloadDomain        PDFDownloadDomain   `json:"pdf_download_domain"`
+	SiteURL                  sharedTypes.URL     `json:"site_url"`
 	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
 
 	APIs struct {
@@ -65,6 +79,34 @@ type Options struct {
 }
 
 func (o *Options) Validate() error {
+	if o.AppName == "" {
+		return &errors.ValidationError{Msg: "app_name is missing"}
+	}
+	if err := o.SiteURL.Validate(); err != nil {
+		return errors.Tag(err, "site_url is invalid")
+	}
+
+	if o.Email.From == nil {
+		return &errors.ValidationError{Msg: "email.from is missing"}
+	}
+	if o.Email.FallbackReplyTo == nil {
+		return &errors.ValidationError{
+			Msg: "email.fallback_reply_to is missing",
+		}
+	}
+	if o.Email.SMTPAddress == "" {
+		return &errors.ValidationError{Msg: "email.smtp_address is missing"}
+	}
+	if err := o.Email.SMTPAddress.Validate(); err != nil {
+		return errors.Tag(err, "email.smtp_address is invalid")
+	}
+	if o.Email.SMTPUser == "" {
+		return &errors.ValidationError{Msg: "email.smtp_user is missing"}
+	}
+	if o.Email.SMTPPassword == "" {
+		return &errors.ValidationError{Msg: "email.smtp_password is missing"}
+	}
+
 	if err := o.APIs.Clsi.URL.Validate(); err != nil {
 		return errors.Tag(err, "apis.clsi.url is invalid")
 	}
@@ -103,4 +145,31 @@ func (o *Options) Validate() error {
 		return errors.Tag(err, "session_cookie is invalid")
 	}
 	return nil
+}
+
+type EmailOptions struct {
+	Public *email.PublicOptions
+	Send   *email.SendOptions
+}
+
+func (o *Options) EmailOptions() *EmailOptions {
+	return &EmailOptions{
+		Public: &email.PublicOptions{
+			AppName:          o.AppName,
+			CustomFooter:     o.Email.CustomFooter,
+			CustomFooterHTML: o.Email.CustomFooterHTML,
+			SiteURL:          o.SiteURL.String(),
+		},
+		Send: &email.SendOptions{
+			From:            o.Email.From,
+			FallbackReplyTo: o.Email.FallbackReplyTo,
+			SMTPAddress:     o.Email.SMTPAddress,
+			SMTPAuth: smtp.PlainAuth(
+				"",
+				o.Email.SMTPUser,
+				o.Email.SMTPPassword,
+				o.Email.SMTPAddress.Host(),
+			),
+		},
+	}
 }

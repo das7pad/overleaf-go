@@ -20,6 +20,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -68,7 +69,7 @@ type Manager interface {
 
 func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
-		return nil, err
+		return nil, errors.Tag(err, "invalid options")
 	}
 	editorEvents := channel.NewWriter(client, "editor-events")
 	chatM := chat.New(db)
@@ -116,7 +117,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	sm := session.New(options.SessionCookie, client)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(pm)
-	pim := projectInvite.New(client, db, editorEvents, pm, csm, nm)
+	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm, nm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
