@@ -28,6 +28,7 @@ import (
 
 type Manager interface {
 	Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error
+	Create(ctx context.Context, pi *WithToken) error
 	GetById(ctx context.Context, projectId, inviteId primitive.ObjectID, target interface{}) error
 	GetByToken(ctx context.Context, projectId primitive.ObjectID, token Token, target interface{}) error
 	GetAllForProject(ctx context.Context, projectId primitive.ObjectID) ([]*WithoutToken, error)
@@ -48,6 +49,14 @@ func rewriteMongoError(err error) error {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) Create(ctx context.Context, pi *WithToken) error {
+	_, err := m.c.InsertOne(ctx, pi)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error {

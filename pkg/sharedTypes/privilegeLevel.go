@@ -55,3 +55,10 @@ func (l PrivilegeLevel) IsAtLeast(other PrivilegeLevel) bool {
 func (l PrivilegeLevel) IsHigherThan(other PrivilegeLevel) bool {
 	return l.score() > other.score()
 }
+
+func (l PrivilegeLevel) Validate() error {
+	if l.score() == 0 {
+		return &errors.ValidationError{Msg: "invalid PrivilegeLevel"}
+	}
+	return nil
+}

@@ -20,8 +20,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AcceptProjectInviteRequest struct {
@@ -32,10 +34,35 @@ type AcceptProjectInviteRequest struct {
 
 type AcceptProjectInviteResponse = asyncForm.Response
 
+type CreateProjectInviteRequest struct {
+	ProjectId      primitive.ObjectID         `json:"-"`
+	SenderUserId   primitive.ObjectID         `json:"-"`
+	Email          sharedTypes.Email          `json:"email"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
+}
+
+func (r *CreateProjectInviteRequest) Preprocess() {
+	r.Email = r.Email.Normalize()
+}
+
+func (r *CreateProjectInviteRequest) Validate() error {
+	if err := r.Email.Validate(); err != nil {
+		return err
+	}
+	if err := r.PrivilegeLevel.Validate(); err != nil {
+		return err
+	}
+	if r.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
+		return &errors.ValidationError{
+			Msg: "use project ownership transfer instead",
+		}
+	}
+	return nil
+}
+
 type ResendProjectInviteRequest struct {
-	ProjectId    primitive.ObjectID `json:"-"`
-	InviteId     primitive.ObjectID `json:"-"`
-	SenderUserId primitive.ObjectID `json:"-"`
+	ProjectId primitive.ObjectID `json:"-"`
+	InviteId  primitive.ObjectID `json:"-"`
 }
 
 type RevokeProjectInviteRequest struct {

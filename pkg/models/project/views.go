@@ -28,8 +28,8 @@ var (
 	epochFieldProjection              = views.GetProjectionFor(EpochField{})
 	lastUpdatedAtFieldProjection      = views.GetProjectionFor(LastUpdatedAtField{})
 	forAuthorizationDetailsProjection = views.GetProjectionFor(ForAuthorizationDetails{})
+	forProjectInviteProjection        = views.GetProjectionFor(ForProjectInvite{})
 	forTokenAccessCheckProjection     = views.GetProjectionFor(forTokenAccessCheck{})
-	withIdAndNameProjection           = views.GetProjectionFor(WithIdAndName{})
 	withInvitedMembersProjection      = views.GetProjectionFor(WithInvitedMembers{})
 	withTreeProjection                = views.GetProjectionFor(WithTree{})
 	withMembersProjection             = views.GetProjectionFor(WithMembers{})
@@ -73,8 +73,8 @@ func getProjection(model interface{}) views.View {
 		return withTreeAndAuth
 	case *WithTreeAndRootDoc:
 		return withTreeAndRootDoc
-	case *WithIdAndName:
-		return withIdAndNameProjection
+	case *ForProjectInvite:
+		return forProjectInviteProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

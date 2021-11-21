@@ -174,6 +174,7 @@ func (h *httpController) GetRouter(
 		r := projectJWTRouter.Group("")
 		r.Use(requireAdminAccess)
 
+		r.POST("/invite", h.createProjectInvite)
 		r.GET("/invites", h.listProjectInvites)
 		rInvite := r.Group("/invite/:inviteId")
 		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
@@ -909,12 +910,23 @@ func (h *httpController) acceptProjectInvite(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
+func (h *httpController) createProjectInvite(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.CreateProjectInviteRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.SenderUserId = o.UserId
+	err := h.wm.CreateProjectInvite(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
 func (h *httpController) resendProjectInvite(c *gin.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ResendProjectInviteRequest{
-		ProjectId:    o.ProjectId,
-		SenderUserId: o.UserId,
-		InviteId:     httpUtils.GetId(c, "inviteId"),
+		ProjectId: o.ProjectId,
+		InviteId:  httpUtils.GetId(c, "inviteId"),
 	}
 	err := h.wm.ResendProjectInvite(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)

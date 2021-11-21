@@ -95,9 +95,10 @@ type withIdAndVersion struct {
 	VersionField `bson:"inline"`
 }
 
-type WithIdAndName struct {
-	IdField   `bson:"inline"`
-	NameField `bson:"inline"`
+type ForProjectInvite struct {
+	IdField                 `bson:"inline"`
+	NameField               `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
 }
 
 type WithTree struct {

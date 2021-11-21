@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -44,6 +43,7 @@ import (
 
 type Manager interface {
 	AcceptProjectInvite(ctx context.Context, request *types.AcceptProjectInviteRequest, response *types.AcceptProjectInviteResponse) error
+	CreateProjectInvite(ctx context.Context, request *types.CreateProjectInviteRequest) error
 	ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error
 	ResendProjectInvite(ctx context.Context, request *types.ResendProjectInviteRequest) error
 	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
@@ -96,34 +96,24 @@ func (m *manager) notifyEditorAboutChanges(projectId primitive.ObjectID, r *refr
 	}
 }
 
-func (m *manager) getInviteURL(p *project.WithIdAndName, pi *projectInvite.WithToken, s *user.WithPublicInfo) string {
-	inviteURL := m.options.SiteURL.WithPath(fmt.Sprintf(
-		"/project/%s/invite/token/%s",
-		p.Id.Hex(), pi.Token,
-	))
+func (m *manager) createNotification(ctx context.Context, d *projectInviteDetails) error {
+	if !d.IsUserRegistered() {
+		return nil
+	}
 
-	q := url.Values{}
-	q.Set("project_name", p.Name)
-	q.Set("user_first_name", s.DisplayName())
-	inviteURL.RawQuery = q.Encode()
-
-	return inviteURL.String()
-}
-
-func (m *manager) createNotification(ctx context.Context, p *project.WithIdAndName, s, u *user.WithPublicInfo, pi *projectInvite.WithToken) error {
-	key := "project-invite-" + pi.Id.Hex()
-	userId := u.Id
+	key := "project-invite-" + d.invite.Id.Hex()
+	userId := d.user.Id
 
 	opts := &bson.M{
-		"userName":    s.DisplayName(),
-		"projectName": p.Name,
-		"projectId":   pi.ProjectId.Hex(),
-		"token":       pi.Token,
+		"userName":    d.sender.DisplayName(),
+		"projectName": d.project.Name,
+		"projectId":   d.invite.ProjectId.Hex(),
+		"token":       d.invite.Token,
 	}
 	n := notifications.Notification{
 		Key:            key,
 		UserId:         userId,
-		Expires:        pi.Expires,
+		Expires:        d.invite.Expires,
 		TemplateKey:    "notification_project_invite",
 		MessageOptions: opts,
 	}
@@ -133,8 +123,12 @@ func (m *manager) createNotification(ctx context.Context, p *project.WithIdAndNa
 	return nil
 }
 
-func (m *manager) sendEmail(ctx context.Context, p *project.WithIdAndName, pi *projectInvite.WithToken, s, u *user.WithPublicInfo) error {
-	inviteURL := m.getInviteURL(p, pi, s)
+func (m *manager) sendEmail(ctx context.Context, d *projectInviteDetails) error {
+	inviteURL := d.GetInviteURL(m.options.SiteURL)
+	p := d.project
+	s := d.sender
+	u := d.user
+
 	message := fmt.Sprintf(
 		"%s wants to share %s with you.",
 		spamSafe.GetSafeEmail(s.Email, "a collaborator"),
