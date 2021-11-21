@@ -26,6 +26,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -41,12 +42,14 @@ func New(options *types.Options, db *mongo.Database) (Manager, error) {
 		if err != nil {
 			return nil, err
 		}
+		pim := projectInvite.New(db)
 		pm := project.New(db)
 		um := user.New(db)
 		return &monolithManager{
-			dm: dm,
-			pm: pm,
-			um: um,
+			dm:  dm,
+			pim: pim,
+			pm:  pm,
+			um:  um,
 		}, nil
 	}
 	return &manager{

@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -46,9 +47,9 @@ type JoinProjectDetails struct {
 	project.JoinProjectViewPublic
 	project.PublicAccessLevelField
 	project.TokensField
-	DeletedDocs []doc.Name             `json:"deletedDocs"`
-	Features    user.Features          `json:"features"`
-	Owner       user.WithPublicInfo    `json:"owner"`
-	Members     []user.AsProjectMember `json:"members"`
-	Invites     []interface{}          `json:"invites"`
+	DeletedDocs []doc.Name                    `json:"deletedDocs"`
+	Features    user.Features                 `json:"features"`
+	Owner       user.WithPublicInfo           `json:"owner"`
+	Members     []user.AsProjectMember        `json:"members"`
+	Invites     []*projectInvite.WithoutToken `json:"invites"`
 }

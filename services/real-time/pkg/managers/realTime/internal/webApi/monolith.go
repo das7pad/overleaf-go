@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
@@ -31,9 +32,10 @@ import (
 )
 
 type monolithManager struct {
-	dm docstore.Manager
-	pm project.Manager
-	um user.Manager
+	dm  docstore.Manager
+	pim projectInvite.Manager
+	pm  project.Manager
+	um  user.Manager
 }
 
 const self = "self"
@@ -55,6 +57,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	var deletedDocs []doc.Name
 	owner := &user.WithPublicInfoAndFeatures{}
 	members := make([]user.AsProjectMember, 0)
+	invites := make([]*projectInvite.WithoutToken, 0)
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -82,6 +85,14 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 			)
 			if err2 != nil {
 				return errors.Tag(err2, "cannot get members")
+			}
+			return nil
+		})
+		eg.Go(func() error {
+			var err2 error
+			invites, err2 = m.pim.GetAllForProject(pCtx, request.ProjectId)
+			if err2 != nil {
+				return errors.Tag(err2, "cannot get project invites")
 			}
 			return nil
 		})
@@ -119,7 +130,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		Owner:                  owner.WithPublicInfo,
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
-		Invites:                make([]interface{}, 0),
+		Invites:                invites,
 	}
 
 	return &types.JoinProjectWebApiResponse{
