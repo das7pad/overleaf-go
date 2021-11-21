@@ -165,6 +165,7 @@ func (h *httpController) GetRouter(
 		// block access for token users with readOnly project access
 		r := projectJWTRouter.Group("")
 		r.Use(blockRestrictedUsers)
+		r.GET("/members", h.listProjectMembers)
 		r.GET("/messages", h.getProjectMessages)
 		r.POST("/messages", h.sendProjectMessage)
 	}
@@ -174,8 +175,6 @@ func (h *httpController) GetRouter(
 		r.Use(requireAdminAccess)
 
 		r.GET("/invites", h.listProjectInvites)
-		r.GET("/members", h.listProjectMembers)
-
 		rInvite := r.Group("/invite/:inviteId")
 		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
 		rInvite.DELETE("", h.revokeProjectInvite)
