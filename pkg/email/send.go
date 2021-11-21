@@ -99,12 +99,13 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 
 	w := b
 	m := multipart.NewWriter(w)
+	rndHex := m.Boundary()
 
 	// The body parts are 'quoted-printable' encoded. The encoding uses '=' for
 	//  denoting forced line breaks and encoding non-ASCII characters. It
 	//  encodes the literal character '=' as '=3D'.
 	// It is hence impossible to get the sequence '==' in the encoded output.
-	if err := m.SetBoundary("==" + m.Boundary() + "=="); err != nil {
+	if err := m.SetBoundary("==" + rndHex + "=="); err != nil {
 		return errors.Tag(err, "cannot set robust boundary")
 	}
 
@@ -116,7 +117,7 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		"Date": now.Format(time.RFC1123Z),
 		"From": o.From.String(),
 		"Message-Id": fmt.Sprintf(
-			"<%x-%s@%s>", now.UnixNano(), m.Boundary(), o.From.Address.Host(),
+			"<%x-%s@%s>", now.UnixNano(), rndHex, o.From.Address.Host(),
 		),
 		"MIME-Version": "1.0",
 		"Reply-To":     replyTo.String(),
