@@ -26,7 +26,6 @@ import (
 type Identity struct {
 	Address     sharedTypes.Email `json:"address"`
 	DisplayName string            `json:"display_name"`
-	FirstName   string            `json:"first_name"`
 }
 
 func (i *Identity) String() string {

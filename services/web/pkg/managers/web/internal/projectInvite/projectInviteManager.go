@@ -158,16 +158,14 @@ func (m *manager) sendEmail(ctx context.Context, d *projectInviteDetails) error 
 			},
 		},
 		ReplyTo: &email.Identity{
-			Address:   s.Email,
-			FirstName: spamSafe.GetSafeUserName(s.FirstName, ""),
+			Address: s.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				s.DisplayName(), "Project owner",
 			),
 		},
 		Subject: title,
 		To: &email.Identity{
-			Address:   u.Email,
-			FirstName: spamSafe.GetSafeUserName(u.FirstName, ""),
+			Address: u.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				u.DisplayName(), "",
 			),
