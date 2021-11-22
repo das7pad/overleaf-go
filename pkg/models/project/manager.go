@@ -49,8 +49,8 @@ type Manager interface {
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
 	GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error)
 	GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error
-	GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
-	GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error
+	GrantReadAndWriteTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
+	GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
 	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
@@ -61,7 +61,7 @@ type Manager interface {
 	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error
-	RemoveMember(ctx context.Context, projectId, userId primitive.ObjectID) error
+	RemoveMember(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -272,6 +272,20 @@ func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitiv
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
+func (m *manager) updateWithEpochGuard(ctx context.Context, projectId primitive.ObjectID, epoch int64, u interface{}) error {
+	withEpochGuard := withIdAndEpoch{}
+	withEpochGuard.Id = projectId
+	withEpochGuard.Epoch = epoch
+	r, err := m.c.UpdateOne(ctx, withEpochGuard, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.MatchedCount != 1 {
+		return ErrEpochIsNotStable
+	}
+	return nil
+}
+
 func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId primitive.ObjectID, minLevel sharedTypes.PrivilegeLevel, u interface{}) error {
 	for i := 0; i < 10; i++ {
 		p := &ForAuthorizationDetails{}
@@ -287,15 +301,12 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId pr
 		if err = d.PrivilegeLevel.CheckIsAtLeast(minLevel); err != nil {
 			return err
 		}
-		withEpochGuard := withIdAndEpoch{}
-		withEpochGuard.Id = projectId
-		withEpochGuard.Epoch = d.Epoch
-		r, err := m.c.UpdateOne(ctx, withEpochGuard, u)
+		err = m.updateWithEpochGuard(ctx, projectId, p.Epoch, u)
 		if err != nil {
+			if err == ErrEpochIsNotStable {
+				continue
+			}
 			return err
-		}
-		if r.MatchedCount != 1 {
-			continue
 		}
 		return nil
 	}
@@ -555,10 +566,6 @@ func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId primitiv
 }
 
 func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error {
-	q := withIdAndEpoch{}
-	q.Id = projectId
-	q.Epoch = epoch
-
 	u := bson.M{
 		// Use the epoch as guard for concurrent write operations, this
 		//  includes revoking of invitations.
@@ -585,14 +592,7 @@ func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.Obj
 		return errors.New("invalid member access level: " + string(level))
 	}
 
-	r, err := m.c.UpdateOne(ctx, q, u)
-	if err != nil {
-		return err
-	}
-	if r.MatchedCount != 1 {
-		return ErrEpochIsNotStable
-	}
-	return nil
+	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
 }
 
 func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
@@ -607,6 +607,7 @@ func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId p
 	}
 	r := &TokenAccessResult{
 		ProjectId: p.Id,
+		Epoch:     p.Epoch,
 		Fresh:     freshAccess,
 	}
 	if userId.IsZero() {
@@ -616,30 +617,24 @@ func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId p
 	return r, nil
 }
 
-func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error {
-	q := &IdField{Id: projectId}
+func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
 	u := &bson.M{
+		"$inc": EpochField{Epoch: 1},
 		"$addToSet": &bson.M{
 			"tokenAccessReadAndWrite_refs": userId,
 		},
 	}
-	if _, err := m.c.UpdateOne(ctx, q, u); err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
 }
 
-func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId, userId primitive.ObjectID) error {
-	q := &IdField{Id: projectId}
+func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
 	u := &bson.M{
+		"$inc": EpochField{Epoch: 1},
 		"$addToSet": &bson.M{
 			"tokenAccessReadOnly_refs": userId,
 		},
 	}
-	if _, err := m.c.UpdateOne(ctx, q, u); err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
 }
 
 func (m *manager) MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error {
@@ -654,8 +649,7 @@ func (m *manager) MarkAsOpened(ctx context.Context, projectId primitive.ObjectID
 	return m.set(ctx, projectId, &LastOpenedField{LastOpened: time.Now()})
 }
 
-func (m *manager) RemoveMember(ctx context.Context, projectId, userId primitive.ObjectID) error {
-	q := &IdField{Id: projectId}
+func (m *manager) RemoveMember(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
 	u := bson.M{
 		"$inc": EpochField{Epoch: 1},
 	}
@@ -666,9 +660,5 @@ func (m *manager) RemoveMember(ctx context.Context, projectId, userId primitive.
 	}
 	u["$pull"] = pull
 
-	_, err := m.c.UpdateOne(ctx, q, u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
 }

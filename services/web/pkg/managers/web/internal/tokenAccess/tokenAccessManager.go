@@ -19,9 +19,11 @@ package tokenAccess
 import (
 	"context"
 
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -31,12 +33,16 @@ type Manager interface {
 	GrantTokenAccessReadOnly(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error
 }
 
-func New(pm project.Manager) Manager {
-	return &manager{pm: pm}
+func New(client redis.UniversalClient, pm project.Manager) Manager {
+	return &manager{
+		client: client,
+		pm:     pm,
+	}
 }
 
 type manager struct {
-	pm project.Manager
+	client redis.UniversalClient
+	pm     project.Manager
 }
 
 func (m *manager) GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {
@@ -54,30 +60,44 @@ func (m *manager) GrantTokenAccessReadOnly(ctx context.Context, request *types.G
 }
 
 type getTokenAccess func(ctx context.Context, userId primitive.ObjectID, token project.AccessToken) (*project.TokenAccessResult, error)
-type grantAccess func(ctx context.Context, projectId, userId primitive.ObjectID) error
+type grantAccess func(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
 
 func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, getter getTokenAccess, granter grantAccess) error {
 	userId := request.Session.User.Id
 	token := request.Token
-	r, err := getter(ctx, userId, token)
-	if err != nil {
-		if errors.IsNotAuthorizedError(err) {
-			response.RedirectTo = "/restricted"
-			return nil
-		}
-		return err
-	}
-	projectId := r.ProjectId
-	if request.Session.IsLoggedIn() {
-		if r.ShouldGrantHigherAccess() {
-			err = granter(ctx, projectId, userId)
-			if err != nil {
-				return errors.Tag(err, "cannot grant access")
+	for i := 0; i < 10; i++ {
+		r, err := getter(ctx, userId, token)
+		if err != nil {
+			if errors.IsNotAuthorizedError(err) {
+				response.RedirectTo = "/restricted"
+				return nil
 			}
+			return err
 		}
-	} else {
-		request.Session.AddAnonTokenAccess(projectId, token)
+		projectId := r.ProjectId
+		if request.Session.IsLoggedIn() {
+			if r.ShouldGrantHigherAccess() {
+				// Clearing the epoch is OK to do at any time.
+				// Clear it just ahead of committing the tx.
+				err = projectJWT.ClearProjectField(ctx, m.client, projectId)
+				if err != nil {
+					return err
+				}
+				err = granter(ctx, projectId, r.Epoch, userId)
+				// Clear it again after potentially updating the epoch.
+				_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
+				if err != nil {
+					if errors.GetCause(err) == project.ErrEpochIsNotStable {
+						continue
+					}
+					return errors.Tag(err, "cannot grant access")
+				}
+			}
+		} else {
+			request.Session.AddAnonTokenAccess(projectId, token)
+		}
+		response.RedirectTo = "/project/" + projectId.Hex()
+		return nil
 	}
-	response.RedirectTo = "/project/" + projectId.Hex()
-	return err
+	return project.ErrEpochIsNotStable
 }

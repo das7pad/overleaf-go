@@ -25,6 +25,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -36,29 +37,40 @@ func (m *manager) LeaveProject(ctx context.Context, request *types.LeaveProjectR
 	}
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
-	d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
-	if err != nil {
-		if errors.IsNotAuthorizedError(err) {
-			// Already removed.
-			return nil
+	for i := 0; i < 10; i++ {
+		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
+		if err != nil {
+			if errors.IsNotAuthorizedError(err) {
+				// Already removed.
+				return nil
+			}
+			return errors.Tag(err, "cannot check auth")
 		}
-		return errors.Tag(err, "cannot check auth")
+		if d.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
+			return &errors.InvalidStateError{Msg: "cannot leave owned project"}
+		}
+		err = m.removeMemberFromProject(ctx, projectId, d.Epoch, userId)
+		if err != nil {
+			if errors.GetCause(err) == project.ErrEpochIsNotStable {
+				continue
+			}
+			return err
+		}
+		return nil
 	}
-	if d.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
-		return &errors.InvalidStateError{Msg: "cannot leave owned project"}
-	}
-	return m.removeMemberFromProject(ctx, projectId, userId)
+	return project.ErrEpochIsNotStable
 }
 
 func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error {
 	projectId := request.ProjectId
 	userId := request.UserId
-	return m.removeMemberFromProject(ctx, projectId, userId)
+	epoch := request.Epoch
+	return m.removeMemberFromProject(ctx, projectId, epoch, userId)
 }
 
-func (m *manager) removeMemberFromProject(ctx context.Context, projectId, userId primitive.ObjectID) error {
+func (m *manager) removeMemberFromProject(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
 	err := mongoTx.For(m.db, ctx, func(ctx context.Context) error {
-		if err := m.pm.RemoveMember(ctx, projectId, userId); err != nil {
+		if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
 			return errors.Tag(err, "cannot remove user from project")
 		}
 		if err := m.tm.RemoveProjectBulk(ctx, userId, projectId); err != nil {
@@ -87,6 +99,7 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId, userId
 type refreshMembershipDetails struct {
 	Invites bool `json:"invites,omitempty"`
 	Members bool `json:"members,omitempty"`
+	Owner   bool `json:"owner,omitempty"`
 }
 
 func (m *manager) notifyEditorAboutChanges(projectId primitive.ObjectID, r *refreshMembershipDetails) {

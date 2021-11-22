@@ -116,7 +116,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	sm := session.New(options.SessionCookie, client)
 	tagM := tag.New(tm)
-	tam := tokenAccess.New(pm)
+	tam := tokenAccess.New(client, pm)
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm, nm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,

@@ -144,6 +144,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, a
 
 type TokenAccessResult struct {
 	ProjectId primitive.ObjectID
+	Epoch     int64
 	Fresh     *AuthorizationDetails
 	Existing  *AuthorizationDetails
 }

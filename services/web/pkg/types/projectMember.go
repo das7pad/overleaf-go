@@ -39,6 +39,7 @@ type ListProjectMembersResponse struct {
 
 type RemoveProjectMemberRequest struct {
 	ProjectId primitive.ObjectID `json:"-"`
+	Epoch     int64              `json:"-"`
 	UserId    primitive.ObjectID `json:"-"`
 }
 

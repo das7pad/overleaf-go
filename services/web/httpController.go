@@ -966,6 +966,7 @@ func (h *httpController) removeMemberFromProject(c *gin.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RemoveProjectMemberRequest{
 		ProjectId: o.ProjectId,
+		Epoch:     projectJWT.MustGet(c).Epoch,
 		UserId:    httpUtils.GetId(c, "userId"),
 	}
 	err := h.wm.RemoveMemberFromProject(c, request)
