@@ -44,6 +44,7 @@ type Manager interface {
 	LeaveProject(ctx context.Context, request *types.LeaveProjectRequest) error
 	RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error
 	SetMemberPrivilegeLevelInProject(ctx context.Context, request *types.SetMemberPrivilegeLevelInProjectRequest) error
+	TransferProjectOwnership(ctx context.Context, request *types.TransferProjectOwnershipRequest) error
 	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
@@ -63,6 +64,7 @@ func New(options *types.Options, client redis.UniversalClient, db *mongo.Databas
 		jwtProject:      projectJWTHandler,
 		jwtLoggedInUser: loggedInUserJWTHandler,
 		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
+		options:         options,
 		pm:              pm,
 		tm:              tm,
 		um:              um,
@@ -81,6 +83,7 @@ type manager struct {
 	jwtProject      jwtHandler.JWTHandler
 	jwtLoggedInUser jwtHandler.JWTHandler
 	jwtSpelling     jwtHandler.JWTHandler
+	options         *types.Options
 	pm              project.Manager
 	tm              tag.Manager
 	um              user.Manager

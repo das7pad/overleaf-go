@@ -25,20 +25,21 @@ import (
 var (
 	forMemberRemovalFields = views.GetFieldsOf(forMemberRemoval{})
 
-	epochFieldProjection              = views.GetProjectionFor(EpochField{})
-	lastUpdatedAtFieldProjection      = views.GetProjectionFor(LastUpdatedAtField{})
-	forAuthorizationDetailsProjection = views.GetProjectionFor(ForAuthorizationDetails{})
-	forProjectInviteProjection        = views.GetProjectionFor(ForProjectInvite{})
-	forTokenAccessCheckProjection     = views.GetProjectionFor(forTokenAccessCheck{})
-	withInvitedMembersProjection      = views.GetProjectionFor(WithInvitedMembers{})
-	withTreeProjection                = views.GetProjectionFor(WithTree{})
-	withMembersProjection             = views.GetProjectionFor(WithMembers{})
-	withTokenMembersProjection        = views.GetProjectionFor(WithTokenMembers{})
-	joinProjectViewPrivateProjection  = views.GetProjectionFor(JoinProjectViewPrivate{})
-	listViewPrivateProjection         = views.GetProjectionFor(ListViewPrivate{})
-	loadEditorViewPrivateProjection   = views.GetProjectionFor(LoadEditorViewPrivate{})
-	withTreeAndAuth                   = views.GetProjectionFor(WithTreeAndAuth{})
-	withTreeAndRootDoc                = views.GetProjectionFor(WithTreeAndRootDoc{})
+	epochFieldProjection                  = views.GetProjectionFor(EpochField{})
+	lastUpdatedAtFieldProjection          = views.GetProjectionFor(LastUpdatedAtField{})
+	forAuthorizationDetailsProjection     = views.GetProjectionFor(ForAuthorizationDetails{})
+	forProjectInviteProjection            = views.GetProjectionFor(ForProjectInvite{})
+	forProjectOwnershipTransferProjection = views.GetProjectionFor(ForProjectOwnershipTransfer{})
+	forTokenAccessCheckProjection         = views.GetProjectionFor(forTokenAccessCheck{})
+	withInvitedMembersProjection          = views.GetProjectionFor(WithInvitedMembers{})
+	withTreeProjection                    = views.GetProjectionFor(WithTree{})
+	withMembersProjection                 = views.GetProjectionFor(WithMembers{})
+	withTokenMembersProjection            = views.GetProjectionFor(WithTokenMembers{})
+	joinProjectViewPrivateProjection      = views.GetProjectionFor(JoinProjectViewPrivate{})
+	listViewPrivateProjection             = views.GetProjectionFor(ListViewPrivate{})
+	loadEditorViewPrivateProjection       = views.GetProjectionFor(LoadEditorViewPrivate{})
+	withTreeAndAuth                       = views.GetProjectionFor(WithTreeAndAuth{})
+	withTreeAndRootDoc                    = views.GetProjectionFor(WithTreeAndRootDoc{})
 )
 
 func getProjection(model interface{}) views.View {
@@ -75,6 +76,8 @@ func getProjection(model interface{}) views.View {
 		return withTreeAndRootDoc
 	case *ForProjectInvite:
 		return forProjectInviteProjection
+	case *ForProjectOwnershipTransfer:
+		return forProjectOwnershipTransferProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

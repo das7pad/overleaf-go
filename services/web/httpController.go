@@ -181,6 +181,7 @@ func (h *httpController) GetRouter(
 		rInvite.DELETE("", h.revokeProjectInvite)
 		rInvite.POST("/resend", h.resendProjectInvite)
 
+		r.POST("/transfer-ownership", h.transferProjectOwnership)
 		rUser := r.Group("/users/:userId")
 		rUser.Use(httpUtils.ValidateAndSetId("userId"))
 		rUser.DELETE("", h.removeMemberFromProject)
@@ -982,6 +983,18 @@ func (h *httpController) setMemberPrivilegeLevelInProject(c *gin.Context) {
 	request.ProjectId = o.ProjectId
 	request.UserId = httpUtils.GetId(c, "userId")
 	err := h.wm.SetMemberPrivilegeLevelInProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) transferProjectOwnership(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.TransferProjectOwnershipRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.PreviousOwnerId = o.UserId
+	err := h.wm.TransferProjectOwnership(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 

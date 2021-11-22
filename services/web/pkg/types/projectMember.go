@@ -48,3 +48,9 @@ type SetMemberPrivilegeLevelInProjectRequest struct {
 	UserId         primitive.ObjectID         `json:"-"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 }
+
+type TransferProjectOwnershipRequest struct {
+	ProjectId       primitive.ObjectID `json:"-"`
+	PreviousOwnerId primitive.ObjectID `json:"-"`
+	NewOwnerId      primitive.ObjectID `json:"user_id"`
+}

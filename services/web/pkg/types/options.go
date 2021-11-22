@@ -33,8 +33,9 @@ import (
 )
 
 type Options struct {
-	AppName string `json:"app_name"`
-	Email   struct {
+	AdminEmail sharedTypes.Email `json:"admin_email"`
+	AppName    string            `json:"app_name"`
+	Email      struct {
 		CustomFooter     string            `json:"custom_footer"`
 		CustomFooterHTML template.HTML     `json:"custom_footer_html"`
 		From             *email.Identity   `json:"from"`
@@ -79,6 +80,9 @@ type Options struct {
 }
 
 func (o *Options) Validate() error {
+	if err := o.AdminEmail.Validate(); err != nil {
+		return errors.Tag(err, "admin_email is invalid")
+	}
 	if o.AppName == "" {
 		return &errors.ValidationError{Msg: "app_name is missing"}
 	}

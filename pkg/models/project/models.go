@@ -101,6 +101,12 @@ type ForProjectInvite struct {
 	ForAuthorizationDetails `bson:"inline"`
 }
 
+type ForProjectOwnershipTransfer struct {
+	IdField                 `bson:"inline"`
+	NameField               `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
+}
+
 type WithTree struct {
 	TreeField    `bson:"inline"`
 	VersionField `bson:"inline"`

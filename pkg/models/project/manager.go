@@ -62,6 +62,7 @@ type Manager interface {
 	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error
 	RemoveMember(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
+	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -83,6 +84,59 @@ func removeArrayIndex(path MongoPath) MongoPath {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId primitive.ObjectID) error {
+	previousOwnerId := p.OwnerRef
+
+	// We need to add the previous owner and remove the new  owner from the
+	//  list of collaborators.
+	// Mongo does not allow multiple actions on a field in a single update
+	//  operation. We need to push and pull. Rewrite the array instead.
+	collaboratorRefs := make(Refs, 0, len(p.CollaboratorRefs))
+	for _, id := range p.CollaboratorRefs {
+		if id != newOwnerId {
+			collaboratorRefs = append(collaboratorRefs, id)
+		}
+	}
+	collaboratorRefs = append(collaboratorRefs, previousOwnerId)
+
+	//goland:noinspection SpellCheckingInspection
+	u := bson.M{
+		// Use the epoch as guard for concurrent write operations, this
+		//  includes revoking membership, which is required for the new owner.
+		"$inc": EpochField{Epoch: 1},
+
+		"$pull": bson.M{
+			"readOnly_refs":                newOwnerId,
+			"tokenAccessReadAndWrite_refs": newOwnerId,
+			"tokenAccessReadOnly_refs":     newOwnerId,
+		},
+
+		"$push": bson.M{
+			"auditLog": bson.M{
+				"$each": bson.A{
+					AuditLogEntry{
+						InitiatorId: previousOwnerId,
+						Operation:   "transfer-ownership",
+						Timestamp:   time.Now().UTC(),
+						Info: transferOwnershipAuditLogInfo{
+							PreviousOwnerId: previousOwnerId,
+							NewOwnerId:      newOwnerId,
+						},
+					},
+				},
+				"$slice": -MaxAuditLogEntries,
+			},
+		},
+
+		"$set": bson.M{
+			"owner_ref":         newOwnerId,
+			"collaberator_refs": collaboratorRefs,
+		},
+	}
+
+	return m.updateWithEpochGuard(ctx, p.Id, p.Epoch, u)
 }
 
 func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error {

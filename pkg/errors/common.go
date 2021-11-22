@@ -18,6 +18,7 @@ package errors
 
 import (
 	"errors"
+	"strings"
 )
 
 type PublicError interface {
@@ -39,6 +40,39 @@ type JavaScriptError struct {
 
 func (j *JavaScriptError) Error() string {
 	return j.Message
+}
+
+type MergedError struct {
+	errors []error
+}
+
+func (m *MergedError) Error() string {
+	if len(m.errors) == 1 {
+		return m.errors[0].Error()
+	}
+	var b strings.Builder
+	b.WriteString("merged: ")
+	for i, err := range m.errors {
+		if i != 0 {
+			b.WriteString(" + ")
+		}
+		b.WriteString(err.Error())
+	}
+	return b.String()
+}
+
+func Merge(errors ...error) error {
+	m := &MergedError{}
+	for _, err := range errors {
+		if err == nil {
+			continue
+		}
+		m.errors = append(m.errors, err)
+	}
+	if len(m.errors) == 0 {
+		return nil
+	}
+	return m
 }
 
 type TaggedError struct {
