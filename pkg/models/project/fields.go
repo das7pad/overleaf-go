@@ -23,6 +23,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type ActiveField struct {
@@ -90,7 +91,7 @@ type RootDocIdField struct {
 }
 
 type SpellCheckLanguageField struct {
-	SpellCheckLanguage string `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
 }
 
 type TokenAccessReadAndWriteRefsField struct {
