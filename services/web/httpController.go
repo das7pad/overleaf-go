@@ -422,7 +422,7 @@ func (h *httpController) logout(c *gin.Context) {
 		return
 	}
 	request := &types.LogoutRequest{Session: s}
-	err = h.wm.LogOut(c, request)
+	err = h.wm.Logout(c, request)
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}

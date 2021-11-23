@@ -19,29 +19,23 @@ package login
 import (
 	"context"
 
-	"github.com/go-redis/redis/v8"
-
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type Manager interface {
-	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
-	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
-	Logout(ctx context.Context, request *types.LogoutRequest) error
-}
-
-func New(client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
-	return &manager{
-		client:          client,
-		jwtLoggedInUser: jwtLoggedInUser,
-		um:              um,
+func (m *manager) Logout(ctx context.Context, request *types.LogoutRequest) error {
+	if request.Session.IsLoggedIn() {
+		userId := request.Session.User.Id
+		_ = projectJWT.ClearUserField(ctx, m.client, userId)
+		errBump := m.um.BumpEpoch(ctx, userId)
+		errClearAgain := projectJWT.ClearUserField(ctx, m.client, userId)
+		if errBump != nil {
+			return errors.Tag(errBump, "cannot bump user epoch in mongo")
+		}
+		if errClearAgain != nil {
+			return errors.Tag(errClearAgain, "cannot clear epoch in redis")
+		}
 	}
-}
-
-type manager struct {
-	client          redis.UniversalClient
-	jwtLoggedInUser jwtHandler.JWTHandler
-	um              user.Manager
+	return request.Session.Destroy(ctx)
 }

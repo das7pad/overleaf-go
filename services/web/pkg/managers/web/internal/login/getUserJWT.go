@@ -19,29 +19,21 @@ package login
 import (
 	"context"
 
-	"github.com/go-redis/redis/v8"
-
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type Manager interface {
-	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
-	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
-	Logout(ctx context.Context, request *types.LogoutRequest) error
-}
-
-func New(client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
-	return &manager{
-		client:          client,
-		jwtLoggedInUser: jwtLoggedInUser,
-		um:              um,
+func (m *manager) GetLoggedInUserJWT(_ context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
 	}
-}
-
-type manager struct {
-	client          redis.UniversalClient
-	jwtLoggedInUser jwtHandler.JWTHandler
-	um              user.Manager
+	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+	c.UserId = request.Session.User.Id
+	b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
+	if err != nil {
+		return errors.Tag(err, "cannot get LoggedInUserJWT")
+	}
+	*response = types.GetLoggedInUserJWTResponse(b)
+	return nil
 }
