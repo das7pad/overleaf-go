@@ -110,15 +110,11 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 	if !s.incomingUserId.IsZero() {
 		// Multi/EXEC skips over nil error from `DEL`.
 		// Perform tracking calls after deleting session id.
-		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
-			key := userSessionsKey(*s.incomingUserId)
-			tx.SRem(ctx, key, string(id))
-			tx.Expire(ctx, key, s.expiry)
-			return nil
-		})
-		if err2 != nil {
-			return err2
-		}
+		// Ignore errors as there is no option to recover from any error
+		//  (e.g. retry logging out) as the actual session data has been
+		//  cleared already.
+		key := userSessionsKey(*s.incomingUserId)
+		_ = s.client.SRem(ctx, key, string(id)).Err()
 	}
 	return nil
 }
