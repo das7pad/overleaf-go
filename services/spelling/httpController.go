@@ -77,8 +77,8 @@ func (h *httpController) status(c *gin.Context) {
 }
 
 type checkRequestBody struct {
-	Language string   `json:"language"`
-	Words    []string `json:"words"`
+	Language types.SpellCheckLanguage `json:"language"`
+	Words    []string                 `json:"words"`
 }
 
 type checkResponseBody struct {

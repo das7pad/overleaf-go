@@ -27,6 +27,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type Worker interface {
@@ -34,17 +35,17 @@ type Worker interface {
 	Done() <-chan error
 	Error() error
 	IsReady() bool
-	Language() string
+	Language() types.SpellCheckLanguage
 	CheckWords(ctx context.Context, words []string) ([]string, error)
 	Kill(reason error)
 	Shutdown(reason error)
 	TransitionState(old, new string) bool
 }
 
-func newAspellWorker(language string) (Worker, error) {
+func newAspellWorker(language types.SpellCheckLanguage) (Worker, error) {
 	cmd := exec.Command(
 		"aspell",
-		"pipe", "--mode=tex", "--encoding=utf-8", "--master", language,
+		"pipe", "--mode=tex", "--encoding=utf-8", "--master", string(language),
 	)
 
 	stdinPipe, err := cmd.StdinPipe()
@@ -101,7 +102,7 @@ type worker struct {
 	count    int
 	done     chan error
 	err      error
-	language string
+	language types.SpellCheckLanguage
 	scanner  *bufio.Scanner
 	state    string
 	stdin    io.WriteCloser
@@ -119,7 +120,7 @@ func (w *worker) Error() error {
 	return w.err
 }
 
-func (w *worker) Language() string {
+func (w *worker) Language() types.SpellCheckLanguage {
 	return w.language
 }
 
@@ -157,7 +158,7 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 	eg.Go(func() error {
 		for w.scanner.Scan() {
 			line := w.scanner.Text()
-			if line == w.language {
+			if line == string(w.language) {
 				hasReadEndOfBatchMarker <- true
 				return nil
 			}

@@ -19,10 +19,12 @@ package aspellRunner
 import (
 	"context"
 	"strings"
+
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type SuggestionKey struct {
-	Language string
+	Language types.SpellCheckLanguage
 	Word     string
 }
 
@@ -31,7 +33,7 @@ type Suggestions map[SuggestionKey][]string
 type Runner interface {
 	CheckWords(
 		ctx context.Context,
-		language string,
+		language types.SpellCheckLanguage,
 		words []string,
 	) (Suggestions, error)
 }
@@ -48,7 +50,7 @@ type runner struct {
 
 func (r *runner) CheckWords(
 	ctx context.Context,
-	language string,
+	language types.SpellCheckLanguage,
 	words []string,
 ) (Suggestions, error) {
 	lines, err := r.wp.CheckWords(ctx, language, words)
@@ -60,7 +62,7 @@ func (r *runner) CheckWords(
 
 var NoSuggestions []string
 
-func (r *runner) parseOutput(language string, lines []string) Suggestions {
+func (r *runner) parseOutput(language types.SpellCheckLanguage, lines []string) Suggestions {
 	out := make(Suggestions)
 	for _, line := range lines {
 		if len(line) < 1 {

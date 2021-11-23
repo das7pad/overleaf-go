@@ -22,12 +22,13 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type WorkerPool interface {
 	CheckWords(
 		ctx context.Context,
-		language string,
+		language types.SpellCheckLanguage,
 		words []string,
 	) ([]string, error)
 }
@@ -88,12 +89,12 @@ func (e *workerPoolEntry) Release() bool {
 }
 
 type workerPool struct {
-	createWorker func(language string) (Worker, error)
+	createWorker func(language types.SpellCheckLanguage) (Worker, error)
 	processPool  []*workerPoolEntry
 	l            *sync.Mutex
 }
 
-func (wp *workerPool) CheckWords(ctx context.Context, language string, words []string) ([]string, error) {
+func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]string, error) {
 	w, err := wp.getWorker(language)
 	if err != nil {
 		return nil, err
@@ -114,7 +115,7 @@ func (wp *workerPool) CheckWords(ctx context.Context, language string, words []s
 	return w.CheckWords(ctx, words)
 }
 
-func (wp *workerPool) getWorker(language string) (*workerPoolEntry, error) {
+func (wp *workerPool) getWorker(language types.SpellCheckLanguage) (*workerPoolEntry, error) {
 	wp.l.Lock()
 	defer wp.l.Unlock()
 

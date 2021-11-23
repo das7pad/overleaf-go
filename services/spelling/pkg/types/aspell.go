@@ -16,7 +16,28 @@
 
 package types
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/errors"
+)
+
 type Misspelling struct {
 	Index       int      `json:"index"`
 	Suggestions []string `json:"suggestions"`
+}
+
+type SpellCheckLanguage string
+
+func (l SpellCheckLanguage) Validate() error {
+	switch l {
+	case "bg":
+	case "de":
+	case "en":
+	case "es":
+	case "fr":
+	case "pt_BR":
+	case "pt_PT":
+	default:
+		return &errors.ValidationError{Msg: "non supported language specified"}
+	}
+	return nil
 }

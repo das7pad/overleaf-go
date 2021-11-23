@@ -28,7 +28,7 @@ import (
 type Manager interface {
 	CheckWords(
 		ctx context.Context,
-		language string,
+		language types.SpellCheckLanguage,
 		words []string,
 	) ([]types.Misspelling, error)
 }
@@ -51,7 +51,7 @@ type manager struct {
 
 func (m *manager) CheckWords(
 	ctx context.Context,
-	language string,
+	language types.SpellCheckLanguage,
 	words []string,
 ) ([]types.Misspelling, error) {
 	suggestions := make(aspellRunner.Suggestions)

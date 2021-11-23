@@ -30,7 +30,7 @@ import (
 type Manager interface {
 	CheckWords(
 		ctx context.Context,
-		language string,
+		language types.SpellCheckLanguage,
 		words []string,
 	) ([]types.Misspelling, error)
 
@@ -77,7 +77,10 @@ type manager struct {
 	lm learnedWords.Manager
 }
 
-func (m *manager) CheckWords(ctx context.Context, language string, words []string) ([]types.Misspelling, error) {
+func (m *manager) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]types.Misspelling, error) {
+	if err := language.Validate(); err != nil {
+		return nil, err
+	}
 	if len(words) > RequestLimit {
 		words = words[:RequestLimit]
 	}
