@@ -60,7 +60,7 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, request 
 			return errors.Tag(err, "cannot remove user from project")
 		}
 
-		go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
+		go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
 			Members: true,
 		})
 		return nil

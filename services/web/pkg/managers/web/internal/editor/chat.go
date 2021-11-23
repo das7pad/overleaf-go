@@ -18,11 +18,9 @@ package editor
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -71,14 +69,8 @@ func (m *manager) SendProjectMessage(ctx context.Context, request *types.SendPro
 		Message: *rawMessage,
 		User:    u,
 	}
-	blob, err := json.Marshal(message)
-	if err != nil {
-		return nil
-	}
-	_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-		RoomId:  request.ProjectId,
-		Message: "new-chat-message",
-		Payload: blob,
-	})
+	go m.notifyEditor(
+		request.ProjectId, "new-chat-message", message,
+	)
 	return nil
 }

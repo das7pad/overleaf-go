@@ -99,7 +99,7 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 			return errors.Tag(err, "cannot transfer ownership")
 		}
 
-		go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
+		go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
 			Members: true,
 			Owner:   true,
 		})

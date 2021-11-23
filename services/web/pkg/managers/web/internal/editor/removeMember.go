@@ -18,8 +18,6 @@ package editor
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -90,28 +88,8 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId primiti
 	if err != nil {
 		return err
 	}
-	go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
 		Members: true,
 	})
 	return nil
-}
-
-type refreshMembershipDetails struct {
-	Invites bool `json:"invites,omitempty"`
-	Members bool `json:"members,omitempty"`
-	Owner   bool `json:"owner,omitempty"`
-}
-
-func (m *manager) notifyEditorAboutChanges(projectId primitive.ObjectID, r *refreshMembershipDetails) {
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-
-	payload := []interface{}{r}
-	if b, err2 := json.Marshal(payload); err2 == nil {
-		_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-			RoomId:  projectId,
-			Message: "project:membership:changed",
-			Payload: b,
-		})
-	}
 }

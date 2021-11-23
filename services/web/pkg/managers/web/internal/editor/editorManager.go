@@ -18,8 +18,11 @@ package editor
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
@@ -29,6 +32,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
@@ -88,4 +92,28 @@ type manager struct {
 	tm              tag.Manager
 	um              user.Manager
 	wsBootstrap     jwtHandler.JWTHandler
+}
+
+func (m *manager) notifyEditor(projectId primitive.ObjectID, message string, args ...interface{}) {
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	blob, err := json.Marshal(args)
+	if err != nil {
+		return
+	}
+	_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
+		RoomId:  projectId,
+		Message: message,
+		Payload: blob,
+	})
+}
+
+type refreshMembershipDetails struct {
+	Invites bool `json:"invites,omitempty"`
+	Members bool `json:"members,omitempty"`
+	Owner   bool `json:"owner,omitempty"`
+}
+
+func (m *manager) notifyEditorAboutAccessChanges(projectId primitive.ObjectID, r *refreshMembershipDetails) {
+	m.notifyEditor(projectId, "project:membership:changed", r)
 }
