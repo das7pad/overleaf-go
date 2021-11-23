@@ -25,6 +25,17 @@ import (
 
 type AccessSource string
 type PublicAccessLevel string
+
+func (l PublicAccessLevel) Validate() error {
+	switch l {
+	case PrivateAccess:
+	case TokenBasedAccess:
+	default:
+		return &errors.ValidationError{Msg: "unknown PublicAccessLevel"}
+	}
+	return nil
+}
+
 type IsRestrictedUser bool
 type IsTokenMember bool
 
@@ -34,6 +45,7 @@ const (
 	AccessSourceInvite AccessSource = "invite"
 
 	TokenBasedAccess PublicAccessLevel = "tokenBased"
+	PrivateAccess    PublicAccessLevel = "private"
 )
 
 type AuthorizationDetails struct {

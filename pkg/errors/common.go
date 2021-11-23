@@ -61,13 +61,16 @@ func (m *MergedError) Error() string {
 	return b.String()
 }
 
+func (m *MergedError) Add(err error) {
+	if err != nil {
+		m.errors = append(m.errors, err)
+	}
+}
+
 func Merge(errors ...error) error {
 	m := &MergedError{}
 	for _, err := range errors {
-		if err == nil {
-			continue
-		}
-		m.errors = append(m.errors, err)
+		m.Add(err)
 	}
 	if len(m.errors) == 0 {
 		return nil

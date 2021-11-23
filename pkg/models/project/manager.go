@@ -29,6 +29,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type Manager interface {
@@ -51,11 +53,17 @@ type Manager interface {
 	GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
+	PopulateTokens(ctx context.Context, projectId primitive.ObjectID) (*Tokens, error)
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
 	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
+	SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler clsiTypes.Compiler) error
+	SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName clsiTypes.ImageName) error
+	SetSpellCheckLanguage(ctx context.Context, projectId primitive.ObjectID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
+	SetRootDocId(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, rootDocId primitive.ObjectID) error
+	SetPublicAccessLevel(ctx context.Context, projectId primitive.ObjectID, epoch int64, level PublicAccessLevel) error
 	ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
@@ -84,6 +92,73 @@ func removeArrayIndex(path MongoPath) MongoPath {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) PopulateTokens(ctx context.Context, projectId primitive.ObjectID) (*Tokens, error) {
+	allErrors := &errors.MergedError{}
+	for i := 0; i < 10; i++ {
+		tokens, err := generateTokens()
+		if err != nil {
+			allErrors.Add(err)
+			continue
+		}
+		q := bson.M{
+			"_id": projectId,
+			"tokens.readAndWritePrefix": bson.M{
+				"$exists": false,
+			},
+		}
+		u := bson.M{
+			"$set": TokensField{Tokens: *tokens},
+		}
+		r, err := m.c.UpdateOne(ctx, q, u)
+		if err != nil {
+			if mongo.IsDuplicateKeyError(err) {
+				allErrors.Add(err)
+				continue
+			}
+			return nil, rewriteMongoError(err)
+		}
+		if r.MatchedCount == 1 {
+			return tokens, nil
+		}
+		return nil, nil
+	}
+	return nil, errors.Tag(allErrors, "bad random source")
+}
+
+func (m *manager) SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler clsiTypes.Compiler) error {
+	return m.set(ctx, projectId, CompilerField{
+		Compiler: compiler,
+	})
+}
+
+func (m *manager) SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName clsiTypes.ImageName) error {
+	return m.set(ctx, projectId, ImageNameField{
+		ImageName: imageName,
+	})
+}
+
+func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId primitive.ObjectID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
+	return m.set(ctx, projectId, SpellCheckLanguageField{
+		SpellCheckLanguage: spellCheckLanguage,
+	})
+}
+
+func (m *manager) SetRootDocId(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, rootDocId primitive.ObjectID) error {
+	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
+		"$set": RootDocIdField{
+			RootDocId: rootDocId,
+		},
+	})
+}
+
+func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId primitive.ObjectID, epoch int64, publicAccessLevel PublicAccessLevel) error {
+	return m.setWithEpochGuard(ctx, projectId, epoch, bson.M{
+		"$set": PublicAccessLevelField{
+			PublicAccessLevel: publicAccessLevel,
+		},
+	})
 }
 
 func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId primitive.ObjectID) error {
@@ -136,7 +211,7 @@ func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipT
 		},
 	}
 
-	return m.updateWithEpochGuard(ctx, p.Id, p.Epoch, u)
+	return m.setWithEpochGuard(ctx, p.Id, p.Epoch, u)
 }
 
 func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error {
@@ -156,25 +231,12 @@ func (m *manager) Rename(ctx context.Context, projectId, userId primitive.Object
 var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}
 
 func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
-	q := &withIdAndVersion{}
-	q.Id = projectId
-	q.Version = version
-
-	u := &bson.M{
+	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
 		"$push": bson.M{
 			string(mongoPath + "." + element.FieldNameInFolder()): element,
 		},
 		"$inc": VersionField{Version: 1},
-	}
-
-	r, err := m.c.UpdateOne(ctx, q, u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.MatchedCount != 1 {
-		return ErrVersionChanged
-	}
-	return nil
+	})
 }
 
 func (m *manager) DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
@@ -186,10 +248,6 @@ func (m *manager) DeleteTreeElementAndRootDoc(ctx context.Context, projectId pri
 }
 
 func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement, unsetRootDoc bool) error {
-	q := &withIdAndVersion{}
-	q.Id = projectId
-	q.Version = version
-
 	u := bson.M{
 		"$pull": bson.M{
 			string(removeArrayIndex(mongoPath)): CommonTreeFields{
@@ -204,22 +262,10 @@ func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectI
 			"rootDoc_id": true,
 		}
 	}
-
-	r, err := m.c.UpdateOne(ctx, q, &u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.MatchedCount != 1 {
-		return ErrVersionChanged
-	}
-	return nil
+	return m.setWithVersionGuard(ctx, projectId, version, u)
 }
 
 func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error {
-	q := &withIdAndVersion{}
-	q.Id = projectId
-	q.Version = version
-
 	// NOTE: Mongo allows one operation per field only.
 	//       We need to push/pull into/from the same rootFolder.
 	//       Use a transaction for the move operation.
@@ -240,12 +286,9 @@ func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.Objec
 	}
 	err := mongoTx.For(m.c.Database(), ctx, func(ctx context.Context) error {
 		for _, u := range []interface{}{u1, u2} {
-			r, err := m.c.UpdateOne(ctx, q, u)
+			err := m.setWithVersionGuard(ctx, projectId, version, u)
 			if err != nil {
-				return rewriteMongoError(err)
-			}
-			if r.MatchedCount != 1 {
-				return ErrVersionChanged
+				return err
 			}
 		}
 		return nil
@@ -257,25 +300,12 @@ func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.Objec
 }
 
 func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error {
-	q := &withIdAndVersion{}
-	q.Id = projectId
-	q.Version = version
-
-	u := &bson.M{
+	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
 		"$set": bson.M{
 			string(mongoPath) + ".name": name,
 		},
 		"$inc": VersionField{Version: 1},
-	}
-
-	r, err := m.c.UpdateOne(ctx, q, u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.MatchedCount != 1 {
-		return ErrVersionChanged
-	}
-	return nil
+	})
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
@@ -326,16 +356,30 @@ func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitiv
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
-func (m *manager) updateWithEpochGuard(ctx context.Context, projectId primitive.ObjectID, epoch int64, u interface{}) error {
-	withEpochGuard := withIdAndEpoch{}
-	withEpochGuard.Id = projectId
-	withEpochGuard.Epoch = epoch
-	r, err := m.c.UpdateOne(ctx, withEpochGuard, u)
+func (m *manager) setWithEpochGuard(ctx context.Context, projectId primitive.ObjectID, epoch int64, u interface{}) error {
+	q := withIdAndEpoch{}
+	q.Id = projectId
+	q.Epoch = epoch
+	r, err := m.c.UpdateOne(ctx, q, u)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
 	if r.MatchedCount != 1 {
 		return ErrEpochIsNotStable
+	}
+	return nil
+}
+
+func (m *manager) setWithVersionGuard(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, u interface{}) error {
+	q := &withIdAndVersion{}
+	q.Id = projectId
+	q.Version = version
+	r, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.MatchedCount != 1 {
+		return ErrVersionChanged
 	}
 	return nil
 }
@@ -355,7 +399,7 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId pr
 		if err = d.PrivilegeLevel.CheckIsAtLeast(minLevel); err != nil {
 			return err
 		}
-		err = m.updateWithEpochGuard(ctx, projectId, p.Epoch, u)
+		err = m.setWithEpochGuard(ctx, projectId, p.Epoch, u)
 		if err != nil {
 			if err == ErrEpochIsNotStable {
 				continue
@@ -646,7 +690,7 @@ func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.Obj
 		return errors.New("invalid member access level: " + string(level))
 	}
 
-	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
+	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
 func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
@@ -678,7 +722,7 @@ func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId pr
 			"tokenAccessReadAndWrite_refs": userId,
 		},
 	}
-	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
+	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
 func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
@@ -688,7 +732,7 @@ func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId primit
 			"tokenAccessReadOnly_refs": userId,
 		},
 	}
-	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
+	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
 func (m *manager) MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error {
@@ -714,5 +758,5 @@ func (m *manager) RemoveMember(ctx context.Context, projectId primitive.ObjectID
 	}
 	u["$pull"] = pull
 
-	return m.updateWithEpochGuard(ctx, projectId, epoch, u)
+	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }

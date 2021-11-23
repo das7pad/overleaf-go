@@ -27,6 +27,7 @@ var (
 
 	epochFieldProjection                  = views.GetProjectionFor(EpochField{})
 	lastUpdatedAtFieldProjection          = views.GetProjectionFor(LastUpdatedAtField{})
+	tokensFieldProjection                 = views.GetProjectionFor(TokensField{})
 	forAuthorizationDetailsProjection     = views.GetProjectionFor(ForAuthorizationDetails{})
 	forProjectInviteProjection            = views.GetProjectionFor(ForProjectInvite{})
 	forProjectOwnershipTransferProjection = views.GetProjectionFor(ForProjectOwnershipTransfer{})
@@ -78,6 +79,8 @@ func getProjection(model interface{}) views.View {
 		return forProjectInviteProjection
 	case *ForProjectOwnershipTransfer:
 		return forProjectOwnershipTransferProjection
+	case *TokensField:
+		return tokensFieldProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

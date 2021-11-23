@@ -140,6 +140,12 @@ func (h *httpController) GetRouter(
 		// Write endpoints
 		r := projectJWTRouter.Group("")
 		r.Use(requireWriteAccess)
+
+		r.PUT("/settings/compiler", h.setCompiler)
+		r.PUT("/settings/imageName", h.setImageName)
+		r.PUT("/settings/spellCheckLanguage", h.setSpellCheckLanguage)
+		r.PUT("/settings/rootDocId", h.setRootDocId)
+
 		r.POST("/doc", h.addDocToProject)
 		r.POST("/folder", h.addFolderToProject)
 
@@ -173,6 +179,8 @@ func (h *httpController) GetRouter(
 		// admin endpoints
 		r := projectJWTRouter.Group("")
 		r.Use(requireAdminAccess)
+
+		r.PUT("/settings/admin/publicAccessLevel", h.setPublicAccessLevel)
 
 		r.POST("/invite", h.createProjectInvite)
 		r.GET("/invites", h.listProjectInvites)
@@ -1009,5 +1017,61 @@ func (h *httpController) leaveProject(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
 	err = h.wm.LeaveProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setCompiler(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetCompilerRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	err := h.wm.SetCompiler(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setImageName(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetImageNameRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	err := h.wm.SetImageName(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setSpellCheckLanguage(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetSpellCheckLanguageRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	err := h.wm.SetSpellCheckLanguage(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setRootDocId(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetRootDocIdRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	err := h.wm.SetRootDocId(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setPublicAccessLevel(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetPublicAccessLevelRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.Epoch = projectJWT.MustGet(c).Epoch
+	err := h.wm.SetPublicAccessLevel(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

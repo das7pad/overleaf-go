@@ -17,9 +17,18 @@
 package project
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
+	"math/big"
+	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+)
+
+const (
+	lenReadOnly           = 12
+	lenReadAndWrite       = 22
+	lenReadAndWritePrefix = 10
 )
 
 type AccessToken string
@@ -31,15 +40,15 @@ func (t AccessToken) EqualsTimingSafe(other AccessToken) bool {
 var ErrInvalidTokenFormat = &errors.ValidationError{Msg: "invalid token format"}
 
 func (t AccessToken) ValidateReadAndWrite() error {
-	if len(t) != 22 {
+	if len(t) != lenReadAndWrite {
 		return ErrInvalidTokenFormat
 	}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < lenReadAndWritePrefix; i++ {
 		if t[i] < '0' || t[i] > '9' {
 			return ErrInvalidTokenFormat
 		}
 	}
-	for i := 10; i < 22; i++ {
+	for i := lenReadAndWritePrefix; i < lenReadAndWrite; i++ {
 		if t[i] < 'a' || t[i] > 'z' {
 			return ErrInvalidTokenFormat
 		}
@@ -48,10 +57,10 @@ func (t AccessToken) ValidateReadAndWrite() error {
 }
 
 func (t AccessToken) ValidateReadOnly() error {
-	if len(t) != 12 {
+	if len(t) != lenReadOnly {
 		return ErrInvalidTokenFormat
 	}
-	for i := 0; i < 12; i++ {
+	for i := 0; i < lenReadOnly; i++ {
 		if t[i] < 'a' || t[i] > 'z' {
 			return ErrInvalidTokenFormat
 		}
@@ -63,4 +72,55 @@ type Tokens struct {
 	ReadOnly           AccessToken `json:"readOnly" bson:"readOnly"`
 	ReadAndWrite       AccessToken `json:"readAndWrite" bson:"readAndWrite"`
 	ReadAndWritePrefix string      `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
+}
+
+const (
+	charsetAlpha    = "bcdfghjkmnpqrstvwxyz"
+	charsetNumerics = "123456789"
+)
+
+var (
+	sizeCharsetAlpha    = big.NewInt(int64(len(charsetAlpha)))
+	sizeCharsetNumerics = big.NewInt(int64(len(charsetNumerics)))
+)
+
+func randomStringFrom(source string, max *big.Int, n int) (string, error) {
+	// NOTE: This naive implementation w/o bulk random reads is fast enough.
+	//       For all token types, p95 n=100 is in O(100µs) or 10k/s.
+	var target strings.Builder
+	for i := 0; i < n; i++ {
+		v, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", errors.Tag(err, "cannot get random int")
+		}
+		target.WriteByte(source[v.Int64()])
+	}
+	return target.String(), nil
+}
+
+func generateTokens() (*Tokens, error) {
+	ro, err := randomStringFrom(charsetAlpha, sizeCharsetAlpha, lenReadOnly)
+	if err != nil {
+		return nil, err
+	}
+
+	rwP, err := randomStringFrom(
+		charsetNumerics, sizeCharsetNumerics, lenReadAndWritePrefix,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	rwS, err := randomStringFrom(
+		charsetAlpha, sizeCharsetAlpha, lenReadAndWrite-lenReadAndWritePrefix,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Tokens{
+		ReadOnly:           AccessToken(ro),
+		ReadAndWrite:       AccessToken(rwP + rwS),
+		ReadAndWritePrefix: rwP,
+	}, nil
 }

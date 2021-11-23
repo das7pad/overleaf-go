@@ -54,6 +54,11 @@ type Manager interface {
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
 	GetWSBootstrap(ctx context.Context, request *types.GetWSBootstrapRequest, response *types.GetWSBootstrapResponse) error
 	SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error
+	SetCompiler(ctx context.Context, request *types.SetCompilerRequest) error
+	SetImageName(ctx context.Context, request *types.SetImageNameRequest) error
+	SetSpellCheckLanguage(ctx context.Context, request *types.SetSpellCheckLanguageRequest) error
+	SetRootDocId(ctx context.Context, request *types.SetRootDocIdRequest) error
+	SetPublicAccessLevel(ctx context.Context, request *types.SetPublicAccessLevelRequest) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
