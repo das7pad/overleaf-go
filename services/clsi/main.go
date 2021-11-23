@@ -18,19 +18,14 @@ package main
 
 import (
 	"context"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 )
 
 func main() {
-	// Init the default random source.
-	rand.Seed(time.Now().UnixNano())
-
 	o := getOptions()
 	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
 		context.Background(),

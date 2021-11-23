@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"math/rand"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -47,9 +46,6 @@ func waitForRedis(
 }
 
 func main() {
-	// Init the default random source.
-	rand.Seed(time.Now().UnixNano())
-
 	o := getOptions()
 	triggerExitCtx, triggerExit := signal.NotifyContext(
 		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
