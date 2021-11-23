@@ -24,10 +24,10 @@ apt-get install \
   aspell \
   aspell-bg \
   aspell-de \
-  aspell-de-1901 \
   aspell-en \
+  aspell-es \
   aspell-fr \
-  aspell-pt-br \
+  aspell-pt \
   --yes
 
 rm -rf /var/lib/apt/lists/* \
