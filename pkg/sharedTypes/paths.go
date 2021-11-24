@@ -132,7 +132,7 @@ func (p PathName) Type() FileType {
 	}
 	// Drop the dot.
 	idx += 1
-	return FileType(p[idx:])
+	return FileType(strings.ToLower(string(p[idx:])))
 }
 
 func (p PathName) Validate() error {
