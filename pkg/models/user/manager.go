@@ -30,6 +30,7 @@ import (
 )
 
 type Manager interface {
+	TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId primitive.ObjectID) error
 	GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error)
 	GetProjectMembers(ctx context.Context, readOnly, readAndWrite []primitive.ObjectID) ([]AsProjectMember, error)
@@ -50,6 +51,31 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error {
+	now := time.Now().UTC()
+	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+		"$inc": EpochField{Epoch: 1},
+		"$push": bson.M{
+			"auditLog": bson.M{
+				"$each": bson.A{
+					AuditLogEntry{
+						Info:        info,
+						InitiatorId: userId,
+						IpAddress:   ip,
+						Operation:   "clear-sessions",
+						Timestamp:   now,
+					},
+				},
+				"$slice": -MaxAuditLogEntries,
+			},
+		},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 const (

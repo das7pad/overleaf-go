@@ -19,6 +19,8 @@ package session
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -74,7 +76,7 @@ func (s *Session) Cycle(ctx context.Context) error {
 		// Perform tracking calls after getting session id.
 		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
 			key := userSessionsKey(s.User.Id)
-			tx.SAdd(ctx, key, string(r.id))
+			tx.SAdd(ctx, key, r.id.toKey())
 			tx.Expire(ctx, key, s.expiry)
 			return nil
 		})
@@ -103,7 +105,8 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 	if id == "" {
 		return nil
 	}
-	err := s.client.Del(ctx, id.toKey()).Err()
+	key := id.toKey()
+	err := s.client.Del(ctx, key).Err()
 	if err != nil && err != redis.Nil {
 		return err
 	}
@@ -113,8 +116,7 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 		// Ignore errors as there is no option to recover from any error
 		//  (e.g. retry logging out) as the actual session data has been
 		//  cleared already.
-		key := userSessionsKey(*s.incomingUserId)
-		_ = s.client.SRem(ctx, key, string(id)).Err()
+		_ = s.client.SRem(ctx, userSessionsKey(*s.incomingUserId), key).Err()
 	}
 	return nil
 }
@@ -128,6 +130,108 @@ func (s *Session) Destroy(ctx context.Context) error {
 		return err
 	}
 	s.id = ""
+	return nil
+}
+
+type OtherSessionData struct {
+	IPAddress      string    `json:"ip_address"`
+	SessionCreated time.Time `json:"session_created"`
+}
+
+type OtherSessionsDetails struct {
+	Sessions   []*OtherSessionData
+	sessionIds []Id
+}
+
+func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) {
+	if err := s.CheckIsLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	allKeys, err := s.client.SMembers(ctx, userSessionsKey(s.User.Id)).Result()
+	if err != nil {
+		return nil, errors.Tag(err, "cannot get list of sessions")
+	}
+
+	otherIds := make([]Id, 0, len(allKeys))
+	otherSessionKeys := make([]string, 0, len(allKeys))
+	for _, raw := range allKeys {
+		id := Id(strings.TrimPrefix(raw, "sess:"))
+		if id == s.id {
+			continue
+		}
+		otherIds = append(otherIds, id)
+		otherSessionKeys = append(otherSessionKeys, id.toKey())
+	}
+
+	if len(otherIds) == 0 {
+		return &OtherSessionsDetails{}, nil
+	}
+
+	sessionData := make([]*redis.StringCmd, len(otherSessionKeys))
+	_, err = s.client.Pipelined(ctx, func(p redis.Pipeliner) error {
+		for i, key := range otherSessionKeys {
+			sessionData[i] = p.Get(ctx, key)
+		}
+		return nil
+	})
+	if err != nil && err != redis.Nil {
+		return nil, errors.Tag(err, "cannot fetch session data")
+	}
+	sessions := make([]*OtherSessionData, 0, len(otherIds))
+	validSessionIds := make([]Id, 0, len(otherIds))
+	for i, id := range otherIds {
+		var blob []byte
+		if blob, err = sessionData[i].Bytes(); err != nil {
+			if err == redis.Nil {
+				// Already deleted
+				continue
+			}
+			return nil, errors.Tag(err, "cannot fetch session data")
+		}
+		data := &sessionDataWithDeSyncProtection{}
+		if err = json.Unmarshal(blob, data); err != nil {
+			return nil, errors.New("redis returned corrupt session data")
+		}
+		if err = data.Validate(id); err != nil {
+			return nil, err
+		}
+		if data.User == nil || data.User.Id != s.User.Id {
+			// race-condition with logout and login of another user.
+			continue
+		}
+		validSessionIds = append(validSessionIds, id)
+		sessions = append(sessions, &OtherSessionData{
+			IPAddress:      data.User.IPAddress,
+			SessionCreated: data.User.SessionCreated,
+		})
+	}
+	return &OtherSessionsDetails{
+		Sessions:   sessions,
+		sessionIds: validSessionIds,
+	}, nil
+}
+
+func (s *Session) DestroyOthers(ctx context.Context, d *OtherSessionsDetails) error {
+	if len(d.sessionIds) == 0 {
+		return errors.New("missing session ids")
+	}
+	if err := s.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+
+	_, err := s.client.Pipelined(ctx, func(p redis.Pipeliner) error {
+		trackingKey := userSessionsKey(s.User.Id)
+		for _, id := range d.sessionIds {
+			key := id.toKey()
+			p.Del(ctx, key)
+			p.SRem(ctx, trackingKey, key)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Tag(err, "cannot clear session data")
+	}
 	return nil
 }
 

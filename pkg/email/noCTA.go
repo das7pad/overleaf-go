@@ -23,11 +23,19 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+type HelpLink struct {
+	Before string
+	URL    string
+	Label  string
+	After  string
+}
+
 type NoCTAContent struct {
 	*PublicOptions
 
-	Message Message
-	Title   string
+	Message   Message
+	Title     string
+	HelpLinks []HelpLink
 }
 
 func (c *NoCTAContent) Validate() error {
@@ -45,9 +53,19 @@ func (c *NoCTAContent) Template() *template.Template {
 }
 
 func (c *NoCTAContent) PlainText() string {
+	helpLinks := ""
+	if len(c.HelpLinks) > 0 {
+		for _, helpLink := range c.HelpLinks {
+			helpLinks += "\n" +
+				helpLink.Before +
+				helpLink.Label + " (" + helpLink.URL + ")" +
+				helpLink.After + "\n"
+		}
+	}
 	s := "Hi," + "\n" +
 		"\n" +
 		c.Message.String() + "\n" +
+		helpLinks +
 		"\n" +
 		"Regards," + "\n" +
 		"The " + c.AppName + " Team - " + c.SiteURL

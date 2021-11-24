@@ -60,3 +60,8 @@ type GetLoggedInUserJWTRequest struct {
 }
 
 type GetLoggedInUserJWTResponse string
+
+type ClearSessionsRequest struct {
+	Session   *session.Session `json:"-"`
+	IPAddress string           `json:"-"`
+}

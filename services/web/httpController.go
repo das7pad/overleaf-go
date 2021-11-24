@@ -72,6 +72,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
 	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
+	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.GET("/user/projects", h.getUserProjects)
 	publicApiRouter.POST("/login", h.login)
@@ -1073,5 +1074,19 @@ func (h *httpController) setPublicAccessLevel(c *gin.Context) {
 	request.ProjectId = o.ProjectId
 	request.Epoch = projectJWT.MustGet(c).Epoch
 	err := h.wm.SetPublicAccessLevel(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) clearSessions(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.ClearSessionsRequest{
+		Session:   s,
+		IPAddress: c.ClientIP(),
+	}
+	err = h.wm.ClearSessions(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

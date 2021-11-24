@@ -27,21 +27,26 @@ import (
 )
 
 type Manager interface {
+	ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
 	Logout(ctx context.Context, request *types.LogoutRequest) error
 }
 
-func New(client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
 	return &manager{
 		client:          client,
+		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
+		options:         options,
 		um:              um,
 	}
 }
 
 type manager struct {
 	client          redis.UniversalClient
+	emailOptions    *types.EmailOptions
 	jwtLoggedInUser jwtHandler.JWTHandler
+	options         *types.Options
 	um              user.Manager
 }

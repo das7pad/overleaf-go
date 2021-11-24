@@ -52,6 +52,16 @@
                       {{$paragraph}}
                   </p>
                 {{end}}
+                {{range $i, $helpLink := .HelpLinks }}
+                  <p
+                    class="force-overleaf-style"
+                    style="margin: 0 0 10px 0; padding: 0;"
+                  >
+                      {{$helpLink.Before}}
+                    <a href="{{$helpLink.URL}}">{{$helpLink.Label}}</a>
+                      {{$helpLink.After}}
+                  </p>
+                {{end}}
             </td>
           </tr>
         </table>

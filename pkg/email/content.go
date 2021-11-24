@@ -37,5 +37,5 @@ type PublicOptions struct {
 type Message []string
 
 func (m Message) String() string {
-	return strings.Join(m, "\n")
+	return strings.Join(m, "\n\n")
 }
