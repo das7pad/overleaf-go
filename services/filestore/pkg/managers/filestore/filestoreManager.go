@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
@@ -90,6 +91,8 @@ type Manager interface {
 		projectId primitive.ObjectID,
 	) error
 
+	SendProjectFileFromFS(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, path sharedTypes.PathName, options objectStorage.SendOptions) error
+
 	SendStreamForProjectFile(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -109,14 +112,16 @@ func New(options *types.Options) (Manager, error) {
 		return nil, err
 	}
 	return &manager{
-		b:       b,
-		buckets: options.Buckets,
+		b:          b,
+		buckets:    options.Buckets,
+		uploadBase: options.UploadBase,
 	}, nil
 }
 
 type manager struct {
-	b       objectStorage.Backend
-	buckets types.Buckets
+	b          objectStorage.Backend
+	buckets    types.Buckets
+	uploadBase sharedTypes.DirName
 }
 
 func getProjectPrefix(projectId primitive.ObjectID) string {
@@ -215,6 +220,19 @@ func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId primit
 		m.buckets.UserFiles,
 		getProjectFileKey(projectId, fileId),
 		reader,
+		options,
+	)
+}
+
+func (m *manager) SendProjectFileFromFS(ctx context.Context, projectId primitive.ObjectID, fileId primitive.ObjectID, path sharedTypes.PathName, options objectStorage.SendOptions) error {
+	if err := path.Validate(); err != nil {
+		return err
+	}
+	return m.b.SendFromFile(
+		ctx,
+		m.buckets.UserFiles,
+		getProjectFileKey(projectId, fileId),
+		string(m.uploadBase.JoinPath(path)),
 		options,
 	)
 }
