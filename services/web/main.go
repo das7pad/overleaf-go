@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -67,13 +66,8 @@ func main() {
 		panic(err)
 	}
 	handler := newHttpController(wm)
-
-	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(o.corsOptions),
-	}
-	err = server.ListenAndServe()
-	if err != nil {
+	router := handler.GetRouter(o.clientIPOptions, o.corsOptions)
+	if err = router.Run(o.address); err != nil {
 		panic(err)
 	}
 }

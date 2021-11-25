@@ -22,6 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/clientIPOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
@@ -31,18 +32,20 @@ import (
 )
 
 type webOptions struct {
-	address      string
-	corsOptions  httpUtils.CORSOptions
-	mongoOptions *options.ClientOptions
-	dbName       string
-	redisOptions *redis.UniversalOptions
-	options      *types.Options
+	address         string
+	clientIPOptions httpUtils.ClientIPOptions
+	corsOptions     httpUtils.CORSOptions
+	mongoOptions    *options.ClientOptions
+	dbName          string
+	redisOptions    *redis.UniversalOptions
+	options         *types.Options
 }
 
 func getOptions() *webOptions {
 	o := &webOptions{}
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(4000)
+	o.clientIPOptions = clientIPOptions.Parse()
 	o.corsOptions = corsOptions.Parse()
 	o.options.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.options.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")

@@ -49,9 +49,12 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter(
+	clientIPOptions httpUtils.ClientIPOptions,
 	corsOptions httpUtils.CORSOptions,
-) http.Handler {
+) *gin.Engine {
 	router := gin.New()
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
+	router.TrustedProxies = clientIPOptions.TrustedProxies
 	router.Use(gin.Recovery())
 	router.GET("/status", h.status)
 	router.HEAD("/status", h.status)
