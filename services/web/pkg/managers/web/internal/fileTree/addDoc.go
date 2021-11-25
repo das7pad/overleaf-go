@@ -24,7 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -93,18 +92,6 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	// Failing the request and retrying now would result in duplicates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	{
-		// Notify document-updater
-		u := documentUpdaterTypes.NewAddDocUpdate(doc.Id, docPath)
-		r := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: projectVersion,
-			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
-				u.ToGeneric(),
-			},
-		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, r)
-	}
-
 	{
 		// Notify real-time
 		payload := []interface{}{parentFolderId, doc, projectVersion}

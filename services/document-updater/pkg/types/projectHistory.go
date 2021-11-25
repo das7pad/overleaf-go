@@ -47,14 +47,6 @@ func (a *AddDocUpdate) ToGeneric() *GenericProjectUpdate {
 	}
 }
 
-func NewAddDocUpdate(id primitive.ObjectID, path sharedTypes.PathName) *AddDocUpdate {
-	return &AddDocUpdate{coreProjectUpdate: coreProjectUpdate{
-		Id:       id,
-		PathName: path,
-		Type:     "add-doc",
-	}}
-}
-
 type AddFileUpdate struct {
 	coreProjectUpdate
 	URL string `json:"url"`
@@ -116,17 +108,6 @@ func (r *RenameFileUpdate) ToGeneric() *GenericProjectUpdate {
 	return &GenericProjectUpdate{
 		coreProjectUpdate: r.coreProjectUpdate,
 		NewPathName:       r.NewPathName,
-	}
-}
-
-func NewRenameFileUpdate(id primitive.ObjectID, oldPath, newPath sharedTypes.PathName) *RenameFileUpdate {
-	return &RenameFileUpdate{
-		coreProjectUpdate: coreProjectUpdate{
-			Id:       id,
-			PathName: oldPath,
-			Type:     "rename-file",
-		},
-		NewPathName: newPath,
 	}
 }
 
