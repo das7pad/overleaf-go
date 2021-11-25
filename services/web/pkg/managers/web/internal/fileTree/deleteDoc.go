@@ -41,6 +41,23 @@ func (m *manager) markDocAsDeleted(ctx context.Context, projectId primitive.Obje
 	return nil
 }
 
+func (m *manager) deleteDocFromProject(ctx context.Context, projectId primitive.ObjectID, v sharedTypes.Version, rootDocId primitive.ObjectID, mongoPath project.MongoPath, doc *project.Doc) error {
+	if err := m.markDocAsDeleted(ctx, projectId, doc); err != nil {
+		return errors.Tag(err, "cannot delete doc")
+	}
+
+	var err error
+	if doc.Id == rootDocId {
+		err = m.pm.DeleteTreeElementAndRootDoc(ctx, projectId, v, mongoPath, doc)
+	} else {
+		err = m.pm.DeleteTreeElement(ctx, projectId, v, mongoPath, doc)
+	}
+	if err != nil {
+		return errors.Tag(err, "cannot remove element from tree")
+	}
+	return nil
+}
+
 func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.DeleteDocRequest) error {
 	projectId := request.ProjectId
 	docId := request.DocId
@@ -75,17 +92,11 @@ func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.Delet
 			return errors.Tag(&errors.NotFoundError{}, "unknown docId")
 		}
 
-		if err = m.markDocAsDeleted(sCtx, projectId, doc); err != nil {
-			return errors.Tag(err, "cannot delete doc")
-		}
-
-		if docId == p.RootDocId {
-			err = m.pm.DeleteTreeElementAndRootDoc(sCtx, projectId, v, mongoPath, doc)
-		} else {
-			err = m.pm.DeleteTreeElement(sCtx, projectId, v, mongoPath, doc)
-		}
+		err = m.deleteDocFromProject(
+			ctx, projectId, v, p.RootDocId, mongoPath, doc,
+		)
 		if err != nil {
-			return errors.Tag(err, "cannot remove element from tree")
+			return err
 		}
 		projectVersion = v + 1
 		return nil
@@ -110,13 +121,13 @@ func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.Delet
 			})
 		}
 	}
-	{
-		// Cleanup in document-updater
-		_ = m.dum.FlushAndDeleteDoc(ctx, projectId, docId)
-	}
-	{
-		// Bonus: Archive the doc
-		_ = m.dm.ArchiveDoc(ctx, projectId, docId)
-	}
+	m.cleanupDocDeletion(ctx, projectId, docId)
 	return nil
+}
+
+func (m *manager) cleanupDocDeletion(ctx context.Context, projectId, docId primitive.ObjectID) {
+	// Cleanup in document-updater
+	_ = m.dum.FlushAndDeleteDoc(ctx, projectId, docId)
+	// Bonus: Archive the doc
+	_ = m.dm.ArchiveDoc(ctx, projectId, docId)
 }

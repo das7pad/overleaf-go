@@ -18,14 +18,20 @@ package fileTree
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/deletedFile"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -42,24 +48,44 @@ type Manager interface {
 	RenameDocInProject(ctx context.Context, request *types.RenameDocRequest) error
 	RenameFileInProject(ctx context.Context, request *types.RenameFileRequest) error
 	RenameFolderInProject(ctx context.Context, request *types.RenameFolderRequest) error
+	UploadFile(ctx context.Context, request *types.UploadFileRequest) error
 }
 
-func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, editorEvents channel.Writer) Manager {
+func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
 	return &manager{
-		db:           db,
-		dfm:          deletedFile.New(db),
-		dm:           dm,
-		dum:          dum,
-		editorEvents: editorEvents,
-		pm:           pm,
+		db:              db,
+		dfm:             deletedFile.New(db),
+		dm:              dm,
+		dum:             dum,
+		editorEvents:    editorEvents,
+		fm:              fm,
+		pm:              pm,
+		projectMetadata: pmm,
 	}
 }
 
 type manager struct {
-	db           *mongo.Database
-	dfm          deletedFile.Manager
-	dm           docstore.Manager
-	dum          documentUpdater.Manager
-	editorEvents channel.Writer
-	pm           project.Manager
+	db              *mongo.Database
+	dfm             deletedFile.Manager
+	dm              docstore.Manager
+	dum             documentUpdater.Manager
+	editorEvents    channel.Writer
+	fm              filestore.Manager
+	options         *types.Options
+	pm              project.Manager
+	projectMetadata projectMetadata.Manager
+}
+
+func (m *manager) notifyEditor(projectId primitive.ObjectID, message string, args ...interface{}) {
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	blob, err := json.Marshal(args)
+	if err != nil {
+		return
+	}
+	_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
+		RoomId:  projectId,
+		Message: message,
+		Payload: blob,
+	})
 }

@@ -21,11 +21,24 @@ import (
 	"encoding/json"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
+
+func (m *manager) deleteFileFromProject(ctx context.Context, projectId primitive.ObjectID, v sharedTypes.Version, mongoPath project.MongoPath, fileRef *project.FileRef) error {
+	if err := m.dfm.Create(ctx, projectId, fileRef); err != nil {
+		return errors.Tag(err, "cannot create deletedFiles entry")
+	}
+	err := m.pm.DeleteTreeElement(ctx, projectId, v, mongoPath, fileRef)
+	if err != nil {
+		return errors.Tag(err, "cannot remove element from tree")
+	}
+	return nil
+}
 
 func (m *manager) DeleteFileFromProject(ctx context.Context, request *types.DeleteFileRequest) error {
 	projectId := request.ProjectId
@@ -55,13 +68,9 @@ func (m *manager) DeleteFileFromProject(ctx context.Context, request *types.Dele
 		if fileRef == nil {
 			return errors.Tag(&errors.NotFoundError{}, "unknown fileId")
 		}
-		if err = m.dfm.Create(sCtx, projectId, fileRef); err != nil {
-			return errors.Tag(err, "cannot create deletedFiles entry")
-		}
-
-		err = m.pm.DeleteTreeElement(sCtx, projectId, v, mongoPath, fileRef)
+		err = m.deleteFileFromProject(ctx, projectId, v, mongoPath, fileRef)
 		if err != nil {
-			return errors.Tag(err, "cannot remove element from tree")
+			return err
 		}
 		projectVersion = v + 1
 		return nil

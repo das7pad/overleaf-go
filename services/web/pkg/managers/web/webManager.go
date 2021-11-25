@@ -98,7 +98,6 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
-	ftm := fileTree.New(db, pm, dm, dum, editorEvents)
 	projectJWTHandler := projectJWT.New(
 		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
 	)
@@ -118,6 +117,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(client, pm)
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm, nm)
+	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,

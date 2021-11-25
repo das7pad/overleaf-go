@@ -78,10 +78,23 @@ type FileRef struct {
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" bson:"linkedFileData,omitempty"`
 	Hash           sharedTypes.Hash `json:"hash" bson:"hash"`
 	Created        time.Time        `json:"created" bson:"created"`
+	Size           int64            `json:"size" bson:"size"`
 }
 
 func (f *FileRef) FieldNameInFolder() MongoPath {
 	return "fileRefs"
+}
+
+func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) *FileRef {
+	return &FileRef{
+		CommonTreeFields: CommonTreeFields{
+			Id:   primitive.NewObjectID(),
+			Name: name,
+		},
+		Created: time.Now().UTC(),
+		Hash:    hash,
+		Size:    size,
+	}
 }
 
 type Folder struct {
@@ -135,22 +148,30 @@ func (t *Folder) CheckIsUniqueName(needle sharedTypes.Filename) error {
 }
 
 func (t *Folder) HasEntry(needle sharedTypes.Filename) bool {
-	for _, doc := range t.Docs {
+	entry, _ := t.GetEntry(needle)
+	return entry != nil
+}
+
+func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) {
+	for i, doc := range t.Docs {
 		if doc.Name == needle {
-			return true
+			p := MongoPath(".docs." + strconv.FormatInt(int64(i), 10))
+			return doc, p
 		}
 	}
-	for _, file := range t.FileRefs {
+	for i, file := range t.FileRefs {
 		if file.Name == needle {
-			return true
+			p := MongoPath(".fileRefs." + strconv.FormatInt(int64(i), 10))
+			return file, p
 		}
 	}
-	for _, folder := range t.Folders {
+	for i, folder := range t.Folders {
 		if folder.Name == needle {
-			return true
+			p := MongoPath(".folders." + strconv.FormatInt(int64(i), 10))
+			return folder, p
 		}
 	}
-	return false
+	return nil, ""
 }
 
 func (t *Folder) Walk(fn TreeWalker) error {

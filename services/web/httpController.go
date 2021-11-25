@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 
+	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -33,6 +34,10 @@ import (
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
+)
+
+const (
+	maxDocSize = 2 * 1024 * 1024
 )
 
 func newHttpController(wm web.Manager) httpController {
@@ -167,6 +172,7 @@ func (h *httpController) GetRouter(
 		rFolder.DELETE("", h.deleteFolderFromProject)
 		rFolder.POST("/rename", h.renameFolderInProject)
 		rFolder.POST("/move", h.moveFolderInProject)
+		rFolder.POST("/upload", h.uploadFile)
 	}
 	{
 		// block access for token users with readOnly project access
@@ -778,6 +784,25 @@ func (h *httpController) addFolderToProject(c *gin.Context) {
 	response := &types.AddFolderResponse{}
 	err := h.wm.AddFolderToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) uploadFile(c *gin.Context) {
+	j := projectJWT.MustGet(c)
+	d := &httpUtils.UploadDetails{}
+	if !httpUtils.ProcessFileUpload(c, types.MaxUploadSize, maxDocSize, d) {
+		return
+	}
+	request := &types.UploadFileRequest{
+		ProjectId:      j.ProjectId,
+		UserId:         j.UserId,
+		ParentFolderId: httpUtils.GetId(c, "folderId"),
+		File:           d.File,
+		FileName:       d.FileName,
+		Size:           d.Size,
+	}
+	err := h.wm.UploadFile(c, request)
+	_ = d.File.Close()
+	httpUtils.Respond(c, http.StatusOK, asyncForm.Response{}, err)
 }
 
 func (h *httpController) deleteDocFromProject(c *gin.Context) {

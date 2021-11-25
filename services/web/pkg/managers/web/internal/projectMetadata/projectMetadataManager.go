@@ -34,6 +34,7 @@ import (
 )
 
 type Manager interface {
+	BroadcastMetadataForDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	GetMetadataForProject(ctx context.Context, projectId primitive.ObjectID) (*types.ProjectMetadataResponse, error)
 	GetMetadataForDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
 }
@@ -66,6 +67,12 @@ func (m *manager) GetMetadataForProject(ctx context.Context, projectId primitive
 		p[id] = inflate(metadata)
 	}
 	return &types.ProjectMetadataResponse{ProjectMetadata: p}, nil
+}
+
+func (m *manager) BroadcastMetadataForDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	r := &types.ProjectDocMetadataRequest{Broadcast: true}
+	_, err := m.GetMetadataForDoc(ctx, projectId, docId, r)
+	return err
 }
 
 func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error) {
