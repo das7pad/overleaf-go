@@ -77,22 +77,22 @@ func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId primitive.Object
 }
 
 type SetDocRequest struct {
-	Lines    sharedTypes.Lines `json:"lines"`
-	snapshot sharedTypes.Snapshot
-	Source   string             `json:"source"`
-	UserId   primitive.ObjectID `json:"user_id"`
-	Undoing  bool               `json:"undoing"`
+	Lines    sharedTypes.Lines    `json:"lines"`
+	Snapshot sharedTypes.Snapshot `json:"snapshot"`
+	Source   string               `json:"source"`
+	UserId   primitive.ObjectID   `json:"user_id"`
+	Undoing  bool                 `json:"undoing"`
 }
 
-func (s *SetDocRequest) Snapshot() sharedTypes.Snapshot {
-	if s.snapshot == nil {
-		s.snapshot = s.Lines.ToSnapshot()
+func (s *SetDocRequest) GetSnapshot() sharedTypes.Snapshot {
+	if s.Snapshot == nil {
+		s.Snapshot = s.Lines.ToSnapshot()
 	}
-	return s.snapshot
+	return s.Snapshot
 }
 
 func (s *SetDocRequest) Validate() error {
-	if err := s.Snapshot().Validate(); err != nil {
+	if err := s.GetSnapshot().Validate(); err != nil {
 		return err
 	}
 	return nil
