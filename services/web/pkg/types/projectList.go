@@ -33,7 +33,7 @@ type ProjectListRequest struct {
 
 type ProjectListProjectView struct {
 	Id                  primitive.ObjectID         `json:"id"`
-	Name                string                     `json:"name"`
+	Name                project.Name               `json:"name"`
 	LastUpdatedAt       time.Time                  `json:"lastUpdated"`
 	LastUpdatedByUserId primitive.ObjectID         `json:"-"`
 	LastUpdatedBy       *user.WithPublicInfo       `json:"lastUpdatedBy"`

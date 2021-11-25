@@ -48,7 +48,7 @@ func (d *projectInviteDetails) GetInviteURL(siteURL sharedTypes.URL) string {
 	))
 
 	q := url.Values{}
-	q.Set("project_name", d.project.Name)
+	q.Set("project_name", string(d.project.Name))
 	q.Set("user_first_name", d.sender.DisplayName())
 	inviteURL.RawQuery = q.Encode()
 

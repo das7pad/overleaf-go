@@ -26,6 +26,9 @@ import (
 )
 
 func (m *manager) RenameProject(ctx context.Context, request *types.RenameProjectRequest) error {
+	if err := request.Name.Validate(); err != nil {
+		return err
+	}
 	userId := request.Session.User.Id
 	projectId := request.ProjectId
 	name := request.Name

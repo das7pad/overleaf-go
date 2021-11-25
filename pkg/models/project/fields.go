@@ -70,7 +70,7 @@ type LastUpdatedByField struct {
 }
 
 type NameField struct {
-	Name string `json:"name" bson:"name"`
+	Name Name `json:"name" bson:"name"`
 }
 
 type OwnerRefField struct {

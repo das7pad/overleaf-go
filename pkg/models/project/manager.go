@@ -68,7 +68,7 @@ type Manager interface {
 	UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
-	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error
+	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name Name) error
 	RemoveMember(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
 	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId primitive.ObjectID) error
 }
@@ -214,7 +214,7 @@ func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipT
 	return m.setWithEpochGuard(ctx, p.Id, p.Epoch, u)
 }
 
-func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name string) error {
+func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name Name) error {
 	err := m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelOwner, &bson.M{
 			"$set": NameField{

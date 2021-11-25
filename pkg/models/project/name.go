@@ -14,17 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package project
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type RenameProjectRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	Name      project.Name       `json:"newProjectName"`
+type Name string
+
+func (n Name) Validate() error {
+	if len(n) == 0 {
+		return &errors.ValidationError{Msg: "name cannot be blank"}
+	}
+	if len(n) > 150 {
+		return &errors.ValidationError{Msg: "name is too long"}
+	}
+	for _, c := range n {
+		switch c {
+		case '/':
+			return &errors.ValidationError{Msg: "name cannot contain /"}
+		case '\\':
+			return &errors.ValidationError{Msg: "name cannot contain \\"}
+		case '\r', '\n':
+			return &errors.ValidationError{
+				Msg: "name cannot contain line feeds",
+			}
+		}
+	}
+	return nil
 }

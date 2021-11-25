@@ -19,6 +19,7 @@ package types
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -29,7 +30,7 @@ type GetUserProjectsRequest struct {
 
 type GetUserProjectsEntry struct {
 	Id             primitive.ObjectID         `json:"_id"`
-	Name           string                     `json:"name"`
+	Name           project.Name               `json:"name"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"accessLevel"`
 }
 

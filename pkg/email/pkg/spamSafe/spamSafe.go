@@ -19,6 +19,7 @@ package spamSafe
 import (
 	"regexp"
 
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -35,9 +36,9 @@ func GetSafeEmail(email sharedTypes.Email, alternative string) string {
 	return alternative
 }
 
-func GetSafeProjectName(name, alternative string) string {
+func GetSafeProjectName(name project.Name, alternative string) string {
 	if IsSafeProjectName(name) {
-		return name
+		return string(name)
 	}
 	return alternative
 }
@@ -53,14 +54,15 @@ func IsSafeEmail(email sharedTypes.Email) bool {
 	return len(email) <= 40 && emailRegex.MatchString(string(email))
 }
 
-func IsSafeProjectName(name string) bool {
+func IsSafeProjectName(name project.Name) bool {
 	if len(name) > 100 {
 		return false
 	}
-	if hanRegex.MatchString(name) {
+	s := string(name)
+	if hanRegex.MatchString(s) {
 		return len(name) <= 30
 	}
-	return safeRegex.MatchString(name)
+	return safeRegex.MatchString(s)
 }
 
 func IsSafeUserName(name string) bool {
