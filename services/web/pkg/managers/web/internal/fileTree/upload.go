@@ -41,7 +41,9 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	userId := request.UserId
 	source := "upload"
 
-	s, isDoc, errIsTextFile := isTextFile(request)
+	s, isDoc, _, errIsTextFile := IsTextFile(
+		request.FileName, request.Size, request.File,
+	)
 	if errIsTextFile != nil {
 		return errIsTextFile
 	}
@@ -140,9 +142,12 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			// Upload once.
 			if hash == "" {
 				// Hash once.
-				hash, err = hashFile(request)
+				if err = request.SeekFileToStart(); err != nil {
+					return err
+				}
+				hash, err = HashFile(request.File, request.Size)
 				if err != nil {
-					return errors.Tag(err, "cannot compute hash")
+					return err
 				}
 			}
 			fileRef := project.NewFileRef(
@@ -235,16 +240,13 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	return nil
 }
 
-func hashFile(request *types.UploadFileRequest) (sharedTypes.Hash, error) {
+func HashFile(reader io.Reader, size int64) (sharedTypes.Hash, error) {
 	d := sha1.New()
 	d.Write([]byte(
-		"blob " + strconv.FormatInt(request.Size, 10) + "\x00",
+		"blob " + strconv.FormatInt(size, 10) + "\x00",
 	))
-	if err := request.SeekFileToStart(); err != nil {
-		return "", err
-	}
-	if _, err := io.Copy(d, request.File); err != nil {
-		return "", errors.Tag(err, "cannot hash data")
+	if _, err := io.Copy(d, reader); err != nil {
+		return "", errors.Tag(err, "cannot compute hash")
 	}
 	return sharedTypes.Hash(hex.EncodeToString(d.Sum(nil))), nil
 }

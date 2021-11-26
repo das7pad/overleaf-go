@@ -87,11 +87,11 @@ func (m *manager) SetRootDocId(ctx context.Context, request *types.SetRootDocIdR
 	}
 
 	found := false
-	var fileType sharedTypes.FileType
+	var path sharedTypes.PathName
 	err = t.WalkDocs(func(d project.TreeElement, p sharedTypes.PathName) error {
 		if d.GetId() == request.RootDocId {
 			found = true
-			fileType = p.Type()
+			path = p
 			return project.AbortWalk
 		}
 		return nil
@@ -100,11 +100,7 @@ func (m *manager) SetRootDocId(ctx context.Context, request *types.SetRootDocIdR
 		return &errors.ErrorDocNotFound{}
 	}
 
-	switch fileType {
-	case "tex":
-	case "Rtex":
-	case "ltx":
-	default:
+	if !path.Type().ValidForRootDoc() {
 		return &errors.ValidationError{Msg: "invalid rootDoc extension"}
 	}
 

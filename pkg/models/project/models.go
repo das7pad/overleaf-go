@@ -132,3 +132,20 @@ type forMemberRemoval struct {
 	ArchivedByField `bson:"inline"`
 	TrashedByField  `bson:"inline"`
 }
+
+type ForCreation struct {
+	ActiveField             `bson:"inline"`
+	CompilerField           `bson:"inline"`
+	EpochField              `bson:"inline"`
+	IdField                 `bson:"inline"`
+	ImageNameField          `bson:"inline"`
+	NameField               `bson:"inline"`
+	LastUpdatedAtField      `bson:"inline"`
+	LastUpdatedByField      `bson:"inline"`
+	OwnerRefField           `bson:"inline"`
+	PublicAccessLevelField  `bson:"inline"`
+	RootDocIdField          `bson:"inline"`
+	SpellCheckLanguageField `bson:"inline"`
+	TreeField               `bson:"inline"`
+	VersionField            `bson:"inline"`
+}

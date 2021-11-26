@@ -25,7 +25,26 @@ import (
 
 type FileType string
 
+func (t FileType) ValidForRootDoc() bool {
+	switch t {
+	case "tex":
+	case "rtex":
+	case "ltx":
+	default:
+		return false
+	}
+	return true
+}
+
 type Filename string
+
+func (f Filename) Basename() string {
+	idx := strings.LastIndexByte(string(f), '.')
+	if idx == -1 || idx == 0 {
+		return string(f)
+	}
+	return string(f[:idx])
+}
 
 func (f Filename) Validate() error {
 	if f == "" {
@@ -82,6 +101,11 @@ func (d DirName) Dir() DirName {
 	return d[:idx]
 }
 
+func (d DirName) Filename() Filename {
+	idx := strings.LastIndexByte(string(d), '/')
+	return Filename(d[idx+1:])
+}
+
 func (d DirName) String() string {
 	return string(d)
 }
@@ -117,6 +141,11 @@ func (p PathName) Dir() DirName {
 	return DirName(p[:idx])
 }
 
+func (p PathName) Filename() Filename {
+	idx := strings.LastIndexByte(string(p), '/')
+	return Filename(p[idx+1:])
+}
+
 func (p PathName) IsDir() bool {
 	return false
 }
@@ -135,10 +164,16 @@ func (p PathName) Type() FileType {
 	return FileType(strings.ToLower(string(p[idx:])))
 }
 
+// Linux defines PATH_MAX=4096, subtract length of /compile and one null char.
+const maxPathNameLength = 4096 - len("/compile/") - 1
+
 func (p PathName) Validate() error {
 	l := len(p)
 	if l == 0 {
 		return &errors.ValidationError{Msg: "empty file/path"}
+	}
+	if l > maxPathNameLength {
+		return &errors.ValidationError{Msg: "path is too long (>4086)"}
 	}
 	if p[0] == '/' {
 		return &errors.ValidationError{Msg: "file/path is absolute"}

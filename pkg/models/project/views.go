@@ -27,6 +27,7 @@ var (
 
 	epochFieldProjection                  = views.GetProjectionFor(EpochField{})
 	lastUpdatedAtFieldProjection          = views.GetProjectionFor(LastUpdatedAtField{})
+	nameFieldProjection                   = views.GetProjectionFor(NameField{})
 	tokensFieldProjection                 = views.GetProjectionFor(TokensField{})
 	forAuthorizationDetailsProjection     = views.GetProjectionFor(ForAuthorizationDetails{})
 	forProjectInviteProjection            = views.GetProjectionFor(ForProjectInvite{})
@@ -47,6 +48,8 @@ func getProjection(model interface{}) views.View {
 	switch model.(type) {
 	case *EpochField:
 		return epochFieldProjection
+	case []NameField:
+		return nameFieldProjection
 	case *ForAuthorizationDetails:
 		return forAuthorizationDetailsProjection
 	case *forTokenAccessCheck:

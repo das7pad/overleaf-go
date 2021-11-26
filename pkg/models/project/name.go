@@ -17,6 +17,11 @@
 package project
 
 import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -42,4 +47,58 @@ func (n Name) Validate() error {
 		}
 	}
 	return nil
+}
+
+var regexNumericSuffix = regexp.MustCompile("\\(\\d{1,3}\\)$")
+
+type Names []Name
+
+func (names Names) MakeUnique(source Name) Name {
+	n := 0
+	cleanName := source
+	if suffix := regexNumericSuffix.FindString(string(source)); suffix != "" {
+		i, err := strconv.ParseInt(suffix[1:len(suffix)-1], 10, 64)
+		if err == nil {
+			cleanName = Name(
+				strings.TrimSpace(string(source)[:len(source)-len(suffix)]),
+			)
+			if cleanName == "" {
+				// weird name `(1)`
+				cleanName = source
+			} else {
+				n = int(i)
+			}
+		}
+	}
+	cleanNameIsUnique := true
+	sourceNameIsUnique := true
+	for _, name := range names {
+		if name == cleanName {
+			cleanNameIsUnique = false
+		}
+		if name == source {
+			sourceNameIsUnique = false
+		}
+	}
+	if cleanNameIsUnique {
+		return cleanName
+	}
+	if sourceNameIsUnique {
+		return source
+	}
+	for i := 1; i < len(names); i++ {
+		candidate := Name(fmt.Sprintf("%s (%d)", cleanName, n+i))
+		unique := true
+		for _, name := range names {
+			if name == candidate {
+				unique = false
+				break
+			}
+		}
+		if unique {
+			return candidate
+		}
+	}
+	// sorry, could not find unique name :/
+	return cleanName
 }

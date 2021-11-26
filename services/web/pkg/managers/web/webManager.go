@@ -43,6 +43,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectUpload"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tag"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tokenAccess"
@@ -61,6 +62,7 @@ type Manager interface {
 	projectInviteManager
 	projectListManager
 	projectMetadataManager
+	projectUploadManager
 	sessionManager
 	systemMessageManager
 	tagManager
@@ -118,6 +120,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	tam := tokenAccess.New(client, pm)
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm, nm)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
+	pum := projectUpload.New(options, db, pm, dm, fm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -129,6 +132,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		projectInviteManager:   pim,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
+		projectUploadManager:   pum,
 		sessionManager:         sm,
 		systemMessageManager:   smm,
 		tagManager:             tagM,
@@ -144,6 +148,7 @@ type loginManager = login.Manager
 type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
+type projectUploadManager = projectUpload.Manager
 type sessionManager = session.Manager
 type systemMessageManager = systemMessage.Manager
 type tagManager = tag.Manager
@@ -158,6 +163,7 @@ type manager struct {
 	projectInviteManager
 	projectListManager
 	projectMetadataManager
+	projectUploadManager
 	sessionManager
 	systemMessageManager
 	tagManager

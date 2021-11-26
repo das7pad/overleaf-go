@@ -36,6 +36,7 @@ type Options struct {
 	AdminEmail    sharedTypes.Email     `json:"admin_email"`
 	AllowedImages []clsiTypes.ImageName `json:"allowed_images"`
 	AppName       string                `json:"app_name"`
+	DefaultImage  clsiTypes.ImageName   `json:"default_image"`
 	Email         struct {
 		CustomFooter     string            `json:"custom_footer"`
 		CustomFooterHTML template.HTML     `json:"custom_footer_html"`
@@ -89,6 +90,9 @@ func (o *Options) Validate() error {
 	}
 	if o.AppName == "" {
 		return &errors.ValidationError{Msg: "app_name is missing"}
+	}
+	if len(o.DefaultImage) == 0 {
+		return &errors.ValidationError{Msg: "default_image is missing"}
 	}
 	if err := o.SiteURL.Validate(); err != nil {
 		return errors.Tag(err, "site_url is invalid")

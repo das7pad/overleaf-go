@@ -22,69 +22,81 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 const maxDocSize = 2 * 1024 * 1024
 
-func isTextFile(request *types.UploadFileRequest) (sharedTypes.Snapshot, bool, error) {
-	if request.Size > maxDocSize {
-		return nil, false, nil
+func IsTextFile(fileName sharedTypes.Filename, size int64, reader io.Reader) (sharedTypes.Snapshot, bool, bool, error) {
+	if size > maxDocSize {
+		return nil, false, false, nil
 	}
-	if !isTextFileFilename(request.FileName) {
-		return nil, false, nil
+	if !isTextFileFilename(fileName) {
+		return nil, false, false, nil
 	}
-	blob := make([]byte, request.Size)
-	_, err := io.ReadFull(request.File, blob)
+	blob := make([]byte, size)
+	_, err := io.ReadFull(reader, blob)
 	if err != nil {
-		return nil, false, errors.Tag(err, "cannot read file")
+		return nil, false, true, errors.Tag(err, "cannot read file")
 	}
 	s := sharedTypes.Snapshot(string(blob))
 	for _, r := range s {
 		if r == '\x00' || unicode.Is(unicode.Cs, r) {
-			return nil, false, nil
+			return nil, false, true, nil
 		}
 	}
-	return s, true, nil
+	return s, true, true, nil
 }
 
 func isTextFileFilename(filename sharedTypes.Filename) bool {
-	if filename == "latexmkrc" || filename == ".latexmkrc" {
+	if isTextFileExtension(sharedTypes.PathName(filename).Type()) {
 		return true
 	}
-	extension := sharedTypes.PathName(filename).Type()
+	switch filename {
+	case "Dockerfile":
+	case "Jenkinsfile":
+	case "Makefile":
+	case "latexmkrc":
+	default:
+		return false
+	}
+	return true
+}
+
+func isTextFileExtension(extension sharedTypes.FileType) bool {
 	switch extension {
-	case "tex":
-	case "latex":
-	case "sty":
-	case "cls":
-	case "bst":
+	case "asy":
+	case "bbx":
 	case "bib":
 	case "bibtex":
-	case "txt":
-	case "tikz":
-	case "mtx":
-	case "rtex":
-	case "md":
-	case "asy":
-	case "latexmkrc":
-	case "lbx":
-	case "bbx":
+	case "bst":
 	case "cbx":
-	case "m":
-	case "lco":
+	case "clo":
+	case "cls":
+	case "def":
 	case "dtx":
+	case "editorconfig":
+	case "gitignore":
+	case "gv":
 	case "ins":
 	case "ist":
-	case "def":
-	case "clo":
+	case "latex":
+	case "latexmkrc":
+	case "lbx":
+	case "lco":
 	case "ldf":
-	case "rmd":
 	case "lua":
-	case "gv":
+	case "m":
+	case "md":
 	case "mf":
-	case "yml":
+	case "mtx":
+	case "rmd":
+	case "rtex":
+	case "sty":
+	case "tex":
+	case "tikz":
+	case "txt":
 	case "yaml":
+	case "yml":
 	default:
 		return false
 	}

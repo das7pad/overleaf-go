@@ -23,6 +23,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -35,6 +37,34 @@ type UploadFileRequest struct {
 	UserId         primitive.ObjectID `json:"-"`
 	ParentFolderId primitive.ObjectID `json:"-"`
 	UploadDetails
+}
+
+type CreateProjectFromZipRequest struct {
+	Session *session.Session
+	Name    project.Name `json:"-"`
+	UploadDetails
+}
+
+func (r *CreateProjectFromZipRequest) Preprocess() {
+	if r.Name == "" && r.FileName != "" {
+		r.Name = project.Name(r.FileName.Basename())
+	}
+}
+
+func (r *CreateProjectFromZipRequest) Validate() error {
+	if err := r.Name.Validate(); err != nil {
+		return err
+	}
+	if err := r.UploadDetails.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type CreateProjectFromZipResponse struct {
+	Success   bool                `json:"success"`
+	Error     string              `json:"error,omitempty"`
+	ProjectId *primitive.ObjectID `json:"project_id,omitempty"`
 }
 
 type UploadDetails struct {

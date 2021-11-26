@@ -34,6 +34,7 @@ import (
 )
 
 type Manager interface {
+	CreateProject(ctx context.Context, creation *ForCreation) error
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
@@ -55,6 +56,7 @@ type Manager interface {
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
 	PopulateTokens(ctx context.Context, projectId primitive.ObjectID) (*Tokens, error)
 	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error)
+	GetProjectNames(ctx context.Context, userId primitive.ObjectID) (Names, error)
 	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
@@ -90,8 +92,39 @@ func removeArrayIndex(path MongoPath) MongoPath {
 	return path[0:strings.LastIndexByte(string(path), '.')]
 }
 
+func matchUsersProjects(userId primitive.ObjectID) bson.M {
+	//goland:noinspection SpellCheckingInspection
+	return bson.M{
+		"$or": bson.A{
+			OwnerRefField{OwnerRef: userId},
+			bson.M{
+				"tokenAccessReadAndWrite_refs": userId,
+				"publicAccesLevel":             TokenBasedAccess,
+			},
+			bson.M{
+				"tokenAccessReadOnly_refs": userId,
+				"publicAccesLevel":         TokenBasedAccess,
+			},
+			bson.M{
+				"collaberator_refs": userId,
+			},
+			bson.M{
+				"readOnly_refs": userId,
+			},
+		},
+	}
+}
+
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {
+	_, err := m.c.InsertOne(ctx, p)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) PopulateTokens(ctx context.Context, projectId primitive.ObjectID) (*Tokens, error) {
@@ -411,6 +444,25 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId pr
 	return ErrEpochIsNotStable
 }
 
+func (m *manager) GetProjectNames(ctx context.Context, userId primitive.ObjectID) (Names, error) {
+	q := matchUsersProjects(userId)
+	var projects []NameField
+	r, err := m.c.Find(
+		ctx, q, options.Find().SetProjection(getProjection(projects)),
+	)
+	if err != nil {
+		return nil, rewriteMongoError(err)
+	}
+	if err = r.All(ctx, &projects); err != nil {
+		return nil, rewriteMongoError(err)
+	}
+	names := make(Names, len(projects))
+	for i, project := range projects {
+		names[i] = project.Name
+	}
+	return names, nil
+}
+
 func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) ([]ListViewPrivate, error) {
 	var projects []ListViewPrivate
 	projection := getProjection(projects).CloneForWriting()
@@ -429,26 +481,7 @@ func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) (
 	projection["archived"] = limitToUser
 	projection["trashed"] = limitToUser
 
-	//goland:noinspection SpellCheckingInspection
-	q := bson.M{
-		"$or": bson.A{
-			OwnerRefField{OwnerRef: userId},
-			bson.M{
-				"tokenAccessReadAndWrite_refs": userId,
-				"publicAccesLevel":             TokenBasedAccess,
-			},
-			bson.M{
-				"tokenAccessReadOnly_refs": userId,
-				"publicAccesLevel":         TokenBasedAccess,
-			},
-			bson.M{
-				"collaberator_refs": userId,
-			},
-			bson.M{
-				"readOnly_refs": userId,
-			},
-		},
-	}
+	q := matchUsersProjects(userId)
 
 	r, err := m.c.Find(ctx, q, options.Find().SetProjection(projection))
 	if err != nil {

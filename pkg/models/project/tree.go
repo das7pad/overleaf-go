@@ -109,6 +109,28 @@ func (t *Folder) FieldNameInFolder() MongoPath {
 	return "folders"
 }
 
+func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
+	if path == "." {
+		return t, nil
+	}
+	dir := path.Dir()
+	name := path.Filename()
+	parent, err := t.CreateParents(dir)
+	if err != nil {
+		return nil, err
+	}
+	entry, _ := parent.GetEntry(name)
+	if entry == nil {
+		folder := NewFolder(name)
+		parent.Folders = append(parent.Folders, folder)
+		return folder, nil
+	}
+	if folder, ok := entry.(*Folder); ok {
+		return folder, nil
+	}
+	return nil, &errors.ValidationError{Msg: "conflicting paths"}
+}
+
 func NewFolder(name sharedTypes.Filename) *Folder {
 	return &Folder{
 		CommonTreeFields: CommonTreeFields{

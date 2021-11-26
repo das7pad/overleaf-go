@@ -79,6 +79,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
 	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
 	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
+	publicApiRouter.POST("/project/new/upload", h.createFromZip)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
@@ -1119,4 +1120,34 @@ func (h *httpController) clearSessions(c *gin.Context) {
 	}
 	err = h.wm.ClearSessions(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) createFromZip(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+
+	d := &httpUtils.UploadDetails{}
+	if !httpUtils.ProcessFileUpload(c, types.MaxUploadSize, maxDocSize, d) {
+		return
+	}
+	request := &types.CreateProjectFromZipRequest{
+		Session: s,
+		UploadDetails: types.UploadDetails{
+			File:     d.File,
+			FileName: d.FileName,
+			Size:     d.Size,
+		},
+	}
+	response := &types.CreateProjectFromZipResponse{}
+	err = h.wm.CreateFromZip(c, request, response)
+	_ = d.File.Close()
+	if err != nil {
+		if errors.IsValidationError(err) {
+			response.Error = "Error: " + err.Error()
+		}
+	}
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 )
 
@@ -34,6 +35,7 @@ type Manager interface {
 	GetOrCreateSession(c *gin.Context) (*Session, error)
 	GetSessionById(ctx context.Context, id Id) (*Session, error)
 	Flush(c *gin.Context, session *Session) error
+	RequireLoggedInSession(c *gin.Context) (*Session, error)
 }
 
 func New(options signedCookie.Options, client redis.UniversalClient) Manager {
@@ -81,6 +83,22 @@ func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
 		persisted:              persisted,
 		providedId:             id,
 	}
+}
+
+func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {
+	sess, err := m.GetSession(c)
+	if err != nil {
+		if err == redis.Nil || err == signedCookie.ErrNoCookie {
+			return nil, &errors.UnauthorizedError{
+				Reason: "no session found",
+			}
+		}
+		return nil, err
+	}
+	if err = sess.CheckIsLoggedIn(); err != nil {
+		return nil, err
+	}
+	return sess, nil
 }
 
 func (m *manager) GetSession(c *gin.Context) (*Session, error) {

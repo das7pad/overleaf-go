@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestFileName_Dir(t *testing.T) {
+func TestPathName_Dir(t *testing.T) {
 	tests := []struct {
 		name string
 		f    PathName
@@ -51,7 +51,7 @@ func TestFileName_Dir(t *testing.T) {
 	}
 }
 
-func TestFileName_Type(t *testing.T) {
+func TestPathName_Type(t *testing.T) {
 	tests := []struct {
 		name string
 		f    PathName
@@ -87,7 +87,7 @@ func TestFileName_Type(t *testing.T) {
 	}
 }
 
-func TestFileName_Validate(t *testing.T) {
+func TestPathName_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
 		f       PathName
@@ -153,6 +153,37 @@ func TestFileName_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.f.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPathName_Filename(t *testing.T) {
+	tests := []struct {
+		name string
+		p    PathName
+		want Filename
+	}{
+		{
+			"trivial",
+			"foo/bar.txt",
+			"bar.txt",
+		},
+		{
+			"multiple",
+			"foo/bar/baz.txt",
+			"baz.txt",
+		},
+		{
+			"no slash",
+			"bar.txt",
+			"bar.txt",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.p.Filename(); got != tt.want {
+				t.Errorf("Filename() = %v, want %v", got, tt.want)
 			}
 		})
 	}
