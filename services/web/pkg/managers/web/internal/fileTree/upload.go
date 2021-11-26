@@ -24,8 +24,6 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
@@ -38,6 +36,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	if err := request.Validate(); err != nil {
 		return err
 	}
+	parentFolderId := request.ParentFolderId
 	projectId := request.ProjectId
 	userId := request.UserId
 	source := "upload"
@@ -52,7 +51,6 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	var upsertDoc *project.Doc
 	var fsPath sharedTypes.PathName
 	var uploadedFileRef *project.FileRef
-	var parentFolderId primitive.ObjectID
 	var deletedElement, newElement project.TreeElement
 
 	err := m.txWithRetries(ctx, func(ctx context.Context) error {
@@ -64,10 +62,6 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		t, err := p.GetRootFolder()
 		if err != nil {
 			return err
-		}
-		parentFolderId = request.ParentFolderId
-		if parentFolderId.IsZero() {
-			parentFolderId = t.Id
 		}
 		var parentFolder *project.Folder
 		var mongoPath project.MongoPath
