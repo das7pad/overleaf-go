@@ -31,26 +31,30 @@ const (
 )
 
 type UploadFileRequest struct {
-	ProjectId      primitive.ObjectID   `json:"-"`
-	UserId         primitive.ObjectID   `json:"-"`
-	ParentFolderId primitive.ObjectID   `json:"-"`
-	File           multipart.File       `json:"-"`
-	FileName       sharedTypes.Filename `json:"-"`
-	Size           int64                `json:"-"`
+	ProjectId      primitive.ObjectID `json:"-"`
+	UserId         primitive.ObjectID `json:"-"`
+	ParentFolderId primitive.ObjectID `json:"-"`
+	UploadDetails
 }
 
-func (r *UploadFileRequest) Validate() error {
-	if err := r.FileName.Validate(); err != nil {
+type UploadDetails struct {
+	File     multipart.File       `json:"-"`
+	FileName sharedTypes.Filename `json:"-"`
+	Size     int64                `json:"-"`
+}
+
+func (d *UploadDetails) Validate() error {
+	if err := d.FileName.Validate(); err != nil {
 		return err
 	}
-	if r.Size > MaxUploadSize {
+	if d.Size > MaxUploadSize {
 		return &errors.BodyTooLargeError{}
 	}
 	return nil
 }
 
-func (r *UploadFileRequest) SeekFileToStart() error {
-	_, err := r.File.Seek(0, io.SeekStart)
+func (d *UploadDetails) SeekFileToStart() error {
+	_, err := d.File.Seek(0, io.SeekStart)
 	if err != nil {
 		return errors.Tag(err, "cannot seek to start")
 	}

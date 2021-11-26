@@ -799,9 +799,11 @@ func (h *httpController) uploadFile(c *gin.Context) {
 		ProjectId:      j.ProjectId,
 		UserId:         j.UserId,
 		ParentFolderId: httpUtils.GetId(c, "folderId"),
-		File:           d.File,
-		FileName:       d.FileName,
-		Size:           d.Size,
+		UploadDetails: types.UploadDetails{
+			File:     d.File,
+			FileName: d.FileName,
+			Size:     d.Size,
+		},
 	}
 	err := h.wm.UploadFile(c, request)
 	_ = d.File.Close()
