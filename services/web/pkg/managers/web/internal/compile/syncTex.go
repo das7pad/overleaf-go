@@ -28,13 +28,16 @@ import (
 )
 
 func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
+	request.SyncFromCodeRequest.CompileGroup =
+		request.SignedCompileProjectRequestOptions.CompileGroup
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.Hex()
 	u += "/user/" + request.UserId.Hex()
 	u += "/sync/code"
 
-	request.SyncFromCodeRequest.CompileGroup =
-		request.SignedCompileProjectRequestOptions.CompileGroup
 	request.ImageName = m.getImageName(request.ImageName)
 
 	blob, err := json.Marshal(request.SyncFromCodeRequest)
@@ -64,13 +67,16 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 }
 
 func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error {
+	request.SyncFromPDFRequest.CompileGroup =
+		request.SignedCompileProjectRequestOptions.CompileGroup
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.Hex()
 	u += "/user/" + request.UserId.Hex()
 	u += "/sync/pdf"
 
-	request.SyncFromPDFRequest.CompileGroup =
-		request.SignedCompileProjectRequestOptions.CompileGroup
 	request.ImageName = m.getImageName(request.ImageName)
 
 	blob, err := json.Marshal(request.SyncFromPDFRequest)

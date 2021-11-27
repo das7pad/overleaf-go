@@ -28,6 +28,9 @@ import (
 var errUserIsNotAMember = errors.Tag(&errors.NotFoundError{}, "user is not a member")
 
 func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, request *types.SetMemberPrivilegeLevelInProjectRequest) error {
+	if err := request.PrivilegeLevel.Validate(); err != nil {
+		return err
+	}
 	projectId := request.ProjectId
 	userId := request.UserId
 	for i := 0; i < 10; i++ {

@@ -136,6 +136,9 @@ func (m *manager) ClearCache(ctx context.Context, request types.SignedCompilePro
 }
 
 func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	request.ImageName = m.getImageName(request.ImageName)
 
 	syncState := request.SyncState

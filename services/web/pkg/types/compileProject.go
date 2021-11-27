@@ -42,6 +42,25 @@ type CompileProjectRequest struct {
 	SyncState                  clsiTypes.SyncState     `json:"syncState"`
 }
 
+func (r *CompileProjectRequest) Validate() error {
+	if err := r.CheckMode.Validate(); err != nil {
+		return err
+	}
+	if err := r.Compiler.Validate(); err != nil {
+		return err
+	}
+	if err := r.Draft.Validate(); err != nil {
+		return err
+	}
+	if err := r.ImageName.Validate(); err != nil {
+		return err
+	}
+	if err := r.SyncState.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type ClsiServerId string
 type PDFDownloadDomain string
 

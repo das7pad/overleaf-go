@@ -28,13 +28,16 @@ import (
 )
 
 func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {
+	request.WordCountRequest.CompileGroup =
+		request.SignedCompileProjectRequestOptions.CompileGroup
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.Hex()
 	u += "/user/" + request.UserId.Hex()
 	u += "/wordcount"
 
-	request.WordCountRequest.CompileGroup =
-		request.SignedCompileProjectRequestOptions.CompileGroup
 	request.ImageName = m.getImageName(request.ImageName)
 
 	blob, err := json.Marshal(request.WordCountRequest)
