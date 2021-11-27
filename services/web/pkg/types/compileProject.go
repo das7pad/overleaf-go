@@ -32,14 +32,15 @@ type SignedCompileProjectRequestOptions struct {
 type CompileProjectRequest struct {
 	SignedCompileProjectRequestOptions `json:"-"`
 
-	AutoCompile                bool                    `json:"autoCompile"`
-	CheckMode                  clsiTypes.CheckMode     `json:"checkMode"`
-	Compiler                   clsiTypes.Compiler      `json:"compiler"`
-	Draft                      clsiTypes.DraftModeFlag `json:"draft"`
-	ImageName                  clsiTypes.ImageName     `json:"imageName"`
-	IncrementalCompilesEnabled bool                    `json:"incrementalCompilesEnabled"`
-	RootDocId                  primitive.ObjectID      `json:"rootDocId"`
-	SyncState                  clsiTypes.SyncState     `json:"syncState"`
+	AutoCompile                bool                       `json:"autoCompile"`
+	CheckMode                  clsiTypes.CheckMode        `json:"checkMode"`
+	Compiler                   clsiTypes.Compiler         `json:"compiler"`
+	Draft                      clsiTypes.DraftModeFlag    `json:"draft"`
+	ImageName                  clsiTypes.ImageName        `json:"imageName"`
+	IncrementalCompilesEnabled bool                       `json:"incrementalCompilesEnabled"`
+	RootDocId                  primitive.ObjectID         `json:"rootDocId"`
+	RootDocPath                clsiTypes.RootResourcePath `json:"rootDocPath"`
+	SyncState                  clsiTypes.SyncState        `json:"syncState"`
 }
 
 func (r *CompileProjectRequest) Validate() error {
@@ -54,6 +55,11 @@ func (r *CompileProjectRequest) Validate() error {
 	}
 	if err := r.ImageName.Validate(); err != nil {
 		return err
+	}
+	if r.RootDocPath != "" {
+		if err := r.RootDocPath.Validate(); err != nil {
+			return err
+		}
 	}
 	if err := r.SyncState.Validate(); err != nil {
 		return err

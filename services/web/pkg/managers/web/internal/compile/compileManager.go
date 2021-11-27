@@ -238,7 +238,7 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 		return nil, "", errors.Tag(err, "cannot walk folder")
 	}
 
-	var rootDocPath clsiTypes.RootResourcePath
+	rootDocPath := request.RootDocPath
 	resources := make(clsiTypes.Resources, len(docContents)+len(files))
 	copy(resources[len(docContents):], files)
 
@@ -276,8 +276,8 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 		return nil, "", errors.Tag(err, "cannot get docs from redis")
 	}
 
+	rootDocPath := request.RootDocPath
 	resources := make(clsiTypes.Resources, len(docs))
-	var rootDocPath clsiTypes.RootResourcePath
 	for i, doc := range docs {
 		p := doc.PathName
 		if p != "" {
