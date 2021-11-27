@@ -91,9 +91,18 @@ func (t *TaggedError) Cause() error {
 	return t.cause
 }
 
+func (t *TaggedError) Unwrap() error {
+	return t.cause
+}
+
 func Tag(err error, msg string) *TaggedError {
 	return &TaggedError{msg: msg, cause: err}
 }
+
+// TaggedError must implement this mongodb internal interface
+var _ interface {
+	Unwrap() error
+} = &TaggedError{}
 
 func GetCause(err error) error {
 	if err == nil {
