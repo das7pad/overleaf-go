@@ -275,6 +275,9 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get docs from redis")
 	}
+	if len(docs) == 0 {
+		return nil, "", &errors.InvalidStateError{Msg: "no docs found"}
+	}
 
 	rootDocPath := request.RootDocPath
 	resources := make(clsiTypes.Resources, len(docs))
