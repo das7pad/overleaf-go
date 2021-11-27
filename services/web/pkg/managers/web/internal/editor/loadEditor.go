@@ -31,6 +31,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -233,6 +235,21 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 			return errors.Tag(err, "cannot get compile jwt")
 		}
 		response.JwtProject = s
+	}
+
+	t, err := p.GetRootFolder()
+	if err != nil {
+		return err
+	}
+	err = t.WalkDocs(func(e project.TreeElement, path sharedTypes.PathName) error {
+		if e.GetId() == p.RootDocId {
+			response.RootDocPath = clsiTypes.RootResourcePath(path)
+			return project.AbortWalk
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	response.Anonymous = isAnonymous

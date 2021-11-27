@@ -22,6 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type LoadEditorRequest struct {
@@ -40,6 +41,7 @@ type LoadEditorResponse struct {
 	JWTSpelling          string                       `json:"jwtSpelling"`
 	PrivilegeLevel       sharedTypes.PrivilegeLevel   `json:"privilegeLevel"`
 	Project              project.LoadEditorViewPublic `json:"project"`
+	RootDocPath          clsiTypes.RootResourcePath   `json:"rootDocPath"`
 	User                 user.WithLoadEditorInfo      `json:"user"`
 	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
 }

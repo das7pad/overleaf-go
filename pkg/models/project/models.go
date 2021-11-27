@@ -46,6 +46,7 @@ type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic    `bson:"inline"`
 	ActiveField             `bson:"inline"`
 	ForAuthorizationDetails `bson:"inline"`
+	TreeField               `bson:"inline"`
 }
 
 type LoadEditorViewPublic struct {
