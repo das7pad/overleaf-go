@@ -191,7 +191,8 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 						element: d,
 						s:       s,
 					}
-					if !foundRootDoc && path.Type().ValidForRootDoc() {
+					if path == "main.tex" ||
+						(!foundRootDoc && path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
 							p.RootDocId = d.Id
 							foundRootDoc = true
