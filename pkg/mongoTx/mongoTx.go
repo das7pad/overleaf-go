@@ -29,7 +29,7 @@ type Runner func(ctx context.Context) error
 func For(db *mongo.Database, ctx context.Context, runner Runner) error {
 	if sess := mongo.SessionFromContext(ctx); sess != nil {
 		// Resume the session.
-		return runner(mongo.NewSessionContext(ctx, sess))
+		return runner(ctx)
 	}
 	// Create a new session.
 	return db.Client().UseSession(ctx, func(sCtx mongo.SessionContext) error {
