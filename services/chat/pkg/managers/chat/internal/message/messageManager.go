@@ -128,7 +128,9 @@ func (m *manager) GetMessages(
 		ctx,
 		query,
 		options.Find().
-			SetSort(bson.D{{"timestamp", -1}}).
+			SetSort(bson.M{
+				"timestamp": -1,
+			}).
 			SetLimit(limit),
 	)
 	if err != nil {
