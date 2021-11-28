@@ -64,28 +64,6 @@ pipeline {
             }
           }
         }
-        stage('contacts') {
-          agent {
-            label 'docker_builder'
-          }
-          steps {
-            dir('services/contacts') {
-              sh 'make run-ci-if-needed'
-            }
-            archiveArtifacts(
-              allowEmptyArchive: true,
-              artifacts:         'services/contacts/docker-image.digest.txt*',
-              onlyIfSuccessful:  true,
-            )
-          }
-          post {
-            cleanup {
-              dir('services/contacts') {
-                sh 'make docker/clean'
-              }
-            }
-          }
-        }
         stage('docstore') {
           agent {
             label 'docker_builder'
