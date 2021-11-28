@@ -23,9 +23,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/docOps"
+	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -100,6 +102,8 @@ type Manager interface {
 		batchSize int32,
 	) (<-chan primitive.ObjectID, <-chan error)
 
+	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
+
 	UpsertDoc(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -143,6 +147,7 @@ func New(db *mongo.Database) Manager {
 }
 
 type manager struct {
+	db      *mongo.Database
 	cDocs   *mongo.Collection
 	cDocOps *mongo.Collection
 }
@@ -374,6 +379,26 @@ func (m *manager) GetDocIdsForUnArchiving(ctx context.Context, projectId primiti
 		projectFilterNeedsUnArchiving(projectId),
 		batchSize,
 	)
+}
+
+func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
+	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+		eg, pCtx := errgroup.WithContext(sCtx)
+		eg.Go(func() error {
+			_, err := m.UpsertDoc(pCtx, projectId, docId, snapshot.ToLines(), sharedTypes.Ranges{})
+			if err != nil {
+				return errors.Tag(err, "cannot set doc")
+			}
+			return nil
+		})
+		eg.Go(func() error {
+			if err := m.SetDocVersion(pCtx, docId, 0); err != nil {
+				return errors.Tag(err, "cannot set doc version")
+			}
+			return nil
+		})
+		return eg.Wait()
+	})
 }
 
 type upsertDocUpdate struct {

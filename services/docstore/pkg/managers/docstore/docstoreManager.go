@@ -241,22 +241,12 @@ func validateDocLines(lines sharedTypes.Lines) error {
 	return nil
 }
 
-var emptyDocSnapshot = make(sharedTypes.Snapshot, 0)
-
 func (m *manager) CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
-	return m.CreateDocWithContent(ctx, projectId, docId, emptyDocSnapshot)
+	return m.dm.CreateDocWithContent(ctx, projectId, docId, nil)
 }
 
 func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
-	_, err := m.dm.UpsertDoc(ctx, projectId, docId, snapshot.ToLines(), sharedTypes.Ranges{})
-	if err != nil {
-		return errors.Tag(err, "cannot set doc")
-	}
-	err = m.dm.SetDocVersion(ctx, docId, 0)
-	if err != nil {
-		return errors.Tag(err, "cannot set doc version")
-	}
-	return nil
+	return m.dm.CreateDocWithContent(ctx, projectId, docId, snapshot)
 }
 
 func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, version sharedTypes.Version, ranges sharedTypes.Ranges) (Modified, sharedTypes.Revision, error) {
