@@ -239,13 +239,8 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 				for queueEntry := range uploadQueue {
 					switch e := queueEntry.element.(type) {
 					case *project.Doc:
-						_, _, err := m.dm.UpdateDoc(
-							uploadCtx,
-							p.Id,
-							e.Id,
-							queueEntry.s.ToLines(),
-							0,
-							sharedTypes.Ranges{},
+						err := m.dm.CreateDocWithContent(
+							uploadCtx, p.Id, e.Id, queueEntry.s,
 						)
 						if err != nil {
 							return errors.Tag(err, "cannot upload doc")

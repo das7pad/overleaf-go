@@ -69,7 +69,8 @@ type Manager interface {
 		projectId primitive.ObjectID,
 	) ([]doc.Contents, error)
 
-	CreateDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
+	CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
+	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
 
 	UpdateDoc(
 		ctx context.Context,
@@ -240,10 +241,14 @@ func validateDocLines(lines sharedTypes.Lines) error {
 	return nil
 }
 
-var emptyDocLines = make(sharedTypes.Lines, 0)
+var emptyDocSnapshot = make(sharedTypes.Snapshot, 0)
 
-func (m *manager) CreateDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
-	_, err := m.dm.UpsertDoc(ctx, projectId, docId, emptyDocLines, sharedTypes.Ranges{})
+func (m *manager) CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	return m.CreateDocWithContent(ctx, projectId, docId, emptyDocSnapshot)
+}
+
+func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
+	_, err := m.dm.UpsertDoc(ctx, projectId, docId, snapshot.ToLines(), sharedTypes.Ranges{})
 	if err != nil {
 		return errors.Tag(err, "cannot set doc")
 	}

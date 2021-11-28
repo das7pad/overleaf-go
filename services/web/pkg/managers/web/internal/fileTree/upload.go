@@ -126,14 +126,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		// Create the new element.
 		if isDoc {
 			doc := project.NewDoc(request.FileName)
-			_, _, err = m.dm.UpdateDoc(
-				ctx,
-				projectId,
-				doc.Id,
-				s.ToLines(),
-				0,
-				sharedTypes.Ranges{},
-			)
+			err = m.dm.CreateDocWithContent(ctx, projectId, doc.Id, s)
 			if err != nil {
 				return errors.Tag(err, "cannot create populated doc")
 			}

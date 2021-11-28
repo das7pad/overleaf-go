@@ -71,7 +71,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 			return err
 		}
 
-		if err = m.dm.CreateDoc(sCtx, projectId, doc.Id); err != nil {
+		if err = m.dm.CreateEmptyDoc(sCtx, projectId, doc.Id); err != nil {
 			return errors.Tag(err, "cannot create empty doc")
 		}
 		err = m.pm.AddTreeElement(sCtx, projectId, v, mongoPath, doc)
