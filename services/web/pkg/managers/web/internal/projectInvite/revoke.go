@@ -36,8 +36,7 @@ func (m *manager) RevokeProjectInvite(ctx context.Context, request *types.Revoke
 		if err := m.pim.Delete(ctx, projectId, inviteId); err != nil {
 			return errors.Tag(err, "cannot delete invite")
 		}
-		key := "project-invite-" + inviteId.Hex()
-		if err := m.nm.RemoveNotificationByKeyOnly(ctx, key); err != nil {
+		if err := m.nm.RemoveByKeyOnly(ctx, getKey(inviteId)); err != nil {
 			return errors.Tag(err, "cannot delete invite notification")
 		}
 

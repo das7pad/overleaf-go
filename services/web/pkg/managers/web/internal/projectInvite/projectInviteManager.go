@@ -31,13 +31,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
-	"github.com/das7pad/overleaf-go/services/notifications/pkg/managers/notifications"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -49,14 +49,14 @@ type Manager interface {
 	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contacts.Manager, nm notifications.Manager) Manager {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contacts.Manager) Manager {
 	return &manager{
 		client:       client,
 		cm:           cm,
 		db:           db,
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),
-		nm:           nm,
+		nm:           notification.New(db),
 		options:      options,
 		pim:          projectInvite.New(db),
 		pm:           pm,
@@ -70,11 +70,15 @@ type manager struct {
 	db           *mongo.Database
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions
-	nm           notifications.Manager
+	nm           notification.Manager
 	options      *types.Options
 	pim          projectInvite.Manager
 	pm           project.Manager
 	um           user.Manager
+}
+
+func getKey(inviteId primitive.ObjectID) string {
+	return "project-invite-" + inviteId.Hex()
 }
 
 type refreshMembershipDetails struct {
@@ -101,23 +105,18 @@ func (m *manager) createNotification(ctx context.Context, d *projectInviteDetail
 		return nil
 	}
 
-	key := "project-invite-" + d.invite.Id.Hex()
-	userId := d.user.Id
-
-	opts := &bson.M{
+	n := notification.Notification{}
+	n.Expires = d.invite.Expires
+	n.Key = getKey(d.invite.Id)
+	n.TemplateKey = "notification_project_invite"
+	n.UserId = d.user.Id
+	n.MessageOptions = &bson.M{
 		"userName":    d.sender.DisplayName(),
 		"projectName": d.project.Name,
 		"projectId":   d.invite.ProjectId.Hex(),
 		"token":       d.invite.Token,
 	}
-	n := notifications.Notification{
-		Key:            key,
-		UserId:         userId,
-		Expires:        d.invite.Expires,
-		TemplateKey:    "notification_project_invite",
-		MessageOptions: opts,
-	}
-	if err := m.nm.AddNotification(ctx, userId, n, true); err != nil {
+	if err := m.nm.Add(ctx, n, true); err != nil {
 		return errors.Tag(err, "cannot create invite notification")
 	}
 	return nil

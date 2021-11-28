@@ -14,43 +14,36 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package notifications
 
 import (
 	"context"
-	"net/http"
 
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func waitForDb(ctx context.Context, client *mongo.Client) error {
-	return client.Ping(ctx, readpref.Primary())
+type Manager interface {
+	GetUserNotifications(ctx context.Context, request *types.GetNotificationsRequest, response *types.GetNotificationsResponse) error
+	RemoveNotification(ctx context.Context, request *types.RemoveNotificationRequest) error
 }
 
-func main() {
-	o := getOptions()
-	ctx := context.Background()
-	client, err := mongo.Connect(ctx, o.mongoOptions)
-	if err != nil {
-		panic(err)
+func New(db *mongo.Database) Manager {
+	return &manager{
+		nm: notification.New(db),
 	}
-	err = waitForDb(ctx, client)
-	if err != nil {
-		panic(err)
-	}
-	db := client.Database(o.dbName)
-	nm := notification.New(db)
-	handler := newHttpController(nm)
+}
 
-	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(o.corsOptions, o.jwtOptions),
-	}
-	err = server.ListenAndServe()
-	if err != nil {
-		panic(err)
-	}
+type manager struct {
+	nm notification.Manager
+}
+
+func (m *manager) GetUserNotifications(ctx context.Context, request *types.GetNotificationsRequest, response *types.GetNotificationsResponse) error {
+	return m.nm.GetAllForUser(ctx, request.Session.User.Id, response)
+}
+
+func (m *manager) RemoveNotification(ctx context.Context, r *types.RemoveNotificationRequest) error {
+	return m.nm.RemoveById(ctx, r.Session.User.Id, r.NotificationId)
 }

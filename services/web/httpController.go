@@ -88,6 +88,15 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/logout", h.logout)
 
 	{
+		// Notifications routes
+		r := publicApiRouter.Group("/notifications")
+		r.GET("", h.getUserNotifications)
+		rById := publicApiRouter.Group("/notification/:notificationId")
+		rById.Use(httpUtils.ValidateAndSetId("notificationId"))
+		r.DELETE("", h.removeNotification)
+	}
+
+	{
 		// Tag routes
 		r := publicApiRouter.Group("/tag")
 		r.POST("", h.createTag)
@@ -1150,4 +1159,32 @@ func (h *httpController) createFromZip(c *gin.Context) {
 		}
 	}
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) getUserNotifications(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.GetNotificationsRequest{
+		Session: s,
+	}
+	response := &types.GetNotificationsResponse{}
+	err = h.wm.GetUserNotifications(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) removeNotification(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.RemoveNotificationRequest{
+		Session:        s,
+		NotificationId: httpUtils.GetId(c, "notificationId"),
+	}
+	err = h.wm.RemoveNotification(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

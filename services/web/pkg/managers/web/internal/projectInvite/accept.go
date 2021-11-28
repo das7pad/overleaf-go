@@ -73,8 +73,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 
 			// While not critical, the UI should rather error out than retain
 			//  any stale notifications.
-			key := "project-invite-" + pi.Id.Hex()
-			if err = m.nm.RemoveNotificationByKeyOnly(ctx, key); err != nil {
+			if err = m.nm.RemoveByKeyOnly(ctx, getKey(pi.Id)); err != nil {
 				return errors.Tag(err, "cannot delete invite notification")
 			}
 

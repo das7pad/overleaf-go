@@ -14,43 +14,35 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package notification
 
 import (
-	"context"
-	"net/http"
+	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/das7pad/overleaf-go/pkg/models/notification"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func waitForDb(ctx context.Context, client *mongo.Client) error {
-	return client.Ping(ctx, readpref.Primary())
+type IdField struct {
+	Id primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
 }
 
-func main() {
-	o := getOptions()
-	ctx := context.Background()
-	client, err := mongo.Connect(ctx, o.mongoOptions)
-	if err != nil {
-		panic(err)
-	}
-	err = waitForDb(ctx, client)
-	if err != nil {
-		panic(err)
-	}
-	db := client.Database(o.dbName)
-	nm := notification.New(db)
-	handler := newHttpController(nm)
+type KeyField struct {
+	Key string `json:"key" bson:"key"`
+}
 
-	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(o.corsOptions, o.jwtOptions),
-	}
-	err = server.ListenAndServe()
-	if err != nil {
-		panic(err)
-	}
+type UserIdField struct {
+	UserId primitive.ObjectID `json:"user_id" bson:"user_id"`
+}
+
+type ExpiresField struct {
+	Expires time.Time `json:"expires,omitempty" bson:"expires,omitempty"`
+}
+
+type TemplateKeyField struct {
+	TemplateKey string `json:"templateKey,omitempty" bson:"templateKey,omitempty"`
+}
+
+type MessageOptsField struct {
+	MessageOptions *bson.M `json:"messageOpts,omitempty" bson:"messageOpts,omitempty"`
 }

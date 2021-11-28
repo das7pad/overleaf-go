@@ -23,16 +23,16 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
+	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	"github.com/das7pad/overleaf-go/services/notifications/pkg/managers/notifications"
 )
 
-func newHttpController(cm notifications.Manager) httpController {
+func newHttpController(cm notification.Manager) httpController {
 	return httpController{nm: cm}
 }
 
 type httpController struct {
-	nm notifications.Manager
+	nm notification.Manager
 }
 
 func (h *httpController) GetRouter(
@@ -54,19 +54,6 @@ func (h *httpController) GetRouter(
 	jwtNotificationRouter := jwtRouter.Group("/:notificationId")
 	jwtNotificationRouter.Use(httpUtils.ValidateAndSetId("notificationId"))
 	jwtNotificationRouter.DELETE("", h.removeNotificationById)
-
-	userRouter := router.Group("/user/:userId")
-	userRouter.Use(httpUtils.ValidateAndSetId("userId"))
-	userRouter.GET("", h.getNotifications)
-	userRouter.POST("", h.addNotification)
-	userRouter.DELETE("", h.removeNotificationByKey)
-
-	userNotificationRouter := userRouter.Group("/notification/:notificationId")
-	userNotificationRouter.Use(httpUtils.ValidateAndSetId("notificationId"))
-	userNotificationRouter.DELETE("", h.removeNotificationById)
-
-	router.DELETE("/key/:notificationKey", h.removeNotificationByKeyOnly)
-
 	return router
 }
 
@@ -75,65 +62,20 @@ func (h *httpController) status(c *gin.Context) {
 }
 
 func (h *httpController) getNotifications(c *gin.Context) {
-	n, err := h.nm.GetUserNotifications(
+	notifications := make([]notification.Notification, 0)
+	err := h.nm.GetAllForUser(
 		c,
 		httpUtils.GetId(c, "userId"),
+		&notifications,
 	)
-	httpUtils.Respond(c, http.StatusOK, n, err)
-}
-
-type addNotificationRequestBody struct {
-	notifications.Notification
-	ForceCreate bool `json:"forceCreate"`
-}
-
-func (h *httpController) addNotification(c *gin.Context) {
-	requestBody := &addNotificationRequestBody{}
-	if !httpUtils.MustParseJSON(requestBody, c) {
-		return
-	}
-
-	err := h.nm.AddNotification(
-		c,
-		httpUtils.GetId(c, "userId"),
-		requestBody.Notification,
-		requestBody.ForceCreate,
-	)
-	httpUtils.Respond(c, http.StatusOK, nil, err)
+	httpUtils.Respond(c, http.StatusOK, notifications, err)
 }
 
 func (h *httpController) removeNotificationById(c *gin.Context) {
-	err := h.nm.RemoveNotificationById(
+	err := h.nm.RemoveById(
 		c,
 		httpUtils.GetId(c, "userId"),
 		httpUtils.GetId(c, "notificationId"),
-	)
-	httpUtils.Respond(c, http.StatusOK, nil, err)
-}
-
-type removeNotificationByKeyRequestBody struct {
-	Key string `json:"key"`
-}
-
-func (h *httpController) removeNotificationByKey(c *gin.Context) {
-	requestBody := &removeNotificationByKeyRequestBody{}
-	if !httpUtils.MustParseJSON(requestBody, c) {
-		return
-	}
-
-	err := h.nm.RemoveNotificationByKey(
-		c,
-		httpUtils.GetId(c, "userId"),
-		requestBody.Key,
-	)
-	httpUtils.Respond(c, http.StatusOK, nil, err)
-}
-
-func (h *httpController) removeNotificationByKeyOnly(c *gin.Context) {
-	notificationKey := c.Param("notificationKey")
-	err := h.nm.RemoveNotificationByKeyOnly(
-		c,
-		notificationKey,
 	)
 	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
