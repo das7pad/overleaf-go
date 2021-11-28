@@ -31,13 +31,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -49,7 +49,7 @@ type Manager interface {
 	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contacts.Manager) Manager {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contact.Manager) Manager {
 	return &manager{
 		client:       client,
 		cm:           cm,
@@ -66,7 +66,7 @@ func New(options *types.Options, client redis.UniversalClient, db *mongo.Databas
 
 type manager struct {
 	client       redis.UniversalClient
-	cm           contacts.Manager
+	cm           contact.Manager
 	db           *mongo.Database
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions

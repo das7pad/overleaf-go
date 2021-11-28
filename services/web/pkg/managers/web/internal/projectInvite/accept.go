@@ -65,7 +65,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			}
 
 			// The contact hints are transparent to the user and OK to fail.
-			_ = m.cm.AddContacts(ctx, invitingUserId, userId)
+			_ = m.cm.Add(ctx, invitingUserId, userId)
 
 			if err = m.pim.Delete(ctx, projectId, pi.Id); err != nil {
 				return errors.Tag(err, "cannot delete invite")

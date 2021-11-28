@@ -19,9 +19,10 @@ package editor
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -30,7 +31,8 @@ func (m *manager) GetUserContacts(ctx context.Context, request *types.GetUserCon
 		return err
 	}
 	userId := request.Session.User.Id
-	sortedIds, err := m.csm.GetContacts(ctx, userId, contacts.DefaultLimit)
+	sortedIds := make([]primitive.ObjectID, 0)
+	err := m.csm.GetForUser(ctx, userId, &sortedIds)
 	if err != nil {
 		return errors.Tag(err, "cannot get contacts")
 	}

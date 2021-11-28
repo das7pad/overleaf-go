@@ -14,43 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package contact
 
 import (
-	"context"
-	"net/http"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/das7pad/overleaf-go/pkg/models/contact"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func waitForDb(ctx context.Context, client *mongo.Client) error {
-	return client.Ping(ctx, readpref.Primary())
+type contactDetails struct {
+	Connections int64              `bson:"n"`
+	LastTouched primitive.DateTime `bson:"ts"`
 }
 
-func main() {
-	o := getOptions()
-	ctx := context.Background()
-	client, err := mongo.Connect(ctx, o.mongoOptions)
-	if err != nil {
-		panic(err)
-	}
-	err = waitForDb(ctx, client)
-	if err != nil {
-		panic(err)
-	}
-	db := client.Database(o.dbName)
-	cm := contact.New(db)
-	handler := newHttpController(cm)
+type contact struct {
+	UserId string
+	contactDetails
+}
 
-	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(),
-	}
-	err = server.ListenAndServe()
-	if err != nil {
-		panic(err)
+func (a *contact) IsPreferredOver(b *contact) bool {
+	if a.Connections > b.Connections {
+		return true
+	} else if a.Connections < b.Connections {
+		return false
+	} else if a.LastTouched > b.LastTouched {
+		return true
+	} else if a.LastTouched < b.LastTouched {
+		return false
+	} else {
+		return false
 	}
 }

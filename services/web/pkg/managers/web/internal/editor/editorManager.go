@@ -28,13 +28,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
+	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
-	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -61,7 +61,7 @@ type Manager interface {
 	SetPublicAccessLevel(ctx context.Context, request *types.SetPublicAccessLevelRequest) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contacts.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contact.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	return &manager{
 		client:          client,
 		cm:              cm,
@@ -84,7 +84,7 @@ func New(options *types.Options, client redis.UniversalClient, db *mongo.Databas
 type manager struct {
 	client          redis.UniversalClient
 	cm              chat.Manager
-	csm             contacts.Manager
+	csm             contact.Manager
 	db              *mongo.Database
 	dm              docstore.Manager
 	editorEvents    channel.Writer

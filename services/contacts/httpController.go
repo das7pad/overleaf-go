@@ -23,15 +23,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/services/contacts/pkg/managers/contacts"
+	"github.com/das7pad/overleaf-go/pkg/models/contact"
 )
 
-func newHttpController(cm contacts.Manager) httpController {
+func newHttpController(cm contact.Manager) httpController {
 	return httpController{cm: cm}
 }
 
 type httpController struct {
-	cm contacts.Manager
+	cm contact.Manager
 }
 
 func (h *httpController) GetRouter() http.Handler {
@@ -61,12 +61,8 @@ func (h *httpController) addContacts(c *gin.Context) {
 	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
 	}
-	err := h.cm.AddContacts(c, userId, requestBody.ContactId)
+	err := h.cm.Add(c, userId, requestBody.ContactId)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
-}
-
-type getContactsOptions struct {
-	Limit int `form:"limit"`
 }
 
 type getContactsResponseBody struct {
@@ -76,10 +72,8 @@ type getContactsResponseBody struct {
 func (h *httpController) getContacts(c *gin.Context) {
 	userId := httpUtils.GetId(c, "userId")
 
-	options := &getContactsOptions{}
-	_ = c.ShouldBindQuery(options)
-
-	contactIds, err := h.cm.GetContacts(c, userId, options.Limit)
+	contactIds := make([]primitive.ObjectID, 0)
+	err := h.cm.GetForUser(c, userId, &contactIds)
 	body := &getContactsResponseBody{ContactIds: contactIds}
 	httpUtils.Respond(c, http.StatusOK, body, err)
 }
