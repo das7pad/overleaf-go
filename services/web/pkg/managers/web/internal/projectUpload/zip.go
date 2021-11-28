@@ -35,8 +35,9 @@ import (
 )
 
 const (
-	maxElements = 2000
-	maxZipSize  = 300 * 1024 * 1024
+	parallelUploads = 5
+	maxElements     = 2000
+	maxZipSize      = 300 * 1024 * 1024
 )
 
 type uploadQueueEntry struct {
@@ -129,8 +130,8 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	t, _ := p.GetRootFolder()
 
 	errCreate := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		uploadQueue := make(chan uploadQueueEntry)
-		uploadedQueue := make(chan uploadedQueueEntry)
+		uploadQueue := make(chan uploadQueueEntry, parallelUploads)
+		uploadedQueue := make(chan uploadedQueueEntry, parallelUploads)
 		eg, pCtx := errgroup.WithContext(sCtx)
 		go func() {
 			<-pCtx.Done()
@@ -234,7 +235,7 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 			return nil
 		})
 		uploadEg, uploadCtx := errgroup.WithContext(pCtx)
-		for i := 0; i < 5; i++ {
+		for i := 0; i < parallelUploads; i++ {
 			uploadEg.Go(func() error {
 				for queueEntry := range uploadQueue {
 					switch e := queueEntry.element.(type) {
