@@ -36,7 +36,6 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	name := request.Name
 
 	var projectVersion sharedTypes.Version
-	var docPath sharedTypes.PathName
 
 	doc := project.NewDoc(name)
 
@@ -55,7 +54,6 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 			if f.GetId() == parentFolderId {
 				target = f
 				mongoPath = mPath
-				docPath = fPath.Join(name)
 				return project.AbortWalk
 			}
 			return nil

@@ -51,7 +51,6 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	var v sharedTypes.Version
 	var hash sharedTypes.Hash
 	var upsertDoc *project.Doc
-	var fsPath sharedTypes.PathName
 	var uploadedFileRef *project.FileRef
 	var deletedElement, newElement project.TreeElement
 
@@ -70,7 +69,6 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		err = t.WalkFoldersMongo(func(_, f *project.Folder, d sharedTypes.DirName, mPath project.MongoPath) error {
 			if f.Id == parentFolderId {
 				mongoPath = mPath
-				fsPath = d.Join(request.FileName)
 				parentFolder = f
 				return project.AbortWalk
 			}
