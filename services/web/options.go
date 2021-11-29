@@ -49,7 +49,6 @@ func getOptions() *webOptions {
 	o.corsOptions = corsOptions.Parse()
 	o.options.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.options.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
-	o.options.JWT.Notifications.FillFromEnv("JWT_NOTIFICATIONS_VERIFY_SECRET")
 	o.options.JWT.Spelling.FillFromEnv("JWT_SPELLING_VERIFY_SECRET")
 	o.options.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 	o.options.SessionCookie.FillFromEnv("SESSION_SECRET")

@@ -25,7 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -43,24 +42,22 @@ type Manager interface {
 	RenameProject(ctx context.Context, request *types.RenameProjectRequest) error
 }
 
-func New(options *types.Options, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
+func New(editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
 	return &manager{
-		editorEvents:     editorEvents,
-		pm:               pm,
-		tm:               tm,
-		um:               um,
-		jwtLoggedInUser:  jwtLoggedInUser,
-		jwtNotifications: userIdJWT.New(options.JWT.Notifications),
+		editorEvents:    editorEvents,
+		pm:              pm,
+		tm:              tm,
+		um:              um,
+		jwtLoggedInUser: jwtLoggedInUser,
 	}
 }
 
 type manager struct {
-	editorEvents     channel.Writer
-	pm               project.Manager
-	tm               tag.Manager
-	um               user.Manager
-	jwtLoggedInUser  jwtHandler.JWTHandler
-	jwtNotifications jwtHandler.JWTHandler
+	editorEvents    channel.Writer
+	pm              project.Manager
+	tm              tag.Manager
+	um              user.Manager
+	jwtLoggedInUser jwtHandler.JWTHandler
 }
 
 func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error {
@@ -163,17 +160,6 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 			return errors.Tag(err, "cannot get tags")
 		}
 		response.Tags = tags
-		return nil
-	})
-
-	eg.Go(func() error {
-		c := m.jwtNotifications.New().(*userIdJWT.Claims)
-		c.UserId = userId
-		b, err := m.jwtNotifications.SetExpiryAndSign(c)
-		if err != nil {
-			return errors.Tag(err, "cannot get notifications jwt")
-		}
-		response.JWTNotifications = b
 		return nil
 	})
 

@@ -71,11 +71,10 @@ type Options struct {
 	} `json:"apis"`
 
 	JWT struct {
-		Compile       jwtOptions.JWTOptions `json:"compile"`
-		LoggedInUser  jwtOptions.JWTOptions `json:"logged_in_user"`
-		Notifications jwtOptions.JWTOptions `json:"notifications"`
-		Spelling      jwtOptions.JWTOptions `json:"spelling"`
-		RealTime      jwtOptions.JWTOptions `json:"realTime"`
+		Compile      jwtOptions.JWTOptions `json:"compile"`
+		LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
+		Spelling     jwtOptions.JWTOptions `json:"spelling"`
+		RealTime     jwtOptions.JWTOptions `json:"realTime"`
 	} `json:"jwt"`
 
 	SessionCookie signedCookie.Options `json:"session_cookie"`
@@ -142,9 +141,6 @@ func (o *Options) Validate() error {
 	}
 	if err := o.JWT.LoggedInUser.Validate(); err != nil {
 		return errors.Tag(err, "jwt.logged_in_user is invalid")
-	}
-	if err := o.JWT.Notifications.Validate(); err != nil {
-		return errors.Tag(err, "jwt.notifications is invalid")
 	}
 	if err := o.JWT.RealTime.Validate(); err != nil {
 		return errors.Tag(err, "jwt.realTime is invalid")
