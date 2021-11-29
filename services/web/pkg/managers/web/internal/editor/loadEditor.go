@@ -64,7 +64,7 @@ func (m *manager) genJWTSpelling(userId primitive.ObjectID) (string, error) {
 	return m.jwtSpelling.SetExpiryAndSign(c)
 }
 
-func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u user.WithPublicInfo) (types.WSBootstrap, error) {
+func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
 	c := m.wsBootstrap.New().(*wsBootstrap.Claims)
 	c.ProjectId = projectId
 	c.User.Id = u.Id
@@ -90,11 +90,7 @@ func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootst
 	if err != nil {
 		return err
 	}
-	u := user.WithPublicInfo{}
-	u.Id = request.Session.User.Id
-	u.Email = request.Session.User.Email
-	u.FirstName = request.Session.User.FirstName
-	u.LastName = request.Session.User.LastName
+	u := request.Session.User.ToPublicUserInfo()
 	b, err := m.genWSBootstrap(projectId, u)
 	if err != nil {
 		return errors.Tag(err, "cannot gen jwt")
@@ -166,7 +162,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 	}
 
 	eg.Go(func() error {
-		b, err := m.genWSBootstrap(projectId, u.WithPublicInfo)
+		b, err := m.genWSBootstrap(projectId, &u.WithPublicInfo)
 		if err != nil {
 			return errors.Tag(err, "cannot get wsBootstrap")
 		}

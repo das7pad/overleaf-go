@@ -45,6 +45,15 @@ type User struct {
 	SessionCreated time.Time          `json:"session_created"`
 }
 
+func (u *User) ToPublicUserInfo() *user.WithPublicInfo {
+	return &user.WithPublicInfo{
+		EmailField:     user.EmailField{Email: u.Email},
+		FirstNameField: user.FirstNameField{FirstName: u.FirstName},
+		IdField:        user.IdField{Id: u.Id},
+		LastNameField:  user.LastNameField{LastName: u.LastName},
+	}
+}
+
 type anonTokenAccess map[string]project.AccessToken
 
 type Data struct {

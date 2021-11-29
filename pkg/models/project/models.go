@@ -150,3 +150,14 @@ type ForCreation struct {
 	TreeField               `bson:"inline"`
 	VersionField            `bson:"inline"`
 }
+
+type ForClone struct {
+	ForAuthorizationDetails `bson:"inline"`
+	CompilerField           `bson:"inline"`
+	ImageNameField          `bson:"inline"`
+	NameField               `bson:"inline"`
+	RootDocIdField          `bson:"inline"`
+	SpellCheckLanguageField `bson:"inline"`
+	TreeField               `bson:"inline"`
+	VersionField            `bson:"inline"`
+}

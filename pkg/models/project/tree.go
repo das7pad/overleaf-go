@@ -110,7 +110,7 @@ func (t *Folder) FieldNameInFolder() MongoPath {
 }
 
 func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
-	if path == "." {
+	if path == "." || path == "" {
 		return t, nil
 	}
 	dir := path.Dir()
@@ -129,6 +129,37 @@ func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
 		return folder, nil
 	}
 	return nil, &errors.ValidationError{Msg: "conflicting paths"}
+}
+
+var ErrDuplicateFolderEntries = &errors.InvalidStateError{
+	Msg: "duplicate folder entries",
+}
+
+func (t *Folder) CheckHasUniqueEntries() error {
+	n := len(t.Docs) + len(t.FileRefs) + len(t.Folders)
+	if n == 0 {
+		return nil
+	}
+	names := make(map[sharedTypes.Filename]struct{}, n)
+	for _, d := range t.Docs {
+		if _, exists := names[d.Name]; exists {
+			return ErrDuplicateFolderEntries
+		}
+		names[d.Name] = struct{}{}
+	}
+	for _, f := range t.FileRefs {
+		if _, exists := names[f.Name]; exists {
+			return ErrDuplicateFolderEntries
+		}
+		names[f.Name] = struct{}{}
+	}
+	for _, f := range t.Folders {
+		if _, exists := names[f.Name]; exists {
+			return ErrDuplicateFolderEntries
+		}
+		names[f.Name] = struct{}{}
+	}
+	return nil
 }
 
 func NewFolder(name sharedTypes.Filename) *Folder {

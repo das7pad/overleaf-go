@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -172,6 +171,7 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 					if err != nil {
 						return err
 					}
+					parentCache[dir] = parent
 				}
 				if isDoc {
 					if err = f.Close(); err != nil {
@@ -324,12 +324,6 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	}
 	errMerged := &errors.MergedError{}
 	errMerged.Add(errors.Tag(errCreate, "cannot create project"))
-
-	// purge filestore data
-	bCtx, done := context.WithTimeout(context.Background(), 30*time.Second)
-	defer done()
-	if err := m.fm.DeleteProject(bCtx, p.Id); err != nil {
-		errMerged.Add(errors.Tag(err, "cannot cleanup filestore data"))
-	}
+	errMerged.Add(m.purgeFilestoreData(p.Id))
 	return errMerged
 }

@@ -30,6 +30,7 @@ var (
 	nameFieldProjection                   = views.GetProjectionFor(NameField{})
 	tokensFieldProjection                 = views.GetProjectionFor(TokensField{})
 	forAuthorizationDetailsProjection     = views.GetProjectionFor(ForAuthorizationDetails{})
+	forCloneProjection                    = views.GetProjectionFor(ForClone{})
 	forProjectInviteProjection            = views.GetProjectionFor(ForProjectInvite{})
 	forProjectOwnershipTransferProjection = views.GetProjectionFor(ForProjectOwnershipTransfer{})
 	forTokenAccessCheckProjection         = views.GetProjectionFor(forTokenAccessCheck{})
@@ -78,6 +79,8 @@ func getProjection(model interface{}) views.View {
 		return withTreeAndAuth
 	case *WithTreeAndRootDoc:
 		return withTreeAndRootDoc
+	case *ForClone:
+		return forCloneProjection
 	case *ForProjectInvite:
 		return forProjectInviteProjection
 	case *ForProjectOwnershipTransfer:

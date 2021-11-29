@@ -18,9 +18,12 @@ package projectUpload
 
 import (
 	"context"
+	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
@@ -28,6 +31,7 @@ import (
 )
 
 type Manager interface {
+	CloneProject(ctx context.Context, request *types.CloneProjectRequest, response *types.CloneProjectResponse) error
 	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectFromZipResponse) error
 }
 
@@ -47,4 +51,14 @@ type manager struct {
 	fm      filestore.Manager
 	pm      project.Manager
 	options *types.Options
+}
+
+func (m *manager) purgeFilestoreData(projectId primitive.ObjectID) error {
+	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
+	defer done()
+
+	if err := m.fm.DeleteProject(ctx, projectId); err != nil {
+		return errors.Tag(err, "cannot cleanup filestore data")
+	}
+	return nil
 }

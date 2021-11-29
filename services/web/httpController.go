@@ -116,6 +116,7 @@ func (h *httpController) GetRouter(
 		r.Use(httpUtils.ValidateAndSetId("projectId"))
 		r.DELETE("/archive", h.unArchiveProject)
 		r.POST("/archive", h.archiveProject)
+		r.POST("/clone", h.cloneProject)
 		r.GET("/entities", h.getProjectEntities)
 		r.POST("/jwt", h.getProjectJWT)
 		r.POST("/leave", h.leaveProject)
@@ -1116,6 +1117,23 @@ func (h *httpController) clearSessions(c *gin.Context) {
 	}
 	err = h.wm.ClearSessions(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) cloneProject(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.CloneProjectRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	request.ProjectId = httpUtils.GetId(c, "projectId")
+	response := &types.CloneProjectResponse{}
+	err = h.wm.CloneProject(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) createFromZip(c *gin.Context) {
