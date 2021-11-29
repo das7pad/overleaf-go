@@ -20,6 +20,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/docOps"
 )
 
+type forInsertion struct {
+	IdField        `bson:"inline"`
+	LinesField     `bson:"inline"`
+	ProjectIdField `bson:"inline"`
+	RangesField    `bson:"inline"`
+}
+
 type ArchiveContents struct {
 	LinesField  `bson:"inline"`
 	RangesField `bson:"inline"`

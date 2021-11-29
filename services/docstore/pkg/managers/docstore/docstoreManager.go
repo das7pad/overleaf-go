@@ -71,6 +71,7 @@ type Manager interface {
 
 	CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
+	CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []doc.Contents) error
 
 	UpdateDoc(
 		ctx context.Context,
@@ -247,6 +248,10 @@ func (m *manager) CreateEmptyDoc(ctx context.Context, projectId, docId primitive
 
 func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
 	return m.dm.CreateDocWithContent(ctx, projectId, docId, snapshot)
+}
+
+func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []doc.Contents) error {
+	return m.dm.CreateDocsWithContent(ctx, projectId, docs)
 }
 
 func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, version sharedTypes.Version, ranges sharedTypes.Ranges) (Modified, sharedTypes.Revision, error) {

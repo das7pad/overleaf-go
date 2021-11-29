@@ -103,6 +103,7 @@ type Manager interface {
 	) (<-chan primitive.ObjectID, <-chan error)
 
 	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
+	CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []Contents) error
 
 	UpsertDoc(
 		ctx context.Context,
@@ -394,6 +395,39 @@ func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId pri
 		eg.Go(func() error {
 			if err := m.SetDocVersion(pCtx, docId, 0); err != nil {
 				return errors.Tag(err, "cannot set doc version")
+			}
+			return nil
+		})
+		return eg.Wait()
+	})
+}
+
+func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []Contents) error {
+	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+		eg, pCtx := errgroup.WithContext(sCtx)
+		eg.Go(func() error {
+			docContents := make([]interface{}, len(docs))
+			for i, doc := range docs {
+				docContents[i] = forInsertion{
+					IdField:        doc.IdField,
+					LinesField:     doc.LinesField,
+					ProjectIdField: ProjectIdField{ProjectId: projectId},
+				}
+			}
+			if _, err := m.cDocs.InsertMany(pCtx, docContents); err != nil {
+				return errors.Tag(err, "cannot insert doc contents")
+			}
+			return nil
+		})
+		eg.Go(func() error {
+			docVersions := make([]interface{}, len(docs))
+			for i, doc := range docs {
+				docVersions[i] = docOps.Full{
+					DocIdField: docOps.DocIdField{DocId: doc.Id},
+				}
+			}
+			if _, err := m.cDocOps.InsertMany(pCtx, docVersions); err != nil {
+				return errors.Tag(err, "cannot insert doc versions")
 			}
 			return nil
 		})

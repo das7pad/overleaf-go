@@ -29,3 +29,8 @@ type VersionField struct {
 type DocIdField struct {
 	DocId primitive.ObjectID `bson:"doc_id"`
 }
+
+type Full struct {
+	DocIdField   `bson:"inline"`
+	VersionField `bson:"inline"`
+}
