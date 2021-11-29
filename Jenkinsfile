@@ -152,28 +152,6 @@ pipeline {
             }
           }
         }
-        stage('notifications') {
-          agent {
-            label 'docker_builder'
-          }
-          steps {
-            dir('services/notifications') {
-              sh 'make run-ci-if-needed'
-            }
-            archiveArtifacts(
-              allowEmptyArchive: true,
-              artifacts:         'services/notifications/docker-image.digest.txt*',
-              onlyIfSuccessful:  true,
-            )
-          }
-          post {
-            cleanup {
-              dir('services/notifications') {
-                sh 'make docker/clean'
-              }
-            }
-          }
-        }
         stage('real-time') {
           agent {
             label 'docker_builder'
