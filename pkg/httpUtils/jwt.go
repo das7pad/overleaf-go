@@ -42,12 +42,22 @@ func NewJWTHandler(handler jwtHandler.JWTHandler) *JWTHTTPHandler {
 	}
 }
 
+const timingKeyJWT = "httpUtils.timing.jwt"
+
+var (
+	startJWTTimer = StartTimer(timingKeyJWT)
+	endJWTTimer   = EndTimer(timingKeyJWT, "jwt")
+)
+
 type JWTHTTPHandler struct {
 	parser    jwtHandler.JWTHandler
 	fromQuery string
 }
 
 func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
+	startJWTTimer(c)
+	defer endJWTTimer(c)
+
 	var blob string
 	if h.fromQuery != "" {
 		blob = c.Query(h.fromQuery)

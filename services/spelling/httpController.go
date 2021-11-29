@@ -37,13 +37,14 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter(
+	clientIPOptions *httpUtils.ClientIPOptions,
 	corsOptions httpUtils.CORSOptions,
 	jwtOptions jwtOptions.JWTOptions,
 ) http.Handler {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.GET("/status", h.status)
-	router.HEAD("/status", h.status)
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
+		StatusMessage:   "spelling is alive (go)\n",
+		ClientIPOptions: clientIPOptions,
+	})
 
 	jwtRouter := router.Group("/jwt/spelling/v20200714")
 	jwtRouter.Use(httpUtils.CORS(corsOptions))
@@ -70,10 +71,6 @@ func (h *httpController) GetRouter(
 		userRouter.POST("/unlearn", h.unlearn)
 	}
 	return router
-}
-
-func (h *httpController) status(c *gin.Context) {
-	c.String(http.StatusOK, "spelling is alive (go)\n")
 }
 
 type checkRequestBody struct {

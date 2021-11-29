@@ -33,7 +33,7 @@ import (
 
 type webOptions struct {
 	address         string
-	clientIPOptions httpUtils.ClientIPOptions
+	clientIPOptions *httpUtils.ClientIPOptions
 	corsOptions     httpUtils.CORSOptions
 	mongoOptions    *options.ClientOptions
 	dbName          string

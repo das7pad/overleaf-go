@@ -49,15 +49,13 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter(
-	clientIPOptions httpUtils.ClientIPOptions,
+	clientIPOptions *httpUtils.ClientIPOptions,
 	corsOptions httpUtils.CORSOptions,
 ) *gin.Engine {
-	router := gin.New()
-	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
-	router.TrustedProxies = clientIPOptions.TrustedProxies
-	router.Use(gin.Recovery())
-	router.GET("/status", h.status)
-	router.HEAD("/status", h.status)
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
+		StatusMessage:   "web is alive (go)\n",
+		ClientIPOptions: clientIPOptions,
+	})
 
 	internalRouter := router.Group("")
 	internalProjectRouter := internalRouter.Group("/project/:projectId")
@@ -260,10 +258,6 @@ func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompi
 	return projectJWT.MustGet(c).SignedCompileProjectRequestOptions
 }
 
-func (h *httpController) status(c *gin.Context) {
-	c.String(http.StatusOK, "web is alive (go)\n")
-}
-
 type clearProjectCacheRequestBody struct {
 	types.ClsiServerId `json:"clsiServerId"`
 }
@@ -357,11 +351,7 @@ func (h *httpController) editorLocals(c *gin.Context) {
 		return
 	}
 	response := &types.LoadEditorResponse{}
-	t := &sharedTypes.Timed{}
-	t.Begin()
 	err := h.wm.LoadEditor(c, request, response)
-	t.End()
-	c.Header("Server-Timing", "editorLocals;dur="+t.MS())
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -370,11 +360,7 @@ func (h *httpController) projectListLocals(c *gin.Context) {
 		UserId: httpUtils.GetId(c, "userId"),
 	}
 	response := &types.ProjectListResponse{}
-	t := &sharedTypes.Timed{}
-	t.Begin()
 	err := h.wm.ProjectList(c, request, response)
-	t.End()
-	c.Header("Server-Timing", "projectListLocals;dur="+t.MS())
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -753,6 +739,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Writer.Header().Set("Content-Disposition", cd)
+	httpUtils.EndTotalTimer(c)
 	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
 }
 

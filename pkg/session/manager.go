@@ -27,6 +27,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 )
 
@@ -60,6 +61,14 @@ type manager struct {
 	verifier     []hash.Hash
 }
 
+const (
+	timingKeyGet = "session.timing.get"
+)
+
+var (
+	timerStartGet = httpUtils.StartTimer(timingKeyGet)
+	timerEndGet   = httpUtils.EndTimer(timingKeyGet, "session")
+)
 var cookieTriggerCyclingOfCSRFSecret = (&http.Cookie{
 	Name:     "_csrf",
 	Value:    "",
@@ -102,6 +111,9 @@ func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {
 }
 
 func (m *manager) GetSession(c *gin.Context) (*Session, error) {
+	timerStartGet(c)
+	defer timerEndGet(c)
+
 	id, err := m.signedCookie.Get(c)
 	if err != nil {
 		return nil, err

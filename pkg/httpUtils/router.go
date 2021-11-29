@@ -14,18 +14,33 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package clientIPOptions
+package httpUtils
 
 import (
-	"strings"
+	"net/http"
 
-	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/gin-gonic/gin"
 )
 
-func Parse() *httpUtils.ClientIPOptions {
-	trustedProxies := utils.GetStringFromEnv("TRUSTED_PROXIES", "")
-	return &httpUtils.ClientIPOptions{
-		TrustedProxies: strings.Split(trustedProxies, ","),
+type RouterOptions struct {
+	StatusMessage   string
+	ClientIPOptions *ClientIPOptions
+}
+
+func NewRouter(options *RouterOptions) *gin.Engine {
+	router := gin.New()
+	if options.ClientIPOptions != nil {
+		router.RemoteIPHeaders = []string{"X-Forwarded-For"}
+		router.TrustedProxies = options.ClientIPOptions.TrustedProxies
 	}
+	router.Use(gin.Recovery())
+
+	status := func(c *gin.Context) {
+		c.String(http.StatusOK, options.StatusMessage)
+	}
+	router.GET("/status", status)
+	router.HEAD("/status", status)
+
+	router.Use(StartTotalTimer)
+	return router
 }

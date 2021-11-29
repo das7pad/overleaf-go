@@ -49,8 +49,10 @@ func main() {
 	handler := newHttpController(sm)
 
 	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(o.corsOptions, o.jwtOptions),
+		Addr: o.address,
+		Handler: handler.GetRouter(
+			o.clientIPOptions, o.corsOptions, o.jwtOptions,
+		),
 	}
 	err = server.ListenAndServe()
 	if err != nil {

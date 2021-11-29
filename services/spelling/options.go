@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/clientIPOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
@@ -29,18 +30,20 @@ import (
 )
 
 type spellingOptions struct {
-	address      string
-	corsOptions  httpUtils.CORSOptions
-	jwtOptions   jwtOptions.JWTOptions
-	mongoOptions *options.ClientOptions
-	dbName       string
-	options      *types.Options
+	address         string
+	clientIPOptions *httpUtils.ClientIPOptions
+	corsOptions     httpUtils.CORSOptions
+	jwtOptions      jwtOptions.JWTOptions
+	mongoOptions    *options.ClientOptions
+	dbName          string
+	options         *types.Options
 }
 
 func getOptions() *spellingOptions {
 	o := &spellingOptions{}
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(3005)
+	o.clientIPOptions = clientIPOptions.Parse()
 	o.corsOptions = corsOptions.Parse()
 	o.jwtOptions = jwtOptions.Parse("JWT_SPELLING_VERIFY_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()

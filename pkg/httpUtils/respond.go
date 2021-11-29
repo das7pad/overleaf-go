@@ -75,6 +75,7 @@ func Respond(
 			}
 		}
 	}
+	EndTotalTimer(c)
 	c.Abort()
 	if body == nil {
 		c.Status(code)

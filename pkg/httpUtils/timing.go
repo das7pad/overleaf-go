@@ -14,18 +14,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package clientIPOptions
+package httpUtils
 
 import (
-	"strings"
+	"github.com/gin-gonic/gin"
 
-	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func Parse() *httpUtils.ClientIPOptions {
-	trustedProxies := utils.GetStringFromEnv("TRUSTED_PROXIES", "")
-	return &httpUtils.ClientIPOptions{
-		TrustedProxies: strings.Split(trustedProxies, ","),
+const timingKeyTotal = "httpUtils.timing.total"
+
+var (
+	StartTotalTimer = StartTimer(timingKeyTotal)
+	EndTotalTimer   = EndTimer(timingKeyTotal, "total")
+)
+
+func StartTimer(key string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		t := &sharedTypes.Timed{}
+		t.Begin()
+		c.Set(key, t)
+	}
+}
+
+func EndTimer(key string, label string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		raw, exists := c.Get(key)
+		if !exists {
+			return
+		}
+		t := raw.(*sharedTypes.Timed)
+		t.End()
+		c.Writer.Header().Add("Server-Timing", label+";dur="+t.MS())
 	}
 }
