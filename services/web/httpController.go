@@ -77,6 +77,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
 	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
 	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
+	publicApiRouter.POST("/project/new", h.createExampleProject)
 	publicApiRouter.POST("/project/new/upload", h.createFromZip)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
@@ -1133,6 +1134,27 @@ func (h *httpController) cloneProject(c *gin.Context) {
 	request.ProjectId = httpUtils.GetId(c, "projectId")
 	response := &types.CloneProjectResponse{}
 	err = h.wm.CloneProject(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) createExampleProject(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.CreateExampleProjectRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	response := &types.CreateExampleProjectResponse{}
+	err = h.wm.CreateExampleProject(c, request, response)
+	if err != nil {
+		if errors.IsValidationError(err) {
+			response.Error = "Error: " + err.Error()
+		}
+	}
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 

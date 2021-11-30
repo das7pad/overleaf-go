@@ -121,7 +121,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	tam := tokenAccess.New(client, pm)
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
-	pum := projectUpload.New(options, db, pm, dm, fm)
+	pum := projectUpload.New(options, db, pm, um, dm, fm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
