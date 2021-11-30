@@ -166,8 +166,8 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 						p.RootDocId = d.Id
 					}
 				}
-				contents.Id = d.Id
-				newDocs[i] = contents
+				newDocs[i].Id = d.Id
+				newDocs[i].Lines = contents.Lines
 				parent := parentCache[path.Dir()]
 				parent.Docs = append(parent.Docs, d)
 			}
