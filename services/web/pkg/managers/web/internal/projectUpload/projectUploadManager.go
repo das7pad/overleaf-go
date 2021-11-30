@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -37,10 +38,11 @@ type Manager interface {
 	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectFromZipResponse) error
 }
 
-func New(options *types.Options, db *mongo.Database, pm project.Manager, um user.Manager, dm docstore.Manager, fm filestore.Manager) Manager {
+func New(options *types.Options, db *mongo.Database, pm project.Manager, um user.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
 		db:      db,
 		dm:      dm,
+		dum:     dum,
 		fm:      fm,
 		pm:      pm,
 		um:      um,
@@ -51,6 +53,7 @@ func New(options *types.Options, db *mongo.Database, pm project.Manager, um user
 type manager struct {
 	db      *mongo.Database
 	dm      docstore.Manager
+	dum     documentUpdater.Manager
 	fm      filestore.Manager
 	pm      project.Manager
 	um      user.Manager

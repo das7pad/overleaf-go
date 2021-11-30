@@ -126,6 +126,9 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 			}
 		}()
 		eg.Go(func() error {
+			if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
+				return errors.Tag(err, "cannot flush docs to mongo")
+			}
 			docs, err := m.dm.GetAllDocContents(ctx, sourceProjectId)
 			if err != nil {
 				return errors.Tag(err, "cannot get docs")
