@@ -60,6 +60,11 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 		if _, err := sp.GetPrivilegeLevelAuthenticated(userId); err != nil {
 			return err
 		}
+		st, errNoRootFolder := sp.GetRootFolder()
+		if errNoRootFolder != nil {
+			return errNoRootFolder
+		}
+
 		eg, pCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
@@ -73,63 +78,60 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 			}
 			return nil
 		})
-		if err := eg.Wait(); err != nil {
-			return err
-		}
+		eg.Go(func() error {
+			if lastVersion != sp.Version {
+				if lastVersion != -1 {
+					// Cleanup previous attempt.
+					if err := m.purgeFilestoreData(p.Id); err != nil {
+						return err
+					}
+				}
+				lastVersion = sp.Version
+				parentCache = make(map[sharedTypes.DirName]*project.Folder)
+				t = project.NewFolder("")
+				p.RootFolder[0] = t
+				p.RootDocId = primitive.NilObjectID
+			}
+			p.ImageName = sp.ImageName
+			p.Compiler = sp.Compiler
+			p.SpellCheckLanguage = sp.SpellCheckLanguage
 
-		st, errNoRootFolder := sp.GetRootFolder()
-		if errNoRootFolder != nil {
-			return errNoRootFolder
-		}
-
-		if lastVersion != sp.Version {
-			if lastVersion != -1 {
-				// Cleanup previous attempt.
-				if err := m.purgeFilestoreData(p.Id); err != nil {
+			err := st.WalkFolders(func(src *project.Folder, dir sharedTypes.DirName) error {
+				if dst, exists := parentCache[dir]; exists {
+					// Already created in previous tx cycle. Clear docs.
+					dst.Docs = dst.Docs[:0]
+					return nil
+				}
+				if err := src.CheckHasUniqueEntries(); err != nil {
 					return err
 				}
-			}
-			lastVersion = sp.Version
-			parentCache = make(map[sharedTypes.DirName]*project.Folder)
-			t = project.NewFolder("")
-			p.RootFolder[0] = t
-			p.RootDocId = primitive.NilObjectID
-		}
-		p.ImageName = sp.ImageName
-		p.Compiler = sp.Compiler
-		p.SpellCheckLanguage = sp.SpellCheckLanguage
+				dst, err := t.CreateParents(dir)
+				if err != nil {
+					return err
+				}
+				parentCache[dir] = dst
 
-		errCreateFolders := st.WalkFolders(func(src *project.Folder, dir sharedTypes.DirName) error {
-			if dst, exists := parentCache[dir]; exists {
-				// Already created in previous tx cycle. Clear docs.
-				dst.Docs = dst.Docs[:0]
+				// Pre-Allocate memory
+				if n := len(src.Docs); cap(dst.Docs) < n {
+					dst.Docs = make([]*project.Doc, 0, n)
+				}
+				if n := len(src.FileRefs); cap(dst.FileRefs) < n {
+					dst.FileRefs = make([]*project.FileRef, 0, n)
+				}
+				if n := len(src.Folders); cap(dst.Folders) < n {
+					dst.Folders = make([]*project.Folder, 0, n)
+				}
 				return nil
-			}
-			if err := src.CheckHasUniqueEntries(); err != nil {
-				return err
-			}
-			dst, err := t.CreateParents(dir)
+			})
 			if err != nil {
 				return err
 			}
-			parentCache[dir] = dst
-
-			// Pre-Allocate memory
-			if n := len(src.Docs); cap(dst.Docs) < n {
-				dst.Docs = make([]*project.Doc, 0, n)
-			}
-			if n := len(src.FileRefs); cap(dst.FileRefs) < n {
-				dst.FileRefs = make([]*project.FileRef, 0, n)
-			}
-			if n := len(src.Folders); cap(dst.Folders) < n {
-				dst.Folders = make([]*project.Folder, 0, n)
-			}
+			parentCache["."] = t
 			return nil
 		})
-		if errCreateFolders != nil {
-			return errCreateFolders
+		if err := eg.Wait(); err != nil {
+			return err
 		}
-		parentCache["."] = t
 
 		copyFileQueue := make(chan *copyFileQueueEntry, parallelUploads)
 		doneCopyingFileQueue := make(chan *copyFileQueueEntry, parallelUploads)
