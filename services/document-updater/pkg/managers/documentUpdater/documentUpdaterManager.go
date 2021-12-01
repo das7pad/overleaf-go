@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
@@ -135,6 +136,9 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID) ([]*types.DocContentLines, error) {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return nil, err
+	}
 	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
 	if err != nil {
 		return nil, err
@@ -147,6 +151,9 @@ func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectI
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID) (types.DocContentSnapshots, error) {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return nil, err
+	}
 	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
 	if err != nil {
 		return nil, err
@@ -159,21 +166,36 @@ func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, proje
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 
 func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.dm.FlushDocIfLoaded(ctx, projectId, docId)
 }
 
 func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.dm.FlushAndDeleteDoc(ctx, projectId, docId)
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.dm.FlushProject(ctx, projectId)
 }
 
 func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.dm.FlushAndDeleteProject(ctx, projectId)
 }

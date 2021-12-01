@@ -60,8 +60,21 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 		if _, err := sp.GetPrivilegeLevelAuthenticated(userId); err != nil {
 			return err
 		}
-		if err := m.dm.UnArchiveProject(ctx, sourceProjectId); err != nil {
-			return errors.Tag(err, "cannot un-archive project")
+		eg, pCtx := errgroup.WithContext(ctx)
+		eg.Go(func() error {
+			if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
+				return errors.Tag(err, "cannot flush docs to mongo")
+			}
+			return nil
+		})
+		eg.Go(func() error {
+			if err := m.dm.UnArchiveProject(ctx, sourceProjectId); err != nil {
+				return errors.Tag(err, "cannot un-archive project")
+			}
+			return nil
+		})
+		if err := eg.Wait(); err != nil {
+			return err
 		}
 
 		st, errNoRootFolder := sp.GetRootFolder()
@@ -120,7 +133,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 
 		copyFileQueue := make(chan *copyFileQueueEntry, parallelUploads)
 		doneCopyingFileQueue := make(chan *copyFileQueueEntry, parallelUploads)
-		eg, pCtx := errgroup.WithContext(sCtx)
+		eg, pCtx = errgroup.WithContext(sCtx)
 		go func() {
 			<-pCtx.Done()
 			if pCtx.Err() != nil {
@@ -130,9 +143,6 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 			}
 		}()
 		eg.Go(func() error {
-			if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
-				return errors.Tag(err, "cannot flush docs to mongo")
-			}
 			docs, err := m.dm.GetAllDocContents(ctx, sourceProjectId)
 			if err != nil {
 				return errors.Tag(err, "cannot get docs")
