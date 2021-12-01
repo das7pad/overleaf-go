@@ -194,12 +194,12 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 
 func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]doc.Ranges, error) {
 	for {
-		if err := m.da.UnArchiveDocs(ctx, projectId); err != nil {
-			return nil, err
-		}
 		ranges, err := m.dm.GetAllRanges(ctx, projectId)
 		if err != nil {
 			if errors.IsDocArchivedError(err) {
+				if err = m.da.UnArchiveDocs(ctx, projectId); err != nil {
+					return nil, err
+				}
 				// Retry after un-archiving.
 				continue
 			}
@@ -211,12 +211,12 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 
 func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) ([]doc.Contents, error) {
 	for {
-		if err := m.da.UnArchiveDocs(ctx, projectId); err != nil {
-			return nil, err
-		}
 		contents, err := m.dm.GetAllDocContents(ctx, projectId)
 		if err != nil {
 			if errors.IsDocArchivedError(err) {
+				if err = m.da.UnArchiveDocs(ctx, projectId); err != nil {
+					return nil, err
+				}
 				// Retry after un-archiving.
 				continue
 			}

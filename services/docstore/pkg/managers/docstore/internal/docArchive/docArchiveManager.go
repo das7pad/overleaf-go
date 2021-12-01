@@ -28,6 +28,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
+	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
@@ -173,6 +174,9 @@ func (m *manager) pMap(ctx context.Context, projectId primitive.ObjectID, produc
 }
 
 func (m *manager) ArchiveDocs(ctx context.Context, projectId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.pMap(ctx, projectId, m.dm.GetDocIdsForArchiving, m.ArchiveDoc)
 }
 
@@ -198,6 +202,9 @@ var (
 )
 
 func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	d, err := m.dm.GetDocForArchiving(
 		ctx,
 		projectId,
@@ -235,10 +242,16 @@ func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, 
 }
 
 func (m *manager) UnArchiveDocs(ctx context.Context, projectId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.pMap(ctx, projectId, m.dm.GetDocIdsForUnArchiving, m.UnArchiveDoc)
 }
 
 func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	isArchived, err := m.dm.IsDocArchived(ctx, projectId, docId)
 	if err != nil {
 		return err
@@ -303,10 +316,16 @@ func deserializeArchive(blob []byte) (sharedTypes.Lines, sharedTypes.Ranges, err
 }
 
 func (m *manager) DestroyDocs(ctx context.Context, projectId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	return m.pMap(ctx, projectId, m.dm.GetDocIdsForDeletion, m.DestroyDoc)
 }
 
 func (m *manager) DestroyDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
 	err := m.b.DeleteObject(ctx, m.bucket, docKey(projectId, docId))
 	if err != nil {
 		if !errors.IsNotFoundError(err) {

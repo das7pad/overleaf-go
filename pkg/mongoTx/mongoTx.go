@@ -24,6 +24,15 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+var errInTx = errors.New("operation not available: in tx")
+
+func CheckNotInTx(ctx context.Context) error {
+	if mongo.SessionFromContext(ctx) == nil {
+		return nil
+	}
+	return errInTx
+}
+
 type Runner func(ctx context.Context) error
 
 func For(db *mongo.Database, ctx context.Context, runner Runner) error {
@@ -34,7 +43,7 @@ func For(db *mongo.Database, ctx context.Context, runner Runner) error {
 	// Create a new session.
 	return db.Client().UseSession(ctx, func(sCtx mongo.SessionContext) error {
 		_, err := sCtx.WithTransaction(
-			ctx,
+			sCtx,
 			func(sCtx mongo.SessionContext) (interface{}, error) {
 				return nil, runner(sCtx)
 			},

@@ -60,6 +60,10 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 		if _, err := sp.GetPrivilegeLevelAuthenticated(userId); err != nil {
 			return err
 		}
+		if err := m.dm.UnArchiveProject(ctx, sourceProjectId); err != nil {
+			return errors.Tag(err, "cannot un-archive project")
+		}
+
 		st, errNoRootFolder := sp.GetRootFolder()
 		if errNoRootFolder != nil {
 			return errNoRootFolder
