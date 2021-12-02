@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/subtle"
+	"io"
 	"net/http"
 	"time"
 
@@ -25,6 +26,10 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+)
+
+const (
+	maxProxySize = 50 * 1024 * 1024
 )
 
 func newHttpController(timeout time.Duration, proxyToken string) httpController {
@@ -93,11 +98,19 @@ func (h *httpController) proxy(c *gin.Context) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
+	if response.ContentLength > maxProxySize {
+		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
+		return
+	}
+	body := response.Body.(io.Reader)
+	if response.ContentLength == -1 {
+		body = io.LimitReader(response.Body, maxProxySize)
+	}
 	c.DataFromReader(
 		response.StatusCode,
 		response.ContentLength,
 		contentType,
-		response.Body,
+		body,
 		map[string]string{
 			"Content-Disposition": `attachment; filename="response"`,
 		},
