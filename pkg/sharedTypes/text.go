@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"strings"
+	"unicode"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -41,14 +42,31 @@ const (
 )
 
 var (
-	ErrDocIsTooLarge = &errors.ValidationError{Msg: "doc is too large"}
+	ErrDocIsTooLarge       = &errors.ValidationError{Msg: "doc is too large"}
+	ErrDocHasNullChar      = &errors.ValidationError{Msg: "doc has null char"}
+	ErrDocHasSurrogateChar = &errors.ValidationError{Msg: "doc has surrogate char"}
 )
 
 type Snapshot []rune
 
-func (s Snapshot) Validate() error {
+func (s Snapshot) CheckSize() error {
 	if len(s) > maxDocLength {
 		return ErrDocIsTooLarge
+	}
+	return nil
+}
+
+func (s Snapshot) Validate() error {
+	if err := s.CheckSize(); err != nil {
+		return err
+	}
+	for _, r := range s {
+		if r == '\x00' {
+			return ErrDocHasNullChar
+		}
+		if unicode.Is(unicode.Cs, r) {
+			return ErrDocHasSurrogateChar
+		}
 	}
 	return nil
 }

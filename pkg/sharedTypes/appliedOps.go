@@ -109,7 +109,7 @@ func (o *Component) Validate() error {
 	} else if o.IsDeletion() {
 		return nil
 	} else if o.IsInsertion() {
-		return nil
+		return Snapshot(o.Insertion).Validate()
 	} else {
 		return &errors.ValidationError{Msg: "unknown op type"}
 	}

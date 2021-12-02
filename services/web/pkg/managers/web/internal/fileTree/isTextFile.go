@@ -18,7 +18,6 @@ package fileTree
 
 import (
 	"io"
-	"unicode"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -34,15 +33,12 @@ func IsTextFile(fileName sharedTypes.Filename, size int64, reader io.Reader) (sh
 		return nil, false, false, nil
 	}
 	blob := make([]byte, size)
-	_, err := io.ReadFull(reader, blob)
-	if err != nil {
+	if _, err := io.ReadFull(reader, blob); err != nil {
 		return nil, false, true, errors.Tag(err, "cannot read file")
 	}
 	s := sharedTypes.Snapshot(string(blob))
-	for _, r := range s {
-		if r == '\x00' || unicode.Is(unicode.Cs, r) {
-			return nil, false, true, nil
-		}
+	if err := s.Validate(); err != nil {
+		return nil, false, true, nil
 	}
 	return s, true, true, nil
 }

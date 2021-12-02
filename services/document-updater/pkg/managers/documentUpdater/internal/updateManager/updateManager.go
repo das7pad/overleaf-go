@@ -125,7 +125,7 @@ outer:
 			return processed, nil, err
 		}
 
-		if err = s.Validate(); err != nil {
+		if err = s.CheckSize(); err != nil {
 			return processed, nil, err
 		}
 		if incomingVersion == doc.Version && len(update.Hash) != 0 {
