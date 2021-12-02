@@ -27,11 +27,11 @@ func (cc ConflictChecker) mkDirs(dir sharedTypes.DirName) error {
 	if dir == "." {
 		return nil
 	}
-	if err := cc.mkDirs(dir.Dir()); err != nil {
-		return err
-	}
 	isDir, exists := cc[sharedTypes.PathName(dir)]
 	if !exists {
+		if err := cc.mkDirs(dir.Dir()); err != nil {
+			return err
+		}
 		cc[sharedTypes.PathName(dir)] = true
 		return nil
 	}
