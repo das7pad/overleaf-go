@@ -41,11 +41,11 @@ func scanContent(snapshot sharedTypes.Snapshot) (bool, project.Name) {
 	if !regexHasDocumentClass.MatchString(s) {
 		return false, ""
 	}
-	if curly := regexTitleCurly.FindString(s); curly != "" {
-		return true, project.Name(curly)
+	if curly := regexTitleCurly.FindStringSubmatch(s); len(curly) > 0 {
+		return true, project.Name(curly[1])
 	}
-	if square := regexTitleSquare.FindString(s); square != "" {
-		return true, project.Name(square)
+	if square := regexTitleSquare.FindStringSubmatch(s); len(square) > 0 {
+		return true, project.Name(square[1])
 	}
 	return true, ""
 }

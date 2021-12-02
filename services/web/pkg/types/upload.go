@@ -40,13 +40,15 @@ type UploadFileRequest struct {
 }
 
 type CreateProjectFromZipRequest struct {
-	Session *session.Session
-	Name    project.Name `json:"-"`
+	Session        *session.Session `json:"-"`
+	HasDefaultName bool             `json:"-"`
+	Name           project.Name     `json:"-"`
 	UploadDetails
 }
 
 func (r *CreateProjectFromZipRequest) Preprocess() {
 	if r.Name == "" && r.FileName != "" {
+		r.HasDefaultName = true
 		r.Name = project.Name(r.FileName.Basename())
 	}
 }

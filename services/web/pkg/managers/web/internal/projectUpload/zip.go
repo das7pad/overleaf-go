@@ -124,7 +124,6 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	p.ImageName = m.options.DefaultImage
 
 	foundRootDoc := false
-	hasDefaultName := string(request.Name) == string(request.FileName)
 	parentCache := make(map[sharedTypes.DirName]*project.Folder)
 	t, _ := p.GetRootFolder()
 
@@ -197,7 +196,7 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 						if isRootDoc, title := scanContent(s); isRootDoc {
 							p.RootDocId = d.Id
 							foundRootDoc = true
-							if hasDefaultName && title != "" {
+							if request.HasDefaultName && title != "" {
 								p.Name = title
 							}
 						}
