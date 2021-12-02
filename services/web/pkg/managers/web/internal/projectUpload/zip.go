@@ -35,9 +35,19 @@ import (
 
 const (
 	parallelUploads = 5
-	maxElements     = 2000
-	maxZipSize      = 300 * 1024 * 1024
 )
+
+type zipFile struct {
+	*zip.File
+}
+
+func (z *zipFile) Size() int64 {
+	return int64(z.UncompressedSize64)
+}
+
+func (z *zipFile) Path() sharedTypes.PathName {
+	return sharedTypes.PathName(z.Name)
+}
 
 type uploadQueueEntry struct {
 	parent  *project.Folder
@@ -52,7 +62,7 @@ type uploadedQueueEntry struct {
 	parent  *project.Folder
 }
 
-func reOpenFile(file *zip.File, f io.ReadCloser) (io.ReadCloser, error) {
+func reOpenFile(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
 	if err := f.Close(); err != nil {
 		return nil, errors.Tag(err, "cannot close file")
 	}
@@ -63,7 +73,7 @@ func reOpenFile(file *zip.File, f io.ReadCloser) (io.ReadCloser, error) {
 	return f, nil
 }
 
-func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectFromZipResponse) error {
+func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error {
 	request.Preprocess()
 	if err := request.Validate(); err != nil {
 		return err
@@ -71,19 +81,18 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	userId := request.Session.User.Id
 
 	r, errNewReader := zip.NewReader(request.File, request.Size)
 	if errNewReader != nil {
 		return errors.Tag(errNewReader, "cannot open zip")
 	}
-	if len(r.File) > maxElements {
-		return &errors.ValidationError{Msg: "too many files"}
+	if len(r.File) > 10*1000 {
+		return &errors.ValidationError{
+			Msg: "too many entries in zip file (>10000)",
+		}
 	}
 
-	cc := make(conflictChecker, len(r.File)*3)
-	sum := int64(0)
-	skipDirs := make([]*zip.File, 0, len(r.File))
+	files := make([]types.CreateProjectFile, 0, len(r.File))
 	for _, file := range r.File {
 		mode := file.Mode()
 		if mode.IsDir() {
@@ -94,32 +103,22 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 				Msg: fmt.Sprintf("%q is not a dir/file", file.Name),
 			}
 		}
-		path := sharedTypes.PathName(file.Name)
-		if err := path.Validate(); err != nil {
-			return err
-		}
-		size := int64(file.UncompressedSize64)
-		if size > types.MaxUploadSize {
-			return &errors.ValidationError{
-				Msg: fmt.Sprintf("file %q is too large", path),
-			}
-		}
-		sum += size
-		if sum > maxZipSize {
-			return errors.Tag(&errors.BodyTooLargeError{}, "total >300MB")
-		}
-		if err := cc.registerFile(path); err != nil {
-			return err
-		}
-		skipDirs = append(skipDirs, file)
-	}
-	r.File = skipDirs
-
-	if len(r.File) == 0 {
-		return &errors.ValidationError{Msg: "no files found"}
+		files = append(files, &zipFile{File: file})
 	}
 
-	p := project.NewProject(userId)
+	return m.CreateProject(ctx, &types.CreateProjectRequest{
+		Files:          files,
+		HasDefaultName: request.HasDefaultName,
+		Name:           request.Name,
+		UserId:         request.Session.User.Id,
+	}, response)
+}
+
+func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjectRequest, response *types.CreateProjectResponse) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
+	p := project.NewProject(request.UserId)
 	p.Name = request.Name
 	p.ImageName = m.options.DefaultImage
 
@@ -128,6 +127,10 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	t, _ := p.GetRootFolder()
 
 	errCreate := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+		for _, f := range parentCache {
+			// Reset after partial upload.
+			f.Docs = f.Docs[:0]
+		}
 		uploadQueue := make(chan uploadQueueEntry, parallelUploads)
 		uploadedQueue := make(chan uploadedQueueEntry, parallelUploads)
 		eg, pCtx := errgroup.WithContext(sCtx)
@@ -135,9 +138,9 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 			<-pCtx.Done()
 			if pCtx.Err() != nil {
 				// Purge the queue as soon as any consumer/producer fails.
-				for entry := range uploadQueue {
-					if entry.file != nil {
-						_ = entry.file.Close()
+				for qe := range uploadQueue {
+					if qe.file != nil {
+						_ = qe.file.Close()
 					}
 				}
 			}
@@ -146,14 +149,14 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 			defer close(uploadQueue)
 
 			done := pCtx.Done()
-			for _, file := range r.File {
+			for _, file := range request.Files {
 				select {
 				case <-done:
 					return pCtx.Err()
 				default:
 				}
-				path := sharedTypes.PathName(file.Name)
-				size := int64(file.UncompressedSize64)
+				path := file.Path()
+				size := file.Size()
 				f, err := file.Open()
 				if err != nil {
 					return errors.Tag(err, "cannot open file")
@@ -290,7 +293,7 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 
 		var existingProjectNames project.Names
 		eg.Go(func() error {
-			names, err := m.pm.GetProjectNames(pCtx, userId)
+			names, err := m.pm.GetProjectNames(pCtx, request.UserId)
 			if err != nil {
 				return errors.Tag(err, "cannot get project names")
 			}

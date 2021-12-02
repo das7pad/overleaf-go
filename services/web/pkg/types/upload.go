@@ -17,6 +17,7 @@
 package types
 
 import (
+	"fmt"
 	"io"
 	"mime/multipart"
 
@@ -26,10 +27,16 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types/internal/conflictChecker"
 )
 
 const (
-	MaxUploadSize = 50 * 1024 * 1024
+	MaxUploadSize  = 50 * 1024 * 1024
+	maxProjectSize = 300 * 1024 * 1024
+)
+
+var errTotalSizeTooHigh = errors.Tag(
+	&errors.BodyTooLargeError{}, "total size must be below 300MB",
 )
 
 type UploadFileRequest struct {
@@ -63,7 +70,55 @@ func (r *CreateProjectFromZipRequest) Validate() error {
 	return nil
 }
 
-type CreateProjectFromZipResponse struct {
+type CreateProjectFile interface {
+	Size() int64
+	Path() sharedTypes.PathName
+	Open() (io.ReadCloser, error)
+}
+
+type CreateProjectRequest struct {
+	Files          []CreateProjectFile
+	HasDefaultName bool
+	Name           project.Name
+	UserId         primitive.ObjectID
+}
+
+func (r *CreateProjectRequest) Validate() error {
+	if err := r.Name.Validate(); err != nil {
+		return err
+	}
+	if len(r.Files) == 0 {
+		return &errors.ValidationError{Msg: "no files found"}
+	}
+	if len(r.Files) > 2000 {
+		return &errors.ValidationError{Msg: "too many files"}
+	}
+
+	cc := make(conflictChecker.ConflictChecker, len(r.Files)*3)
+	sum := int64(0)
+	for _, file := range r.Files {
+		path := file.Path()
+		if err := path.Validate(); err != nil {
+			return err
+		}
+		size := file.Size()
+		if size > MaxUploadSize {
+			return &errors.ValidationError{
+				Msg: fmt.Sprintf("file %q is too large", path),
+			}
+		}
+		sum += size
+		if sum > maxProjectSize {
+			return errTotalSizeTooHigh
+		}
+		if err := cc.RegisterFile(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type CreateProjectResponse struct {
 	Success   bool                `json:"success"`
 	Error     string              `json:"error,omitempty"`
 	ProjectId *primitive.ObjectID `json:"project_id,omitempty"`

@@ -1177,7 +1177,7 @@ func (h *httpController) createFromZip(c *gin.Context) {
 			Size:     d.Size,
 		},
 	}
-	response := &types.CreateProjectFromZipResponse{}
+	response := &types.CreateProjectResponse{}
 	err = h.wm.CreateFromZip(c, request, response)
 	_ = d.File.Close()
 	if err != nil {

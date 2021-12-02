@@ -35,7 +35,7 @@ import (
 type Manager interface {
 	CloneProject(ctx context.Context, request *types.CloneProjectRequest, response *types.CloneProjectResponse) error
 	CreateExampleProject(ctx context.Context, request *types.CreateExampleProjectRequest, response *types.CreateExampleProjectResponse) error
-	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectFromZipResponse) error
+	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error
 }
 
 func New(options *types.Options, db *mongo.Database, pm project.Manager, um user.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {

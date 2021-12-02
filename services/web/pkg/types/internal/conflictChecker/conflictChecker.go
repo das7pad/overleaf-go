@@ -14,16 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package projectUpload
+package conflictChecker
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type conflictChecker map[sharedTypes.PathName]bool
+type ConflictChecker map[sharedTypes.PathName]bool
 
-func (cc conflictChecker) mkDirs(dir sharedTypes.DirName) error {
+func (cc ConflictChecker) mkDirs(dir sharedTypes.DirName) error {
 	if dir == "." {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (cc conflictChecker) mkDirs(dir sharedTypes.DirName) error {
 	return &errors.ValidationError{Msg: "conflicting paths"}
 }
 
-func (cc conflictChecker) registerFile(path sharedTypes.PathName) error {
+func (cc ConflictChecker) RegisterFile(path sharedTypes.PathName) error {
 	if err := cc.mkDirs(path.Dir()); err != nil {
 		return err
 	}
