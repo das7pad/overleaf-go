@@ -24,13 +24,17 @@ import (
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
+const (
+	DefaultCompiler = clsiTypes.PDFLatex
+)
+
 func NewProject(ownerId primitive.ObjectID) *ForCreation {
 	return &ForCreation{
 		ActiveField: ActiveField{
 			Active: true,
 		},
 		CompilerField: CompilerField{
-			Compiler: clsiTypes.PDFLatex,
+			Compiler: DefaultCompiler,
 		},
 		EpochField: EpochField{
 			Epoch: 0,

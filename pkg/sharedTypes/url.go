@@ -23,12 +23,33 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+func ParseAndValidateURL(s string) (*URL, error) {
+	raw, err := url.Parse(s)
+	if err != nil {
+		return nil, &errors.ValidationError{Msg: "invalid url: " + err.Error()}
+	}
+	u := &URL{URL: *raw}
+	if err = u.Validate(); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
 type URL struct {
 	url.URL
 }
 
+func (u *URL) FileNameFromPath() Filename {
+	return PathName(u.Path).Filename()
+}
+
 func (u URL) WithPath(s string) URL {
 	u.URL.Path = s
+	return u
+}
+
+func (u URL) WithQuery(values url.Values) URL {
+	u.URL.RawQuery = values.Encode()
 	return u
 }
 
@@ -37,11 +58,11 @@ func (u *URL) UnmarshalJSON(bytes []byte) error {
 	if err := json.Unmarshal(bytes, &s); err != nil {
 		return err
 	}
-	raw, err := url.Parse(s)
+	v, err := ParseAndValidateURL(s)
 	if err != nil {
 		return err
 	}
-	u.URL = *raw
+	*u = *v
 	return nil
 }
 

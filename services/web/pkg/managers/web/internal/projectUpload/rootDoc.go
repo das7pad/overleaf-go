@@ -42,10 +42,18 @@ func scanContent(snapshot sharedTypes.Snapshot) (bool, project.Name) {
 		return false, ""
 	}
 	if curly := regexTitleCurly.FindStringSubmatch(s); len(curly) > 0 {
-		return true, project.Name(curly[1])
+		name := project.Name(curly[1])
+		if err := name.Validate(); err != nil {
+			return true, ""
+		}
+		return true, name
 	}
 	if square := regexTitleSquare.FindStringSubmatch(s); len(square) > 0 {
-		return true, project.Name(square[1])
+		name := project.Name(square[1])
+		if err := name.Validate(); err != nil {
+			return true, ""
+		}
+		return true, name
 	}
 	return true, ""
 }

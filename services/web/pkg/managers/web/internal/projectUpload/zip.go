@@ -72,6 +72,7 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	}
 
 	return m.CreateProject(ctx, &types.CreateProjectRequest{
+		AddHeader:      request.AddHeader,
 		Files:          files,
 		HasDefaultName: request.HasDefaultName,
 		Name:           request.Name,

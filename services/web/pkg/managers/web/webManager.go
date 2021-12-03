@@ -38,8 +38,10 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/notifications"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/openInOverleaf"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
@@ -60,6 +62,7 @@ type Manager interface {
 	fileTreeManager
 	loginManager
 	notificationsManager
+	openInOverleafManager
 	projectInviteManager
 	projectListManager
 	projectMetadataManager
@@ -74,6 +77,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
+	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
 	chatM := chat.New(db)
 	csm := contact.New(db)
@@ -122,6 +126,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
+	OIOm := openInOverleaf.New(options, proxy, pum)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -131,6 +136,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		fileTreeManager:        ftm,
 		loginManager:           lm,
 		notificationsManager:   nm,
+		openInOverleafManager:  OIOm,
 		projectInviteManager:   pim,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
@@ -148,6 +154,7 @@ type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
 type loginManager = login.Manager
 type notificationsManager = notifications.Manager
+type openInOverleafManager = openInOverleaf.Manager
 type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
@@ -164,6 +171,7 @@ type manager struct {
 	fileTreeManager
 	loginManager
 	notificationsManager
+	openInOverleafManager
 	projectInviteManager
 	projectListManager
 	projectMetadataManager

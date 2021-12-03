@@ -73,6 +73,7 @@ func (h *httpController) GetRouter(
 	publicRouter.Use(httpUtils.NoCache())
 
 	publicApiRouter := publicRouter.Group("/api")
+	publicApiRouter.POST("/open", h.openInOverleaf)
 	publicApiRouter.POST("/beta/opt-in", h.optInBetaProgram)
 	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
 	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
@@ -1214,4 +1215,34 @@ func (h *httpController) removeNotification(c *gin.Context) {
 	}
 	err = h.wm.RemoveNotification(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) openInOverleaf(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.OpenInOverleafRequest{}
+	if c.ContentType() == "application/json" {
+		if !httpUtils.MustParseJSON(request, c) {
+			return
+		}
+	} else {
+		if err = c.Request.ParseMultipartForm(0); err != nil {
+			httpUtils.RespondErr(c, &errors.ValidationError{Msg: err.Error()})
+			return
+		}
+		if err = request.PopulateFromParams(c.Request.Form); err != nil {
+			httpUtils.RespondErr(c, err)
+			return
+		}
+	}
+	request.Session = s
+	response := &types.CreateProjectResponse{}
+	err = h.wm.OpenInOverleaf(c, request, response)
+	if err != nil && errors.IsValidationError(err) {
+		response.Error = err.Error()
+	}
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }

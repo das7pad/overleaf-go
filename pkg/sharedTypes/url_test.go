@@ -82,21 +82,14 @@ func TestURL_UnmarshalJSON(t *testing.T) {
 			args: args{
 				bytes: []byte(`"//example.com/file"`),
 			},
-			want: URL{url.URL{
-				Host: "example.com",
-				Path: "/file",
-			}},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "missing host",
 			args: args{
 				bytes: []byte(`"example.com/file"`),
 			},
-			want: URL{url.URL{
-				Path: "example.com/file",
-			}},
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

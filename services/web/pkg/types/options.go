@@ -68,6 +68,9 @@ type Options struct {
 			URL     sharedTypes.URL         `json:"url"`
 			Options *filestoreTypes.Options `json:"options"`
 		} `json:"filestore"`
+		LinkedURLProxy struct {
+			Chain []sharedTypes.URL `json:"chain"`
+		} `json:"linked_url_proxy"`
 	} `json:"apis"`
 
 	JWT struct {
@@ -134,6 +137,11 @@ func (o *Options) Validate() error {
 	}
 	if err := o.APIs.Filestore.URL.Validate(); err != nil {
 		return errors.Tag(err, "apis.filestore.url is invalid")
+	}
+	if len(o.APIs.LinkedURLProxy.Chain) < 1 {
+		return &errors.ValidationError{
+			Msg: "api.linked_url_proxy.chain is too short",
+		}
 	}
 
 	if err := o.JWT.Compile.Validate(); err != nil {

@@ -48,7 +48,13 @@ type uploadedQueueEntry struct {
 	parent  *project.Folder
 }
 
-func reOpenFile(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
+func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
+	if seeker, ok := f.(io.Seeker); ok {
+		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.Tag(err, "cannot seek to start")
+		}
+		return f, nil
+	}
 	if err := f.Close(); err != nil {
 		return nil, errors.Tag(err, "cannot close file")
 	}
@@ -66,12 +72,15 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	p := project.NewProject(request.UserId)
 	p.Name = request.Name
 	p.ImageName = m.options.DefaultImage
+	if request.Compiler != "" {
+		p.Compiler = request.Compiler
+	}
 
-	foundRootDoc := false
 	parentCache := make(map[sharedTypes.DirName]*project.Folder)
 	t, _ := p.GetRootFolder()
 
 	errCreate := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+		foundRootDoc := false
 		for _, f := range parentCache {
 			// Reset after partial upload.
 			f.Docs = f.Docs[:0]
@@ -84,8 +93,8 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			if pCtx.Err() != nil {
 				// Purge the queue as soon as any consumer/producer fails.
 				for qe := range uploadQueue {
-					if qe.file != nil {
-						_ = qe.file.Close()
+					if f := qe.file; f != nil {
+						_ = f.Close()
 					}
 				}
 			}
@@ -110,12 +119,14 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				name := path.Filename()
 				s, isDoc, consumedFile, err := fileTree.IsTextFile(name, size, f)
 				if err != nil {
+					_ = f.Close()
 					return err
 				}
 				parent, exists := parentCache[dir]
 				if !exists {
 					parent, err = t.CreateParents(dir)
 					if err != nil {
+						_ = f.Close()
 						return err
 					}
 					parentCache[dir] = parent
@@ -124,21 +135,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					if err = f.Close(); err != nil {
 						return errors.Tag(err, "cannot close file")
 					}
-					if e, _ := parent.GetEntry(name); e != nil {
-						// already scanned
-						uploadQueue <- uploadQueueEntry{
-							parent:  parent,
-							element: e,
-							s:       s,
-						}
-						continue
-					}
 					d := project.NewDoc(name)
-					uploadQueue <- uploadQueueEntry{
-						parent:  parent,
-						element: d,
-						s:       s,
-					}
 					if path == "main.tex" ||
 						(!foundRootDoc && path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
@@ -147,7 +144,15 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 							if request.HasDefaultName && title != "" {
 								p.Name = title
 							}
+							if request.AddHeader != nil {
+								s = request.AddHeader(s)
+							}
 						}
+					}
+					uploadQueue <- uploadQueueEntry{
+						parent:  parent,
+						element: d,
+						s:       s,
 					}
 				} else {
 					if parent.HasEntry(name) {
@@ -158,16 +163,19 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						continue
 					}
 					if consumedFile {
-						if f, err = reOpenFile(file, f); err != nil {
+						if f, err = seekToStart(file, f); err != nil {
+							_ = f.Close()
 							return err
 						}
 					}
 					var hash sharedTypes.Hash
 					hash, err = fileTree.HashFile(f, size)
 					if err != nil {
+						_ = f.Close()
 						return err
 					}
-					if f, err = reOpenFile(file, f); err != nil {
+					if f, err = seekToStart(file, f); err != nil {
+						_ = f.Close()
 						return err
 					}
 					fileRef := project.NewFileRef(name, hash, size)
@@ -203,12 +211,12 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 								ContentSize: queueEntry.size,
 							},
 						)
+						errClose := queueEntry.file.Close()
 						if err != nil {
-							_ = queueEntry.file.Close()
 							return errors.Tag(err, "cannot upload file")
 						}
-						if err = queueEntry.file.Close(); err != nil {
-							return errors.Tag(err, "cannot close file")
+						if errClose != nil {
+							return errors.Tag(errClose, "cannot close file")
 						}
 					}
 					uploadedQueue <- uploadedQueueEntry{
