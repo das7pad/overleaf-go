@@ -48,6 +48,7 @@ type Manager interface {
 	RenameDocInProject(ctx context.Context, request *types.RenameDocRequest) error
 	RenameFileInProject(ctx context.Context, request *types.RenameFileRequest) error
 	RenameFolderInProject(ctx context.Context, request *types.RenameFolderRequest) error
+	RestoreDeletedDocInProject(ctx context.Context, request *types.RestoreDeletedDocRequest, response *types.RestoreDeletedDocResponse) error
 	UploadFile(ctx context.Context, request *types.UploadFileRequest) error
 }
 

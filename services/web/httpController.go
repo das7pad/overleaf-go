@@ -174,6 +174,7 @@ func (h *httpController) GetRouter(
 		rDoc.DELETE("", h.deleteDocFromProject)
 		rDoc.POST("/rename", h.renameDocInProject)
 		rDoc.POST("/move", h.moveDocInProject)
+		rDoc.POST("/restore", h.restoreDeletedDocInProject)
 
 		rFile := r.Group("/file/:fileId")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
@@ -916,6 +917,19 @@ func (h *httpController) renameFolderInProject(c *gin.Context) {
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.RenameFolderInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) restoreDeletedDocInProject(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RestoreDeletedDocRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.DocId = httpUtils.GetId(c, "docId")
+	response := &types.RestoreDeletedDocResponse{}
+	err := h.wm.RestoreDeletedDocInProject(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) renameProject(c *gin.Context) {

@@ -89,3 +89,13 @@ type RenameFolderRequest struct {
 	FolderId  primitive.ObjectID   `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
+
+type RestoreDeletedDocRequest struct {
+	ProjectId primitive.ObjectID   `json:"-"`
+	DocId     primitive.ObjectID   `json:"-"`
+	Name      sharedTypes.Filename `json:"name"`
+}
+
+type RestoreDeletedDocResponse struct {
+	DocId primitive.ObjectID `json:"doc_id"`
+}
