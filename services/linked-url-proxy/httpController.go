@@ -32,10 +32,17 @@ const (
 	maxProxySize = 50 * 1024 * 1024
 )
 
-func newHttpController(timeout time.Duration, proxyToken string) httpController {
+func newHttpController(timeout time.Duration, proxyToken string, allowRedirects bool) httpController {
+	checkRedirect := func(_ *http.Request, _ []*http.Request) error {
+		return &errors.UnprocessableEntityError{Msg: "blocked redirect"}
+	}
+	if allowRedirects {
+		checkRedirect = nil
+	}
 	return httpController{
 		client: http.Client{
-			Timeout: timeout,
+			Timeout:       timeout,
+			CheckRedirect: checkRedirect,
 		},
 		proxyPathWithToken: "/proxy/" + proxyToken,
 	}

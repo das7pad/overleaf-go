@@ -158,6 +158,29 @@ func IsValidationError(err error) bool {
 	return isValidationError
 }
 
+type UnprocessableEntityError struct {
+	Msg string
+}
+
+func (i *UnprocessableEntityError) Error() string {
+	return "unprocessable entity: " + i.Msg
+}
+
+func (i *UnprocessableEntityError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: i.Error(),
+	}
+}
+
+func IsUnprocessableEntity(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*UnprocessableEntityError)
+	return ok
+}
+
 type InvalidStateError struct {
 	Msg string
 }

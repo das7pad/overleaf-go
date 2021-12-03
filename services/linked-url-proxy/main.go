@@ -22,7 +22,7 @@ import (
 
 func main() {
 	o := getOptions()
-	handler := newHttpController(o.timeout, o.proxyToken)
+	handler := newHttpController(o.timeout, o.proxyToken, o.allowRedirects)
 	server := http.Server{
 		Addr:    o.address,
 		Handler: handler.GetRouter(),

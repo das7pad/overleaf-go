@@ -54,6 +54,8 @@ func Respond(
 			code = http.StatusConflict
 		} else if errors.IsBodyTooLargeError(err) {
 			code = http.StatusRequestEntityTooLarge
+		} else if errors.IsUnprocessableEntity(err) {
+			code = http.StatusUnprocessableEntity
 		} else if errors.IsUpdateRangeNotAvailableError(err) {
 			code = http.StatusUnprocessableEntity
 		} else if errors.IsAlreadyCompiling(err) {

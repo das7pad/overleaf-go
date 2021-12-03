@@ -24,9 +24,10 @@ import (
 )
 
 type linkedUrlProxyOptions struct {
-	address    string
-	timeout    time.Duration
-	proxyToken string
+	address        string
+	timeout        time.Duration
+	proxyToken     string
+	allowRedirects bool
 }
 
 func getOptions() *linkedUrlProxyOptions {
@@ -36,5 +37,8 @@ func getOptions() *linkedUrlProxyOptions {
 	o.timeout = utils.GetDurationFromEnv(
 		"LINKED_URL_PROXY_TIMEOUT", 28*time.Second,
 	)
+	o.allowRedirects = utils.GetStringFromEnv(
+		"ALLOW_REDIRECTS", "false",
+	) == "true"
 	return o
 }
