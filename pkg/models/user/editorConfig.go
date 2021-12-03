@@ -16,16 +16,20 @@
 
 package user
 
+import (
+	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
+)
+
 type EditorConfig struct {
-	Mode               string `json:"mode" bson:"mode"`
-	Theme              string `json:"theme" bson:"theme"`
-	OverallTheme       string `json:"overallTheme" bson:"overallTheme"`
-	FontSize           int    `json:"fontSize" bson:"fontSize"`
-	AutoComplete       bool   `json:"autoComplete" bson:"autoComplete"`
-	AutoPairDelimiters bool   `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
-	SpellCheckLanguage string `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
-	PDFViewer          string `json:"pdfViewer" bson:"pdfViewer"`
-	SyntaxValidation   bool   `json:"syntaxValidation" bson:"syntaxValidation"`
-	FontFamily         string `json:"fontFamily" bson:"fontFamily"`
-	LineHeight         string `json:"lineHeight" bson:"lineHeight"`
+	Mode               string                           `json:"mode" bson:"mode"`
+	Theme              string                           `json:"theme" bson:"theme"`
+	OverallTheme       string                           `json:"overallTheme" bson:"overallTheme"`
+	FontSize           int                              `json:"fontSize" bson:"fontSize"`
+	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
+	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
+	PDFViewer          string                           `json:"pdfViewer" bson:"pdfViewer"`
+	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
+	FontFamily         string                           `json:"fontFamily" bson:"fontFamily"`
+	LineHeight         string                           `json:"lineHeight" bson:"lineHeight"`
 }

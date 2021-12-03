@@ -70,3 +70,12 @@ func (m *manager) purgeFilestoreData(projectId primitive.ObjectID) error {
 	}
 	return nil
 }
+
+func (m *manager) setSpellCheckLanguage(ctx context.Context, p *project.SpellCheckLanguageField, userId primitive.ObjectID) error {
+	u := &user.EditorConfigField{}
+	if err := m.um.GetUser(ctx, userId, u); err != nil {
+		return errors.Tag(err, "cannot get user settings")
+	}
+	p.SpellCheckLanguage = u.EditorConfig.SpellCheckLanguage
+	return nil
+}
