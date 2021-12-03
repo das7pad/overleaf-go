@@ -20,6 +20,7 @@ import (
 	"crypto/subtle"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -107,6 +108,14 @@ func (h *httpController) proxy(c *gin.Context) {
 	}
 	if response.ContentLength > maxProxySize {
 		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
+		return
+	}
+	if statusCode := response.StatusCode; statusCode != 200 {
+		s := strconv.FormatInt(int64(statusCode), 10)
+		c.Header("X-Upstream-Status-Code", s)
+		httpUtils.RespondErr(c, &errors.UnprocessableEntityError{
+			Msg: "upstream responded with " + s,
+		})
 		return
 	}
 	body := response.Body.(io.Reader)
