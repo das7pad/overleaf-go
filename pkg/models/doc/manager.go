@@ -82,7 +82,7 @@ type Manager interface {
 	GetAllDocContents(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-	) ([]Contents, error)
+	) (ContentsCollection, error)
 
 	GetDocIdsForDeletion(
 		ctx context.Context,
@@ -299,7 +299,7 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 	return docs, nil
 }
 
-func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) ([]Contents, error) {
+func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) (ContentsCollection, error) {
 	docs := make(ContentsCollection, 0)
 	res, err := m.cDocs.Find(
 		ctx,

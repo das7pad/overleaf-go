@@ -121,6 +121,7 @@ type WithTreeAndRootDoc struct {
 type WithTreeAndAuth struct {
 	ForAuthorizationDetails `bson:"inline"`
 	WithTree                `bson:"inline"`
+	NameField               `bson:"inline"`
 }
 
 type WithLastUpdatedDetails struct {

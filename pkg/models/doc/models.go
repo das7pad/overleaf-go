@@ -49,7 +49,7 @@ type Contents struct {
 	InS3Field `bson:"inline"`
 }
 
-type ContentsCollection []Contents
+type ContentsCollection []*Contents
 
 type ContentsWithFullContext struct {
 	IdField       `bson:"inline"`

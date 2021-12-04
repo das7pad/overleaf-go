@@ -80,6 +80,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
 	publicApiRouter.POST("/project/new", h.createExampleProject)
 	publicApiRouter.POST("/project/new/upload", h.createFromZip)
+	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
@@ -127,6 +128,7 @@ func (h *httpController) GetRouter(
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
 		r.POST("/ws/bootstrap", h.getWSBootstrap)
+		r.GET("/download/zip", h.createProjectZIP)
 
 		rFile := r.Group("/file/:fileId")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
@@ -748,7 +750,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 		return
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
-	c.Writer.Header().Set("Content-Disposition", cd)
+	c.Header("Content-Disposition", cd)
 	httpUtils.EndTotalTimer(c)
 	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
 }
@@ -1307,4 +1309,54 @@ func (h *httpController) refreshLinkedFile(c *gin.Context) {
 	}
 	err := h.wm.RefreshLinkedFile(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) createProjectZIP(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.CreateProjectZIPRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	response := &types.CreateProjectZIPResponse{}
+	defer response.Cleanup()
+
+	err = h.wm.CreateProjectZIP(c, request, response)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
+	c.Header("Content-Disposition", cd)
+	httpUtils.EndTotalTimer(c)
+	http.ServeFile(c.Writer, c.Request, response.FSPath)
+}
+
+func (h *httpController) createMultiProjectZIP(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.CreateMultiProjectZIPRequest{}
+	if err = request.ParseProjectIds(c.Query("project_ids")); err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request.Session = s
+	response := &types.CreateProjectZIPResponse{}
+	defer response.Cleanup()
+
+	err = h.wm.CreateMultiProjectZIP(c, request, response)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
+	c.Header("Content-Disposition", cd)
+	httpUtils.EndTotalTimer(c)
+	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }

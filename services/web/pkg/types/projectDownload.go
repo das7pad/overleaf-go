@@ -1,0 +1,69 @@
+// Golang port of Overleaf
+// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package types
+
+import (
+	"os"
+	"strings"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
+type CreateMultiProjectZIPRequest struct {
+	Session    *session.Session     `json:"-"`
+	ProjectIds []primitive.ObjectID `json:"-"`
+}
+
+func (r *CreateMultiProjectZIPRequest) ParseProjectIds(s string) error {
+	for _, raw := range strings.Split(s, ",") {
+		id, err := primitive.ObjectIDFromHex(raw)
+		if err != nil {
+			return &errors.ValidationError{
+				Msg: "invalid project id: " + err.Error(),
+			}
+		}
+		r.ProjectIds = append(r.ProjectIds, id)
+	}
+	return nil
+}
+
+func (r *CreateMultiProjectZIPRequest) Validate() error {
+	if len(r.ProjectIds) == 0 {
+		return &errors.ValidationError{Msg: "must provide at least one project id"}
+	}
+	return nil
+}
+
+type CreateProjectZIPRequest struct {
+	Session   *session.Session   `json:"-"`
+	ProjectId primitive.ObjectID `json:"-"`
+}
+
+type CreateProjectZIPResponse struct {
+	Filename sharedTypes.Filename `json:"-"`
+	FSPath   string
+}
+
+func (r *CreateProjectZIPResponse) Cleanup() {
+	if r.FSPath != "" {
+		_ = os.Remove(r.FSPath)
+	}
+}

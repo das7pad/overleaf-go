@@ -67,7 +67,7 @@ type Manager interface {
 	GetAllDocContents(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-	) ([]doc.Contents, error)
+	) (doc.ContentsCollection, error)
 
 	CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
 	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
@@ -209,7 +209,7 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 	}
 }
 
-func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) ([]doc.Contents, error) {
+func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) (doc.ContentsCollection, error) {
 	for {
 		contents, err := m.dm.GetAllDocContents(ctx, projectId)
 		if err != nil {

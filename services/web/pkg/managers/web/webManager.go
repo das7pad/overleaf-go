@@ -43,6 +43,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/notifications"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/openInOverleaf"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectDownload"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
@@ -65,6 +66,7 @@ type Manager interface {
 	loginManager
 	notificationsManager
 	openInOverleafManager
+	projectDownloadManager
 	projectInviteManager
 	projectListManager
 	projectMetadataManager
@@ -133,6 +135,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
+	pdm := projectDownload.New(pm, dm, dum, fm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -144,6 +147,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		loginManager:           lm,
 		notificationsManager:   nm,
 		openInOverleafManager:  OIOm,
+		projectDownloadManager: pdm,
 		projectInviteManager:   pim,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
@@ -163,6 +167,7 @@ type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
 type notificationsManager = notifications.Manager
 type openInOverleafManager = openInOverleaf.Manager
+type projectDownloadManager = projectDownload.Manager
 type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
@@ -181,6 +186,7 @@ type manager struct {
 	loginManager
 	notificationsManager
 	openInOverleafManager
+	projectDownloadManager
 	projectInviteManager
 	projectListManager
 	projectMetadataManager
