@@ -151,7 +151,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			fileRef := project.NewFileRef(
 				request.FileName,
 				hash,
-				request.Size,
+				&request.Size,
 			)
 			fileRef.LinkedFileData = request.LinkedFileData
 			err = request.SeekFileToStart()

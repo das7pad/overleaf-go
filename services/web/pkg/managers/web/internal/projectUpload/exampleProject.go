@@ -103,7 +103,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 					continue
 				}
 				fileRef := project.NewFileRef(
-					file.Path.Filename(), file.Hash, file.Size,
+					file.Path.Filename(), file.Hash, &file.Size,
 				)
 				err := m.fm.SendStreamForProjectFile(
 					pCtx,

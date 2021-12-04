@@ -99,14 +99,14 @@ type FileRef struct {
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" bson:"linkedFileData,omitempty"`
 	Hash           sharedTypes.Hash `json:"hash" bson:"hash"`
 	Created        time.Time        `json:"created" bson:"created"`
-	Size           int64            `json:"size" bson:"size"`
+	Size           *int64           `json:"size" bson:"size"`
 }
 
 func (f *FileRef) FieldNameInFolder() MongoPath {
 	return "fileRefs"
 }
 
-func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) *FileRef {
+func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size *int64) *FileRef {
 	return &FileRef{
 		CommonTreeFields: CommonTreeFields{
 			Id:   primitive.NewObjectID(),

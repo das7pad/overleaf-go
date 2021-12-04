@@ -178,7 +178,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						_ = f.Close()
 						return err
 					}
-					fileRef := project.NewFileRef(name, hash, size)
+					fileRef := project.NewFileRef(name, hash, &size)
 					uploadQueue <- uploadQueueEntry{
 						parent:  parent,
 						element: fileRef,
