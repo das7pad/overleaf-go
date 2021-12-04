@@ -87,10 +87,10 @@ func (p LinkedFileProvider) Validate() error {
 
 type LinkedFileData struct {
 	Provider             LinkedFileProvider `json:"provider" bson:"provider"`
-	SourceProjectId      string             `json:"source_project_id" bson:"source_project_id"`
-	SourceEntityPath     string             `json:"source_entity_path" bson:"source_entity_path"`
-	SourceOutputFilePath string             `json:"source_output_file_path" bson:"source_output_file_path"`
-	URL                  *sharedTypes.URL   `json:"url" bson:"url"`
+	SourceProjectId      string             `json:"source_project_id,omitempty" bson:"source_project_id,omitempty"`
+	SourceEntityPath     string             `json:"source_entity_path,omitempty" bson:"source_entity_path,omitempty"`
+	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" bson:"source_output_file_path,omitempty"`
+	URL                  *sharedTypes.URL   `json:"url,omitempty" bson:"url,omitempty"`
 }
 
 type FileRef struct {
