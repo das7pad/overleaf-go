@@ -38,6 +38,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedFile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/notifications"
@@ -60,6 +61,7 @@ type Manager interface {
 	compileManager
 	editorManager
 	fileTreeManager
+	linkedFileManager
 	loginManager
 	notificationsManager
 	openInOverleafManager
@@ -97,7 +99,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	tm := tagModel.New(db)
 	um := user.New(db)
 	bm := betaProgram.New(um)
-	cm, err := compile.New(options, client, dum, dm, pm)
+	cm, err := compile.New(options, client, dum, dm, pm, um)
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +129,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
 	OIOm := openInOverleaf.New(options, proxy, pum)
+	lfm, err := linkedFile.New(options, pm, dum, fm, cm, ftm, proxy)
+	if err != nil {
+		return nil, err
+	}
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -134,6 +140,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		compileManager:         cm,
 		editorManager:          em,
 		fileTreeManager:        ftm,
+		linkedFileManager:      lfm,
 		loginManager:           lm,
 		notificationsManager:   nm,
 		openInOverleafManager:  OIOm,
@@ -152,6 +159,7 @@ type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
+type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
 type notificationsManager = notifications.Manager
 type openInOverleafManager = openInOverleaf.Manager
@@ -169,6 +177,7 @@ type manager struct {
 	compileManager
 	editorManager
 	fileTreeManager
+	linkedFileManager
 	loginManager
 	notificationsManager
 	openInOverleafManager

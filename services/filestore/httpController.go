@@ -131,6 +131,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 		return
 	}
 	c.DataFromReader(http.StatusOK, s, contentTypeOctetStream, body, nil)
+	_ = body.Close()
 }
 
 func (h *httpController) getProjectFileHEAD(c *gin.Context) {

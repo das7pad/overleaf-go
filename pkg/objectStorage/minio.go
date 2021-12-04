@@ -76,7 +76,7 @@ func (m *minioBackend) SendFromStream(ctx context.Context, bucket string, key st
 	return err
 }
 
-func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key string, options GetOptions) (int64, io.Reader, error) {
+func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key string, options GetOptions) (int64, io.ReadCloser, error) {
 	opts := minio.GetObjectOptions{}
 	if options.Start != 0 || options.End != 0 {
 		if err := opts.SetRange(options.Start, options.End); err != nil {

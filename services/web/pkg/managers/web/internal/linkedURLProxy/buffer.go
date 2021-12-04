@@ -25,6 +25,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type bufferedFile struct {
@@ -60,6 +61,14 @@ func (b *bufferedFile) Cleanup() {
 		_ = b.tempFile.Close()
 	}
 	_ = os.Remove(b.fsPath)
+}
+
+func (b *bufferedFile) ToUploadDetails() types.UploadDetails {
+	return types.UploadDetails{
+		File:     b.File(),
+		FileName: b.Path().Filename(),
+		Size:     b.Size(),
+	}
 }
 
 // DownloadFile downloads a remote file via the proxy.

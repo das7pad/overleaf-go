@@ -14,31 +14,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package openInOverleaf
+package linkedFile
 
 import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) createFromZip(ctx context.Context, request *types.OpenInOverleafRequest, response *types.CreateProjectResponse) error {
-	f, err := m.proxy.DownloadFile(ctx, request.ZipURL)
+func (m *manager) fromURL(ctx context.Context, request *types.CreateLinkedFileRequest) error {
+	f, err := m.proxy.DownloadFile(ctx, request.Parameter.URL)
 	if err != nil {
 		return errors.Tag(err, "cannot download file")
 	}
 	defer f.Cleanup()
 
-	if request.HasDefaultName {
-		request.ProjectName = project.Name(f.Path().Filename().Basename())
-	}
-	return m.pum.CreateFromZip(ctx, &types.CreateProjectFromZipRequest{
-		AddHeader:      m.addHeader,
-		Session:        request.Session,
-		HasDefaultName: request.HasDefaultName,
-		Name:           request.ProjectName,
-		UploadDetails:  f.ToUploadDetails(),
-	}, response)
+	uploadDetails := f.ToUploadDetails()
+	uploadDetails.FileName = request.Name
+	return m.ftm.UploadFile(ctx, &types.UploadFileRequest{
+		ProjectId:      request.ProjectId,
+		UserId:         request.UserId,
+		ParentFolderId: request.ParentFolderId,
+		LinkedFileData: request.LinkedFileData(),
+		UploadDetails:  uploadDetails,
+	})
+}
+
+func (m *manager) refreshURL(ctx context.Context, request *types.RefreshLinkedFileRequest) error {
+	return m.fromURL(ctx, &types.CreateLinkedFileRequest{
+		UserId:         request.UserId,
+		ProjectId:      request.ProjectId,
+		ParentFolderId: request.ParentFolderId,
+		Name:           request.File.Name,
+		Provider:       request.File.LinkedFileData.Provider,
+		Parameter: types.CreateLinkedFileProviderParameter{
+			URL: request.File.LinkedFileData.URL,
+		},
+	})
 }

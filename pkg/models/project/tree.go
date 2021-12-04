@@ -66,10 +66,31 @@ func NewDoc(name sharedTypes.Filename) *Doc {
 	}}
 }
 
+type LinkedFileProvider string
+
+const (
+	LinkedFileProviderURL               = "url"
+	LinkedFileProviderProjectFile       = "project_file"
+	LinkedFileProviderProjectOutputFile = "project_output_file"
+)
+
+func (p LinkedFileProvider) Validate() error {
+	switch p {
+	case LinkedFileProviderURL:
+	case LinkedFileProviderProjectFile:
+	case LinkedFileProviderProjectOutputFile:
+	default:
+		return &errors.ValidationError{Msg: "unknown provider"}
+	}
+	return nil
+}
+
 type LinkedFileData struct {
-	Provider         string `json:"provider" bson:"provider"`
-	SourceProjectId  string `json:"source_project_id" bson:"source_project_id"`
-	SourceEntityPath string `json:"source_entity_path" bson:"source_entity_path"`
+	Provider             LinkedFileProvider `json:"provider" bson:"provider"`
+	SourceProjectId      string             `json:"source_project_id" bson:"source_project_id"`
+	SourceEntityPath     string             `json:"source_entity_path" bson:"source_entity_path"`
+	SourceOutputFilePath string             `json:"source_output_file_path" bson:"source_output_file_path"`
+	URL                  *sharedTypes.URL   `json:"url" bson:"url"`
 }
 
 type FileRef struct {

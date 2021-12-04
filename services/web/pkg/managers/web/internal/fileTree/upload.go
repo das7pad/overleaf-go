@@ -41,11 +41,18 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	userId := request.UserId
 	source := "upload"
 
-	s, isDoc, _, errIsTextFile := IsTextFile(
-		request.FileName, request.Size, request.File,
-	)
-	if errIsTextFile != nil {
-		return errIsTextFile
+	var s sharedTypes.Snapshot
+	var isDoc bool
+	if request.LinkedFileData != nil {
+		isDoc = false
+	} else {
+		var err error
+		s, isDoc, _, err = IsTextFile(
+			request.FileName, request.Size, request.File,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	var v sharedTypes.Version
@@ -146,6 +153,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 				hash,
 				request.Size,
 			)
+			fileRef.LinkedFileData = request.LinkedFileData
 			err = request.SeekFileToStart()
 			if err != nil {
 				return err

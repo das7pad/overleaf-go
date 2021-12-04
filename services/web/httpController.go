@@ -119,6 +119,7 @@ func (h *httpController) GetRouter(
 		r.DELETE("/archive", h.unArchiveProject)
 		r.POST("/archive", h.archiveProject)
 		r.POST("/clone", h.cloneProject)
+		r.POST("/compile/headless", h.compileProjectHeadless)
 		r.GET("/entities", h.getProjectEntities)
 		r.POST("/jwt", h.getProjectJWT)
 		r.POST("/leave", h.leaveProject)
@@ -168,6 +169,7 @@ func (h *httpController) GetRouter(
 
 		r.POST("/doc", h.addDocToProject)
 		r.POST("/folder", h.addFolderToProject)
+		r.POST("/linked_file", h.createLinkedFile)
 
 		rDoc := r.Group("/doc/:docId")
 		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
@@ -181,6 +183,10 @@ func (h *httpController) GetRouter(
 		rFile.DELETE("", h.deleteFileFromProject)
 		rFile.POST("/rename", h.renameFileInProject)
 		rFile.POST("/move", h.moveFileInProject)
+
+		rLinkedFile := r.Group("/linked_file/:fileId")
+		rLinkedFile.Use(httpUtils.ValidateAndSetId("fileId"))
+		rLinkedFile.POST("/refresh", h.refreshLinkedFile)
 
 		rFolder := r.Group("/folder/:folderId")
 		rFolder.Use(httpUtils.ValidateAndSetId("folderId"))
@@ -1259,4 +1265,46 @@ func (h *httpController) openInOverleaf(c *gin.Context) {
 		response.Error = err.Error()
 	}
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) compileProjectHeadless(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.CompileProjectHeadlessRequest{
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		UserId:    s.User.Id,
+	}
+	response := &types.CompileProjectResponse{}
+	err = h.wm.CompileHeadLess(
+		c,
+		request,
+		response,
+	)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) createLinkedFile(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.CreateLinkedFileRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.UserId = o.UserId
+	request.ProjectId = o.ProjectId
+	err := h.wm.CreateLinkedFile(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) refreshLinkedFile(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.RefreshLinkedFileRequest{
+		UserId:    o.UserId,
+		ProjectId: o.ProjectId,
+		FileId:    httpUtils.GetId(c, "fileId"),
+	}
+	err := h.wm.RefreshLinkedFile(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

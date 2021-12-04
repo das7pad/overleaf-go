@@ -280,6 +280,7 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 		return err
 	}
 	blob, err := io.ReadAll(reader)
+	_ = reader.Close()
 	if err != nil {
 		return err
 	}

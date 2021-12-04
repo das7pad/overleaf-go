@@ -29,6 +29,11 @@ type SignedCompileProjectRequestOptions struct {
 	Timeout      clsiTypes.Timeout      `json:"t"`
 }
 
+type CompileProjectHeadlessRequest struct {
+	ProjectId primitive.ObjectID `json:"-"`
+	UserId    primitive.ObjectID `json:"-"`
+}
+
 type CompileProjectRequest struct {
 	SignedCompileProjectRequestOptions `json:"-"`
 

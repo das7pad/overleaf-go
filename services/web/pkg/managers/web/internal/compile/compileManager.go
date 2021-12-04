@@ -29,6 +29,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -43,6 +44,8 @@ type Manager interface {
 		request *types.CompileProjectRequest,
 		response *types.CompileProjectResponse,
 	) error
+
+	CompileHeadLess(ctx context.Context, request *types.CompileProjectHeadlessRequest, response *types.CompileProjectResponse) error
 
 	ClearCache(
 		ctx context.Context,
@@ -69,7 +72,7 @@ type Manager interface {
 	) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, pm project.Manager) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, pm project.Manager, um user.Manager) (Manager, error) {
 	return &manager{
 		baseURL: options.APIs.Clsi.URL.String(),
 		options: options,
@@ -78,6 +81,7 @@ func New(options *types.Options, client redis.UniversalClient, dum documentUpdat
 		dm:      dm,
 		pm:      pm,
 		pool:    &http.Client{},
+		um:      um,
 	}, nil
 }
 
@@ -89,6 +93,7 @@ type manager struct {
 	dm      docstore.Manager
 	pm      project.Manager
 	pool    *http.Client
+	um      user.Manager
 }
 
 func unexpectedStatus(res *http.Response) error {

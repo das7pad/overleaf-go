@@ -41,9 +41,10 @@ var errTotalSizeTooHigh = errors.Tag(
 )
 
 type UploadFileRequest struct {
-	ProjectId      primitive.ObjectID `json:"-"`
-	UserId         primitive.ObjectID `json:"-"`
-	ParentFolderId primitive.ObjectID `json:"-"`
+	ProjectId      primitive.ObjectID      `json:"-"`
+	UserId         primitive.ObjectID      `json:"-"`
+	ParentFolderId primitive.ObjectID      `json:"-"`
+	LinkedFileData *project.LinkedFileData `json:"-"`
 	UploadDetails
 }
 

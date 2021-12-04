@@ -123,11 +123,11 @@ func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedC
 }
 
 //goland:noinspection SpellCheckingInspection
-const clsiServerIdQueryParam = "clsiserverid"
+const ClsiServerIdQueryParam = "clsiserverid"
 
 func (m *manager) doStaticRequest(clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, error) {
 	q := r.URL.Query()
-	q.Set(clsiServerIdQueryParam, string(clsiServerId))
+	q.Set(ClsiServerIdQueryParam, string(clsiServerId))
 	r.URL.RawQuery = q.Encode()
 	return m.pool.Do(r)
 }

@@ -29,7 +29,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
@@ -120,11 +119,13 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 			}
 
 			file := types.OutputFile{
-				Build:        buildId,
-				DownloadPath: getDownloadPath(namespace, buildId, fileName),
-				Path:         fileName,
-				Type:         fileName.Type(),
-				Size:         size,
+				Build: buildId,
+				DownloadPath: types.BuildDownloadPathFromNamespace(
+					namespace, buildId, fileName,
+				),
+				Path: fileName,
+				Type: fileName.Type(),
+				Size: size,
 			}
 			outputFiles = append(outputFiles, file)
 			select {
@@ -185,16 +186,4 @@ func getBuildId() (types.BuildId, error) {
 		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
 	)
 	return buildId, nil
-}
-
-const publicProjectPrefix = "/project"
-
-func getDownloadPath(namespace types.Namespace, id types.BuildId, name sharedTypes.PathName) types.DownloadPath {
-	return types.DownloadPath(
-		publicProjectPrefix +
-			"/" + string(namespace) +
-			"/" + constants.CompileOutputLabel +
-			"/" + string(id) +
-			"/" + string(name),
-	)
 }

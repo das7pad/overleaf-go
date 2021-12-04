@@ -19,8 +19,11 @@ package types
 import (
 	"strings"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
 
 const (
@@ -309,6 +312,25 @@ func (c *CompileRequest) Validate() error {
 }
 
 type DownloadPath string
+
+const publicProjectPrefix = "/project"
+
+func BuildDownloadPath(projectId, userId primitive.ObjectID, buildId BuildId, name sharedTypes.PathName) DownloadPath {
+	return BuildDownloadPathFromNamespace(
+		Namespace(projectId.Hex()+"-"+userId.Hex()), buildId, name,
+	)
+}
+
+func BuildDownloadPathFromNamespace(namespace Namespace, buildId BuildId, name sharedTypes.PathName) DownloadPath {
+	return DownloadPath(
+		publicProjectPrefix +
+			"/" + string(namespace) +
+			"/" + constants.CompileOutputLabel +
+			"/" + string(buildId) +
+			"/" + string(name),
+	)
+}
+
 type OutputFile struct {
 	Build        BuildId              `json:"build"`
 	DownloadPath DownloadPath         `json:"url"`

@@ -69,7 +69,7 @@ type Backend interface {
 		bucket string,
 		key string,
 		options GetOptions,
-	) (int64, io.Reader, error)
+	) (int64, io.ReadCloser, error)
 
 	GetRedirectURLForGET(
 		ctx context.Context,
