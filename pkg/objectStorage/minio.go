@@ -86,17 +86,23 @@ func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key str
 
 	r, err := m.mc.GetObject(ctx, bucket, key, opts)
 	if err != nil {
-		return 0, nil, rewriteError(err)
+		return 0, nil, errors.Tag(rewriteError(err), "get")
 	}
 	// We need to peek into the s3.GetObject response.
 	// This _saves_ one s3.HeadObject request for the size.
 	_, err = r.Read(make([]byte, 0))
+	if err == io.EOF {
+		if s, err2 := r.Stat(); err2 == nil && s.Size == 0 {
+			// This is an empty file.
+			return 0, r, nil
+		}
+	}
 	if err != nil {
-		return 0, nil, rewriteError(err)
+		return 0, nil, errors.Tag(rewriteError(err), "probe")
 	}
 	s, err := r.Stat()
 	if err != nil {
-		return 0, nil, rewriteError(err)
+		return 0, nil, errors.Tag(rewriteError(err), "stat")
 	}
 	return s.Size, r, nil
 }
