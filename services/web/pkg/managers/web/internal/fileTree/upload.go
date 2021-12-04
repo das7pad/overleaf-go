@@ -212,21 +212,21 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		if doc, ok := deletedElement.(*project.Doc); ok {
 			m.cleanupDocDeletion(ctx, projectId, doc.Id)
 		}
-		go m.notifyEditor(
+		m.notifyEditor(
 			projectId, "removeEntity",
 			deletedElement.GetId(), source, v,
 		)
 	}
 	if f, ok := newElement.(*project.FileRef); ok {
 		//goland:noinspection SpellCheckingInspection
-		go m.notifyEditor(
+		m.notifyEditor(
 			projectId, "reciveNewFile",
 			parentFolderId, newElement, source, f.LinkedFileData, userId, v,
 		)
 	}
 	if _, ok := newElement.(*project.Doc); ok {
 		//goland:noinspection SpellCheckingInspection
-		go m.notifyEditor(
+		m.notifyEditor(
 			projectId, "reciveNewDoc",
 			parentFolderId, newElement, v,
 		)
