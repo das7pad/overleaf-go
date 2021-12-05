@@ -25,6 +25,7 @@ import (
 var (
 	forMemberRemovalFields = views.GetFieldsOf(forMemberRemoval{})
 
+	idFieldProjection                     = views.GetProjectionFor(IdField{})
 	epochFieldProjection                  = views.GetProjectionFor(EpochField{})
 	lastUpdatedAtFieldProjection          = views.GetProjectionFor(LastUpdatedAtField{})
 	nameFieldProjection                   = views.GetProjectionFor(NameField{})
@@ -48,6 +49,8 @@ var (
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
+	case *IdField:
+		return idFieldProjection
 	case *EpochField:
 		return epochFieldProjection
 	case []NameField:

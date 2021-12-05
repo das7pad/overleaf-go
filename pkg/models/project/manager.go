@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
@@ -37,6 +38,7 @@ type Manager interface {
 	CreateProject(ctx context.Context, creation *ForCreation) error
 	Delete(ctx context.Context, p *ForDeletion) error
 	Restore(ctx context.Context, p *ForDeletion) error
+	GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error)
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
@@ -78,8 +80,12 @@ type Manager interface {
 }
 
 func New(db *mongo.Database) Manager {
+	cSlow := db.Collection("projects", options.Collection().
+		SetReadPreference(readpref.SecondaryPreferred()),
+	)
 	return &manager{
-		c: db.Collection("projects"),
+		c:     db.Collection("projects"),
+		cSlow: cSlow,
 	}
 }
 
@@ -118,7 +124,66 @@ func matchUsersProjects(userId primitive.ObjectID) bson.M {
 }
 
 type manager struct {
-	c *mongo.Collection
+	c     *mongo.Collection
+	cSlow *mongo.Collection
+}
+
+const inactiveProjectBufferSize = 10
+
+func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error) {
+	cutOff := time.Now().UTC().Add(-age)
+
+	q := bson.M{
+		"lastOpened": bson.M{
+			// Take care of never opened projects, with a negative match.
+			"$not": bson.M{
+				"$gt": cutOff,
+			},
+		},
+		"_id": bson.M{
+			// Look at projects created before the cutOff only.
+			"$lt": primitive.NewObjectIDFromTimestamp(cutOff),
+		},
+		"active": true,
+	}
+	p := &IdField{}
+	projection := getProjection(p)
+
+	r, errFind := m.cSlow.Find(
+		ctx, q, options.Find().
+			SetBatchSize(inactiveProjectBufferSize).
+			SetProjection(projection),
+	)
+	if errFind != nil {
+		return nil, rewriteMongoError(errFind)
+	}
+	queue := make(chan primitive.ObjectID, inactiveProjectBufferSize)
+
+	// Peek once into the batch, then ignore any errors during background
+	//  streaming.
+	if !r.Next(ctx) {
+		close(queue)
+		if err := r.Err(); err != nil {
+			return nil, err
+		}
+		return queue, nil
+	}
+	if err := r.Decode(p); err != nil {
+		close(queue)
+		return nil, err
+	}
+
+	go func() {
+		defer close(queue)
+		queue <- p.Id
+		for r.Next(ctx) {
+			if err := r.Decode(p); err != nil {
+				return
+			}
+			queue <- p.Id
+		}
+	}()
+	return queue, nil
 }
 
 func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {

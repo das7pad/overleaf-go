@@ -47,6 +47,7 @@ type Options struct {
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
 	PDFDownloadDomain        PDFDownloadDomain   `json:"pdf_download_domain"`
+	ProjectsInactiveAfter    time.Duration       `json:"projects_inactive_after"`
 	SiteURL                  sharedTypes.URL     `json:"site_url"`
 	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
 
@@ -95,6 +96,11 @@ func (o *Options) Validate() error {
 	}
 	if len(o.DefaultImage) == 0 {
 		return &errors.ValidationError{Msg: "default_image is missing"}
+	}
+	if o.ProjectsInactiveAfter < 24*time.Hour {
+		return &errors.ValidationError{
+			Msg: "projects_inactive_after is mis-configured, expected O(days)",
+		}
 	}
 	if err := o.SiteURL.Validate(); err != nil {
 		return errors.Tag(err, "site_url is invalid")

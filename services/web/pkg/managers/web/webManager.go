@@ -41,6 +41,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/inactiveProject"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedFile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
@@ -68,6 +69,7 @@ type Manager interface {
 	compileManager
 	editorManager
 	fileTreeManager
+	inactiveProjectManager
 	linkedFileManager
 	loginManager
 	notificationsManager
@@ -146,6 +148,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pdm := projectDownload.New(pm, dm, dum, fm)
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, tm, csm, pDelM)
+	ipm := inactiveProject.New(options, pm, dm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -153,6 +156,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		compileManager:         cm,
 		editorManager:          em,
 		fileTreeManager:        ftm,
+		inactiveProjectManager: ipm,
 		linkedFileManager:      lfm,
 		loginManager:           lm,
 		notificationsManager:   nm,
@@ -175,6 +179,7 @@ type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
+type inactiveProjectManager = inactiveProject.Manager
 type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
 type notificationsManager = notifications.Manager
@@ -196,6 +201,7 @@ type manager struct {
 	compileManager
 	editorManager
 	fileTreeManager
+	inactiveProjectManager
 	linkedFileManager
 	loginManager
 	notificationsManager
@@ -230,6 +236,10 @@ func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
 		ok = false
 	}
 	if err := m.HardDeleteExpiredUsers(ctx, dryRun); err != nil {
+		log.Println("hard deletion of users failed: " + err.Error())
+		ok = false
+	}
+	if err := m.ArchiveOldProjects(ctx, dryRun); err != nil {
 		log.Println("hard deletion of users failed: " + err.Error())
 		ok = false
 	}
