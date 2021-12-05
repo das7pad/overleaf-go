@@ -22,13 +22,25 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type DeleterDataDeletedUserIdField struct {
+	DeletedUserId primitive.ObjectID `bson:"deletedUserId"`
+}
+
 type DeleterData struct {
-	DeletedAt               time.Time          `bson:"deletedAt"`
-	DeleterId               primitive.ObjectID `bson:"deleterId"`
-	DeleterIpAddress        string             `bson:"deleterIpAddress"`
-	DeletedUserId           primitive.ObjectID `bson:"deletedUserId"`
-	DeletedUserLastLoggedIn time.Time          `bson:"deletedUserLastLoggedIn"`
-	DeletedUserSignUpDate   time.Time          `bson:"deletedUserSignUpDate"`
-	DeletedUserLoginCount   int64              `bson:"deletedUserLoginCount"`
-	DeletedUserReferralId   string             `bson:"deletedUserReferralId"`
+	DeleterDataDeletedUserIdField `bson:"inline"`
+	DeletedAt                     time.Time          `bson:"deletedAt"`
+	DeleterId                     primitive.ObjectID `bson:"deleterId"`
+	DeleterIpAddress              string             `bson:"deleterIpAddress"`
+	DeletedUserLastLoggedIn       time.Time          `bson:"deletedUserLastLoggedIn"`
+	DeletedUserSignUpDate         time.Time          `bson:"deletedUserSignUpDate"`
+	DeletedUserLoginCount         int64              `bson:"deletedUserLoginCount"`
+	DeletedUserReferralId         string             `bson:"deletedUserReferralId"`
+}
+
+type deleterDataOnlyUserId struct {
+	DeleterDataDeletedUserIdField `bson:"inline"`
+}
+
+type forListing struct {
+	DeleterData deleterDataOnlyUserId `bson:"deleterData"`
 }

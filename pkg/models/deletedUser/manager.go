@@ -20,8 +20,11 @@ import (
 	"context"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -29,16 +32,24 @@ import (
 
 type Manager interface {
 	Create(ctx context.Context, deletion *user.ForDeletion, userId primitive.ObjectID, ipAddress string) error
+	Expire(ctx context.Context, projectId primitive.ObjectID) error
+	GetExpired(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error)
 }
 
 func New(db *mongo.Database) Manager {
+	c := db.Collection("deletedUsers")
+	cSlow := db.Collection("deletedUsers", options.Collection().
+		SetReadPreference(readpref.SecondaryPreferred()),
+	)
 	return &manager{
-		c: db.Collection("deletedUsers"),
+		c:     c,
+		cSlow: cSlow,
 	}
 }
 
 type manager struct {
-	c *mongo.Collection
+	c     *mongo.Collection
+	cSlow *mongo.Collection
 }
 
 func rewriteMongoError(err error) error {
@@ -53,10 +64,12 @@ func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId primit
 		UserField: UserField{User: u},
 		DeleterDataField: DeleterDataField{
 			DeleterData: DeleterData{
+				DeleterDataDeletedUserIdField: DeleterDataDeletedUserIdField{
+					DeletedUserId: u.Id,
+				},
 				DeletedAt:               time.Now().UTC(),
 				DeleterId:               userId,
 				DeleterIpAddress:        ipAddress,
-				DeletedUserId:           u.Id,
 				DeletedUserLastLoggedIn: u.LastLoggedIn,
 				DeletedUserSignUpDate:   u.SignUpDate,
 				DeletedUserLoginCount:   u.LoginCount,
@@ -69,4 +82,73 @@ func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId primit
 		return rewriteMongoError(err)
 	}
 	return nil
+}
+
+func (m *manager) Expire(ctx context.Context, userId primitive.ObjectID) error {
+	q := bson.M{
+		"deleterData.deletedUserId": userId,
+	}
+	u := bson.M{
+		"$set": bson.M{
+			"user":                         nil,
+			"deleterData.deleterIpAddress": "",
+		},
+	}
+	_, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+const bufferSize = 10
+
+func (m *manager) GetExpired(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error) {
+	q := bson.M{
+		"deleterData.deletedAt": bson.M{
+			"$lt": time.Now().UTC().Add(-age),
+		},
+		"user": bson.M{
+			"$ne": nil,
+		},
+	}
+	projection := bson.M{
+		"deleterData.deletedUserId": 1,
+	}
+	r, errFind := m.cSlow.Find(
+		ctx, q, options.Find().
+			SetProjection(projection).
+			SetBatchSize(bufferSize),
+	)
+	if errFind != nil {
+		return nil, rewriteMongoError(errFind)
+	}
+	queue := make(chan primitive.ObjectID, bufferSize)
+
+	// Peek once into the batch, then ignore any errors during background
+	//  streaming.
+	if !r.Next(ctx) {
+		close(queue)
+		if err := r.Err(); err != nil {
+			return nil, err
+		}
+		return queue, nil
+	}
+	dp := &forListing{}
+	if err := r.Decode(dp); err != nil {
+		close(queue)
+		return nil, err
+	}
+
+	go func() {
+		defer close(queue)
+		queue <- dp.DeleterData.DeletedUserId
+		for r.Next(ctx) {
+			if err := r.Decode(dp); err != nil {
+				return
+			}
+			queue <- dp.DeleterData.DeletedUserId
+		}
+	}()
+	return queue, nil
 }

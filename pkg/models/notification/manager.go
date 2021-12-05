@@ -28,6 +28,7 @@ import (
 )
 
 type Manager interface {
+	DeleteForUser(ctx context.Context, userId primitive.ObjectID) error
 	GetAllForUser(ctx context.Context, userId primitive.ObjectID, notifications *[]Notification) error
 	Add(ctx context.Context, notification Notification, forceCreate bool) error
 	RemoveById(ctx context.Context, userId primitive.ObjectID, notificationId primitive.ObjectID) error
@@ -43,6 +44,15 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) error {
+	q := &UserIdField{UserId: userId}
+	_, err := m.c.DeleteMany(ctx, q)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *manager) GetAllForUser(ctx context.Context, userId primitive.ObjectID, notifications *[]Notification) error {

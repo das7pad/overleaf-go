@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package projectDeletion
+package userDeletion
 
 import (
 	"context"
@@ -29,13 +29,13 @@ import (
 
 const (
 	parallelHardDeletion = 5
-	expireProjectsAfter  = 90 * 24 * time.Hour
+	expireUsersAfter     = 90 * 24 * time.Hour
 )
 
-func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) error {
+func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	// Pass the pCtx to stop fetching ids as soon as any consumer failed.
-	queue, errGet := m.dpm.GetExpired(pCtx, expireProjectsAfter)
+	queue, errGet := m.delUM.GetExpired(pCtx, expireUsersAfter)
 	if errGet != nil {
 		_ = eg.Wait()
 		return errGet
@@ -47,19 +47,16 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) er
 	}()
 	for i := 0; i < parallelHardDeletion; i++ {
 		eg.Go(func() error {
-			for projectId := range queue {
+			for userId := range queue {
 				if dryRun {
-					log.Println(
-						"dry-run hard deleting project " + projectId.Hex(),
-					)
+					log.Println("dry-run hard deleting user " + userId.Hex())
 					continue
 				}
 				// Use the original ctx in order to ignore imminent failure
 				//  of another consumer.
-				if err := m.HardDeleteProject(ctx, projectId); err != nil {
+				if err := m.HardDeleteUser(ctx, userId); err != nil {
 					err = errors.Tag(
-						err,
-						"hard deletion failed for project "+projectId.Hex(),
+						err, "hard deletion failed for user "+userId.Hex(),
 					)
 					log.Println(err.Error())
 					return err
@@ -71,39 +68,32 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) er
 	return eg.Wait()
 }
 
-func (m *manager) HardDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) HardDeleteUser(ctx context.Context, userId primitive.ObjectID) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if err := m.dm.DestroyProject(pCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot destroy docs")
+		if err := m.cm.DeleteForUser(pCtx, userId); err != nil {
+			return errors.Tag(err, "cannot delete tags")
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		if err := m.fm.DeleteProject(pCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot destroy files")
+		if err := m.nm.DeleteForUser(pCtx, userId); err != nil {
+			return errors.Tag(err, "cannot delete notifications")
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		if err := m.dfm.DeleteBulk(pCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot destroy files")
+		if err := m.tm.DeleteForUser(pCtx, userId); err != nil {
+			return errors.Tag(err, "cannot delete tags")
 		}
 		return nil
 	})
-	eg.Go(func() error {
-		if err := m.cm.DeleteProject(pCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot destroy chat/review-threads")
-		}
-		return nil
-	})
-	// TODO: Consider hard-deleting tracked-changes data (NodeJS did not).
 	if err := eg.Wait(); err != nil {
 		return err
 	}
 
-	if err := m.dpm.Expire(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot expire deleted project")
+	if err := m.delUM.Expire(ctx, userId); err != nil {
+		return errors.Tag(err, "cannot expire deleted user")
 	}
 	return nil
 }

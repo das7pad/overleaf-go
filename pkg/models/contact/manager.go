@@ -28,6 +28,7 @@ import (
 )
 
 type Manager interface {
+	DeleteForUser(ctx context.Context, userId primitive.ObjectID) error
 	GetForUser(ctx context.Context, userId primitive.ObjectID, contacts *[]primitive.ObjectID) error
 	Add(ctx context.Context, userId, contactId primitive.ObjectID) error
 }
@@ -99,6 +100,15 @@ func (cm *manager) Add(ctx context.Context, userId, contactId primitive.ObjectID
 			prepareTouchContactOneWay(contactId, userId),
 		},
 	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cm *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) error {
+	q := &UserIdField{UserId: userId}
+	_, err := cm.c.DeleteOne(ctx, q)
 	if err != nil {
 		return err
 	}

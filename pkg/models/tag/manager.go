@@ -30,6 +30,7 @@ import (
 type Manager interface {
 	AddProject(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error
 	Delete(ctx context.Context, userId, tagId primitive.ObjectID) error
+	DeleteForUser(ctx context.Context, userId primitive.ObjectID) error
 	EnsureExists(ctx context.Context, userId primitive.ObjectID, name string) (*Full, error)
 	GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full, error)
 	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error
@@ -85,6 +86,15 @@ func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId primi
 func (m *manager) Delete(ctx context.Context, userId, tagId primitive.ObjectID) error {
 	q := filterByUserAndTagId(userId, tagId)
 	_, err := m.c.DeleteOne(ctx, q)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) error {
+	q := &UserIdField{UserId: userId.Hex()}
+	_, err := m.c.DeleteMany(ctx, q)
 	if err != nil {
 		return rewriteMongoError(err)
 	}

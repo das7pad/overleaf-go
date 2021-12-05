@@ -145,7 +145,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	}
 	pdm := projectDownload.New(pm, dm, dum, fm)
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
-	uDelM := userDeletion.New(db, pm, um, pDelM)
+	uDelM := userDeletion.New(db, pm, um, tm, csm, pDelM)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -227,6 +227,10 @@ func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
 	ok := true
 	if err := m.HardDeleteExpiredProjects(ctx, dryRun); err != nil {
 		log.Println("hard deletion of projects failed: " + err.Error())
+		ok = false
+	}
+	if err := m.HardDeleteExpiredUsers(ctx, dryRun); err != nil {
+		log.Println("hard deletion of users failed: " + err.Error())
 		ok = false
 	}
 	return ok
