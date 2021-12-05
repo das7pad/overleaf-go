@@ -14,29 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package fileTree
+package types
 
 import (
-	"context"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
+	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
-const retriesFileTreeOperation = 10
-
-func (m *manager) txWithRetries(ctx context.Context, fn mongoTx.Runner) error {
-	var err error
-	for i := 0; i < retriesFileTreeOperation; i++ {
-		err = mongoTx.For(m.db, ctx, fn)
-		if errors.GetCause(err) == project.ErrVersionChanged {
-			continue
-		}
-		break
-	}
-	if err != nil {
-		return err
-	}
-	return nil
+type DeleteProjectRequest struct {
+	Session   *session.Session   `json:"-"`
+	ProjectId primitive.ObjectID `json:"-"`
+	IPAddress string             `json:"-"`
 }

@@ -117,6 +117,7 @@ func (h *httpController) GetRouter(
 		// Project routes with session auth
 		r := publicApiRouter.Group("/project/:projectId")
 		r.Use(httpUtils.ValidateAndSetId("projectId"))
+		r.DELETE("", h.deleteProject)
 		r.DELETE("/archive", h.unArchiveProject)
 		r.POST("/archive", h.archiveProject)
 		r.POST("/clone", h.cloneProject)
@@ -1359,4 +1360,19 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 	c.Header("Content-Disposition", cd)
 	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
+}
+
+func (h *httpController) deleteProject(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.DeleteProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+		IPAddress: c.ClientIP(),
+	}
+	err = h.wm.DeleteProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

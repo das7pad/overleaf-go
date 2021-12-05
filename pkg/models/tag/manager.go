@@ -32,8 +32,9 @@ type Manager interface {
 	Delete(ctx context.Context, userId, tagId primitive.ObjectID) error
 	EnsureExists(ctx context.Context, userId primitive.ObjectID, name string) (*Full, error)
 	GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full, error)
-	RemoveProject(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error
-	RemoveProjectBulk(ctx context.Context, userId, projectId primitive.ObjectID) error
+	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error
+	RemoveProjectForAllUsers(ctx context.Context, userIds []primitive.ObjectID, projectId primitive.ObjectID) error
+	RemoveProjectForUser(ctx context.Context, userId, projectId primitive.ObjectID) error
 	Rename(ctx context.Context, userId, tagId primitive.ObjectID, newName string) error
 }
 
@@ -129,7 +130,7 @@ func (m *manager) GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full
 	return tags, nil
 }
 
-func (m *manager) RemoveProject(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error {
+func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error {
 	q := filterByUserAndTagId(userId, tagId)
 	_, err := m.c.UpdateOne(ctx, q, &bson.M{
 		"$pull": bson.M{
@@ -142,7 +143,28 @@ func (m *manager) RemoveProject(ctx context.Context, userId, tagId, projectId pr
 	return nil
 }
 
-func (m *manager) RemoveProjectBulk(ctx context.Context, userId, projectId primitive.ObjectID) error {
+func (m *manager) RemoveProjectForAllUsers(ctx context.Context, userIds []primitive.ObjectID, projectId primitive.ObjectID) error {
+	userIdsHex := make([]string, len(userIds))
+	for i, id := range userIds {
+		userIdsHex[i] = id.Hex()
+	}
+	q := bson.M{
+		"user_id": bson.M{
+			"$in": userIdsHex,
+		},
+	}
+	_, err := m.c.UpdateMany(ctx, q, &bson.M{
+		"$pull": bson.M{
+			"project_ids": projectId,
+		},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) RemoveProjectForUser(ctx context.Context, userId, projectId primitive.ObjectID) error {
 	q := &UserIdField{UserId: userId.Hex()}
 	_, err := m.c.UpdateMany(ctx, q, &bson.M{
 		"$pull": bson.M{

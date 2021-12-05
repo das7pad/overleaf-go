@@ -48,8 +48,9 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 		}
 
 		{
-			d, _ := p.GetPrivilegeLevelAuthenticated(previousOwnerId)
-			err := d.PrivilegeLevel.CheckIsAtLeast(sharedTypes.PrivilegeLevelOwner)
+			err := p.CheckPrivilegeLevelIsAtLest(
+				previousOwnerId, sharedTypes.PrivilegeLevelOwner,
+			)
 			if err != nil {
 				return err
 			}

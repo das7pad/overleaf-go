@@ -35,6 +35,7 @@ import (
 
 type Manager interface {
 	CreateProject(ctx context.Context, creation *ForCreation) error
+	Delete(ctx context.Context, p *ForDeletion) error
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
@@ -425,11 +426,7 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId pr
 		if err != nil {
 			return err
 		}
-		d, err := p.GetPrivilegeLevelAuthenticated(userId)
-		if err != nil {
-			return err
-		}
-		if err = d.PrivilegeLevel.CheckIsAtLeast(minLevel); err != nil {
+		if err = p.CheckPrivilegeLevelIsAtLest(userId, minLevel); err != nil {
 			return err
 		}
 		err = m.setWithEpochGuard(ctx, projectId, p.Epoch, u)
@@ -792,4 +789,20 @@ func (m *manager) RemoveMember(ctx context.Context, projectId primitive.ObjectID
 	u["$pull"] = pull
 
 	return m.setWithEpochGuard(ctx, projectId, epoch, u)
+}
+
+func (m *manager) Delete(ctx context.Context, p *ForDeletion) error {
+	q := &withIdAndEpochAndVersion{
+		IdField:      p.IdField,
+		EpochField:   p.EpochField,
+		VersionField: p.VersionField,
+	}
+	r, err := m.c.DeleteOne(ctx, q)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.DeletedCount != 1 {
+		return ErrVersionChanged
+	}
+	return nil
 }

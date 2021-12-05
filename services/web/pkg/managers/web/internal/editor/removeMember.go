@@ -71,7 +71,7 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId primiti
 		if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
 			return errors.Tag(err, "cannot remove user from project")
 		}
-		if err := m.tm.RemoveProjectBulk(ctx, userId, projectId); err != nil {
+		if err := m.tm.RemoveProjectForUser(ctx, userId, projectId); err != nil {
 			return errors.Tag(err, "cannot remove project from tags")
 		}
 		// Clearing the epoch is OK to do at any time.

@@ -31,6 +31,7 @@ var (
 	tokensFieldProjection                 = views.GetProjectionFor(TokensField{})
 	forAuthorizationDetailsProjection     = views.GetProjectionFor(ForAuthorizationDetails{})
 	forCloneProjection                    = views.GetProjectionFor(ForClone{})
+	forDeletionProjection                 = views.GetProjectionFor(ForDeletion{})
 	forProjectInviteProjection            = views.GetProjectionFor(ForProjectInvite{})
 	forProjectOwnershipTransferProjection = views.GetProjectionFor(ForProjectOwnershipTransfer{})
 	forTokenAccessCheckProjection         = views.GetProjectionFor(forTokenAccessCheck{})
@@ -87,6 +88,8 @@ func getProjection(model interface{}) views.View {
 		return forProjectOwnershipTransferProjection
 	case *TokensField:
 		return tokensFieldProjection
+	case *ForDeletion:
+		return forDeletionProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

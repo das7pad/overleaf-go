@@ -14,29 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package fileTree
+package deletedProject
 
 import (
-	"context"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 )
 
-const retriesFileTreeOperation = 10
+type DeleterDataField struct {
+	DeleterData DeleterData `bson:"deleterData"`
+}
 
-func (m *manager) txWithRetries(ctx context.Context, fn mongoTx.Runner) error {
-	var err error
-	for i := 0; i < retriesFileTreeOperation; i++ {
-		err = mongoTx.For(m.db, ctx, fn)
-		if errors.GetCause(err) == project.ErrVersionChanged {
-			continue
-		}
-		break
-	}
-	if err != nil {
-		return err
-	}
-	return nil
+type ProjectField struct {
+	Project *project.ForDeletion `bson:"project"`
 }

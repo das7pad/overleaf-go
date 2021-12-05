@@ -69,7 +69,7 @@ func (m *manager) RemoveProjectFromTag(ctx context.Context, r *types.RemoveProje
 	if err := r.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	return m.tm.RemoveProject(ctx, r.Session.User.Id, r.TagId, r.ProjectId)
+	return m.tm.RemoveProjectFromTag(ctx, r.Session.User.Id, r.TagId, r.ProjectId)
 }
 
 func (m *manager) RenameTag(ctx context.Context, r *types.RenameTagRequest) error {

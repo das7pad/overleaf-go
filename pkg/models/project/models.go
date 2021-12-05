@@ -96,6 +96,12 @@ type withIdAndVersion struct {
 	VersionField `bson:"inline"`
 }
 
+type withIdAndEpochAndVersion struct {
+	IdField      `bson:"inline"`
+	EpochField   `bson:"inline"`
+	VersionField `bson:"inline"`
+}
+
 type ForProjectInvite struct {
 	IdField                 `bson:"inline"`
 	NameField               `bson:"inline"`
@@ -159,6 +165,25 @@ type ForClone struct {
 	NameField               `bson:"inline"`
 	RootDocIdField          `bson:"inline"`
 	SpellCheckLanguageField `bson:"inline"`
+	TreeField               `bson:"inline"`
+	VersionField            `bson:"inline"`
+}
+
+type ForDeletion struct {
+	IdField                 `bson:"inline"`
+	ForAuthorizationDetails `bson:"inline"`
+	ActiveField             `bson:"inline"`
+	ArchivedByField         `bson:"inline"`
+	CompilerField           `bson:"inline"`
+	ImageNameField          `bson:"inline"`
+	LastOpenedField         `bson:"inline"`
+	LastUpdatedAtField      `bson:"inline"`
+	LastUpdatedByField      `bson:"inline"`
+	NameField               `bson:"inline"`
+	RootDocIdField          `bson:"inline"`
+	SpellCheckLanguageField `bson:"inline"`
+	TrackChangesStateField  `bson:"inline"`
+	TrashedByField          `bson:"inline"`
 	TreeField               `bson:"inline"`
 	VersionField            `bson:"inline"`
 }

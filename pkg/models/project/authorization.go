@@ -100,6 +100,14 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
+func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error {
+	d, err := p.GetPrivilegeLevelAuthenticated(userId)
+	if err != nil {
+		return err
+	}
+	return d.PrivilegeLevel.CheckIsAtLeast(level)
+}
+
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitive.ObjectID) (*AuthorizationDetails, error) {
 	if p.OwnerRef == userId {
 		return &AuthorizationDetails{

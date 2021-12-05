@@ -43,6 +43,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/notifications"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/openInOverleaf"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectDeletion"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectDownload"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
@@ -66,6 +67,7 @@ type Manager interface {
 	loginManager
 	notificationsManager
 	openInOverleafManager
+	projectDeletionManager
 	projectDownloadManager
 	projectInviteManager
 	projectListManager
@@ -136,6 +138,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		return nil, err
 	}
 	pdm := projectDownload.New(pm, dm, dum, fm)
+	pDelM := projectDeletion.New(db, pm, tm, dm, dum, fm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -147,6 +150,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		loginManager:           lm,
 		notificationsManager:   nm,
 		openInOverleafManager:  OIOm,
+		projectDeletionManager: pDelM,
 		projectDownloadManager: pdm,
 		projectInviteManager:   pim,
 		projectListManager:     plm,
@@ -167,6 +171,7 @@ type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
 type notificationsManager = notifications.Manager
 type openInOverleafManager = openInOverleaf.Manager
+type projectDeletionManager = projectDeletion.Manager
 type projectDownloadManager = projectDownload.Manager
 type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
@@ -186,6 +191,7 @@ type manager struct {
 	loginManager
 	notificationsManager
 	openInOverleafManager
+	projectDeletionManager
 	projectDownloadManager
 	projectInviteManager
 	projectListManager
