@@ -16,6 +16,16 @@
 
 package user
 
+type withLastLoginInfo struct {
+	LastLoggedInField `bson:"inline"`
+	LastLoginIpField  `bson:"inline"`
+}
+
+type withIdAndEpoch struct {
+	IdField    `bson:"inline"`
+	EpochField `bson:"inline"`
+}
+
 type ProjectListViewCaller struct {
 	WithPublicInfo `bson:"inline"`
 	EmailsField    `bson:"inline"`
@@ -54,4 +64,26 @@ type WithLoginInfo struct {
 type WithEpochAndFeatures struct {
 	EpochField    `bson:"inline"`
 	FeaturesField `bson:"inline"`
+}
+
+type ForDeletion struct {
+	AlphaProgramField   `bson:"inline"`
+	AuditLogField       `bson:"inline"`
+	BetaProgramField    `bson:"inline"`
+	EditorConfigField   `bson:"inline"`
+	EmailField          `bson:"inline"`
+	EmailsField         `bson:"inline"`
+	EpochField          `bson:"inline"`
+	FeaturesField       `bson:"inline"`
+	FirstNameField      `bson:"inline"`
+	IdField             `bson:"inline"`
+	IsAdminField        `bson:"inline"`
+	HashedPasswordField `bson:"inline"`
+	LastLoggedInField   `bson:"inline"`
+	LastLoginIpField    `bson:"inline"`
+	LastNameField       `bson:"inline"`
+	LoginCountField     `bson:"inline"`
+	MustReconfirmField  `bson:"inline"`
+	ReferralIdField     `bson:"inline"`
+	SignUpDateField     `bson:"inline"`
 }

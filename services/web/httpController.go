@@ -82,6 +82,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/project/new/upload", h.createFromZip)
 	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
+	publicApiRouter.POST("/user/delete", h.deleteUser)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.GET("/user/projects", h.getUserProjects)
@@ -1374,5 +1375,22 @@ func (h *httpController) deleteProject(c *gin.Context) {
 		IPAddress: c.ClientIP(),
 	}
 	err = h.wm.DeleteProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) deleteUser(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.DeleteUserRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	request.IPAddress = c.ClientIP()
+	err = h.wm.DeleteUser(c, request)
+	_ = h.wm.Flush(c, s)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

@@ -17,6 +17,8 @@
 package user
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -24,6 +26,10 @@ import (
 
 type AlphaProgramField struct {
 	AlphaProgram bool `json:"alphaProgram" bson:"alphaProgram"`
+}
+
+type AuditLogField struct {
+	AuditLog []AuditLogEntry `bson:"auditLog"`
 }
 
 type BetaProgramField struct {
@@ -66,8 +72,20 @@ type HashedPasswordField struct {
 	HashedPassword string `json:"-" bson:"hashedPassword"`
 }
 
+type LastLoggedInField struct {
+	LastLoggedIn time.Time `bson:"lastLoggedIn"`
+}
+
+type LastLoginIpField struct {
+	LastLoginIp string `bson:"lastLoginIp"`
+}
+
 type LastNameField struct {
 	LastName string `json:"last_name" bson:"last_name"`
+}
+
+type LoginCountField struct {
+	LoginCount int64 `bson:"loginCount"`
 }
 
 type MustReconfirmField struct {
@@ -77,4 +95,8 @@ type MustReconfirmField struct {
 //goland:noinspection SpellCheckingInspection
 type ReferralIdField struct {
 	ReferralId string `bson:"referal_id"`
+}
+
+type SignUpDateField struct {
+	SignUpDate time.Time `bson:"SignUpDate"`
 }

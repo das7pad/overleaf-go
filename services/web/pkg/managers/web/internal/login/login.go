@@ -29,6 +29,23 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+func CheckPassword(u *user.HashedPasswordField, password types.UserPassword) error {
+	if err := password.Validate(); err != nil {
+		return err
+	}
+	err := bcrypt.CompareHashAndPassword(
+		[]byte(u.HashedPassword),
+		[]byte(password),
+	)
+	if err != nil {
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return &errors.NotAuthorizedError{}
+		}
+		return errors.Tag(err, "cannot check user credentials")
+	}
+	return nil
+}
+
 func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.LoginResponse) error {
 	r.Preprocess()
 	if err := r.Validate(); err != nil {
@@ -38,15 +55,8 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 	if err := m.um.GetUserByEmail(ctx, r.Email, u); err != nil {
 		return errors.Tag(err, "cannot get user from mongo")
 	}
-	err := bcrypt.CompareHashAndPassword(
-		[]byte(u.HashedPassword),
-		[]byte(r.Password),
-	)
-	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return &errors.NotAuthorizedError{}
-		}
-		return errors.Tag(err, "cannot check user credentials")
+	if err := CheckPassword(&u.HashedPasswordField, r.Password); err != nil {
+		return err
 	}
 
 	if u.MustReconfirm {
@@ -60,7 +70,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 	}
 
 	ip := r.IPAddress
-	if err = m.um.TrackLogin(ctx, u.Id, ip); err != nil {
+	if err := m.um.TrackLogin(ctx, u.Id, ip); err != nil {
 		return errors.Tag(err, "cannot track login")
 	}
 
@@ -78,7 +88,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 		IPAddress:      ip,
 		SessionCreated: time.Now().UTC(),
 	}
-	if err = r.Session.Cycle(ctx); err != nil {
+	if err := r.Session.Cycle(ctx); err != nil {
 		return errors.Tag(err, "cannot cycle session")
 	}
 

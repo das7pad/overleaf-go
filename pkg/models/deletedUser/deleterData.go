@@ -14,17 +14,21 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package deletedUser
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/session"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type DeleteProjectRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	IPAddress string             `json:"-"`
-	EpochHint *int64             `json:"-"`
+type DeleterData struct {
+	DeletedAt               time.Time          `bson:"deletedAt"`
+	DeleterId               primitive.ObjectID `bson:"deleterId"`
+	DeleterIpAddress        string             `bson:"deleterIpAddress"`
+	DeletedUserId           primitive.ObjectID `bson:"deletedUserId"`
+	DeletedUserLastLoggedIn time.Time          `bson:"deletedUserLastLoggedIn"`
+	DeletedUserSignUpDate   time.Time          `bson:"deletedUserSignUpDate"`
+	DeletedUserLoginCount   int64              `bson:"deletedUserLoginCount"`
+	DeletedUserReferralId   string             `bson:"deletedUserReferralId"`
 }

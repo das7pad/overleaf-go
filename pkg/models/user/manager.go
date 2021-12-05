@@ -30,6 +30,7 @@ import (
 )
 
 type Manager interface {
+	Delete(ctx context.Context, userId primitive.ObjectID, epoch int64) error
 	TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId primitive.ObjectID) error
 	GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error)
@@ -51,6 +52,27 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
+
+func (m *manager) Delete(ctx context.Context, userId primitive.ObjectID, epoch int64) error {
+	q := &withIdAndEpoch{
+		IdField: IdField{
+			Id: userId,
+		},
+		EpochField: EpochField{
+			Epoch: epoch,
+		},
+	}
+	r, err := m.c.DeleteOne(ctx, q)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.DeletedCount != 1 {
+		return ErrEpochChanged
+	}
+	return nil
 }
 
 func (m *manager) TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error {
@@ -106,12 +128,16 @@ func (m *manager) SetBetaProgram(ctx context.Context, userId primitive.ObjectID,
 func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error {
 	now := time.Now().UTC()
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
-		"$inc": bson.M{
-			"loginCount": 1,
+		"$inc": LoginCountField{
+			LoginCount: 1,
 		},
-		"$set": bson.M{
-			"lastLoggedIn": now,
-			"lastLoginIp":  ip,
+		"$set": withLastLoginInfo{
+			LastLoggedInField: LastLoggedInField{
+				LastLoggedIn: now,
+			},
+			LastLoginIpField: LastLoginIpField{
+				LastLoginIp: ip,
+			},
 		},
 		"$push": bson.M{
 			"auditLog": bson.M{

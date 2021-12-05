@@ -37,6 +37,7 @@ import (
 
 type Manager interface {
 	DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error
+	DeleteProjectInTx(ctx, sCtx context.Context, request *types.DeleteProjectRequest) error
 }
 
 func New(db *mongo.Database, pm project.Manager, tm tag.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
@@ -78,6 +79,12 @@ func getAllUserIds(p *project.ForDeletion) []primitive.ObjectID {
 }
 
 func (m *manager) DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error {
+	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+		return m.DeleteProjectInTx(ctx, sCtx, request)
+	})
+}
+
+func (m *manager) DeleteProjectInTx(ctx, sCtx context.Context, request *types.DeleteProjectRequest) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
@@ -85,10 +92,13 @@ func (m *manager) DeleteProject(ctx context.Context, request *types.DeleteProjec
 	userId := request.Session.User.Id
 	projectId := request.ProjectId
 
-	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+	return mongoTx.For(m.db, sCtx, func(sCtx context.Context) error {
 		p := &project.ForDeletion{}
 		if err := m.pm.GetProject(sCtx, projectId, p); err != nil {
 			return errors.Tag(err, "cannot get project")
+		}
+		if e := request.EpochHint; e != nil && p.Epoch != *e {
+			return project.ErrEpochIsNotStable
 		}
 		errAuth := p.CheckPrivilegeLevelIsAtLest(
 			userId, sharedTypes.PrivilegeLevelOwner,

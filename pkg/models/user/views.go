@@ -26,6 +26,7 @@ var (
 	editorConfigFieldProjection         = views.GetProjectionFor(EditorConfigField{})
 	epochFieldProjection                = views.GetProjectionFor(EpochField{})
 	featuresFieldProjection             = views.GetProjectionFor(FeaturesField{})
+	forDeletionProjection               = views.GetProjectionFor(ForDeletion{})
 	projectListViewCaller               = views.GetProjectionFor(ProjectListViewCaller{})
 	withLoadEditorInfoProjection        = views.GetProjectionFor(WithLoadEditorInfo{})
 	withLoginInfoProjection             = views.GetProjectionFor(WithLoginInfo{})
@@ -58,6 +59,8 @@ func getProjection(model interface{}) views.View {
 		return withEpochAndFeatures
 	case *EditorConfigField:
 		return editorConfigFieldProjection
+	case *ForDeletion:
+		return forDeletionProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

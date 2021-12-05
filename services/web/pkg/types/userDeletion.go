@@ -17,14 +17,11 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
-type DeleteProjectRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	IPAddress string             `json:"-"`
-	EpochHint *int64             `json:"-"`
+type DeleteUserRequest struct {
+	Session   *session.Session `json:"-"`
+	IPAddress string           `json:"-"`
+	Password  UserPassword     `json:"password"`
 }

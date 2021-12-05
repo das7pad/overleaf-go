@@ -29,11 +29,23 @@ type LogoutRequest struct {
 
 type LogoutResponse = asyncForm.Response
 
+type UserPassword string
+
+func (p UserPassword) Validate() error {
+	if len(p) < 6 {
+		return &errors.ValidationError{Msg: "password too short, min 6"}
+	}
+	if len(p) > 72 {
+		return &errors.ValidationError{Msg: "password too long, max 72"}
+	}
+	return nil
+}
+
 type LoginRequest struct {
 	Session   *session.Session  `json:"-"`
 	IPAddress string            `json:"-"`
 	Email     sharedTypes.Email `json:"email"`
-	Password  string            `json:"password"`
+	Password  UserPassword      `json:"password"`
 }
 
 func (r *LoginRequest) Preprocess() {
@@ -41,11 +53,8 @@ func (r *LoginRequest) Preprocess() {
 }
 
 func (r *LoginRequest) Validate() error {
-	if len(r.Password) < 6 {
-		return &errors.ValidationError{Msg: "password too short, min 6"}
-	}
-	if len(r.Password) > 72 {
-		return &errors.ValidationError{Msg: "password too long, max 72"}
+	if err := r.Password.Validate(); err != nil {
+		return err
 	}
 	if err := r.Email.Validate(); err != nil {
 		return err

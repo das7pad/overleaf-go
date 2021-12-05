@@ -174,6 +174,7 @@ type ForDeletion struct {
 	ForAuthorizationDetails `bson:"inline"`
 	ActiveField             `bson:"inline"`
 	ArchivedByField         `bson:"inline"`
+	AuditLogField           `bson:"inline"`
 	CompilerField           `bson:"inline"`
 	ImageNameField          `bson:"inline"`
 	LastOpenedField         `bson:"inline"`

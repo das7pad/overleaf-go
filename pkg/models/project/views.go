@@ -66,7 +66,7 @@ func getProjection(model interface{}) views.View {
 		return loadEditorViewPrivateProjection
 	case *LoadEditorViewPrivate:
 		return loadEditorViewPrivateProjection
-	case []ListViewPrivate:
+	case []*ListViewPrivate:
 		return listViewPrivateProjection
 	case WithMembers:
 		return withMembersProjection

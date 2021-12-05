@@ -34,6 +34,10 @@ type ArchivedByField struct {
 	ArchivedBy Refs `bson:"archived"`
 }
 
+type AuditLogField struct {
+	AuditLog []AuditLogEntry `bson:"auditLog"`
+}
+
 //goland:noinspection SpellCheckingInspection
 type CollaboratorRefsField struct {
 	CollaboratorRefs Refs `bson:"collaberator_refs"`
