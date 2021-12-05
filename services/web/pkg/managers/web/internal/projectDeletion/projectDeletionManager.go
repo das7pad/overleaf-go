@@ -34,6 +34,7 @@ import (
 
 type Manager interface {
 	DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error
+	UnDeleteProject(ctx context.Context, request *types.UnDeleteProjectRequest) error
 	DeleteProjectInTx(ctx, sCtx context.Context, request *types.DeleteProjectRequest) error
 	HardDeleteExpiredProjects(ctx context.Context, dryRun bool) error
 }

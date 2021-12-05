@@ -129,6 +129,7 @@ func (h *httpController) GetRouter(
 		r.POST("/rename", h.renameProject)
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
+		r.POST("/undelete", h.deleteProject)
 		r.POST("/ws/bootstrap", h.getWSBootstrap)
 		r.GET("/download/zip", h.createProjectZIP)
 
@@ -1375,6 +1376,20 @@ func (h *httpController) deleteProject(c *gin.Context) {
 		IPAddress: c.ClientIP(),
 	}
 	err = h.wm.DeleteProject(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) undeleteProject(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.UnDeleteProjectRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	err = h.wm.UnDeleteProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
