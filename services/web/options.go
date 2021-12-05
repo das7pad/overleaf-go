@@ -39,6 +39,8 @@ type webOptions struct {
 	dbName          string
 	redisOptions    *redis.UniversalOptions
 	options         *types.Options
+
+	dryRunCron bool
 }
 
 func getOptions() *webOptions {
@@ -54,5 +56,7 @@ func getOptions() *webOptions {
 	o.options.SessionCookie.FillFromEnv("SESSION_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
+
+	o.dryRunCron = utils.GetBoolFromEnv("DRY_RUN_CRON")
 	return o
 }

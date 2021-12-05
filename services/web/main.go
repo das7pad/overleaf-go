@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -65,6 +66,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "cron" {
+		if !wm.Cron(ctx, o.dryRunCron) {
+			os.Exit(42)
+		} else {
+			os.Exit(0)
+		}
+		return
+	}
+
 	handler := newHttpController(wm)
 	router := handler.GetRouter(o.clientIPOptions, o.corsOptions)
 	if err = router.Run(o.address); err != nil {

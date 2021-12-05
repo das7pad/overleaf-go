@@ -24,11 +24,15 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 )
 
+type DeleterDataDeletedProjectIdField struct {
+	DeletedProjectId primitive.ObjectID `bson:"deletedProjectId"`
+}
+
 type DeleterData struct {
+	DeleterDataDeletedProjectIdField      `bson:"inline"`
 	DeletedAt                             time.Time           `bson:"deletedAt"`
 	DeleterId                             primitive.ObjectID  `bson:"deleterId"`
 	DeleterIpAddress                      string              `bson:"deleterIpAddress"`
-	DeletedProjectId                      primitive.ObjectID  `bson:"deletedProjectId"`
 	DeletedProjectOwnerId                 primitive.ObjectID  `bson:"DeletedProjectOwnerId"`
 	DeletedProjectCollaboratorIds         project.Refs        `bson:"deletedProjectCollaboratorIds"`
 	DeletedProjectReadOnlyIds             project.Refs        `bson:"deletedProjectReadOnlyIds"`
@@ -37,4 +41,12 @@ type DeleterData struct {
 	DeletedProjectReadWriteToken          project.AccessToken `bson:"deletedProjectReadWriteToken"`
 	DeletedProjectReadOnlyToken           project.AccessToken `bson:"deletedProjectReadOnlyToken"`
 	DeletedProjectLastUpdatedAt           time.Time           `bson:"deletedProjectLastUpdatedAt"`
+}
+
+type deleterDataOnlyProjectId struct {
+	DeleterDataDeletedProjectIdField `bson:"inline"`
+}
+
+type forListing struct {
+	DeleterData deleterDataOnlyProjectId `bson:"deleterData"`
 }

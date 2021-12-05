@@ -30,6 +30,7 @@ import (
 type Manager interface {
 	Create(ctx context.Context, projectId primitive.ObjectID, fileRef *project.FileRef) error
 	CreateBulk(ctx context.Context, projectId primitive.ObjectID, fileRefs []*project.FileRef) error
+	DeleteBulk(ctx context.Context, projectId primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -73,6 +74,14 @@ func (m *manager) CreateBulk(ctx context.Context, projectId primitive.ObjectID, 
 	}
 	_, err := m.c.InsertMany(ctx, items)
 	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) DeleteBulk(ctx context.Context, projectId primitive.ObjectID) error {
+	q := &ProjectIdField{ProjectId: projectId}
+	if _, err := m.c.DeleteMany(ctx, q); err != nil {
 		return rewriteMongoError(err)
 	}
 	return nil

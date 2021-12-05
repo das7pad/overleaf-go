@@ -63,6 +63,8 @@ type Manager interface {
 		ctx context.Context,
 		roomId, messageId primitive.ObjectID,
 	) error
+
+	DeleteProjectMessages(ctx context.Context, roomIds []primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -196,5 +198,15 @@ func (m *manager) DeleteMessage(
 		"_id":     messageId,
 	}
 	_, err := m.messagesCollection.DeleteOne(ctx, query)
+	return err
+}
+
+func (m *manager) DeleteProjectMessages(ctx context.Context, roomIds []primitive.ObjectID) error {
+	query := bson.M{
+		"room_id": bson.M{
+			"$in": roomIds,
+		},
+	}
+	_, err := m.messagesCollection.DeleteMany(ctx, query)
 	return err
 }

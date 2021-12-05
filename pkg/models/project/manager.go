@@ -36,6 +36,7 @@ import (
 type Manager interface {
 	CreateProject(ctx context.Context, creation *ForCreation) error
 	Delete(ctx context.Context, p *ForDeletion) error
+	Restore(ctx context.Context, p *ForDeletion) error
 	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
@@ -803,6 +804,14 @@ func (m *manager) Delete(ctx context.Context, p *ForDeletion) error {
 	}
 	if r.DeletedCount != 1 {
 		return ErrVersionChanged
+	}
+	return nil
+}
+
+func (m *manager) Restore(ctx context.Context, p *ForDeletion) error {
+	_, err := m.c.InsertOne(ctx, p)
+	if err != nil {
+		return rewriteMongoError(err)
 	}
 	return nil
 }

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -43,6 +44,10 @@ func GetStringFromEnv(key, fallback string) string {
 		return fallback
 	}
 	return raw
+}
+
+func GetBoolFromEnv(key string) bool {
+	return strings.ToLower(GetStringFromEnv(key, "false")) == "true"
 }
 
 func MustGetStringFromEnv(key string) string {

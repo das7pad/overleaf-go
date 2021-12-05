@@ -17,6 +17,9 @@
 package web
 
 import (
+	"context"
+	"log"
+
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -57,6 +60,7 @@ import (
 )
 
 type Manager interface {
+	Cron(ctx context.Context, dryRun bool) bool
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
@@ -140,7 +144,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		return nil, err
 	}
 	pdm := projectDownload.New(pm, dm, dum, fm)
-	pDelM := projectDeletion.New(db, pm, tm, dm, dum, fm)
+	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, pDelM)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
@@ -217,4 +221,13 @@ func (m *manager) GetProjectJWTHandler() jwtHandler.JWTHandler {
 
 func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {
 	return m.loggedInUserJWTHandler
+}
+
+func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
+	ok := true
+	if err := m.HardDeleteExpiredProjects(ctx, dryRun); err != nil {
+		log.Println("hard deletion of projects failed: " + err.Error())
+		ok = false
+	}
+	return ok
 }

@@ -81,6 +81,8 @@ type Manager interface {
 		ctx context.Context,
 		projectId, threadId, messageId primitive.ObjectID,
 	) error
+
+	DeleteProject(ctx context.Context, projectId primitive.ObjectID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -93,6 +95,29 @@ func New(db *mongo.Database) Manager {
 type manager struct {
 	mm message.Manager
 	tm thread.Manager
+}
+
+func (m *manager) DeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+	chatThread, err := m.tm.FindOrCreateThread(ctx, projectId, nil)
+	if err != nil {
+		return errors.Tag(err, "cannot get chat thread")
+	}
+	threads, err := m.tm.FindAllThreadRooms(ctx, projectId)
+	if err != nil {
+		return errors.Tag(err, "cannot get review threads")
+	}
+	roomIds := make([]primitive.ObjectID, len(threads)+1)
+	for i, room := range threads {
+		roomIds[i] = room.Id
+	}
+	roomIds[len(roomIds)-1] = chatThread.Id
+	if err = m.mm.DeleteProjectMessages(ctx, roomIds); err != nil {
+		return errors.Tag(err, "cannot delete messages")
+	}
+	if err = m.tm.DeleteProjectThreads(ctx, projectId); err != nil {
+		return errors.Tag(err, "cannot delete threads")
+	}
+	return nil
 }
 
 func nowMS() float64 {

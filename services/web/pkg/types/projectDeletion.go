@@ -28,3 +28,8 @@ type DeleteProjectRequest struct {
 	IPAddress string             `json:"-"`
 	EpochHint *int64             `json:"-"`
 }
+
+type UnDeleteProjectRequest struct {
+	Session   *session.Session   `json:"-"`
+	ProjectId primitive.ObjectID `json:"-"`
+}

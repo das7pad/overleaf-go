@@ -64,6 +64,8 @@ type Manager interface {
 		ctx context.Context,
 		projectId, threadId primitive.ObjectID,
 	) (*primitive.ObjectID, error)
+
+	DeleteProjectThreads(ctx context.Context, projectId primitive.ObjectID) error
 }
 
 func NewThreadManager(db *mongo.Database) Manager {
@@ -200,4 +202,14 @@ func (m *manager) DeleteThread(
 	}
 	_, err = m.roomsCollection.DeleteOne(ctx, query)
 	return &thread.Id, err
+}
+
+func (m *manager) DeleteProjectThreads(ctx context.Context, projectId primitive.ObjectID) error {
+	q := bson.M{
+		"project_id": projectId,
+	}
+	if _, err := m.roomsCollection.DeleteMany(ctx, q); err != nil {
+		return err
+	}
+	return nil
 }
