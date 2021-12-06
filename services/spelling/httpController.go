@@ -88,7 +88,7 @@ func (h *httpController) check(c *gin.Context) {
 		return
 	}
 	misspellings, err := h.sm.CheckWords(
-		c,
+		c.Request.Context(),
 		requestBody.Language,
 		requestBody.Words,
 	)
@@ -98,7 +98,7 @@ func (h *httpController) check(c *gin.Context) {
 
 func (h *httpController) deleteDictionary(c *gin.Context) {
 	err := h.sm.DeleteDictionary(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "userId"),
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -106,7 +106,7 @@ func (h *httpController) deleteDictionary(c *gin.Context) {
 
 func (h *httpController) getDictionary(c *gin.Context) {
 	dictionary, err := h.sm.GetDictionary(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "userId"),
 	)
 	httpUtils.Respond(c, http.StatusOK, dictionary, err)
@@ -122,7 +122,7 @@ func (h *httpController) learn(c *gin.Context) {
 		return
 	}
 	err := h.sm.LearnWord(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "userId"),
 		requestBody.Word,
 	)
@@ -135,7 +135,7 @@ func (h *httpController) unlearn(c *gin.Context) {
 		return
 	}
 	err := h.sm.UnlearnWord(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "userId"),
 		requestBody.Word,
 	)

@@ -79,7 +79,7 @@ func (h *httpController) status(c *gin.Context) {
 
 func (h *httpController) deleteProject(c *gin.Context) {
 	err := h.fm.DeleteProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -91,7 +91,7 @@ type getProjectSizeResponseBody struct {
 
 func (h *httpController) getProjectSize(c *gin.Context) {
 	s, err := h.fm.GetSizeOfProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	body := getProjectSizeResponseBody{TotalSize: s}
@@ -100,7 +100,7 @@ func (h *httpController) getProjectSize(c *gin.Context) {
 
 func (h *httpController) deleteProjectFile(c *gin.Context) {
 	err := h.fm.DeleteProjectFile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "fileId"),
 	)
@@ -112,7 +112,7 @@ const contentTypeOctetStream = "application/octet-stream"
 func (h *httpController) getProjectFile(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForGETOnProjectFile(
-			c,
+			c.Request.Context(),
 			httpUtils.GetId(c, "projectId"),
 			httpUtils.GetId(c, "fileId"),
 		)
@@ -121,7 +121,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	}
 	options := objectStorage.GetOptions{}
 	s, body, err := h.fm.GetReadStreamForProjectFile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "fileId"),
 		options,
@@ -137,7 +137,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 func (h *httpController) getProjectFileHEAD(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForHEADOnProjectFile(
-			c,
+			c.Request.Context(),
 			httpUtils.GetId(c, "projectId"),
 			httpUtils.GetId(c, "fileId"),
 		)
@@ -145,7 +145,7 @@ func (h *httpController) getProjectFileHEAD(c *gin.Context) {
 		return
 	}
 	size, err := h.fm.GetSizeOfProjectFile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "fileId"),
 	)
@@ -167,7 +167,7 @@ func (h *httpController) sendProjectFile(c *gin.Context) {
 		ContentType:     c.GetHeader("Content-Type"),
 	}
 	err := h.fm.SendStreamForProjectFile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "fileId"),
 		c.Request.Body,
@@ -179,7 +179,7 @@ func (h *httpController) sendProjectFile(c *gin.Context) {
 func (h *httpController) sendProjectFileViaPUT(c *gin.Context) {
 	if h.allowRedirects {
 		u, err := h.fm.GetRedirectURLForPUTOnProjectFile(
-			c,
+			c.Request.Context(),
 			httpUtils.GetId(c, "projectId"),
 			httpUtils.GetId(c, "fileId"),
 		)
@@ -193,7 +193,7 @@ func (h *httpController) sendProjectFileViaPUT(c *gin.Context) {
 		ContentType:     c.GetHeader("Content-Type"),
 	}
 	err := h.fm.SendStreamForProjectFile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "fileId"),
 		c.Request.Body,
@@ -215,7 +215,7 @@ func (h *httpController) copyProjectFile(c *gin.Context) {
 		return
 	}
 	err := h.fm.CopyProjectFile(
-		c,
+		c.Request.Context(),
 		requestBody.Source.ProjectId,
 		requestBody.Source.FileId,
 		httpUtils.GetId(c, "projectId"),

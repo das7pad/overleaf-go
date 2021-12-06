@@ -82,7 +82,7 @@ func (h *httpController) compile(c *gin.Context) {
 		OutputFiles: make(types.OutputFiles, 0),
 	}
 	err := h.cm.Compile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		requestBody.Request,
@@ -97,7 +97,7 @@ func (h *httpController) compile(c *gin.Context) {
 
 func (h *httpController) stopCompile(c *gin.Context) {
 	err := h.cm.StopCompile(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 	)
@@ -106,7 +106,7 @@ func (h *httpController) stopCompile(c *gin.Context) {
 
 func (h *httpController) clearCache(c *gin.Context) {
 	err := h.cm.ClearCache(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 	)
@@ -121,7 +121,7 @@ func (h *httpController) syncFromCode(c *gin.Context) {
 
 	body := make(types.PDFPositions, 0)
 	err := h.cm.SyncFromCode(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -138,7 +138,7 @@ func (h *httpController) syncFromPDF(c *gin.Context) {
 
 	body := make(types.CodePositions, 0)
 	err := h.cm.SyncFromPDF(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -155,7 +155,7 @@ func (h *httpController) wordCount(c *gin.Context) {
 
 	var body types.Words
 	err := h.cm.WordCount(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -169,6 +169,6 @@ func (h *httpController) cookieStatus(c *gin.Context) {
 }
 
 func (h *httpController) healthCheck(c *gin.Context) {
-	err := h.cm.HealthCheck(c)
+	err := h.cm.HealthCheck(c.Request.Context())
 	httpUtils.Respond(c, http.StatusOK, nil, err)
 }

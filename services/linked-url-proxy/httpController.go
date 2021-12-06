@@ -88,7 +88,7 @@ func (h *httpController) proxy(c *gin.Context) {
 	}
 
 	request, err := http.NewRequestWithContext(
-		c, http.MethodGet, url, http.NoBody,
+		c.Request.Context(), http.MethodGet, url, http.NoBody,
 	)
 	if err != nil {
 		httpUtils.RespondErr(c, errors.Tag(err, "request creation failed"))

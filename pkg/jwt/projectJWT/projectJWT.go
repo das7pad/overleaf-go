@@ -94,7 +94,7 @@ func (c *Claims) PostProcess(target *gin.Context) error {
 		return ErrMismatchingProjectId
 	}
 
-	if err := c.EpochItems().Check(target); err != nil {
+	if err := c.EpochItems().Check(target.Request.Context()); err != nil {
 		return err
 	}
 

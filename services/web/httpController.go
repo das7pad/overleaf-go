@@ -283,7 +283,7 @@ func (h *httpController) clearProjectCache(c *gin.Context) {
 		return
 	}
 	err := h.wm.ClearCache(
-		c,
+		c.Request.Context(),
 		mustGetSignedCompileProjectOptionsFromJwt(c),
 		request.ClsiServerId,
 	)
@@ -299,7 +299,7 @@ func (h *httpController) compileProject(c *gin.Context) {
 		mustGetSignedCompileProjectOptionsFromJwt(c)
 	response := &types.CompileProjectResponse{}
 	err := h.wm.Compile(
-		c,
+		c.Request.Context(),
 		request,
 		response,
 	)
@@ -316,7 +316,7 @@ func (h *httpController) syncFromCode(c *gin.Context) {
 
 	response := &clsiTypes.PDFPositions{}
 	err := h.wm.SyncFromCode(
-		c,
+		c.Request.Context(),
 		request,
 		response,
 	)
@@ -333,7 +333,7 @@ func (h *httpController) syncFromPDF(c *gin.Context) {
 
 	response := &clsiTypes.CodePositions{}
 	err := h.wm.SyncFromPDF(
-		c,
+		c.Request.Context(),
 		request,
 		response,
 	)
@@ -350,7 +350,7 @@ func (h *httpController) wordCount(c *gin.Context) {
 
 	response := &clsiTypes.Words{}
 	err := h.wm.WordCount(
-		c,
+		c.Request.Context(),
 		request,
 		response,
 	)
@@ -366,7 +366,7 @@ func (h *httpController) editorLocals(c *gin.Context) {
 		return
 	}
 	response := &types.LoadEditorResponse{}
-	err := h.wm.LoadEditor(c, request, response)
+	err := h.wm.LoadEditor(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -375,12 +375,14 @@ func (h *httpController) projectListLocals(c *gin.Context) {
 		UserId: httpUtils.GetId(c, "userId"),
 	}
 	response := &types.ProjectListResponse{}
-	err := h.wm.ProjectList(c, request, response)
+	err := h.wm.ProjectList(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) getSystemMessages(c *gin.Context) {
-	m := h.wm.GetAllCached(c, httpUtils.GetId(c, "userId"))
+	m := h.wm.GetAllCached(
+		c.Request.Context(), httpUtils.GetId(c, "userId"),
+	)
 	httpUtils.Respond(c, http.StatusOK, m, nil)
 }
 
@@ -392,13 +394,13 @@ func (h *httpController) getUserProjects(c *gin.Context) {
 		return
 	}
 	request := &types.GetUserProjectsRequest{Session: s}
-	err = h.wm.GetUserProjects(c, request, resp)
+	err = h.wm.GetUserProjects(c.Request.Context(), request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) getMetadataForProject(c *gin.Context) {
 	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
-	resp, err := h.wm.GetMetadataForProject(c, projectId)
+	resp, err := h.wm.GetMetadataForProject(c.Request.Context(), projectId)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -409,7 +411,9 @@ func (h *httpController) getMetadataForDoc(c *gin.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	resp, err := h.wm.GetMetadataForDoc(c, projectId, docId, request)
+	resp, err := h.wm.GetMetadataForDoc(
+		c.Request.Context(), projectId, docId, request,
+	)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -426,7 +430,7 @@ func (h *httpController) login(c *gin.Context) {
 	}
 	request.Session = s
 	request.IPAddress = c.ClientIP()
-	err = h.wm.Login(c, request, resp)
+	err = h.wm.Login(c.Request.Context(), request, resp)
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}
@@ -443,7 +447,7 @@ func (h *httpController) logout(c *gin.Context) {
 		return
 	}
 	request := &types.LogoutRequest{Session: s}
-	err = h.wm.Logout(c, request)
+	err = h.wm.Logout(c.Request.Context(), request)
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}
@@ -460,7 +464,7 @@ func (h *httpController) getLoggedInUserJWT(c *gin.Context) {
 	request := &types.GetLoggedInUserJWTRequest{
 		Session: s,
 	}
-	err = h.wm.GetLoggedInUserJWT(c, request, &resp)
+	err = h.wm.GetLoggedInUserJWT(c.Request.Context(), request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -475,7 +479,7 @@ func (h *httpController) getProjectJWT(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		Session:   s,
 	}
-	err = h.wm.GetProjectJWT(c, request, &resp)
+	err = h.wm.GetProjectJWT(c.Request.Context(), request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -490,7 +494,7 @@ func (h *httpController) getWSBootstrap(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		Session:   s,
 	}
-	err = h.wm.GetWSBootstrap(c, request, &resp)
+	err = h.wm.GetWSBootstrap(c.Request.Context(), request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -501,7 +505,7 @@ func (h *httpController) getProjectMessages(c *gin.Context) {
 	}
 	request.ProjectId = projectJWT.MustGet(c).ProjectId
 	response := &types.GetProjectChatMessagesResponse{}
-	err := h.wm.GetProjectMessages(c, request, response)
+	err := h.wm.GetProjectMessages(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -512,7 +516,7 @@ func (h *httpController) sendProjectMessage(c *gin.Context) {
 	}
 	request.ProjectId = projectJWT.MustGet(c).ProjectId
 	request.UserId = projectJWT.MustGet(c).UserId
-	err := h.wm.SendProjectMessage(c, request)
+	err := h.wm.SendProjectMessage(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -523,7 +527,7 @@ func (h *httpController) optInBetaProgram(c *gin.Context) {
 		return
 	}
 	request := &types.OptInBetaProgramRequest{Session: s}
-	err = h.wm.OptInBetaProgram(c, request)
+	err = h.wm.OptInBetaProgram(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -534,7 +538,7 @@ func (h *httpController) optOutBetaProgram(c *gin.Context) {
 		return
 	}
 	request := &types.OptOutBetaProgramRequest{Session: s}
-	err = h.wm.OptOutBetaProgram(c, request)
+	err = h.wm.OptOutBetaProgram(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -549,7 +553,7 @@ func (h *httpController) getProjectEntities(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.GetProjectEntities(c, request, resp)
+	err = h.wm.GetProjectEntities(c.Request.Context(), request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -564,7 +568,7 @@ func (h *httpController) grantTokenAccessReadAndWrite(c *gin.Context) {
 		Session: s,
 		Token:   project.AccessToken(c.Param("token")),
 	}
-	err = h.wm.GrantTokenAccessReadAndWrite(c, request, resp)
+	err = h.wm.GrantTokenAccessReadAndWrite(c.Request.Context(), request, resp)
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}
@@ -582,7 +586,7 @@ func (h *httpController) grantTokenAccessReadOnly(c *gin.Context) {
 		Session: s,
 		Token:   project.AccessToken(c.Param("token")),
 	}
-	err = h.wm.GrantTokenAccessReadOnly(c, request, resp)
+	err = h.wm.GrantTokenAccessReadOnly(c.Request.Context(), request, resp)
 	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
 		err = err2
 	}
@@ -600,7 +604,7 @@ func (h *httpController) addProjectToTag(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		TagId:     httpUtils.GetId(c, "tagId"),
 	}
-	err = h.wm.AddProjectToTag(c, request)
+	err = h.wm.AddProjectToTag(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -616,7 +620,7 @@ func (h *httpController) createTag(c *gin.Context) {
 		return
 	}
 	request.Session = s
-	err = h.wm.CreateTag(c, request, resp)
+	err = h.wm.CreateTag(c.Request.Context(), request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -630,7 +634,7 @@ func (h *httpController) deleteTag(c *gin.Context) {
 		Session: s,
 		TagId:   httpUtils.GetId(c, "tagId"),
 	}
-	err = h.wm.DeleteTag(c, request)
+	err = h.wm.DeleteTag(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -646,7 +650,7 @@ func (h *httpController) renameTag(c *gin.Context) {
 	}
 	request.TagId = httpUtils.GetId(c, "tagId")
 	request.Session = s
-	err = h.wm.RenameTag(c, request)
+	err = h.wm.RenameTag(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -661,7 +665,7 @@ func (h *httpController) removeProjectToTag(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		TagId:     httpUtils.GetId(c, "tagId"),
 	}
-	err = h.wm.RemoveProjectFromTag(c, request)
+	err = h.wm.RemoveProjectFromTag(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -673,7 +677,7 @@ func (h *httpController) getUserContacts(c *gin.Context) {
 		return
 	}
 	request := &types.GetUserContactsRequest{Session: s}
-	err = h.wm.GetUserContacts(c, request, resp)
+	err = h.wm.GetUserContacts(c.Request.Context(), request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
@@ -687,7 +691,7 @@ func (h *httpController) archiveProject(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.ArchiveProject(c, request)
+	err = h.wm.ArchiveProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -701,7 +705,7 @@ func (h *httpController) unArchiveProject(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.UnArchiveProject(c, request)
+	err = h.wm.UnArchiveProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -715,7 +719,7 @@ func (h *httpController) trashProject(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.TrashProject(c, request)
+	err = h.wm.TrashProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -729,7 +733,7 @@ func (h *httpController) unTrashProject(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.UnTrashProject(c, request)
+	err = h.wm.UnTrashProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -747,7 +751,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 		FileId:    httpUtils.GetId(c, "fileId"),
 	}
 	response := &types.GetProjectFileResponse{}
-	err = h.wm.GetProjectFile(c, request, response)
+	err = h.wm.GetProjectFile(c.Request.Context(), request, response)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
@@ -770,7 +774,7 @@ func (h *httpController) getProjectFileSize(c *gin.Context) {
 		FileId:    httpUtils.GetId(c, "fileId"),
 	}
 	response := &types.GetProjectFileSizeResponse{}
-	err = h.wm.GetProjectFileSize(c, request, response)
+	err = h.wm.GetProjectFileSize(c.Request.Context(), request, response)
 	if err == nil {
 		c.Header("Content-Length", strconv.FormatInt(response.Size, 10))
 	}
@@ -785,7 +789,7 @@ func (h *httpController) addDocToProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	response := &types.AddDocResponse{}
-	err := h.wm.AddDocToProject(c, request, response)
+	err := h.wm.AddDocToProject(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -797,7 +801,7 @@ func (h *httpController) addFolderToProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	response := &types.AddFolderResponse{}
-	err := h.wm.AddFolderToProject(c, request, response)
+	err := h.wm.AddFolderToProject(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -817,7 +821,7 @@ func (h *httpController) uploadFile(c *gin.Context) {
 			Size:     d.Size,
 		},
 	}
-	err := h.wm.UploadFile(c, request)
+	err := h.wm.UploadFile(c.Request.Context(), request)
 	_ = d.File.Close()
 	httpUtils.Respond(c, http.StatusOK, asyncForm.Response{}, err)
 }
@@ -830,7 +834,7 @@ func (h *httpController) deleteDocFromProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.DocId = httpUtils.GetId(c, "docId")
-	err := h.wm.DeleteDocFromProject(c, request)
+	err := h.wm.DeleteDocFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -842,7 +846,7 @@ func (h *httpController) deleteFileFromProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.FileId = httpUtils.GetId(c, "fileId")
-	err := h.wm.DeleteFileFromProject(c, request)
+	err := h.wm.DeleteFileFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -854,7 +858,7 @@ func (h *httpController) deleteFolderFromProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.FolderId = httpUtils.GetId(c, "folderId")
-	err := h.wm.DeleteFolderFromProject(c, request)
+	err := h.wm.DeleteFolderFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -866,7 +870,7 @@ func (h *httpController) moveDocInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.DocId = httpUtils.GetId(c, "docId")
-	err := h.wm.MoveDocInProject(c, request)
+	err := h.wm.MoveDocInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -878,7 +882,7 @@ func (h *httpController) moveFileInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.FileId = httpUtils.GetId(c, "fileId")
-	err := h.wm.MoveFileInProject(c, request)
+	err := h.wm.MoveFileInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -890,7 +894,7 @@ func (h *httpController) moveFolderInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.FolderId = httpUtils.GetId(c, "folderId")
-	err := h.wm.MoveFolderInProject(c, request)
+	err := h.wm.MoveFolderInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -902,7 +906,7 @@ func (h *httpController) renameDocInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.DocId = httpUtils.GetId(c, "docId")
-	err := h.wm.RenameDocInProject(c, request)
+	err := h.wm.RenameDocInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -914,7 +918,7 @@ func (h *httpController) renameFileInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.FileId = httpUtils.GetId(c, "fileId")
-	err := h.wm.RenameFileInProject(c, request)
+	err := h.wm.RenameFileInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -926,7 +930,7 @@ func (h *httpController) renameFolderInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.FolderId = httpUtils.GetId(c, "folderId")
-	err := h.wm.RenameFolderInProject(c, request)
+	err := h.wm.RenameFolderInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -939,7 +943,7 @@ func (h *httpController) restoreDeletedDocInProject(c *gin.Context) {
 	request.ProjectId = o.ProjectId
 	request.DocId = httpUtils.GetId(c, "docId")
 	response := &types.RestoreDeletedDocResponse{}
-	err := h.wm.RestoreDeletedDocInProject(c, request, response)
+	err := h.wm.RestoreDeletedDocInProject(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -955,7 +959,7 @@ func (h *httpController) renameProject(c *gin.Context) {
 	}
 	request.Session = s
 	request.ProjectId = httpUtils.GetId(c, "projectId")
-	err = h.wm.RenameProject(c, request)
+	err = h.wm.RenameProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -971,7 +975,7 @@ func (h *httpController) acceptProjectInvite(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		Token:     projectInvite.Token(c.Param("token")),
 	}
-	err = h.wm.AcceptProjectInvite(c, request, response)
+	err = h.wm.AcceptProjectInvite(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -983,7 +987,7 @@ func (h *httpController) createProjectInvite(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.SenderUserId = o.UserId
-	err := h.wm.CreateProjectInvite(c, request)
+	err := h.wm.CreateProjectInvite(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -993,7 +997,7 @@ func (h *httpController) resendProjectInvite(c *gin.Context) {
 		ProjectId: o.ProjectId,
 		InviteId:  httpUtils.GetId(c, "inviteId"),
 	}
-	err := h.wm.ResendProjectInvite(c, request)
+	err := h.wm.ResendProjectInvite(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1003,7 +1007,7 @@ func (h *httpController) revokeProjectInvite(c *gin.Context) {
 		ProjectId: o.ProjectId,
 		InviteId:  httpUtils.GetId(c, "inviteId"),
 	}
-	err := h.wm.RevokeProjectInvite(c, request)
+	err := h.wm.RevokeProjectInvite(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1013,7 +1017,7 @@ func (h *httpController) listProjectInvites(c *gin.Context) {
 		ProjectId: o.ProjectId,
 	}
 	response := &types.ListProjectInvitesResponse{}
-	err := h.wm.ListProjectInvites(c, request, response)
+	err := h.wm.ListProjectInvites(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -1023,7 +1027,7 @@ func (h *httpController) listProjectMembers(c *gin.Context) {
 		ProjectId: o.ProjectId,
 	}
 	response := &types.ListProjectMembersResponse{}
-	err := h.wm.ListProjectMembers(c, request, response)
+	err := h.wm.ListProjectMembers(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -1034,7 +1038,7 @@ func (h *httpController) removeMemberFromProject(c *gin.Context) {
 		Epoch:     projectJWT.MustGet(c).Epoch,
 		UserId:    httpUtils.GetId(c, "userId"),
 	}
-	err := h.wm.RemoveMemberFromProject(c, request)
+	err := h.wm.RemoveMemberFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1046,7 +1050,7 @@ func (h *httpController) setMemberPrivilegeLevelInProject(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.UserId = httpUtils.GetId(c, "userId")
-	err := h.wm.SetMemberPrivilegeLevelInProject(c, request)
+	err := h.wm.SetMemberPrivilegeLevelInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1058,7 +1062,7 @@ func (h *httpController) transferProjectOwnership(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.PreviousOwnerId = o.UserId
-	err := h.wm.TransferProjectOwnership(c, request)
+	err := h.wm.TransferProjectOwnership(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1072,7 +1076,7 @@ func (h *httpController) leaveProject(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.LeaveProject(c, request)
+	err = h.wm.LeaveProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1083,7 +1087,7 @@ func (h *httpController) setCompiler(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	err := h.wm.SetCompiler(c, request)
+	err := h.wm.SetCompiler(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1094,7 +1098,7 @@ func (h *httpController) setImageName(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	err := h.wm.SetImageName(c, request)
+	err := h.wm.SetImageName(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1105,7 +1109,7 @@ func (h *httpController) setSpellCheckLanguage(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	err := h.wm.SetSpellCheckLanguage(c, request)
+	err := h.wm.SetSpellCheckLanguage(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1116,7 +1120,7 @@ func (h *httpController) setRootDocId(c *gin.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
-	err := h.wm.SetRootDocId(c, request)
+	err := h.wm.SetRootDocId(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1128,7 +1132,7 @@ func (h *httpController) setPublicAccessLevel(c *gin.Context) {
 	}
 	request.ProjectId = o.ProjectId
 	request.Epoch = projectJWT.MustGet(c).Epoch
-	err := h.wm.SetPublicAccessLevel(c, request)
+	err := h.wm.SetPublicAccessLevel(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1142,7 +1146,7 @@ func (h *httpController) clearSessions(c *gin.Context) {
 		Session:   s,
 		IPAddress: c.ClientIP(),
 	}
-	err = h.wm.ClearSessions(c, request)
+	err = h.wm.ClearSessions(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1159,7 +1163,7 @@ func (h *httpController) cloneProject(c *gin.Context) {
 	request.Session = s
 	request.ProjectId = httpUtils.GetId(c, "projectId")
 	response := &types.CloneProjectResponse{}
-	err = h.wm.CloneProject(c, request, response)
+	err = h.wm.CloneProject(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -1175,7 +1179,7 @@ func (h *httpController) createExampleProject(c *gin.Context) {
 	}
 	request.Session = s
 	response := &types.CreateExampleProjectResponse{}
-	err = h.wm.CreateExampleProject(c, request, response)
+	err = h.wm.CreateExampleProject(c.Request.Context(), request, response)
 	if err != nil {
 		if errors.IsValidationError(err) {
 			response.Error = "Error: " + err.Error()
@@ -1204,7 +1208,7 @@ func (h *httpController) createFromZip(c *gin.Context) {
 		},
 	}
 	response := &types.CreateProjectResponse{}
-	err = h.wm.CreateFromZip(c, request, response)
+	err = h.wm.CreateFromZip(c.Request.Context(), request, response)
 	_ = d.File.Close()
 	if err != nil {
 		if errors.IsValidationError(err) {
@@ -1224,7 +1228,7 @@ func (h *httpController) getUserNotifications(c *gin.Context) {
 		Session: s,
 	}
 	response := &types.GetNotificationsResponse{}
-	err = h.wm.GetUserNotifications(c, request, response)
+	err = h.wm.GetUserNotifications(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -1238,7 +1242,7 @@ func (h *httpController) removeNotification(c *gin.Context) {
 		Session:        s,
 		NotificationId: httpUtils.GetId(c, "notificationId"),
 	}
-	err = h.wm.RemoveNotification(c, request)
+	err = h.wm.RemoveNotification(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1265,7 +1269,7 @@ func (h *httpController) openInOverleaf(c *gin.Context) {
 	}
 	request.Session = s
 	response := &types.CreateProjectResponse{}
-	err = h.wm.OpenInOverleaf(c, request, response)
+	err = h.wm.OpenInOverleaf(c.Request.Context(), request, response)
 	if err != nil && errors.IsValidationError(err) {
 		response.Error = err.Error()
 	}
@@ -1284,7 +1288,7 @@ func (h *httpController) compileProjectHeadless(c *gin.Context) {
 	}
 	response := &types.CompileProjectResponse{}
 	err = h.wm.CompileHeadLess(
-		c,
+		c.Request.Context(),
 		request,
 		response,
 	)
@@ -1299,7 +1303,7 @@ func (h *httpController) createLinkedFile(c *gin.Context) {
 	}
 	request.UserId = o.UserId
 	request.ProjectId = o.ProjectId
-	err := h.wm.CreateLinkedFile(c, request)
+	err := h.wm.CreateLinkedFile(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1310,7 +1314,7 @@ func (h *httpController) refreshLinkedFile(c *gin.Context) {
 		ProjectId: o.ProjectId,
 		FileId:    httpUtils.GetId(c, "fileId"),
 	}
-	err := h.wm.RefreshLinkedFile(c, request)
+	err := h.wm.RefreshLinkedFile(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1327,7 +1331,7 @@ func (h *httpController) createProjectZIP(c *gin.Context) {
 	response := &types.CreateProjectZIPResponse{}
 	defer response.Cleanup()
 
-	err = h.wm.CreateProjectZIP(c, request, response)
+	err = h.wm.CreateProjectZIP(c.Request.Context(), request, response)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
 		return
@@ -1353,7 +1357,7 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 	response := &types.CreateProjectZIPResponse{}
 	defer response.Cleanup()
 
-	err = h.wm.CreateMultiProjectZIP(c, request, response)
+	err = h.wm.CreateMultiProjectZIP(c.Request.Context(), request, response)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
 		return
@@ -1375,7 +1379,7 @@ func (h *httpController) deleteProject(c *gin.Context) {
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		IPAddress: c.ClientIP(),
 	}
-	err = h.wm.DeleteProject(c, request)
+	err = h.wm.DeleteProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1389,7 +1393,7 @@ func (h *httpController) undeleteProject(c *gin.Context) {
 		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 	}
-	err = h.wm.UnDeleteProject(c, request)
+	err = h.wm.UnDeleteProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
@@ -1405,7 +1409,7 @@ func (h *httpController) deleteUser(c *gin.Context) {
 	}
 	request.Session = s
 	request.IPAddress = c.ClientIP()
-	err = h.wm.DeleteUser(c, request)
+	err = h.wm.DeleteUser(c.Request.Context(), request)
 	_ = h.wm.Flush(c, s)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

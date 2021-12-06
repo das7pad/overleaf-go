@@ -85,7 +85,7 @@ func (h *httpController) peakDeletedDocNames(c *gin.Context) {
 	}
 
 	docNames, err := h.dm.PeakDeletedDocNames(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		limit,
 	)
@@ -94,7 +94,7 @@ func (h *httpController) peakDeletedDocNames(c *gin.Context) {
 
 func (h *httpController) getAllDocContents(c *gin.Context) {
 	docs, err := h.dm.GetAllDocContents(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusOK, docs, err)
@@ -102,7 +102,7 @@ func (h *httpController) getAllDocContents(c *gin.Context) {
 
 func (h *httpController) getAllRanges(c *gin.Context) {
 	docNames, err := h.dm.GetAllRanges(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusOK, docNames, err)
@@ -110,7 +110,7 @@ func (h *httpController) getAllRanges(c *gin.Context) {
 
 func (h *httpController) archiveProject(c *gin.Context) {
 	err := h.dm.ArchiveProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -118,7 +118,7 @@ func (h *httpController) archiveProject(c *gin.Context) {
 
 func (h *httpController) unArchiveProject(c *gin.Context) {
 	err := h.dm.UnArchiveProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -126,7 +126,7 @@ func (h *httpController) unArchiveProject(c *gin.Context) {
 
 func (h *httpController) destroyProject(c *gin.Context) {
 	err := h.dm.DestroyProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -134,7 +134,7 @@ func (h *httpController) destroyProject(c *gin.Context) {
 
 func (h *httpController) getDoc(c *gin.Context) {
 	d, err := h.dm.GetFullDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)
@@ -149,7 +149,7 @@ func (h *httpController) getDoc(c *gin.Context) {
 
 func (h *httpController) getDocRaw(c *gin.Context) {
 	lines, err := h.dm.GetDocLines(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)
@@ -167,7 +167,7 @@ type isDocDeletedResponseBody struct {
 
 func (h *httpController) isDocDeleted(c *gin.Context) {
 	deleted, err := h.dm.IsDocDeleted(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)
@@ -201,7 +201,7 @@ func (h *httpController) updateDoc(c *gin.Context) {
 		return
 	}
 	modified, revision, err := h.dm.UpdateDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 		requestBody.Lines,
@@ -223,7 +223,7 @@ func (h *httpController) patchDoc(c *gin.Context) {
 		return
 	}
 	err := h.dm.PatchDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 		*requestBody,
@@ -234,7 +234,7 @@ func (h *httpController) patchDoc(c *gin.Context) {
 
 func (h *httpController) archiveDoc(c *gin.Context) {
 	err := h.dm.ArchiveDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)

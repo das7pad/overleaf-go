@@ -76,7 +76,7 @@ func (h *httpController) handle404(c *gin.Context) {
 
 func (h *httpController) checkDocExists(c *gin.Context) {
 	err := h.dum.CheckDocExists(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)
@@ -96,7 +96,7 @@ func (h *httpController) getDoc(c *gin.Context) {
 		return
 	}
 	doc, err := h.dum.GetDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 		requestOptions.FromVersion,
@@ -127,7 +127,7 @@ func (h *httpController) setDoc(c *gin.Context) {
 		return
 	}
 	err := h.dum.SetDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 		request,
@@ -137,7 +137,7 @@ func (h *httpController) setDoc(c *gin.Context) {
 
 func (h *httpController) flushProject(c *gin.Context) {
 	err := h.dum.FlushProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -145,7 +145,7 @@ func (h *httpController) flushProject(c *gin.Context) {
 
 func (h *httpController) flushDocIfLoaded(c *gin.Context) {
 	err := h.dum.FlushDocIfLoaded(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)
@@ -154,7 +154,7 @@ func (h *httpController) flushDocIfLoaded(c *gin.Context) {
 
 func (h *httpController) flushAndDeleteDoc(c *gin.Context) {
 	err := h.dum.FlushAndDeleteDoc(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "docId"),
 	)
@@ -163,7 +163,7 @@ func (h *httpController) flushAndDeleteDoc(c *gin.Context) {
 
 func (h *httpController) flushAndDeleteProject(c *gin.Context) {
 	err := h.dum.FlushAndDeleteProject(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -174,12 +174,12 @@ func (h *httpController) getAndFlushIfOld(c *gin.Context) {
 	var err error
 	if c.Query("snapshot") == "true" {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldSnapshot(
-			c,
+			c.Request.Context(),
 			httpUtils.GetId(c, "projectId"),
 		)
 	} else {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldLines(
-			c,
+			c.Request.Context(),
 			httpUtils.GetId(c, "projectId"),
 		)
 	}
@@ -196,7 +196,7 @@ func (h *httpController) processProjectUpdates(c *gin.Context) {
 		return
 	}
 	err := h.dum.ProcessProjectUpdates(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		request,
 	)

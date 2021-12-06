@@ -132,7 +132,7 @@ func (h *httpController) getGlobalMessages(c *gin.Context) {
 	}
 
 	messages, err := h.cm.GetGlobalMessages(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		options.Limit,
 		options.Before,
@@ -151,7 +151,7 @@ func (h *httpController) sendGlobalMessages(c *gin.Context) {
 		return
 	}
 	message, err := h.cm.SendGlobalMessage(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		requestBody.Content,
 		requestBody.UserId,
@@ -161,7 +161,7 @@ func (h *httpController) sendGlobalMessages(c *gin.Context) {
 
 func (h *httpController) getAllThreads(c *gin.Context) {
 	threads, err := h.cm.GetAllThreads(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
 	respond(c, http.StatusOK, threads, err, "cannot get all threads")
@@ -173,7 +173,7 @@ func (h *httpController) sendThreadMessage(c *gin.Context) {
 		return
 	}
 	message, err := h.cm.SendThreadMessage(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "threadId"),
 		requestBody.Content,
@@ -192,7 +192,7 @@ func (h *httpController) resolveThread(c *gin.Context) {
 		return
 	}
 	err := h.cm.ResolveThread(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "threadId"),
 		requestBody.UserId,
@@ -202,7 +202,7 @@ func (h *httpController) resolveThread(c *gin.Context) {
 
 func (h *httpController) reopenThread(c *gin.Context) {
 	err := h.cm.ReopenThread(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "threadId"),
 	)
@@ -211,7 +211,7 @@ func (h *httpController) reopenThread(c *gin.Context) {
 
 func (h *httpController) deleteThread(c *gin.Context) {
 	err := h.cm.DeleteThread(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "threadId"),
 	)
@@ -228,7 +228,7 @@ func (h *httpController) editMessage(c *gin.Context) {
 		return
 	}
 	err := h.cm.EditMessage(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "threadId"),
 		httpUtils.GetId(c, "messageId"),
@@ -239,7 +239,7 @@ func (h *httpController) editMessage(c *gin.Context) {
 
 func (h *httpController) deleteMessage(c *gin.Context) {
 	err := h.cm.DeleteMessage(
-		c,
+		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "threadId"),
 		httpUtils.GetId(c, "messageId"),

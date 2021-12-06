@@ -138,7 +138,7 @@ func (h *httpController) ws(requestCtx *gin.Context) {
 		writerChanges <- false
 	}()
 
-	ctx, cancel := context.WithCancel(requestCtx)
+	ctx, cancel := context.WithCancel(requestCtx.Request.Context())
 	defer cancel()
 
 	c, clientErr := types.NewClient(
