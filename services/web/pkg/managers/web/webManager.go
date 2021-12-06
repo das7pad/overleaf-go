@@ -105,17 +105,17 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
+	fm, err := filestore.New(options.APIs.Filestore.Options)
+	if err != nil {
+		return nil, err
+	}
 	nm := notifications.New(db)
 	pm := project.New(db)
 	smm := systemMessage.New(db)
 	tm := tagModel.New(db)
 	um := user.New(db)
 	bm := betaProgram.New(um)
-	cm, err := compile.New(options, client, dum, dm, pm, um)
-	if err != nil {
-		return nil, err
-	}
-	fm, err := filestore.New(options.APIs.Filestore.Options)
+	cm, err := compile.New(options, client, dum, dm, fm, pm, um)
 	if err != nil {
 		return nil, err
 	}

@@ -33,6 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -72,13 +73,14 @@ type Manager interface {
 	) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, pm project.Manager, um user.Manager) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, fm filestore.Manager, pm project.Manager, um user.Manager) (Manager, error) {
 	return &manager{
 		baseURL: options.APIs.Clsi.URL.String(),
 		options: options,
 		client:  client,
 		dum:     dum,
 		dm:      dm,
+		fm:      fm,
 		pm:      pm,
 		pool:    &http.Client{},
 		um:      um,
@@ -91,6 +93,7 @@ type manager struct {
 	client  redis.UniversalClient
 	dum     documentUpdater.Manager
 	dm      docstore.Manager
+	fm      filestore.Manager
 	pm      project.Manager
 	pool    *http.Client
 	um      user.Manager
@@ -227,14 +230,16 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 			docs[entry.Id] = p
 		case *project.FileRef:
 			t := clsiTypes.ModifiedAt(entry.Created.Unix())
-			url := m.options.APIs.Filestore.URL.WithPath(
-				"/project/" + request.ProjectId.Hex() +
-					"/file/" + entry.Id.Hex(),
+			url, err2 := m.fm.GetRedirectURLForGETOnProjectFile(
+				ctx, request.ProjectId, entry.Id,
 			)
+			if err2 != nil {
+				return errors.Tag(err, "cannot sign file download")
+			}
 			files = append(files, &clsiTypes.Resource{
 				Path:       p,
 				ModifiedAt: &t,
-				URL:        &url,
+				URL:        &sharedTypes.URL{URL: *url},
 			})
 		}
 		return nil
