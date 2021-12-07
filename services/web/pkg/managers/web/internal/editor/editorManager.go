@@ -59,6 +59,7 @@ type Manager interface {
 	SetSpellCheckLanguage(ctx context.Context, request *types.SetSpellCheckLanguageRequest) error
 	SetRootDocId(ctx context.Context, request *types.SetRootDocIdRequest) error
 	SetPublicAccessLevel(ctx context.Context, request *types.SetPublicAccessLevelRequest) error
+	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contact.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {

@@ -41,6 +41,7 @@ type Manager interface {
 	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
 	SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error
+	UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 }
 
@@ -52,6 +53,20 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, editorConfig EditorConfig) error {
+	q := &IdField{Id: userId}
+	u := bson.M{
+		"$set": &EditorConfigField{
+			EditorConfig: editorConfig,
+		},
+	}
+	_, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}

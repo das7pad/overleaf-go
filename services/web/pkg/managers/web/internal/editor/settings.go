@@ -25,6 +25,17 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+func (m *manager) UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	if err := request.EditorConfig.Validate(); err != nil {
+		return err
+	}
+	userId := request.Session.User.Id
+	return m.um.UpdateEditorConfig(ctx, userId, request.EditorConfig)
+}
+
 func (m *manager) SetCompiler(ctx context.Context, request *types.SetCompilerRequest) error {
 	if err := request.Compiler.Validate(); err != nil {
 		return err

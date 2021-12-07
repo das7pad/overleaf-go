@@ -20,9 +20,16 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
+
+type UpdateEditorConfigRequest struct {
+	Session      *session.Session  `json:"-"`
+	EditorConfig user.EditorConfig `json:"editorConfig"`
+}
 
 type SetCompilerRequest struct {
 	ProjectId primitive.ObjectID `json:"-"`

@@ -84,6 +84,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/delete", h.deleteUser)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
+	publicApiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.GET("/user/projects", h.getUserProjects)
 	publicApiRouter.POST("/login", h.login)
@@ -1411,5 +1412,20 @@ func (h *httpController) deleteUser(c *gin.Context) {
 	request.IPAddress = c.ClientIP()
 	err = h.wm.DeleteUser(c.Request.Context(), request)
 	_ = h.wm.Flush(c, s)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) updateEditorConfig(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.UpdateEditorConfigRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	err = h.wm.UpdateEditorConfig(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
