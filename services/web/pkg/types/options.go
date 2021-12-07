@@ -66,7 +66,6 @@ type Options struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
 		} `json:"document_updater"`
 		Filestore struct {
-			URL     sharedTypes.URL         `json:"url"`
 			Options *filestoreTypes.Options `json:"options"`
 		} `json:"filestore"`
 		LinkedURLProxy struct {
@@ -140,9 +139,6 @@ func (o *Options) Validate() error {
 	}
 	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
 		return errors.Tag(err, "apis.document_updater.options is invalid")
-	}
-	if err := o.APIs.Filestore.URL.Validate(); err != nil {
-		return errors.Tag(err, "apis.filestore.url is invalid")
 	}
 	if len(o.APIs.LinkedURLProxy.Chain) < 1 {
 		return &errors.ValidationError{
