@@ -184,6 +184,9 @@ func (h *httpController) GetRouter(
 		rDoc.POST("/move", h.moveDocInProject)
 		rDoc.POST("/restore", h.restoreDeletedDocInProject)
 
+		rDocV := rDoc.Group("/version/:version")
+		rDocV.POST("/restore", h.restoreDocVersion)
+
 		rFile := r.Group("/file/:fileId")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
 		rFile.DELETE("", h.deleteFileFromProject)
@@ -208,6 +211,12 @@ func (h *httpController) GetRouter(
 		r.GET("/members", h.listProjectMembers)
 		r.GET("/messages", h.getProjectMessages)
 		r.POST("/messages", h.sendProjectMessage)
+
+		// History
+		r.GET("/updates", h.getProjectHistoryUpdates)
+		rDoc := r.Group("/doc/:docId")
+		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
+		rDoc.GET("/diff", h.getProjectDocDiff)
 	}
 	{
 		// admin endpoints
@@ -1427,5 +1436,49 @@ func (h *httpController) updateEditorConfig(c *gin.Context) {
 	}
 	request.Session = s
 	err = h.wm.UpdateEditorConfig(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.GetProjectHistoryUpdatesRequest{}
+	if err := c.MustBindWith(request, binding.Query); err != nil {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	res := &types.GetProjectHistoryUpdatesResponse{}
+	err := h.wm.GetProjectHistoryUpdates(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) getProjectDocDiff(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.GetDocDiffRequest{}
+	if err := c.MustBindWith(request, binding.Query); err != nil {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.DocId = httpUtils.GetId(c, "docId")
+	request.UserId = o.UserId
+	res := &types.GetDocDiffResponse{}
+	err := h.wm.GetDocDiff(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) restoreDocVersion(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	i, err := strconv.ParseInt(c.Param("version"), 10, 64)
+	if err != nil {
+		httpUtils.RespondErr(c, &errors.ValidationError{Msg: err.Error()})
+		return
+	}
+	request := &types.RestoreDocVersionRequest{
+		ProjectId: o.ProjectId,
+		DocId:     httpUtils.GetId(c, "docId"),
+		UserId:    o.UserId,
+		FromV:     sharedTypes.Version(i),
+	}
+	err = h.wm.RestoreDocVersion(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

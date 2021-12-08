@@ -41,6 +41,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/history"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/inactiveProject"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedFile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
@@ -69,6 +70,7 @@ type Manager interface {
 	compileManager
 	editorManager
 	fileTreeManager
+	historyManager
 	inactiveProjectManager
 	linkedFileManager
 	loginManager
@@ -140,6 +142,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
+	hm := history.New(options, um)
 	OIOm := openInOverleaf.New(options, proxy, pum)
 	lfm, err := linkedFile.New(options, pm, dum, fm, cm, ftm, proxy)
 	if err != nil {
@@ -156,6 +159,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		compileManager:         cm,
 		editorManager:          em,
 		fileTreeManager:        ftm,
+		historyManager:         hm,
 		inactiveProjectManager: ipm,
 		linkedFileManager:      lfm,
 		loginManager:           lm,
@@ -179,6 +183,7 @@ type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
+type historyManager = history.Manager
 type inactiveProjectManager = inactiveProject.Manager
 type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
@@ -201,6 +206,7 @@ type manager struct {
 	compileManager
 	editorManager
 	fileTreeManager
+	historyManager
 	inactiveProjectManager
 	linkedFileManager
 	loginManager
