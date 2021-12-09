@@ -44,6 +44,7 @@ type Manager interface {
 	UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
+	SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -191,6 +192,16 @@ func (m *manager) BumpEpoch(ctx context.Context, userId primitive.ObjectID) erro
 func (m *manager) SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error {
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$set": &BetaProgramField{BetaProgram: joined},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error {
+	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+		"$set": u,
 	})
 	if err != nil {
 		return rewriteMongoError(err)

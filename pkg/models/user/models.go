@@ -98,3 +98,8 @@ type ForEmailChange struct {
 	EpochField `bson:"inline"`
 	IdField    `bson:"inline"`
 }
+
+type WithNames struct {
+	FirstNameField `bson:"inline"`
+	LastNameField  `bson:"inline"`
+}

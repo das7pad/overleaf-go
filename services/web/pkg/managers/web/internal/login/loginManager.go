@@ -32,6 +32,7 @@ type Manager interface {
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
 	Logout(ctx context.Context, request *types.LogoutRequest) error
+	SetUserName(ctx context.Context, r *types.SetUserName) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
