@@ -113,3 +113,34 @@ func TestEmail_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestEmail_ReversedHostname(t *testing.T) {
+	tests := []struct {
+		name string
+		e    Email
+		want ReversedHostname
+	}{
+		{
+			name: "trivial uneven length",
+			e:    "foo@bar.com",
+			want: "moc.rab",
+		},
+		{
+			name: "trivial even length",
+			e:    "foo@bar.de",
+			want: "ed.rab",
+		},
+		{
+			name: "unicode",
+			e:    "foo@bär.com",
+			want: "moc.räb",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.e.ReversedHostname(); got != tt.want {
+				t.Errorf("ReversedHostname() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

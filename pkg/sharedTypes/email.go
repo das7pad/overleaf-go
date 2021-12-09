@@ -23,6 +23,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+type ReversedHostname string
+
 type Email string
 
 func (e Email) LocalPart() string {
@@ -35,6 +37,17 @@ func (e Email) Host() string {
 	s := string(e)
 	idx := strings.LastIndexByte(s, '@')
 	return s[idx+1:]
+}
+
+func (e Email) ReversedHostname() ReversedHostname {
+	h := e.Host()
+	out := []rune(h)
+	n := len(out)
+	for i, j := 0, n; i < n/2; i++ {
+		j--
+		out[i], out[j] = out[j], out[i]
+	}
+	return ReversedHostname(out)
 }
 
 func (e Email) Normalize() Email {

@@ -84,6 +84,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/delete", h.deleteUser)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
+	publicApiRouter.PUT("/user/settings/email", h.changeEmailAddress)
 	publicApiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
 	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
 	publicApiRouter.GET("/user/projects", h.getUserProjects)
@@ -1436,6 +1437,23 @@ func (h *httpController) updateEditorConfig(c *gin.Context) {
 	}
 	request.Session = s
 	err = h.wm.UpdateEditorConfig(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) changeEmailAddress(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.ChangeEmailAddressRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	request.IPAddress = c.ClientIP()
+	err = h.wm.ChangeEmailAddress(c.Request.Context(), request)
+	_ = h.wm.Flush(c, s)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 

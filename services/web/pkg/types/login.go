@@ -74,3 +74,21 @@ type ClearSessionsRequest struct {
 	Session   *session.Session `json:"-"`
 	IPAddress string           `json:"-"`
 }
+
+type ChangeEmailAddressRequest struct {
+	Session   *session.Session `json:"-"`
+	IPAddress string           `json:"-"`
+
+	Email sharedTypes.Email `json:"email"`
+}
+
+func (r *ChangeEmailAddressRequest) Preprocess() {
+	r.Email = r.Email.Normalize()
+}
+
+func (r *ChangeEmailAddressRequest) Validate() error {
+	if err := r.Email.Validate(); err != nil {
+		return err
+	}
+	return nil
+}

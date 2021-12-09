@@ -43,6 +43,7 @@ type Manager interface {
 	SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
+	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -111,6 +112,63 @@ func (m *manager) TrackClearSessions(ctx context.Context, userId primitive.Objec
 	})
 	if err != nil {
 		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
+	now := time.Now().UTC()
+	q := &withIdAndEpoch{
+		IdField: IdField{
+			Id: u.Id,
+		},
+		EpochField: EpochField{
+			Epoch: u.Epoch,
+		},
+	}
+	r, err := m.c.UpdateOne(ctx, q, bson.M{
+		"$set": withEmailFields{
+			EmailField{
+				Email: newEmail,
+			},
+			EmailsField{
+				Emails: []EmailDetails{
+					{
+						Id:               primitive.NewObjectID(),
+						CreatedAt:        now,
+						Email:            newEmail,
+						ReversedHostname: newEmail.ReversedHostname(),
+					},
+				},
+			},
+		},
+		"$inc": EpochField{Epoch: 1},
+		"$push": bson.M{
+			"auditLog": bson.M{
+				"$each": bson.A{
+					AuditLogEntry{
+						Info: bson.M{
+							"oldPrimaryEmail": u.Email,
+							"newPrimaryEmail": newEmail,
+						},
+						InitiatorId: u.Id,
+						IpAddress:   ip,
+						Operation:   "change-primary-email",
+						Timestamp:   now,
+					},
+				},
+				"$slice": -MaxAuditLogEntries,
+			},
+		},
+	})
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return &errors.InvalidStateError{Msg: "email already registered"}
+		}
+		return rewriteMongoError(err)
+	}
+	if r.ModifiedCount != 1 {
+		return ErrEpochChanged
 	}
 	return nil
 }

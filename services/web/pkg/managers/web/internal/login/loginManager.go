@@ -27,6 +27,7 @@ import (
 )
 
 type Manager interface {
+	ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAddressRequest) error
 	ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error

@@ -16,6 +16,11 @@
 
 package user
 
+type withEmailFields struct {
+	EmailField  `bson:"inline"`
+	EmailsField `bson:"inline"`
+}
+
 type withLastLoginInfo struct {
 	LastLoggedInField `bson:"inline"`
 	LastLoginIpField  `bson:"inline"`
@@ -86,4 +91,10 @@ type ForDeletion struct {
 	MustReconfirmField  `bson:"inline"`
 	ReferralIdField     `bson:"inline"`
 	SignUpDateField     `bson:"inline"`
+}
+
+type ForEmailChange struct {
+	EmailField `bson:"inline"`
+	EpochField `bson:"inline"`
+	IdField    `bson:"inline"`
 }

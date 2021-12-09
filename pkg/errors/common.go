@@ -67,6 +67,13 @@ func (m *MergedError) Add(err error) {
 	}
 }
 
+func (m *MergedError) Finalize() error {
+	if len(m.errors) == 0 {
+		return nil
+	}
+	return m
+}
+
 func Merge(errors ...error) error {
 	m := &MergedError{}
 	for _, err := range errors {

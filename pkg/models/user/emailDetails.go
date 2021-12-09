@@ -25,10 +25,10 @@ import (
 )
 
 type EmailDetails struct {
-	Id               primitive.ObjectID `bson:"_id"`
-	CreatedAt        time.Time          `json:"createdAt" bson:"createdAt"`
-	Email            sharedTypes.Email  `json:"email" bson:"email"`
-	ReversedHostname string             `json:"reversedHostname" bson:"reversedHostname"`
+	Id               primitive.ObjectID           `bson:"_id"`
+	CreatedAt        time.Time                    `json:"createdAt" bson:"createdAt"`
+	Email            sharedTypes.Email            `json:"email" bson:"email"`
+	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" bson:"reversedHostname"`
 }
 
 type EmailDetailsWithDefaultFlag struct {
