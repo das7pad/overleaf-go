@@ -59,10 +59,6 @@ type manager struct {
 	c *mongo.Collection
 }
 
-type spellingPreference struct {
-	LearnedWords []string `bson:"learnedWords"`
-}
-
 func userMatcher(userId primitive.ObjectID) bson.M {
 	return bson.M{
 		"token": userId.Hex(),

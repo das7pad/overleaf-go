@@ -17,44 +17,16 @@
 package spelling
 
 import (
-	"context"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/models/learnedWords"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/aspell"
-	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/learnedWords"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type Manager interface {
-	CheckWords(
-		ctx context.Context,
-		language types.SpellCheckLanguage,
-		words []string,
-	) ([]types.Misspelling, error)
-
-	DeleteDictionary(
-		ctx context.Context,
-		userId primitive.ObjectID,
-	) error
-
-	GetDictionary(
-		ctx context.Context,
-		userId primitive.ObjectID,
-	) ([]string, error)
-
-	LearnWord(
-		ctx context.Context,
-		userId primitive.ObjectID,
-		word string,
-	) error
-
-	UnlearnWord(
-		ctx context.Context,
-		userId primitive.ObjectID,
-		word string,
-	) error
+	aspellManager
+	learnedWordsManager
 }
 
 func New(options *types.Options, db *mongo.Database) (Manager, error) {
@@ -67,42 +39,15 @@ func New(options *types.Options, db *mongo.Database) (Manager, error) {
 		return nil, err
 	}
 	return &manager{
-		a:  a,
-		lm: learnedWords.New(db),
+		aspellManager:       a,
+		learnedWordsManager: learnedWords.New(db),
 	}, nil
 }
 
+type learnedWordsManager learnedWords.Manager
+type aspellManager aspell.Manager
+
 type manager struct {
-	a  aspell.Manager
-	lm learnedWords.Manager
+	aspellManager
+	learnedWordsManager
 }
-
-func (m *manager) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]types.Misspelling, error) {
-	if err := language.Validate(); err != nil {
-		return nil, err
-	}
-	if len(words) > RequestLimit {
-		words = words[:RequestLimit]
-	}
-	return m.a.CheckWords(ctx, language, words)
-}
-
-func (m *manager) DeleteDictionary(ctx context.Context, userId primitive.ObjectID) error {
-	return m.lm.DeleteDictionary(ctx, userId)
-}
-
-func (m *manager) GetDictionary(ctx context.Context, userId primitive.ObjectID) ([]string, error) {
-	return m.lm.GetDictionary(ctx, userId)
-}
-
-func (m *manager) LearnWord(ctx context.Context, userId primitive.ObjectID, word string) error {
-	return m.lm.LearnWord(ctx, userId, word)
-}
-
-func (m *manager) UnlearnWord(ctx context.Context, userId primitive.ObjectID, word string) error {
-	return m.lm.UnlearnWord(ctx, userId, word)
-}
-
-const (
-	RequestLimit = 10000
-)

@@ -44,6 +44,10 @@ func New(lruSize int) (Manager, error) {
 	}, nil
 }
 
+const (
+	RequestLimit = 10000
+)
+
 type manager struct {
 	cache  *lru.Cache
 	runner aspellRunner.Runner
@@ -54,6 +58,13 @@ func (m *manager) CheckWords(
 	language types.SpellCheckLanguage,
 	words []string,
 ) ([]types.Misspelling, error) {
+	if err := language.Validate(); err != nil {
+		return nil, err
+	}
+	if len(words) > RequestLimit {
+		words = words[:RequestLimit]
+	}
+
 	suggestions := make(aspellRunner.Suggestions)
 	runOnWordsDedupe := make(map[string]bool, 0)
 	for _, word := range words {
