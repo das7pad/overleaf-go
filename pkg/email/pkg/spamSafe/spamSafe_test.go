@@ -123,6 +123,7 @@ func TestIsSafeEmail(t *testing.T) {
 	type args struct {
 		email sharedTypes.Email
 	}
+	//goland:noinspection SpellCheckingInspection
 	tests := []struct {
 		name string
 		args args
@@ -172,6 +173,7 @@ func TestIsSafeProjectName(t *testing.T) {
 	type args struct {
 		name project.Name
 	}
+	//goland:noinspection SpellCheckingInspection
 	tests := []struct {
 		name string
 		args args
@@ -229,6 +231,7 @@ func TestIsSafeUserName(t *testing.T) {
 	type args struct {
 		name string
 	}
+	//goland:noinspection SpellCheckingInspection
 	tests := []struct {
 		name string
 		args args

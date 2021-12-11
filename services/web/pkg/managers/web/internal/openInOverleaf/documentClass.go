@@ -23,6 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
+//goland:noinspection SpellCheckingInspection
 var (
 	documentClassPart1 = sharedTypes.Snippet(`
 \documentclass[12pt]{article}

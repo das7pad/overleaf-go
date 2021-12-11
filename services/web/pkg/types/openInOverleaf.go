@@ -148,6 +148,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 	}
 	if s := params.Get("engine"); s != "" {
 		c := clsiTypes.Compiler(s)
+		//goland:noinspection SpellCheckingInspection
 		if c == "latex_dvipdf" {
 			c = clsiTypes.Latex
 		}

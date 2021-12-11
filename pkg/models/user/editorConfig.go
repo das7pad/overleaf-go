@@ -36,6 +36,7 @@ type EditorConfig struct {
 }
 
 func (e *EditorConfig) Validate() error {
+	//goland:noinspection SpellCheckingInspection
 	switch e.FontFamily {
 	case "monaco":
 	case "lucida":
@@ -91,6 +92,7 @@ func (e *EditorConfig) Validate() error {
 		}
 	}
 
+	//goland:noinspection SpellCheckingInspection
 	switch e.Theme {
 	case "ambiance":
 	case "chaos":

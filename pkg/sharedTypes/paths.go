@@ -26,6 +26,7 @@ import (
 type FileType string
 
 func (t FileType) ValidForRootDoc() bool {
+	//goland:noinspection SpellCheckingInspection
 	switch t {
 	case "tex":
 	case "rtex":

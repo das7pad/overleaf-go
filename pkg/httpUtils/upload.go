@@ -45,6 +45,7 @@ func ProcessFileUpload(c *gin.Context, sizeLimit, memoryLimit int64, d *UploadDe
 		return false
 	}
 
+	//goland:noinspection SpellCheckingInspection
 	fileHeaders := c.Request.MultipartForm.File["qqfile"]
 	if len(fileHeaders) == 0 {
 		RespondErr(c, &errors.ValidationError{Msg: "missing file"})

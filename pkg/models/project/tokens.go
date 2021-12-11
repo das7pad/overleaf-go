@@ -74,6 +74,7 @@ type Tokens struct {
 	ReadAndWritePrefix string      `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
 }
 
+//goland:noinspection SpellCheckingInspection
 const (
 	charsetAlpha    = "bcdfghjkmnpqrstvwxyz"
 	charsetNumerics = "123456789"

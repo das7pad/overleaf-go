@@ -47,6 +47,7 @@ func isTextFileFilename(filename sharedTypes.Filename) bool {
 	if isTextFileExtension(sharedTypes.PathName(filename).Type()) {
 		return true
 	}
+	//goland:noinspection SpellCheckingInspection
 	switch filename {
 	case "Dockerfile":
 	case "Jenkinsfile":
@@ -59,6 +60,7 @@ func isTextFileFilename(filename sharedTypes.Filename) bool {
 }
 
 func isTextFileExtension(extension sharedTypes.FileType) bool {
+	//goland:noinspection SpellCheckingInspection
 	switch extension {
 	case "asy":
 	case "bbx":
