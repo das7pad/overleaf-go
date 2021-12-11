@@ -83,6 +83,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/delete", h.deleteUser)
+	publicApiRouter.POST("/user/password/update", h.changePassword)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
 	publicApiRouter.PUT("/user/settings/email", h.changeEmailAddress)
@@ -1472,6 +1473,22 @@ func (h *httpController) setUserName(c *gin.Context) {
 	err = h.wm.SetUserName(c.Request.Context(), request)
 	_ = h.wm.Flush(c, s)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) changePassword(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.ChangePasswordRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	res := &types.ChangePasswordResponse{}
+	err = h.wm.ChangePassword(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
 func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {

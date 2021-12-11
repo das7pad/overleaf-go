@@ -21,30 +21,11 @@ import (
 	"net/url"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
-
-func CheckPassword(u *user.HashedPasswordField, password types.UserPassword) error {
-	if err := password.Validate(); err != nil {
-		return err
-	}
-	err := bcrypt.CompareHashAndPassword(
-		[]byte(u.HashedPassword),
-		[]byte(password),
-	)
-	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return &errors.NotAuthorizedError{}
-		}
-		return errors.Tag(err, "cannot check user credentials")
-	}
-	return nil
-}
 
 func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.LoginResponse) error {
 	r.Preprocess()

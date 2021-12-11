@@ -45,6 +45,7 @@ type Manager interface {
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
 	SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error
+	ChangePassword(ctx context.Context, change *ForPasswordChange, ip string, newHashedPassword string) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -55,6 +56,43 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip string, newHashedPassword string) error {
+	now := time.Now().UTC()
+	q := &withIdAndEpoch{
+		IdField: IdField{
+			Id: u.Id,
+		},
+		EpochField: EpochField{
+			Epoch: u.Epoch,
+		},
+	}
+	_, err := m.c.UpdateOne(ctx, q, bson.M{
+		"$set": HashedPasswordField{
+			HashedPassword: newHashedPassword,
+		},
+		"$inc": EpochField{
+			Epoch: 1,
+		},
+		"$push": bson.M{
+			"auditLog": bson.M{
+				"$each": bson.A{
+					AuditLogEntry{
+						InitiatorId: u.Id,
+						IpAddress:   ip,
+						Operation:   "update-password",
+						Timestamp:   now,
+					},
+				},
+				"$slice": -MaxAuditLogEntries,
+			},
+		},
+	})
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, editorConfig EditorConfig) error {

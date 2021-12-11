@@ -81,9 +81,9 @@ type ForDeletion struct {
 	EpochField          `bson:"inline"`
 	FeaturesField       `bson:"inline"`
 	FirstNameField      `bson:"inline"`
+	HashedPasswordField `bson:"inline"`
 	IdField             `bson:"inline"`
 	IsAdminField        `bson:"inline"`
-	HashedPasswordField `bson:"inline"`
 	LastLoggedInField   `bson:"inline"`
 	LastLoginIpField    `bson:"inline"`
 	LastNameField       `bson:"inline"`
@@ -97,6 +97,12 @@ type ForEmailChange struct {
 	EmailField `bson:"inline"`
 	EpochField `bson:"inline"`
 	IdField    `bson:"inline"`
+}
+
+type ForPasswordChange struct {
+	WithPublicInfo      `bson:"inline"`
+	EpochField          `bson:"inline"`
+	HashedPasswordField `bson:"inline"`
 }
 
 type WithNames struct {

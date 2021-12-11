@@ -17,6 +17,8 @@
 package types
 
 import (
+	"strings"
+
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -37,6 +39,13 @@ func (p UserPassword) Validate() error {
 	}
 	if len(p) > 72 {
 		return &errors.ValidationError{Msg: "password too long, max 72"}
+	}
+	return nil
+}
+
+func (p UserPassword) CheckForEmailMatch(email sharedTypes.Email) error {
+	if strings.Contains(strings.ToLower(string(p)), email.LocalPart()) {
+		return &errors.ValidationError{Msg: "password contain email part"}
 	}
 	return nil
 }

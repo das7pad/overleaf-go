@@ -36,6 +36,7 @@ type Options struct {
 	AdminEmail    sharedTypes.Email     `json:"admin_email"`
 	AllowedImages []clsiTypes.ImageName `json:"allowed_images"`
 	AppName       string                `json:"app_name"`
+	BcryptCost    int                   `json:"bcrypt_cost"`
 	DefaultImage  clsiTypes.ImageName   `json:"default_image"`
 	Email         struct {
 		CustomFooter     string            `json:"custom_footer"`
@@ -95,6 +96,9 @@ func (o *Options) Validate() error {
 	}
 	if o.AppName == "" {
 		return &errors.ValidationError{Msg: "app_name is missing"}
+	}
+	if o.BcryptCost < 10 {
+		return &errors.ValidationError{Msg: "bcrypt_cost is too low"}
 	}
 	if len(o.DefaultImage) == 0 {
 		return &errors.ValidationError{Msg: "default_image is missing"}
