@@ -118,7 +118,7 @@ func (m *manager) GetSession(c *gin.Context) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return m.GetSessionById(c, Id(id))
+	return m.GetSessionById(c.Request.Context(), Id(id))
 }
 
 func (m *manager) GetSessionById(c context.Context, id Id) (*Session, error) {
@@ -145,7 +145,7 @@ func (m *manager) GetOrCreateSession(c *gin.Context) (*Session, error) {
 
 func (m *manager) Flush(c *gin.Context, session *Session) error {
 	if !session.noAutoSave {
-		skipped, err := session.Save(c)
+		skipped, err := session.Save(c.Request.Context())
 		if err != nil {
 			return err
 		}
