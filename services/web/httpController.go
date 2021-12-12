@@ -88,6 +88,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/user/password/reset", h.requestPasswordReset)
 	publicApiRouter.POST("/user/password/set", h.setPassword)
 	publicApiRouter.POST("/user/password/update", h.changePassword)
+	publicApiRouter.POST("/user/reconfirm", h.requestPasswordReset)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
 	publicApiRouter.PUT("/user/settings/email", h.changeEmailAddress)
