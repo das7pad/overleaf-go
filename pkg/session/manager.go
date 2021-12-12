@@ -25,6 +25,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -32,6 +33,7 @@ import (
 )
 
 type Manager interface {
+	DestroyAllForUser(ctx context.Context, userId primitive.ObjectID) error
 	GetSession(c *gin.Context) (*Session, error)
 	GetOrCreateSession(c *gin.Context) (*Session, error)
 	GetSessionById(ctx context.Context, id Id) (*Session, error)
@@ -92,6 +94,23 @@ func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
 		persisted:              persisted,
 		providedId:             id,
 	}
+}
+
+func (m *manager) DestroyAllForUser(ctx context.Context, userId primitive.ObjectID) error {
+	s := m.new("", nil, &Data{
+		User: &User{Id: userId},
+	})
+	others, err := s.GetOthers(ctx)
+	if err != nil {
+		return errors.Tag(err, "cannot get other sessions")
+	}
+	if len(others.sessionIds) == 0 {
+		return nil
+	}
+	if err = s.DestroyOthers(ctx, others); err != nil {
+		return errors.Tag(err, "cannot destroy other sessions")
+	}
+	return nil
 }
 
 func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {

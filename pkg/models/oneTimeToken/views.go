@@ -14,26 +14,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package oneTimeToken
 
 import (
-	"time"
+	"fmt"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/das7pad/overleaf-go/pkg/models/internal/views"
 )
 
-const (
-	AuditLogOperationChangePrimaryEmail = "change-primary-email"
-	AuditLogOperationClearSessions      = "clear-sessions"
-	AuditLogOperationLogin              = "login"
-	AuditLogOperationResetPassword      = "reset-password"
-	AuditLogOperationUpdatePassword     = "update-password"
+var (
+	passwordResetDataFieldProjection = views.GetProjectionFor(PasswordResetDataField{})
 )
 
-type AuditLogEntry struct {
-	Info        interface{}        `bson:"info,omitempty"`
-	InitiatorId primitive.ObjectID `bson:"initiatorId"`
-	IpAddress   string             `bson:"ipAddress"`
-	Operation   string             `bson:"operation"`
-	Timestamp   time.Time          `bson:"timestamp"`
+func getProjection(model interface{}) views.View {
+	switch model.(type) {
+	case *PasswordResetDataField:
+		return passwordResetDataFieldProjection
+	}
+	panic(fmt.Sprintf("missing projection for %v", model))
 }

@@ -14,26 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package oneTimeToken
 
 import (
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-const (
-	AuditLogOperationChangePrimaryEmail = "change-primary-email"
-	AuditLogOperationClearSessions      = "clear-sessions"
-	AuditLogOperationLogin              = "login"
-	AuditLogOperationResetPassword      = "reset-password"
-	AuditLogOperationUpdatePassword     = "update-password"
-)
+type UseField struct {
+	Use string `bson:"use"`
+}
 
-type AuditLogEntry struct {
-	Info        interface{}        `bson:"info,omitempty"`
-	InitiatorId primitive.ObjectID `bson:"initiatorId"`
-	IpAddress   string             `bson:"ipAddress"`
-	Operation   string             `bson:"operation"`
-	Timestamp   time.Time          `bson:"timestamp"`
+type TokenField struct {
+	Token OneTimeToken `bson:"token"`
+}
+
+type CreatedAtField struct {
+	CreatedAt time.Time `bson:"createdAt"`
+}
+
+type ExpiresAtField struct {
+	ExpiresAt time.Time `bson:"expiresAt"`
+}
+
+type UsedAtField struct {
+	UsedAt time.Time `bson:"usedAt"`
+}
+
+type PasswordResetDataField struct {
+	PasswordResetData PasswordResetData `bson:"data"`
 }

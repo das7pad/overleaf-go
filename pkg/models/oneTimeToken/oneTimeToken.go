@@ -14,26 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package user
+package oneTimeToken
 
 import (
-	"time"
+	"crypto/rand"
+	"encoding/hex"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-const (
-	AuditLogOperationChangePrimaryEmail = "change-primary-email"
-	AuditLogOperationClearSessions      = "clear-sessions"
-	AuditLogOperationLogin              = "login"
-	AuditLogOperationResetPassword      = "reset-password"
-	AuditLogOperationUpdatePassword     = "update-password"
-)
+const lenBytesOneTimeToken = 32
 
-type AuditLogEntry struct {
-	Info        interface{}        `bson:"info,omitempty"`
-	InitiatorId primitive.ObjectID `bson:"initiatorId"`
-	IpAddress   string             `bson:"ipAddress"`
-	Operation   string             `bson:"operation"`
-	Timestamp   time.Time          `bson:"timestamp"`
+var lenHexOneTimeToken = hex.EncodedLen(lenBytesOneTimeToken)
+
+type OneTimeToken string
+
+func (t OneTimeToken) Validate() error {
+	if len(t) != lenHexOneTimeToken {
+		return &errors.ValidationError{Msg: "invalid token"}
+	}
+	return nil
+}
+
+func generateNewToken() (OneTimeToken, error) {
+	b := make([]byte, lenBytesOneTimeToken)
+	if _, err := rand.Read(b); err != nil {
+		return "", errors.Tag(err, "cannot generate new token")
+	}
+	return OneTimeToken(hex.EncodeToString(b)), nil
 }

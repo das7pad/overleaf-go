@@ -45,7 +45,7 @@ type Manager interface {
 	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
 	SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error
-	ChangePassword(ctx context.Context, change *ForPasswordChange, ip string, newHashedPassword string) error
+	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -58,7 +58,7 @@ type manager struct {
 	c *mongo.Collection
 }
 
-func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip string, newHashedPassword string) error {
+func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, operation string, newHashedPassword string) error {
 	now := time.Now().UTC()
 	q := &withIdAndEpoch{
 		IdField: IdField{
@@ -68,10 +68,19 @@ func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip s
 			Epoch: u.Epoch,
 		},
 	}
+	set := bson.M{
+		"hashedPassword": newHashedPassword,
+	}
+	var filters bson.A
+	if operation == AuditLogOperationResetPassword {
+		set["emails.$[email].confirmedAt"] = now
+		set["emails.$[email].reconfirmedAt"] = now
+		filters = append(filters, bson.M{
+			"email.email": u.Email,
+		})
+	}
 	_, err := m.c.UpdateOne(ctx, q, bson.M{
-		"$set": HashedPasswordField{
-			HashedPassword: newHashedPassword,
-		},
+		"$set": set,
 		"$inc": EpochField{
 			Epoch: 1,
 		},
@@ -81,14 +90,16 @@ func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip s
 					AuditLogEntry{
 						InitiatorId: u.Id,
 						IpAddress:   ip,
-						Operation:   "update-password",
+						Operation:   operation,
 						Timestamp:   now,
 					},
 				},
 				"$slice": -MaxAuditLogEntries,
 			},
 		},
-	})
+	}, options.Update().SetArrayFilters(options.ArrayFilters{
+		Filters: filters,
+	}))
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -141,7 +152,7 @@ func (m *manager) TrackClearSessions(ctx context.Context, userId primitive.Objec
 						Info:        info,
 						InitiatorId: userId,
 						IpAddress:   ip,
-						Operation:   "clear-sessions",
+						Operation:   AuditLogOperationClearSessions,
 						Timestamp:   now,
 					},
 				},
@@ -192,7 +203,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip 
 						},
 						InitiatorId: u.Id,
 						IpAddress:   ip,
-						Operation:   "change-primary-email",
+						Operation:   AuditLogOperationChangePrimaryEmail,
 						Timestamp:   now,
 					},
 				},
@@ -267,7 +278,7 @@ func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip 
 					AuditLogEntry{
 						InitiatorId: userId,
 						IpAddress:   ip,
-						Operation:   "login",
+						Operation:   AuditLogOperationLogin,
 						Timestamp:   now,
 					},
 				},

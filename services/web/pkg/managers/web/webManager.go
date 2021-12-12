@@ -93,6 +93,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
+	sm := session.New(options.SessionCookie, client)
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
 	chatM := chat.New(db)
@@ -133,10 +134,9 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		chatM, csm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
-	lm := login.New(options, client, um, loggedInUserJWTHandler)
+	lm := login.New(options, client, db, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(editorEvents, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
-	sm := session.New(options.SessionCookie, client)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(client, pm)
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm)

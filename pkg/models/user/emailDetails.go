@@ -27,6 +27,8 @@ import (
 type EmailDetails struct {
 	Id               primitive.ObjectID           `bson:"_id"`
 	CreatedAt        time.Time                    `json:"createdAt" bson:"createdAt"`
+	ConfirmedAt      *time.Time                   `json:"confirmedAt" bson:"confirmedAt"`
+	ReconfirmedAt    *time.Time                   `json:"reconfirmedAt" bson:"reconfirmedAt"`
 	Email            sharedTypes.Email            `json:"email" bson:"email"`
 	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" bson:"reversedHostname"`
 }

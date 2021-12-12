@@ -20,9 +20,12 @@ import (
 	"context"
 
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -33,23 +36,31 @@ type Manager interface {
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
 	Logout(ctx context.Context, request *types.LogoutRequest) error
+	RequestPasswordReset(ctx context.Context, r *types.RequestPasswordResetRequest) error
+	SetPassword(ctx context.Context, r *types.SetPasswordRequest) error
 	SetUserName(ctx context.Context, r *types.SetUserName) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
 		client:          client,
+		db:              db,
 		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
 		options:         options,
+		oTTm:            oneTimeToken.New(db),
+		sm:              sm,
 		um:              um,
 	}
 }
 
 type manager struct {
 	client          redis.UniversalClient
+	db              *mongo.Database
 	emailOptions    *types.EmailOptions
 	jwtLoggedInUser jwtHandler.JWTHandler
 	options         *types.Options
+	oTTm            oneTimeToken.Manager
+	sm              session.Manager
 	um              user.Manager
 }

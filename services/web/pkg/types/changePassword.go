@@ -19,7 +19,9 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ChangePasswordRequest struct {
@@ -47,3 +49,35 @@ func (r *ChangePasswordRequest) Validate() error {
 }
 
 type ChangePasswordResponse = asyncForm.Response
+
+type SetPasswordRequest struct {
+	IPAddress string `json:"-"`
+
+	Token    oneTimeToken.OneTimeToken `json:"passwordResetToken"`
+	Password UserPassword              `json:"password"`
+}
+
+func (r *SetPasswordRequest) Validate() error {
+	if err := r.Token.Validate(); err != nil {
+		return err
+	}
+	if err := r.Password.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type RequestPasswordResetRequest struct {
+	Email sharedTypes.Email `json:"email"`
+}
+
+func (r *RequestPasswordResetRequest) Preprocess() {
+	r.Email = r.Email.Normalize()
+}
+
+func (r *RequestPasswordResetRequest) Validate() error {
+	if err := r.Email.Validate(); err != nil {
+		return err
+	}
+	return nil
+}

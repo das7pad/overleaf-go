@@ -55,10 +55,17 @@ func (m *manager) ChangePassword(ctx context.Context, r *types.ChangePasswordReq
 		}
 		return errPW
 	}
-	errChange := m.setPassword(ctx, u, r.Session, r.IPAddress, r.NewPassword)
-	if errChange != nil {
-		return errChange
+	err := m.changePassword(
+		ctx,
+		u,
+		r.IPAddress,
+		user.AuditLogOperationUpdatePassword,
+		r.NewPassword,
+	)
+	if err != nil {
+		return err
 	}
+	m.postProcessPasswordChange(u, r.Session)
 	response.Message = &asyncForm.Message{
 		Text: "Password changed",
 		Type: "success",
@@ -66,7 +73,7 @@ func (m *manager) ChangePassword(ctx context.Context, r *types.ChangePasswordReq
 	return nil
 }
 
-func (m *manager) setPassword(ctx context.Context, u *user.ForPasswordChange, s *session.Session, ip string, password types.UserPassword) error {
+func (m *manager) changePassword(ctx context.Context, u *user.ForPasswordChange, ip, action string, password types.UserPassword) error {
 	if err := password.CheckForEmailMatch(u.Email); err != nil {
 		return err
 	}
@@ -74,49 +81,53 @@ func (m *manager) setPassword(ctx context.Context, u *user.ForPasswordChange, s 
 	if err != nil {
 		return err
 	}
-	otherSessions, err := s.GetOthers(ctx)
-	if err != nil {
-		return errors.Tag(err, "cannot get other sessions")
-	}
 	_ = projectJWT.ClearUserField(ctx, m.client, u.Id)
-	errChange := m.um.ChangePassword(ctx, u, ip, hashedPassword)
+	errChange := m.um.ChangePassword(ctx, u, ip, action, hashedPassword)
 	_ = projectJWT.ClearUserField(ctx, m.client, u.Id)
 	if errChange != nil {
 		return errors.Tag(errChange, "cannot change password")
 	}
-	// The password has been changed.
+	return nil
+}
+
+func (m *manager) postProcessPasswordChange(u *user.ForPasswordChange, s *session.Session) {
 	// We need to clear sessions and email the user. Ignore any request aborts.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	eg := errgroup.Group{}
-	if len(otherSessions.Sessions) != 0 {
-		eg.Go(func() error {
-			err2 := s.DestroyOthers(ctx, otherSessions)
-			if err2 != nil {
-				return errors.Tag(err2, "cannot destroy other sessions")
-			}
-			return nil
-		})
-	}
 	eg.Go(func() error {
-		err2 := m.emailSecurityAlert(
-			ctx, &u.WithPublicInfo,
-			"password changed",
+		if s == nil {
+			return m.sm.DestroyAllForUser(ctx, u.Id)
+		}
+		otherSessions, err := s.GetOthers(ctx)
+		if err != nil {
+			return errors.Tag(err, "cannot get other sessions")
+		}
+		if len(otherSessions.Sessions) == 0 {
+			return nil
+		}
+		if err = s.DestroyOthers(ctx, otherSessions); err != nil {
+			return errors.Tag(err, "cannot destroy other sessions")
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		err := m.emailSecurityAlert(
+			ctx, &u.WithPublicInfo, "password changed",
 			fmt.Sprintf(
 				"your password has been changed on your account %s",
 				u.Email,
 			),
 		)
-		if err2 != nil {
-			return errors.Tag(err2, "cannot notify user")
+		if err != nil {
+			return errors.Tag(err, "cannot notify user")
 		}
 		return nil
 	})
-	if err = eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		log.Printf(
 			"%s: cannot finalize password change: %s",
 			u.Id.Hex(), err.Error(),
 		)
 	}
-	return nil
 }

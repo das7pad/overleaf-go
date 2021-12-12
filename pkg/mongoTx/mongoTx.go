@@ -42,13 +42,18 @@ func For(db *mongo.Database, ctx context.Context, runner Runner) error {
 	}
 	// Create a new session.
 	return db.Client().UseSession(ctx, func(sCtx mongo.SessionContext) error {
+		var inner error
 		_, err := sCtx.WithTransaction(
 			sCtx,
 			func(sCtx mongo.SessionContext) (interface{}, error) {
-				return nil, runner(sCtx)
+				inner = runner(sCtx)
+				return nil, inner
 			},
 		)
 		if err != nil {
+			if err == inner {
+				return err
+			}
 			return errors.Tag(err, "transaction aborted")
 		}
 		return nil

@@ -83,6 +83,8 @@ func (h *httpController) GetRouter(
 	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/delete", h.deleteUser)
+	publicApiRouter.POST("/user/password/reset", h.requestPasswordReset)
+	publicApiRouter.POST("/user/password/set", h.setPassword)
 	publicApiRouter.POST("/user/password/update", h.changePassword)
 	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
 	publicApiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
@@ -1486,9 +1488,29 @@ func (h *httpController) changePassword(c *gin.Context) {
 		return
 	}
 	request.Session = s
+	request.IPAddress = c.ClientIP()
 	res := &types.ChangePasswordResponse{}
 	err = h.wm.ChangePassword(c.Request.Context(), request, res)
 	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) requestPasswordReset(c *gin.Context) {
+	request := &types.RequestPasswordResetRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	err := h.wm.RequestPasswordReset(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setPassword(c *gin.Context) {
+	request := &types.SetPasswordRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.IPAddress = c.ClientIP()
+	err := h.wm.SetPassword(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {
