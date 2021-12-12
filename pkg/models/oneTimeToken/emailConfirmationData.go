@@ -16,18 +16,13 @@
 
 package oneTimeToken
 
-type forNewPasswordReset struct {
-	UseField               `bson:"inline"`
-	TokenField             `bson:"inline"`
-	PasswordResetDataField `bson:"inline"`
-	CreatedAtField         `bson:"inline"`
-	ExpiresAtField         `bson:"inline"`
-}
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-type forEmailConfirmation struct {
-	UseField                   `bson:"inline"`
-	TokenField                 `bson:"inline"`
-	EmailConfirmationDataField `bson:"inline"`
-	CreatedAtField             `bson:"inline"`
-	ExpiresAtField             `bson:"inline"`
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
+type EmailConfirmationData struct {
+	Email  sharedTypes.Email  `bson:"email"`
+	UserId primitive.ObjectID `bson:"user_id"`
 }

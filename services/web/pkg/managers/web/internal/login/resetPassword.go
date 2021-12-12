@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -92,11 +91,7 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 		}
 		return errors.Tag(err, "cannot get user")
 	}
-	d := &oneTimeToken.PasswordResetData{
-		Email:     r.Email,
-		HexUserId: u.Id.Hex(),
-	}
-	token, err := m.oTTm.NewForPasswordReset(ctx, d)
+	token, err := m.oTTm.NewForPasswordReset(ctx, u.Id, r.Email)
 	if err != nil {
 		return errors.Tag(err, "cannot create one time token")
 	}

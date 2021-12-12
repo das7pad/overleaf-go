@@ -24,6 +24,7 @@ import (
 
 var (
 	editorConfigFieldProjection         = views.GetProjectionFor(EditorConfigField{})
+	emailsFieldProjection               = views.GetProjectionFor(EmailsField{})
 	epochFieldProjection                = views.GetProjectionFor(EpochField{})
 	featuresFieldProjection             = views.GetProjectionFor(FeaturesField{})
 	forDeletionProjection               = views.GetProjectionFor(ForDeletion{})
@@ -41,6 +42,8 @@ func getProjection(model interface{}) views.View {
 	switch model.(type) {
 	case *EpochField:
 		return epochFieldProjection
+	case *EmailsField:
+		return emailsFieldProjection
 	case *FeaturesField:
 		return featuresFieldProjection
 	case *ProjectListViewCaller:

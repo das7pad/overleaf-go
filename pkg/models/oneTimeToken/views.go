@@ -23,11 +23,14 @@ import (
 )
 
 var (
-	passwordResetDataFieldProjection = views.GetProjectionFor(PasswordResetDataField{})
+	emailConfirmationDataFieldProjection = views.GetProjectionFor(EmailConfirmationDataField{})
+	passwordResetDataFieldProjection     = views.GetProjectionFor(PasswordResetDataField{})
 )
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
+	case *EmailConfirmationDataField:
+		return emailConfirmationDataFieldProjection
 	case *PasswordResetDataField:
 		return passwordResetDataFieldProjection
 	}

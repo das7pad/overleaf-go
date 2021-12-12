@@ -40,6 +40,10 @@ type UsedAtField struct {
 	UsedAt time.Time `bson:"usedAt"`
 }
 
+type EmailConfirmationDataField struct {
+	EmailConfirmationData EmailConfirmationData `bson:"data"`
+}
+
 type PasswordResetDataField struct {
 	PasswordResetData PasswordResetData `bson:"data"`
 }

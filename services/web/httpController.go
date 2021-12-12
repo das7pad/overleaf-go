@@ -83,6 +83,8 @@ func (h *httpController) GetRouter(
 	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/delete", h.deleteUser)
+	publicApiRouter.POST("/user/emails/confirm", h.confirmEmail)
+	publicApiRouter.POST("/user/emails/resend_confirmation", h.resendEmailConfirmation)
 	publicApiRouter.POST("/user/password/reset", h.requestPasswordReset)
 	publicApiRouter.POST("/user/password/set", h.setPassword)
 	publicApiRouter.POST("/user/password/update", h.changePassword)
@@ -1510,6 +1512,30 @@ func (h *httpController) setPassword(c *gin.Context) {
 	}
 	request.IPAddress = c.ClientIP()
 	err := h.wm.SetPassword(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) confirmEmail(c *gin.Context) {
+	request := &types.ConfirmEmailRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	err := h.wm.ConfirmEmail(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) resendEmailConfirmation(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.ResendEmailConfirmationRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	err = h.wm.ResendEmailConfirmation(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 

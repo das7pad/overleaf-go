@@ -46,6 +46,7 @@ type Manager interface {
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
 	SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
+	ConfirmEmail(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -56,6 +57,28 @@ func New(db *mongo.Database) Manager {
 
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) ConfirmEmail(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) error {
+	now := time.Now().UTC()
+	q := bson.M{
+		"_id":          userId,
+		"emails.email": email,
+	}
+	u := bson.M{
+		"$set": bson.M{
+			"emails.$.confirmedAt":   now,
+			"emails.$.reconfirmedAt": now,
+		},
+	}
+	r, err := m.c.UpdateOne(ctx, q, u)
+	if err != nil {
+		return rewriteMongoError(err)
+	}
+	if r.ModifiedCount != 1 {
+		return &errors.NotFoundError{}
+	}
+	return nil
 }
 
 func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, operation string, newHashedPassword string) error {

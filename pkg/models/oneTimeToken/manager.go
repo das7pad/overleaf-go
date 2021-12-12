@@ -21,14 +21,18 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	NewForPasswordReset(ctx context.Context, data *PasswordResetData) (OneTimeToken, error)
+	NewForEmailConfirmation(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
+	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) (*EmailConfirmationData, error)
 	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken) (*PasswordResetData, error)
 }
 
@@ -46,31 +50,29 @@ func rewriteMongoError(err error) error {
 }
 
 const (
-	passwordResetUse = "password"
+	emailConfirmationUse = "email_confirmation"
+	passwordResetUse     = "password"
 )
 
 type manager struct {
 	c *mongo.Collection
 }
 
-func (m *manager) NewForPasswordReset(ctx context.Context, data *PasswordResetData) (OneTimeToken, error) {
+func (m *manager) NewForEmailConfirmation(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
 	now := time.Now().UTC()
-	allErrors := &errors.MergedError{}
-	for i := 0; i < 10; i++ {
-		token, err := generateNewToken()
-		if err != nil {
-			allErrors.Add(err)
-			continue
-		}
-		_, err = m.c.InsertOne(ctx, &forNewPasswordReset{
+	return m.newToken(ctx, func(token OneTimeToken) interface{} {
+		return &forEmailConfirmation{
 			UseField: UseField{
-				Use: passwordResetUse,
+				Use: emailConfirmationUse,
 			},
 			TokenField: TokenField{
 				Token: token,
 			},
-			PasswordResetDataField: PasswordResetDataField{
-				PasswordResetData: *data,
+			EmailConfirmationDataField: EmailConfirmationDataField{
+				EmailConfirmationData: EmailConfirmationData{
+					Email:  email,
+					UserId: userId,
+				},
 			},
 			CreatedAtField: CreatedAtField{
 				CreatedAt: now,
@@ -78,7 +80,45 @@ func (m *manager) NewForPasswordReset(ctx context.Context, data *PasswordResetDa
 			ExpiresAtField: ExpiresAtField{
 				ExpiresAt: now.Add(time.Hour),
 			},
-		})
+		}
+	})
+}
+
+func (m *manager) NewForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
+	now := time.Now().UTC()
+	return m.newToken(ctx, func(token OneTimeToken) interface{} {
+		return &forNewPasswordReset{
+			UseField: UseField{
+				Use: passwordResetUse,
+			},
+			TokenField: TokenField{
+				Token: token,
+			},
+			PasswordResetDataField: PasswordResetDataField{
+				PasswordResetData: PasswordResetData{
+					Email:     email,
+					HexUserId: userId.Hex(),
+				},
+			},
+			CreatedAtField: CreatedAtField{
+				CreatedAt: now,
+			},
+			ExpiresAtField: ExpiresAtField{
+				ExpiresAt: now.Add(time.Hour),
+			},
+		}
+	})
+}
+
+func (m *manager) newToken(ctx context.Context, fn func(token OneTimeToken) interface{}) (OneTimeToken, error) {
+	allErrors := &errors.MergedError{}
+	for i := 0; i < 10; i++ {
+		token, err := generateNewToken()
+		if err != nil {
+			allErrors.Add(err)
+			continue
+		}
+		_, err = m.c.InsertOne(ctx, fn(token))
 		if err != nil {
 			if mongo.IsDuplicateKeyError(err) {
 				allErrors.Add(err)
@@ -91,10 +131,28 @@ func (m *manager) NewForPasswordReset(ctx context.Context, data *PasswordResetDa
 	return "", errors.Tag(allErrors, "bad random source")
 }
 
+func (m *manager) ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) (*EmailConfirmationData, error) {
+	res := &EmailConfirmationDataField{}
+	err := m.resolveAndExpireToken(ctx, emailConfirmationUse, token, res)
+	if err != nil {
+		return nil, rewriteMongoError(err)
+	}
+	return &res.EmailConfirmationData, nil
+}
+
 func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken) (*PasswordResetData, error) {
+	res := &PasswordResetDataField{}
+	err := m.resolveAndExpireToken(ctx, passwordResetUse, token, res)
+	if err != nil {
+		return nil, rewriteMongoError(err)
+	}
+	return &res.PasswordResetData, nil
+}
+
+func (m *manager) resolveAndExpireToken(ctx context.Context, use string, token OneTimeToken, target interface{}) error {
 	now := time.Now().UTC()
 	q := bson.M{
-		"use":   passwordResetUse,
+		"use":   use,
 		"token": token,
 		"expiresAt": bson.M{
 			"$gt": now,
@@ -108,13 +166,12 @@ func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token 
 			UsedAt: now,
 		},
 	}
-	res := &PasswordResetDataField{}
 	err := m.c.FindOneAndUpdate(
 		ctx, q, u,
-		options.FindOneAndUpdate().SetProjection(getProjection(res)),
-	).Decode(res)
+		options.FindOneAndUpdate().SetProjection(getProjection(target)),
+	).Decode(target)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return rewriteMongoError(err)
 	}
-	return &res.PasswordResetData, nil
+	return nil
 }

@@ -33,10 +33,12 @@ type Manager interface {
 	ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAddressRequest) error
 	ChangePassword(ctx context.Context, r *types.ChangePasswordRequest, response *types.ChangePasswordResponse) error
 	ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error
+	ConfirmEmail(ctx context.Context, r *types.ConfirmEmailRequest) error
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
 	Logout(ctx context.Context, request *types.LogoutRequest) error
 	RequestPasswordReset(ctx context.Context, r *types.RequestPasswordResetRequest) error
+	ResendEmailConfirmation(ctx context.Context, r *types.ResendEmailConfirmationRequest) error
 	SetPassword(ctx context.Context, r *types.SetPasswordRequest) error
 	SetUserName(ctx context.Context, r *types.SetUserName) error
 }

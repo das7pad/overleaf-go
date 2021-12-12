@@ -14,20 +14,38 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package oneTimeToken
+package types
 
-type forNewPasswordReset struct {
-	UseField               `bson:"inline"`
-	TokenField             `bson:"inline"`
-	PasswordResetDataField `bson:"inline"`
-	CreatedAtField         `bson:"inline"`
-	ExpiresAtField         `bson:"inline"`
+import (
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
+	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
+type ConfirmEmailRequest struct {
+	Token oneTimeToken.OneTimeToken `json:"token"`
 }
 
-type forEmailConfirmation struct {
-	UseField                   `bson:"inline"`
-	TokenField                 `bson:"inline"`
-	EmailConfirmationDataField `bson:"inline"`
-	CreatedAtField             `bson:"inline"`
-	ExpiresAtField             `bson:"inline"`
+func (r *ConfirmEmailRequest) Validate() error {
+	if err := r.Token.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type ResendEmailConfirmationRequest struct {
+	Session *session.Session `json:"-"`
+
+	Email sharedTypes.Email `json:"email"`
+}
+
+func (r *ResendEmailConfirmationRequest) Preprocess() {
+	r.Email = r.Email.Normalize()
+}
+
+func (r *ResendEmailConfirmationRequest) Validate() error {
+	if err := r.Email.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
