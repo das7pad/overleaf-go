@@ -43,14 +43,14 @@ func (u *URL) FileNameFromPath() Filename {
 	return PathName(u.Path).Filename()
 }
 
-func (u URL) WithPath(s string) URL {
+func (u URL) WithPath(s string) *URL {
 	u.URL.Path = s
-	return u
+	return &u
 }
 
-func (u URL) WithQuery(values url.Values) URL {
+func (u URL) WithQuery(values url.Values) *URL {
 	u.URL.RawQuery = values.Encode()
-	return u
+	return &u
 }
 
 func (u *URL) UnmarshalJSON(bytes []byte) error {

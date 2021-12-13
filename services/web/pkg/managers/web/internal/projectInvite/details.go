@@ -41,18 +41,14 @@ func (d *projectInviteDetails) IsUserRegistered() bool {
 	return !d.user.Id.IsZero()
 }
 
-func (d *projectInviteDetails) GetInviteURL(siteURL sharedTypes.URL) string {
-	inviteURL := siteURL.WithPath(fmt.Sprintf(
+func (d *projectInviteDetails) GetInviteURL(siteURL sharedTypes.URL) *sharedTypes.URL {
+	return siteURL.WithPath(fmt.Sprintf(
 		"/project/%s/invite/token/%s",
 		d.project.Id.Hex(), d.invite.Token,
-	))
-
-	q := url.Values{}
-	q.Set("project_name", string(d.project.Name))
-	q.Set("user_first_name", d.sender.DisplayName())
-	inviteURL.RawQuery = q.Encode()
-
-	return inviteURL.String()
+	)).WithQuery(url.Values{
+		"project_name":    {string(d.project.Name)},
+		"user_first_name": {d.sender.DisplayName()},
+	})
 }
 
 func (d *projectInviteDetails) ValidateForCreation() error {

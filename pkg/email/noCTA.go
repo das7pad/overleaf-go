@@ -21,11 +21,12 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/email/internal/templates"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type HelpLink struct {
 	Before string
-	URL    string
+	URL    *sharedTypes.URL
 	Label  string
 	After  string
 }
@@ -58,7 +59,7 @@ func (c *NoCTAContent) PlainText() string {
 		for _, helpLink := range c.HelpLinks {
 			helpLinks += "\n" +
 				helpLink.Before +
-				helpLink.Label + " (" + helpLink.URL + ")" +
+				helpLink.Label + " (" + helpLink.URL.String() + ")" +
 				helpLink.After + "\n"
 		}
 	}

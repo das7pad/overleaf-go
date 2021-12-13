@@ -39,7 +39,7 @@ func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLink
 		compile.ClsiServerIdQueryParam: {string(r.Parameter.ClsiServerId)},
 	})
 
-	f, err := m.proxy.DownloadFile(ctx, &u)
+	f, err := m.proxy.DownloadFile(ctx, u)
 	if err != nil {
 		if errors.IsUnprocessableEntity(err) {
 			return &errors.UnprocessableEntityError{

@@ -143,3 +143,61 @@ func TestURL_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestURL_WithPath(t *testing.T) {
+	buildBase := func() *url.URL {
+		u, _ := url.Parse("http://foo.bar/baz?bazz=barr")
+		return u
+	}
+
+	t.Run("value base", func(t *testing.T) {
+		u := URL{URL: *buildBase()}
+		x := u.WithPath("/other")
+		if got := x.Path; got != "/other" {
+			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
+		}
+		if got := u.Path; got != "/baz" {
+			t.Errorf("u.WithPath(); u.Path = %v, want %v", got, "/baz")
+		}
+	})
+
+	t.Run("pointer base", func(t *testing.T) {
+		u := &URL{URL: *buildBase()}
+		x := u.WithPath("/other")
+		if got := x.Path; got != "/other" {
+			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
+		}
+		if got := u.Path; got != "/baz" {
+			t.Errorf("u.WithPath(); u.Path = %v, want %v", got, "/baz")
+		}
+	})
+}
+
+func TestURL_WithQuery(t *testing.T) {
+	buildBase := func() *url.URL {
+		u, _ := url.Parse("http://foo.bar/baz?key=old")
+		return u
+	}
+
+	t.Run("value base", func(t *testing.T) {
+		u := URL{URL: *buildBase()}
+		x := u.WithQuery(url.Values{"key": {"new"}})
+		if got := x.Query().Get("key"); got != "new" {
+			t.Errorf("Query().Query().Get() = %v, want %v", got, "new")
+		}
+		if got := u.Query().Get("key"); got != "old" {
+			t.Errorf("u.Query(); u.Query().Get() = %v, want %v", got, "old")
+		}
+	})
+
+	t.Run("pointer base", func(t *testing.T) {
+		u := &URL{URL: *buildBase()}
+		x := u.WithPath("/other")
+		if got := x.Path; got != "/other" {
+			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
+		}
+		if got := u.Path; got != "/baz" {
+			t.Errorf("u.WithPath(); u.Path = %v, want %v", got, "/baz")
+		}
+	})
+}

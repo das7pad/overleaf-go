@@ -24,8 +24,7 @@ import (
 
 func chainURL(u *sharedTypes.URL, chain []sharedTypes.URL) string {
 	for _, next := range chain {
-		v := next.WithQuery(url.Values{"url": {u.String()}})
-		u = &v
+		u = next.WithQuery(url.Values{"url": {u.String()}})
 	}
 	return u.String()
 }

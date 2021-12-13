@@ -39,9 +39,6 @@ func (m *manager) emailSecurityAlert(ctx context.Context, u *user.WithPublicInfo
 		"If this was not you, we recommend getting in touch with our support team at %s to report this as potentially suspicious activity on your account.",
 		m.options.AdminEmail,
 	)
-	wikiURL := m.options.SiteURL.WithPath(
-		"/learn/how-to/Keeping_your_account_secure",
-	)
 	e := email.Email{
 		Content: &email.NoCTAContent{
 			PublicOptions: m.emailOptions.Public,
@@ -50,8 +47,10 @@ func (m *manager) emailSecurityAlert(ctx context.Context, u *user.WithPublicInfo
 			HelpLinks: []email.HelpLink{
 				{
 					Before: "We also encourage you to read our ",
-					URL:    wikiURL.String(),
-					Label:  "quick guide",
+					URL: m.options.SiteURL.WithPath(
+						"/learn/how-to/Keeping_your_account_secure",
+					),
+					Label: "quick guide",
 					After: fmt.Sprintf(
 						" to keeping your %s account safe.",
 						m.options.AppName,

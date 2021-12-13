@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type potentialAction struct {
@@ -37,7 +38,7 @@ type fullGmailGoToAction struct {
 }
 
 type GmailGoToAction struct {
-	Target      string
+	Target      *sharedTypes.URL
 	Name        string
 	Description string
 }
@@ -48,9 +49,9 @@ func (g *GmailGoToAction) MarshalJSON() ([]byte, error) {
 		Description: g.Description,
 		PotentialAction: potentialAction{
 			Name:   g.Name,
-			Target: g.Target,
+			Target: g.Target.String(),
 			Type:   "ViewAction",
-			Url:    g.Target,
+			Url:    g.Target.String(),
 		},
 		Type: "EmailMessage",
 	}

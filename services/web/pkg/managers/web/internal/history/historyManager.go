@@ -55,7 +55,7 @@ type manager struct {
 	um     user.Manager
 }
 
-func (m *manager) apiCall(ctx context.Context, userId primitive.ObjectID, method string, url sharedTypes.URL, dst interface{}) error {
+func (m *manager) apiCall(ctx context.Context, userId primitive.ObjectID, method string, url *sharedTypes.URL, dst interface{}) error {
 	r, err := http.NewRequestWithContext(ctx, method, url.String(), nil)
 	if err != nil {
 		return errors.Tag(err, "compose request")
@@ -123,8 +123,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 	u := m.base.WithPath(fmt.Sprintf(
 		"/project/%s/doc/%s/diff",
 		r.ProjectId.Hex(), r.DocId.Hex(),
-	))
-	u = u.WithQuery(url.Values{
+	)).WithQuery(url.Values{
 		"from": {r.From.String()},
 		"to":   {r.To.String()},
 	})

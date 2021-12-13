@@ -110,7 +110,7 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 			previousOwner: previousOwner,
 			newOwner:      newOwner,
 			project:       p,
-			projectURL:    &projectURL,
+			projectURL:    projectURL,
 			emailOptions:  m.options.EmailOptions(),
 		}
 		previousOwnerErr := m.ownershipTransferConfirmationPreviousOwner(
@@ -159,7 +159,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d *
 				spamSafe.GetSafeProjectName(d.project.Name, "A project"),
 			),
 			CTAText: "View project",
-			CTAURL:  d.projectURL.String(),
+			CTAURL:  d.projectURL,
 		},
 		Subject: "Project ownership transfer - " + m.options.AppName,
 		To: &email.Identity{
@@ -195,7 +195,7 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 				"%s - Owner change",
 				spamSafe.GetSafeProjectName(d.project.Name, "A project"),
 			),
-			CTAURL:  d.projectURL.String(),
+			CTAURL:  d.projectURL,
 			CTAText: "View project",
 		},
 		Subject: "Project ownership transfer - " + m.options.AppName,

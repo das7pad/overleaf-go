@@ -87,12 +87,6 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 		return errors.Tag(err, "cannot get one time token")
 	}
 
-	uri := m.options.SiteURL.
-		WithPath("/user/emails/confirm").
-		WithQuery(url.Values{
-			"token": {string(token)},
-		})
-
 	e := &email.Email{
 		Content: &email.CTAContent{
 			PublicOptions: m.emailOptions.Public,
@@ -111,7 +105,11 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 			},
 			Title:   "Confirm Email",
 			CTAText: "Confirm Email",
-			CTAURL:  uri.String(),
+			CTAURL: m.options.SiteURL.
+				WithPath("/user/emails/confirm").
+				WithQuery(url.Values{
+					"token": {string(token)},
+				}),
 		},
 		Subject: "Confirm Email - " + m.options.AppName,
 		To: &email.Identity{

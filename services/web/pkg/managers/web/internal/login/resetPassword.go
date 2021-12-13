@@ -95,12 +95,6 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 	if err != nil {
 		return errors.Tag(err, "cannot create one time token")
 	}
-	uri := m.options.SiteURL.
-		WithPath("/user/password/set").
-		WithQuery(url.Values{
-			"passwordResetToken": {string(token)},
-			"email":              {string(u.Email)},
-		})
 
 	e := &email.Email{
 		Content: &email.CTAContent{
@@ -117,7 +111,12 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 			},
 			Title:   "Password Reset",
 			CTAText: "Reset password",
-			CTAURL:  uri.String(),
+			CTAURL: m.options.SiteURL.
+				WithPath("/user/password/set").
+				WithQuery(url.Values{
+					"passwordResetToken": {string(token)},
+					"email":              {string(u.Email)},
+				}),
 		},
 		Subject: "Password Reset - " + m.options.AppName,
 		To: &email.Identity{

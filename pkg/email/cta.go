@@ -22,6 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email/internal/templates"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type CTAContent struct {
@@ -31,8 +32,9 @@ type CTAContent struct {
 	SecondaryMessage Message
 	Title            string
 
-	CTAText string
-	CTAURL  string
+	CTAIntro string
+	CTAText  string
+	CTAURL   *sharedTypes.URL
 
 	*gmailGoToAction.GmailGoToAction
 }
@@ -47,7 +49,7 @@ func (c *CTAContent) Validate() error {
 	if len(c.CTAText) == 0 {
 		return errors.New("missing CTAText")
 	}
-	if len(c.CTAURL) == 0 {
+	if c.CTAURL == nil {
 		return errors.New("missing CTAURL")
 	}
 	return nil
@@ -67,7 +69,7 @@ func (c *CTAContent) PlainText() string {
 		"\n" +
 		c.Message.String() + "\n" +
 		"\n" +
-		c.CTAText + ": " + c.CTAURL + "\n" +
+		c.CTAText + ": " + c.CTAURL.String() + "\n" +
 		secondaryMessageIfAny +
 		"\n" +
 		"Regards," + "\n" +
