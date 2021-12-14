@@ -52,6 +52,9 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 				},
 			},
 		},
+		AuditLogField: AuditLogField{
+			AuditLog: make([]AuditLogEntry, 0),
+		},
 		EditorConfigField: EditorConfigField{
 			EditorConfig: EditorConfig{
 				AutoComplete:       true,
