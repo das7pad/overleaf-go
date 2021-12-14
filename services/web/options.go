@@ -44,16 +44,13 @@ type webOptions struct {
 }
 
 func getOptions() *webOptions {
-	o := &webOptions{}
-	utils.ParseJSONFromEnv("OPTIONS", &o.options)
+	o := &webOptions{
+		options: &types.Options{},
+	}
+	o.options.FillFromEnv()
 	o.address = listenAddress.Parse(4000)
 	o.clientIPOptions = clientIPOptions.Parse()
 	o.corsOptions = corsOptions.Parse()
-	o.options.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
-	o.options.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
-	o.options.JWT.Spelling.FillFromEnv("JWT_SPELLING_VERIFY_SECRET")
-	o.options.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
-	o.options.SessionCookie.FillFromEnv("SESSION_SECRET")
 	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 

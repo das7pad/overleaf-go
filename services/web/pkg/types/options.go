@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -85,6 +86,15 @@ type Options struct {
 	} `json:"jwt"`
 
 	SessionCookie signedCookie.Options `json:"session_cookie"`
+}
+
+func (o *Options) FillFromEnv() {
+	utils.ParseJSONFromEnv("OPTIONS", o)
+	o.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
+	o.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
+	o.JWT.Spelling.FillFromEnv("JWT_SPELLING_VERIFY_SECRET")
+	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
+	o.SessionCookie.FillFromEnv("SESSION_SECRET")
 }
 
 func (o *Options) Validate() error {
