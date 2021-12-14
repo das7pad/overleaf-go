@@ -41,13 +41,13 @@ func CheckPassword(u *user.HashedPasswordField, password types.UserPassword) err
 	return nil
 }
 
-func (m *manager) hashPassword(password types.UserPassword) (string, error) {
+func HashPassword(password types.UserPassword, cost int) (string, error) {
 	if err := password.Validate(); err != nil {
 		return "", err
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword(
-		[]byte(password), m.options.BcryptCost,
+		[]byte(password), cost,
 	)
 	if err != nil {
 		return "", errors.Tag(err, "cannot hash password")

@@ -57,6 +57,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tag"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tokenAccess"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/userCreation"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/userDeletion"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -86,6 +87,7 @@ type Manager interface {
 	systemMessageManager
 	tagManager
 	tokenAccessManager
+	userCreationManager
 	userDeletionManager
 }
 
@@ -152,6 +154,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, tm, csm, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
+	ucm := userCreation.New(options, db, um, lm)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -175,6 +178,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		systemMessageManager:   smm,
 		tagManager:             tagM,
 		tokenAccessManager:     tam,
+		userCreationManager:    ucm,
 		userDeletionManager:    uDelM,
 	}, nil
 }
@@ -199,6 +203,7 @@ type sessionManager = session.Manager
 type systemMessageManager = systemMessage.Manager
 type tagManager = tag.Manager
 type tokenAccessManager = tokenAccess.Manager
+type userCreationManager = userCreation.Manager
 type userDeletionManager = userDeletion.Manager
 
 type manager struct {
@@ -222,6 +227,7 @@ type manager struct {
 	systemMessageManager
 	tagManager
 	tokenAccessManager
+	userCreationManager
 	userDeletionManager
 	projectJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler

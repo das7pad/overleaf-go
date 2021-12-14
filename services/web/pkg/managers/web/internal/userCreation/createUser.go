@@ -14,48 +14,34 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package login
+package userCreation
 
 import (
 	"context"
-	"net/url"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.LoginResponse) error {
-	r.Preprocess()
-	if err := r.Validate(); err != nil {
-		return err
-	}
-	u := &user.WithLoginInfo{}
-	if err := m.um.GetUserByEmail(ctx, r.Email, u); err != nil {
-		return errors.Tag(err, "cannot get user from mongo")
-	}
-	if err := CheckPassword(&u.HashedPasswordField, r.Password); err != nil {
-		return err
+func (m *manager) createUser(ctx context.Context, emailAddress sharedTypes.Email, pw types.UserPassword, ip string) (*user.ForCreation, error) {
+	if m.um.GetUserByEmail(ctx, emailAddress, &user.EpochField{}) == nil {
+		// PERF: skip expensive bcrypt hashing.
+		return nil, user.ErrEmailAlreadyRegistered
 	}
 
-	if u.MustReconfirm {
-		to := url.URL{}
-		to.Path = "/user/reconfirm"
-		q := url.Values{}
-		q.Set("email", string(u.Email))
-		to.RawQuery = q.Encode()
-		res.RedirectTo = to.String()
-		return nil
-	}
-
-	if err := m.um.TrackLogin(ctx, u.Id, r.IPAddress); err != nil {
-		return errors.Tag(err, "cannot track login")
-	}
-
-	redirect, err := r.Session.Login(ctx, &u.ForSession, r.IPAddress)
+	hashedPw, err := login.HashPassword(pw, m.options.BcryptCost)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	res.RedirectTo = redirect
-	return nil
+	u := user.NewUser(emailAddress, hashedPw)
+	if ip != "" {
+		u.LastLoginIp = ip
+	}
+	if err = m.um.CreateUser(ctx, u); err != nil {
+		return nil, errors.Tag(err, "cannot create user")
+	}
+	return u, nil
 }

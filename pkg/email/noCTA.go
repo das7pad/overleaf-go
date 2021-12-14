@@ -40,7 +40,7 @@ type NoCTAContent struct {
 }
 
 func (c *NoCTAContent) Validate() error {
-	if len(c.Message) == 0 || len(c.Message[0]) == 0 {
+	if len(c.Message) == 0 && len(c.HelpLinks) == 0 {
 		return errors.New("missing Message")
 	}
 	if len(c.Title) == 0 {

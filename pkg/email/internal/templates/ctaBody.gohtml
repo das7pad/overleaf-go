@@ -53,6 +53,26 @@
                   </p>
                 {{end}}
 
+                {{range $i, $helpLink := .HelpLinks }}
+                  <p
+                    class="force-overleaf-style"
+                    style="margin: 0 0 10px 0; padding: 0;"
+                  >
+                      {{$helpLink.Before -}}
+                    <a href="{{$helpLink.URL}}">{{$helpLink.Label}}</a>
+                      {{- $helpLink.After}}
+                  </p>
+                {{end}}
+
+                {{if .CTAIntro}}
+                  <p
+                    class="force-overleaf-style"
+                    style="margin: 0 0 10px 0; padding: 0;"
+                  >
+                      {{.CTAIntro}}
+                  </p>
+                {{end}}
+
               <p style="margin: 0; padding: 0;">&#xA0;</p>
 
               <table style="border-collapse: collapse; border-spacing: 0; float: none; margin: 0 auto; padding: 0; text-align: center; vertical-align: top; width: auto;">

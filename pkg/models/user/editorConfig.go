@@ -35,11 +35,30 @@ type EditorConfig struct {
 	Theme              string                           `json:"theme" bson:"theme"`
 }
 
+//goland:noinspection SpellCheckingInspection
+const (
+	editorFontFamilyLucida = "lucida"
+	editorFontFamilyMonaco = "monaco"
+
+	editorLineHightCompact = "compact"
+	editorLineHightNormal  = "normal"
+	editorLineHightWide    = "wide"
+
+	editorModeDefault = "default"
+	editorModeEmacs   = "emacs"
+	editorModeVim     = "vim"
+
+	editorOverallThemeNone  = ""
+	editorOverallThemeLight = "light-"
+
+	editorPdfViewerPdfjs  = "pdfjs"
+	editorPdfViewerNative = "native"
+)
+
 func (e *EditorConfig) Validate() error {
-	//goland:noinspection SpellCheckingInspection
 	switch e.FontFamily {
-	case "monaco":
-	case "lucida":
+	case editorFontFamilyMonaco:
+	case editorFontFamilyLucida:
 		// valid
 	default:
 		return &errors.ValidationError{Msg: "unknown fontFamily"}
@@ -51,34 +70,34 @@ func (e *EditorConfig) Validate() error {
 	}
 
 	switch e.LineHeight {
-	case "compact":
-	case "normal":
-	case "wide":
+	case editorLineHightCompact:
+	case editorLineHightNormal:
+	case editorLineHightWide:
 		// valid
 	default:
 		return &errors.ValidationError{Msg: "unknown lineHeight"}
 	}
 
 	switch e.Mode {
-	case "default":
-	case "emacs":
-	case "vim":
+	case editorModeDefault:
+	case editorModeEmacs:
+	case editorModeVim:
 		// valid
 	default:
 		return &errors.ValidationError{Msg: "unknown mode"}
 	}
 
 	switch e.OverallTheme {
-	case "":
-	case "light-":
+	case editorOverallThemeNone:
+	case editorOverallThemeLight:
 		// valid
 	default:
 		return &errors.ValidationError{Msg: "unknown overallTheme"}
 	}
 
 	switch e.PDFViewer {
-	case "pdfjs":
-	case "native":
+	case editorPdfViewerPdfjs:
+	case editorPdfViewerNative:
 		// valid
 	default:
 		return &errors.ValidationError{Msg: "unknown pdfViewer"}

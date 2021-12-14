@@ -73,7 +73,7 @@ type HashedPasswordField struct {
 }
 
 type LastLoggedInField struct {
-	LastLoggedIn time.Time `bson:"lastLoggedIn"`
+	LastLoggedIn *time.Time `bson:"lastLoggedIn"`
 }
 
 type LastLoginIpField struct {

@@ -30,6 +30,7 @@ import (
 )
 
 type Manager interface {
+	CreateUser(ctx context.Context, u *ForCreation) error
 	Delete(ctx context.Context, userId primitive.ObjectID, epoch int64) error
 	TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId primitive.ObjectID) error
@@ -55,8 +56,37 @@ func New(db *mongo.Database) Manager {
 	}
 }
 
+var (
+	ErrEmailAlreadyRegistered = &errors.InvalidStateError{
+		Msg: "email already registered",
+	}
+)
+
 type manager struct {
 	c *mongo.Collection
+}
+
+func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
+	if u.LastLoginIp != "" {
+		now := u.SignUpDate
+		u.LoginCount = 1
+		u.LastLoggedIn = &now
+		u.AuditLog = []AuditLogEntry{
+			{
+				InitiatorId: u.Id,
+				IpAddress:   u.LastLoginIp,
+				Operation:   AuditLogOperationLogin,
+				Timestamp:   now,
+			},
+		}
+	}
+	if _, err := m.c.InsertOne(ctx, u); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrEmailAlreadyRegistered
+		}
+		return rewriteMongoError(err)
+	}
+	return nil
 }
 
 func (m *manager) ConfirmEmail(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) error {
@@ -236,7 +266,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip 
 	})
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return &errors.InvalidStateError{Msg: "email already registered"}
+			return ErrEmailAlreadyRegistered
 		}
 		return rewriteMongoError(err)
 	}
@@ -289,7 +319,7 @@ func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip 
 		},
 		"$set": withLastLoginInfo{
 			LastLoggedInField: LastLoggedInField{
-				LastLoggedIn: now,
+				LastLoggedIn: &now,
 			},
 			LastLoginIpField: LastLoginIpField{
 				LastLoginIp: ip,

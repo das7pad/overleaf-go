@@ -31,6 +31,7 @@ type CTAContent struct {
 	Message          Message
 	SecondaryMessage Message
 	Title            string
+	HelpLinks        []HelpLink
 
 	CTAIntro string
 	CTAText  string
@@ -40,7 +41,7 @@ type CTAContent struct {
 }
 
 func (c *CTAContent) Validate() error {
-	if len(c.Message) == 0 || len(c.Message[0]) == 0 {
+	if len(c.Message) == 0 && len(c.HelpLinks) == 0 {
 		return errors.New("missing Message")
 	}
 	if len(c.Title) == 0 {
@@ -65,9 +66,18 @@ func (c *CTAContent) PlainText() string {
 		secondaryMessageIfAny = "\n" + c.SecondaryMessage.String() + "\n"
 	}
 
+	helpLinks := ""
+	for _, helpLink := range c.HelpLinks {
+		helpLinks += "\n" +
+			helpLink.Before +
+			helpLink.Label + " (" + helpLink.URL.String() + ")" +
+			helpLink.After + "\n"
+	}
+
 	s := "Hi," + "\n" +
 		"\n" +
 		c.Message.String() + "\n" +
+		helpLinks +
 		"\n" +
 		c.CTAText + ": " + c.CTAURL.String() + "\n" +
 		secondaryMessageIfAny +

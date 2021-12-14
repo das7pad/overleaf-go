@@ -27,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type internalDataAccessOnly = Data
@@ -45,6 +46,17 @@ type Session struct {
 }
 
 var errNotLoggedIn = &errors.UnauthorizedError{}
+var errNotAdmin = &errors.NotAuthorizedError{}
+
+func (s *Session) CheckIsAdmin() error {
+	if err := s.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	if !s.User.IsAdmin {
+		return errNotAdmin
+	}
+	return nil
+}
 
 func (s *Session) CheckIsLoggedIn() error {
 	if !s.IsLoggedIn() {
@@ -59,6 +71,30 @@ func (s *Session) IsLoggedIn() bool {
 
 func (s *Session) SetNoAutoSave() {
 	s.noAutoSave = true
+}
+
+func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (string, error) {
+	redirect := s.PostLoginRedirect
+	s.SetNoAutoSave()
+	s.PostLoginRedirect = ""
+	s.User = &User{
+		Id:             u.Id,
+		IsAdmin:        u.IsAdmin,
+		FirstName:      u.FirstName,
+		LastName:       u.LastName,
+		Email:          u.Email,
+		Epoch:          u.Epoch,
+		ReferralId:     u.ReferralId,
+		IPAddress:      ip,
+		SessionCreated: time.Now().UTC(),
+	}
+	if err := s.Cycle(ctx); err != nil {
+		return "", errors.Tag(err, "cannot cycle session")
+	}
+	if redirect == "" {
+		redirect = "/project"
+	}
+	return redirect, nil
 }
 
 func (s *Session) Cycle(ctx context.Context) error {

@@ -81,6 +81,7 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/project/new", h.createExampleProject)
 	publicApiRouter.POST("/project/new/upload", h.createFromZip)
 	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
+	publicApiRouter.POST("/register", h.registerUser)
 	publicApiRouter.GET("/user/contacts", h.getUserContacts)
 	publicApiRouter.POST("/user/delete", h.deleteUser)
 	publicApiRouter.POST("/user/emails/confirm", h.confirmEmail)
@@ -98,6 +99,11 @@ func (h *httpController) GetRouter(
 	publicApiRouter.POST("/login", h.login)
 	publicApiRouter.POST("/logout", h.logout)
 
+	{
+		// admin endpoints
+		r := publicApiRouter.Group("/admin")
+		r.POST("/register", h.adminCreateUser)
+	}
 	{
 		// Notifications routes
 		r := publicApiRouter.Group("/notifications")
@@ -227,9 +233,9 @@ func (h *httpController) GetRouter(
 		rDoc.GET("/diff", h.getProjectDocDiff)
 	}
 	{
-		// admin endpoints
+		// project admin endpoints
 		r := projectJWTRouter.Group("")
-		r.Use(requireAdminAccess)
+		r.Use(requireProjectAdminAccess)
 
 		r.PUT("/settings/admin/publicAccessLevel", h.setPublicAccessLevel)
 
@@ -267,7 +273,7 @@ func blockRestrictedUsers(c *gin.Context) {
 	}
 }
 
-func requireAdminAccess(c *gin.Context) {
+func requireProjectAdminAccess(c *gin.Context) {
 	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
 		sharedTypes.PrivilegeLevelOwner,
 	)
@@ -1582,4 +1588,40 @@ func (h *httpController) restoreDocVersion(c *gin.Context) {
 	}
 	err = h.wm.RestoreDocVersion(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) registerUser(c *gin.Context) {
+	resp := &types.RegisterUserResponse{}
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, resp, err)
+		return
+	}
+	request := &types.RegisterUserRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	request.IPAddress = c.ClientIP()
+	err = h.wm.RegisterUser(c.Request.Context(), request, resp)
+	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
+		resp.RedirectTo = "/login"
+	}
+	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) adminCreateUser(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
+	}
+	request := &types.AdminCreateUserRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	resp := &types.AdminCreateUserResponse{}
+	err = h.wm.AdminCreateUser(c.Request.Context(), request, resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
 }

@@ -32,6 +32,7 @@ import (
 type Manager interface {
 	NewForEmailConfirmation(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
 	NewForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForPasswordSet(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
 	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) (*EmailConfirmationData, error)
 	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken) (*PasswordResetData, error)
 }
@@ -85,6 +86,14 @@ func (m *manager) NewForEmailConfirmation(ctx context.Context, userId primitive.
 }
 
 func (m *manager) NewForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
+	return m.newForPasswordReset(ctx, userId, email, time.Hour)
+}
+
+func (m *manager) NewForPasswordSet(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
+	return m.newForPasswordReset(ctx, userId, email, 7*24*time.Hour)
+}
+
+func (m *manager) newForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
 	now := time.Now().UTC()
 	return m.newToken(ctx, func(token OneTimeToken) interface{} {
 		return &forNewPasswordReset{
@@ -104,7 +113,7 @@ func (m *manager) NewForPasswordReset(ctx context.Context, userId primitive.Obje
 				CreatedAt: now,
 			},
 			ExpiresAtField: ExpiresAtField{
-				ExpiresAt: now.Add(time.Hour),
+				ExpiresAt: now.Add(validFor),
 			},
 		}
 	})

@@ -31,7 +31,7 @@ type DeleterData struct {
 	DeletedAt                     time.Time          `bson:"deletedAt"`
 	DeleterId                     primitive.ObjectID `bson:"deleterId"`
 	DeleterIpAddress              string             `bson:"deleterIpAddress"`
-	DeletedUserLastLoggedIn       time.Time          `bson:"deletedUserLastLoggedIn"`
+	DeletedUserLastLoggedIn       *time.Time         `bson:"deletedUserLastLoggedIn"`
 	DeletedUserSignUpDate         time.Time          `bson:"deletedUserSignUpDate"`
 	DeletedUserLoginCount         int64              `bson:"deletedUserLoginCount"`
 	DeletedUserReferralId         string             `bson:"deletedUserReferralId"`

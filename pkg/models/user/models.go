@@ -58,17 +58,34 @@ type WithLoadEditorInfo struct {
 }
 
 type WithLoginInfo struct {
-	EpochField          `bson:"inline"`
-	IsAdminField        `bson:"inline"`
-	MustReconfirmField  `bson:"inline"`
-	ReferralIdField     `bson:"inline"`
+	ForSession          `bson:"inline"`
 	HashedPasswordField `bson:"inline"`
-	WithPublicInfo      `bson:"inline"`
+	MustReconfirmField  `bson:"inline"`
+}
+
+type ForSession struct {
+	EpochField      `bson:"inline"`
+	IsAdminField    `bson:"inline"`
+	ReferralIdField `bson:"inline"`
+	WithPublicInfo  `bson:"inline"`
 }
 
 type WithEpochAndFeatures struct {
 	EpochField    `bson:"inline"`
 	FeaturesField `bson:"inline"`
+}
+
+type ForCreation struct {
+	ForSession          `bson:"inline"`
+	AuditLogField       `bson:"inline"`
+	EditorConfigField   `bson:"inline"`
+	EmailsField         `bson:"inline"`
+	FeaturesField       `bson:"inline"`
+	HashedPasswordField `bson:"inline"`
+	LastLoggedInField   `bson:"inline"`
+	LastLoginIpField    `bson:"inline"`
+	LoginCountField     `bson:"inline"`
+	SignUpDateField     `bson:"inline"`
 }
 
 type ForDeletion struct {
