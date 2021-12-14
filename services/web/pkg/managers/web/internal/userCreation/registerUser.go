@@ -50,6 +50,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 	})
 	if err != nil {
 		if errors.GetCause(err) == user.ErrEmailAlreadyRegistered {
+			// TODO: consider letting the frontend try logging in instead.
 			err = m.lm.Login(ctx, &types.LoginRequest{
 				Session:   r.Session,
 				IPAddress: r.IPAddress,
