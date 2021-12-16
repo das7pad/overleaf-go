@@ -151,7 +151,12 @@ func (m *manager) FindAllMessagesInRooms(
 			"$in": roomIds,
 		},
 	}
-	c, err := m.messagesCollection.Find(ctx, query)
+	c, err := m.messagesCollection.Find(
+		ctx, query,
+		options.Find().SetSort(bson.M{
+			"timestamp": 1,
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
