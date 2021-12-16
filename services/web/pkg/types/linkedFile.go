@@ -53,9 +53,13 @@ type RefreshLinkedFileRequest struct {
 }
 
 func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
+	sourceProjectId := ""
+	if r.Provider != project.LinkedFileProviderURL {
+		sourceProjectId = r.Parameter.SourceProjectId.Hex()
+	}
 	return &project.LinkedFileData{
 		Provider:             r.Provider,
-		SourceProjectId:      r.Parameter.SourceProjectId.Hex(),
+		SourceProjectId:      sourceProjectId,
 		SourceEntityPath:     r.Parameter.SourceEntityPath.String(),
 		SourceOutputFilePath: r.Parameter.SourceOutputFilePath.String(),
 		URL:                  r.Parameter.URL,
