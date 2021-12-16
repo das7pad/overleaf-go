@@ -40,12 +40,12 @@ type Manager interface {
 		roomId primitive.ObjectID,
 		limit int64,
 		before float64,
-	) ([]types.Message, error)
+	) ([]*types.Message, error)
 
 	FindAllMessagesInRooms(
 		ctx context.Context,
 		roomIds []primitive.ObjectID,
-	) ([]types.Message, error)
+	) ([]*types.Message, error)
 
 	DeleteAllMessagesInRoom(
 		ctx context.Context,
@@ -100,8 +100,8 @@ func (m *manager) CreateMessage(
 	return &message, nil
 }
 
-func readAllMessages(ctx context.Context, c *mongo.Cursor) ([]types.Message, error) {
-	out := make([]types.Message, 0)
+func readAllMessages(ctx context.Context, c *mongo.Cursor) ([]*types.Message, error) {
+	out := make([]*types.Message, 0)
 	err := c.All(ctx, &out)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (m *manager) GetMessages(
 	roomId primitive.ObjectID,
 	limit int64,
 	before float64,
-) ([]types.Message, error) {
+) ([]*types.Message, error) {
 	query := bson.M{
 		"room_id": roomId,
 	}
@@ -144,7 +144,7 @@ func (m *manager) GetMessages(
 func (m *manager) FindAllMessagesInRooms(
 	ctx context.Context,
 	roomIds []primitive.ObjectID,
-) ([]types.Message, error) {
+) ([]*types.Message, error) {
 
 	query := bson.M{
 		"room_id": bson.M{

@@ -66,7 +66,7 @@ func (m *manager) SendProjectMessage(ctx context.Context, request *types.SendPro
 	u.IdNoUnderscore = u.Id
 
 	message := types.ChatMessage{
-		Message: *rawMessage,
+		Message: rawMessage,
 		User:    u,
 	}
 	go m.notifyEditor(

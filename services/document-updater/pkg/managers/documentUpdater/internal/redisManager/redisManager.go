@@ -171,6 +171,9 @@ func (m *manager) PutDocInMemory(ctx context.Context, projectId primitive.Object
 		getDocCoreKey(docId):    coreBlob,
 		getDocVersionKey(docId): doc.Version.String(),
 	}
+	if doc.UnFlushedTime != 0 {
+		vars[getUnFlushedTimeKey(docId)] = int64(doc.UnFlushedTime)
+	}
 	if err = m.rClient.MSet(ctx, vars).Err(); err != nil {
 		return errors.Tag(err, "cannot persist in redis")
 	}

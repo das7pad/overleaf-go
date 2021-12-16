@@ -35,7 +35,7 @@ type Manager interface {
 		projectId primitive.ObjectID,
 		limit int64,
 		before float64,
-	) ([]types.Message, error)
+	) ([]*types.Message, error)
 
 	SendGlobalMessage(
 		ctx context.Context,
@@ -54,7 +54,7 @@ type Manager interface {
 	GetAllThreads(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-	) (map[string]types.Thread, error)
+	) (types.Threads, error)
 
 	ResolveThread(
 		ctx context.Context,
@@ -129,7 +129,7 @@ func (m *manager) GetGlobalMessages(
 	projectId primitive.ObjectID,
 	limit int64,
 	before float64,
-) ([]types.Message, error) {
+) ([]*types.Message, error) {
 	room, err := m.tm.FindOrCreateThread(
 		ctx,
 		projectId,
@@ -208,15 +208,12 @@ func (m *manager) sendMessage(
 	return msg, err
 }
 
-func groupMessagesByThreads(
-	rooms []thread.Room,
-	messages []types.Message,
-) map[string]types.Thread {
+func groupMessagesByThreads(rooms []thread.Room, messages []*types.Message) types.Threads {
 	roomById := map[primitive.ObjectID]thread.Room{}
 	for _, room := range rooms {
 		roomById[room.Id] = room
 	}
-	threads := map[string]types.Thread{}
+	threads := make(types.Threads, len(rooms))
 	for _, msg := range messages {
 		room, exists := roomById[msg.RoomId]
 		if !exists {
@@ -224,8 +221,8 @@ func groupMessagesByThreads(
 		}
 		t, exists := threads[room.ThreadId.Hex()]
 		if !exists {
-			t = types.Thread{
-				Messages: make([]types.Message, 0),
+			t = &types.Thread{
+				Messages: make([]*types.Message, 0),
 			}
 			resolved := room.Resolved != nil
 			if resolved {
@@ -243,7 +240,7 @@ func groupMessagesByThreads(
 func (m *manager) GetAllThreads(
 	ctx context.Context,
 	projectId primitive.ObjectID,
-) (map[string]types.Thread, error) {
+) (types.Threads, error) {
 	rooms, err := m.tm.FindAllThreadRooms(ctx, projectId)
 	if err != nil {
 		return nil, err

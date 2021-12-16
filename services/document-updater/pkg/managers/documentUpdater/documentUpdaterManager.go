@@ -32,11 +32,13 @@ import (
 
 type Manager interface {
 	StartBackgroundTasks(ctx context.Context)
+	AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error
 	CheckDocExists(
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
 	) error
+	DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error
 	GetDoc(
 		ctx context.Context,
 		projectId primitive.ObjectID,
@@ -107,6 +109,20 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive
 func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {
 	_, err := m.dm.GetDoc(ctx, projectId, docId)
 	return err
+}
+
+func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
+	return m.dm.AcceptReviewChanges(ctx, projectId, docId, changeIds)
+}
+
+func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error {
+	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+		return err
+	}
+	return m.dm.DeleteReviewThread(ctx, projectId, docId, threadId)
 }
 
 func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {

@@ -40,6 +40,9 @@ import (
 )
 
 type Manager interface {
+	AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error
+	DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error
+
 	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID) ([]*types.Doc, error)
@@ -93,6 +96,58 @@ type manager struct {
 	tc     trackChanges.Manager
 	u      updateManager.Manager
 	webApi webApi.Manager
+}
+
+func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error {
+	if len(changeIds) == 0 {
+		return &errors.ValidationError{Msg: "missing change_ids"}
+	}
+	return m.operateOnRanges(ctx, projectId, docId, func(doc *types.Doc) (bool, error) {
+		return doc.AcceptReviewChanges(changeIds), nil
+	})
+}
+
+func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error {
+	return m.operateOnRanges(ctx, projectId, docId, func(doc *types.Doc) (bool, error) {
+		return doc.DeleteReviewThread(threadId), nil
+	})
+}
+
+func (m *manager) operateOnRanges(ctx context.Context, projectId, docId primitive.ObjectID, fn func(doc *types.Doc) (bool, error)) error {
+	for {
+		var err error
+		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+			var doc *types.Doc
+			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			if err != nil {
+				return
+			}
+			var persist bool
+			if persist, err = fn(doc); !persist || err != nil {
+				return
+			}
+			if doc.UnFlushedTime == 0 {
+				doc.UnFlushedTime = types.UnFlushedTime(time.Now().Unix())
+			}
+			err = m.rm.PutDocInMemory(ctx, projectId, docId, doc)
+			if err != nil {
+				return
+			}
+			err = m.doFlushAndMaybeDelete(
+				ctx, projectId, docId, doc, doc.JustLoadedIntoRedis,
+			)
+		})
+		if err == errPartialFlush {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if lockErr != nil {
+			return lockErr
+		}
+		return nil
+	}
 }
 
 func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameDocUpdate) error {

@@ -111,7 +111,7 @@ type TokensField struct {
 }
 
 type TrackChangesStateField struct {
-	TrackChangesState map[string]bool `json:"trackChangesState" bson:"track_changes"`
+	TrackChangesState TrackChangesState `json:"trackChangesState" bson:"track_changes"`
 }
 
 type TrashedByField struct {

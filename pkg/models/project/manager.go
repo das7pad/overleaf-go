@@ -70,6 +70,7 @@ type Manager interface {
 	SetSpellCheckLanguage(ctx context.Context, projectId primitive.ObjectID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
 	SetRootDocId(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, rootDocId primitive.ObjectID) error
 	SetPublicAccessLevel(ctx context.Context, projectId primitive.ObjectID, epoch int64, level PublicAccessLevel) error
+	SetTrackChangesState(ctx context.Context, projectId primitive.ObjectID, s TrackChangesState) error
 	ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
 	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
@@ -258,6 +259,12 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId primitive.
 		"$set": PublicAccessLevelField{
 			PublicAccessLevel: publicAccessLevel,
 		},
+	})
+}
+
+func (m *manager) SetTrackChangesState(ctx context.Context, projectId primitive.ObjectID, s TrackChangesState) error {
+	return m.set(ctx, projectId, &TrackChangesStateField{
+		TrackChangesState: s,
 	})
 }
 

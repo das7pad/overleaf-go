@@ -20,20 +20,26 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type Message struct {
-	Id        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Content   string             `json:"content" bson:"content"`
-	Timestamp float64            `json:"timestamp" bson:"timestamp"`
-	UserId    primitive.ObjectID `json:"user_id" bson:"user_id"`
-	EditedAt  float64            `json:"edited_at,omitempty" bson:"edited_at,omitempty"`
-	RoomId    primitive.ObjectID `json:"room_id,omitempty" bson:"room_id"`
+	Id        primitive.ObjectID                   `json:"id" bson:"_id,omitempty"`
+	Content   string                               `json:"content" bson:"content"`
+	Timestamp float64                              `json:"timestamp" bson:"timestamp"`
+	UserId    primitive.ObjectID                   `json:"user_id" bson:"user_id"`
+	User      *user.WithPublicInfoAndNonStandardId `json:"user,omitempty" bson:"-"`
+	EditedAt  float64                              `json:"edited_at,omitempty" bson:"edited_at,omitempty"`
+	RoomId    primitive.ObjectID                   `json:"room_id,omitempty" bson:"room_id"`
 }
 
 type Thread struct {
-	Resolved         *bool               `json:"resolved,omitempty"`
-	ResolvedAt       *time.Time          `json:"resolved_at,omitempty"`
-	ResolvedByUserId *primitive.ObjectID `json:"resolved_by_user_id,omitempty"`
-	Messages         []Message           `json:"messages"`
+	Resolved         *bool                                `json:"resolved,omitempty"`
+	ResolvedAt       *time.Time                           `json:"resolved_at,omitempty"`
+	ResolvedByUserId *primitive.ObjectID                  `json:"resolved_by_user_id,omitempty"`
+	ResolvedByUser   *user.WithPublicInfoAndNonStandardId `json:"resolved_by_user,omitempty"`
+	Messages         []*Message                           `json:"messages"`
 }
+
+type Threads map[string]*Thread

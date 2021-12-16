@@ -150,6 +150,54 @@ func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 	}
 }
 
+func (d *Doc) DeleteReviewThread(threadId primitive.ObjectID) bool {
+	n := len(d.Ranges.Comments)
+	if n == 0 {
+		return false
+	}
+	idx := -1
+	for i := 0; i < n; i++ {
+		if d.Ranges.Comments[i].Id == threadId {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return false
+	}
+	d.Ranges.Comments[idx] = d.Ranges.Comments[n-1]
+	d.Ranges.Comments = d.Ranges.Comments[:n-1]
+	return true
+}
+
+func (d *Doc) AcceptReviewChanges(changeIds []primitive.ObjectID) bool {
+	n := len(d.Ranges.Changes)
+	if n == 0 {
+		return false
+	}
+	lookup := make(map[primitive.ObjectID]struct{})
+	for _, id := range changeIds {
+		lookup[id] = struct{}{}
+	}
+	newSize := n - len(changeIds)
+	if newSize < 0 {
+		newSize = 0
+	}
+	out := make(sharedTypes.Changes, 0, newSize)
+	foundAny := false
+	for _, change := range d.Ranges.Changes {
+		if _, exists := lookup[change.Id]; exists {
+			foundAny = true
+			continue
+		}
+		out = append(out, change)
+	}
+	if foundAny {
+		d.Ranges.Changes = out
+	}
+	return foundAny
+}
+
 type DocContentSnapshots []*DocContentSnapshot
 
 var unixEpochStart = time.Unix(0, 0)

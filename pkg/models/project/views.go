@@ -30,6 +30,7 @@ var (
 	lastUpdatedAtFieldProjection          = views.GetProjectionFor(LastUpdatedAtField{})
 	nameFieldProjection                   = views.GetProjectionFor(NameField{})
 	tokensFieldProjection                 = views.GetProjectionFor(TokensField{})
+	trackChangesStateFieldProjection      = views.GetProjectionFor(TrackChangesStateField{})
 	forAuthorizationDetailsProjection     = views.GetProjectionFor(ForAuthorizationDetails{})
 	forCloneProjection                    = views.GetProjectionFor(ForClone{})
 	forDeletionProjection                 = views.GetProjectionFor(ForDeletion{})
@@ -93,6 +94,8 @@ func getProjection(model interface{}) views.View {
 		return tokensFieldProjection
 	case *ForDeletion:
 		return forDeletionProjection
+	case *TrackChangesStateField:
+		return trackChangesStateFieldProjection
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

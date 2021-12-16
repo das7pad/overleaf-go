@@ -32,7 +32,7 @@ type GetProjectChatMessagesRequest struct {
 type GetProjectChatMessagesResponse []*ChatMessage
 
 type ChatMessage struct {
-	types.Message
+	*types.Message
 	User *user.WithPublicInfoAndNonStandardId `json:"user"`
 }
 

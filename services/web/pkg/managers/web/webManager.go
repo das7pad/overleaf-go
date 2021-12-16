@@ -54,6 +54,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectUpload"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/review"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tag"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tokenAccess"
@@ -83,6 +84,7 @@ type Manager interface {
 	projectListManager
 	projectMetadataManager
 	projectUploadManager
+	reviewManager
 	sessionManager
 	systemMessageManager
 	tagManager
@@ -155,6 +157,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	uDelM := userDeletion.New(db, pm, um, tm, csm, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
 	ucm := userCreation.New(options, db, um, lm)
+	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -174,6 +177,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
 		projectUploadManager:   pum,
+		reviewManager:          rm,
 		sessionManager:         sm,
 		systemMessageManager:   smm,
 		tagManager:             tagM,
@@ -199,6 +203,7 @@ type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
 type projectUploadManager = projectUpload.Manager
+type reviewManager = review.Manager
 type sessionManager = session.Manager
 type systemMessageManager = systemMessage.Manager
 type tagManager = tag.Manager
@@ -223,6 +228,7 @@ type manager struct {
 	projectListManager
 	projectMetadataManager
 	projectUploadManager
+	reviewManager
 	sessionManager
 	systemMessageManager
 	tagManager

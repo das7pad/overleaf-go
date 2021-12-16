@@ -176,6 +176,7 @@ func (h *httpController) GetRouter(
 	projectJWTRouter.POST("/wordcount", h.wordCount)
 
 	projectJWTRouter.GET("/metadata", h.getMetadataForProject)
+	projectJWTRouter.GET("/ranges", h.getReviewRanges)
 
 	{
 		// Write endpoints
@@ -191,12 +192,19 @@ func (h *httpController) GetRouter(
 		r.POST("/folder", h.addFolderToProject)
 		r.POST("/linked_file", h.createLinkedFile)
 
+		r.POST("/track_changes", h.setTrackChangesState)
+
 		rDoc := r.Group("/doc/:docId")
 		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
 		rDoc.DELETE("", h.deleteDocFromProject)
 		rDoc.POST("/rename", h.renameDocInProject)
 		rDoc.POST("/move", h.moveDocInProject)
 		rDoc.POST("/restore", h.restoreDeletedDocInProject)
+		rDoc.POST("/changes/accept", h.acceptReviewChanges)
+
+		rDocThread := rDoc.Group("/thread/:threadId")
+		rDocThread.Use(httpUtils.ValidateAndSetId("threadId"))
+		rDocThread.DELETE("", h.deleteReviewThread)
 
 		rDocV := rDoc.Group("/version/:version")
 		rDocV.POST("/restore", h.restoreDocVersion)
@@ -217,6 +225,16 @@ func (h *httpController) GetRouter(
 		rFolder.POST("/rename", h.renameFolderInProject)
 		rFolder.POST("/move", h.moveFolderInProject)
 		rFolder.POST("/upload", h.uploadFile)
+
+		rThread := r.Group("/thread/:threadId")
+		rThread.Use(httpUtils.ValidateAndSetId("threadId"))
+		rThread.POST("/reopen", h.reopenReviewThread)
+		rThread.POST("/resolve", h.resolveReviewThread)
+
+		rThreadMessage := rThread.Group("/messages/:messageId")
+		rThreadMessage.Use(httpUtils.ValidateAndSetId("messageId"))
+		rThreadMessage.POST("/edit", h.editReviewComment)
+		rThreadMessage.DELETE("", h.deleteReviewComment)
 	}
 	{
 		// block access for token users with readOnly project access
@@ -225,6 +243,13 @@ func (h *httpController) GetRouter(
 		r.GET("/members", h.listProjectMembers)
 		r.GET("/messages", h.getProjectMessages)
 		r.POST("/messages", h.sendProjectMessage)
+
+		// review
+		r.GET("/changes/users", h.getReviewUsers)
+		r.GET("/threads", h.getReviewThreads)
+		rThread := r.Group("/thread/:threadId")
+		rThread.Use(httpUtils.ValidateAndSetId("threadId"))
+		rThread.POST("/messages", h.sendReviewComment)
 
 		// History
 		r.GET("/updates", h.getProjectHistoryUpdates)
@@ -1624,4 +1649,119 @@ func (h *httpController) adminCreateUser(c *gin.Context) {
 	resp := &types.AdminCreateUserResponse{}
 	err = h.wm.AdminCreateUser(c.Request.Context(), request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
+}
+
+func (h *httpController) acceptReviewChanges(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.AcceptReviewChangesRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.DocId = httpUtils.GetId(c, "docId")
+	err := h.wm.AcceptReviewChanges(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) deleteReviewComment(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.DeleteReviewCommentRequest{}
+	request.ProjectId = o.ProjectId
+	request.ThreadId = httpUtils.GetId(c, "threadId")
+	request.MessageId = httpUtils.GetId(c, "messageId")
+	err := h.wm.DeleteReviewComment(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) deleteReviewThread(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.DeleteReviewThreadRequest{}
+	request.ProjectId = o.ProjectId
+	request.DocId = httpUtils.GetId(c, "docId")
+	request.ThreadId = httpUtils.GetId(c, "threadId")
+	err := h.wm.DeleteReviewThread(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) editReviewComment(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.EditReviewCommentRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.ThreadId = httpUtils.GetId(c, "threadId")
+	request.MessageId = httpUtils.GetId(c, "messageId")
+	err := h.wm.EditReviewComment(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) getReviewRanges(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.GetReviewRangesRequest{}
+	request.ProjectId = o.ProjectId
+	res := &types.GetReviewRangesResponse{}
+	err := h.wm.GetReviewRanges(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) getReviewThreads(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.GetReviewThreadsRequest{}
+	request.ProjectId = o.ProjectId
+	res := &types.GetReviewThreadsResponse{}
+	err := h.wm.GetReviewThreads(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) getReviewUsers(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.GetReviewUsersRequest{}
+	request.ProjectId = o.ProjectId
+	res := &types.GetReviewUsersResponse{}
+	err := h.wm.GetReviewUsers(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) reopenReviewThread(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.ReopenReviewThreadRequest{}
+	request.ProjectId = o.ProjectId
+	request.ThreadId = httpUtils.GetId(c, "threadId")
+	err := h.wm.ReopenReviewThread(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) resolveReviewThread(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.ResolveReviewThreadRequest{}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	request.ThreadId = httpUtils.GetId(c, "threadId")
+	err := h.wm.ResolveReviewThread(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) sendReviewComment(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SendReviewCommentRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
+	request.ThreadId = httpUtils.GetId(c, "threadId")
+	err := h.wm.SendReviewComment(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) setTrackChangesState(c *gin.Context) {
+	o := mustGetSignedCompileProjectOptionsFromJwt(c)
+	request := &types.SetTrackChangesStateRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.ProjectId = o.ProjectId
+	err := h.wm.SetTrackChangesState(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

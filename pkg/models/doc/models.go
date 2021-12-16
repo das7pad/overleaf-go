@@ -90,8 +90,8 @@ type Ranges struct {
 	IdField     `bson:"inline"`
 	RangesField `bson:"inline"`
 
-	// Fetch InS3Field as well.
-	InS3Field `bson:"inline"`
+	// Fetch InS3Field as well, but hide it from the frontend.
+	InS3Field `json:"-" bson:"inline"`
 }
 
 type RangesCollection []Ranges

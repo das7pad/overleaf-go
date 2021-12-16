@@ -101,11 +101,11 @@ func (h *httpController) getAllDocContents(c *gin.Context) {
 }
 
 func (h *httpController) getAllRanges(c *gin.Context) {
-	docNames, err := h.dm.GetAllRanges(
+	docRanges, err := h.dm.GetAllRanges(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 	)
-	httpUtils.Respond(c, http.StatusOK, docNames, err)
+	httpUtils.Respond(c, http.StatusOK, docRanges, err)
 }
 
 func (h *httpController) archiveProject(c *gin.Context) {
