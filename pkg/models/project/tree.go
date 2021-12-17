@@ -90,7 +90,7 @@ type LinkedFileData struct {
 	SourceProjectId      string             `json:"source_project_id,omitempty" bson:"source_project_id,omitempty"`
 	SourceEntityPath     string             `json:"source_entity_path,omitempty" bson:"source_entity_path,omitempty"`
 	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" bson:"source_output_file_path,omitempty"`
-	URL                  *sharedTypes.URL   `json:"url,omitempty" bson:"url,omitempty"`
+	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
 }
 
 type FileRef struct {

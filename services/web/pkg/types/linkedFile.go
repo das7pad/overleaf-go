@@ -54,7 +54,10 @@ type RefreshLinkedFileRequest struct {
 
 func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
 	sourceProjectId := ""
-	if r.Provider != project.LinkedFileProviderURL {
+	uri := ""
+	if r.Provider == project.LinkedFileProviderURL {
+		uri = r.Parameter.URL.String()
+	} else {
 		sourceProjectId = r.Parameter.SourceProjectId.Hex()
 	}
 	return &project.LinkedFileData{
@@ -62,7 +65,7 @@ func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
 		SourceProjectId:      sourceProjectId,
 		SourceEntityPath:     r.Parameter.SourceEntityPath.String(),
 		SourceOutputFilePath: r.Parameter.SourceOutputFilePath.String(),
-		URL:                  r.Parameter.URL,
+		URL:                  uri,
 	}
 }
 

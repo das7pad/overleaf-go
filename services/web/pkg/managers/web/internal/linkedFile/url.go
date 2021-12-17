@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -41,15 +42,19 @@ func (m *manager) fromURL(ctx context.Context, request *types.CreateLinkedFileRe
 	})
 }
 
-func (m *manager) refreshURL(ctx context.Context, request *types.RefreshLinkedFileRequest) error {
+func (m *manager) refreshURL(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
+	uri, err := sharedTypes.ParseAndValidateURL(r.File.LinkedFileData.URL)
+	if err != nil {
+		return errors.Tag(err, "invalid URL")
+	}
 	return m.fromURL(ctx, &types.CreateLinkedFileRequest{
-		UserId:         request.UserId,
-		ProjectId:      request.ProjectId,
-		ParentFolderId: request.ParentFolderId,
-		Name:           request.File.Name,
-		Provider:       request.File.LinkedFileData.Provider,
+		UserId:         r.UserId,
+		ProjectId:      r.ProjectId,
+		ParentFolderId: r.ParentFolderId,
+		Name:           r.File.Name,
+		Provider:       r.File.LinkedFileData.Provider,
 		Parameter: types.CreateLinkedFileProviderParameter{
-			URL: request.File.LinkedFileData.URL,
+			URL: uri,
 		},
 	})
 }
