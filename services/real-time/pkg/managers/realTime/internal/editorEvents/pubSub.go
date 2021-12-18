@@ -68,6 +68,7 @@ var nonRestrictedMessages = []string{
 
 	// System
 	"forceDisconnect",
+	"unregisterServiceWorker",
 }
 
 func (r *ProjectRoom) Handle(raw string) {
