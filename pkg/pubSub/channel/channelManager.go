@@ -65,15 +65,14 @@ func (c BaseChannel) join(id primitive.ObjectID) channel {
 	return channel(string(c) + ":" + id.Hex())
 }
 
-func (c BaseChannel) parseIdFromChannel(s string) primitive.ObjectID {
+func (c BaseChannel) parseIdFromChannel(s string) (primitive.ObjectID, error) {
 	if len(s) != len(c)+25 {
-		return primitive.NilObjectID
+		if s == string(c) {
+			return primitive.NilObjectID, nil
+		}
+		return primitive.NilObjectID, primitive.ErrInvalidHex
 	}
-	id, err := primitive.ObjectIDFromHex(s[len(c)+1:])
-	if err != nil {
-		return primitive.NilObjectID
-	}
-	return id
+	return primitive.ObjectIDFromHex(s[len(c)+1:])
 }
 
 func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
@@ -150,14 +149,22 @@ func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
 				if msg.Kind != "unsubscribe" {
 					continue
 				}
+				id, errId := m.base.parseIdFromChannel(msg.Channel)
+				if errId != nil {
+					continue
+				}
 				rawC <- &PubSubMessage{
-					Channel: m.base.parseIdFromChannel(msg.Channel),
+					Channel: id,
 					Action:  Unsubscribed,
 				}
 			case *redis.Message:
+				id, errId := m.base.parseIdFromChannel(msg.Channel)
+				if errId != nil {
+					continue
+				}
 				rawC <- &PubSubMessage{
 					Msg:     msg.Payload,
-					Channel: m.base.parseIdFromChannel(msg.Channel),
+					Channel: id,
 					Action:  IncomingMessage,
 				}
 			}
