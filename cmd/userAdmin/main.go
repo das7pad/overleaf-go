@@ -29,11 +29,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/das7pad/overleaf-go/cmd/internal/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
-	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
@@ -110,30 +109,17 @@ func main() {
 		os.Exit(101)
 	}
 
-	ctx, done := context.WithTimeout(context.Background(), *timeout)
-	defer done()
-
-	mOptions, dbName := mongoOptions.Parse()
-	rOptions := redisOptions.Parse()
-
-	mClient, err := mongo.Connect(ctx, mOptions)
-	if err != nil {
-		panic(errors.Tag(err, "cannot talk to mongo"))
-	}
-	if err = mClient.Ping(ctx, nil); err != nil {
-		panic(errors.Tag(err, "cannot talk to mongo"))
-	}
-	c := mClient.Database(dbName).Collection("users")
-
-	rClient := redis.NewUniversalClient(rOptions)
-	if err = rClient.Ping(ctx).Err(); err != nil {
-		panic(errors.Tag(err, "cannot talk to redis"))
-	}
+	rClient := utils.MustConnectRedis(*timeout)
+	db := utils.MustConnectMongo(*timeout)
+	c := db.Collection("users")
 
 	sm := session.New(signedCookie.Options{
 		Secrets: []string{"not-used"},
 	}, rClient)
 
+	ctx, done := context.WithTimeout(context.Background(), *timeout)
+	defer done()
+	var err error
 	if *promote {
 		err = promoteToAdmin(ctx, c, rClient, sm, email)
 	} else {

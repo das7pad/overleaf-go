@@ -27,7 +27,7 @@ import (
 )
 
 type Manager interface {
-	Create(ctx context.Context, content ContentField) error
+	Create(ctx context.Context, content string) error
 	DeleteAll(ctx context.Context) error
 	GetAll(ctx context.Context) ([]Full, error)
 }
@@ -50,8 +50,8 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) Create(ctx context.Context, content ContentField) error {
-	_, err := m.c.InsertOne(ctx, content)
+func (m *manager) Create(ctx context.Context, content string) error {
+	_, err := m.c.InsertOne(ctx, &ContentField{Content: content})
 	if err != nil {
 		return rewriteMongoError(err)
 	}
