@@ -67,9 +67,6 @@ func (c BaseChannel) join(id primitive.ObjectID) channel {
 
 func (c BaseChannel) parseIdFromChannel(s string) (primitive.ObjectID, error) {
 	if len(s) != len(c)+25 {
-		if s == string(c) {
-			return primitive.NilObjectID, nil
-		}
 		return primitive.NilObjectID, primitive.ErrInvalidHex
 	}
 	return primitive.ObjectIDFromHex(s[len(c)+1:])
@@ -121,7 +118,7 @@ func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Mess
 }
 
 func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
-	m.p = m.client.Subscribe(ctx, string(m.base))
+	m.p = m.client.Subscribe(ctx, string(m.base.join(primitive.NilObjectID)))
 	if _, err := m.p.Receive(ctx); err != nil {
 		return nil, err
 	}
