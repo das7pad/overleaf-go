@@ -16,6 +16,10 @@
 
 package asyncForm
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/errors"
+)
+
 type MessageType string
 
 const (
@@ -25,10 +29,21 @@ const (
 type Message struct {
 	Text string      `json:"text"`
 	Type MessageType `json:"type"`
+	Key  string      `json:"key,omitempty"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type Response struct {
 	Message    *Message `json:"message,omitempty"`
 	RedirectTo string   `json:"redir,omitempty"`
+}
+
+func (r *Response) SetCustomFormMessage(key string, err error) {
+	r.Message = &Message{
+		Key: key,
+	}
+	if err != nil {
+		r.Message.Text = errors.GetPublicMessage(err)
+		r.Message.Type = Error
+	}
 }

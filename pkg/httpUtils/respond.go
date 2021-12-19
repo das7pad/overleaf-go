@@ -70,7 +70,7 @@ func Respond(
 		}
 		if body == nil {
 			body = gin.H{"message": errMessage}
-		} else if r, ok := body.(*asyncForm.Response); ok {
+		} else if r, ok := body.(*asyncForm.Response); ok && r.Message == nil {
 			r.Message = &asyncForm.Message{
 				Text: errMessage,
 				Type: asyncForm.Error,

@@ -32,9 +32,15 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 	}
 	u := &user.WithLoginInfo{}
 	if err := m.um.GetUserByEmail(ctx, r.Email, u); err != nil {
+		if errors.IsNotFoundError(err) {
+			res.SetCustomFormMessage("user-not-found", err)
+		}
 		return errors.Tag(err, "cannot get user from mongo")
 	}
 	if err := CheckPassword(&u.HashedPasswordField, r.Password); err != nil {
+		if errors.IsNotAuthorizedError(err) {
+			res.SetCustomFormMessage("invalid-password", err)
+		}
 		return err
 	}
 

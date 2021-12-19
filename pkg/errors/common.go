@@ -22,6 +22,7 @@ import (
 )
 
 type PublicError interface {
+	error
 	Public() *JavaScriptError
 }
 
@@ -31,6 +32,16 @@ type PotentiallyFatalError interface {
 
 type Causer interface {
 	Cause() error
+}
+
+func GetPublicMessage(err error) string {
+	if pErr, ok := err.(PublicError); ok {
+		return pErr.Error()
+	}
+	if cErr, ok := err.(Causer); ok {
+		return GetPublicMessage(cErr.Cause())
+	}
+	return "internal server error"
 }
 
 type JavaScriptError struct {
