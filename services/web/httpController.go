@@ -1543,8 +1543,9 @@ func (h *httpController) setPassword(c *gin.Context) {
 		return
 	}
 	request.IPAddress = c.ClientIP()
-	err := h.wm.SetPassword(c.Request.Context(), request)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+	res := &types.SetPasswordResponse{}
+	err := h.wm.SetPassword(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
 func (h *httpController) confirmEmail(c *gin.Context) {

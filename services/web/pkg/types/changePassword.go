@@ -57,15 +57,7 @@ type SetPasswordRequest struct {
 	Password UserPassword              `json:"password"`
 }
 
-func (r *SetPasswordRequest) Validate() error {
-	if err := r.Token.Validate(); err != nil {
-		return err
-	}
-	if err := r.Password.Validate(); err != nil {
-		return err
-	}
-	return nil
-}
+type SetPasswordResponse = asyncForm.Response
 
 type RequestPasswordResetRequest struct {
 	Email sharedTypes.Email `json:"email"`

@@ -39,7 +39,7 @@ type Manager interface {
 	Logout(ctx context.Context, request *types.LogoutRequest) error
 	RequestPasswordReset(ctx context.Context, r *types.RequestPasswordResetRequest) error
 	ResendEmailConfirmation(ctx context.Context, r *types.ResendEmailConfirmationRequest) error
-	SetPassword(ctx context.Context, r *types.SetPasswordRequest) error
+	SetPassword(ctx context.Context, r *types.SetPasswordRequest, response *types.SetPasswordResponse) error
 	SetUserName(ctx context.Context, r *types.SetUserName) error
 }
 

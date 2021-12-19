@@ -28,8 +28,12 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest) error {
-	if err := r.Validate(); err != nil {
+func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, res *types.SetPasswordResponse) error {
+	if err := r.Token.Validate(); err != nil {
+		return err
+	}
+	if err := r.Password.Validate(); err != nil {
+		res.SetCustomFormMessage("invalid-password", err)
 		return err
 	}
 	u := &user.ForPasswordChange{}
@@ -41,6 +45,9 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest) 
 			sCtx, r.Token,
 		)
 		if errResolve != nil {
+			if errors.IsNotAuthorizedError(errResolve) {
+				res.SetCustomFormMessage("token-expired", errResolve)
+			}
 			return errors.Tag(errResolve, "cannot get token data")
 		}
 		if err := m.um.GetUserByEmail(sCtx, d.Email, u); err != nil {
@@ -50,6 +57,10 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest) 
 			return &errors.UnprocessableEntityError{
 				Msg: "owner of email changed",
 			}
+		}
+		if err := r.Password.CheckForEmailMatch(u.Email); err != nil {
+			res.SetCustomFormMessage("invalid-password", err)
+			return err
 		}
 		{
 			errSamePW := CheckPassword(&u.HashedPasswordField, r.Password)
