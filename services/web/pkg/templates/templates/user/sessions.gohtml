@@ -55,7 +55,7 @@
               method="POST"
             >
               <div data-ol-not-sent="data-ol-not-sent">
-                  {{ if .OtherSessions.Sessions }}
+                  {{ if .OtherSessions }}
                     <p
                       class="text-center"
                     >{{ translate "no_other_sessions" . }}</p>
@@ -67,7 +67,7 @@
                         <th>{{ translate "session_created_at" . }}</th>
                       </tr>
                       </thead>
-                        {{ range $key, $session := .OtherSessions.Sessions }}
+                        {{ range $key, $session := .OtherSessions }}
                           <tr>
                             <td>{{ $session.IPAddress }}</td>
                             <td>{{ $session.SessionCreated }}</td>

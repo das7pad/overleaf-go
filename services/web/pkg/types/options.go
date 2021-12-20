@@ -49,10 +49,15 @@ type Options struct {
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
+	I18n                     I18nOptions         `json:"i18N"`
 	ManifestPath             string              `json:"manifest_path"`
+	Nav                      NavOptions          `json:"nav"`
 	PDFDownloadDomain        PDFDownloadDomain   `json:"pdf_download_domain"`
 	ProjectsInactiveAfter    time.Duration       `json:"projects_inactive_after"`
+	RobotsNoindex            bool                `json:"robots_noindex"`
+	Sentry                   SentryOptions       `json:"sentry"`
 	SiteURL                  sharedTypes.URL     `json:"site_url"`
+	StatusPageUrl            sharedTypes.URL     `json:"status_page_url"`
 	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
 	WatchManifest            bool                `json:"watch_manifest"`
 
@@ -217,6 +222,109 @@ func (o *Options) EmailOptions() *EmailOptions {
 				o.Email.SMTPPassword,
 				o.Email.SMTPAddress.Host(),
 			),
+		},
+	}
+}
+
+type NavOptions struct {
+	HeaderExtras []NavElementWithDropDown
+	LeftFooter   NavElement
+	RightFooter  NavElement
+	Title        string
+}
+
+type NavElement struct {
+	Class string
+	Label string
+	Text  string
+	URL   string
+}
+
+type NavElementWithDivider struct {
+	NavElement
+	Divider bool
+}
+
+type NavElementWithDropDown struct {
+	NavElement
+	Dropdown []NavElementWithDivider
+}
+
+type I18nSubDomainLang struct {
+	Hide    bool
+	LngCode string
+	URL     sharedTypes.URL
+}
+
+type I18nOptions struct {
+	SubdomainLang []I18nSubDomainLang
+}
+
+type SentryFrontendOptions struct {
+	Dsn                string `json:"dsn"`
+	Environment        string `json:"environment,omitempty"`
+	Release            string `json:"release,omitempty"`
+	Commit             string `json:"commit,omitempty"`
+	AllowedOriginRegex string `json:"allowedOriginRegex,omitempty"`
+}
+
+type SentryOptions struct {
+	Frontend SentryFrontendOptions
+}
+
+type PublicSentryOptions struct {
+	Frontend SentryFrontendOptions
+}
+
+type PublicSettings struct {
+	AppName             string
+	AdminEmail          sharedTypes.Email
+	I18n                I18nOptions
+	Nav                 NavOptions
+	RobotsNoindex       bool
+	Sentry              PublicSentryOptions
+	StatusPageUrl       sharedTypes.URL
+	TranslatedLanguages map[string]string
+}
+
+func (s *PublicSettings) ShowLanguagePicker() bool {
+	return len(s.I18n.SubdomainLang) > 1
+}
+
+func (o *Options) PublicSettings() *PublicSettings {
+	//goland:noinspection SpellCheckingInspection
+	return &PublicSettings{
+		AppName:       o.AppName,
+		AdminEmail:    o.AdminEmail,
+		I18n:          o.I18n,
+		Nav:           o.Nav,
+		RobotsNoindex: o.RobotsNoindex,
+		Sentry: PublicSentryOptions{
+			Frontend: o.Sentry.Frontend,
+		},
+		StatusPageUrl: o.StatusPageUrl,
+		TranslatedLanguages: map[string]string{
+			"cn":    "简体中文",
+			"cs":    "Čeština",
+			"da":    "Dansk",
+			"de":    "Deutsch",
+			"en":    "English",
+			"es":    "Español",
+			"fi":    "Suomi",
+			"fr":    "Français",
+			"it":    "Italiano",
+			"ja":    "日本語",
+			"ko":    "한국어",
+			"nl":    "Nederlands",
+			"no":    "Norsk",
+			"pl":    "Polski",
+			"pt":    "Português",
+			"ro":    "Română",
+			"ru":    "Русский",
+			"sv":    "Svenska",
+			"tr":    "Türkçe",
+			"uk":    "Українська",
+			"zh-CN": "简体中文",
 		},
 	}
 }

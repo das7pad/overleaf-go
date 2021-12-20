@@ -140,10 +140,8 @@
         content="{{ .Settings.Sentry.Frontend }}"
       />
     {{ end }}
-    {{ block "meta" . }}
-    {{ end }}
 </head>
-<body>
+<body ng-csp="ng-csp">
 {{ block "skipToContent" .}}
   <a
     class="skip-to-content"
@@ -155,10 +153,10 @@
     <div class="container-fluid">
       <div class="navbar-header">
         <button
-          class="navbar-toggle collapsed"
-          type="button"
-          data-toggle="collapse"
-          data-target="[data-ol-navbar-main-collapse]"
+          class="navbar-toggle"
+          ng-init="navCollapsed = true"
+          ng-click="navCollapsed = !navCollapsed"
+          ng-class="{active: !navCollapsed}"
           aria-label="Toggle {{ translate "navigation" . }}"
         >
           <i
@@ -170,6 +168,7 @@
             <a
               href="/"
               aria-label="{{ .Settings.AppName }}"
+              ng-non-bindable="ng-non-bindable"
               class="navbar-title"
             >{{ .Settings.Nav.Title }}</a>
           {{ else }}
@@ -182,18 +181,18 @@
       </div>
       <div
         class="navbar-collapse collapse"
-        data-ol-navbar-main-collapse="data-ol-navbar-main-collapse"
+        collapse="navCollapsed"
       >
         <ul class="nav navbar-nav navbar-right">
             {{ if .IsAdmin }}
-              <li class="dropdown subdued">
+              <li
+                class="dropdown subdued"
+                dropdown="dropdown"
+              >
                 <a
                   class="dropdown-toggle"
-                  href="#"
-                  role="button"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                  data-toggle="dropdown"
+                  href="href"
+                  dropdown-toggle="dropdown-toggle"
                 >
                   Admin <b class="caret"></b>
                 </a>
@@ -215,14 +214,14 @@
           </li>
             {{ range $key, $item := .Settings.Nav.HeaderExtras }}
                 {{ if $item.Dropdown }}
-                  <li class="dropdown {{ $item.Class }}">
+                  <li
+                    class="dropdown {{ $item.Class }}"
+                    dropdown="dropdown"
+                  >
                     <a
                       class="dropdown-toggle"
                       href="#"
-                      role="button"
-                      aria-haspopup="true"
-                      aria-expanded="false"
-                      data-toggle="dropdown"
+                      dropdown-toggle="dropdown-toggle"
                     >
                         {{ translateMaybe $item.Text . }} <b class="caret"></b>
                     </a>
@@ -271,14 +270,14 @@
               <li>
                 <a href="/project">{{ translate "projects" . }}</a>
               </li>
-              <li class="dropdown">
+              <li
+                class="dropdown"
+                dropdown="dropdown"
+              >
                 <a
                   class="dropdown-toggle"
                   href="#"
-                  role="button"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                  data-toggle="dropdown"
+                  dropdown-toggle="dropdown-toggle"
                 >
                     {{ translate "account" . }} <b class="caret"></b>
                 </a>
@@ -295,25 +294,26 @@
                   <li class="divider hidden-xs hidden-sm"></li>
                   <li>
                     <form
-                      data-ol-async-form="data-ol-async-form"
+                      async-form="async-form"
+                      name="logout"
                       method="POST"
                       action="/api/logout"
                     >
                       <div
-                        data-ol-form-messages=""
-                        role="alert"
+                        class="alert alert-warning"
+                        ng-show="logout.response.error"
+                        ng-bind-html="logout.response.message.text"
                       ></div>
                       <button
                         class="btn-link text-left dropdown-menu-button"
-                        type="submit"
-                        data-ol-disabled-inflight="data-ol-disabled-inflight"
+                        ng-disabled="logout.inflight"
+                        stop-propagation="click"
                       >
                         <span
-                          data-ol-inflight="idle"
+                          ng-hide="logout.inflight"
                         >{{ translate "log_out" . }}</span>
                         <span
-                          hidden="hidden"
-                          data-ol-inflight="pending"
+                          ng-show="logout.inflight"
                         >{{ translate "logging_out" . }}…</span>
                       </button>
                     </form>
@@ -353,23 +353,25 @@
               </li>
             {{ end }}
             {{ if .Settings.ShowLanguagePicker }}
-              <li class="dropdown dropup subdued">
+              <li
+                class="dropdown dropup subdued"
+                dropdown="dropdown"
+              >
                 <a
                   class="dropdown-toggle"
                   href="#"
+                  dropdown-toggle="dropdown-toggle"
                   data-toggle="dropdown"
                   aria-haspopup="true"
                   aria-expanded="false"
                   aria-label="Select {{ translate "language" . }}"
-                  data-ol-lang-selector-tooltip="data-ol-lang-selector-tooltip"
-                  title="{{ translate "language" . }}"
+                  tooltip="{{ translate "language" . }}"
                 >
                   <i class="fa fa-fw fa-language"></i>
                     {{ index .Settings.TranslatedLanguages .CurrentLngCode }}
                 </a>
                 <ul
                   class="dropdown-menu"
-                  role="menu"
                 >
                   <li class="dropdown-header">{{ translate "language" . }}</li>
                     {{ range $key, $details := .Settings.I18n.SubdomainLang }}
@@ -394,7 +396,7 @@
               </li>
             {{ end }}
             {{ range $key, $item := .Settings.Nav.LeftFooter }}
-              <li>
+              <li ng-non-bindable="ng-non-bindable">
                   {{ if $item.URL }}
                     <a
                       href="{{ $item.URL }}"
@@ -409,7 +411,7 @@
         </ul>
         <ul class="col-md-3 text-right">
             {{ range $key, $item  := .Settings.Nav.RightFooter }}
-              <li>
+              <li ng-non-bindable="ng-non-bindable">
                   {{ if $item.URL }}
                     <a
                       href="{{ $item.URL }}"
@@ -426,7 +428,12 @@
     </div>
   </footer>
 {{ end }}
-{{ range $index, $chunk := getEntrypointChunks "frontend/js/marketing.js" }}
+<script
+  type="text/javascript"
+  src="{{ buildTPath .CurrentLngCode }}"
+></script>
+{{/* TODO: test */}}
+{{ range $index, $chunk := getEntrypointChunks .Entrypoint }}
   <script
     type="module"
     src="{{ $chunk }}"

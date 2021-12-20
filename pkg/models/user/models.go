@@ -126,3 +126,8 @@ type WithNames struct {
 	FirstNameField `bson:"inline"`
 	LastNameField  `bson:"inline"`
 }
+
+type ForSettingsPage struct {
+	WithPublicInfo   `bson:"inline"`
+	BetaProgramField `bson:"inline"`
+}

@@ -51,6 +51,7 @@
                         required="required"
                         ng-model="email"
                         ng-model-options="{ updateOn: 'blur' }"
+                        value="{{ .User.Email }}"
                       />
                       <span
                         class="small text-danger"
@@ -151,7 +152,7 @@
                     <input
                       type="email"
                       autocomplete="username"
-                      value="{{ .UsersEmail }}"
+                      value="{{ .User.Email }}"
                       ng-hide="true"
                     />
                     <div class="form-group">
@@ -283,8 +284,9 @@
     <div
       class="modal-body"
       id="delete-account-modal"
-    ><p>
-            {{ translate "delete_account_warning_message_3" . }}
+    >
+      <p>
+          {{ translate "delete_account_warning_message_3" . }}
       </p>
       <form
         novalidate="novalidate"
@@ -321,7 +323,7 @@
           />
           <label for="deleteConfirmBox">
             I understand this will delete all projects in my Overleaf account
-            with email address <em>{{ .UserDefaultEmail }}</em>
+            with email address <em>{{ .User.Email }}</em>
           </label>
         </div>
       </form>

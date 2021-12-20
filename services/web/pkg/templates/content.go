@@ -20,52 +20,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type PublicSettings struct {
-	AppName    string
-	AdminEmail sharedTypes.Email
-	I18n       struct {
-		SubdomainLang []struct {
-			Hide    bool
-			LngCode string
-			URL     sharedTypes.URL
-		}
-	}
-	Nav struct {
-		HeaderExtras []struct {
-			Dropdown []struct {
-				Divider bool
-				Class   string
-				Label   string
-				Text    string
-				URL     string
-			}
-		}
-		LeftFooter []struct {
-			Class string
-			Label string
-			Text  string
-			URL   string
-		}
-		RightFooter []struct {
-			Class string
-			Label string
-			Text  string
-			URL   string
-		}
-		Title string
-	}
-	RobotsNoindex       bool
-	TranslatedLanguages map[string]string
-}
-
-func (s *PublicSettings) ShowLanguagePicker() bool {
-	return len(s.I18n.SubdomainLang) > 1
-}
-
 type CommonData struct {
-	Settings *PublicSettings
+	Settings *types.PublicSettings
 
 	CurrentLngCode        string
 	RobotsNoindexNofollow bool
@@ -77,20 +36,47 @@ func (d *CommonData) GetCurrentLngCode() string {
 	return d.CurrentLngCode
 }
 
-type MarketingLayoutData struct {
+type JsLayoutData struct {
 	CommonData
-	UsersEmail sharedTypes.Email
-	UserId     primitive.ObjectID
-	IsAdmin    bool
+	UsersEmail       sharedTypes.Email
+	UserId           primitive.ObjectID
+	IsAdmin          bool
+	CustomEntrypoint string
 }
 
-func (d *MarketingLayoutData) LoggedIn() bool {
+func (d *JsLayoutData) LoggedIn() bool {
 	return !d.UserId.IsZero()
 }
 
-func (d *MarketingLayoutData) UserIdNoZero() string {
+func (d *JsLayoutData) UserIdNoZero() string {
 	if d.UserId.IsZero() {
 		return ""
 	}
 	return d.UserId.Hex()
+}
+
+type MarketingLayoutData struct {
+	JsLayoutData
+}
+
+func (d *MarketingLayoutData) Entrypoint() string {
+	if d.CustomEntrypoint != "" {
+		return d.CustomEntrypoint
+	}
+	return "frontend/js/marketing.js"
+}
+
+type AngularLayoutData struct {
+	JsLayoutData
+}
+
+func (d *AngularLayoutData) Entrypoint() string {
+	if d.CustomEntrypoint != "" {
+		return d.CustomEntrypoint
+	}
+	return "frontend/js/main.js"
+}
+
+type NoJsLayoutData struct {
+	CommonData
 }
