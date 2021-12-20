@@ -26,15 +26,15 @@
         <div class="col-md-10 col-md-offset-1 col-lg-8 col-lg-offset-2">
           <div class="card clear-user-sessions">
             <div class="page-header">
-              <h1>{{ translate "your_sessions" }}</h1>
+              <h1>{{ translate "your_sessions" . }}</h1>
             </div>
-            <h3>{{ translate "current_session" }}</h3>
+            <h3>{{ translate "current_session" . }}</h3>
             <div>
               <table class="table table-striped">
                 <thead>
                 <tr>
-                  <th>{{ translate "ip_address" }}</th>
-                  <th>{{ translate "session_created_at" }}</th>
+                  <th>{{ translate "ip_address" . }}</th>
+                  <th>{{ translate "session_created_at" . }}</th>
                 </tr>
                 <tr>
                   <td>{{ .CurrentSession.IPAddress }}</td>
@@ -43,11 +43,11 @@
                 </thead>
               </table>
             </div>
-            <h3>{{ translate "other_sessions" }}</h3>
+            <h3>{{ translate "other_sessions" . }}</h3>
             <div>
               <p
                 class="small"
-              >{{ translate "clear_sessions_description" }}</p>
+              >{{ translate "clear_sessions_description" . }}</p>
             </div>
             <form
               data-ol-async-form="data-ol-async-form"
@@ -58,13 +58,13 @@
                   {{ if .OtherSessions.Sessions }}
                     <p
                       class="text-center"
-                    >{{ translate "no_other_sessions" }}</p>
+                    >{{ translate "no_other_sessions" . }}</p>
                   {{ else }}
                     <table class="table table-striped">
                       <thead>
                       <tr>
-                        <th>{{ translate "ip_address" }}</th>
-                        <th>{{ translate "session_created_at" }}</th>
+                        <th>{{ translate "ip_address" . }}</th>
+                        <th>{{ translate "session_created_at" . }}</th>
                       </tr>
                       </thead>
                         {{ range $key, $session := .OtherSessions.Sessions }}
@@ -82,11 +82,11 @@
                       >
                         <span
                           data-ol-inflight="idle"
-                        >{{ translate "clear_sessions" }}</span>
+                        >{{ translate "clear_sessions" . }}</span>
                         <span
                           hidden="hidden"
                           data-ol-inflight="pending"
-                        >{{ translate "processing" }}…</span>
+                        >{{ translate "processing" . }}…</span>
                       </button>
                     </p>
                   {{ end }}
@@ -95,10 +95,12 @@
                 hidden="hidden"
                 data-ol-sent="data-ol-sent"
               >
-                <p class="text-center">{{ translate "no_other_sessions" }}</p>
+                <p
+                  class="text-center"
+                >{{ translate "no_other_sessions" . }}</p>
                 <p
                   class="text-success text-center"
-                >{{ translate "clear_sessions_success" }}</p>
+                >{{ translate "clear_sessions_success" . }}</p>
               </div>
             </form>
           </div>

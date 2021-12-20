@@ -26,20 +26,17 @@
         <div class="registration_message">
             {{ if .SharedProjectData }}
               <h1>
-                  {{
-                  call
-                  translate "user_wants_you_to_see_project" .SharedProjectData
-                  }}
+                  {{ translate "user_wants_you_to_see_project" . }}
               </h1>
               <div>
-                  {{ translate "join_sl_to_view_project" }}.
-                  {{ translate "if_you_are_registered" }},
-                <a href="/login">{{ translate "login_here" }}</a>
+                  {{ translate "join_sl_to_view_project" . }}.
+                  {{ translate "if_you_are_registered" . }},
+                <a href="/login">{{ translate "login_here" . }}</a>
               </div>
             {{ else }}
               <div>
-                <span>{{ translate "already_have_sl_account" }}</span>
-                <a href="/login">{{ translate "login_here" }}</a>
+                <span>{{ translate "already_have_sl_account" . }}</span>
+                <a href="/login">{{ translate "login_here" . }}</a>
               </div>
             {{ end }}
         </div>
@@ -48,7 +45,7 @@
         <div class="col-md-8 col-md-offset-2 col-lg-6 col-lg-offset-3">
           <div class="card">
             <div class="page-header">
-              <h1>{{ translate "register" }}</h1>
+              <h1>{{ translate "register" . }}</h1>
             </div>
             <p>
               Please contact <a

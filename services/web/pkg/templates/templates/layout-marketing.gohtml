@@ -20,24 +20,24 @@
 <html lang="{{ .CurrentLngCode }}">
 <head>
   <title>
-      {{ .Metadata.Title }} - {{.Settings.AppName}},
-      {{ translate "online_latex_editor" }}
+      {{ .Title }} - {{ .Settings.AppName }},
+      {{ translate "online_latex_editor" . }}
   </title>
   <meta
     name="twitter:title"
-    content="{{ .Metadata.Title }}"
+    content="{{ .Title }}"
   />
   <meta
     name="og:title"
-    content="{{ .Metadata.Title }}"
+    content="{{ .Title }}"
   />
   <meta
     name="description"
-    content="{{ translate "site_description" }}"
+    content="{{ translate "site_description" . }}"
   />
   <meta
     itemprop="description"
-    content="{{ translate "site_description" }}"
+    content="{{ translate "site_description" . }}"
   />
   <meta
     itemprop="image"
@@ -45,13 +45,13 @@
   />
   <meta
     name="image"
-    content="{{ staticPath("/touch-icon-192x192.png") }}"
+    content="{{ staticPath "/touch-icon-192x192.png" }}"
   />
   <meta
     itemprop="name"
     content="{{ .Settings.AppName }}, the Online LaTeX Editor"
   />
-    {{ if .Metadata.RobotsNoindexNofollow }}
+    {{ if .RobotsNoindexNofollow }}
       <meta
         name="robots"
         content="noindex, nofollow"
@@ -59,11 +59,11 @@
     {{ end }}
   <meta
     name="twitter:image"
-    content="{{ staticPath("/touch-icon-192x192.png") }}"
+    content="{{ staticPath "/touch-icon-192x192.png" }}"
   />
   <meta
     property="og:description"
-    content="{{ translate "site_description" }}"
+    content="{{ translate "site_description" . }}"
   />
   <meta
     property="og:image"
@@ -73,7 +73,7 @@
     property="og:type"
     content="website"
   />
-    {{ if .Metadata.Viewport }}
+    {{ if .Viewport }}
       <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=yes"
@@ -108,11 +108,11 @@
     href="{{ buildCssPath "" }}"
     id="main-stylesheet"
   />
-    {{ range $key, $details := .Settings.i18n.subdomainLang }}
-        {{ if not subdomainDetails.hide }}
+    {{ range $key, $details := .Settings.I18n.SubdomainLang }}
+        {{ if not $details.hide }}
           <link
             rel="alternate"
-            href="{{ getTranslationUrl($details) }}"
+            href="{{ getTranslationUrl $details.LngCode }}"
             hreflang="{{ $details.LngCode }}"
           />
         {{ end }}
@@ -139,7 +139,7 @@
   <a
     class="skip-to-content"
     href="#main-content"
-  >{{ translate "skip_to_content" }}</a>
+  >{{ translate "skip_to_content" . }}</a>
 {{ end }}
 {{ block "navbar" .}}
   <nav class="navbar navbar-default navbar-main">
@@ -150,7 +150,7 @@
           type="button"
           data-toggle="collapse"
           data-target="[data-ol-navbar-main-collapse]"
-          aria-label="Toggle {{ translate "navigation" }}"
+          aria-label="Toggle {{ translate "navigation" . }}"
         >
           <i
             class="fa fa-bars"
@@ -202,7 +202,7 @@
             <a
               class="subdued"
               href="/learn"
-            >{{ translate "documentation" }}</a>
+            >{{ translate "documentation" . }}</a>
           </li>
             {{ range $key, $item := .Settings.Nav.HeaderExtras }}
                 {{ if $item.Dropdown }}
@@ -215,7 +215,7 @@
                       aria-expanded="false"
                       data-toggle="dropdown"
                     >
-                        {{ translate $item.Text }} <b class="caret"></b>
+                        {{ translateMaybe $item.Text . }} <b class="caret"></b>
                     </a>
                     <ul class="dropdown-menu">
                         {{ range $key2, $child := $item.Dropdown }}
@@ -228,9 +228,9 @@
                                       href="{{ $child.URL }}"
                                       class="{{ $child.Class }}"
                                       aria-label="{{ $item.Label }}"
-                                    >{{ translate $child.Text }}</a>
+                                    >{{ translateMaybe $child.Text . }}</a>
                                   {{ else }}
-                                      {{ translate $child.Text }}
+                                      {{ translateMaybe $child.Text . }}
                                   {{ end }}
                               </li>
                             {{ end }}
@@ -244,23 +244,23 @@
                           href="{{ $item.URL }}"
                           class="{{ $item.class }}"
                           aria-label="{{ $item.Label }}"
-                        >{{ translate $item.Text }}</a>
+                        >{{ translateMaybe $item.Text . }}</a>
                       {{ else }}
-                          {{ translate $item.Text }}
+                          {{ translateMaybe $item.Text . }}
                       {{ end }}
                   </li>
                 {{ end }}{{ end }}
             {{ if not .LoggedIn }}
               <li>
-                <a href="/register">{{ translate "register" }}</a>
+                <a href="/register">{{ translate "register" . }}</a>
               </li>
               <li>
-                <a href="/login">{{ translate "log_in" }}</a>
+                <a href="/login">{{ translate "log_in" . }}</a>
               </li>
             {{ end }}
             {{ if .LoggedIn }}
               <li>
-                <a href="/project">{{ translate "projects" }}</a>
+                <a href="/project">{{ translate "projects" . }}</a>
               </li>
               <li class="dropdown">
                 <a
@@ -271,7 +271,7 @@
                   aria-expanded="false"
                   data-toggle="dropdown"
                 >
-                    {{ translate "account" }} <b class="caret"></b>
+                    {{ translate "account" . }} <b class="caret"></b>
                 </a>
                 <ul class="dropdown-menu">
                   <li>
@@ -281,7 +281,7 @@
                   <li>
                     <a
                       href="/user/settings"
-                    >{{ translate "account_settings" }}</a>
+                    >{{ translate "account_settings" . }}</a>
                   </li>
                   <li class="divider hidden-xs hidden-sm"></li>
                   <li>
@@ -301,11 +301,11 @@
                       >
                         <span
                           data-ol-inflight="idle"
-                        >{{ translate "log_out" }}</span>
+                        >{{ translate "log_out" . }}</span>
                         <span
                           hidden="hidden"
                           data-ol-inflight="pending"
-                        >{{ translate "logging_out" }}…</span>
+                        >{{ translate "logging_out" . }}…</span>
                       </button>
                     </form>
                   </li>
@@ -332,7 +332,7 @@
           </li>
           <li>
             Ported with <i
-              class="fa fa-heart"
+              class="fa fa-heart red"
               aria-label="love"
             ></i> to <a
               href="https://github.com/das7pad/overleaf-go"
@@ -351,9 +351,9 @@
                   data-toggle="dropdown"
                   aria-haspopup="true"
                   aria-expanded="false"
-                  aria-label="Select {{ translate "language" }}"
+                  aria-label="Select {{ translate "language" . }}"
                   data-ol-lang-selector-tooltip="data-ol-lang-selector-tooltip"
-                  title="{{ translate "language" }}"
+                  title="{{ translate "language" . }}"
                 >
                   <i class="fa fa-fw fa-language"></i>
                     {{ index .Settings.TranslatedLanguages .CurrentLngCode }}
@@ -362,13 +362,13 @@
                   class="dropdown-menu"
                   role="menu"
                 >
-                  <li class="dropdown-header">{{ translate "language" }}</li>
+                  <li class="dropdown-header">{{ translate "language" . }}</li>
                     {{ range $key, $details := .Settings.I18n.SubdomainLang }}
                         {{ if not $details.Hide }}
                           <li class="lngOption">
                             <a
                               class="menu-indent"
-                              href="{{ getTranslationUrl $details }}"
+                              href="{{ getTranslationUrl $details.LngCode }}"
                             >{{
                                 index
                                 .Settings.TranslatedLanguages $details.LngCode
@@ -391,9 +391,9 @@
                       href="{{ $item.URL }}"
                       class="{{ $item.Class }}"
                       aria-label="{{ $item.Label }}"
-                    >{{ translate $item.Text }}</a>
+                    >{{ translateMaybe $item.Text . }}</a>
                   {{ else }}
-                      {{ $item.Text }}
+                      {{ translateMaybe $item.Text . }}
                   {{ end }}
               </li>
             {{ end }}
@@ -406,9 +406,9 @@
                       href="{{ $item.URL }}"
                       class="{{ $item.Class }}"
                       aria-label="{{ $item.Label }}"
-                    >{{ translate $item.Text }}</a>
+                    >{{ translateMaybe $item.Text . }}</a>
                   {{ else }}
-                      {{ $item.Text }}
+                      {{ translateMaybe $item.Text . }}
                   {{ end }}
               </li>
             {{ end }}
@@ -417,7 +417,7 @@
     </div>
   </footer>
 {{ end }}
-{{ range $index, $chunk := getEntrypointChunks(entrypoint) }}
+{{ range $index, $chunk := getEntrypointChunks "frontend/js/marketing.js" }}
   <script
     type="module"
     src="{{ $chunk }}"

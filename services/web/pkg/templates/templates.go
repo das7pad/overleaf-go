@@ -19,21 +19,54 @@ package templates
 import (
 	"embed"
 	"html/template"
+	"path"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/translations"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates/internal/assets"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-//go:embed */*.gohtml
-//go:embed *.gohtml
+//go:embed templates/*/*.gohtml
+//go:embed templates/*.gohtml
 var _templatesRaw embed.FS
 
-var General400 *template.Template
-var General404 *template.Template
-var General500 *template.Template
-var GeneralUnsupportedBrowser *template.Template
-var UserLogin *template.Template
+var general400 *template.Template
+var general404 *template.Template
+var general500 *template.Template
+var generalUnsupportedBrowser *template.Template
+var userLogin *template.Template
 
-func init() {
+func Load(options *types.Options) error {
+	funcMap := make(template.FuncMap)
+	{
+		tm, err := translations.Load(options.AppName)
+		if err != nil {
+			return errors.Tag(err, "cannot load translations")
+		}
+		funcMap["getTranslationUrl"] = tm.GetTranslationUrl
+		funcMap["translate"] = tm.Translate
+		funcMap["translateMaybe"] = tm.TranslateMaybe
+	}
+	{
+		am, err := assets.Load(options)
+		if err != nil {
+			return errors.Tag(err, "cannot load assets")
+		}
+		funcMap["buildCssPath"] = am.BuildCssPath
+		funcMap["buildFontPath"] = am.BuildFontPath
+		funcMap["buildImgPath"] = am.BuildImgPath
+		funcMap["buildJsPath"] = am.BuildJsPath
+		funcMap["buildMathJaxEntrypoint"] = am.BuildMathJaxEntrypoint
+		funcMap["buildTPath"] = am.BuildTPath
+		funcMap["getEntrypointChunks"] = am.GetEntrypointChunks
+		funcMap["staticPath"] = am.StaticPath
+	}
+
 	build := func(base, content string) *template.Template {
-		return template.Must(template.ParseFS(_templatesRaw, base, content))
+		return template.Must(template.New(path.Base(base)).Funcs(funcMap).
+			ParseFS(_templatesRaw, base, "templates/"+content),
+		)
 	}
 	noJS := func(content string) *template.Template {
 		return build("templates/layout-no-js.gohtml", content)
@@ -41,11 +74,12 @@ func init() {
 	marketing := func(content string) *template.Template {
 		return build("templates/layout-marketing.gohtml", content)
 	}
-	General400 = noJS("templates/general/400.gohtml")
-	General404 = marketing("templates/general/404.gohtml")
-	General500 = noJS("layout-no-js.gohtml")
-	GeneralUnsupportedBrowser = noJS("general/unsupported-browser.gohtml")
-	UserLogin = marketing("user/login.gohtml")
+	general400 = noJS("general/400.gohtml")
+	general404 = marketing("general/404.gohtml")
+	general500 = noJS("general/404.gohtml")
+	generalUnsupportedBrowser = noJS("general/unsupported-browser.gohtml")
+	userLogin = marketing("user/login.gohtml")
 
 	_templatesRaw = embed.FS{}
+	return nil
 }

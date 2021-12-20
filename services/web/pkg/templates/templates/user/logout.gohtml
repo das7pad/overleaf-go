@@ -25,7 +25,7 @@
       <div class="login-register-header">
         <h1
           class="login-register-header-heading"
-        >{{ translate "log_out" }}</h1>
+        >{{ translate "log_out" . }}</h1>
       </div>
       <form
         class="login-register-form"
@@ -47,13 +47,13 @@
         >
           <span
             data-ol-inflight="idle"
-            aria-label="{{ translate "log_out" }}"
-          >{{ translate "log_out" }}</span>
+            aria-label="{{ translate "log_out" . }}"
+          >{{ translate "log_out" . }}</span>
           <span
             hidden="hidden"
             data-ol-inflight="pending"
-            aria-label="{{ translate "logging_out" }}"
-          >{{ translate "logging_out" }}…</span>
+            aria-label="{{ translate "logging_out" . }}"
+          >{{ translate "logging_out" . }}…</span>
         </button>
       </form>
     </div>

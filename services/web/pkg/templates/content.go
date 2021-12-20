@@ -54,6 +54,7 @@ type PublicSettings struct {
 			Text  string
 			URL   string
 		}
+		Title string
 	}
 	RobotsNoindex       bool
 	TranslatedLanguages map[string]string
@@ -63,17 +64,21 @@ func (s *PublicSettings) ShowLanguagePicker() bool {
 	return len(s.I18n.SubdomainLang) > 1
 }
 
-type CommonMetadata struct {
+type CommonData struct {
+	Settings *PublicSettings
+
 	CurrentLngCode        string
 	RobotsNoindexNofollow bool
 	Title                 string
 	Viewport              bool
 }
 
-type MarketingLayoutData struct {
-	*PublicSettings
-	CommonMetadata
+func (d *CommonData) GetCurrentLngCode() string {
+	return d.CurrentLngCode
+}
 
+type MarketingLayoutData struct {
+	CommonData
 	UsersEmail sharedTypes.Email
 	UserId     primitive.ObjectID
 	IsAdmin    bool

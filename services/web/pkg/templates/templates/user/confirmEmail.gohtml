@@ -26,7 +26,7 @@
         <div class="col-md-6 col-md-offset-3 col-lg-4 col-lg-offset-4">
           <div class="card">
             <div class="page-header">
-              <h1>{{ translate "confirm_email" }}</h1>
+              <h1>{{ translate "confirm_email" . }}</h1>
             </div>
             <form
               data-ol-async-form="data-ol-async-form"
@@ -53,7 +53,7 @@
                 >
                   <span
                     data-ol-inflight="idle"
-                  >{{ translate "confirm" }}</span>
+                  >{{ translate "confirm" . }}</span>
                   <span
                     hidden="hidden"
                     data-ol-inflight="pending"
@@ -61,7 +61,7 @@
                     <i
                       class="fa fa-fw fa-spin fa-spinner"
                       aria-hidden="true"
-                    ></i> {{ translate "confirming" }}…
+                    ></i> {{ translate "confirming" . }}…
                   </span>
                 </button>
               </div>
@@ -71,7 +71,7 @@
               >
                 <div
                   class="alert alert-success"
-                >{{ translate "thank_you_email_confirmed" }}</div>
+                >{{ translate "thank_you_email_confirmed" . }}</div>
               </div>
             </form>
           </div>

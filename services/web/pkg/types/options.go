@@ -38,6 +38,7 @@ type Options struct {
 	AllowedImages []clsiTypes.ImageName `json:"allowed_images"`
 	AppName       string                `json:"app_name"`
 	BcryptCost    int                   `json:"bcrypt_cost"`
+	CDNURL        sharedTypes.URL       `json:"cdn_url"`
 	DefaultImage  clsiTypes.ImageName   `json:"default_image"`
 	Email         struct {
 		CustomFooter     string            `json:"custom_footer"`
@@ -48,10 +49,12 @@ type Options struct {
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
+	ManifestPath             string              `json:"manifest_path"`
 	PDFDownloadDomain        PDFDownloadDomain   `json:"pdf_download_domain"`
 	ProjectsInactiveAfter    time.Duration       `json:"projects_inactive_after"`
 	SiteURL                  sharedTypes.URL     `json:"site_url"`
 	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
+	WatchManifest            bool                `json:"watch_manifest"`
 
 	APIs struct {
 		Clsi struct {
@@ -110,8 +113,14 @@ func (o *Options) Validate() error {
 	if o.BcryptCost < 10 {
 		return &errors.ValidationError{Msg: "bcrypt_cost is too low"}
 	}
+	if err := o.CDNURL.Validate(); err != nil {
+		return errors.Tag(err, "cdn_url is invalid")
+	}
 	if len(o.DefaultImage) == 0 {
 		return &errors.ValidationError{Msg: "default_image is missing"}
+	}
+	if o.ManifestPath == "" {
+		return &errors.ValidationError{Msg: "manifest_path is missing"}
 	}
 	if o.ProjectsInactiveAfter < 24*time.Hour {
 		return &errors.ValidationError{
