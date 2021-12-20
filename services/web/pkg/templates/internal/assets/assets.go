@@ -121,7 +121,6 @@ func (m *manager) BuildFontPath(path string) template.URL {
 }
 
 func (m *manager) BuildImgPath(path string) template.URL {
-	// TODO: extend esbuild manifest to include ALL entries from /public
 	return m.assets["public/img/"+path]
 }
 
