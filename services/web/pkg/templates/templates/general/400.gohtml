@@ -1,0 +1,50 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{define "content"}}
+  <main
+    class="content content-alt full-height"
+    id="main-content"
+  >
+    <div class="container full-height">
+      <div class="error-container full-height">
+        <div class="error-details">
+          <p class="error-status">
+            I'm sorry, Dave. I'm afraid I can't do that.
+          </p>
+          <p class="error-description">
+            There was a problem with your latest request
+              {{ if .Message }}: {{ .Message }}{{ end }}.
+            <br/>
+            Please go back and try again.
+          </p>
+          <p class="error-description">
+            If the problem persists, please contact us at
+            <a
+              href="mailto:{{ .Settings.adminEmail }}"
+            >{{ Settings.AdminEmail }}</a>.
+          </p>
+          <a
+            class="btn btn-default"
+            href="/"
+          >Home</a>
+        </div>
+      </div>
+    </div>
+  </main>
+{{end}}

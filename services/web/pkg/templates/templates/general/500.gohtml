@@ -1,0 +1,48 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{define "content"}}
+  <main
+    class="content content-alt full-height"
+    id="main-content"
+  >
+    <div class="container full-height">
+      <div class="error-container full-height">
+        <div class="error-details">
+          <p class="error-status">Something went wrong, sorry.</p>
+          <p class="error-description">
+            Our staff are probably looking into this, but if it continues,
+            please check our status page at
+            <a
+              href="{{ .Settings.StatusPageUrl }}"
+            >{{ .Settings.StatusPageUrl }}</a>
+            or contact us at
+            <a
+              href="mailto:{{ .Settings.AdminEmail }}"
+            >{{ .Settings.AdminEmail }}</a>
+            .
+          </p>
+          <a
+            class="error-btn"
+            href="/"
+          >Home</a>
+        </div>
+      </div>
+    </div>
+  </main>
+{{end}}

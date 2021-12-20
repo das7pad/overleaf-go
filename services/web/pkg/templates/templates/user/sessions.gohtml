@@ -1,0 +1,109 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{define "content"}}
+  <main
+    class="content content-alt"
+    id="main-content"
+  >
+    <div class="container">
+      <div class="row">
+        <div class="col-md-10 col-md-offset-1 col-lg-8 col-lg-offset-2">
+          <div class="card clear-user-sessions">
+            <div class="page-header">
+              <h1>{{ translate "your_sessions" }}</h1>
+            </div>
+            <h3>{{ translate "current_session" }}</h3>
+            <div>
+              <table class="table table-striped">
+                <thead>
+                <tr>
+                  <th>{{ translate "ip_address" }}</th>
+                  <th>{{ translate "session_created_at" }}</th>
+                </tr>
+                <tr>
+                  <td>{{ .CurrentSession.IPAddress }}</td>
+                  <td>{{ .CurrentSession.SessionCreated }}</td>
+                </tr>
+                </thead>
+              </table>
+            </div>
+            <h3>{{ translate "other_sessions" }}</h3>
+            <div>
+              <p
+                class="small"
+              >{{ translate "clear_sessions_description" }}</p>
+            </div>
+            <form
+              data-ol-async-form="data-ol-async-form"
+              action="/api/user/sessions/clear"
+              method="POST"
+            >
+              <div data-ol-not-sent="data-ol-not-sent">
+                  {{ if .OtherSessions.Sessions }}
+                    <p
+                      class="text-center"
+                    >{{ translate "no_other_sessions" }}</p>
+                  {{ else }}
+                    <table class="table table-striped">
+                      <thead>
+                      <tr>
+                        <th>{{ translate "ip_address" }}</th>
+                        <th>{{ translate "session_created_at" }}</th>
+                      </tr>
+                      </thead>
+                        {{ range $key, $session := .OtherSessions.Sessions }}
+                          <tr>
+                            <td>{{ $session.IPAddress }}</td>
+                            <td>{{ $session.SessionCreated }}</td>
+                          </tr>
+                        {{ end }}
+                    </table>
+                    <p class="text-center">
+                      <button
+                        class="btn btn-lg btn-primary"
+                        type="submit"
+                        data-ol-disable-inflight="data-ol-disable-inflight"
+                      >
+                        <span
+                          data-ol-inflight="idle"
+                        >{{ translate "clear_sessions" }}</span>
+                        <span
+                          hidden="hidden"
+                          data-ol-inflight="pending"
+                        >{{ translate "processing" }}…</span>
+                      </button>
+                    </p>
+                  {{ end }}
+              </div>
+              <div
+                hidden="hidden"
+                data-ol-sent="data-ol-sent"
+              >
+                <p class="text-center">{{ translate "no_other_sessions" }}</p>
+                <p
+                  class="text-success text-center"
+                >{{ translate "clear_sessions_success" }}</p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{{end}}

@@ -1,0 +1,82 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{define "content"}}
+  <main
+    class="content content-alt"
+    id="main-content"
+  >
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6 col-md-offset-3 col-lg-4 col-lg-offset-4">
+          <div class="card">
+            <div class="page-header">
+              <h1>{{ translate "confirm_email" }}</h1>
+            </div>
+            <form
+              data-ol-async-form="data-ol-async-form"
+              data-ol-auto-submit="data-ol-auto-submit"
+              name="confirmEmailForm"
+              action="/api/user/emails/confirm"
+              method="POST"
+              id="confirmEmailForm"
+            >
+              <input
+                type="hidden"
+                name="token"
+                value="{{ token }}"
+              />
+              <div data-ol-not-sent="data-ol-not-sent">
+                <div
+                  data-ol-form-messages=""
+                  role="alert"
+                ></div>
+                <button
+                  class="btn-primary btn btn-block"
+                  type="submit"
+                  data-ol-disabled-inflight="data-ol-disabled-inflight"
+                >
+                  <span
+                    data-ol-inflight="idle"
+                  >{{ translate "confirm" }}</span>
+                  <span
+                    hidden="hidden"
+                    data-ol-inflight="pending"
+                  >
+                    <i
+                      class="fa fa-fw fa-spin fa-spinner"
+                      aria-hidden="true"
+                    ></i> {{ translate "confirming" }}…
+                  </span>
+                </button>
+              </div>
+              <div
+                hidden="hidden"
+                data-ol-sent="data-ol-sent"
+              >
+                <div
+                  class="alert alert-success"
+                >{{ translate "thank_you_email_confirmed" }}</div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{{end}}
