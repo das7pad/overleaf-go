@@ -97,6 +97,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
+	ps := options.PublicSettings()
 	sm := session.New(options.SessionCookie, client)
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
@@ -121,7 +122,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	smm := systemMessage.New(db)
 	tm := tagModel.New(db)
 	um := user.New(db)
-	bm := betaProgram.New(um)
+	bm := betaProgram.New(ps, um)
 	cm, err := compile.New(options, client, dum, dm, fm, pm, um)
 	if err != nil {
 		return nil, err

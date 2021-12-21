@@ -15,27 +15,13 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/ -}}
-<!DOCTYPE html>
-<html lang="{{ .CurrentLngCode }}">
-<head>
-  <title>{{ .Title }}</title>
-    {{ if .Viewport }}
-      <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, user-scalable=yes"
-      />
-    {{ end }}
-  <link
-    rel="icon"
-    href="{{ staticPath "/favicon.ico" }}"
-  />
-  <link
-    rel="stylesheet"
-    href="{{ buildCssPath "" }}"
-  />
-</head>
-<body class="full-height">
-{{ template "content" .}}
-</body>
-</html>
+*/}}
+{{ define "layout-no-js" }}
+  <!DOCTYPE html>
+  <html lang="{{ .CurrentLngCode }}">
+  {{ template "head" . }}
+  <body>
+  {{ template "content" .}}
+  </body>
+  </html>
+{{ end }}

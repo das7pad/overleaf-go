@@ -28,7 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/httpTiming"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 )
 
@@ -68,8 +68,8 @@ const (
 )
 
 var (
-	timerStartGet = httpUtils.StartTimer(timingKeyGet)
-	timerEndGet   = httpUtils.EndTimer(timingKeyGet, "session")
+	timerStartGet = httpTiming.StartTimer(timingKeyGet)
+	timerEndGet   = httpTiming.EndTimer(timingKeyGet, "session")
 )
 var cookieTriggerCyclingOfCSRFSecret = (&http.Cookie{
 	Name:     "_csrf",
@@ -113,13 +113,15 @@ func (m *manager) DestroyAllForUser(ctx context.Context, userId primitive.Object
 	return nil
 }
 
+var ErrNotLoggedIn = &errors.UnauthorizedError{
+	Reason: "not logged in",
+}
+
 func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {
 	sess, err := m.GetSession(c)
 	if err != nil {
 		if err == redis.Nil || err == signedCookie.ErrNoCookie {
-			return nil, &errors.UnauthorizedError{
-				Reason: "no session found",
-			}
+			return nil, ErrNotLoggedIn
 		}
 		return nil, err
 	}

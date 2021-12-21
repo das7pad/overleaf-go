@@ -19,6 +19,7 @@ package types
 import (
 	"html/template"
 	"net/smtp"
+	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
@@ -31,6 +32,8 @@ import (
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
+	"github.com/das7pad/overleaf-go/services/web/pkg/assets"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type Options struct {
@@ -49,17 +52,17 @@ type Options struct {
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
-	I18n                     I18nOptions         `json:"i18N"`
-	ManifestPath             string              `json:"manifest_path"`
-	Nav                      NavOptions          `json:"nav"`
-	PDFDownloadDomain        PDFDownloadDomain   `json:"pdf_download_domain"`
-	ProjectsInactiveAfter    time.Duration       `json:"projects_inactive_after"`
-	RobotsNoindex            bool                `json:"robots_noindex"`
-	Sentry                   SentryOptions       `json:"sentry"`
-	SiteURL                  sharedTypes.URL     `json:"site_url"`
-	StatusPageUrl            sharedTypes.URL     `json:"status_page_url"`
-	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
-	WatchManifest            bool                `json:"watch_manifest"`
+	I18n                     templates.I18nOptions `json:"i18n"`
+	ManifestPath             string                `json:"manifest_path"`
+	Nav                      templates.NavOptions  `json:"nav"`
+	PDFDownloadDomain        PDFDownloadDomain     `json:"pdf_download_domain"`
+	ProjectsInactiveAfter    time.Duration         `json:"projects_inactive_after"`
+	RobotsNoindex            bool                  `json:"robots_noindex"`
+	Sentry                   SentryOptions         `json:"sentry"`
+	SiteURL                  sharedTypes.URL       `json:"site_url"`
+	StatusPageURL            sharedTypes.URL       `json:"status_page_url"`
+	TeXLiveImageNameOverride clsiTypes.ImageName   `json:"texlive_image_name_override"`
+	WatchManifest            bool                  `json:"watch_manifest"`
 
 	APIs struct {
 		Clsi struct {
@@ -121,6 +124,9 @@ func (o *Options) Validate() error {
 	if err := o.CDNURL.Validate(); err != nil {
 		return errors.Tag(err, "cdn_url is invalid")
 	}
+	if !strings.HasSuffix(o.CDNURL.Path, "/") {
+		return &errors.ValidationError{Msg: `cdn_url must end with "/"`}
+	}
 	if len(o.DefaultImage) == 0 {
 		return &errors.ValidationError{Msg: "default_image is missing"}
 	}
@@ -134,6 +140,9 @@ func (o *Options) Validate() error {
 	}
 	if err := o.SiteURL.Validate(); err != nil {
 		return errors.Tag(err, "site_url is invalid")
+	}
+	if err := o.StatusPageURL.Validate(); err != nil {
+		return errors.Tag(err, "status_page_url is invalid")
 	}
 
 	if o.Email.From == nil {
@@ -199,6 +208,14 @@ func (o *Options) Validate() error {
 	return nil
 }
 
+func (o *Options) AssetsOptions() *assets.Options {
+	return &assets.Options{
+		CDNURL:        o.CDNURL,
+		ManifestPath:  o.ManifestPath,
+		WatchManifest: o.WatchManifest,
+	}
+}
+
 type EmailOptions struct {
 	Public *email.PublicOptions
 	Send   *email.SendOptions
@@ -226,83 +243,23 @@ func (o *Options) EmailOptions() *EmailOptions {
 	}
 }
 
-type NavOptions struct {
-	HeaderExtras []NavElementWithDropDown
-	LeftFooter   NavElement
-	RightFooter  NavElement
-	Title        string
-}
-
-type NavElement struct {
-	Class string
-	Label string
-	Text  string
-	URL   string
-}
-
-type NavElementWithDivider struct {
-	NavElement
-	Divider bool
-}
-
-type NavElementWithDropDown struct {
-	NavElement
-	Dropdown []NavElementWithDivider
-}
-
-type I18nSubDomainLang struct {
-	Hide    bool
-	LngCode string
-	URL     sharedTypes.URL
-}
-
-type I18nOptions struct {
-	SubdomainLang []I18nSubDomainLang
-}
-
-type SentryFrontendOptions struct {
-	Dsn                string `json:"dsn"`
-	Environment        string `json:"environment,omitempty"`
-	Release            string `json:"release,omitempty"`
-	Commit             string `json:"commit,omitempty"`
-	AllowedOriginRegex string `json:"allowedOriginRegex,omitempty"`
-}
-
 type SentryOptions struct {
-	Frontend SentryFrontendOptions
+	Frontend templates.SentryFrontendOptions
 }
 
-type PublicSentryOptions struct {
-	Frontend SentryFrontendOptions
-}
-
-type PublicSettings struct {
-	AppName             string
-	AdminEmail          sharedTypes.Email
-	I18n                I18nOptions
-	Nav                 NavOptions
-	RobotsNoindex       bool
-	Sentry              PublicSentryOptions
-	StatusPageUrl       sharedTypes.URL
-	TranslatedLanguages map[string]string
-}
-
-func (s *PublicSettings) ShowLanguagePicker() bool {
-	return len(s.I18n.SubdomainLang) > 1
-}
-
-func (o *Options) PublicSettings() *PublicSettings {
+func (o *Options) PublicSettings() *templates.PublicSettings {
 	//goland:noinspection SpellCheckingInspection
-	return &PublicSettings{
+	return &templates.PublicSettings{
 		AppName:       o.AppName,
 		AdminEmail:    o.AdminEmail,
+		CDNURL:        o.CDNURL,
 		I18n:          o.I18n,
 		Nav:           o.Nav,
 		RobotsNoindex: o.RobotsNoindex,
-		Sentry: PublicSentryOptions{
+		Sentry: templates.PublicSentryOptions{
 			Frontend: o.Sentry.Frontend,
 		},
-		StatusPageUrl: o.StatusPageUrl,
+		StatusPageURL: o.StatusPageURL,
 		TranslatedLanguages: map[string]string{
 			"cn":    "简体中文",
 			"cs":    "Čeština",

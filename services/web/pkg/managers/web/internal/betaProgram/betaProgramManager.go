@@ -19,20 +19,27 @@ package betaProgram
 import (
 	"context"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	OptInBetaProgram(ctx context.Context, request *types.OptInBetaProgramRequest) error
 	OptOutBetaProgram(ctx context.Context, request *types.OptOutBetaProgramRequest) error
+	BetaProgramParticipatePage(ctx context.Context, request *types.BetaProgramParticipatePageRequest, response *types.BetaProgramParticipatePageResponse) error
 }
 
-func New(um user.Manager) Manager {
-	return &manager{um: um}
+func New(ps *templates.PublicSettings, um user.Manager) Manager {
+	return &manager{
+		ps: ps,
+		um: um,
+	}
 }
 
 type manager struct {
+	ps *templates.PublicSettings
 	um user.Manager
 }
 
@@ -48,4 +55,29 @@ func (m *manager) OptOutBetaProgram(ctx context.Context, request *types.OptOutBe
 		return err
 	}
 	return m.um.SetBetaProgram(ctx, request.Session.User.Id, false)
+}
+
+func (m *manager) BetaProgramParticipatePage(ctx context.Context, request *types.BetaProgramParticipatePageRequest, response *types.BetaProgramParticipatePageResponse) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	u := &user.BetaProgramField{}
+	if err := m.um.GetUser(ctx, request.Session.User.Id, u); err != nil {
+		return errors.Tag(err, "cannot get user")
+	}
+	response.Data = &templates.BetaProgramParticipate{
+		AngularLayoutData: templates.AngularLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "sharelatex_beta_program",
+					Viewport:    true,
+				},
+				CustomEntrypoint: "frontend/js/pages/user/beta.js",
+			},
+		},
+		AlreadyInBetaProgram: u.BetaProgram,
+	}
+	return nil
 }

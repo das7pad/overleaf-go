@@ -16,18 +16,23 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */}}
-{{define "meta"}}
-  <meta
-    name="ol-participatesBetaProgram"
-    data-type="boolean"
-    content="{{ .User.BetaProgram }}"
-  />
-{{end}}
-{{define "content"}}
+{{ template "layout-marketing" . }}
+{{ define "content" }}
   <main
     class="content content-alt"
     id="main-content"
   >
-    <beta-program-participate></beta-program-participate>
+    <div class="container">
+      <div class="error-container">
+        <div class="error-details">
+          <p class="error-status">Not found</p>
+          <p class="error-description">{{ translate "cant_find_page" . }}</p>
+          <a
+            class="error-btn"
+            href="/"
+          >Home</a>
+        </div>
+      </div>
+    </div>
   </main>
 {{end}}

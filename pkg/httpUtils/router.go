@@ -20,6 +20,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/das7pad/overleaf-go/pkg/httpTiming"
 )
 
 type RouterOptions struct {
@@ -41,6 +43,6 @@ func NewRouter(options *RouterOptions) *gin.Engine {
 	router.GET("/status", status)
 	router.HEAD("/status", status)
 
-	router.Use(StartTotalTimer)
+	router.Use(httpTiming.StartTotalTimer)
 	return router
 }

@@ -26,13 +26,16 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpTiming"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
+	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -40,11 +43,15 @@ const (
 	maxDocSize = 2 * 1024 * 1024
 )
 
-func newHttpController(wm web.Manager) httpController {
-	return httpController{wm: wm}
+func newHttpController(ps *templates.PublicSettings, wm web.Manager) httpController {
+	return httpController{
+		ps: ps,
+		wm: wm,
+	}
 }
 
 type httpController struct {
+	ps *templates.PublicSettings
 	wm web.Manager
 }
 
@@ -71,6 +78,8 @@ func (h *httpController) GetRouter(
 	publicRouter := router.Group("")
 	publicRouter.Use(httpUtils.CORS(corsOptions))
 	publicRouter.Use(httpUtils.NoCache())
+
+	publicRouter.GET("/api/v2/beta/participate", h.betaProgramParticipatePage)
 
 	publicApiRouter := publicRouter.Group("/api")
 	publicApiRouter.POST("/open", h.openInOverleaf)
@@ -807,7 +816,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
-	httpUtils.EndTotalTimer(c)
+	httpTiming.EndTotalTimer(c)
 	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
 }
 
@@ -1387,7 +1396,7 @@ func (h *httpController) createProjectZIP(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
-	httpUtils.EndTotalTimer(c)
+	httpTiming.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
 
@@ -1413,7 +1422,7 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
-	httpUtils.EndTotalTimer(c)
+	httpTiming.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
 
@@ -1765,4 +1774,21 @@ func (h *httpController) setTrackChangesState(c *gin.Context) {
 	request.ProjectId = o.ProjectId
 	err := h.wm.SetTrackChangesState(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) betaProgramParticipatePage(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		if err == session.ErrNotLoggedIn {
+			// TODO: redirect back -- move to util -- or session manager?
+			c.Redirect(http.StatusFound, "/login")
+			return
+		}
+		httpUtils.RespondHTML(c, nil, err, nil, h.ps)
+		return
+	}
+	request := &types.BetaProgramParticipatePageRequest{Session: s}
+	res := &types.BetaProgramParticipatePageResponse{}
+	err = h.wm.BetaProgramParticipatePage(c.Request.Context(), request, res)
+	httpUtils.RespondHTML(c, res.Data, err, s.User, h.ps)
 }

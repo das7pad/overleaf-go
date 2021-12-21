@@ -17,6 +17,8 @@
 package templates
 
 import (
+	"io"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -25,15 +27,31 @@ type General400Data struct {
 	Message string
 }
 
+func (d *General400Data) Render() (string, error) {
+	return renderOff("400.gohtml", 10*1024, d)
+}
+
 type General404Data struct {
 	MarketingLayoutData
+}
+
+func (d *General404Data) Render() (string, error) {
+	return renderOff("general/404.gohtml", 10*1024, d)
 }
 
 type General500Data struct {
 	NoJsLayoutData
 }
 
-type UnsupportedBrowserData struct {
+func (d *General500Data) Render() (string, error) {
+	return renderOff("general/500.gohtml", 10*1024, d)
+}
+
+type GeneralUnsupportedBrowserData struct {
 	NoJsLayoutData
 	FromURL *sharedTypes.URL
+}
+
+func (d *GeneralUnsupportedBrowserData) Render(w io.Writer) error {
+	return render("general/unsupported-browser.gohtml", w, d)
 }

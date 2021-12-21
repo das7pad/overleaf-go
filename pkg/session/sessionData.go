@@ -34,14 +34,15 @@ var (
 
 //goland:noinspection SpellCheckingInspection
 type User struct {
-	Id             primitive.ObjectID `json:"_id,omitempty"`
-	IsAdmin        bool               `json:"isAdmin,omitempty"`
-	FirstName      string             `json:"first_name,omitempty"`
-	LastName       string             `json:"last_name,omitempty"`
 	Email          sharedTypes.Email  `json:"email"`
 	Epoch          int64              `json:"epoch,omitempty"`
-	ReferralId     string             `json:"referal_id"`
+	FirstName      string             `json:"first_name,omitempty"`
 	IPAddress      string             `json:"ip_address"`
+	Id             primitive.ObjectID `json:"_id,omitempty"`
+	IsAdmin        bool               `json:"isAdmin,omitempty"`
+	LastName       string             `json:"last_name,omitempty"`
+	Language       string             `json:"lng"`
+	ReferralId     string             `json:"referal_id"`
 	SessionCreated time.Time          `json:"session_created"`
 }
 

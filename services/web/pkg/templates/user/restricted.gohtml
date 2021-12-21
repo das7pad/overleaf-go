@@ -16,20 +16,26 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */}}
-{{define "content"}}
+{{ template "layout-marketing" . }}
+{{ define "content" }}
   <main
-    class="content content-alt"
+    class="content"
     id="main-content"
   >
     <div class="container">
-      <div class="error-container">
-        <div class="error-details">
-          <p class="error-status">Not found</p>
-          <p class="error-description">{{ translate "cant_find_page" . }}</p>
-          <a
-            class="error-btn"
-            href="/"
-          >Home</a>
+      <div class="row">
+        <div class="text-center">
+          <div class="page-header">
+            <h2>{{ translate "restricted_no_permission" . }}</h2>
+          </div>
+          <p>
+            <a href="/">
+              <i
+                class="fa fa-arrow-circle-o-left"
+                aria-hidden="true"
+              ></i> {{ translate "take_me_home" . }}
+            </a>
+          </p>
         </div>
       </div>
     </div>

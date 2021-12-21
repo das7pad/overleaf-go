@@ -17,6 +17,8 @@
 package templates
 
 import (
+	"io"
+
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -29,17 +31,33 @@ type UserConfirmEmailData struct {
 	Token oneTimeToken.OneTimeToken
 }
 
+func (d *UserConfirmEmailData) Render(w io.Writer) error {
+	return render("user/confirm.gohtml", w, d)
+}
+
 type UserLoginData struct {
 	MarketingLayoutData
+}
+
+func (d *UserLoginData) Render(w io.Writer) error {
+	return render("user/login.gohtml", w, d)
 }
 
 type UserLogoutData struct {
 	MarketingLayoutData
 }
 
+func (d *UserLogoutData) Render(w io.Writer) error {
+	return render("user/logout.gohtml", w, d)
+}
+
 type UserReconfirmData struct {
 	MarketingLayoutData
 	Email sharedTypes.Email
+}
+
+func (d *UserReconfirmData) Render(w io.Writer) error {
+	return render("user/reconfirm.gohtml", w, d)
 }
 
 type SharedProjectData struct {
@@ -52,8 +70,16 @@ type UserRegisterDisabledData struct {
 	SharedProjectData SharedProjectData
 }
 
+func (d *UserRegisterDisabledData) Render(w io.Writer) error {
+	return render("user/registerDisabled.gohtml", w, d)
+}
+
 type UserRestrictedData struct {
 	MarketingLayoutData
+}
+
+func (d *UserRestrictedData) Render(w io.Writer) error {
+	return render("user/restricted.gohtml", w, d)
 }
 
 type UserSessionsData struct {
@@ -62,13 +88,25 @@ type UserSessionsData struct {
 	OtherSessions  []*session.OtherSessionData
 }
 
+func (d *UserSessionsData) Render(w io.Writer) error {
+	return render("user/sessions.gohtml", w, d)
+}
+
 type UserSetPasswordData struct {
 	MarketingLayoutData
 	Email              sharedTypes.Email
 	PasswordResetToken oneTimeToken.OneTimeToken
 }
 
+func (d *UserSetPasswordData) Render(w io.Writer) error {
+	return render("user/setPassword.gohtml", w, d)
+}
+
 type UserSettingsData struct {
 	AngularLayoutData
 	User user.ForSettingsPage
+}
+
+func (d *UserSettingsData) Render(w io.Writer) error {
+	return render("user/settings.gohtml", w, d)
 }

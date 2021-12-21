@@ -31,7 +31,6 @@ import (
 type Manager interface {
 	GetTranslationUrl(lng string) template.URL
 	Translate(key string, data languageGetter) (template.HTML, error)
-	TranslateMaybe(key string, data languageGetter) (template.HTML, error)
 }
 
 type manager struct {
@@ -47,19 +46,11 @@ func (m *manager) GetTranslationUrl(lng string) template.URL {
 }
 
 func (m *manager) Translate(key string, data languageGetter) (template.HTML, error) {
-	return m.localesByLanguage[data.GetCurrentLngCode()][key].Render(data)
-}
-
-func (m *manager) TranslateMaybe(key string, data languageGetter) (template.HTML, error) {
-	locale, exists := m.localesByLanguage[data.GetCurrentLngCode()][key]
-	if !exists {
-		return template.HTML(key), nil
-	}
-	return locale.Render(data)
+	return m.localesByLanguage[data.CurrentLngCode()][key].Render(data)
 }
 
 type languageGetter interface {
-	GetCurrentLngCode() string
+	CurrentLngCode() string
 }
 
 type renderer interface {
@@ -119,8 +110,8 @@ func parseLocales(raw map[string]string, appName string) (map[string]renderer, e
 	d := make(map[string]renderer, len(raw))
 	for key, s := range raw {
 		s = appNameRegex.ReplaceAllString(s, appName)
-		if !strings.Contains(s, "{{") {
-			d[key] = simpleLocale(s)
+		if !strings.Contains(s, "{{") && !strings.Contains(s, "<") {
+			d[key] = simpleLocale(template.HTMLEscapeString(s))
 			continue
 		}
 		t, err := template.New(key).Parse(s)

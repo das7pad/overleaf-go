@@ -1,0 +1,149 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{ define "head" }}
+  <head>
+      {{ $title := .Title }}
+      {{ if .TitleLocale }}
+          {{ $title = translate .TitleLocale . }}
+      {{ end }}
+    <title>
+        {{ $title }} - {{ .Settings.AppName }},
+        {{ translate "online_latex_editor" . }}
+    </title>
+    <meta
+      name="twitter:title"
+      content="{{ $title }}"
+    />
+    <meta
+      name="og:title"
+      content="{{ $title }}"
+    />
+    <meta
+      name="description"
+      content="{{ translate "site_description" . }}"
+    />
+    <meta
+      itemprop="description"
+      content="{{ translate "site_description" . }}"
+    />
+    <meta
+      itemprop="image"
+      content="{{ staticPath "/touch-icon-192x192.png" }}"
+    />
+    <meta
+      name="image"
+      content="{{ staticPath "/touch-icon-192x192.png" }}"
+    />
+    <meta
+      itemprop="name"
+      content="{{ .Settings.AppName }}, the Online LaTeX Editor"
+    />
+      {{ if .RobotsNoindexNofollow }}
+        <meta
+          name="robots"
+          content="noindex, nofollow"
+        />
+      {{ end }}
+    <meta
+      name="twitter:image"
+      content="{{ staticPath "/touch-icon-192x192.png" }}"
+    />
+    <meta
+      property="og:description"
+      content="{{ translate "site_description" . }}"
+    />
+    <meta
+      property="og:image"
+      content="{{ staticPath "/touch-icon-192x192.png" }}"
+    />
+    <meta
+      property="og:type"
+      content="website"
+    />
+      {{ if .Viewport }}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, user-scalable=yes"
+        />
+      {{ end }}
+      {{ if .Settings.RobotsNoindex }}
+        <meta
+          name="robots"
+          content="noindex"
+        />
+      {{ end }}
+    <link
+      rel="icon"
+      href="{{ staticPath "/favicon.ico" }}"
+    />
+    <link
+      rel="icon"
+      sizes="192x192"
+      href="{{ staticPath "/touch-icon-192x192.png" }}"
+    />
+    <link
+      rel="apple-touch-icon-precomposed"
+      href="{{ staticPath "/apple-touch-icon-precomposed.png" }}"
+    />
+    <link
+      rel="mask-icon"
+      href="{{ staticPath "/mask-favicon.svg" }}"
+      color="#138A07"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ buildCssPath "" }}"
+      id="main-stylesheet"
+    />
+      {{ range $key, $details := .Settings.I18n.SubdomainLang }}
+          {{ if not $details.Hide }}
+            <link
+              rel="alternate"
+              href="{{ getTranslationUrl $details.LngCode }}"
+              hreflang="{{ $details.LngCode }}"
+            />
+          {{ end }}
+      {{ end }}
+    <meta
+      name="ol-staticPath"
+      content="{{ staticPath "/" }}"
+    />
+    <meta
+      name="ol-appName"
+      content="{{ .Settings.AppName }}"
+    />
+      {{ if .LoggedIn }}
+        <meta
+          name="ol-usersEmail"
+          content="{{ .SessionUser.Email }}"
+        />
+        <meta
+          name="ol-user_id"
+          content="{{ .SessionUser.Id.Hex }}"
+        />
+      {{ end }}
+      {{ range $key, $meta := .Meta }}
+        <meta
+          name="{{ $meta.Name }}"
+          data-type="{{ $meta.TypeAsString }}"
+          content="{{ $meta.ContentAsString }}"
+        />
+      {{ end }}
+  </head>
+{{ end }}

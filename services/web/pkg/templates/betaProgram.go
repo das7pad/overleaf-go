@@ -14,27 +14,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package templates
 
-import (
-	"github.com/das7pad/overleaf-go/pkg/session"
-	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
-)
+type BetaProgramParticipate struct {
+	AngularLayoutData
 
-type OptInBetaProgramRequest struct {
-	Session *session.Session `json:"-"`
+	AlreadyInBetaProgram bool
 }
 
-type OptOutBetaProgramRequest struct {
-	Session *session.Session `json:"-"`
+func (d *BetaProgramParticipate) Meta() []metaEntry {
+	m := d.AngularLayoutData.Meta()
+	m = append(m, metaEntry{
+		Name:    "ol-participatesBetaProgram",
+		Type:    jsonContentType,
+		Content: d.AlreadyInBetaProgram,
+	})
+	return m
 }
 
-type BetaProgramParticipatePageRequest struct {
-	Session *session.Session `json:"-"`
-
-	CurrentLngCode string
-}
-
-type BetaProgramParticipatePageResponse struct {
-	Data *templates.BetaProgramParticipate
+func (d *BetaProgramParticipate) Render() (string, error) {
+	return renderOff("betaProgram/participate.gohtml", 15*1024, d)
 }

@@ -16,9 +16,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */}}
-{{define "content"}}
+{{ template "layout-no-js" . }}
+{{ define "content" }}
   <main
-    class="content"
+    class="content full-height"
     id="main-content"
   >
     <div class="container">
@@ -28,10 +29,10 @@
             <h1>Maintenance</h1>
           </div>
           <p>
-              {{ if .Settings.StatusPageUrl }}
+              {{ if .Settings.StatusPageURL }}
                   {{ .Settings.AppName }} is currently down for maintenance.
                   Please check our
-                  <a href="{{ .Settings.StatusPageUrl }}">status page</a>
+                  <a href="{{ .Settings.StatusPageURL }}">status page</a>
                   for updates.
               {{ else }}
                   {{ .Settings.AppName }} is currently down for maintenance.

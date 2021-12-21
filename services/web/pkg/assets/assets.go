@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
@@ -38,7 +38,13 @@ type Manager interface {
 	StaticPath(path string) template.URL
 }
 
-func Load(options *types.Options) (Manager, error) {
+type Options struct {
+	CDNURL        sharedTypes.URL
+	ManifestPath  string
+	WatchManifest bool
+}
+
+func Load(options *Options) (Manager, error) {
 	base := template.URL(strings.TrimSuffix(options.CDNURL.String(), "/"))
 	m := &manager{
 		manifestPath:     options.ManifestPath,
@@ -60,8 +66,8 @@ type manager struct {
 }
 
 type manifest struct {
-	Assets           map[string]template.URL
-	EntrypointChunks map[string][]template.URL
+	Assets           map[string]template.URL   `json:"assets"`
+	EntrypointChunks map[string][]template.URL `json:"entrypointChunks"`
 }
 
 func (m *manager) init(watch bool) error {

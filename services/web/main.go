@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -25,7 +26,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 func waitForDb(ctx context.Context, client *mongo.Client) error {
@@ -76,7 +79,38 @@ func main() {
 		return
 	}
 
-	handler := newHttpController(wm)
+	t := &sharedTypes.Timed{}
+	t.Begin()
+	err = templates.Load(o.options.PublicSettings(), o.options.AssetsOptions())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(t.Stage())
+	// for i := 0; i < 10; i++ {
+	// 	d := &templates.UserLoginData{
+	// 		MarketingLayoutData: templates.MarketingLayoutData{
+	// 			JsLayoutData: templates.JsLayoutData{
+	// 				CommonData: templates.CommonData{
+	// 					Settings:              o.options.PublicSettings(),
+	// 					RobotsNoindexNofollow: false,
+	// 					TitleLocale:           "login",
+	// 					Viewport:              true,
+	// 				},
+	// 				CustomEntrypoint: "",
+	// 			},
+	// 		},
+	// 	}
+	// 	fmt.Println(t.Stage())
+	// 	out := &strings.Builder{}
+	// 	if err = d.Render(out); err != nil {
+	// 		panic(err)
+	// 	}
+	// 	fmt.Println(t.Stage())
+	// }
+	// // fmt.Println(out.String())
+	// return
+
+	handler := newHttpController(o.options.PublicSettings(), wm)
 	router := handler.GetRouter(o.clientIPOptions, o.corsOptions)
 	if err = router.Run(o.address); err != nil {
 		panic(err)

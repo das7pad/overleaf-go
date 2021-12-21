@@ -21,6 +21,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpTiming"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 )
 
@@ -45,8 +46,8 @@ func NewJWTHandler(handler jwtHandler.JWTHandler) *JWTHTTPHandler {
 const timingKeyJWT = "httpUtils.timing.jwt"
 
 var (
-	startJWTTimer = StartTimer(timingKeyJWT)
-	endJWTTimer   = EndTimer(timingKeyJWT, "jwt")
+	startJWTTimer = httpTiming.StartTimer(timingKeyJWT)
+	endJWTTimer   = httpTiming.EndTimer(timingKeyJWT, "jwt")
 )
 
 type JWTHTTPHandler struct {

@@ -17,53 +17,97 @@
 package templates
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"encoding/json"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
-type CommonData struct {
-	Settings *types.PublicSettings
+const (
+	stringContentType metaType = iota
+	jsonContentType
+)
 
-	CurrentLngCode        string
+type metaType int
+
+type metaEntry struct {
+	Name    string
+	Type    metaType
+	Content interface{}
+}
+
+func (m metaEntry) ContentAsString() (string, error) {
+	switch m.Type {
+	case stringContentType:
+		return m.Content.(string), nil
+	case jsonContentType:
+		b, err := json.Marshal(m.Content)
+		if err != nil {
+			return "", errors.Tag(err, "cannot marshal .Content for "+m.Name)
+		}
+		return string(b), nil
+	default:
+		return "", errors.New("unexpected .Type for " + m.Name)
+	}
+}
+
+func (m metaEntry) TypeAsString() (string, error) {
+	switch m.Type {
+	case stringContentType:
+		return "string", nil
+	case jsonContentType:
+		return "json", nil
+	default:
+		return "", errors.New("unexpected .Type for " + m.Name)
+	}
+}
+
+type CommonData struct {
+	Settings *PublicSettings
+
 	RobotsNoindexNofollow bool
+	SessionUser           *session.User
 	Title                 string
+	TitleLocale           string
 	Viewport              bool
 }
 
-func (d *CommonData) GetCurrentLngCode() string {
-	return d.CurrentLngCode
+func (d *CommonData) CurrentLngCode() string {
+	if u := d.SessionUser; u != nil && u.Language != "" {
+		return u.Language
+	}
+	return "en"
+}
+
+func (d *CommonData) IsAdmin() bool {
+	if d.SessionUser == nil {
+		return false
+	}
+	return d.SessionUser.IsAdmin
+}
+
+func (d *CommonData) LoggedIn() bool {
+	if d.SessionUser == nil {
+		return false
+	}
+	return !d.SessionUser.Id.IsZero()
+}
+
+func (d *CommonData) Meta() []metaEntry {
+	var out []metaEntry
+	if d.Settings.Sentry.Frontend.Dsn != "" {
+		out = append(out, metaEntry{
+			Name:    "ol-sentry",
+			Type:    jsonContentType,
+			Content: d.Settings.Sentry.Frontend,
+		})
+	}
+	return out
 }
 
 type JsLayoutData struct {
 	CommonData
-	UsersEmail       sharedTypes.Email
-	UserId           primitive.ObjectID
-	IsAdmin          bool
 	CustomEntrypoint string
-}
-
-func (d *JsLayoutData) LoggedIn() bool {
-	return !d.UserId.IsZero()
-}
-
-func (d *JsLayoutData) UserIdNoZero() string {
-	if d.UserId.IsZero() {
-		return ""
-	}
-	return d.UserId.Hex()
-}
-
-type MarketingLayoutData struct {
-	JsLayoutData
-}
-
-func (d *MarketingLayoutData) Entrypoint() string {
-	if d.CustomEntrypoint != "" {
-		return d.CustomEntrypoint
-	}
-	return "frontend/js/marketing.js"
 }
 
 type AngularLayoutData struct {
@@ -75,6 +119,17 @@ func (d *AngularLayoutData) Entrypoint() string {
 		return d.CustomEntrypoint
 	}
 	return "frontend/js/main.js"
+}
+
+type MarketingLayoutData struct {
+	JsLayoutData
+}
+
+func (d *MarketingLayoutData) Entrypoint() string {
+	if d.CustomEntrypoint != "" {
+		return d.CustomEntrypoint
+	}
+	return "frontend/js/marketing.js"
 }
 
 type NoJsLayoutData struct {

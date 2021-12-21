@@ -45,7 +45,6 @@ type Session struct {
 	providedId     Id
 }
 
-var errNotLoggedIn = &errors.UnauthorizedError{}
 var errNotAdmin = &errors.NotAuthorizedError{}
 
 func (s *Session) CheckIsAdmin() error {
@@ -60,7 +59,7 @@ func (s *Session) CheckIsAdmin() error {
 
 func (s *Session) CheckIsLoggedIn() error {
 	if !s.IsLoggedIn() {
-		return errNotLoggedIn
+		return ErrNotLoggedIn
 	}
 	return nil
 }
