@@ -31,8 +31,6 @@ type OptOutBetaProgramRequest struct {
 
 type BetaProgramParticipatePageRequest struct {
 	Session *session.Session `json:"-"`
-
-	CurrentLngCode string
 }
 
 type BetaProgramParticipatePageResponse struct {

@@ -23,6 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type LogoutRequest struct {
@@ -30,6 +31,14 @@ type LogoutRequest struct {
 }
 
 type LogoutResponse = asyncForm.Response
+
+type LogoutPageRequest struct {
+	Session *session.Session `json:"-"`
+}
+
+type LogoutPageResponse struct {
+	Data *templates.UserLogoutData
+}
 
 type UserPassword string
 
@@ -72,6 +81,15 @@ func (r *LoginRequest) Validate() error {
 }
 
 type LoginResponse = asyncForm.Response
+
+type LoginPageRequest struct {
+	Session *session.Session `json:"-"`
+}
+
+type LoginPageResponse struct {
+	Data     *templates.UserLoginData
+	Redirect string
+}
 
 type GetLoggedInUserJWTRequest struct {
 	Session *session.Session `json:"-"`

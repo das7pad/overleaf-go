@@ -38,23 +38,19 @@ var _fs embed.FS
 
 var templates map[string]*template.Template
 
-func render(p string, w io.Writer, data interface{}) error {
-	return templates[p].Execute(w, data)
-}
-
-func renderOff(p string, estimate int, data interface{}) (string, error) {
+func render(p string, estimate int, data interface{}) (string, error) {
 	buffer := &strings.Builder{}
 	buffer.Grow(estimate)
 	if err := templates[p].Execute(buffer, data); err != nil {
-		return "", err
+		return "", errors.Tag(err, "cannot render "+p)
 	}
 	return buffer.String(), nil
 }
 
-func Load(publicSettings *PublicSettings, assetsOptions *assets.Options) error {
+func Load(appName string, assetsOptions *assets.Options) error {
 	funcMap := make(template.FuncMap)
 	{
-		tm, err := translations.Load(publicSettings.AppName)
+		tm, err := translations.Load(appName)
 		if err != nil {
 			return errors.Tag(err, "cannot load translations")
 		}

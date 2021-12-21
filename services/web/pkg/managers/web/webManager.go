@@ -139,7 +139,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		chatM, csm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
-	lm := login.New(options, client, db, um, loggedInUserJWTHandler, sm)
+	lm := login.New(options, ps, client, db, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(editorEvents, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	tagM := tag.New(tm)

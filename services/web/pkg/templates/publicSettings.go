@@ -73,6 +73,7 @@ type PublicSettings struct {
 	Nav                 NavOptions
 	RobotsNoindex       bool
 	Sentry              PublicSentryOptions
+	SiteURL             sharedTypes.URL
 	StatusPageURL       sharedTypes.URL
 	TranslatedLanguages map[string]string
 }

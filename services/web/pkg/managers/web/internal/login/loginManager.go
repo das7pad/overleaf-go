@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -36,14 +37,16 @@ type Manager interface {
 	ConfirmEmail(ctx context.Context, r *types.ConfirmEmailRequest) error
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
+	LoginPage(_ context.Context, request *types.LoginPageRequest, response *types.LoginPageResponse) error
 	Logout(ctx context.Context, request *types.LogoutRequest) error
+	LogoutPage(_ context.Context, request *types.LogoutPageRequest, response *types.LogoutPageResponse) error
 	RequestPasswordReset(ctx context.Context, r *types.RequestPasswordResetRequest) error
 	ResendEmailConfirmation(ctx context.Context, r *types.ResendEmailConfirmationRequest) error
 	SetPassword(ctx context.Context, r *types.SetPasswordRequest, response *types.SetPasswordResponse) error
 	SetUserName(ctx context.Context, r *types.SetUserName) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
 		client:          client,
 		db:              db,
@@ -51,6 +54,7 @@ func New(options *types.Options, client redis.UniversalClient, db *mongo.Databas
 		jwtLoggedInUser: jwtLoggedInUser,
 		options:         options,
 		oTTm:            oneTimeToken.New(db),
+		ps:              ps,
 		sm:              sm,
 		um:              um,
 	}
@@ -63,6 +67,7 @@ type manager struct {
 	jwtLoggedInUser jwtHandler.JWTHandler
 	options         *types.Options
 	oTTm            oneTimeToken.Manager
+	ps              *templates.PublicSettings
 	sm              session.Manager
 	um              user.Manager
 }

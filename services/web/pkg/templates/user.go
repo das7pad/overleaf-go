@@ -17,8 +17,6 @@
 package templates
 
 import (
-	"io"
-
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -31,24 +29,24 @@ type UserConfirmEmailData struct {
 	Token oneTimeToken.OneTimeToken
 }
 
-func (d *UserConfirmEmailData) Render(w io.Writer) error {
-	return render("user/confirm.gohtml", w, d)
+func (d *UserConfirmEmailData) Render() (string, error) {
+	return render("user/confirm.gohtml", 30*1024, d)
 }
 
 type UserLoginData struct {
 	MarketingLayoutData
 }
 
-func (d *UserLoginData) Render(w io.Writer) error {
-	return render("user/login.gohtml", w, d)
+func (d *UserLoginData) Render() (string, error) {
+	return render("user/login.gohtml", 30*1024, d)
 }
 
 type UserLogoutData struct {
 	MarketingLayoutData
 }
 
-func (d *UserLogoutData) Render(w io.Writer) error {
-	return render("user/logout.gohtml", w, d)
+func (d *UserLogoutData) Render() (string, error) {
+	return render("user/logout.gohtml", 30*1024, d)
 }
 
 type UserReconfirmData struct {
@@ -56,8 +54,8 @@ type UserReconfirmData struct {
 	Email sharedTypes.Email
 }
 
-func (d *UserReconfirmData) Render(w io.Writer) error {
-	return render("user/reconfirm.gohtml", w, d)
+func (d *UserReconfirmData) Render() (string, error) {
+	return render("user/reconfirm.gohtml", 30*1024, d)
 }
 
 type SharedProjectData struct {
@@ -70,16 +68,16 @@ type UserRegisterDisabledData struct {
 	SharedProjectData SharedProjectData
 }
 
-func (d *UserRegisterDisabledData) Render(w io.Writer) error {
-	return render("user/registerDisabled.gohtml", w, d)
+func (d *UserRegisterDisabledData) Render() (string, error) {
+	return render("user/registerDisabled.gohtml", 30*1024, d)
 }
 
 type UserRestrictedData struct {
 	MarketingLayoutData
 }
 
-func (d *UserRestrictedData) Render(w io.Writer) error {
-	return render("user/restricted.gohtml", w, d)
+func (d *UserRestrictedData) Render() (string, error) {
+	return render("user/restricted.gohtml", 10*1024, d)
 }
 
 type UserSessionsData struct {
@@ -88,8 +86,8 @@ type UserSessionsData struct {
 	OtherSessions  []*session.OtherSessionData
 }
 
-func (d *UserSessionsData) Render(w io.Writer) error {
-	return render("user/sessions.gohtml", w, d)
+func (d *UserSessionsData) Render() (string, error) {
+	return render("user/sessions.gohtml", 30*1024, d)
 }
 
 type UserSetPasswordData struct {
@@ -98,8 +96,8 @@ type UserSetPasswordData struct {
 	PasswordResetToken oneTimeToken.OneTimeToken
 }
 
-func (d *UserSetPasswordData) Render(w io.Writer) error {
-	return render("user/setPassword.gohtml", w, d)
+func (d *UserSetPasswordData) Render() (string, error) {
+	return render("user/setPassword.gohtml", 30*1024, d)
 }
 
 type UserSettingsData struct {
@@ -107,6 +105,6 @@ type UserSettingsData struct {
 	User user.ForSettingsPage
 }
 
-func (d *UserSettingsData) Render(w io.Writer) error {
-	return render("user/settings.gohtml", w, d)
+func (d *UserSettingsData) Render() (string, error) {
+	return render("user/settings.gohtml", 30*1024, d)
 }

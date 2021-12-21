@@ -22,6 +22,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -63,5 +64,25 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 		return err
 	}
 	res.RedirectTo = redirect
+	return nil
+}
+
+func (m *manager) LoginPage(_ context.Context, request *types.LoginPageRequest, response *types.LoginPageResponse) error {
+	if request.Session.IsLoggedIn() {
+		response.Redirect = "/project"
+		return nil
+	}
+	response.Data = &templates.UserLoginData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "login",
+					Viewport:    true,
+				},
+			},
+		},
+	}
 	return nil
 }

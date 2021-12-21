@@ -111,6 +111,14 @@ func processLocale(key, v string) string {
 	case "user_wants_you_to_see_project":
 		v = strings.ReplaceAll(v, "__username__", "{{ .SharedProjectData.UserName }}")
 		v = strings.ReplaceAll(v, "__projectname__", "<em>{{ .SharedProjectData.ProjectName }}</em>")
+	case "notification_project_invite":
+		// NOTE: This is a virtual key used for displaying the CTA notification
+		//        in the project dashboard. Other locales take over the actual
+		//        display.
+		v = "-"
+	}
+	if strings.Contains(v, "__") {
+		panic(key + " contains __")
 	}
 	return v
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -38,4 +39,20 @@ func (m *manager) Logout(ctx context.Context, request *types.LogoutRequest) erro
 		}
 	}
 	return request.Session.Destroy(ctx)
+}
+
+func (m *manager) LogoutPage(_ context.Context, request *types.LogoutPageRequest, response *types.LogoutPageResponse) error {
+	response.Data = &templates.UserLogoutData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "log_out",
+					Viewport:    true,
+				},
+			},
+		},
+	}
+	return nil
 }

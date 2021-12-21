@@ -26,12 +26,10 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/httpTiming"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
@@ -79,7 +77,12 @@ func (h *httpController) GetRouter(
 	publicRouter.Use(httpUtils.CORS(corsOptions))
 	publicRouter.Use(httpUtils.NoCache())
 
-	publicRouter.GET("/api/v2/beta/participate", h.betaProgramParticipatePage)
+	{
+		r := publicRouter.Group("/api/html")
+		r.GET("/beta/participate", h.betaProgramParticipatePage)
+		r.GET("/login", h.loginPage)
+		r.GET("/logout", h.logoutPage)
+	}
 
 	publicApiRouter := publicRouter.Group("/api")
 	publicApiRouter.POST("/open", h.openInOverleaf)
@@ -816,7 +819,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
-	httpTiming.EndTotalTimer(c)
+	httpUtils.EndTotalTimer(c)
 	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
 }
 
@@ -1396,7 +1399,7 @@ func (h *httpController) createProjectZIP(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
-	httpTiming.EndTotalTimer(c)
+	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
 
@@ -1422,7 +1425,7 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
-	httpTiming.EndTotalTimer(c)
+	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
 
@@ -1777,18 +1780,37 @@ func (h *httpController) setTrackChangesState(c *gin.Context) {
 }
 
 func (h *httpController) betaProgramParticipatePage(c *gin.Context) {
-	s, err := h.wm.RequireLoggedInSession(c)
+	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
-		if err == session.ErrNotLoggedIn {
-			// TODO: redirect back -- move to util -- or session manager?
-			c.Redirect(http.StatusFound, "/login")
-			return
-		}
-		httpUtils.RespondHTML(c, nil, err, nil, h.ps)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
 	request := &types.BetaProgramParticipatePageRequest{Session: s}
 	res := &types.BetaProgramParticipatePageResponse{}
 	err = h.wm.BetaProgramParticipatePage(c.Request.Context(), request, res)
-	httpUtils.RespondHTML(c, res.Data, err, s.User, h.ps)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) loginPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.LoginPageRequest{Session: s}
+	res := &types.LoginPageResponse{}
+	err = h.wm.LoginPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) logoutPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.LogoutPageRequest{Session: s}
+	res := &types.LogoutPageResponse{}
+	err = h.wm.LogoutPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }

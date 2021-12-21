@@ -28,7 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/httpTiming"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 )
 
@@ -68,8 +68,8 @@ const (
 )
 
 var (
-	timerStartGet = httpTiming.StartTimer(timingKeyGet)
-	timerEndGet   = httpTiming.EndTimer(timingKeyGet, "session")
+	timerStartGet = httpUtils.StartTimer(timingKeyGet)
+	timerEndGet   = httpUtils.EndTimer(timingKeyGet, "session")
 )
 var cookieTriggerCyclingOfCSRFSecret = (&http.Cookie{
 	Name:     "_csrf",
@@ -157,8 +157,10 @@ func (m *manager) GetSessionById(c context.Context, id Id) (*Session, error) {
 
 func (m *manager) GetOrCreateSession(c *gin.Context) (*Session, error) {
 	sess, err := m.GetSession(c)
-	if err == redis.Nil || err == signedCookie.ErrNoCookie {
+	if sess == nil {
 		sess = m.new("", nil, &Data{})
+	}
+	if err == redis.Nil || err == signedCookie.ErrNoCookie {
 		return sess, nil
 	}
 	return sess, err
