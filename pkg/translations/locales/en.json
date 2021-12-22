@@ -94,6 +94,7 @@
   "reconfirm_explained": "We need to reconfirm your account. Please request a password reset link via the form below to reconfirm your account. If you have any problems reconfirming your account, please contact us at",
   "register": "Register",
   "registering": "Registering",
+  "request_new_password_reset_email": "Request a new password reset email",
   "request_password_reset": "Request password reset",
   "request_password_reset_to_reconfirm": "Request password reset email to reconfirm",
   "request_reconfirmation_email": "Request reconfirmation email",

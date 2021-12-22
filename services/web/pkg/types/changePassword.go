@@ -63,7 +63,7 @@ type SetPasswordResponse = asyncForm.Response
 type SetPasswordPageRequest struct {
 	Session *session.Session          `form:"-"`
 	Email   sharedTypes.Email         `form:"email"`
-	Token   oneTimeToken.OneTimeToken `form:"token"`
+	Token   oneTimeToken.OneTimeToken `form:"passwordResetToken"`
 }
 
 type SetPasswordPageResponse struct {

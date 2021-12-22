@@ -47,7 +47,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 			sCtx, r.Token,
 		)
 		if errResolve != nil {
-			if errors.IsNotAuthorizedError(errResolve) {
+			if errors.IsNotFoundError(errResolve) {
 				res.SetCustomFormMessage("token-expired", errResolve)
 			}
 			return errors.Tag(errResolve, "cannot get token data")

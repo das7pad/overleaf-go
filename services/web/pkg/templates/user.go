@@ -33,7 +33,7 @@ type UserConfirmEmailData struct {
 }
 
 func (d *UserConfirmEmailData) Render() (string, error) {
-	return render("user/confirm.gohtml", 30*1024, d)
+	return render("user/confirmEmail.gohtml", 30*1024, d)
 }
 
 type UserLoginData struct {

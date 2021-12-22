@@ -98,6 +98,7 @@ func (h *httpController) GetRouter(
 		r.GET("/user/settings", h.settingsPage)
 		r.GET("/read/:token", h.tokenAccessPage)
 		r.GET("/:token", h.tokenAccessPage)
+		router.NoRoute(h.notFoundPage)
 	}
 
 	publicApiRouter := publicRouter.Group("/api")
@@ -375,6 +376,12 @@ func (h *httpController) unsupportedBrowserPage(c *gin.Context) {
 			WithQuery(c.Request.URL.Query()),
 	}
 	templates.RespondHTML(c, body, nil, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) notFoundPage(c *gin.Context) {
+	s, _ := h.wm.GetOrCreateSession(c)
+	err := &errors.NotFoundError{}
+	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 }
 
 type clearProjectCacheRequestBody struct {
