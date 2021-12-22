@@ -14,28 +14,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package login
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
+	"context"
+
 	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type GrantTokenAccessRequest struct {
-	Session *session.Session    `json:"-"`
-	Token   project.AccessToken `json:"-"`
-}
-
-type GrantTokenAccessResponse = asyncForm.Response
-
-type TokenAccessPageRequest struct {
-	Session *session.Session `form:"-"`
-
-	Token project.AccessToken
-}
-
-type TokenAccessPageResponse struct {
-	Data *templates.ProjectTokenAccessData
+func (m *manager) ReconfirmAccountPage(_ context.Context, request *types.ReconfirmAccountPageRequest, response *types.ReconfirmAccountPageResponse) error {
+	if request.Session.IsLoggedIn() {
+		response.Redirect = "/project"
+		return nil
+	}
+	response.Data = &templates.UserReconfirmData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "reconfirm_account",
+				},
+			},
+		},
+	}
+	return nil
 }

@@ -39,16 +39,19 @@
                 </tr>
                 <tr>
                   <td>{{ .CurrentSession.IPAddress }}</td>
-                  <td>{{ .CurrentSession.SessionCreated }}</td>
+                  <td>{{
+                      .CurrentSession.SessionCreated.Format
+                      "Mon, 02 Jan 2006 15:04:05 MST"
+                      }}</td>
                 </tr>
                 </thead>
               </table>
             </div>
             <h3>{{ translate "other_sessions" . }}</h3>
             <div>
-              <p
-                class="small"
-              >{{ translate "clear_sessions_description" . }}</p>
+              <p class="small">
+                  {{ translate "clear_sessions_description" . }}
+              </p>
             </div>
             <form
               data-ol-async-form="data-ol-async-form"
@@ -56,7 +59,7 @@
               method="POST"
             >
               <div data-ol-not-sent="data-ol-not-sent">
-                  {{ if .OtherSessions }}
+                  {{ if not .OtherSessions }}
                     <p
                       class="text-center"
                     >{{ translate "no_other_sessions" . }}</p>
@@ -71,7 +74,10 @@
                         {{ range $key, $session := .OtherSessions }}
                           <tr>
                             <td>{{ $session.IPAddress }}</td>
-                            <td>{{ $session.SessionCreated }}</td>
+                            <td>{{
+                                $session.SessionCreated.Format
+                                "Mon, 02 Jan 2006 15:04:05 MST"
+                                }}</td>
                           </tr>
                         {{ end }}
                     </table>

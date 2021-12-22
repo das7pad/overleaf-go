@@ -39,6 +39,7 @@ var _fs embed.FS
 var templates map[string]*template.Template
 
 func render(p string, estimate int, data interface{}) (string, error) {
+	// TODO: adjust all the estimate values
 	buffer := &strings.Builder{}
 	buffer.Grow(estimate)
 	if err := templates[p].Execute(buffer, data); err != nil {

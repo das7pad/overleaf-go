@@ -25,6 +25,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -88,6 +90,49 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 	return nil
 }
 
+func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswordPageRequest, response *types.SetPasswordPageResponse) error {
+	if err := request.Email.Validate(); err != nil {
+		return err
+	}
+	if request.Token != "" {
+		if err := request.Token.Validate(); err != nil {
+			return err
+		}
+		request.Session.PasswordResetToken = request.Token
+		if _, err := request.Session.Save(ctx); err != nil {
+			return err
+		}
+		response.Redirect = m.options.SiteURL.
+			WithPath("/user/password/set").
+			WithQuery(url.Values{"email": {string(request.Email)}}).
+			String()
+		return nil
+	}
+	if request.Session.PasswordResetToken.Validate() != nil {
+		response.Redirect = m.options.SiteURL.
+			WithPath("/user/password/reset").
+			WithQuery(url.Values{"email": {string(request.Email)}}).
+			String()
+		return nil
+	}
+
+	response.Data = &templates.UserSetPasswordData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "set_password",
+					Viewport:    true,
+				},
+			},
+		},
+		Email:              request.Email,
+		PasswordResetToken: request.Session.PasswordResetToken,
+	}
+	return nil
+}
+
 func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPasswordResetRequest) error {
 	r.Preprocess()
 	if err := r.Validate(); err != nil {
@@ -137,6 +182,29 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 	}
 	if err = e.Send(ctx, m.emailOptions.Send); err != nil {
 		return errors.Tag(err, "cannot email password reset token")
+	}
+	return nil
+}
+
+func (m *manager) RequestPasswordResetPage(_ context.Context, request *types.RequestPasswordResetPageRequest, response *types.RequestPasswordResetPageResponse) error {
+	var e sharedTypes.Email
+	if request.Email.Validate() == nil {
+		// Prefilling the form is optional.
+		e = request.Email
+	}
+
+	response.Data = &templates.UserPasswordResetData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "reset_password",
+					Viewport:    true,
+				},
+			},
+		},
+		Email: e,
 	}
 	return nil
 }

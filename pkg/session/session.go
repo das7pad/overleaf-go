@@ -307,3 +307,10 @@ func (s *Session) serializeWithId(id Id) ([]byte, error) {
 	}
 	return b, nil
 }
+
+func (s *Session) ToOtherSessionData() *OtherSessionData {
+	return &OtherSessionData{
+		IPAddress:      s.User.IPAddress,
+		SessionCreated: s.User.SessionCreated,
+	}
+}

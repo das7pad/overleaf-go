@@ -25,24 +25,29 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error
 	GrantTokenAccessReadOnly(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error
+	TokenAccessPage(ctx context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error
 }
 
-func New(client redis.UniversalClient, pm project.Manager) Manager {
+func New(ps *templates.PublicSettings, client redis.UniversalClient, pm project.Manager) Manager {
 	return &manager{
 		client: client,
 		pm:     pm,
+		ps:     ps,
 	}
 }
 
 type manager struct {
 	client redis.UniversalClient
 	pm     project.Manager
+	ps     *templates.PublicSettings
 }
 
 func (m *manager) GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {
@@ -100,4 +105,32 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 		return nil
 	}
 	return project.ErrEpochIsNotStable
+}
+
+func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error {
+	var postULR *sharedTypes.URL
+	if request.Token.ValidateReadOnly() == nil {
+		postULR = m.ps.SiteURL.
+			WithPath("/api/grant/ro/" + string(request.Token))
+	} else if request.Token.ValidateReadAndWrite() == nil {
+		postULR = m.ps.SiteURL.
+			WithPath("/api/grant/rw/" + string(request.Token))
+	} else {
+		return &errors.NotFoundError{}
+	}
+
+	response.Data = &templates.ProjectTokenAccessData{
+		AngularLayoutData: templates.AngularLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					TitleLocale: "join_project",
+					SessionUser: request.Session.User,
+					Viewport:    true,
+				},
+			},
+		},
+		PostURL: postULR,
+	}
+	return nil
 }

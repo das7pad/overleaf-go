@@ -17,6 +17,9 @@
 package templates
 
 import (
+	"strings"
+
+	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -63,13 +66,28 @@ type SharedProjectData struct {
 	UserName    string       `form:"user_first_name"`
 }
 
-type UserRegisterDisabledData struct {
+func (d *SharedProjectData) IsSet() bool {
+	return d.ProjectName != "" && d.UserName != ""
+}
+
+func (d *SharedProjectData) Preprocess() {
+	d.ProjectName = project.Name(strings.TrimSpace(string(d.ProjectName)))
+	if d.ProjectName != "" && !spamSafe.IsSafeProjectName(d.ProjectName) {
+		d.ProjectName = "their project"
+	}
+	d.UserName = strings.TrimSpace(d.UserName)
+	if d.UserName != "" && !spamSafe.IsSafeUserName(d.UserName) {
+		d.UserName = "A collaborator"
+	}
+}
+
+type UserRegisterData struct {
 	MarketingLayoutData
 	SharedProjectData SharedProjectData
 }
 
-func (d *UserRegisterDisabledData) Render() (string, error) {
-	return render("user/registerDisabled.gohtml", 30*1024, d)
+func (d *UserRegisterData) Render() (string, error) {
+	return render("user/register.gohtml", 30*1024, d)
 }
 
 type UserRestrictedData struct {
@@ -82,7 +100,7 @@ func (d *UserRestrictedData) Render() (string, error) {
 
 type UserSessionsData struct {
 	MarketingLayoutData
-	CurrentSession session.OtherSessionData
+	CurrentSession *session.OtherSessionData
 	OtherSessions  []*session.OtherSessionData
 }
 
@@ -100,9 +118,18 @@ func (d *UserSetPasswordData) Render() (string, error) {
 	return render("user/setPassword.gohtml", 30*1024, d)
 }
 
+type UserPasswordResetData struct {
+	MarketingLayoutData
+	Email sharedTypes.Email
+}
+
+func (d *UserPasswordResetData) Render() (string, error) {
+	return render("user/passwordReset.gohtml", 30*1024, d)
+}
+
 type UserSettingsData struct {
 	AngularLayoutData
-	User user.ForSettingsPage
+	User *user.ForSettingsPage
 }
 
 func (d *UserSettingsData) Render() (string, error) {

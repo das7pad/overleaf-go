@@ -14,28 +14,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package admin
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
+	"context"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type GrantTokenAccessRequest struct {
-	Session *session.Session    `json:"-"`
-	Token   project.AccessToken `json:"-"`
-}
+func (m *manager) AdminManageSitePage(ctx context.Context, request *types.AdminManageSitePageRequest, response *types.AdminManageSitePageResponse) error {
+	if err := request.Session.CheckIsAdmin(); err != nil {
+		return err
+	}
 
-type GrantTokenAccessResponse = asyncForm.Response
+	messages, err := m.smm.GetAll(ctx)
+	if err != nil {
+		return errors.Tag(err, "cannot get system messages")
+	}
 
-type TokenAccessPageRequest struct {
-	Session *session.Session `form:"-"`
-
-	Token project.AccessToken
-}
-
-type TokenAccessPageResponse struct {
-	Data *templates.ProjectTokenAccessData
+	response.Data = &templates.AdminManageSiteData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					Title:       "Manage Site",
+				},
+			},
+		},
+		SystemMessages: messages,
+	}
+	return nil
 }

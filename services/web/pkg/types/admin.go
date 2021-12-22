@@ -17,25 +17,14 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
-type GrantTokenAccessRequest struct {
-	Session *session.Session    `json:"-"`
-	Token   project.AccessToken `json:"-"`
-}
-
-type GrantTokenAccessResponse = asyncForm.Response
-
-type TokenAccessPageRequest struct {
+type AdminManageSitePageRequest struct {
 	Session *session.Session `form:"-"`
-
-	Token project.AccessToken
 }
 
-type TokenAccessPageResponse struct {
-	Data *templates.ProjectTokenAccessData
+type AdminManageSitePageResponse struct {
+	Data *templates.AdminManageSiteData
 }

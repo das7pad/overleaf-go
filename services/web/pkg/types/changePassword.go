@@ -22,6 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type ChangePasswordRequest struct {
@@ -59,6 +60,17 @@ type SetPasswordRequest struct {
 
 type SetPasswordResponse = asyncForm.Response
 
+type SetPasswordPageRequest struct {
+	Session *session.Session          `form:"-"`
+	Email   sharedTypes.Email         `form:"email"`
+	Token   oneTimeToken.OneTimeToken `form:"token"`
+}
+
+type SetPasswordPageResponse struct {
+	Data     *templates.UserSetPasswordData
+	Redirect string
+}
+
 type RequestPasswordResetRequest struct {
 	Email sharedTypes.Email `json:"email"`
 }
@@ -72,4 +84,14 @@ func (r *RequestPasswordResetRequest) Validate() error {
 		return err
 	}
 	return nil
+}
+
+type RequestPasswordResetPageRequest struct {
+	Session *session.Session  `form:"-"`
+	Email   sharedTypes.Email `form:"email"`
+}
+
+type RequestPasswordResetPageResponse struct {
+	Data     *templates.UserPasswordResetData
+	Redirect string
 }

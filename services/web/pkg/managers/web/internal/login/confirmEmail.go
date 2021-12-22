@@ -25,6 +25,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -119,6 +120,26 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 	}
 	if err = e.Send(ctx, m.emailOptions.Send); err != nil {
 		return errors.Tag(err, "cannot send email confirmation token")
+	}
+	return nil
+}
+
+func (m *manager) ConfirmEmailPage(_ context.Context, request *types.ConfirmEmailPageRequest, response *types.ConfirmEmailPageResponse) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
+
+	response.Data = &templates.UserConfirmEmailData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "confirm_email",
+				},
+			},
+		},
+		Token: request.Token,
 	}
 	return nil
 }

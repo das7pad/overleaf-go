@@ -21,6 +21,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -58,9 +59,10 @@ func (u *User) ToPublicUserInfo() *user.WithPublicInfo {
 type anonTokenAccess map[string]project.AccessToken
 
 type Data struct {
-	AnonTokenAccess   anonTokenAccess `json:"anonTokenAccess,omitempty"`
-	PostLoginRedirect string          `json:"postLoginRedirect,omitempty"`
-	User              *User           `json:"user,omitempty"`
+	AnonTokenAccess    anonTokenAccess           `json:"anonTokenAccess,omitempty"`
+	PasswordResetToken oneTimeToken.OneTimeToken `json:"resetToken,omitempty"`
+	PostLoginRedirect  string                    `json:"postLoginRedirect,omitempty"`
+	User               *User                     `json:"user,omitempty"`
 }
 
 func (d *Data) GetAnonTokenAccess(projectId primitive.ObjectID) project.AccessToken {

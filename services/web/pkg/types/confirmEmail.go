@@ -20,6 +20,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type ConfirmEmailRequest struct {
@@ -31,6 +32,22 @@ func (r *ConfirmEmailRequest) Validate() error {
 		return err
 	}
 	return nil
+}
+
+type ConfirmEmailPageRequest struct {
+	Session *session.Session          `form:"-"`
+	Token   oneTimeToken.OneTimeToken `form:"token"`
+}
+
+func (r *ConfirmEmailPageRequest) Validate() error {
+	if err := r.Token.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type ConfirmEmailPageResponse struct {
+	Data *templates.UserConfirmEmailData
 }
 
 type ResendEmailConfirmationRequest struct {
@@ -48,4 +65,13 @@ func (r *ResendEmailConfirmationRequest) Validate() error {
 		return err
 	}
 	return nil
+}
+
+type ReconfirmAccountPageRequest struct {
+	Session *session.Session `form:"-"`
+}
+
+type ReconfirmAccountPageResponse struct {
+	Data     *templates.UserReconfirmData
+	Redirect string
 }

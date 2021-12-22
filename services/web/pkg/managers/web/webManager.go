@@ -37,6 +37,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/admin"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
@@ -68,6 +69,7 @@ type Manager interface {
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
+	adminManager
 	betaProgramManager
 	compileManager
 	editorManager
@@ -143,7 +145,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	plm := projectList.New(editorEvents, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	tagM := tag.New(tm)
-	tam := tokenAccess.New(client, pm)
+	tam := tokenAccess.New(ps, client, pm)
 	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
@@ -157,11 +159,13 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, tm, csm, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
-	ucm := userCreation.New(options, db, um, lm)
+	ucm := userCreation.New(options, ps, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
+	am := admin.New(ps, db)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
+		adminManager:           am,
 		betaProgramManager:     bm,
 		compileManager:         cm,
 		editorManager:          em,
@@ -188,6 +192,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	}, nil
 }
 
+type adminManager = admin.Manager
 type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
@@ -213,6 +218,7 @@ type userCreationManager = userCreation.Manager
 type userDeletionManager = userDeletion.Manager
 
 type manager struct {
+	adminManager
 	betaProgramManager
 	compileManager
 	editorManager

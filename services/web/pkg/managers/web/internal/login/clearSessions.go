@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -131,6 +132,32 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	// Do the actual cleanup
 	if err = request.Session.DestroyOthers(ctx, d); err != nil {
 		return errors.Tag(err, "cannot destroy other sessions")
+	}
+	return nil
+}
+
+func (m *manager) SessionsPage(ctx context.Context, request *types.SessionsPageRequest, response *types.SessionsPageResponse) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+
+	otherSessions, err := request.Session.GetOthers(ctx)
+	if err != nil {
+		return err
+	}
+
+	response.Data = &templates.UserSessionsData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "sessions",
+				},
+			},
+		},
+		CurrentSession: request.Session.ToOtherSessionData(),
+		OtherSessions:  otherSessions.Sessions,
 	}
 	return nil
 }

@@ -79,9 +79,23 @@ func (h *httpController) GetRouter(
 
 	{
 		r := publicRouter.Group("/api/html")
+		r.GET("", h.homePage)
+		r.GET("/", h.homePage)
+		r.GET("/admin", h.adminManageSitePage)
+		r.GET("/admin/register", h.adminRegisterUsersPage)
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
+		r.GET("/register", h.registerUserPage)
+		r.GET("/restricted", h.restrictedPage)
+		r.GET("/user/emails/confirm", h.confirmEmailPage)
+		r.GET("/user/password/reset", h.requestPasswordResetPage)
+		r.GET("/user/password/set", h.setPasswordPage)
+		r.GET("/user/reconfirm", h.reconfirmAccountPage)
+		r.GET("/user/sessions", h.sessionsPage)
+		r.GET("/user/settings", h.settingsPage)
+		r.GET("/read/:token", h.tokenAccessPage)
+		r.GET("/:token", h.tokenAccessPage)
 	}
 
 	publicApiRouter := publicRouter.Group("/api")
@@ -1779,6 +1793,19 @@ func (h *httpController) setTrackChangesState(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
+func (h *httpController) homePage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	if s.IsLoggedIn() {
+		c.Redirect(http.StatusFound, "/project")
+	} else {
+		c.Redirect(http.StatusFound, "/login")
+	}
+}
+
 func (h *httpController) betaProgramParticipatePage(c *gin.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -1800,6 +1827,10 @@ func (h *httpController) loginPage(c *gin.Context) {
 	request := &types.LoginPageRequest{Session: s}
 	res := &types.LoginPageResponse{}
 	err = h.wm.LoginPage(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		c.Redirect(http.StatusFound, res.Redirect)
+		return
+	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
@@ -1812,5 +1843,178 @@ func (h *httpController) logoutPage(c *gin.Context) {
 	request := &types.LogoutPageRequest{Session: s}
 	res := &types.LogoutPageResponse{}
 	err = h.wm.LogoutPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) confirmEmailPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.ConfirmEmailPageRequest{}
+	if err = c.BindQuery(&request); err != nil {
+		err = errors.ToValidationError(err)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request.Session = s
+	res := &types.ConfirmEmailPageResponse{}
+	err = h.wm.ConfirmEmailPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) reconfirmAccountPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.ReconfirmAccountPageRequest{Session: s}
+	res := &types.ReconfirmAccountPageResponse{}
+	err = h.wm.ReconfirmAccountPage(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		c.Redirect(http.StatusFound, res.Redirect)
+		return
+	}
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) registerUserPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.RegisterUserPageRequest{}
+	if err = c.BindQuery(&request); err != nil {
+		err = errors.ToValidationError(err)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request.Session = s
+	res := &types.RegisterUserPageResponse{}
+	err = h.wm.RegisterUserPage(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		c.Redirect(http.StatusFound, res.Redirect)
+		return
+	}
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) restrictedPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	err = &errors.NotAuthorizedError{}
+	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) setPasswordPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.SetPasswordPageRequest{}
+	if err = c.BindQuery(&request); err != nil {
+		err = errors.ToValidationError(err)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request.Session = s
+	res := &types.SetPasswordPageResponse{}
+	err = h.wm.SetPasswordPage(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		c.Redirect(http.StatusFound, res.Redirect)
+		return
+	}
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) requestPasswordResetPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.RequestPasswordResetPageRequest{}
+	if err = c.BindQuery(&request); err != nil {
+		err = errors.ToValidationError(err)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request.Session = s
+	res := &types.RequestPasswordResetPageResponse{}
+	err = h.wm.RequestPasswordResetPage(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		c.Redirect(http.StatusFound, res.Redirect)
+		return
+	}
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) sessionsPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.SessionsPageRequest{Session: s}
+	res := &types.SessionsPageResponse{}
+	err = h.wm.SessionsPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) settingsPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.SettingsPageRequest{Session: s}
+	res := &types.SettingsPageResponse{}
+	err = h.wm.SettingsPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) tokenAccessPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.TokenAccessPageRequest{
+		Session: s,
+		Token:   project.AccessToken(c.Param("token")),
+	}
+	res := &types.TokenAccessPageResponse{}
+	err = h.wm.TokenAccessPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) adminManageSitePage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.AdminManageSitePageRequest{Session: s}
+	res := &types.AdminManageSitePageResponse{}
+	err = h.wm.AdminManageSitePage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) adminRegisterUsersPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.AdminRegisterUsersPageRequest{Session: s}
+	res := &types.AdminRegisterUsersPageResponse{}
+	err = h.wm.AdminRegisterUsersPage(c.Request.Context(), request, res)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }

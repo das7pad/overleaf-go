@@ -33,7 +33,7 @@ type LogoutRequest struct {
 type LogoutResponse = asyncForm.Response
 
 type LogoutPageRequest struct {
-	Session *session.Session `json:"-"`
+	Session *session.Session `form:"-"`
 }
 
 type LogoutPageResponse struct {
@@ -83,7 +83,7 @@ func (r *LoginRequest) Validate() error {
 type LoginResponse = asyncForm.Response
 
 type LoginPageRequest struct {
-	Session *session.Session `json:"-"`
+	Session *session.Session `form:"-"`
 }
 
 type LoginPageResponse struct {
@@ -100,6 +100,14 @@ type GetLoggedInUserJWTResponse string
 type ClearSessionsRequest struct {
 	Session   *session.Session `json:"-"`
 	IPAddress string           `json:"-"`
+}
+
+type SessionsPageRequest struct {
+	Session *session.Session `form:"-"`
+}
+
+type SessionsPageResponse struct {
+	Data *templates.UserSessionsData
 }
 
 type ChangeEmailAddressRequest struct {
@@ -125,4 +133,12 @@ type SetUserName struct {
 
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+}
+
+type SettingsPageRequest struct {
+	Session *session.Session `form:"-"`
+}
+
+type SettingsPageResponse struct {
+	Data *templates.UserSettingsData
 }

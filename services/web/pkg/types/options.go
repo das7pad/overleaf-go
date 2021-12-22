@@ -57,6 +57,7 @@ type Options struct {
 	Nav                      templates.NavOptions  `json:"nav"`
 	PDFDownloadDomain        PDFDownloadDomain     `json:"pdf_download_domain"`
 	ProjectsInactiveAfter    time.Duration         `json:"projects_inactive_after"`
+	RegistrationDisabled     bool                  `json:"registration_disabled"`
 	RobotsNoindex            bool                  `json:"robots_noindex"`
 	Sentry                   SentryOptions         `json:"sentry"`
 	SiteURL                  sharedTypes.URL       `json:"site_url"`
@@ -250,12 +251,13 @@ type SentryOptions struct {
 func (o *Options) PublicSettings() *templates.PublicSettings {
 	//goland:noinspection SpellCheckingInspection
 	return &templates.PublicSettings{
-		AppName:       o.AppName,
-		AdminEmail:    o.AdminEmail,
-		CDNURL:        o.CDNURL,
-		I18n:          o.I18n,
-		Nav:           o.Nav,
-		RobotsNoindex: o.RobotsNoindex,
+		AppName:              o.AppName,
+		AdminEmail:           o.AdminEmail,
+		CDNURL:               o.CDNURL,
+		I18n:                 o.I18n,
+		Nav:                  o.Nav,
+		RegistrationDisabled: o.RegistrationDisabled,
+		RobotsNoindex:        o.RobotsNoindex,
 		Sentry: templates.PublicSentryOptions{
 			Frontend: o.Sentry.Frontend,
 		},

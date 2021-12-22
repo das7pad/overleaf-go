@@ -20,6 +20,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type AdminCreateUserRequest struct {
@@ -41,6 +42,14 @@ func (r *AdminCreateUserRequest) Validate() error {
 
 type AdminCreateUserResponse struct {
 	SetNewPasswordURL *sharedTypes.URL `json:"setNewPasswordUrl"`
+}
+
+type AdminRegisterUsersPageRequest struct {
+	Session *session.Session `json:"-"`
+}
+
+type AdminRegisterUsersPageResponse struct {
+	Data *templates.AdminRegisterUsersData
 }
 
 type RegisterUserRequest struct {
@@ -69,3 +78,13 @@ func (r *RegisterUserRequest) Validate() error {
 }
 
 type RegisterUserResponse = asyncForm.Response
+
+type RegisterUserPageRequest struct {
+	Session *session.Session `form:"-"`
+	templates.SharedProjectData
+}
+
+type RegisterUserPageResponse struct {
+	Data     *templates.UserRegisterData
+	Redirect string
+}

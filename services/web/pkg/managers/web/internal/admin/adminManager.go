@@ -14,28 +14,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package admin
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
+	"context"
+
+	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-type GrantTokenAccessRequest struct {
-	Session *session.Session    `json:"-"`
-	Token   project.AccessToken `json:"-"`
+type Manager interface {
+	AdminManageSitePage(ctx context.Context, request *types.AdminManageSitePageRequest, response *types.AdminManageSitePageResponse) error
 }
 
-type GrantTokenAccessResponse = asyncForm.Response
-
-type TokenAccessPageRequest struct {
-	Session *session.Session `form:"-"`
-
-	Token project.AccessToken
+func New(ps *templates.PublicSettings, db *mongo.Database) Manager {
+	return &manager{
+		ps:  ps,
+		smm: systemMessage.New(db),
+	}
 }
 
-type TokenAccessPageResponse struct {
-	Data *templates.ProjectTokenAccessData
+type manager struct {
+	ps  *templates.PublicSettings
+	smm systemMessage.Manager
 }

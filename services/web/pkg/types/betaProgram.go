@@ -30,7 +30,7 @@ type OptOutBetaProgramRequest struct {
 }
 
 type BetaProgramParticipatePageRequest struct {
-	Session *session.Session `json:"-"`
+	Session *session.Session `form:"-"`
 }
 
 type BetaProgramParticipatePageResponse struct {

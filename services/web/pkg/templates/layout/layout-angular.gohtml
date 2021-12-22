@@ -312,11 +312,13 @@
   <script
     type="text/javascript"
     src="{{ buildTPath .CurrentLngCode }}"
+    ng-non-bindable="ng-non-bindable"
   ></script>
   {{ range $index, $chunk := getEntrypointChunks .Entrypoint }}
     <script
       type="module"
       src="{{ $chunk }}"
+      ng-non-bindable="ng-non-bindable"
     ></script>
   {{ end }}
   </body>

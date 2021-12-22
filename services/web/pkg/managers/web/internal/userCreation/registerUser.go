@@ -25,10 +25,16 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest, response *types.RegisterUserResponse) error {
+	if m.options.RegistrationDisabled {
+		return &errors.UnprocessableEntityError{
+			Msg: "registration is disabled",
+		}
+	}
 	r.Preprocess()
 	if err := r.Validate(); err != nil {
 		return err
@@ -86,5 +92,27 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 		return err
 	}
 	response.RedirectTo = redirect
+	return nil
+}
+
+func (m *manager) RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error {
+	if request.Session.IsLoggedIn() {
+		response.Redirect = "/project"
+		return nil
+	}
+	request.SharedProjectData.Preprocess()
+
+	response.Data = &templates.UserRegisterData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "register",
+				},
+			},
+		},
+		SharedProjectData: request.SharedProjectData,
+	}
 	return nil
 }

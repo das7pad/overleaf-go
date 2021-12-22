@@ -24,21 +24,25 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	AdminCreateUser(ctx context.Context, r *types.AdminCreateUserRequest, response *types.AdminCreateUserResponse) error
+	AdminRegisterUsersPage(_ context.Context, request *types.AdminRegisterUsersPageRequest, response *types.AdminRegisterUsersPageResponse) error
 	RegisterUser(ctx context.Context, r *types.RegisterUserRequest, response *types.RegisterUserResponse) error
+	RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
 }
 
-func New(options *types.Options, db *mongo.Database, um user.Manager, lm login.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *mongo.Database, um user.Manager, lm login.Manager) Manager {
 	return &manager{
 		db:           db,
 		emailOptions: options.EmailOptions(),
 		lm:           lm,
 		options:      options,
 		oTTm:         oneTimeToken.New(db),
+		ps:           ps,
 		um:           um,
 	}
 }
@@ -49,5 +53,6 @@ type manager struct {
 	lm           login.Manager
 	options      *types.Options
 	oTTm         oneTimeToken.Manager
+	ps           *templates.PublicSettings
 	um           user.Manager
 }

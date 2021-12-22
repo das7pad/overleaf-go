@@ -14,28 +14,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package templates
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
-	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
+	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 )
 
-type GrantTokenAccessRequest struct {
-	Session *session.Session    `json:"-"`
-	Token   project.AccessToken `json:"-"`
+type AdminManageSiteData struct {
+	MarketingLayoutData
+
+	SystemMessages []systemMessage.Full
 }
 
-type GrantTokenAccessResponse = asyncForm.Response
-
-type TokenAccessPageRequest struct {
-	Session *session.Session `form:"-"`
-
-	Token project.AccessToken
+func (d *AdminManageSiteData) Render() (string, error) {
+	return render("admin/manageSite.gohtml", 30*1024, d)
 }
 
-type TokenAccessPageResponse struct {
-	Data *templates.ProjectTokenAccessData
+type AdminRegisterUsersData struct {
+	AngularLayoutData
+}
+
+func (d *AdminRegisterUsersData) Render() (string, error) {
+	return render("admin/registerUsers.gohtml", 30*1024, d)
 }

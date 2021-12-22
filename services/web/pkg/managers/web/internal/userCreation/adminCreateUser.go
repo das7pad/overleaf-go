@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -82,6 +83,24 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 	response.SetNewPasswordURL = setPasswordURL
 	if err = m.sendActivateEmail(ctx, r.Email, setPasswordURL); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (m *manager) AdminRegisterUsersPage(_ context.Context, request *types.AdminRegisterUsersPageRequest, response *types.AdminRegisterUsersPageResponse) error {
+	if err := request.Session.CheckIsAdmin(); err != nil {
+		return err
+	}
+	response.Data = &templates.AdminRegisterUsersData{
+		AngularLayoutData: templates.AngularLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					Title:       "Register New Users",
+				},
+			},
+		},
 	}
 	return nil
 }
