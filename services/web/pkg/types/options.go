@@ -261,6 +261,7 @@ func (o *Options) PublicSettings() *templates.PublicSettings {
 		Sentry: templates.PublicSentryOptions{
 			Frontend: o.Sentry.Frontend,
 		},
+		SiteURL:       o.SiteURL,
 		StatusPageURL: o.StatusPageURL,
 		TranslatedLanguages: map[string]string{
 			"cn":    "简体中文",

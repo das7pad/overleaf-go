@@ -26,7 +26,7 @@ type General400Data struct {
 }
 
 func (d *General400Data) Render() (string, error) {
-	return render("400.gohtml", 10*1024, d)
+	return render("general/400.gohtml", 10*1024, d)
 }
 
 type General404Data struct {

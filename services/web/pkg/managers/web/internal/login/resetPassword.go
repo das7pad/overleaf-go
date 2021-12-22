@@ -91,8 +91,18 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 }
 
 func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswordPageRequest, response *types.SetPasswordPageResponse) error {
-	if err := request.Email.Validate(); err != nil {
-		return err
+	var e sharedTypes.Email
+	var q url.Values
+	if request.Email.Validate() == nil {
+		// .Email is an optional hint.
+		e = request.Email
+		q = url.Values{"email": {string(e)}}
+	}
+	if request.Token == "" && request.Session.PasswordResetToken == "" {
+		response.Redirect = m.options.SiteURL.
+			WithPath("/user/password/reset").
+			WithQuery(q).
+			String()
 	}
 	if request.Token != "" {
 		if err := request.Token.Validate(); err != nil {
@@ -104,14 +114,7 @@ func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswor
 		}
 		response.Redirect = m.options.SiteURL.
 			WithPath("/user/password/set").
-			WithQuery(url.Values{"email": {string(request.Email)}}).
-			String()
-		return nil
-	}
-	if request.Session.PasswordResetToken.Validate() != nil {
-		response.Redirect = m.options.SiteURL.
-			WithPath("/user/password/reset").
-			WithQuery(url.Values{"email": {string(request.Email)}}).
+			WithQuery(q).
 			String()
 		return nil
 	}
@@ -127,7 +130,7 @@ func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswor
 				},
 			},
 		},
-		Email:              request.Email,
+		Email:              e,
 		PasswordResetToken: request.Session.PasswordResetToken,
 	}
 	return nil

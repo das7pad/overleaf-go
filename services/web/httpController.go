@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -79,6 +80,7 @@ func (h *httpController) GetRouter(
 
 	{
 		r := publicRouter.Group("/api/html")
+		r.Use(h.blockUnsupportedBrowser)
 		r.GET("", h.homePage)
 		r.GET("/", h.homePage)
 		r.GET("/admin", h.adminManageSitePage)
@@ -346,6 +348,33 @@ func requireWriteAccess(c *gin.Context) {
 
 func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompileProjectRequestOptions {
 	return projectJWT.MustGet(c).SignedCompileProjectRequestOptions
+}
+
+var unsupportedBrowsers = regexp.MustCompile("Trident/|MSIE")
+
+func (h *httpController) blockUnsupportedBrowser(c *gin.Context) {
+	if unsupportedBrowsers.MatchString(c.GetHeader("User-Agent")) {
+		c.Abort()
+		h.unsupportedBrowserPage(c)
+	}
+}
+
+func (h *httpController) unsupportedBrowserPage(c *gin.Context) {
+	s, _ := h.wm.GetOrCreateSession(c)
+	body := &templates.GeneralUnsupportedBrowserData{
+		NoJsLayoutData: templates.NoJsLayoutData{
+			CommonData: templates.CommonData{
+				Settings:              h.ps,
+				RobotsNoindexNofollow: true,
+				Title:                 "Unsupported browser",
+				Viewport:              true,
+			},
+		},
+		FromURL: h.ps.SiteURL.
+			WithPath(c.Request.URL.Path).
+			WithQuery(c.Request.URL.Query()),
+	}
+	templates.RespondHTML(c, body, nil, s, h.ps, h.wm.Flush)
 }
 
 type clearProjectCacheRequestBody struct {
