@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type AcceptProjectInviteRequest struct {
@@ -76,4 +77,26 @@ type ListProjectInvitesRequest struct {
 
 type ListProjectInvitesResponse struct {
 	Invites []*projectInvite.WithoutToken `json:"invites"`
+}
+
+type ViewProjectInvitePageRequest struct {
+	Session   *session.Session    `form:"-"`
+	ProjectId primitive.ObjectID  `form:"-"`
+	Token     projectInvite.Token `form:"-"`
+	templates.SharedProjectData
+}
+
+func (r *ViewProjectInvitePageRequest) Validate() error {
+	if err := r.Token.Validate(); err != nil {
+		return err
+	}
+	if !r.SharedProjectData.IsSet() {
+		return &errors.ValidationError{Msg: "incomplete invitation request"}
+	}
+	return nil
+}
+
+type ViewProjectInvitePageResponse struct {
+	Data     *templates.ProjectViewInviteData
+	Redirect string
 }

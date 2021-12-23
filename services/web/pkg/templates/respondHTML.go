@@ -68,7 +68,16 @@ func RespondHTML(
 				WithQuery(c.Request.URL.Query()).
 				String()
 			_ = flushSession(c, s)
-			httpUtils.Redirect(c, "/login")
+			if c.Query("project_name") != "" {
+				// Show SharedProjectData details on registration page.
+				httpUtils.Redirect(c, ps.SiteURL.
+					WithPath("/register").
+					WithQuery(c.Request.URL.Query()).
+					String(),
+				)
+			} else {
+				httpUtils.Redirect(c, "/login")
+			}
 			return
 		}
 		var errMessage string

@@ -146,7 +146,9 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(ps, client, pm)
-	pim := projectInvite.New(options, client, db, editorEvents, pm, um, csm)
+	pim := projectInvite.New(
+		options, ps, client, db, editorEvents, pm, um, csm,
+	)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
 	hm := history.New(options, um)

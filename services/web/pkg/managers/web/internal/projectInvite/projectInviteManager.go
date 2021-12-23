@@ -38,6 +38,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -47,9 +48,10 @@ type Manager interface {
 	ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error
 	ResendProjectInvite(ctx context.Context, request *types.ResendProjectInviteRequest) error
 	RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error
+	ViewProjectInvite(ctx context.Context, request *types.ViewProjectInvitePageRequest, response *types.ViewProjectInvitePageResponse) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contact.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contact.Manager) Manager {
 	return &manager{
 		client:       client,
 		cm:           cm,
@@ -60,6 +62,7 @@ func New(options *types.Options, client redis.UniversalClient, db *mongo.Databas
 		options:      options,
 		pim:          projectInvite.New(db),
 		pm:           pm,
+		ps:           ps,
 		um:           um,
 	}
 }
@@ -74,6 +77,7 @@ type manager struct {
 	options      *types.Options
 	pim          projectInvite.Manager
 	pm           project.Manager
+	ps           *templates.PublicSettings
 	um           user.Manager
 }
 

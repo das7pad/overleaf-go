@@ -109,6 +109,10 @@ func (h *httpController) GetRouter(
 		r.GET("/read/:token", h.tokenAccessPage)
 		r.GET("/:token", h.tokenAccessPage)
 		router.NoRoute(h.notFoundPage)
+
+		rp := r.Group("/project/:projectId")
+		rp.Use(httpUtils.ValidateAndSetId("projectId"))
+		rp.GET("/invite/token/:token", h.viewProjectInvitePage)
 	}
 
 	publicApiRouter := publicRouter.Group("/api")
@@ -545,7 +549,6 @@ func (h *httpController) login(c *gin.Context) {
 		httpUtils.Respond(c, http.StatusOK, resp, err)
 		return
 	}
-	fmt.Println("POST login", s.PostLoginRedirect)
 	request := &types.LoginRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -2122,6 +2125,30 @@ func (h *httpController) openInOverleafGatewayPage(c *gin.Context) {
 	}
 	res := &types.OpenInOverleafGatewayPageResponse{}
 	err = h.wm.OpenInOverleafGatewayPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) viewProjectInvitePage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.ViewProjectInvitePageRequest{}
+	if err = c.BindQuery(&request); err != nil {
+		err = errors.ToValidationError(err)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request.ProjectId = httpUtils.GetId(c, "projectId")
+	request.Token = projectInvite.Token(c.Param("token"))
+	request.Session = s
+	res := &types.ViewProjectInvitePageResponse{}
+	err = h.wm.ViewProjectInvite(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		httpUtils.Redirect(c, res.Redirect)
+		return
+	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 

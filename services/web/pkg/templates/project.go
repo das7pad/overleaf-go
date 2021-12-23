@@ -17,6 +17,9 @@
 package templates
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -38,4 +41,17 @@ func (d *ProjectTokenAccessData) Meta() []metaEntry {
 
 func (d *ProjectTokenAccessData) Render() (string, error) {
 	return render("project/tokenAccess.gohtml", 30*1024, d)
+}
+
+type ProjectViewInviteData struct {
+	MarketingLayoutData
+
+	SharedProjectData SharedProjectData
+	ProjectId         primitive.ObjectID
+	Token             projectInvite.Token
+	Valid             bool
+}
+
+func (d *ProjectViewInviteData) Render() (string, error) {
+	return render("project/viewInvite.gohtml", 30*1024, d)
 }

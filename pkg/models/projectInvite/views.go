@@ -23,12 +23,15 @@ import (
 )
 
 var (
+	idFieldProjection      = views.GetProjectionFor(IdField{})
 	withoutTokenProjection = views.GetProjectionFor(WithoutToken{})
 	withTokenProjection    = views.GetProjectionFor(WithToken{})
 )
 
 func getProjection(model interface{}) views.View {
 	switch model.(type) {
+	case *IdField:
+		return idFieldProjection
 	case *WithoutToken, []*WithoutToken, []WithoutToken:
 		return withoutTokenProjection
 	case *WithToken, []*WithToken, []WithToken:
