@@ -22,19 +22,23 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectUpload"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	OpenInOverleaf(ctx context.Context, request *types.OpenInOverleafRequest, response *types.CreateProjectResponse) error
+	OpenInOverleafGatewayPage(_ context.Context, request *types.OpenInOverleafGatewayPageRequest, response *types.OpenInOverleafGatewayPageResponse) error
+	OpenInOverleafDocumentationPage(_ context.Context, request *types.OpenInOverleafDocumentationPageRequest, response *types.OpenInOverleafDocumentationPageResponse) error
 }
 
-func New(options *types.Options, proxy linkedURLProxy.Manager, pum projectUpload.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, proxy linkedURLProxy.Manager, pum projectUpload.Manager) Manager {
 	raw := options.SiteURL.WithPath("/learn")
 	learnURL := sharedTypes.Snapshot(raw.String())
 	return &manager{
 		learnURL: learnURL,
 		proxy:    proxy,
+		ps:       ps,
 		pum:      pum,
 	}
 }
@@ -42,6 +46,7 @@ func New(options *types.Options, proxy linkedURLProxy.Manager, pum projectUpload
 type manager struct {
 	learnURL sharedTypes.Snapshot
 	proxy    linkedURLProxy.Manager
+	ps       *templates.PublicSettings
 	pum      projectUpload.Manager
 }
 

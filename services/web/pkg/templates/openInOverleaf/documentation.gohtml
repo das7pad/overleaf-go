@@ -1,0 +1,667 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{ template "layout-angular" . }}
+{{ define "headScripts" }}
+  <link
+    rel="stylesheet"
+    href="{{ staticPath "/vendor/stylesheets/highlight-github.css" }}"
+  />
+  <script
+    type="text/javascript"
+    src="{{ staticPath "/vendor/highlight.pack.js" }}"
+  ></script>
+{{ end }}
+{{ define "content" }}
+  <main
+    class="content content-alt"
+    ng-controller="OpenInOverleafDocumentation"
+    id="main-content"
+  >
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12 col-lg-10 col-lg-offset-1">
+        <div class="card">
+          <div class="row">
+            <div class="col-xs-12">
+              <div class="page-header">
+                <h1>Overleaf API</h1>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <div class="small">
+                <p>
+                  Do you have your own LaTeX site? Would you like to add "Open
+                  in Overleaf" functionality to help it stand out? If so,
+                  you're at the right place!
+                </p>
+                <p>Looking to quickly add a link from your blog? Easy options
+                  on our
+                  <a href="/partners">partners</a>
+                  page.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h2>One-click to open in Overleaf...</h2>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <p>
+                We've developed the tools you need to load LaTeX code and files
+                from your website or blog directly into Overleaf.
+              </p>
+              <p>
+                See it in action: we recently worked with LaTeX-Community.org
+                to allow all of their 66k examples to be loaded into Overleaf
+                with one click (<a
+                  href="https://latex.org/forum/viewtopic.php?f=37&t=22340"
+                >read more</a>).
+              </p>
+              <p>
+                To add similar functionality to your site, take a look at the
+                sections below. If you have questions, please
+                <a href="/contact">contact support</a> and we'll be happy to
+                help.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h2>Overview</h2>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <p>
+                You can load a code snippet into <a href="/">Overleaf</a> by
+                passing it (or its URI) to
+                <strong>{{ .GatewayURL }}</strong>
+                using a
+                form or
+                a link.
+              </p>
+              <p>
+                The most basic approach is to use a link:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="html">{{ .GatewayURL }}?snip_uri=<strong>http://pathtoyourfile.tex</strong></code>
+                {{- "" -}}
+              </pre>
+              <p>
+                You may also link to a project instead of a single LaTeX
+                snippet by passing the location of a zip file for the
+                <code>snip_uri</code> parameter
+              </p>
+              <p>
+                Here are some links in action:
+                <br/>
+                <a
+                  href="{{ .GatewayURL }}?snip_uri=https://texample.net/media/tikz/examples/TEX/rotated-triangle.tex"
+                >A LaTeX code snippet</a>
+                -
+                <a
+                  href="{{ .GatewayURL }}?zip_uri=https://www.latextemplates.com/actions/action_download_template?template=beamer-presentation&type=Download+Template+Code"
+                >A zipped project</a>
+              </p>
+              <p>
+                Some more advanced methods of embedding and opening LaTeX
+                content are listed below in the
+                <strong>implementations</strong> section below.
+                There are also a number of customisable features that can
+                tailor the "Open in Overleaf" functionality to your needs.
+                These can be found in the <strong>features</strong> section
+                below.
+              </p>
+              <p>
+                Please <a href="/contact">contact support</a> with any
+                questions.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h2>Implementations</h2>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Post a Snippet by URI (URL)</h3>
+              <p>
+                You can post the URI of a file, and Overleaf will download the
+                file and import it as the main file of the project.
+                Here we pass the full path to this file for the
+                <code>snip_uri</code> parameter. The file must be accessible
+                from our servers.
+                The file will be fetched using either HTTP or HTTPS, depending
+                on the URI that you give it; other protocols are not yet
+                supported.
+                Files should be LaTeX files or zip format.
+              </p>
+              <p>
+                Here we pass the full path to
+                <a href="https://production-overleaf-static.s3.amazonaws.com/examples/helloworld.tex">this
+                  file</a> in the
+                <code>snip_uri</code> parameter:
+              </p>
+              <form
+                method="POST"
+                action="{{ .GatewayURL }}"
+                target="_blank"
+              >
+                <div class="form-group">
+                  <input
+                    class="field text medium span8 form-control"
+                    type="text"
+                    name="snip_uri"
+                    value="https://production-overleaf-static.s3.amazonaws.com/examples/helloworld.tex"
+                  />
+                </div>
+                <div class="form-group text-center">
+                  <input
+                    class="btn-success btn btn-sm"
+                    type="submit"
+                    value="Open in Overleaf"
+                  />
+                </div>
+              </form>
+              <p>
+                This form can be implemented with the following code:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="html">
+                    {{- "" -}}
+                    {{ `<form action="` }}{{ .GatewayURL }}{{ `" method="post" target="_blank">
+  <input type="text" name="snip_uri" value="https://production-overleaf-static.s3.amazonaws.com/examples/helloworld.tex">
+  <br>
+  <input type="submit" value="Open in Overleaf">
+</form>` }}
+                    {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+              <p>
+                Alternatively you can just
+                <a
+                  href="{{ .GatewayURL }}?snip_uri=https://production-overleaf-static.s3.amazonaws.com/examples/helloworld.tex"
+                >use a link</a> as described in the Overview section above.
+                We recommend that you use <code>encodeURIComponent</code>, or
+                an equivalent method on the server side to escape each
+                parameter.
+              </p>
+              <p>
+                You can also upload multiple files using
+                <code>snip_uri[]</code> array parameters like this:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="html">
+                    {{- "" -}}
+                    {{ .GatewayURL }}?<strong>snip_uri[]=https://foo.bar/a.tex&snip_uri[]=https://foo.bar/b.tex</strong>
+                    {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+              <p>
+                And there's a <code>snip_name</code> parameter that you can
+                use to override the name of each uploaded file, like this:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="html">
+                    {{- "" -}}
+                    {{ .GatewayURL }}?snip_uri[]=https://foo.bar/a.tex
+                            &snip_uri[]=https://foo.bar/b.tex
+                            &<strong>snip_name[]=file1.tex</strong>
+                            &<strong>snip_name[]=file2.tex</strong>
+                    {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>URL-encoded snippet</h3>
+              <p>
+                URL encoding is useful if you submit using a hidden input
+                field, as in this example. This avoids problems with newlines
+                in the TeX source.
+                This example posts the result of the PHP5 code:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="php">
+                  {{- "" -}}
+                  urlencode("\\documentclass{article}\n\\begin{document}\nHello \$i\$ \& \$j\$.\n\\end{document}\n");
+                  {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+              <p>
+                in the <code>encoded_snip</code> parameter.
+                If using javascript, the <code>encodeURIComponent</code>
+                function should be used (not the <code>escape</code> function,
+                which has problems with internationalisation).
+              </p>
+              <form
+                method="POST"
+                action="{{ .GatewayURL }}"
+                target="_blank"
+              >
+                <div class="form-group text-center">
+                  <input
+                    type="hidden"
+                    name="encoded_snip"
+                    value="%5Cdocumentclass%7Barticle%7D%0A%5Cbegin%7Bdocument%7D%0AHello+%24i%24+%5C%26+%24j%24.%0A%5Cend%7Bdocument%7D%0A"
+                  />
+                  <input
+                    class="btn-success btn btn-sm"
+                    type="submit"
+                    value="Open in Overleaf"
+                  />
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Raw snippet</h3>
+              <p>
+                If you submit from the server side or with AJAX you can use
+                the <code>snip</code> parameter, which assumes no encoding.
+                Another use case is submission from a textarea (which could be
+                hidden using CSS); in this case you must escape HTML entities
+                in the HTML source.
+              </p>
+              <form
+                method="POST"
+                action="{{ .GatewayURL }}"
+                target="_blank"
+              >
+                <div class="form-group">
+                  <textarea
+                    class="field textarea medium span8 form-control"
+                    rows="8"
+                    name="snip"
+                  >
+\documentclass[12pt,letterpaper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+
+\begin{document}
+\noindent
+Bla bla bla bla :
+\begin{align*}
+A &= B + C - D \\ \\
+%phantom
+&\phantom{= B + C \;}
+%phantom
++ D - E \\ \\
+&= F + G - H.
+\end{align*}
+\end{document}
+                  </textarea>
+                </div>
+                <div class="form-group text-center">
+                  <input
+                    class="btn-success btn btn-sm"
+                    type="submit"
+                    value="Open in Overleaf"
+                  />
+                </div>
+              </form>
+              <p>This form can be implemented with the following code:</p>
+              <pre>
+                {{- "" -}}
+                <code class="html">
+                    {{- "" -}}
+                    {{ `<form action="` }}{{ .GatewayURL }}{{ `" method="post" target="_blank">
+<textarea rows="8" cols="60" name="snip">
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+
+\begin{document}
+\noindent
+Bla bla bla bla :
+\begin{align*}
+A &amp;= B + C - D \\ \\
+%phantom
+&amp;\phantom{= B + C \;}
+%phantom
++ D - E \\ \\
+&amp;= F + G - H.
+\end{align*}
+\end{document}
+</textarea>
+<input type="submit" value="Open in Overleaf">
+</form>` }}
+                    {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Post from Formatted Code Box</h3>
+              <p>
+                This example shows how to extract the unformatted code from a
+                CSS-styled code box and submit it to Overleaf. The key
+                components are:
+              </p>
+              <ol>
+                <li>
+                  The Javascript that defines the <code>openInOverleaf()</code>
+                  function.
+                </li>
+                <li>
+                  The <code>form</code> with id <code>ol_form</code>, which
+                  is used to POST the source as a URL-encoded snippet.
+                  Note that in this case you only need one form on the page,
+                  even if you have multiple codeboxes.
+                </li>
+                <li>
+                  The link in the code box that actually calls
+                  <code>openInOverleaf()</code>.
+                </li>
+              </ol>
+              <h4>Examples</h4>
+              <form
+                class="form-inline"
+                id="ol_form"
+                action="{{ .GatewayURL }}"
+                method="post"
+                target="_blank"
+              >
+                <input
+                  id="ol_encoded_snip"
+                  type="hidden"
+                  name="encoded_snip"
+                />
+              </form>
+              <dl class="codebox">
+                <dt>Code:
+                  <a
+                    href="#"
+                    data-ol-open-in-overleaf
+                  >Open in Overleaf</a>
+                </dt>
+                <dd>
+                  <pre>
+                    {{- "" -}}
+                    <code class="tex">
+                      {{- "" -}}
+\renewcommand{\arraystretch}{2}
+\[
+g :=\left(
+\begin{array}{c|c}
+\mathbf{2^D} & \textbf{1} \\ \hline
+\textbf{1} & \begin{array}{cc}
+\boldsymbol{1^\alpha} & \textbf{0} \\
+\textbf{0} & \boldsymbol{1^\beta}
+\end{array} \\
+\end{array}
+\right)
+\]
+                      {{- "" -}}
+                    </code>
+                    {{- "" -}}
+                  </pre>
+                </dd>
+              </dl>
+              <dl class="codebox">
+                <dt>Code:
+                  <a
+                    href="#"
+                    data-ol-open-in-overleaf
+                  >Open in Overleaf</a>
+                </dt>
+                <dd>
+                  <pre>
+                    {{- "" -}}
+                    <code class="tex">
+                      {{- "" -}}
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\begin{document}
+\begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=3cm,
+  thick,main node/.style={circle,fill=blue!20,draw,font=\sffamily\Large\bfseries}]
+
+  \node[main node] (1) {1};
+  \node[main node] (2) [below left of=1] {2};
+  \node[main node] (3) [below right of=2] {3};
+  \node[main node] (4) [below right of=1] {4};
+
+  \path[every node/.style={font=\sffamily\small}]
+    (1) edge node [left] {0.6} (4)
+        edge [bend right] node[left] {0.3} (2)
+        edge [loop above] node {0.1} (1)
+    (2) edge node [right] {0.4} (1)
+        edge node {0.3} (4)
+        edge [loop left] node {0.4} (2)
+        edge [bend right] node[left] {0.1} (3)
+    (3) edge node [right] {0.8} (2)
+        edge [bend right] node[right] {0.2} (4)
+    (4) edge node [left] {0.2} (3)
+        edge [loop right] node {0.6} (4)
+        edge [bend right] node[right] {0.2} (1);
+\end{tikzpicture}
+\end{document}
+                      {{- "" -}}
+                    </code>
+                    {{- "" -}}
+                  </pre>
+                </dd>
+              </dl>
+              <h4>Implementation</h4>
+              <p>The HTML required to add the examples above is:</p>
+              <pre>
+                {{- "" -}}
+                <code class="html">
+                    {{- "" -}}
+                    {{`<form id="ol_form" action="` }}{{ .GatewayURL }}{{ `" method="post" target="_blank">
+  <input id="ol_encoded_snip" type="hidden" name="encoded_snip">
+</form>
+<dl class="codebox">
+  <dt>Code: <a href="#" onclick="openInOverleaf(this); return false;">Open in Overleaf</a></dt>
+  <dd>
+    <pre>
+      <code class="tex">
+        \documentclass{article}
+        ...
+      </code>
+    </pre>
+  </dd>
+</dl>` }}
+                    {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+              <p>
+                The JavaScript code for the openInOverleaf method, which should
+                be included in a <code>script</code> tag is:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="javascript">
+                    {{- "" -}}
+                    {{ `function openInOverleaf(a) {
+  /*
+  * Get the unformatted code from the formatted code box.
+  *
+  * Using the browser's selection isn't ideal, because it clobbers whatever
+  * the user may have had in their clipboard.
+  * It's almost possible to use innerText, but that does not work on FF.
+  * FF supports textContent, but that discards the newlines, which are
+  * represented by BR tags in the formatted code. So, we have to walk the DOM.
+  */
+  var unformat = function (e) {
+    var ret = "";
+    if (e.nodeType === 1) { // element node
+      if (e.tagName === "BR") {
+        return "\n";
+      } else {
+        for (e = e.firstChild; e; e = e.nextSibling) {
+            ret += unformat(e);
+        }
+        return ret;
+      }
+    } else if (e.nodeType === 3 || e.nodeType === 4) { // text node
+        return e.nodeValue;
+    }
+  }
+  var code = a.parentNode.parentNode.getElementsByTagName('CODE')[0];
+  document.getElementById('ol_encoded_snip').value =
+    encodeURIComponent(unformat(code));
+  document.getElementById('ol_form').submit();
+}` }}
+                    {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+              <p>
+                The syntax highlighting in the code boxes is generated by
+                <a href="https://highlightjs.org/">highlight.js</a>,
+                but you can add your own manually with <code>span</code>
+                elements if you prefer.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h2>Features</h2>
+              <p>
+                The features below are included to aid usability of the "Open
+                in Overleaf" implementations, and may be customized to suit
+                your preferences.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Decoration</h3>
+              <p>
+                The code must be wrapped with a valid document in order to
+                compile. If the code snippet does not have a
+                <code>\documentclass</code> tag, it is wrapped in a standard
+                document when it is imported:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="tex">
+                  {{- "" -}}
+\documentclass[12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{tikz}
+\begin{document}
+SNIPPET GOES HERE
+\end{document}
+                  {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Encoding</h3>
+              <p>
+                The submitted snippet should be encoded using UTF-8. Windows
+                newlines are converted to unix newlines.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>TeX Engine</h3>
+              <p>
+                By default, Overleaf tries to detect which TeX engine to use,
+                and it usually chooses <code>pdflatex</code>.
+                If you would like to set the engine explicitly for your new
+                project, you can pass an <code>engine</code> parameter
+                with one of the following values: <code>latex_dvipdf</code>,
+                <code>pdflatex</code>, <code>xelatex</code> or
+                <code>lualatex</code>.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Rich Text</h3>
+              <p>
+                There are two editing modes in Overleaf: Source mode and Rich
+                Text mode. By default, new project are displayed in
+                <strong>Source mode</strong>.
+              </p>
+              <p>
+                You can mark a project to default to Rich Text mode by
+                passing
+                a <code>rich_text</code> parameter with value
+                <code>true</code>.
+              </p>
+              <p>
+                Note that the user can always switch between editing modes
+                with
+                one click, and their preference for each project is stored
+                and
+                has higher precedence over the default setting.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-xs-12">
+              <h3>Comment</h3>
+              <p>
+                We add a short 'welcome' comment at the top of the snippet:
+              </p>
+              <pre>
+                {{- "" -}}
+                <code class="tex">
+                  {{- "" -}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Welcome to Overleaf --- just edit your LaTeX on the left,
+% and we'll compile it for you on the right. If you open the
+% 'Share' menu, you can invite other users to edit at the same
+% time. See {{ .Settings.SiteURL.String }}/learn for more info.
+% Enjoy!
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                  {{- "" -}}
+                </code>
+                {{- "" -}}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </main>
+{{ end }}

@@ -150,7 +150,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
 	hm := history.New(options, um)
-	OIOm := openInOverleaf.New(options, proxy, pum)
+	OIOm := openInOverleaf.New(options, ps, proxy, pum)
 	lfm, err := linkedFile.New(options, pm, dum, fm, cm, ftm, proxy)
 	if err != nil {
 		return nil, err

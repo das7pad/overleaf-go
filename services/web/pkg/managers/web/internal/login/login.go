@@ -19,9 +19,11 @@ package login
 import (
 	"context"
 	"net/url"
+	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -71,6 +73,14 @@ func (m *manager) LoginPage(_ context.Context, request *types.LoginPageRequest, 
 	if request.Session.IsLoggedIn() {
 		response.Redirect = "/project"
 		return nil
+	}
+	if request.Referrer != "" {
+		u, err := sharedTypes.ParseAndValidateURL(request.Referrer)
+		if err == nil && strings.TrimSuffix(u.Path, "/") == "/docs" {
+			if request.Session.PostLoginRedirect == "" {
+				request.Session.PostLoginRedirect = "/docs"
+			}
+		}
 	}
 	response.Data = &templates.UserLoginData{
 		MarketingLayoutData: templates.MarketingLayoutData{

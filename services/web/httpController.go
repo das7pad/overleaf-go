@@ -17,7 +17,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -75,8 +77,14 @@ func (h *httpController) GetRouter(
 	internalUserRouter.GET("/projectListLocals", h.projectListLocals)
 
 	publicRouter := router.Group("")
-	publicRouter.Use(httpUtils.CORS(corsOptions))
 	publicRouter.Use(httpUtils.NoCache())
+	{
+		// SECURITY: Attach gateway page before CORS middleware.
+		//           All 3rd parties are allowed to send users to the gw page.
+		publicRouter.GET("/api/html/docs", h.openInOverleafGatewayPage)
+		publicRouter.POST("/api/html/docs", h.openInOverleafGatewayPage)
+	}
+	publicRouter.Use(httpUtils.CORS(corsOptions))
 
 	{
 		r := publicRouter.Group("/api/html")
@@ -86,6 +94,7 @@ func (h *httpController) GetRouter(
 		r.GET("/admin", h.adminManageSitePage)
 		r.GET("/admin/register", h.adminRegisterUsersPage)
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
+		r.GET("/devs", h.openInOverleafDocumentationPage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
 		r.GET("/register", h.registerUserPage)
@@ -536,6 +545,7 @@ func (h *httpController) login(c *gin.Context) {
 		httpUtils.Respond(c, http.StatusOK, resp, err)
 		return
 	}
+	fmt.Println("POST login", s.PostLoginRedirect)
 	request := &types.LoginRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -1861,12 +1871,18 @@ func (h *httpController) loginPage(c *gin.Context) {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
-	request := &types.LoginPageRequest{Session: s}
+	request := &types.LoginPageRequest{
+		Session:  s,
+		Referrer: c.Request.Referer(),
+	}
 	res := &types.LoginPageResponse{}
 	err = h.wm.LoginPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
+	}
+	if err == nil {
+		err = h.wm.Flush(c, s)
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
@@ -2051,6 +2067,61 @@ func (h *httpController) tokenAccessPage(c *gin.Context) {
 	}
 	res := &types.TokenAccessPageResponse{}
 	err = h.wm.TokenAccessPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) openInOverleafDocumentationPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	r := &types.OpenInOverleafDocumentationPageRequest{Session: s}
+	res := &types.OpenInOverleafDocumentationPageResponse{}
+	err = h.wm.OpenInOverleafDocumentationPage(c.Request.Context(), r, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) openInOverleafGatewayPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.OpenInOverleafGatewayPageRequest{Session: s}
+	switch c.Request.Method {
+	case http.MethodGet:
+		q := c.Request.URL.Query()
+		request.Query = &q
+	case http.MethodPost:
+		c.Request.Body = http.MaxBytesReader(
+			c.Writer, c.Request.Body, types.MaxUploadSize,
+		)
+		if c.GetHeader("Content-Type") == "application/json" {
+			var body []byte
+			if body, err = io.ReadAll(c.Request.Body); err == nil {
+				request.Body = (*json.RawMessage)(&body)
+			}
+		} else {
+			if err = c.Request.ParseForm(); err == nil {
+				q := c.Request.Form
+				request.Query = &q
+			}
+		}
+		if err != nil {
+			err = &errors.UnprocessableEntityError{
+				Msg: "cannot read POST body",
+			}
+			templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+			return
+		}
+	default:
+		err = &errors.ValidationError{Msg: "GET / POST allowed only"}
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	res := &types.OpenInOverleafGatewayPageResponse{}
+	err = h.wm.OpenInOverleafGatewayPage(c.Request.Context(), request, res)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 

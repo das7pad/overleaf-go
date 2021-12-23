@@ -145,5 +145,6 @@
           content="{{ $meta.ContentAsString }}"
         />
       {{ end }}
+    {{ block "headScripts" . }}{{ end }}
   </head>
 {{ end }}

@@ -17,6 +17,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type OpenInOverleafSnippet struct {
@@ -215,4 +217,22 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 	}
 	r.Snippets = snippets
 	return nil
+}
+
+type OpenInOverleafDocumentationPageRequest struct {
+	Session *session.Session `form:"-"`
+}
+
+type OpenInOverleafDocumentationPageResponse struct {
+	Data *templates.OpenInOverleafDocumentationData
+}
+
+type OpenInOverleafGatewayPageRequest struct {
+	Session *session.Session `form:"-"`
+	Query   *url.Values      `form:"-"`
+	Body    *json.RawMessage `form:"-"`
+}
+
+type OpenInOverleafGatewayPageResponse struct {
+	Data *templates.OpenInOverleafGatewayData
 }

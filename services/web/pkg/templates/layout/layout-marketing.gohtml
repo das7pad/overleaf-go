@@ -21,13 +21,11 @@
   <html lang="{{ .CurrentLngCode }}">
   {{ template "head" . }}
   <body>
-  {{ block "skipToContent" .}}
+  {{ block "navbar" . }}
     <a
       class="skip-to-content"
       href="#main-content"
     >{{ translate "skip_to_content" . }}</a>
-  {{ end }}
-  {{ block "navbar" .}}
     <nav class="navbar navbar-default navbar-main">
       <div class="container-fluid">
         <div class="navbar-header">
@@ -204,8 +202,8 @@
       </div>
     </nav>
   {{ end }}
-  {{template "content" .}}
-  {{ block "footer" .}}
+  {{template "content" . }}
+  {{ block "footer" . }}
     <footer class="site-footer">
       <div class="site-footer-content hidden-print">
         <div class="row">

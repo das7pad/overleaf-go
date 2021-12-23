@@ -83,7 +83,8 @@ func (r *LoginRequest) Validate() error {
 type LoginResponse = asyncForm.Response
 
 type LoginPageRequest struct {
-	Session *session.Session `form:"-"`
+	Session  *session.Session `form:"-"`
+	Referrer string           `form:"-"`
 }
 
 type LoginPageResponse struct {

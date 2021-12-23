@@ -1,0 +1,82 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{ template "layout-angular" . }}
+{{ define "navbar" }}<!-- Hide Navbar -->{{ end }}
+{{ define "footer" }}<!-- Hide Footer -->{{ end }}
+{{ define "content" }}
+  <main
+    class="editor full-size"
+    ng-controller="OpenInOverleafGatewayController"
+    ng-init="handleGateway();"
+  >
+  <div
+    class="loading-screen"
+    ng-hide="error || serverError"
+  >
+    <div class="loading-screen-brand-container">
+      <div
+        id="loadingScreen"
+        class="loading-screen-brand"
+      ></div>
+    </div>
+    <h3 class="loading-screen-label">
+        {{ translate "loading_content" . }}
+      <span class="loading-screen-ellip">.</span>
+      <span class="loading-screen-ellip">.</span>
+      <span class="loading-screen-ellip">.</span>
+    </h3>
+  </div>
+  <div
+    class="container"
+    ng-show="error || serverError"
+    ng-cloak
+  >
+    <div class="row">
+      <div class="col-md-8 col-md-offset-2">
+        <div class="page-header">
+          <h1>{{ translate "loading_content" . }}</h1>
+        </div>
+        <div class="message">
+          <p>
+              {{ translate "there_was_an_error_opening_your_content" . }}
+          </p>
+        </div>
+        <div class="errors">
+          <div
+            class="alert alert-danger"
+            ng-show="error"
+            ng-cloak
+          >
+              {{ translate "sorry_something_went_wrong_opening_the_document_please_try_again" . }}
+          </div>
+          <div
+            class="alert alert-danger"
+            ng-show="serverError"
+            ng-cloak
+          >{{ `{{ serverError }}` }}</div>
+          <a
+            class="error-btn"
+            href="/"
+          >Home</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  </main>
+{{end}}
