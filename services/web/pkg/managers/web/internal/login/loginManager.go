@@ -31,6 +31,7 @@ import (
 )
 
 type Manager interface {
+	ActivateUserPage(ctx context.Context, request *types.ActivateUserPageRequest, response *types.ActivateUserPageResponse) error
 	ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAddressRequest) error
 	ChangePassword(ctx context.Context, r *types.ChangePasswordRequest, response *types.ChangePasswordResponse) error
 	ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error

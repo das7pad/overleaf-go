@@ -118,6 +118,16 @@ func (d *UserSetPasswordData) Render() (string, error) {
 	return render("user/setPassword.gohtml", 30*1024, d)
 }
 
+type UserActivateData struct {
+	MarketingLayoutData
+	Email sharedTypes.Email
+	Token oneTimeToken.OneTimeToken
+}
+
+func (d *UserActivateData) Render() (string, error) {
+	return render("user/activate.gohtml", 30*1024, d)
+}
+
 type UserPasswordResetData struct {
 	MarketingLayoutData
 	Email sharedTypes.Email

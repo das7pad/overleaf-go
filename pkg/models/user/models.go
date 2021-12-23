@@ -131,3 +131,8 @@ type ForSettingsPage struct {
 	WithPublicInfo   `bson:"inline"`
 	BetaProgramField `bson:"inline"`
 }
+
+type ForActivateUserPage struct {
+	EmailField      `bson:"inline"`
+	LoginCountField `bson:"inline"`
+}

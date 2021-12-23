@@ -17,6 +17,8 @@
 package types
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
@@ -93,5 +95,26 @@ type RequestPasswordResetPageRequest struct {
 
 type RequestPasswordResetPageResponse struct {
 	Data     *templates.UserPasswordResetData
+	Redirect string
+}
+
+type ActivateUserPageRequest struct {
+	Session   *session.Session          `form:"-"`
+	UserIdHex string                    `form:"user_id"`
+	Token     oneTimeToken.OneTimeToken `form:"token"`
+}
+
+func (r *ActivateUserPageRequest) Validate() error {
+	if !primitive.IsValidObjectID(r.UserIdHex) {
+		return &errors.ValidationError{Msg: "missing user_id"}
+	}
+	if err := r.Token.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type ActivateUserPageResponse struct {
+	Data     *templates.UserActivateData
 	Redirect string
 }

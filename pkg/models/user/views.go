@@ -28,6 +28,7 @@ var (
 	emailsFieldProjection               = views.GetProjectionFor(EmailsField{})
 	epochFieldProjection                = views.GetProjectionFor(EpochField{})
 	featuresFieldProjection             = views.GetProjectionFor(FeaturesField{})
+	forActivateUserPage                 = views.GetProjectionFor(ForActivateUserPage{})
 	forDeletionProjection               = views.GetProjectionFor(ForDeletion{})
 	forEmailChangeProjection            = views.GetProjectionFor(ForEmailChange{})
 	forPasswordChangeProjection         = views.GetProjectionFor(ForPasswordChange{})
@@ -76,6 +77,8 @@ func getProjection(model interface{}) views.View {
 		return forSettingsPageProjection
 	case *BetaProgramField:
 		return betaProgramFieldProjection
+	case *ForActivateUserPage:
+		return forActivateUserPage
 	}
 	panic(fmt.Sprintf("missing projection for %v", model))
 }

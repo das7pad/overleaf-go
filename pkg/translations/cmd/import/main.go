@@ -116,6 +116,8 @@ func processLocale(key, v string) string {
 		//        in the project dashboard. Other locales take over the actual
 		//        display.
 		v = "-"
+	case "account_with_email_exists":
+		v = strings.ReplaceAll(v, "the email <b>__email__</b>", "the provided email")
 	}
 	if strings.Contains(v, "__") {
 		panic(key + " contains __")

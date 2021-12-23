@@ -68,8 +68,7 @@ func RespondHTML(
 				WithQuery(c.Request.URL.Query()).
 				String()
 			_ = flushSession(c, s)
-			httpUtils.EndTotalTimer(c)
-			c.Redirect(http.StatusFound, "/login")
+			httpUtils.Redirect(c, "/login")
 			return
 		}
 		var errMessage string

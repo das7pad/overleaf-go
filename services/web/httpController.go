@@ -90,6 +90,7 @@ func (h *httpController) GetRouter(
 		r.GET("/logout", h.logoutPage)
 		r.GET("/register", h.registerUserPage)
 		r.GET("/restricted", h.restrictedPage)
+		r.GET("/user/activate", h.activateUserPage)
 		r.GET("/user/emails/confirm", h.confirmEmailPage)
 		r.GET("/user/password/reset", h.requestPasswordResetPage)
 		r.GET("/user/password/set", h.setPasswordPage)
@@ -1836,9 +1837,9 @@ func (h *httpController) homePage(c *gin.Context) {
 		return
 	}
 	if s.IsLoggedIn() {
-		c.Redirect(http.StatusFound, "/project")
+		httpUtils.Redirect(c, "/project")
 	} else {
-		c.Redirect(http.StatusFound, "/login")
+		httpUtils.Redirect(c, "/login")
 	}
 }
 
@@ -1864,7 +1865,7 @@ func (h *httpController) loginPage(c *gin.Context) {
 	res := &types.LoginPageResponse{}
 	err = h.wm.LoginPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
-		c.Redirect(http.StatusFound, res.Redirect)
+		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
@@ -1910,7 +1911,7 @@ func (h *httpController) reconfirmAccountPage(c *gin.Context) {
 	res := &types.ReconfirmAccountPageResponse{}
 	err = h.wm.ReconfirmAccountPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
-		c.Redirect(http.StatusFound, res.Redirect)
+		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
@@ -1932,7 +1933,7 @@ func (h *httpController) registerUserPage(c *gin.Context) {
 	res := &types.RegisterUserPageResponse{}
 	err = h.wm.RegisterUserPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
-		c.Redirect(http.StatusFound, res.Redirect)
+		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
@@ -1964,7 +1965,7 @@ func (h *httpController) setPasswordPage(c *gin.Context) {
 	res := &types.SetPasswordPageResponse{}
 	err = h.wm.SetPasswordPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
-		c.Redirect(http.StatusFound, res.Redirect)
+		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
@@ -1986,7 +1987,29 @@ func (h *httpController) requestPasswordResetPage(c *gin.Context) {
 	res := &types.RequestPasswordResetPageResponse{}
 	err = h.wm.RequestPasswordResetPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
-		c.Redirect(http.StatusFound, res.Redirect)
+		httpUtils.Redirect(c, res.Redirect)
+		return
+	}
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) activateUserPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.ActivateUserPageRequest{}
+	if err = c.BindQuery(&request); err != nil {
+		err = errors.ToValidationError(err)
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request.Session = s
+	res := &types.ActivateUserPageResponse{}
+	err = h.wm.ActivateUserPage(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
