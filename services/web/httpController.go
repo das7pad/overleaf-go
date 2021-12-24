@@ -72,10 +72,6 @@ func (h *httpController) GetRouter(
 	internalProjectUserRouter.Use(httpUtils.ValidateAndSetIdZeroOK("userId"))
 	internalProjectUserRouter.GET("/editorLocals", h.editorLocals)
 
-	internalUserRouter := internalRouter.Group("/user/:userId")
-	internalUserRouter.Use(httpUtils.ValidateAndSetId("userId"))
-	internalUserRouter.GET("/projectListLocals", h.projectListLocals)
-
 	publicRouter := router.Group("")
 	publicRouter.Use(httpUtils.NoCache())
 	{
@@ -97,6 +93,7 @@ func (h *httpController) GetRouter(
 		r.GET("/devs", h.openInOverleafDocumentationPage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
+		r.GET("/project", h.projectListPage)
 		r.GET("/register", h.registerUserPage)
 		r.GET("/restricted", h.restrictedPage)
 		r.GET("/user/activate", h.activateUserPage)
@@ -492,15 +489,6 @@ func (h *httpController) editorLocals(c *gin.Context) {
 	}
 	response := &types.LoadEditorResponse{}
 	err := h.wm.LoadEditor(c.Request.Context(), request, response)
-	httpUtils.Respond(c, http.StatusOK, response, err)
-}
-
-func (h *httpController) projectListLocals(c *gin.Context) {
-	request := &types.ProjectListRequest{
-		UserId: httpUtils.GetId(c, "userId"),
-	}
-	response := &types.ProjectListResponse{}
-	err := h.wm.ProjectList(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -2125,6 +2113,18 @@ func (h *httpController) openInOverleafGatewayPage(c *gin.Context) {
 	}
 	res := &types.OpenInOverleafGatewayPageResponse{}
 	err = h.wm.OpenInOverleafGatewayPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) projectListPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.ProjectListPageRequest{Session: s}
+	res := &types.ProjectListPageResponse{}
+	err = h.wm.ProjectListPage(c.Request.Context(), request, res)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 

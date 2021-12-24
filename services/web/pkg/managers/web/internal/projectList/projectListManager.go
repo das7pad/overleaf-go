@@ -29,12 +29,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error
-	ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error
+	ProjectListPage(ctx context.Context, request *types.ProjectListPageRequest, response *types.ProjectListPageResponse) error
 	ArchiveProject(ctx context.Context, request *types.ArchiveProjectRequest) error
 	UnArchiveProject(ctx context.Context, request *types.UnArchiveProjectRequest) error
 	TrashProject(ctx context.Context, request *types.TrashProjectRequest) error
@@ -42,10 +43,11 @@ type Manager interface {
 	RenameProject(ctx context.Context, request *types.RenameProjectRequest) error
 }
 
-func New(editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
+func New(ps *templates.PublicSettings, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
 	return &manager{
 		editorEvents:    editorEvents,
 		pm:              pm,
+		ps:              ps,
 		tm:              tm,
 		um:              um,
 		jwtLoggedInUser: jwtLoggedInUser,
@@ -55,6 +57,7 @@ func New(editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um use
 type manager struct {
 	editorEvents    channel.Writer
 	pm              project.Manager
+	ps              *templates.PublicSettings
 	tm              tag.Manager
 	um              user.Manager
 	jwtLoggedInUser jwtHandler.JWTHandler
@@ -86,8 +89,11 @@ func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserPro
 	return nil
 }
 
-func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListRequest, response *types.ProjectListResponse) error {
-	userId := request.UserId
+func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectListPageRequest, response *types.ProjectListPageResponse) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	userId := request.Session.User.Id
 	eg, pCtx := errgroup.WithContext(ctx)
 
 	u := &user.ProjectListViewCaller{}
@@ -95,17 +101,16 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 		if err := m.um.GetUser(pCtx, userId, u); err != nil {
 			return errors.Tag(err, "cannot get user")
 		}
-		response.UserEmails = u.ToUserEmails()
 		return nil
 	})
 
+	var projects []*templates.ProjectListProjectView
 	eg.Go(func() error {
 		projectsRaw, err := m.pm.ListProjects(pCtx, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get projects")
 		}
-		projects := make([]*types.ProjectListProjectView, len(projectsRaw))
-		response.Projects = projects
+		projects = make([]*templates.ProjectListProjectView, len(projectsRaw))
 
 		lookUpUserIds := make(user.UniqUserIds)
 		for i, p := range projectsRaw {
@@ -116,7 +121,7 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 			}
 			isArchived := p.ArchivedBy.Contains(userId)
 			isTrashed := p.TrashedBy.Contains(userId)
-			projects[i] = &types.ProjectListProjectView{
+			projects[i] = &templates.ProjectListProjectView{
 				Id:                  p.Id,
 				Name:                p.Name,
 				LastUpdatedAt:       p.LastUpdatedAt,
@@ -154,15 +159,17 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 		return nil
 	})
 
+	var tags []tag.Full
 	eg.Go(func() error {
-		tags, err := m.tm.GetAll(ctx, userId)
+		var err error
+		tags, err = m.tm.GetAll(ctx, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get tags")
 		}
-		response.Tags = tags
 		return nil
 	})
 
+	var jwtLoggedInUser string
 	eg.Go(func() error {
 		c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 		c.UserId = userId
@@ -170,7 +177,7 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 		if err != nil {
 			return errors.Tag(err, "cannot get LoggedInUserJWT")
 		}
-		response.JWTLoggedInUser = b
+		jwtLoggedInUser = b
 		return nil
 	})
 
@@ -178,13 +185,29 @@ func (m *manager) ProjectList(ctx context.Context, request *types.ProjectListReq
 		return err
 	}
 
-	for _, p := range response.Projects {
+	for _, p := range projects {
 		if p.OwnerRef == userId {
 			p.Owner = &u.WithPublicInfo
 		}
 		if p.LastUpdatedByUserId == userId {
 			p.LastUpdatedBy = &u.WithPublicInfo
 		}
+	}
+
+	response.Data = &templates.ProjectListData{
+		AngularLayoutData: templates.AngularLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:    m.ps,
+					SessionUser: request.Session.User,
+					TitleLocale: "your_projects",
+				},
+			},
+		},
+		Projects:        projects,
+		Tags:            tags,
+		JWTLoggedInUser: jwtLoggedInUser,
+		UserEmails:      u.ToUserEmails(),
 	}
 	return nil
 }

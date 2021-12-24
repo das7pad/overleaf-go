@@ -52,18 +52,19 @@ type Options struct {
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
-	I18n                     templates.I18nOptions `json:"i18n"`
-	ManifestPath             string                `json:"manifest_path"`
-	Nav                      templates.NavOptions  `json:"nav"`
-	PDFDownloadDomain        PDFDownloadDomain     `json:"pdf_download_domain"`
-	ProjectsInactiveAfter    time.Duration         `json:"projects_inactive_after"`
-	RegistrationDisabled     bool                  `json:"registration_disabled"`
-	RobotsNoindex            bool                  `json:"robots_noindex"`
-	Sentry                   SentryOptions         `json:"sentry"`
-	SiteURL                  sharedTypes.URL       `json:"site_url"`
-	StatusPageURL            sharedTypes.URL       `json:"status_page_url"`
-	TeXLiveImageNameOverride clsiTypes.ImageName   `json:"texlive_image_name_override"`
-	WatchManifest            bool                  `json:"watch_manifest"`
+	EmailConfirmationDisabled bool                  `json:"email_confirmation_disabled"`
+	I18n                      templates.I18nOptions `json:"i18n"`
+	ManifestPath              string                `json:"manifest_path"`
+	Nav                       templates.NavOptions  `json:"nav"`
+	PDFDownloadDomain         PDFDownloadDomain     `json:"pdf_download_domain"`
+	ProjectsInactiveAfter     time.Duration         `json:"projects_inactive_after"`
+	RegistrationDisabled      bool                  `json:"registration_disabled"`
+	RobotsNoindex             bool                  `json:"robots_noindex"`
+	Sentry                    SentryOptions         `json:"sentry"`
+	SiteURL                   sharedTypes.URL       `json:"site_url"`
+	StatusPageURL             sharedTypes.URL       `json:"status_page_url"`
+	TeXLiveImageNameOverride  clsiTypes.ImageName   `json:"texlive_image_name_override"`
+	WatchManifest             bool                  `json:"watch_manifest"`
 
 	APIs struct {
 		Clsi struct {
@@ -251,13 +252,14 @@ type SentryOptions struct {
 func (o *Options) PublicSettings() *templates.PublicSettings {
 	//goland:noinspection SpellCheckingInspection
 	return &templates.PublicSettings{
-		AppName:              o.AppName,
-		AdminEmail:           o.AdminEmail,
-		CDNURL:               o.CDNURL,
-		I18n:                 o.I18n,
-		Nav:                  o.Nav,
-		RegistrationDisabled: o.RegistrationDisabled,
-		RobotsNoindex:        o.RobotsNoindex,
+		AppName:                   o.AppName,
+		AdminEmail:                o.AdminEmail,
+		CDNURL:                    o.CDNURL,
+		EmailConfirmationDisabled: o.EmailConfirmationDisabled,
+		I18n:                      o.I18n,
+		Nav:                       o.Nav,
+		RegistrationDisabled:      o.RegistrationDisabled,
+		RobotsNoindex:             o.RobotsNoindex,
 		Sentry: templates.PublicSentryOptions{
 			Frontend: o.Sentry.Frontend,
 		},
@@ -286,5 +288,6 @@ func (o *Options) PublicSettings() *templates.PublicSettings {
 			"uk":    "Українська",
 			"zh-CN": "简体中文",
 		},
+		ZipFileSizeLimit: MaxUploadSize,
 	}
 }

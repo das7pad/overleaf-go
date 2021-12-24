@@ -1,0 +1,1518 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{ template "layout-angular" . }}
+{{ define "content" }}
+  <main
+    class="content content-alt project-list-page"
+    ng-controller="ProjectPageController"
+    role="main"
+  >
+  <div
+    class="system-messages"
+    ng-cloak="ng-cloak"
+    ng-controller="SystemMessagesController"
+  >
+    <div
+      class="system-message"
+      ng-repeat="message in messages"
+      ng-controller="SystemMessageController"
+      ng-hide="hidden"
+    >
+      <button
+        ng-hide="protected"
+        ng-click="hide()"
+        class="close pull-right"
+      >
+        <span aria-hidden="true">&times;</span>
+        <span class="sr-only">{{ translate "close" . }}</span>
+      </button>
+      <div
+        class="system-message-content"
+        ng-bind-html="htmlContent"
+      ></div>
+    </div>
+      {{ if .SuggestedLngCode }}
+        <div
+          ng-controller="TranslationsPopupController"
+          ng-cloak="ng-cloak"
+        >
+          <div
+            class="translations-message"
+            ng-hide="hidei18nNotification"
+          >
+            <a
+              href="{{ getTranslationUrl .SuggestedLngCode }}"
+            >{{ translate "click_here_to_view_sl_in_lng" . }}
+            </a>
+            <button
+              ng-click="dismiss()"
+              class="close pull-right"
+            >
+              <span aria-hidden="true">&times;</span>
+              <span class="sr-only">{{ translate "close" . }}</span>
+            </button>
+          </div>
+        </div>
+      {{ end }}
+  </div>
+  <div class="project-list-content">
+    <div
+      class="project-list-row"
+      ng-cloak="ng-cloak"
+    >
+      <div
+        class="project-list-container row"
+        ng-if="projects.length > 0"
+      >
+        <div class="project-list-sidebar-wrapper col-md-2 col-xs-3">
+          <aside class="project-list-sidebar">
+            <div
+              class="dropdown"
+              dropdown="dropdown"
+              dropdown-append-to-body="dropdown-append-to-body"
+            >
+              <a
+                class="btn btn-primary sidebar-new-proj-btn dropdown-toggle"
+                href="#"
+                data-toggle="dropdown"
+                dropdown-toggle="dropdown-toggle"
+              >{{ translate "new_project" . }}</a>
+              <ul
+                class="dropdown-menu"
+                role="menu"
+              >
+                <li>
+                  <a
+                    href="#"
+                    ng-click="openCreateProjectModal()"
+                  >{{ translate "blank_project" . }}</a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    ng-click="openCreateProjectModal('example')"
+                  >{{ translate "example_project" . }}</a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    ng-click="openUploadProjectModal()"
+                  >{{ translate "upload_project" . }}</a>
+                </li>
+              </ul>
+            </div>
+            <div
+              class="row-spaced"
+              ng-if="projects.length > 0"
+              ng-cloak="ng-cloak"
+            >
+              <ul
+                class="list-unstyled folders-menu"
+                ng-controller="TagListController"
+              >
+                <li
+                  ng-class="{active: (filter == 'all')}"
+                  ng-click="filterProjects('all')"
+                >
+                  <a href="#">{{ translate "all_projects" . }}</a>
+                </li>
+                <li
+                  ng-class="{active: (filter == 'owned')}"
+                  ng-click="filterProjects('owned')"
+                >
+                  <a href="#">{{ translate "your_projects" . }}</a>
+                </li>
+                <li
+                  ng-class="{active: (filter == 'shared')}"
+                  ng-click="filterProjects('shared')"
+                >
+                  <a href="#">{{ translate "shared_with_you" . }}</a>
+                </li>
+                <li
+                  ng-class="{active: (filter == 'archived')}"
+                  ng-click="filterProjects('archived')"
+                >
+                  <a href="#">{{ translate "archived_projects" . }}</a>
+                </li>
+                <li
+                  ng-class="{active: (filter == 'trashed')}"
+                  ng-click="filterProjects('trashed')"
+                >
+                  <a href="#">{{ translate "trashed_projects" . }}</a>
+                </li>
+                <li class="separator">
+                  <h2>{{ translate "tags_slash_folders" . }}</h2>
+                </li>
+                <li
+                  class="tag"
+                  ng-cloak="ng-cloak"
+                >
+                  <a
+                    class="tag-name"
+                    href="#"
+                    ng-click="openNewTagModal()"
+                  >
+                    <i
+                      class="fa fa-fw fa-plus"
+                      aria-hidden="true"
+                    ></i>
+                    <span class="name">{{ translate "new_folder" . }}</span>
+                  </a>
+                </li>
+                <li
+                  class="tag"
+                  ng-repeat="tag in tags | orderBy:'name'"
+                  ng-class="{active: tag.selected}"
+                  ng-cloak="ng-cloak"
+                  ng-click="selectTag(tag)"
+                >
+                  <a
+                    class="tag-name"
+                    href="#"
+                  >
+                    <i
+                      class="icon fa fa-fw"
+                      ng-class="{'fa-folder-open': tag.selected,'fa-folder': !tag.selected}"
+                      ng-style="{ 'color': 'hsl({{ `{{ getHueForTagId(tag._id) }}` }}, 70%, 45%)' }"
+                      aria-hidden="true"
+                    ></i>
+                    <span class="name">
+                        {{ `{{tag.name}}` }}
+                      <span class="subdued">
+                        ({{ `{{countProjectsForTag(tag)}}` }})
+                      </span>
+                    </span>
+                  </a>
+                  <div
+                    class="dropdown tag-menu"
+                    dropdown="dropdown"
+                  >
+                    <a
+                      class="dropdown-toggle"
+                      href="#"
+                      data-toggle="dropdown"
+                      dropdown-toggle="dropdown-toggle"
+                      stop-propagation="click"
+                    >
+                      <span class="caret"></span>
+                    </a>
+                    <ul
+                      class="dropdown-menu dropdown-menu-right"
+                      role="menu"
+                    >
+                      <li>
+                        <a
+                          href="#"
+                          ng-click="renameTag(tag)"
+                          stop-propagation="click"
+                        >{{ translate "rename" . }}</a>
+                      </li>
+                      <li>
+                        <a
+                          href="#"
+                          ng-click="deleteTag(tag)"
+                          stop-propagation="click"
+                        >{{ translate "delete" . }}</a>
+                      </li>
+                    </ul>
+                  </div>
+                </li>
+                <li
+                  class="tag untagged"
+                  ng-if="tags.length"
+                  ng-cloak="ng-cloak"
+                  ng-click="selectUntagged()"
+                  ng-class="{active: filter === 'untagged'}"
+                >
+                  <a
+                    class="tag-name"
+                    href="#"
+                  >
+                    <span class="name">{{ translate "uncategorized" . }}</span>
+                    <span class="subdued">({{ `{{ nUntagged }}` }})</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+        <div class="project-list-main col-md-10 col-xs-9">
+            {{ template "notifications" . }}
+          <div class="row">
+            <div
+              class="col-xs-12"
+              ng-cloak="ng-cloak"
+            >
+              <form
+                class="project-search form-horizontal"
+                role="form"
+              >
+                <div
+                  class="form-group has-feedback has-feedback-left col-md-7 col-xs-12"
+                >
+                  <input
+                    class="form-control col-md-7 col-xs-12"
+                    placeholder="{{ translate "search_projects" . }}…"
+                    aria-label="{{ translate "search_projects" . }}…"
+                    autofocus="autofocus"
+                    ng-model="searchText.value"
+                    focus-on="search:clear"
+                    ng-keyup="searchProjects()"
+                  />
+                  <i
+                    class="fa fa-search form-control-feedback-left"
+                    aria-hidden="true"
+                  ></i>
+                  <i
+                    class="fa fa-times form-control-feedback clickable"
+                    ng-click="clearSearchText()"
+                    ng-show="searchText.value.length > 0"
+                    aria-hidden="true"
+                  ></i>
+                  <button
+                    class="sr-only"
+                    type="button"
+                    ng-click="clearSearchText()"
+                    ng-show="searchText.value.length > 0"
+                  >{{ translate "clear_search" . }}</button>
+                </div>
+              </form>
+              <div
+                class="project-tools"
+                ng-cloak="ng-cloak"
+              >
+                <div class="btn-toolbar">
+                  <div
+                    class="btn-group"
+                    ng-hide="selectedProjects.length < 1"
+                  >
+                    <a
+                      class="btn btn-default"
+                      href="#"
+                      aria-label="{{ translate "download" . }}"
+                      tooltip="{{ translate "download" . }}"
+                      tooltip-placement="bottom"
+                      tooltip-append-to-body="true"
+                      ng-click="downloadSelectedProjects()"
+                    >
+                      <i
+                        class="fa fa-cloud-download"
+                        aria-hidden="true"
+                      ></i>
+                    </a>
+                    <a
+                      class="btn btn-default"
+                      href="#"
+                      ng-if="filter !== 'archived'"
+                      aria-label="{{ translate "archive" . }}"
+                      tooltip="{{ translate "archive" . }}"
+                      tooltip-placement="bottom"
+                      tooltip-append-to-body="true"
+                      ng-click="openArchiveProjectsModal()"
+                    >
+                      <i
+                        class="fa fa-inbox"
+                        aria-hidden="true"
+                      ></i>
+                    </a>
+                    <a
+                      class="btn btn-default"
+                      href="#"
+                      ng-if="filter !== 'trashed'"
+                      aria-label="{{ translate "trash" . }}"
+                      tooltip="{{ translate "trash" . }}"
+                      tooltip-placement="bottom"
+                      tooltip-append-to-body="true"
+                      ng-click="openTrashProjectsModal()"
+                    >
+                      <i
+                        class="fa fa-trash"
+                        aria-hidden="true"
+                      ></i>
+                    </a>
+                  </div>
+                  <div
+                    class="btn-group dropdown"
+                    ng-hide="selectedProjects.length < 1 || filter === 'archived' || filter === 'trashed'"
+                    dropdown="dropdown"
+                  >
+                    <a
+                      class="btn btn-default dropdown-toggle"
+                      href="#"
+                      data-toggle="dropdown"
+                      dropdown-toggle="dropdown-toggle"
+                      tooltip="{{ translate "add_to_folders" . }}"
+                      tooltip-append-to-body="true"
+                      tooltip-placement="bottom"
+                    >
+                      <i class="fa fa-folder-open"></i>
+                      <span class="caret"></span>
+                      <span
+                        class="sr-only"
+                      >{{ translate "add_to_folders" . }}</span>
+                    </a>
+                    <ul
+                      class="dropdown-menu dropdown-menu-right js-tags-dropdown-menu tags-dropdown-menu"
+                      role="menu"
+                      ng-controller="TagListController"
+                    >
+                      <li
+                        class="dropdown-header"
+                      >{{ translate "add_to_folder" . }}</li>
+                      <li
+                        ng-repeat="tag in tags | orderBy:'name'"
+                        ng-controller="TagDropdownItemController"
+                      >
+                        <a
+                          href="#"
+                          ng-click="addOrRemoveProjectsFromTag()"
+                          stop-propagation="click"
+                        >
+                          <i
+                            class="fa"
+                            ng-class="{'fa-check-square-o': areSelectedProjectsInTag == true,'fa-square-o': areSelectedProjectsInTag == false,'fa-minus-square-o': areSelectedProjectsInTag == 'partial'}"
+                          ></i>
+                          <span
+                            class="sr-only"
+                          >Add or remove project from tag</span>
+                            {{ `{{tag.name}}` }}
+                        </a>
+                      </li>
+                      <li class="divider"></li>
+                      <li>
+                        <a
+                          href="#"
+                          ng-click="openNewTagModal()"
+                          stop-propagation="click"
+                        >{{ translate "create_new_folder" . }}</a>
+                      </li>
+                    </ul>
+                  </div>
+                  <div
+                    class="btn-group dropdown"
+                    ng-hide="selectedProjects.length != 1  || filter === 'archived' || filter === 'trashed'"
+                    dropdown="dropdown"
+                  >
+                    <a
+                      class="btn btn-default dropdown-toggle"
+                      href="#"
+                      data-toggle="dropdown"
+                      dropdown-toggle="dropdown-toggle"
+                    >
+                        {{ translate "more" . }}
+                      <span class="caret"></span>
+                    </a>
+                    <ul
+                      class="dropdown-menu dropdown-menu-right"
+                      role="menu"
+                    >
+                      <li ng-show="getFirstSelectedProject().accessLevel == 'owner'">
+                        <a
+                          href="#"
+                          ng-click="openRenameProjectModal()"
+                        >{{ translate "rename" . }}</a>
+                      </li>
+                      <li>
+                        <a
+                          href="#"
+                          ng-click="openCloneProjectModal(getFirstSelectedProject())"
+                        >{{ translate "make_copy" . }}</a>
+                      </li>
+                    </ul>
+                  </div>
+                  <div
+                    class="btn-group"
+                    ng-show="filter === 'archived' && selectedProjects.length > 0"
+                  >
+                    <a
+                      class="btn btn-default"
+                      href="#"
+                      data-original-title="{{ translate "unarchive" . }}"
+                      data-toggle="tooltip"
+                      data-placement="bottom"
+                      ng-click="unarchiveProjects(selectedProjects)"
+                    >{{ translate "unarchive" . }}</a>
+                  </div>
+                  <div
+                    class="btn-group"
+                    ng-show="filter === 'trashed' && selectedProjects.length > 0"
+                  >
+                    <a
+                      class="btn btn-default"
+                      href="#"
+                      data-original-title="{{ translate "untrash" . }}"
+                      data-toggle="tooltip"
+                      data-placement="bottom"
+                      ng-click="untrashProjects(selectedProjects)"
+                    >{{ translate "untrash" . }}</a>
+                  </div>
+                  <div
+                    class="btn-group"
+                    ng-show="filter === 'trashed' && selectedProjects.length > 0"
+                  >
+                    <a
+                      class="btn btn-danger"
+                      href="#"
+                      ng-if="hasLeavableProjectsSelected() && !hasDeletableProjectsSelected()"
+                      data-original-title="{{ translate "leave" . }}"
+                      data-toggle="tooltip"
+                      data-placement="bottom"
+                      ng-click="openLeaveProjectsModal()"
+                    >{{ translate "leave" . }}</a>
+                    <a
+                      class="btn btn-danger"
+                      href="#"
+                      ng-if="hasDeletableProjectsSelected() && !hasLeavableProjectsSelected()"
+                      data-original-title="{{ translate "delete" . }}"
+                      data-toggle="tooltip"
+                      data-placement="bottom"
+                      ng-click="openDeleteProjectsModal()"
+                    >{{ translate "delete" . }}</a>
+                    <a
+                      class="btn btn-danger"
+                      href="#"
+                      ng-if="hasDeletableProjectsSelected() && hasLeavableProjectsSelected()"
+                      data-original-title="{{ translate "delete_and_leave" . }}"
+                      data-toggle="tooltip"
+                      data-placement="bottom"
+                      ng-click="openLeaveOrDeleteProjectsModal()"
+                    >{{ translate "delete_and_leave" . }}</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row row-spaced">
+            <div class="col-xs-12">
+              <div class="card card-thin project-list-card">
+                <ul
+                  class="list-unstyled project-list structured-list"
+                  select-all-list="select-all-list"
+                  ng-if="projects.length > 0"
+                  max-height="projectListHeight - 25"
+                  ng-cloak="ng-cloak"
+                >
+                  <table class="project-list-table">
+                    <tr class="project-list-table-header-row">
+                      <th class="project-list-table-name-cell">
+                        <div class="project-list-table-name-container">
+                          <input
+                            class="project-list-table-select-item"
+                            select-all="select-all"
+                            type="checkbox"
+                            aria-label="{{ translate "select_all_projects" . }}"
+                          />
+                          <span
+                            class="header clickable project-list-table-name"
+                            ng-click="changePredicate('name')"
+                          >
+                              {{ translate "title" . }}
+                            <i
+                              class="tablesort fa"
+                              ng-class="getSortIconClass('name')"
+                              aria-hidden="true"
+                            ></i>
+                          </span>
+                          <button
+                            class="sr-only"
+                            ng-click="changePredicate('name')"
+                          >Sort by {{ translate "title" . }}</button>
+                        </div>
+                      </th>
+                      <th class="project-list-table-owner-cell">
+                        <span
+                          class="header clickable"
+                          ng-click="changePredicate('ownerName')"
+                        >
+                            {{ translate "owner" . }}
+                          <i
+                            class="tablesort fa"
+                            ng-class="getSortIconClass('ownerName')"
+                            aria-hidden="true"
+                          ></i>
+                        </span>
+                        <button
+                          class="sr-only"
+                          ng-click="changePredicate('ownerName')"
+                        >Sort by {{ translate "owner" . }}</button>
+                      </th>
+                      <th class="project-list-table-lastupdated-cell">
+                        <span
+                          class="header clickable"
+                          ng-click="changePredicate('lastUpdated')"
+                        >
+                            {{ translate "last_modified" . }}
+                          <i
+                            class="tablesort fa"
+                            ng-class="getSortIconClass('lastUpdated')"
+                            aria-hidden="true"
+                          ></i>
+                        </span>
+                        <button
+                          class="sr-only"
+                          ng-click="changePredicate('lastUpdated')"
+                        >Sort by {{ translate "last_modified" . }}</button>
+                      </th>
+                      <th class="project-list-table-actions-cell">
+                        <span class="header">{{ translate "actions" . }}</span>
+                      </th>
+                    </tr>
+                    <tr
+                      class="project-list-table-row"
+                      ng-repeat="project in visibleProjects | orderBy:getValueForCurrentPredicate:reverse:comparator"
+                      ng-controller="ProjectListItemController"
+                      select-row="select-row"
+                    >
+                      <td class="project-list-table-name-cell">
+                        <div class="project-list-table-name-container">
+                          <input
+                            class="project-list-table-select-item"
+                            select-individual="select-individual"
+                            type="checkbox"
+                            ng-model="project.selected"
+                            stop-propagation="click"
+                            aria-label="{{ translate "select_project" . }} '{{ `{{ project.name }}` }}'"
+                          />
+                          <span class="project-list-table-name">
+                            <a
+                              class="project-list-table-name-link"
+                              ng-href="{{ `{{projectLink(project)}}` }}"
+                              stop-propagation="click"
+                            >{{ `{{project.name}}` }}</a>
+                            <span ng-controller="TagListController">
+                              <div
+                                class="tag-label"
+                                ng-repeat="tag in project.tags"
+                                stop-propagation="click"
+                              >
+                                <button
+                                  class="label label-default tag-label-name"
+                                  ng-click="selectTag(tag)"
+                                  aria-label="Select tag {{ `{{ tag.name }}` }}"
+                                >
+                                  <i
+                                    class="fa fa-circle"
+                                    aria-hidden="true"
+                                    ng-style="{'color': 'hsl({{ `{{ getHueForTagId(tag._id) }}` }}, 70%, 45%)' }"
+                                  ></i>{{ `{{tag.name}}` }}
+                                </button>
+                                <button
+                                  class="label label-default tag-label-remove"
+                                  ng-click="removeProjectFromTag(project, tag)"
+                                  aria-label="Remove tag {{ `{{tag.name}}` }}"
+                                >
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                            </span>
+                          </span>
+                        </div>
+                      </td>
+                      <td class="project-list-table-owner-cell">
+                        <span
+                          class="owner"
+                          ng-if="project.owner"
+                        >{{ `{{getOwnerName(project)}}` }}</span>
+                        <span
+                          ng-if="isLinkSharingProject(project)"
+                        >&nbsp;<i
+                            class="fa fa-link small"
+                            tooltip="{{ translate "link_sharing" . }}"
+                            tooltip-placement="right"
+                            tooltip-append-to-body="true"
+                            aria-label="{{ translate "link_sharing" . }}"
+                          ></i>
+                        </span>
+                      </td>
+                      <td class="project-list-table-lastupdated-cell">
+                        <span
+                          class="last-modified"
+                          tooltip="{{ `{{project.lastUpdated | formatDate}}` }}"
+                        >{{ `{{project.lastUpdated | fromNowDate}}` }}</span>
+                        <span
+                          ng-show="project.lastUpdatedBy"
+                        >
+                            {{ translate "by" . }}
+                            {{ `{{getUserName(project.lastUpdatedBy)}}` }}
+                        </span>
+                      </td>
+                      <td class="project-list-table-actions-cell">
+                        <div>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="!(project.archived || project.trashed)"
+                            aria-label="{{ translate "copy" . }}"
+                            tooltip="{{ translate "copy" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="openCloneProjectModal(project)"
+                          >
+                            <i
+                              class="icon fa fa-files-o"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            aria-label="{{ translate "download" . }}"
+                            tooltip="{{ translate "download" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="download($event)"
+                          >
+                            <i
+                              class="icon fa fa-cloud-download"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="!project.archived"
+                            aria-label="{{ translate "archive" . }}"
+                            tooltip="{{ translate "archive" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="archive($event)"
+                          >
+                            <i
+                              class="icon fa fa-inbox"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="!project.trashed"
+                            aria-label="{{ translate "trash" . }}"
+                            tooltip="{{ translate "trash" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="trash($event)"
+                          >
+                            <i
+                              class="icon fa fa-trash"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="project.archived && !project.trashed"
+                            aria-label="{{ translate "unarchive" . }}"
+                            tooltip="{{ translate "unarchive" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="unarchive($event)"
+                          >
+                            <i
+                              class="icon fa fa-reply"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="project.trashed && !project.archived"
+                            aria-label="{{ translate "untrash" . }}"
+                            tooltip="{{ translate "untrash" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="untrash($event)"
+                          >
+                            <i
+                              class="icon fa fa-reply"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="project.trashed && !project.archived && !isOwner()"
+                            aria-label="{{ translate "leave" . }}"
+                            tooltip="{{ translate "leave" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="leave($event)"
+                          >
+                            <i
+                              class="icon fa fa-sign-out"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          <button
+                            class="btn btn-link action-btn"
+                            ng-if="project.trashed && !project.archived && isOwner()"
+                            aria-label="{{ translate "delete" . }}"
+                            tooltip="{{ translate "delete" . }}"
+                            tooltip-placement="top"
+                            tooltip-append-to-body="true"
+                            ng-click="delete($event)"
+                          >
+                            <i
+                              class="icon fa fa-ban"
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr
+                      ng-if="visibleProjects.length == 0"
+                      ng-cloak="ng-cloak"
+                    >
+                      <td
+                        colspan="4"
+                        class="project-list-table-no-projects-cell"
+                      >
+                        <span
+                          class="small"
+                        >{{ translate "no_projects" . }}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="project-list-empty row"
+        ng-if="projects.length === 0"
+      >
+        <div
+          class="project-list-empty-col col-md-offset-2 col-md-8 col-md-offset-2 col-xs-8 col-xs-offset-2"
+        >
+          <div class="row row-spaced">
+            <div class="col-xs-12">
+              <div class="card card-thin">
+                <div
+                  class="welcome text-centered"
+                  ng-cloak="ng-cloak"
+                >
+                  <h2>{{ translate "welcome_to_sl" . }}</h2>
+                  <p>
+                    <span>{{ translate "new_to_latex_look_at" . }} </span>
+                    <a href="/learn">{{ translate "latex_help_guide" . }}</a>
+                  </p>
+                  <div class="row">
+                    <div class="col-md-offset-4 col-md-4">
+                      <div
+                        class="dropdown minimal-create-proj-dropdown"
+                        dropdown="dropdown"
+                      >
+                        <a
+                          class="btn btn-success dropdown-toggle"
+                          href="#"
+                          data-toggle="dropdown"
+                          dropdown-toggle="dropdown-toggle"
+                        >Create First Project</a>
+                        <ul
+                          class="dropdown-menu minimal-create-proj-dropdown-menu"
+                          role="menu"
+                        >
+                          <li>
+                            <a
+                              href="#"
+                              ng-click="openCreateProjectModal()"
+                            >{{ translate "blank_project" . }}</a>
+                          </li>
+                          <li>
+                            <a
+                              href="#"
+                              ng-click="openCreateProjectModal('example')"
+                            >{{ translate "example_project" . }}</a>
+                          </li>
+                          <li>
+                            <a
+                              href="#"
+                              ng-click="openUploadProjectModal()"
+                            >{{ translate "upload_project" . }}</a>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row row-spaced">
+            <div class="col-sm-12">
+                {{ template "notifications" . }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script
+    type="text/ng-template"
+    id="newTagModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "create_new_folder" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <form
+        name="newTagForm"
+        novalidate="novalidate"
+      >
+        <input
+          class="form-control"
+          type="text"
+          placeholder="New Folder Name"
+          required="required"
+          ng-model="inputs.newTagName"
+          on-enter="create()"
+          focus-on="open"
+          stop-propagation="click"
+        />
+      </form>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <span
+          class="text-danger error"
+          ng-show="state.error"
+        >{{ translate "generic_something_went_wrong" . }}</span>
+      </div>
+      <button
+        class="btn btn-default"
+        ng-click="cancel()"
+        stop-propagation="click"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-primary"
+        ng-disabled="newTagForm.$invalid || state.inflight"
+        ng-click="create()"
+        stop-propagation="click"
+      >
+        <span ng-show="!state.inflight">{{ translate "create" . }}</span>
+        <span ng-show="state.inflight">{{ translate "creating" . }}…</span>
+      </button>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="deleteTagModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "delete_folder" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <p>
+        <span>{{ translate "about_to_delete_folder" . }}</span>
+      </p>
+      <ul>
+        <li>
+          <strong>{{ `{{tag.name}}` }}</strong>
+        </li>
+      </ul>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <span
+          class="text-danger error"
+          ng-show="state.error"
+        >{{ translate "generic_something_went_wrong" . }}</span>
+      </div>
+      <button
+        class="btn btn-default"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-danger"
+        ng-click="delete()"
+        ng-disabled="state.inflight"
+      >
+        <span ng-show="state.inflight">{{ translate "deleting" . }}…</span>
+        <span ng-show="!state.inflight">{{ translate "delete" . }}</span>
+      </button>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="renameTagModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "rename_folder" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <form
+        name="renameTagForm"
+        novalidate="novalidate"
+      >
+        <input
+          class="form-control"
+          type="text"
+          placeholder="Tag Name"
+          ng-model="inputs.tagName"
+          required="required"
+          on-enter="rename()"
+          focus-on="open"
+        />
+      </form>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <span
+          class="text-danger error"
+          ng-show="state.error"
+        >{{ translate "generic_something_went_wrong" . }}</span>
+      </div>
+      <button
+        class="btn btn-default"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-primary"
+        ng-click="rename()"
+        ng-disabled="renameTagForm.$invalid || state.inflight"
+      >
+        <span ng-show="!state.inflight">{{ translate "rename" . }}</span>
+        <span ng-show="state.inflight">{{ translate "renaming" . }}…</span>
+      </button>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="renameProjectModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "rename_project" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <div
+        class="alert alert-danger"
+        ng-show="state.error.message"
+      >{{ `{{state.error.message}}` }}</div>
+      <div
+        class="alert alert-danger"
+        ng-show="state.error && !state.error.message"
+      >{{ translate "generic_something_went_wrong" . }}</div>
+      <form
+        name="renameProjectForm"
+        novalidate="novalidate"
+      >
+        <input
+          class="form-control"
+          type="text"
+          placeholder="Project Name"
+          ng-model="inputs.projectName"
+          required="required"
+          on-enter="rename()"
+          focus-on="open"
+        />
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-default"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-primary"
+        ng-click="rename()"
+        ng-disabled="renameProjectForm.$invalid || state.inflight"
+      >
+        <span ng-show="!state.inflight">{{ translate "rename" . }}</span>
+        <span ng-show="state.inflight">{{ translate "renaming" . }}…</span>
+      </button>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="cloneProjectModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "copy_project" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <div
+        class="alert alert-danger"
+        ng-show="state.error.message"
+      >
+        <span
+          ng-if="state.error.message === 'invalid element name'"
+        >{{ translate "invalid_element_name" . }}</span>
+        <span
+          ng-if="state.error.message !== 'invalid element name'"
+        >{{ `{{ state.error.message }}` }}</span>
+      </div>
+      <div
+        class="alert alert-danger"
+        ng-show="state.error && !state.error.message"
+      >{{ translate "generic_something_went_wrong" . }}</div>
+      <form
+        name="cloneProjectForm"
+        novalidate="novalidate"
+      >
+        <div class="form-group">
+          <label>{{ translate "new_name" . }}</label>
+          <input
+            class="form-control"
+            type="text"
+            placeholder="New Project Name"
+            required="required"
+            ng-model="inputs.projectName"
+            on-enter="clone()"
+            focus-on="open"
+          />
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-default"
+        ng-disabled="state.inflight"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-primary"
+        ng-disabled="cloneProjectForm.$invalid || state.inflight"
+        ng-click="clone()"
+      >
+        <span ng-hide="state.inflight">{{ translate "copy" . }}</span>
+        <span ng-show="state.inflight">{{ translate "copying" . }}…</span>
+      </button>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="newProjectModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "new_project" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <div
+        class="alert alert-danger"
+        ng-show="state.error.message"
+      >{{ `{{state.error.message}}` }}</div>
+      <div
+        class="alert alert-danger"
+        ng-show="state.error && !state.error.message"
+      >{{ translate "generic_something_went_wrong" . }}</div>
+      <form
+        novalidate="novalidate"
+        name="newProjectForm"
+      >
+        <input
+          class="form-control"
+          type="text"
+          placeholder="Project Name"
+          required="required"
+          ng-model="inputs.projectName"
+          on-enter="create()"
+          focus-on="open"
+        />
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-default"
+        ng-disabled="state.inflight"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-primary"
+        ng-disabled="newProjectForm.$invalid || state.inflight"
+        ng-click="create()"
+      >
+        <span ng-hide="state.inflight">{{ translate "create" . }}</span>
+        <span ng-show="state.inflight">{{ translate "creating" . }}…</span>
+      </button>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="archiveTrashLeaveOrDeleteProjectsModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      ><span aria-hidden="true">&times;</span></button>
+      <h3
+        ng-if="action === 'archive'"
+      >{{ translate "archive_projects" . }}</h3>
+      <h3
+        ng-if="action === 'trash'"
+      >{{ translate "trash_projects" . }}</h3>
+      <h3
+        ng-if="action === 'leave'"
+      >{{ translate "leave_projects" . }}</h3>
+      <h3
+        ng-if="action === 'delete'"
+      >{{ translate "delete_projects" . }}</h3>
+      <h3
+        ng-if="action === 'leaveOrDelete'"
+      >{{ translate "delete_and_leave_projects" . }}</h3>
+    </div>
+    <div class="modal-body">
+      <div ng-if="action !== 'leaveOrDelete'">
+        <p
+          ng-if="action === 'archive'"
+        >{{ translate "about_to_archive_projects" . }}</p>
+        <p
+          ng-if="action === 'trash'"
+        >{{ translate "about_to_trash_projects" . }}</p>
+        <p
+          ng-if="action === 'leave'"
+        >{{ translate "about_to_leave_projects" . }}</p>
+        <p
+          ng-if="action === 'delete'"
+        >{{ translate "about_to_delete_projects" . }}</p>
+        <ul>
+          <li ng-repeat="project in projects | orderBy:'name'">
+            <strong>{{ `{{project.name}}` }}</strong>
+          </li>
+        </ul>
+        <div ng-if="action === 'archive'">
+          <p>
+              {{ translate "archiving_projects_wont_affect_collaborators" . }}
+            &nbsp; <a
+              href="https://www.overleaf.com/blog/new-feature-using-archive-and-trash-to-keep-your-projects-organized"
+              target="_blank"
+            >{{ translate "find_out_more_nt" . }}</a></p>
+        </div>
+        <div ng-if="action === 'trash'">
+          <p>
+              {{ translate "trashing_projects_wont_affect_collaborators" . }}
+            &nbsp; <a
+              href="https://www.overleaf.com/blog/new-feature-using-archive-and-trash-to-keep-your-projects-organized"
+              target="_blank"
+            >{{ translate "find_out_more_nt" . }}</a></p>
+        </div>
+        <div
+          class="project-action-alert alert alert-warning"
+          ng-if="action === 'leave' || action === 'delete'"
+        >
+          <i class="fa fa-fw fa-exclamation-triangle"></i>
+          <div
+            class="project-action-alert-msg"
+          >{{ translate "this_action_cannot_be_undone" . }}</div>
+        </div>
+      </div>
+      <div ng-if="action === 'leaveOrDelete'">
+        <p>
+          <span>{{ translate "about_to_delete_projects" . }}</span>
+        </p>
+        <ul>
+          <li
+            ng-repeat="project in projects | filter:{accessLevel: 'owner'} | orderBy:'name'"
+          >
+            <strong>{{ `{{project.name}}` }}</strong></li>
+        </ul>
+        <p>
+          <span>{{ translate "about_to_leave_projects" . }}</span>
+        </p>
+        <ul>
+          <li
+            ng-repeat="project in projects | filter:{accessLevel: '!owner'} | orderBy:'name'"
+          >
+            <strong>{{ `{{project.name}}` }}</strong></li>
+        </ul>
+        <div class="project-action-alert alert alert-warning">
+          <i class="fa fa-fw fa-exclamation-triangle"></i>
+          <div
+            class="project-action-alert-msg"
+          >{{ translate "this_action_cannot_be_undone" . }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-default"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+      <button
+        class="btn btn-danger"
+        ng-click="confirm()"
+      >{{ translate "confirm" . }}</button>
+    </div>
+  </script>
+  <script
+    type="text/template"
+    id="qq-project-uploader-template"
+  >
+    <div class="qq-uploader-selector">
+      <div
+        qq-hide-dropzone=""
+        class="qq-upload-drop-area-selector qq-upload-drop-area"
+      >
+        <span
+          class="qq-upload-drop-area-text-selector"
+        >{{ translate "drop_files_here_to_upload" . }}</span>
+      </div>
+      <div class="qq-upload-button-selector btn btn-primary btn-lg">
+        <span>{{ translate "select_a_zip_file" . }}</span>
+      </div>
+      <span class="or btn-lg">{{ translate "or" . }}</span>
+      <span class="drag-here btn-lg">{{ translate "drag_a_zip_file" . }}</span>
+      <ul class="qq-upload-list-selector">
+        <li>
+          <div class="qq-progress-bar-container-selector">
+            <div
+              role="progressbar"
+              aria-valuenow="0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              class="qq-progress-bar-selector qq-progress-bar"
+            ></div>
+          </div>
+          <span class="qq-upload-file-selector qq-upload-file"></span>
+          <span class="qq-upload-size-selector qq-upload-size"></span>
+          <a
+            type="button"
+            class="qq-btn qq-upload-cancel-selector qq-upload-cancel"
+          >{{ translate "cancel" . }}</a>
+          <button
+            type="button"
+            class="qq-btn qq-upload-retry-selector qq-upload-retry"
+          >{{ translate "retry" . }}</button>
+          <span
+            role="status"
+            class="qq-upload-status-text-selector qq-upload-status-text"
+          ></span>
+        </li>
+      </ul>
+    </div>
+  </script>
+  <script
+    type="text/ng-template"
+    id="uploadProjectModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="cancel()"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <h3>{{ translate "upload_zipped_project" . }}</h3>
+    </div>
+    <div
+      class="modal-body"
+      fine-upload="fine-upload"
+      endpoint="/api/project/new/upload"
+      template-id="qq-project-uploader-template"
+      multiple="false"
+      size-limit="{{ .Settings.ZipFileSizeLimit }}"
+      allowed-extensions="['zip']"
+      on-complete-callback="onComplete"
+    ></div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-default"
+        ng-click="cancel()"
+      >{{ translate "cancel" . }}</button>
+    </div>
+  </script>
+  </main>
+{{ end }}
+
+{{ define "notifications" }}
+  <div
+    class="user-notifications"
+    ng-controller="NotificationsController"
+  >
+    <ul
+      class="list-unstyled"
+      ng-if="notifications.length > 0 && projects.length > 0"
+      ng-cloak="ng-cloak"
+    >
+      <li
+        class="notification-entry"
+        ng-repeat="notification in notifications"
+      >
+        <div
+          ng-switch="notification.templateKey"
+          ng-hide="notification.hide"
+        >
+          <div
+            class="alert alert-info"
+            ng-switch-when="notification_project_invite"
+            ng-controller="ProjectInviteNotificationController"
+          >
+            <div class="notification-body">
+              <span
+                ng-show="!notification.accepted"
+                ng-bind-html="notification.htmlNotAccepted"
+              ></span>
+              <span
+                ng-show="notification.accepted"
+                ng-bind-html="notification.htmlAccepted"
+              ></span>
+            </div>
+            <div class="notification-action">
+              <a
+                class="pull-right btn btn-sm btn-info"
+                ng-show="notification.accepted"
+                href="/project/{{ `{{ notification.messageOpts.projectId }}` }}"
+              >{{ translate "open_project" . }}</a>
+              <a
+                class="pull-right btn btn-sm btn-info"
+                href="#"
+                ng-click="accept()"
+                ng-disabled="notification.inflight"
+                ng-show="!notification.accepted"
+              >
+                <span
+                  ng-show="!notification.inflight"
+                >{{ translate "join_project" . }}</span>
+                <span ng-show="notification.inflight">
+                  <i
+                    class="fa fa-fw fa-spinner fa-spin"
+                    aria-hidden="true"
+                  ></i>&nbsp;{{ translate "joining" . }}…
+                </span>
+              </a>
+            </div>
+            <div class="notification-close">
+              <button
+                ng-click="dismiss(notification)"
+                class="close pull-right"
+              >
+                <span aria-hidden="true">&times;</span>
+                <span class="sr-only">{{ translate "close" . }}</span>
+              </button>
+            </div>
+          </div>
+          <div
+            class="alert alert-info"
+            ng-switch-default="ng-switch-default"
+          >
+            <span
+              ng-bind-html="notification.html"
+              class="notification-body"
+            ></span>
+            <div class="notification-close">
+              <button
+                ng-click="dismiss(notification)"
+                class="close pull-right"
+              >
+                <span aria-hidden="true">&times;</span>
+                <span class="sr-only">{{ translate "close" . }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+      {{ if not .Settings.EmailConfirmationDisabled }}
+        <ul
+          class="list-unstyled"
+          ng-controller="EmailNotificationController"
+          ng-cloak="ng-cloak"
+        >
+          <li
+            class="notification-entry"
+            ng-repeat="userEmail in userEmails"
+            ng-if="showConfirmEmail(userEmail) && projects.length > 0"
+          >
+            <div class="alert alert-warning notification-body">
+              <div
+                ng-if="!userEmail.confirmationInflight"
+              >{{ translate "please_confirm_email" . }}
+                <a
+                  href="#"
+                  ng-click="resendConfirmationEmail(userEmail)"
+                >({{ translate "resend_confirmation_email" . }})</a>
+              </div>
+              <div ng-if="userEmail.confirmationInflight">
+                <i
+                  class="fa fa-spinner fa-spin"
+                  aria-hidden="true"
+                ></i>{{ translate "resending_confirmation_email" . }}&hellip;
+              </div>
+              <div
+                ng-if="!userEmail.confirmationInflight && userEmail.error"
+                aria-live="polite"
+              >
+                <span
+                  ng-if="userEmail.errorMessage"
+                >{{ `{{ userEmail.errorMessage }}` }}</span>
+                <span
+                  ng-if="!userEmail.errorMessage"
+                >{{ translate "generic_something_went_wrong" . }}</span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      {{ end }}
+  </div>
+{{ end }}

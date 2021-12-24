@@ -66,17 +66,19 @@ type PublicSentryOptions struct {
 }
 
 type PublicSettings struct {
-	AppName              string
-	AdminEmail           sharedTypes.Email
-	CDNURL               sharedTypes.URL
-	I18n                 I18nOptions
-	Nav                  NavOptions
-	RegistrationDisabled bool
-	RobotsNoindex        bool
-	Sentry               PublicSentryOptions
-	SiteURL              sharedTypes.URL
-	StatusPageURL        sharedTypes.URL
-	TranslatedLanguages  map[string]string
+	AppName                   string
+	AdminEmail                sharedTypes.Email
+	CDNURL                    sharedTypes.URL
+	EmailConfirmationDisabled bool
+	I18n                      I18nOptions
+	Nav                       NavOptions
+	RegistrationDisabled      bool
+	RobotsNoindex             bool
+	Sentry                    PublicSentryOptions
+	SiteURL                   sharedTypes.URL
+	StatusPageURL             sharedTypes.URL
+	TranslatedLanguages       map[string]string
+	ZipFileSizeLimit          int64
 }
 
 func (s *PublicSettings) ShowLanguagePicker() bool {

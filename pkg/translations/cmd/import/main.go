@@ -118,9 +118,16 @@ func processLocale(key, v string) string {
 		v = "-"
 	case "account_with_email_exists":
 		v = strings.ReplaceAll(v, "the email <b>__email__</b>", "the provided email")
+	case "click_here_to_view_sl_in_lng":
+		v = strings.ReplaceAll(v, "__lngName__", "{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}")
+		v = strings.ReplaceAll(v, "<0>", "<strong>")
+		v = strings.ReplaceAll(v, "</0>", "</strong>")
+	case "please_confirm_email":
+		v = strings.ReplaceAll(v, "__emailAddress__", "{{ `{{ userEmail.email }}` }}")
+
 	}
-	if strings.Contains(v, "__") {
-		panic(key + " contains __")
+	if strings.Contains(v, "__") || strings.Contains(v, "<0>") {
+		panic(key + " needs processing: " + v)
 	}
 	return v
 }

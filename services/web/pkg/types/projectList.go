@@ -17,38 +17,14 @@
 package types
 
 import (
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/tag"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
-type ProjectListRequest struct {
-	UserId primitive.ObjectID
+type ProjectListPageRequest struct {
+	Session *session.Session `form:"-"`
 }
 
-type ProjectListProjectView struct {
-	Id                  primitive.ObjectID         `json:"id"`
-	Name                project.Name               `json:"name"`
-	LastUpdatedAt       time.Time                  `json:"lastUpdated"`
-	LastUpdatedByUserId primitive.ObjectID         `json:"-"`
-	LastUpdatedBy       *user.WithPublicInfo       `json:"lastUpdatedBy"`
-	PublicAccessLevel   project.PublicAccessLevel  `json:"publicAccessLevel"`
-	AccessLevel         sharedTypes.PrivilegeLevel `json:"accessLevel"`
-	AccessSource        project.AccessSource       `json:"source"`
-	Archived            bool                       `json:"archived"`
-	Trashed             bool                       `json:"trashed"`
-	OwnerRef            primitive.ObjectID         `json:"owner_ref"`
-	Owner               *user.WithPublicInfo       `json:"owner"`
-}
-
-type ProjectListResponse struct {
-	Projects        []*ProjectListProjectView          `json:"projects"`
-	JWTLoggedInUser string                             `json:"jwtLoggedInUser"`
-	Tags            []tag.Full                         `json:"tags"`
-	UserEmails      []user.EmailDetailsWithDefaultFlag `json:"userEmails"`
+type ProjectListPageResponse struct {
+	Data *templates.ProjectListData
 }
