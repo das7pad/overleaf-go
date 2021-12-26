@@ -22,103 +22,103 @@
     class="content content-alt"
     id="main-content"
   >
-    <div class="container">
-      <div class="row">
-        <div class="registration_message">
-            {{ if .SharedProjectData.IsSet }}
-              <h1>
-                  {{ translate "user_wants_you_to_see_project" . }}
-              </h1>
-              <div>
-                  {{ translate "join_sl_to_view_project" . }}.
-                  {{ translate "if_you_are_registered" . }},
-                <a href="/login">{{ translate "login_here" . }}</a>
-              </div>
-            {{ else }}
-              <div>
-                <span>{{ translate "already_have_sl_account" . }}</span>
-                <a href="/login">{{ translate "login_here" . }}</a>
-              </div>
-            {{ end }}
-        </div>
-      </div>
-      <div class="row">
-          {{ if .Settings.RegistrationDisabled }}
-            <div class="col-md-8 col-md-offset-2 col-lg-6 col-lg-offset-3">
-              <div class="card">
-                <div class="page-header">
-                  <h1>{{ translate "register" . }}</h1>
-                </div>
-                <p>
-                  Please contact <a
-                    href="mailto:{{ .Settings.AdminEmail }}"
-                  ><strong>{{ .Settings.AdminEmail }}</strong></a> to create an
-                  account.
-                </p>
-              </div>
+  <div class="container">
+    <div class="row">
+      <div class="registration_message">
+          {{ if .SharedProjectData.IsSet }}
+            <h1>
+                {{ translate "user_wants_you_to_see_project" . }}
+            </h1>
+            <div>
+                {{ translate "join_sl_to_view_project" . }}.
+                {{ translate "if_you_are_registered" . }},
+              <a href="/login">{{ translate "login_here" . }}</a>
             </div>
           {{ else }}
-            <div class="col-md-6 col-md-offset-3 col-lg-4 col-lg-offset-4">
-              <div class="card">
-                <div class="page-header">
-                  <h1>{{ translate "register" . }}</h1>
-                </div>
-                <form
-                  data-ol-async-form="data-ol-async-form"
-                  data-ol-try-login-on-error="already-exists"
-                  action="/api/register"
-                  method="POST"
-                >
-                  <div
-                    data-ol-form-messages=""
-                    role="alert"
-                  ></div>
-                  <div
-                    class="alert alert-danger"
-                    hidden="hidden"
-                    data-ol-custom-form-message="already-exists"
-                    role="alert"
-                    aria-live="assertive"
-                  >{{ translate "account_with_email_exists" . }}</div>
-                  <div class="form-group">
-                    <input
-                      class="form-control"
-                      type="email"
-                      name="email"
-                      required="required"
-                      placeholder="email@example.com"
-                      autocomplete="username"
-                      autofocus="autofocus"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <input
-                      class="form-control"
-                      type="password"
-                      name="password"
-                      required="required"
-                      placeholder="********"
-                      autocomplete="new-password"
-                    />
-                  </div>
-                  <button
-                    class="btn-primary btn"
-                    type="submit"
-                    data-ol-disabled-inflight="data-ol-disabled-inflight"
-                  >
-                    <span
-                      data-ol-inflight="idle"
-                    >{{ translate "register" . }}</span>
-                    <span
-                      hidden="hidden"
-                      data-ol-inflight="pending"
-                    >{{ translate "registering" . }}…</span>
-                  </button>
-                </form>
-              </div>
+            <div>
+              <span>{{ translate "already_have_sl_account" . }}</span>
+              <a href="/login">{{ translate "login_here" . }}</a>
             </div>
           {{ end }}
       </div>
     </div>
+    <div class="row">
+        {{ if .Settings.RegistrationDisabled }}
+          <div class="col-md-8 col-md-offset-2 col-lg-6 col-lg-offset-3">
+            <div class="card">
+              <div class="page-header">
+                <h1>{{ translate "register" . }}</h1>
+              </div>
+              <p>
+                Please contact <a
+                  href="mailto:{{ .Settings.AdminEmail }}"
+                ><strong>{{ .Settings.AdminEmail }}</strong></a> to create an
+                account.
+              </p>
+            </div>
+          </div>
+        {{ else }}
+          <div class="col-md-6 col-md-offset-3 col-lg-4 col-lg-offset-4">
+            <div class="card">
+              <div class="page-header">
+                <h1>{{ translate "register" . }}</h1>
+              </div>
+              <form
+                data-ol-async-form="data-ol-async-form"
+                data-ol-try-login-on-error="already-exists"
+                action="/api/register"
+                method="POST"
+              >
+                <div
+                  data-ol-form-messages=""
+                  role="alert"
+                ></div>
+                <div
+                  class="alert alert-danger"
+                  hidden="hidden"
+                  data-ol-custom-form-message="already-exists"
+                  role="alert"
+                  aria-live="assertive"
+                >{{ translate "account_with_email_exists" . }}</div>
+                <div class="form-group">
+                  <input
+                    class="form-control"
+                    type="email"
+                    name="email"
+                    required="required"
+                    placeholder="email@example.com"
+                    autocomplete="username"
+                    autofocus="autofocus"
+                  />
+                </div>
+                <div class="form-group">
+                  <input
+                    class="form-control"
+                    type="password"
+                    name="password"
+                    required="required"
+                    placeholder="********"
+                    autocomplete="new-password"
+                  />
+                </div>
+                <button
+                  class="btn-primary btn"
+                  type="submit"
+                  data-ol-disabled-inflight="data-ol-disabled-inflight"
+                >
+                  <span
+                    data-ol-inflight="idle"
+                  >{{ translate "register" . }}</span>
+                  <span
+                    hidden="hidden"
+                    data-ol-inflight="pending"
+                  >{{ translate "registering" . }}…</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        {{ end }}
+    </div>
+  </div>
   </main>
 {{ end }}

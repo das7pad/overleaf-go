@@ -44,6 +44,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/history"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/inactiveProject"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/learn"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedFile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
@@ -76,6 +77,7 @@ type Manager interface {
 	fileTreeManager
 	historyManager
 	inactiveProjectManager
+	learnManager
 	linkedFileManager
 	loginManager
 	notificationsManager
@@ -164,6 +166,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	ucm := userCreation.New(options, ps, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
 	am := admin.New(ps, db)
+	learnM := learn.New(options, ps)
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -174,6 +177,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		fileTreeManager:        ftm,
 		historyManager:         hm,
 		inactiveProjectManager: ipm,
+		learnManager:           learnM,
 		linkedFileManager:      lfm,
 		loginManager:           lm,
 		notificationsManager:   nm,
@@ -201,6 +205,7 @@ type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
 type historyManager = history.Manager
 type inactiveProjectManager = inactiveProject.Manager
+type learnManager = learn.Manager
 type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
 type notificationsManager = notifications.Manager
@@ -227,6 +232,7 @@ type manager struct {
 	fileTreeManager
 	historyManager
 	inactiveProjectManager
+	learnManager
 	linkedFileManager
 	loginManager
 	notificationsManager

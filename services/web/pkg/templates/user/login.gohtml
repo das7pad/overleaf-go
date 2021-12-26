@@ -22,77 +22,77 @@
     class="content content-alt"
     id="main-content"
   >
-    <div class="container">
-      <div class="row">
-        <div class="col-md-6 col-md-offset-3 col-lg-4 col-lg-offset-4">
-          <div class="card">
-            <div class="page-header">
-              <h1>{{ translate "log_in" . }}</h1>
-            </div>
-            <form
-              data-ol-async-form="data-ol-async-form"
-              name="loginForm"
-              action="/api/login"
-              method="POST"
-            >
-              <div
-                data-ol-form-messages=""
-                role="alert"
-              ></div>
-              <div
-                class="alert alert-danger"
-                hidden="hidden"
-                data-ol-custom-form-message="invalid-password"
-                role="alert"
-                aria-live="assertive"
-              >{{ translate "email_or_password_wrong_try_again" . }}</div>
-              <div
-                class="alert alert-danger"
-                hidden="hidden"
-                data-ol-custom-form-message="user-not-found"
-                role="alert"
-                aria-live="assertive"
-              >{{ translate "cant_find_email" . }}</div>
-              <div class="form-group">
-                <input
-                  class="form-control"
-                  type="email"
-                  name="email"
-                  required="required"
-                  placeholder="email@example.com"
-                  autocomplete="username"
-                  autofocus="autofocus"
-                />
-              </div>
-              <div class="form-group">
-                <input
-                  class="form-control"
-                  type="password"
-                  name="password"
-                  required="required"
-                  placeholder="********"
-                  autocomplete="current-password"
-                />
-              </div>
-              <button
-                class="btn-primary btn"
-                type="submit"
-                data-ol-disabled-inflight="data-ol-disabled-inflight"
-              >
-                <span data-ol-inflight="idle">{{ translate "login" . }}</span>
-                <span
-                  hidden="hidden"
-                  data-ol-inflight="pending"
-                >{{ translate "logging_in" . }}…</span>
-              </button>
-              <a
-                class="pull-right"
-                href="/user/password/reset"
-              >{{ translate "forgot_your_password" . }}?</a>
-            </form>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-6 col-md-offset-3 col-lg-4 col-lg-offset-4">
+        <div class="card">
+          <div class="page-header">
+            <h1>{{ translate "log_in" . }}</h1>
           </div>
+          <form
+            data-ol-async-form="data-ol-async-form"
+            name="loginForm"
+            action="/api/login"
+            method="POST"
+          >
+            <div
+              data-ol-form-messages=""
+              role="alert"
+            ></div>
+            <div
+              class="alert alert-danger"
+              hidden="hidden"
+              data-ol-custom-form-message="invalid-password"
+              role="alert"
+              aria-live="assertive"
+            >{{ translate "email_or_password_wrong_try_again" . }}</div>
+            <div
+              class="alert alert-danger"
+              hidden="hidden"
+              data-ol-custom-form-message="user-not-found"
+              role="alert"
+              aria-live="assertive"
+            >{{ translate "cant_find_email" . }}</div>
+            <div class="form-group">
+              <input
+                class="form-control"
+                type="email"
+                name="email"
+                required="required"
+                placeholder="email@example.com"
+                autocomplete="username"
+                autofocus="autofocus"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                class="form-control"
+                type="password"
+                name="password"
+                required="required"
+                placeholder="********"
+                autocomplete="current-password"
+              />
+            </div>
+            <button
+              class="btn-primary btn"
+              type="submit"
+              data-ol-disabled-inflight="data-ol-disabled-inflight"
+            >
+              <span data-ol-inflight="idle">{{ translate "login" . }}</span>
+              <span
+                hidden="hidden"
+                data-ol-inflight="pending"
+              >{{ translate "logging_in" . }}…</span>
+            </button>
+            <a
+              class="pull-right"
+              href="/user/password/reset"
+            >{{ translate "forgot_your_password" . }}?</a>
+          </form>
         </div>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}

@@ -22,104 +22,104 @@
     class="content content-alt"
     id="main-content"
   >
-    <div class="container">
-      <div class="row">
-        <div class="col-xs-12">
-          <div class="card">
-            <div class="page-header">
-              <h1>Manage Site</h1>
-            </div>
-            <div data-ol-bookmarkable-tabset="data-ol-bookmarkable-tabset">
-              <ul
-                class="nav nav-tabs"
-                role="tablist"
+  <div class="container">
+    <div class="row">
+      <div class="col-xs-12">
+        <div class="card">
+          <div class="page-header">
+            <h1>Manage Site</h1>
+          </div>
+          <div data-ol-bookmarkable-tabset="data-ol-bookmarkable-tabset">
+            <ul
+              class="nav nav-tabs"
+              role="tablist"
+            >
+              <li
+                role="presentation"
+                class="active"
               >
-                <li
-                  role="presentation"
-                  class="active"
-                >
-                  <a
-                    href="#system-messages"
-                    aria-controls="system-messages"
-                    role="tab"
-                    data-toggle="tab"
-                    data-ol-bookmarkable-tab="data-ol-bookmarkable-tab"
-                  >System Messages</a>
-                </li>
-                <li role="presentation">
-                  <a
-                    href="#open-close-editor"
-                    aria-controls="open-close-editor"
-                    role="tab"
-                    data-toggle="tab"
-                    data-ol-bookmarkable-tab="data-ol-bookmarkable-tab"
-                  >Open/Close Editor</a>
-                </li>
-                <li role="presentation">
-                  <a
-                    href="#advanced"
-                    aria-controls="advanced"
-                    role="tab"
-                    data-toggle="tab"
-                    data-ol-bookmarkable-tab="data-ol-bookmarkable-tab"
-                  >Advanced</a>
-                </li>
-              </ul>
-              <div class="tab-content">
-                <div
-                  class="tab-pane active"
-                  role="tabpanel"
-                  id="system-messages"
-                >
-                    {{ range $index, $message := .SystemMessages }}
-                      <div
-                        class="alert alert-info row-spaced"
-                      >{{ $message.Content }}</div>
-                    {{ end }}
-                  <hr/>
-                  <h2>Create System Message</h2>
-                  <p>
-                    <code>$ systemMessage --message='Hello World!'</code>
-                  </p>
-                  <hr/>
-                  <h2>Clear System Messages</h2>
-                  <p>
-                    <code>$ systemMessage --clear</code>
-                  </p>
-                </div>
-                <div
-                  class="tab-pane"
-                  role="tabpanel"
-                  id="open-close-editor"
-                >
-                  <h2>Disconnect all users</h2>
-                  <p>
-                    <code>$ disconnectAllUsers</code>
-                  </p>
-                  <p class="small">
-                    Will force disconnect all users with the editor open. Make
-                    sure to stop web first to avoid them reconnecting.
-                  </p>
-                </div>
-                <div
-                  class="tab-pane"
-                  role="tabpanel"
-                  id="advanced"
-                >
-                  <h2>Unregister service worker</h2>
-                  <p>
-                    <code>$ unregisterServiceWorker</code>
-                  </p>
-                  <p class="small">
-                    Will force service worker reload for all users with the
-                    editor open.
-                  </p>
-                </div>
+                <a
+                  href="#system-messages"
+                  aria-controls="system-messages"
+                  role="tab"
+                  data-toggle="tab"
+                  data-ol-bookmarkable-tab="data-ol-bookmarkable-tab"
+                >System Messages</a>
+              </li>
+              <li role="presentation">
+                <a
+                  href="#open-close-editor"
+                  aria-controls="open-close-editor"
+                  role="tab"
+                  data-toggle="tab"
+                  data-ol-bookmarkable-tab="data-ol-bookmarkable-tab"
+                >Open/Close Editor</a>
+              </li>
+              <li role="presentation">
+                <a
+                  href="#advanced"
+                  aria-controls="advanced"
+                  role="tab"
+                  data-toggle="tab"
+                  data-ol-bookmarkable-tab="data-ol-bookmarkable-tab"
+                >Advanced</a>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div
+                class="tab-pane active"
+                role="tabpanel"
+                id="system-messages"
+              >
+                  {{ range $index, $message := .SystemMessages }}
+                    <div
+                      class="alert alert-info row-spaced"
+                    >{{ $message.Content }}</div>
+                  {{ end }}
+                <hr/>
+                <h2>Create System Message</h2>
+                <p>
+                  <code>$ systemMessage --message='Hello World!'</code>
+                </p>
+                <hr/>
+                <h2>Clear System Messages</h2>
+                <p>
+                  <code>$ systemMessage --clear</code>
+                </p>
+              </div>
+              <div
+                class="tab-pane"
+                role="tabpanel"
+                id="open-close-editor"
+              >
+                <h2>Disconnect all users</h2>
+                <p>
+                  <code>$ disconnectAllUsers</code>
+                </p>
+                <p class="small">
+                  Will force disconnect all users with the editor open. Make
+                  sure to stop web first to avoid them reconnecting.
+                </p>
+              </div>
+              <div
+                class="tab-pane"
+                role="tabpanel"
+                id="advanced"
+              >
+                <h2>Unregister service worker</h2>
+                <p>
+                  <code>$ unregisterServiceWorker</code>
+                </p>
+                <p class="small">
+                  Will force service worker reload for all users with the
+                  editor open.
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}

@@ -22,80 +22,80 @@
     class="content content-alt"
     id="main-content"
   >
-    <div class="container">
-      <div class="row">
-        <div class="col-md-12">
-          <div
-            class="card"
-            ng-controller="RegisterUsersController"
-          >
-            <div class="page-header">
-              <h1>Register New Users</h1>
-            </div>
-            <form class="form">
-              <div class="row">
-                <div class="col-md-4 col-xs-8">
-                  <input
-                    class="form-control"
-                    name="email"
-                    type="text"
-                    placeholder="jane@example.com, joe@example.com"
-                    ng-model="inputs.emails"
-                    on-enter="registerUsers()"
-                  />
-                </div>
-                <div class="col-md-8 col-xs-4">
-                  <button
-                    class="btn btn-primary"
-                    ng-click="registerUsers()"
-                  >{{ translate "register" . }}</button>
-                </div>
-              </div>
-            </form>
-            <div
-              class="row-spaced ng-cloak text-danger"
-              ng-show="error"
-            >
-              <p>Sorry, an error occurred</p>
-            </div>
-            <div
-              class="row-spaced ng-cloak text-success"
-              ng-show="users.length > 0"
-            >
-              <p>
-                We've sent out welcome emails to the registered users.
-              </p>
-              <p>
-                You can also manually send them URLs below to allow them to
-                reset their password and log in for the first time.
-              </p>
-              <p>
-                (Password reset tokens will expire after one week and the user
-                will need registering again).
-              </p>
-            </div>
-            <hr
-              ng-show="users.length > 0"
-              class="ng-cloak"
-            />
-            <table
-              ng-show="users.length > 0"
-              class="table table-striped ng-cloak"
-            >
-              <tr>
-                <th>{{ translate "email" . }}</th>
-                <th>Set Password Url</th>
-              </tr>
-              <tr ng-repeat="user in users">
-                <td>{{ `{{ user.email }}` }}</td>
-                <td
-                  ng-style="{wordBreak: 'break-all'}"
-                >{{ `{{ user.setNewPasswordUrl }}` }}</td>
-              </tr>
-            </table>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div
+          class="card"
+          ng-controller="RegisterUsersController"
+        >
+          <div class="page-header">
+            <h1>Register New Users</h1>
           </div>
+          <form class="form">
+            <div class="row">
+              <div class="col-md-4 col-xs-8">
+                <input
+                  class="form-control"
+                  name="email"
+                  type="text"
+                  placeholder="jane@example.com, joe@example.com"
+                  ng-model="inputs.emails"
+                  on-enter="registerUsers()"
+                />
+              </div>
+              <div class="col-md-8 col-xs-4">
+                <button
+                  class="btn btn-primary"
+                  ng-click="registerUsers()"
+                >{{ translate "register" . }}</button>
+              </div>
+            </div>
+          </form>
+          <div
+            class="row-spaced ng-cloak text-danger"
+            ng-show="error"
+          >
+            <p>Sorry, an error occurred</p>
+          </div>
+          <div
+            class="row-spaced ng-cloak text-success"
+            ng-show="users.length > 0"
+          >
+            <p>
+              We've sent out welcome emails to the registered users.
+            </p>
+            <p>
+              You can also manually send them URLs below to allow them to
+              reset their password and log in for the first time.
+            </p>
+            <p>
+              (Password reset tokens will expire after one week and the user
+              will need registering again).
+            </p>
+          </div>
+          <hr
+            ng-show="users.length > 0"
+            class="ng-cloak"
+          />
+          <table
+            ng-show="users.length > 0"
+            class="table table-striped ng-cloak"
+          >
+            <tr>
+              <th>{{ translate "email" . }}</th>
+              <th>Set Password Url</th>
+            </tr>
+            <tr ng-repeat="user in users">
+              <td>{{ `{{ user.email }}` }}</td>
+              <td
+                ng-style="{wordBreak: 'break-all'}"
+              >{{ `{{ user.setNewPasswordUrl }}` }}</td>
+            </tr>
+          </table>
         </div>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}

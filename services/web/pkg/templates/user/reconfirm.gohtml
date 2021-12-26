@@ -22,65 +22,65 @@
     class="content content-alt"
     id="main-content"
   >
-    <div class="container">
-      <div class="row">
-        <div class="col-sm-12 col-md-6 col-md-offset-3">
-          <div class="card">
-            <h1
-              class="card-header text-capitalize"
-            >{{ translate "reconfirm_account" . }}</h1>
-            <p>{{ translate "reconfirm_explained" . }}
-              <a
-                href="mailto:{{ .Settings.AdminEmail }}"
-              >{{ .Settings.AdminEmail }}</a>.
-            </p>
-            <form
-              data-ol-async-form="data-ol-async-form"
-              name="reconfirmAccountForm"
-              action="/api/user/reconfirm"
-              method="POST"
-              aria-label="{{ translate "request_reconfirmation_email" . }}"
+  <div class="container">
+    <div class="row">
+      <div class="col-sm-12 col-md-6 col-md-offset-3">
+        <div class="card">
+          <h1
+            class="card-header text-capitalize"
+          >{{ translate "reconfirm_account" . }}</h1>
+          <p>{{ translate "reconfirm_explained" . }}
+            <a
+              href="mailto:{{ .Settings.AdminEmail }}"
+            >{{ .Settings.AdminEmail }}</a>.
+          </p>
+          <form
+            data-ol-async-form="data-ol-async-form"
+            name="reconfirmAccountForm"
+            action="/api/user/reconfirm"
+            method="POST"
+            aria-label="{{ translate "request_reconfirmation_email" . }}"
+          >
+            <div
+              data-ol-form-messages=""
+              role="alert"
+            ></div>
+            <div class="form-group">
+              <label
+                for="email"
+              >{{ translate "please_enter_email" . }}</label>
+              <input
+                class="form-control"
+                aria-label="email"
+                type="email"
+                name="email"
+                placeholder="email@example.com"
+                required="required"
+                autofocus="autofocus"
+                value="{{ .Email }}"
+              />
+            </div>
+            <button
+              class="btn btn-primary"
+              type="submit"
+              data-ol-disabled-inflight="data-ol-disabled-inflight"
+              aria-label="{{ translate "request_password_reset_to_reconfirm" . }}"
             >
-              <div
-                data-ol-form-messages=""
-                role="alert"
-              ></div>
-              <div class="form-group">
-                <label
-                  for="email"
-                >{{ translate "please_enter_email" . }}</label>
-                <input
-                  class="form-control"
-                  aria-label="email"
-                  type="email"
-                  name="email"
-                  placeholder="email@example.com"
-                  required="required"
-                  autofocus="autofocus"
-                  value="{{ .Email }}"
-                />
-              </div>
-              <button
-                class="btn btn-primary"
-                type="submit"
-                data-ol-disabled-inflight="data-ol-disabled-inflight"
-                aria-label="{{ translate "request_password_reset_to_reconfirm" . }}"
+              <span
+                data-ol-inflight="idle"
+              >{{ translate "request_password_reset_to_reconfirm" . }}</span>
+              <span
+                hidden="hidden"
+                data-ol-inflight="pending"
               >
-                <span
-                  data-ol-inflight="idle"
-                >{{ translate "request_password_reset_to_reconfirm" . }}</span>
-                <span
-                  hidden="hidden"
-                  data-ol-inflight="pending"
-                >
-                    {{ translate "request_password_reset_to_reconfirm" . }}
-                  …
-                </span>
-              </button>
-            </form>
-          </div>
+                  {{ translate "request_password_reset_to_reconfirm" . }}
+                …
+              </span>
+            </button>
+          </form>
         </div>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}

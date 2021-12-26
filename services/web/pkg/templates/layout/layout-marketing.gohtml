@@ -82,12 +82,14 @@
                   </ul>
                 </li>
               {{ end }}
-            <li class="subdued">
-              <a
-                class="subdued"
-                href="/learn"
-              >{{ translate "documentation" . }}</a>
-            </li>
+              {{ if .Settings.WikiEnabled }}
+                <li class="subdued">
+                  <a
+                    class="subdued"
+                    href="/learn"
+                  >{{ translate "documentation" . }}</a>
+                </li>
+              {{ end }}
               {{ range $key, $item := .Settings.Nav.HeaderExtras }}
                   {{ if $item.Dropdown }}
                     <li class="dropdown {{ $item.Class }}">
@@ -184,9 +186,9 @@
                           type="submit"
                           data-ol-disabled-inflight="data-ol-disabled-inflight"
                         >
-                        <span
-                          data-ol-inflight="idle"
-                        >{{ translate "log_out" . }}</span>
+                          <span
+                            data-ol-inflight="idle"
+                          >{{ translate "log_out" . }}</span>
                           <span
                             hidden="hidden"
                             data-ol-inflight="pending"

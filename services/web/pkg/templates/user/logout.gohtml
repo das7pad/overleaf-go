@@ -22,41 +22,41 @@
     class="content content-alt login-register-container"
     id="main-content"
   >
-    <div class="card login-register-card">
-      <div class="login-register-header">
-        <h1
-          class="login-register-header-heading"
-        >{{ translate "log_out" . }}</h1>
-      </div>
-      <form
-        class="login-register-form"
-        data-ol-async-form="data-ol-async-form"
-        name="logoutForm"
-        action="/api/logout"
-        method="POST"
-        data-ol-auto-submit="data-ol-auto-submit"
-      >
-        <div
-          data-ol-form-messages=""
-          role="alert"
-        ></div>
-        <button
-          id="submit-logout"
-          class="btn-primary btn btn-block"
-          data-ol-disabled-inflight="data-ol-disabled-inflight"
-          type="submit"
-        >
-          <span
-            data-ol-inflight="idle"
-            aria-label="{{ translate "log_out" . }}"
-          >{{ translate "log_out" . }}</span>
-          <span
-            hidden="hidden"
-            data-ol-inflight="pending"
-            aria-label="{{ translate "logging_out" . }}"
-          >{{ translate "logging_out" . }}…</span>
-        </button>
-      </form>
+  <div class="card login-register-card">
+    <div class="login-register-header">
+      <h1
+        class="login-register-header-heading"
+      >{{ translate "log_out" . }}</h1>
     </div>
+    <form
+      class="login-register-form"
+      data-ol-async-form="data-ol-async-form"
+      name="logoutForm"
+      action="/api/logout"
+      method="POST"
+      data-ol-auto-submit="data-ol-auto-submit"
+    >
+      <div
+        data-ol-form-messages=""
+        role="alert"
+      ></div>
+      <button
+        id="submit-logout"
+        class="btn-primary btn btn-block"
+        data-ol-disabled-inflight="data-ol-disabled-inflight"
+        type="submit"
+      >
+        <span
+          data-ol-inflight="idle"
+          aria-label="{{ translate "log_out" . }}"
+        >{{ translate "log_out" . }}</span>
+        <span
+          hidden="hidden"
+          data-ol-inflight="pending"
+          aria-label="{{ translate "logging_out" . }}"
+        >{{ translate "logging_out" . }}…</span>
+      </button>
+    </form>
+  </div>
   </main>
 {{ end }}

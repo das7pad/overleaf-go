@@ -83,12 +83,14 @@
                   </ul>
                 </li>
               {{ end }}
-            <li class="subdued">
-              <a
-                class="subdued"
-                href="/learn"
-              >{{ translate "documentation" . }}</a>
-            </li>
+              {{ if .Settings.WikiEnabled }}
+                <li class="subdued">
+                  <a
+                    class="subdued"
+                    href="/learn"
+                  >{{ translate "documentation" . }}</a>
+                </li>
+              {{ end }}
               {{ range $key, $item := .Settings.Nav.HeaderExtras }}
                   {{ if $item.Dropdown }}
                     <li
@@ -187,9 +189,9 @@
                           ng-disabled="logout.inflight"
                           stop-propagation="click"
                         >
-                        <span
-                          ng-hide="logout.inflight"
-                        >{{ translate "log_out" . }}</span>
+                          <span
+                            ng-hide="logout.inflight"
+                          >{{ translate "log_out" . }}</span>
                           <span
                             ng-show="logout.inflight"
                           >{{ translate "logging_out" . }}…</span>

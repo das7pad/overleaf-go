@@ -22,28 +22,28 @@
     class="content content-alt full-height"
     id="main-content"
   >
-    <div class="container full-height">
-      <div class="error-container full-height">
-        <div class="error-details">
-          <p class="error-status">Something went wrong, sorry.</p>
-          <p class="error-description">
-            Our staff are probably looking into this, but if it continues,
-            please check our status page at
-            <a
-              href="{{ .Settings.StatusPageURL.String }}"
-            >{{ .Settings.StatusPageURL.String }}</a>
-            or contact us at
-            <a
-              href="mailto:{{ .Settings.AdminEmail }}"
-            >{{ .Settings.AdminEmail }}</a>
-            .
-          </p>
+  <div class="container full-height">
+    <div class="error-container full-height">
+      <div class="error-details">
+        <p class="error-status">Something went wrong, sorry.</p>
+        <p class="error-description">
+          Our staff are probably looking into this, but if it continues,
+          please check our status page at
           <a
-            class="error-btn"
-            href="/"
-          >Home</a>
-        </div>
+            href="{{ .Settings.StatusPageURL.String }}"
+          >{{ .Settings.StatusPageURL.String }}</a>
+          or contact us at
+          <a
+            href="mailto:{{ .Settings.AdminEmail }}"
+          >{{ .Settings.AdminEmail }}</a>
+          .
+        </p>
+        <a
+          class="error-btn"
+          href="/"
+        >Home</a>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}

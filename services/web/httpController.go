@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -64,6 +65,7 @@ func (h *httpController) GetRouter(
 		StatusMessage:   "web is alive (go)\n",
 		ClientIPOptions: clientIPOptions,
 	})
+	router.NoRoute(h.notFound)
 
 	publicRouter := router.Group("")
 	publicRouter.Use(httpUtils.NoCache())
@@ -83,6 +85,10 @@ func (h *httpController) GetRouter(
 		r.GET("/admin/register", h.adminRegisterUsersPage)
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
 		r.GET("/devs", h.openInOverleafDocumentationPage)
+		r.GET("/learn", h.learn)
+		r.GET("/learn/:p1", h.learn)
+		r.GET("/learn/:p1/:p2", h.learn)
+		// TODO: proxy/redirect images
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
 		r.GET("/project", h.projectListPage)
@@ -97,7 +103,6 @@ func (h *httpController) GetRouter(
 		r.GET("/user/settings", h.settingsPage)
 		r.GET("/read/:token", h.tokenAccessPage)
 		r.GET("/:token", h.tokenAccessPage)
-		router.NoRoute(h.notFoundPage)
 
 		rp := r.Group("/project/:projectId")
 		rp.GET("", h.projectEditorPage)
@@ -381,9 +386,14 @@ func (h *httpController) unsupportedBrowserPage(c *gin.Context) {
 	templates.RespondHTML(c, body, nil, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) notFoundPage(c *gin.Context) {
-	s, _ := h.wm.GetOrCreateSession(c)
+func (h *httpController) notFound(c *gin.Context) {
 	err := &errors.NotFoundError{}
+	p := c.Request.URL.Path
+	if strings.HasPrefix(p, "/api") || strings.HasPrefix(p, "/jwt") {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	s, _ := h.wm.GetOrCreateSession(c)
 	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 }
 
@@ -2149,6 +2159,22 @@ func (h *httpController) viewProjectInvitePage(c *gin.Context) {
 	request.Session = s
 	res := &types.ViewProjectInvitePageResponse{}
 	err = h.wm.ViewProjectInvite(c.Request.Context(), request, res)
+	if err == nil && res.Redirect != "" {
+		httpUtils.Redirect(c, res.Redirect)
+		return
+	}
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) learn(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.LearnPageRequest{Session: s, Path: c.Request.URL.Path}
+	res := &types.LearnPageResponse{}
+	err = h.wm.LearnPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return

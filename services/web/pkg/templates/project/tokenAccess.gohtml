@@ -22,54 +22,54 @@
     class="editor full-size"
     id="main-content"
   >
-    <div
-      ng-controller="TokenAccessPageController"
-      ng-init="post()"
+  <div
+    ng-controller="TokenAccessPageController"
+    ng-init="post()"
+  >
+    <a
+      class="back-to-project"
+      href="/project"
     >
-      <a
-        class="back-to-project"
-        href="/project"
-      >
-        <i class="fa fa-arrow-left"></i>
-      </a>
-      <div class="loading-screen">
-        <div class="loading-screen-brand-container">
-          <div
-            id="loadingScreen"
-            class="loading-screen-brand"
-          ></div>
-        </div>
-        <h3 class="loading-screen-label text-center">
-            {{ translate "join_project" . }}
-          <span ng-show="accessInFlight == true">
-            <span class="loading-screen-ellip">.</span>
-            <span class="loading-screen-ellip">.</span>
-            <span class="loading-screen-ellip">.</span>
-          </span>
-        </h3>
+      <i class="fa fa-arrow-left"></i>
+    </a>
+    <div class="loading-screen">
+      <div class="loading-screen-brand-container">
         <div
-          class="global-alerts text-center"
-          ng-cloak="ng-cloak"
-        >
-          <div ng-show="accessError">
-            <br/>
-            <div ng-switch="accessError">
-              <div ng-switch-when="not_found">
-                <h4 aria-live="assertive">Project not found</h4>
-              </div>
-              <div ng-switch-default="ng-switch-default">
-                <div
-                  class="alert alert-danger"
-                  aria-live="assertive"
-                >{{translate "token_access_failure" . }}</div>
-                <p>
-                  <a href="/">{{ translate "home" . }}</a>
-                </p>
-              </div>
+          id="loadingScreen"
+          class="loading-screen-brand"
+        ></div>
+      </div>
+      <h3 class="loading-screen-label text-center">
+          {{ translate "join_project" . }}
+        <span ng-show="accessInFlight == true">
+          <span class="loading-screen-ellip">.</span>
+          <span class="loading-screen-ellip">.</span>
+          <span class="loading-screen-ellip">.</span>
+        </span>
+      </h3>
+      <div
+        class="global-alerts text-center"
+        ng-cloak="ng-cloak"
+      >
+        <div ng-show="accessError">
+          <br/>
+          <div ng-switch="accessError">
+            <div ng-switch-when="not_found">
+              <h4 aria-live="assertive">Project not found</h4>
+            </div>
+            <div ng-switch-default="ng-switch-default">
+              <div
+                class="alert alert-danger"
+                aria-live="assertive"
+              >{{translate "token_access_failure" . }}</div>
+              <p>
+                <a href="/">{{ translate "home" . }}</a>
+              </p>
             </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}

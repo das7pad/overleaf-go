@@ -22,30 +22,30 @@
     class="content content-alt full-height"
     id="main-content"
   >
-    <div class="container full-height">
-      <div class="error-container full-height">
-        <div class="error-details">
-          <p class="error-status">
-            I'm sorry, Dave. I'm afraid I can't do that.
-          </p>
-          <p class="error-description">
-            There was a problem with your latest request
-              {{- if .Message }}: {{ .Message }}{{ end }}.
-            <br/>
-            Please go back and try again.
-          </p>
-          <p class="error-description">
-            If the problem persists, please contact us at
-            <a
-              href="mailto:{{ .Settings.AdminEmail }}"
-            >{{ .Settings.AdminEmail }}</a>.
-          </p>
+  <div class="container full-height">
+    <div class="error-container full-height">
+      <div class="error-details">
+        <p class="error-status">
+          I'm sorry, Dave. I'm afraid I can't do that.
+        </p>
+        <p class="error-description">
+          There was a problem with your latest request
+            {{- if .Message }}: {{ .Message }}{{ end }}.
+          <br/>
+          Please go back and try again.
+        </p>
+        <p class="error-description">
+          If the problem persists, please contact us at
           <a
-            class="btn btn-default"
-            href="/"
-          >Home</a>
-        </div>
+            href="mailto:{{ .Settings.AdminEmail }}"
+          >{{ .Settings.AdminEmail }}</a>.
+        </p>
+        <a
+          class="btn btn-default"
+          href="/"
+        >Home</a>
       </div>
     </div>
+  </div>
   </main>
 {{ end }}
