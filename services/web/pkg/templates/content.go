@@ -109,13 +109,8 @@ func (d *CommonData) Meta() []metaEntry {
 	return out
 }
 
-type JsLayoutData struct {
-	// TODO: retire JsLayoutData
-	CommonData
-}
-
 type AngularLayoutData struct {
-	JsLayoutData
+	CommonData
 }
 
 func (d *AngularLayoutData) Entrypoint() string {
@@ -123,7 +118,7 @@ func (d *AngularLayoutData) Entrypoint() string {
 }
 
 type MarketingLayoutData struct {
-	JsLayoutData
+	CommonData
 }
 
 func (d *MarketingLayoutData) Entrypoint() string {

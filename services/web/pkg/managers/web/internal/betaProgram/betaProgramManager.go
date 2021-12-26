@@ -67,13 +67,11 @@ func (m *manager) BetaProgramParticipatePage(ctx context.Context, request *types
 	}
 	response.Data = &templates.BetaProgramParticipate{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "sharelatex_beta_program",
-					Viewport:    true,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "sharelatex_beta_program",
+				Viewport:    true,
 			},
 		},
 		AlreadyInBetaProgram: u.BetaProgram,

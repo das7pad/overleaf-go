@@ -121,13 +121,11 @@ func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessP
 
 	response.Data = &templates.ProjectTokenAccessData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					TitleLocale: "join_project",
-					SessionUser: request.Session.User,
-					Viewport:    true,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				TitleLocale: "join_project",
+				SessionUser: request.Session.User,
+				Viewport:    true,
 			},
 		},
 		PostURL: postULR,

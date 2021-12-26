@@ -17,11 +17,21 @@
 package httpUtils
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
+
+func ParseAndValidateId(c *gin.Context, name string) (primitive.ObjectID, *errors.ValidationError) {
+	id, err := primitive.ObjectIDFromHex(c.Param(name))
+	if err != nil || id == primitive.NilObjectID {
+		return primitive.NilObjectID, &errors.ValidationError{
+			Msg: "invalid " + name,
+		}
+	}
+	return id, nil
+}
 
 func GetId(c *gin.Context, name string) primitive.ObjectID {
 	return c.MustGet(name).(primitive.ObjectID)
@@ -29,10 +39,9 @@ func GetId(c *gin.Context, name string) primitive.ObjectID {
 
 func ValidateAndSetId(name string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := primitive.ObjectIDFromHex(c.Param(name))
-		if err != nil || id == primitive.NilObjectID {
-			c.String(http.StatusBadRequest, "invalid "+name)
-			c.Abort()
+		id, err := ParseAndValidateId(c, name)
+		if err != nil {
+			RespondErr(c, err)
 			return
 		}
 		c.Set(name, id)
@@ -45,10 +54,9 @@ func ValidateAndSetIdZeroOK(name string) gin.HandlerFunc {
 		if raw == "000000000000000000000000" {
 			c.Set(name, primitive.NilObjectID)
 		} else {
-			id, err := primitive.ObjectIDFromHex(raw)
-			if err != nil || id == primitive.NilObjectID {
-				c.String(http.StatusBadRequest, "invalid "+name)
-				c.Abort()
+			id, err := ParseAndValidateId(c, name)
+			if err != nil {
+				RespondErr(c, err)
 				return
 			}
 			c.Set(name, id)

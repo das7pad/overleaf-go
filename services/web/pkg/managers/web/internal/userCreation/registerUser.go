@@ -94,12 +94,10 @@ func (m *manager) RegisterUserPage(_ context.Context, request *types.RegisterUse
 
 	response.Data = &templates.UserRegisterData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "register",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "register",
 			},
 		},
 		SharedProjectData: request.SharedProjectData,

@@ -148,12 +148,10 @@ func (m *manager) SessionsPage(ctx context.Context, request *types.SessionsPageR
 
 	response.Data = &templates.UserSessionsData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "sessions",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "sessions",
 			},
 		},
 		CurrentSession: request.Session.ToOtherSessionData(),

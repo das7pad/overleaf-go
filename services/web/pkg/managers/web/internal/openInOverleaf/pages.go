@@ -26,12 +26,10 @@ import (
 func (m *manager) OpenInOverleafDocumentationPage(_ context.Context, request *types.OpenInOverleafDocumentationPageRequest, response *types.OpenInOverleafDocumentationPageResponse) error {
 	response.Data = &templates.OpenInOverleafDocumentationData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					Title:       "Open In Overleaf",
-					SessionUser: request.Session.User,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				Title:       "Open In Overleaf",
+				SessionUser: request.Session.User,
 			},
 		},
 	}
@@ -41,12 +39,10 @@ func (m *manager) OpenInOverleafDocumentationPage(_ context.Context, request *ty
 func (m *manager) OpenInOverleafGatewayPage(_ context.Context, request *types.OpenInOverleafGatewayPageRequest, response *types.OpenInOverleafGatewayPageResponse) error {
 	response.Data = &templates.OpenInOverleafGatewayData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					Title:       "Open In Overleaf",
-					SessionUser: request.Session.User,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				Title:       "Open In Overleaf",
+				SessionUser: request.Session.User,
 			},
 		},
 		Query: request.Query,

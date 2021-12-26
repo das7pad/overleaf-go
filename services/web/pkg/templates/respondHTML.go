@@ -99,26 +99,22 @@ func RespondHTML(
 		case http.StatusUnauthorized, http.StatusForbidden:
 			body = &UserRestrictedData{
 				MarketingLayoutData: MarketingLayoutData{
-					JsLayoutData: JsLayoutData{
-						CommonData: CommonData{
-							Settings:              ps,
-							RobotsNoindexNofollow: true,
-							SessionUser:           s.User,
-							TitleLocale:           "restricted",
-						},
+					CommonData: CommonData{
+						Settings:              ps,
+						RobotsNoindexNofollow: true,
+						SessionUser:           s.User,
+						TitleLocale:           "restricted",
 					},
 				},
 			}
 		case http.StatusNotFound:
 			body = &General404Data{
 				MarketingLayoutData: MarketingLayoutData{
-					JsLayoutData: JsLayoutData{
-						CommonData: CommonData{
-							Settings:              ps,
-							RobotsNoindexNofollow: true,
-							SessionUser:           s.User,
-							TitleLocale:           "page_not_found",
-						},
+					CommonData: CommonData{
+						Settings:              ps,
+						RobotsNoindexNofollow: true,
+						SessionUser:           s.User,
+						TitleLocale:           "page_not_found",
 					},
 				},
 			}

@@ -70,15 +70,14 @@ func (h *httpController) GetRouter(
 	{
 		// SECURITY: Attach gateway page before CORS middleware.
 		//           All 3rd parties are allowed to send users to the gw page.
-		publicRouter.GET("/api/html/docs", h.openInOverleafGatewayPage)
-		publicRouter.POST("/api/html/docs", h.openInOverleafGatewayPage)
+		publicRouter.GET("/docs", h.openInOverleafGatewayPage)
+		publicRouter.POST("/docs", h.openInOverleafGatewayPage)
 	}
 	publicRouter.Use(httpUtils.CORS(corsOptions))
 
 	{
-		r := publicRouter.Group("/api/html")
+		r := publicRouter.Group("")
 		r.Use(h.blockUnsupportedBrowser)
-		r.GET("", h.homePage)
 		r.GET("/", h.homePage)
 		r.GET("/admin", h.adminManageSitePage)
 		r.GET("/admin/register", h.adminRegisterUsersPage)
@@ -101,8 +100,6 @@ func (h *httpController) GetRouter(
 		router.NoRoute(h.notFoundPage)
 
 		rp := r.Group("/project/:projectId")
-		// TODO: respond with HTML to validation error
-		rp.Use(httpUtils.ValidateAndSetId("projectId"))
 		rp.GET("", h.projectEditorPage)
 		rp.GET("/invite/token/:token", h.viewProjectInvitePage)
 	}
@@ -2116,9 +2113,14 @@ func (h *httpController) projectEditorPage(c *gin.Context) {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
+	projectId, err := httpUtils.ParseAndValidateId(c, "projectId")
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
 	request := &types.ProjectEditorPageRequest{
 		Session:   s,
-		ProjectId: httpUtils.GetId(c, "projectId"),
+		ProjectId: projectId,
 	}
 	res := &types.ProjectEditorPageResponse{}
 	err = h.wm.ProjectEditorPage(c.Request.Context(), request, res)
@@ -2131,13 +2133,18 @@ func (h *httpController) viewProjectInvitePage(c *gin.Context) {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
+	projectId, err := httpUtils.ParseAndValidateId(c, "projectId")
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
 	request := &types.ViewProjectInvitePageRequest{}
 	if err = c.BindQuery(&request); err != nil {
 		err = errors.ToValidationError(err)
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
-	request.ProjectId = httpUtils.GetId(c, "projectId")
+	request.ProjectId = projectId
 	request.Token = projectInvite.Token(c.Param("token"))
 	request.Session = s
 	res := &types.ViewProjectInvitePageResponse{}

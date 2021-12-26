@@ -264,14 +264,12 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 	res.Data = &templates.ProjectEditorData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:              m.ps,
-					RobotsNoindexNofollow: true,
-					SessionUser:           request.Session.User,
-					ThemeModifier:         u.EditorConfig.OverallTheme,
-					Title:                 string(p.Name),
-				},
+			CommonData: templates.CommonData{
+				Settings:              m.ps,
+				RobotsNoindexNofollow: true,
+				SessionUser:           request.Session.User,
+				ThemeModifier:         u.EditorConfig.OverallTheme,
+				Title:                 string(p.Name),
 			},
 		},
 		EditorBootstrap: response,

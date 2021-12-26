@@ -36,12 +36,10 @@ func (m *manager) SettingsPage(ctx context.Context, request *types.SettingsPageR
 
 	response.Data = &templates.UserSettingsData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "account_settings",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "account_settings",
 			},
 		},
 		User: u,

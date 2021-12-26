@@ -84,13 +84,11 @@ func (m *manager) LoginPage(_ context.Context, request *types.LoginPageRequest, 
 	}
 	response.Data = &templates.UserLoginData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "login",
-					Viewport:    true,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "login",
+				Viewport:    true,
 			},
 		},
 	}

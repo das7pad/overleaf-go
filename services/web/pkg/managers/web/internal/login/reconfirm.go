@@ -30,12 +30,10 @@ func (m *manager) ReconfirmAccountPage(_ context.Context, request *types.Reconfi
 	}
 	response.Data = &templates.UserReconfirmData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "reconfirm_account",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "reconfirm_account",
 			},
 		},
 	}

@@ -77,12 +77,10 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 	}
 	response.Data = &templates.ProjectViewInviteData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: r.Session.User,
-					Title:       title,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: r.Session.User,
+				Title:       title,
 			},
 		},
 		SharedProjectData: r.SharedProjectData,

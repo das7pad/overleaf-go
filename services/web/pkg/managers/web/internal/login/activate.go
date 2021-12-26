@@ -56,12 +56,10 @@ func (m *manager) ActivateUserPage(ctx context.Context, request *types.ActivateU
 
 	response.Data = &templates.UserActivateData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "activate_account",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "activate_account",
 			},
 		},
 		Email: u.Email,

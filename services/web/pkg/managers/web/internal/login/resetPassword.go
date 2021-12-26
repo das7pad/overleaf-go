@@ -121,13 +121,11 @@ func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswor
 
 	response.Data = &templates.UserSetPasswordData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "set_password",
-					Viewport:    true,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "set_password",
+				Viewport:    true,
 			},
 		},
 		Email:              e,
@@ -198,13 +196,11 @@ func (m *manager) RequestPasswordResetPage(_ context.Context, request *types.Req
 
 	response.Data = &templates.UserPasswordResetData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "reset_password",
-					Viewport:    true,
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "reset_password",
+				Viewport:    true,
 			},
 		},
 		Email: e,

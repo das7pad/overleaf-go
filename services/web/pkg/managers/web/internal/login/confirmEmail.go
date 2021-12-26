@@ -131,12 +131,10 @@ func (m *manager) ConfirmEmailPage(_ context.Context, request *types.ConfirmEmai
 
 	response.Data = &templates.UserConfirmEmailData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "confirm_email",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "confirm_email",
 			},
 		},
 		Token: request.Token,

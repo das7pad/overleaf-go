@@ -36,12 +36,10 @@ func (m *manager) AdminManageSitePage(ctx context.Context, request *types.AdminM
 
 	response.Data = &templates.AdminManageSiteData{
 		MarketingLayoutData: templates.MarketingLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					Title:       "Manage Site",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				Title:       "Manage Site",
 			},
 		},
 		SystemMessages: messages,

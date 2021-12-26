@@ -93,12 +93,10 @@ func (m *manager) AdminRegisterUsersPage(_ context.Context, request *types.Admin
 	}
 	response.Data = &templates.AdminRegisterUsersData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					Title:       "Register New Users",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				Title:       "Register New Users",
 			},
 		},
 	}

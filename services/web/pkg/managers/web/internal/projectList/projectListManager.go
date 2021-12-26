@@ -196,12 +196,10 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 
 	response.Data = &templates.ProjectListData{
 		AngularLayoutData: templates.AngularLayoutData{
-			JsLayoutData: templates.JsLayoutData{
-				CommonData: templates.CommonData{
-					Settings:    m.ps,
-					SessionUser: request.Session.User,
-					TitleLocale: "your_projects",
-				},
+			CommonData: templates.CommonData{
+				Settings:    m.ps,
+				SessionUser: request.Session.User,
+				TitleLocale: "your_projects",
 			},
 		},
 		Projects:        projects,
