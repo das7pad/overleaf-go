@@ -122,6 +122,10 @@ func (h *httpController) proxy(c *gin.Context) {
 	if response.ContentLength == -1 {
 		body = io.LimitReader(response.Body, maxProxySize)
 	}
+	if err = c.Request.Context().Err(); err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
 	c.DataFromReader(
 		response.StatusCode,
 		response.ContentLength,

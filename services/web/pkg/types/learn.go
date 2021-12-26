@@ -17,16 +17,86 @@
 package types
 
 import (
+	"regexp"
+	"strings"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type LearnPageRequest struct {
 	Session *session.Session `form:"-"`
-	Path    string
+	Section string           `form:"-"`
+	Page    string           `form:"-"`
+}
+
+func (r *LearnPageRequest) Preprocess() {
+	if r.Section == "" && r.Page == "" {
+		// Home
+		return
+	}
+	switch strings.ToLower(r.Section) {
+	case "latex":
+		if r.Page == "" {
+			// latex section has no overview, send Home
+			r.Section = ""
+			return
+		}
+		r.Section = "latex"
+	case "how-to", "kb":
+		r.Section = "how-to"
+	default:
+		if r.Page == "" {
+			// /learn/foo_bar -> /learn/latex/foo_bar
+			r.Page = r.Section
+			r.Section = "latex"
+		}
+	}
+}
+
+var learnInternalPages = regexp.MustCompile("help:|special:|template:")
+
+func (r *LearnPageRequest) Validate() error {
+	if r.Section != "" && r.Section != "latex" && r.Section != "how-to" {
+		return &errors.NotFoundError{}
+	}
+	if learnInternalPages.MatchString(r.Page) {
+		return &errors.UnprocessableEntityError{Msg: "internal page"}
+	}
+	return nil
+}
+
+func (r *LearnPageRequest) PreSessionRedirect(path string) string {
+	r.Preprocess()
+	if err := r.Validate(); err != nil {
+		return ""
+	}
+	u := "/learn"
+	if r.Section != "" {
+		u += "/" + r.Section
+	}
+	if r.Page != "" {
+		u += "/" + r.Page
+	}
+	if u != path {
+		return u
+	}
+	return ""
 }
 
 type LearnPageResponse struct {
 	Redirect string
+	Age      int64
 	Data     *templates.LearnPageData
+}
+
+type LearnImageRequest struct {
+	Path sharedTypes.PathName `form:"-"`
+}
+
+type LearnImageResponse struct {
+	FSPath string
+	Age    int64
 }

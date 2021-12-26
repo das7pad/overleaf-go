@@ -18,9 +18,7 @@ package linkedURLProxy
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"net/http"
 	"os"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -63,6 +61,13 @@ func (b *bufferedFile) Cleanup() {
 	_ = os.Remove(b.fsPath)
 }
 
+func (b *bufferedFile) Move(target string) error {
+	if b.tempFile != nil {
+		_ = b.tempFile.Close()
+	}
+	return os.Rename(b.fsPath, target)
+}
+
 func (b *bufferedFile) ToUploadDetails() types.UploadDetails {
 	return types.UploadDetails{
 		File:     b.File(),
@@ -74,37 +79,11 @@ func (b *bufferedFile) ToUploadDetails() types.UploadDetails {
 // DownloadFile downloads a remote file via the proxy.
 // The call-site must call the bufferedFile.Cleanup() method when finished.
 func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*bufferedFile, error) {
-	req, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, chainURL(src, m.chain), nil,
-	)
+	body, err := m.Fetch(ctx, src)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot prepare http request")
+		return nil, err
 	}
-	res, err := m.client.Do(req)
-	if err != nil {
-		return nil, errors.Tag(err, "cannot send http request")
-	}
-	defer func() {
-		_, _ = io.Discard.(io.ReaderFrom).ReadFrom(res.Body)
-		_ = res.Body.Close()
-	}()
-	if res.StatusCode != 200 {
-		switch res.StatusCode {
-		case http.StatusUnprocessableEntity:
-			return nil, &errors.UnprocessableEntityError{
-				Msg: fmt.Sprintf(
-					"upstream returned non success: %s",
-					res.Header.Get("X-Upstream-Status-Code"),
-				),
-			}
-		case http.StatusRequestEntityTooLarge:
-			return nil, &errors.BodyTooLargeError{}
-		default:
-			return nil, errors.New(fmt.Sprintf(
-				"proxy returned non success: %d", res.StatusCode,
-			))
-		}
-	}
+	defer CleanupResponseBody(body)
 	f, err := os.CreateTemp("", "download-buffer")
 	if err != nil {
 		return nil, errors.Tag(
@@ -115,7 +94,7 @@ func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*buff
 		fsPath:   f.Name(),
 		tempFile: f,
 	}
-	n, err := io.Copy(f, res.Body)
+	n, err := io.Copy(f, body)
 	if err != nil {
 		file.Cleanup()
 		return nil, errors.Tag(err, "cannot pipe file")

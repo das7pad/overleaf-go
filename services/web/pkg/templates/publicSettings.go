@@ -79,7 +79,6 @@ type PublicSettings struct {
 	SiteURL                   sharedTypes.URL
 	StatusPageURL             sharedTypes.URL
 	TranslatedLanguages       map[string]string
-	WikiEnabled               bool
 	ZipFileSizeLimit          int64
 }
 

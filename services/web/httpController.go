@@ -86,9 +86,12 @@ func (h *httpController) GetRouter(
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
 		r.GET("/devs", h.openInOverleafDocumentationPage)
 		r.GET("/learn", h.learn)
-		r.GET("/learn/:p1", h.learn)
-		r.GET("/learn/:p1/:p2", h.learn)
-		// TODO: proxy/redirect images
+		r.GET("/learn/", h.learn)
+		r.GET("/learn/:section", h.learn)
+		r.GET("/learn/:section/", h.learn)
+		r.GET("/learn/:section/:page", h.learn)
+		r.GET("/learn/:section/:page/", h.learn)
+		r.GET("/learn-scripts/images/:hex1/:hex2/:name", h.proxyLearnImage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
 		r.GET("/project", h.projectListPage)
@@ -2167,19 +2170,44 @@ func (h *httpController) viewProjectInvitePage(c *gin.Context) {
 }
 
 func (h *httpController) learn(c *gin.Context) {
+	request := &types.LearnPageRequest{
+		Section: c.Param("section"),
+		Page:    c.Param("page"),
+	}
+	if target := request.PreSessionRedirect(c.Request.URL.Path); target != "" {
+		httpUtils.Redirect(c, target)
+		return
+	}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
-	request := &types.LearnPageRequest{Session: s, Path: c.Request.URL.Path}
+	request.Session = s
 	res := &types.LearnPageResponse{}
 	err = h.wm.LearnPage(c.Request.Context(), request, res)
+	httpUtils.Age(c, res.Age)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) proxyLearnImage(c *gin.Context) {
+	request := &types.LearnImageRequest{
+		Path: sharedTypes.PathName(c.Request.URL.Path)[1:],
+	}
+	res := &types.LearnImageResponse{}
+	err := h.wm.ProxyImage(c.Request.Context(), request, res)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=604800")
+	httpUtils.Age(c, res.Age)
+	httpUtils.EndTotalTimer(c)
+	http.ServeFile(c.Writer, c.Request, res.FSPath)
 }
 
 func (h *httpController) adminManageSitePage(c *gin.Context) {

@@ -14,37 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package linkedURLProxy
+package httpUtils
 
 import (
-	"context"
-	"io"
-	"net/http"
-	"time"
+	"strconv"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
+	"github.com/gin-gonic/gin"
 )
 
-type Manager interface {
-	DownloadFile(ctx context.Context, src *sharedTypes.URL) (*bufferedFile, error)
-	Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadCloser, error)
-}
-
-func New(options *types.Options) Manager {
-	return &manager{
-		chain: options.APIs.LinkedURLProxy.Chain,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return errors.New("blocked redirect")
-			},
-		},
+func Age(c *gin.Context, age int64) {
+	if age != -1 {
+		c.Header("Age", strconv.FormatInt(age, 10))
 	}
-}
-
-type manager struct {
-	chain  []sharedTypes.URL
-	client *http.Client
 }

@@ -56,6 +56,8 @@ type Options struct {
 	} `json:"email"`
 	EmailConfirmationDisabled bool                  `json:"email_confirmation_disabled"`
 	I18n                      templates.I18nOptions `json:"i18n"`
+	LearnCacheDuration        time.Duration         `json:"learn_cache_duration"`
+	LearnImageCacheBase       sharedTypes.DirName   `json:"learn_image_cache_base"`
 	ManifestPath              string                `json:"manifest_path"`
 	Nav                       templates.NavOptions  `json:"nav"`
 	PDFDownloadDomain         PDFDownloadDomain     `json:"pdf_download_domain"`
@@ -133,6 +135,14 @@ func (o *Options) Validate() error {
 	}
 	if len(o.DefaultImage) == 0 {
 		return &errors.ValidationError{Msg: "default_image is missing"}
+	}
+	if o.LearnCacheDuration < time.Second {
+		return &errors.ValidationError{Msg: "learn_cache_duration is too low"}
+	}
+	if o.LearnImageCacheBase == "" {
+		return &errors.ValidationError{
+			Msg: "learn_image_cache_base is missing",
+		}
 	}
 	if o.ManifestPath == "" {
 		return &errors.ValidationError{Msg: "manifest_path is missing"}

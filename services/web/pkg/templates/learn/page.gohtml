@@ -17,6 +17,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */}}
 {{ template "layout-marketing" . }}
+{{ define "headScripts" }}
+  <meta
+    name="ol-mathJaxEntrypoint"
+    content="{{ buildMathJaxEntrypoint }}"
+  >
+{{ end }}
+
 {{ define "content" }}
   <main
     class="content content-page content-alt"
@@ -27,7 +34,11 @@
       <div class="col-xs-12 col-sm-9 col-sm-push-3 page">
         <div class="card row-spaced">
           <div class="page-header">
-            <h1>{{ .Title }}</h1>
+              {{ $title := .Title }}
+              {{ if .TitleLocale }}
+                  {{ $title = translate .TitleLocale . }}
+              {{ end }}
+            <h1>{{ $title }}</h1>
           </div>
           <div data-ol-mathjax="data-ol-mathjax">
               {{ .PageContent }}

@@ -82,14 +82,12 @@
                   </ul>
                 </li>
               {{ end }}
-              {{ if .Settings.WikiEnabled }}
-                <li class="subdued">
-                  <a
-                    class="subdued"
-                    href="/learn"
-                  >{{ translate "documentation" . }}</a>
-                </li>
-              {{ end }}
+            <li class="subdued">
+              <a
+                class="subdued"
+                href="/learn"
+              >{{ translate "documentation" . }}</a>
+            </li>
               {{ range $key, $item := .Settings.Nav.HeaderExtras }}
                   {{ if $item.Dropdown }}
                     <li class="dropdown {{ $item.Class }}">

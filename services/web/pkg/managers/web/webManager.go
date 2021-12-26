@@ -166,7 +166,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	ucm := userCreation.New(options, ps, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
 	am := admin.New(ps, db)
-	learnM := learn.New(options, ps)
+	learnM, err := learn.New(options, ps, proxy)
+	if err != nil {
+		return nil, err
+	}
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,

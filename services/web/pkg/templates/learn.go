@@ -23,11 +23,11 @@ import (
 type LearnPageData struct {
 	MarketingLayoutData
 
-	PageContent     *template.HTML
-	ContentsContent *template.HTML
+	PageContent     template.HTML
+	ContentsContent template.HTML
 }
 
 func (d *LearnPageData) Render() (string, error) {
-	n := 10*1024 + len(*d.PageContent) + len(*d.ContentsContent) + 4*len(d.Title)
+	n := 10*1024 + len(d.PageContent) + len(d.ContentsContent) + 4*len(d.Title)
 	return render("learn/page.gohtml", n, d)
 }
