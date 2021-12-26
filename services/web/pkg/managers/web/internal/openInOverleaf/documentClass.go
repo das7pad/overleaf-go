@@ -42,7 +42,7 @@ var (
 \end{document}`)
 )
 
-func addDocumentClass(s sharedTypes.Snapshot, title project.Name) sharedTypes.Snapshot {
+func addDocumentClass(s sharedTypes.Snapshot, name project.Name) sharedTypes.Snapshot {
 	limit := 10 * 1024
 	if len(s) < limit {
 		limit = len(s)
@@ -50,6 +50,7 @@ func addDocumentClass(s sharedTypes.Snapshot, title project.Name) sharedTypes.Sn
 	if strings.Contains(string(s[:limit]), "\\documentclass") {
 		return s
 	}
+	title := sharedTypes.Snippet(name)
 	sum := len(documentClassPart1) +
 		len(title) +
 		len(documentClassPart2) +
@@ -61,7 +62,7 @@ func addDocumentClass(s sharedTypes.Snapshot, title project.Name) sharedTypes.Sn
 	out := make(sharedTypes.Snapshot, sum)
 	n := 0
 	n += copy(out[n:], documentClassPart1)
-	n += copy(out[n:], sharedTypes.Snippet(title))
+	n += copy(out[n:], title)
 	n += copy(out[n:], documentClassPart2)
 	n += copy(out[n:], s)
 	n += copy(out[n:], documentClassPart3)

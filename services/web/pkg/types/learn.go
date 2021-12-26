@@ -17,6 +17,7 @@
 package types
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -27,9 +28,10 @@ import (
 )
 
 type LearnPageRequest struct {
-	Session *session.Session `form:"-"`
-	Section string           `form:"-"`
-	Page    string           `form:"-"`
+	Session         *session.Session `form:"-"`
+	Section         string           `form:"-"`
+	Page            string           `form:"-"`
+	HasQuestionmark bool             `form:"-"`
 }
 
 func (r *LearnPageRequest) Preprocess() {
@@ -42,9 +44,9 @@ func (r *LearnPageRequest) Preprocess() {
 		if r.Page == "" {
 			// latex section has no overview, send Home
 			r.Section = ""
-			return
+		} else {
+			r.Section = "latex"
 		}
-		r.Section = "latex"
 	case "how-to", "kb":
 		r.Section = "how-to"
 	default:
@@ -53,6 +55,9 @@ func (r *LearnPageRequest) Preprocess() {
 			r.Page = r.Section
 			r.Section = "latex"
 		}
+	}
+	if r.HasQuestionmark && r.Page != "" && !strings.HasSuffix(r.Page, "?") {
+		r.Page += "?"
 	}
 }
 
@@ -75,10 +80,10 @@ func (r *LearnPageRequest) PreSessionRedirect(path string) string {
 	}
 	u := "/learn"
 	if r.Section != "" {
-		u += "/" + r.Section
+		u += "/" + url.PathEscape(r.Section)
 	}
 	if r.Page != "" {
-		u += "/" + r.Page
+		u += "/" + url.PathEscape(r.Page)
 	}
 	if u != path {
 		return u

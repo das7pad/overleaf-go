@@ -18,8 +18,11 @@ package learn
 
 import (
 	"html/template"
+	"regexp"
 	"strings"
 	"time"
+
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 //goland:noinspection SpellCheckingInspection
@@ -58,7 +61,11 @@ func (pc *pageContentRaw) redirect() string {
 	return ""
 }
 
-func (pc *pageContentRaw) parse() *pageContent {
+var regexOverleafLinks = regexp.MustCompile(
+	"https://www.overleaf.com(/docs|/learn)",
+)
+
+func (pc *pageContentRaw) parse(ps *templates.PublicSettings) *pageContent {
 	if pc.Parse.RevId == 0 {
 		// Page not found.
 		return &pageContent{exists: false}
@@ -69,7 +76,9 @@ func (pc *pageContentRaw) parse() *pageContent {
 	if redirect := pc.redirect(); redirect != "" {
 		return &pageContent{redirect: redirect}
 	}
-	html := template.HTML(pc.Parse.Text.Star)
+	html := template.HTML(regexOverleafLinks.ReplaceAllString(
+		pc.Parse.Text.Star, ps.SiteURL.String()+"$1",
+	))
 	title := pc.Parse.Title
 	if idx := strings.LastIndexByte(title, '/'); idx != -1 {
 		title = title[idx+1:]

@@ -2171,11 +2171,12 @@ func (h *httpController) viewProjectInvitePage(c *gin.Context) {
 
 func (h *httpController) learn(c *gin.Context) {
 	request := &types.LearnPageRequest{
-		Section: c.Param("section"),
-		Page:    c.Param("page"),
+		Section:         c.Param("section"),
+		Page:            c.Param("page"),
+		HasQuestionmark: strings.HasSuffix(c.Request.RequestURI, "?"),
 	}
-	if target := request.PreSessionRedirect(c.Request.URL.Path); target != "" {
-		httpUtils.Redirect(c, target)
+	if t := request.PreSessionRedirect(c.Request.URL.EscapedPath()); t != "" {
+		httpUtils.Redirect(c, t)
 		return
 	}
 	s, err := h.wm.GetOrCreateSession(c)

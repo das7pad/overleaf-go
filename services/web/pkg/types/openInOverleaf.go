@@ -76,6 +76,7 @@ func (r *OpenInOverleafRequest) Preprocess() {
 		r.Compiler = project.DefaultCompiler
 	}
 
+	hasMainTex := false
 	nInlinedDocs := 0
 	for _, snippet := range r.Snippets {
 		if snippet.URL == nil {
@@ -83,13 +84,29 @@ func (r *OpenInOverleafRequest) Preprocess() {
 		} else if snippet.Path == "" {
 			snippet.Path = sharedTypes.PathName(snippet.URL.FileNameFromPath())
 		}
+		if snippet.Path == "main.tex" {
+			hasMainTex = true
+		}
 	}
+	untitledDocNum := 0
 	for _, snippet := range r.Snippets {
-		if nInlinedDocs != 1 || snippet.URL != nil {
+		if snippet.URL != nil {
 			continue
 		}
-		if snippet.Path == "" {
+		if snippet.Path == "" && !hasMainTex && untitledDocNum == 0 {
 			snippet.Path = "main.tex"
+		}
+		if snippet.Path.Type() == "" {
+			if nInlinedDocs == 1 && !hasMainTex {
+				snippet.Path = "main.tex"
+			} else if snippet.Path != "" {
+				snippet.Path += ".tex"
+			} else {
+				untitledDocNum++
+				snippet.Path = sharedTypes.PathName(
+					fmt.Sprintf("untitled-doc-%d.tex", untitledDocNum),
+				)
+			}
 		}
 	}
 }
@@ -216,6 +233,15 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 		}
 	}
 	r.Snippets = snippets
+	if r.ProjectName == "" {
+		if len(params["snip_name"]) == 1 {
+			name := project.Name(params["snip_name"][0])
+			if err := name.Validate(); err == nil {
+				r.HasDefaultName = true
+				r.ProjectName = name
+			}
+		}
+	}
 	return nil
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func ParseAndValidateId(c *gin.Context, name string) (primitive.ObjectID, *errors.ValidationError) {
+func ParseAndValidateId(c *gin.Context, name string) (primitive.ObjectID, error) {
 	id, err := primitive.ObjectIDFromHex(c.Param(name))
 	if err != nil || id == primitive.NilObjectID {
 		return primitive.NilObjectID, &errors.ValidationError{

@@ -35,7 +35,7 @@ func (f *projectFile) Size() int64 {
 	if f.s.File != nil {
 		return f.s.File.Size()
 	}
-	return int64(len(f.s.Snapshot))
+	return int64(len(string(f.s.Snapshot)))
 }
 
 func (f *projectFile) Path() sharedTypes.PathName {

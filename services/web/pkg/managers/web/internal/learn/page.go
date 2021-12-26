@@ -43,11 +43,11 @@ func (m *manager) fetchPage(ctx context.Context, path string) (*pageContent, err
 		return nil, err
 	}
 	defer linkedURLProxy.CleanupResponseBody(body)
-	pc := &pageContentRaw{}
-	if err = json.NewDecoder(body).Decode(pc); err != nil {
+	raw := &pageContentRaw{}
+	if err = json.NewDecoder(body).Decode(raw); err != nil {
 		return nil, errors.Tag(err, "cannot parse api response")
 	}
-	return pc.parse(), nil
+	return raw.parse(m.ps), nil
 }
 
 func (m *manager) getPage(ctx context.Context, path string) (*pageContent, bool, error) {
