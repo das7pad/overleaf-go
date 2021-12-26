@@ -33,6 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -99,15 +100,20 @@ func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootst
 	return nil
 }
 
-func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error {
+func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, res *types.ProjectEditorPageResponse) error {
 	projectId := request.ProjectId
-	userId := request.UserId
+	userId := request.Session.User.Id
 	isAnonymous := userId.IsZero()
+	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
 	if !isAnonymous {
 		// Logged-in users must go through the join process first
-		request.AnonymousAccessToken = ""
+		anonymousAccessToken = ""
 	}
 
+	response := &templates.EditorBootstrap{
+		Anonymous:            isAnonymous,
+		AnonymousAccessToken: anonymousAccessToken,
+	}
 	var p *project.LoadEditorViewPrivate
 	u := &user.WithLoadEditorInfo{}
 	var ownerFeatures *user.Features
@@ -123,7 +129,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		}
 
 		authorizationDetails, err = p.GetPrivilegeLevel(
-			userId, request.AnonymousAccessToken,
+			userId, anonymousAccessToken,
 		)
 		if err != nil {
 			return err
@@ -166,7 +172,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		if err != nil {
 			return errors.Tag(err, "cannot get wsBootstrap")
 		}
-		response.WSBootstrap = b
+		response.WSBootstrap = templates.WSBootstrap(b)
 		return nil
 	})
 
@@ -230,7 +236,7 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		if err != nil {
 			return errors.Tag(err, "cannot get compile jwt")
 		}
-		response.JwtProject = s
+		response.JWTProject = s
 	}
 
 	t, err := p.GetRootFolder()
@@ -248,12 +254,27 @@ func (m *manager) LoadEditor(ctx context.Context, request *types.LoadEditorReque
 		return err
 	}
 
-	response.Anonymous = isAnonymous
-	response.AnonymousAccessToken = request.AnonymousAccessToken
 	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()
-	response.IsTokenMember = authorizationDetails.IsTokenMember
-	response.PrivilegeLevel = authorizationDetails.PrivilegeLevel
 	response.Project = p.LoadEditorViewPublic
 	response.User = *u
+	if u.IsAdmin {
+		response.AllowedImageNames = m.options.AllowedImageNames
+	} else {
+		response.AllowedImageNames = m.publicImageNames
+	}
+	res.Data = &templates.ProjectEditorData{
+		AngularLayoutData: templates.AngularLayoutData{
+			JsLayoutData: templates.JsLayoutData{
+				CommonData: templates.CommonData{
+					Settings:              m.ps,
+					RobotsNoindexNofollow: true,
+					SessionUser:           request.Session.User,
+					ThemeModifier:         u.EditorConfig.OverallTheme,
+					Title:                 string(p.Name),
+				},
+			},
+		},
+		EditorBootstrap: response,
+	}
 	return nil
 }

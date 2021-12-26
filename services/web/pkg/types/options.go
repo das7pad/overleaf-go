@@ -24,6 +24,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -37,13 +38,14 @@ import (
 )
 
 type Options struct {
-	AdminEmail    sharedTypes.Email     `json:"admin_email"`
-	AllowedImages []clsiTypes.ImageName `json:"allowed_images"`
-	AppName       string                `json:"app_name"`
-	BcryptCost    int                   `json:"bcrypt_cost"`
-	CDNURL        sharedTypes.URL       `json:"cdn_url"`
-	DefaultImage  clsiTypes.ImageName   `json:"default_image"`
-	Email         struct {
+	AdminEmail        sharedTypes.Email            `json:"admin_email"`
+	AllowedImages     []clsiTypes.ImageName        `json:"allowed_images"`
+	AllowedImageNames []templates.AllowedImageName `json:"allowed_image_names"`
+	AppName           string                       `json:"app_name"`
+	BcryptCost        int                          `json:"bcrypt_cost"`
+	CDNURL            sharedTypes.URL              `json:"cdn_url"`
+	DefaultImage      clsiTypes.ImageName          `json:"default_image"`
+	Email             struct {
 		CustomFooter     string            `json:"custom_footer"`
 		CustomFooterHTML template.HTML     `json:"custom_footer_html"`
 		From             *email.Identity   `json:"from"`
@@ -252,9 +254,22 @@ type SentryOptions struct {
 func (o *Options) PublicSettings() *templates.PublicSettings {
 	//goland:noinspection SpellCheckingInspection
 	return &templates.PublicSettings{
-		AppName:                   o.AppName,
-		AdminEmail:                o.AdminEmail,
-		CDNURL:                    o.CDNURL,
+		AppName:    o.AppName,
+		AdminEmail: o.AdminEmail,
+		CDNURL:     o.CDNURL,
+		EditorSettings: &templates.EditorSettings{
+			MaxDocLength:           sharedTypes.MaxDocLength,
+			MaxEntitiesPerProject:  2000,
+			MaxUploadSize:          MaxUploadSize,
+			WikiEnabled:            true,
+			WsURL:                  "/socket.io",
+			WsRetryHandshake:       5,
+			EnablePdfCaching:       false,
+			ResetServiceWorker:     false,
+			EditorThemes:           user.EditorThemes,
+			TextExtensions:         sharedTypes.ValidTextExtensions,
+			ValidRootDocExtensions: sharedTypes.ValidRootDocExtensions,
+		},
 		EmailConfirmationDisabled: o.EmailConfirmationDisabled,
 		I18n:                      o.I18n,
 		Nav:                       o.Nav,

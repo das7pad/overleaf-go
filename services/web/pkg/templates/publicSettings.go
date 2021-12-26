@@ -69,6 +69,7 @@ type PublicSettings struct {
 	AppName                   string
 	AdminEmail                sharedTypes.Email
 	CDNURL                    sharedTypes.URL
+	EditorSettings            *EditorSettings
 	EmailConfirmationDisabled bool
 	I18n                      I18nOptions
 	Nav                       NavOptions

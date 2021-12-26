@@ -124,7 +124,20 @@ func processLocale(key, v string) string {
 		v = strings.ReplaceAll(v, "</0>", "</strong>")
 	case "please_confirm_email":
 		v = strings.ReplaceAll(v, "__emailAddress__", "{{ `{{ userEmail.email }}` }}")
-
+	case "reconnecting_in_x_secs":
+		v = strings.ReplaceAll(v, "__seconds__", "{{ `{{ connection.reconnection_countdown }}` }}")
+	case "saving_notification_with_seconds":
+		v = strings.ReplaceAll(v, "__docname__", "{{ `{{ state.doc.name }}` }}")
+		v = strings.ReplaceAll(v, "__seconds__", "{{ `{{ state.unsavedSeconds }}` }}")
+	case "bulk_accept_confirm", "bulk_reject_confirm":
+		v = strings.ReplaceAll(v, "__nChanges__", "{{ `{{ nChanges }}` }}")
+	case "file_has_been_deleted", "file_restored":
+		v = strings.ReplaceAll(v, "__filename__", "{{ `{{ history.diff.doc.name }}` }}")
+	case "sure_you_want_to_restore_before":
+		v = strings.ReplaceAll(v, "__filename__", "{{ `{{ diff.doc.name }}` }}")
+		v = strings.ReplaceAll(v, "__date__", "{{ `{{ diff.start_ts | formatDate }}` }}")
+		v = strings.ReplaceAll(v, "<0>", "<strong>")
+		v = strings.ReplaceAll(v, "</0>", "</strong>")
 	}
 	if strings.Contains(v, "__") || strings.Contains(v, "<0>") {
 		panic(key + " needs processing: " + v)

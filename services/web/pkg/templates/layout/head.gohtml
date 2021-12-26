@@ -108,7 +108,7 @@
     />
     <link
       rel="stylesheet"
-      href="{{ buildCssPath "" }}"
+      href="{{ buildCssPath .ThemeModifier }}"
       id="main-stylesheet"
     />
       {{ range $key, $details := .Settings.I18n.SubdomainLang }}

@@ -23,10 +23,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-const maxDocSize = 2 * 1024 * 1024
-
 func IsTextFile(fileName sharedTypes.Filename, size int64, reader io.Reader) (sharedTypes.Snapshot, bool, bool, error) {
-	if size > maxDocSize {
+	if size > sharedTypes.MaxDocSizeBytes {
 		return nil, false, false, nil
 	}
 	if !isTextFileFilename(fileName) {
@@ -44,7 +42,7 @@ func IsTextFile(fileName sharedTypes.Filename, size int64, reader io.Reader) (sh
 }
 
 func isTextFileFilename(filename sharedTypes.Filename) bool {
-	if isTextFileExtension(sharedTypes.PathName(filename).Type()) {
+	if sharedTypes.PathName(filename).Type().ValidForDoc() {
 		return true
 	}
 	//goland:noinspection SpellCheckingInspection
@@ -53,48 +51,6 @@ func isTextFileFilename(filename sharedTypes.Filename) bool {
 	case "Jenkinsfile":
 	case "Makefile":
 	case "latexmkrc":
-	default:
-		return false
-	}
-	return true
-}
-
-func isTextFileExtension(extension sharedTypes.FileType) bool {
-	//goland:noinspection SpellCheckingInspection
-	switch extension {
-	case "asy":
-	case "bbx":
-	case "bib":
-	case "bibtex":
-	case "bst":
-	case "cbx":
-	case "clo":
-	case "cls":
-	case "def":
-	case "dtx":
-	case "editorconfig":
-	case "gitignore":
-	case "gv":
-	case "ins":
-	case "ist":
-	case "latex":
-	case "latexmkrc":
-	case "lbx":
-	case "lco":
-	case "ldf":
-	case "lua":
-	case "m":
-	case "md":
-	case "mf":
-	case "mtx":
-	case "rmd":
-	case "rtex":
-	case "sty":
-	case "tex":
-	case "tikz":
-	case "txt":
-	case "yaml":
-	case "yml":
 	default:
 		return false
 	}

@@ -226,8 +226,6 @@ func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.Obj
 	}
 }
 
-const MaxLineLength = 2 * 1024 * 1024
-
 func validateDocLines(lines sharedTypes.Lines) error {
 	if lines == nil {
 		return &errors.ValidationError{Msg: "no doc lines provided"}
@@ -236,7 +234,7 @@ func validateDocLines(lines sharedTypes.Lines) error {
 	for _, line := range lines {
 		sum += len(line)
 	}
-	if sum > MaxLineLength {
+	if sum > sharedTypes.MaxDocLength {
 		return &errors.BodyTooLargeError{}
 	}
 	return nil

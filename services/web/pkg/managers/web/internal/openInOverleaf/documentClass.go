@@ -55,7 +55,7 @@ func addDocumentClass(s sharedTypes.Snapshot, title project.Name) sharedTypes.Sn
 		len(documentClassPart2) +
 		len(s) +
 		len(documentClassPart3)
-	if sum > maxDocLength {
+	if sum > sharedTypes.MaxDocLength {
 		return s
 	}
 	out := make(sharedTypes.Snapshot, sum)

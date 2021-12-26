@@ -19,34 +19,17 @@ package types
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
-type LoadEditorRequest struct {
-	ProjectId            primitive.ObjectID
-	UserId               primitive.ObjectID
-	AnonymousAccessToken project.AccessToken `form:"anonymousAccessToken"`
+type ProjectEditorPageRequest struct {
+	ProjectId primitive.ObjectID `form:"-"`
+	Session   *session.Session   `form:"-"`
 }
 
-type LoadEditorResponse struct {
-	Anonymous            bool                         `json:"anonymous"`
-	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
-	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
-	IsTokenMember        project.IsTokenMember        `json:"isTokenMember"`
-	JwtProject           string                       `json:"jwtCompile"`
-	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
-	JWTSpelling          string                       `json:"jwtSpelling"`
-	PrivilegeLevel       sharedTypes.PrivilegeLevel   `json:"privilegeLevel"`
-	Project              project.LoadEditorViewPublic `json:"project"`
-	RootDocPath          clsiTypes.RootResourcePath   `json:"rootDocPath"`
-	User                 user.WithLoadEditorInfo      `json:"user"`
-	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
+type ProjectEditorPageResponse struct {
+	Data *templates.ProjectEditorData
 }
 
-type WSBootstrap struct {
-	JWT       string `json:"bootstrap"`
-	ExpiresIn int64  `json:"expiresIn"`
-}
+type WSBootstrap templates.WSBootstrap

@@ -23,18 +23,68 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+var (
+	//goland:noinspection SpellCheckingInspection
+	ValidRootDocExtensions = []FileType{
+		"tex",
+		"rtex",
+		"ltex",
+	}
+	ValidTextExtensions = []FileType{
+		"asy",
+		"bbx",
+		"bib",
+		"bibtex",
+		"bst",
+		"cbx",
+		"clo",
+		"cls",
+		"def",
+		"dtx",
+		"editorconfig",
+		"gitignore",
+		"gv",
+		"ins",
+		"ist",
+		"latex",
+		"latexmkrc",
+		"lbx",
+		"lco",
+		"ldf",
+		"lua",
+		"m",
+		"md",
+		"mf",
+		"mtx",
+		"rmd",
+		"rtex",
+		"sty",
+		"tex",
+		"tikz",
+		"txt",
+		"yaml",
+		"yml",
+	}
+)
+
 type FileType string
 
 func (t FileType) ValidForRootDoc() bool {
-	//goland:noinspection SpellCheckingInspection
-	switch t {
-	case "tex":
-	case "rtex":
-	case "ltx":
-	default:
-		return false
+	for _, extension := range ValidRootDocExtensions {
+		if t == extension {
+			return true
+		}
 	}
-	return true
+	return false
+}
+
+func (t FileType) ValidForDoc() bool {
+	for _, extension := range ValidTextExtensions {
+		if t == extension {
+			return true
+		}
+	}
+	return false
 }
 
 type Filename string

@@ -22,6 +22,10 @@ type BetaProgramParticipate struct {
 	AlreadyInBetaProgram bool
 }
 
+func (d *BetaProgramParticipate) Entrypoint() string {
+	return "frontend/js/pages/user/beta.js"
+}
+
 func (d *BetaProgramParticipate) Meta() []metaEntry {
 	m := d.AngularLayoutData.Meta()
 	m = append(m, metaEntry{

@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	maxDocSize = 2 * 1024 * 1024
+	maxDocSize = sharedTypes.MaxDocSizeBytes
 )
 
 func newHttpController(ps *templates.PublicSettings, wm web.Manager) httpController {
@@ -64,13 +64,6 @@ func (h *httpController) GetRouter(
 		StatusMessage:   "web is alive (go)\n",
 		ClientIPOptions: clientIPOptions,
 	})
-
-	internalRouter := router.Group("")
-	internalProjectRouter := internalRouter.Group("/project/:projectId")
-	internalProjectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
-	internalProjectUserRouter := internalProjectRouter.Group("/user/:userId")
-	internalProjectUserRouter.Use(httpUtils.ValidateAndSetIdZeroOK("userId"))
-	internalProjectUserRouter.GET("/editorLocals", h.editorLocals)
 
 	publicRouter := router.Group("")
 	publicRouter.Use(httpUtils.NoCache())
@@ -108,7 +101,9 @@ func (h *httpController) GetRouter(
 		router.NoRoute(h.notFoundPage)
 
 		rp := r.Group("/project/:projectId")
+		// TODO: respond with HTML to validation error
 		rp.Use(httpUtils.ValidateAndSetId("projectId"))
+		rp.GET("", h.projectEditorPage)
 		rp.GET("/invite/token/:token", h.viewProjectInvitePage)
 	}
 
@@ -476,19 +471,6 @@ func (h *httpController) wordCount(c *gin.Context) {
 		request,
 		response,
 	)
-	httpUtils.Respond(c, http.StatusOK, response, err)
-}
-
-func (h *httpController) editorLocals(c *gin.Context) {
-	request := &types.LoadEditorRequest{
-		ProjectId: httpUtils.GetId(c, "projectId"),
-		UserId:    httpUtils.GetId(c, "userId"),
-	}
-	if err := c.MustBindWith(request, binding.Query); err != nil {
-		return
-	}
-	response := &types.LoadEditorResponse{}
-	err := h.wm.LoadEditor(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
@@ -2125,6 +2107,21 @@ func (h *httpController) projectListPage(c *gin.Context) {
 	request := &types.ProjectListPageRequest{Session: s}
 	res := &types.ProjectListPageResponse{}
 	err = h.wm.ProjectListPage(c.Request.Context(), request, res)
+	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) projectEditorPage(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		return
+	}
+	request := &types.ProjectEditorPageRequest{
+		Session:   s,
+		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	res := &types.ProjectEditorPageResponse{}
+	err = h.wm.ProjectEditorPage(c.Request.Context(), request, res)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 

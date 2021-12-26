@@ -36,11 +36,9 @@ var (
 `)
 )
 
-const maxDocLength = 2 * 1024 * 1024
-
 func addHeader(s sharedTypes.Snapshot, learnURL sharedTypes.Snapshot) sharedTypes.Snapshot {
 	sum := len(headerPart1) + len(learnURL) + len(headerPart2) + len(s)
-	if sum > maxDocLength {
+	if sum > sharedTypes.MaxDocLength {
 		return s
 	}
 	out := make(sharedTypes.Snapshot, sum)

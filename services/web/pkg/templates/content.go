@@ -70,6 +70,7 @@ type CommonData struct {
 
 	RobotsNoindexNofollow bool
 	SessionUser           *session.User
+	ThemeModifier         string
 	Title                 string
 	TitleLocale           string
 	Viewport              bool
@@ -109,8 +110,8 @@ func (d *CommonData) Meta() []metaEntry {
 }
 
 type JsLayoutData struct {
+	// TODO: retire JsLayoutData
 	CommonData
-	CustomEntrypoint string
 }
 
 type AngularLayoutData struct {
@@ -118,9 +119,6 @@ type AngularLayoutData struct {
 }
 
 func (d *AngularLayoutData) Entrypoint() string {
-	if d.CustomEntrypoint != "" {
-		return d.CustomEntrypoint
-	}
 	return "frontend/js/main.js"
 }
 
@@ -129,9 +127,6 @@ type MarketingLayoutData struct {
 }
 
 func (d *MarketingLayoutData) Entrypoint() string {
-	if d.CustomEntrypoint != "" {
-		return d.CustomEntrypoint
-	}
 	return "frontend/js/marketing.js"
 }
 

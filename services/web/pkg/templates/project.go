@@ -17,6 +17,7 @@
 package templates
 
 import (
+	"html/template"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -26,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type ProjectTokenAccessData struct {
@@ -113,4 +115,74 @@ func (d *ProjectListData) Meta() []metaEntry {
 
 func (d *ProjectListData) Render() (string, error) {
 	return render("project/list.gohtml", 200*1024, d)
+}
+
+type EditorSettings struct {
+	MaxDocLength           int64                  `json:"max_doc_length"`
+	MaxEntitiesPerProject  int64                  `json:"maxEntitiesPerProject"`
+	MaxUploadSize          int64                  `json:"maxUploadSize"`
+	WikiEnabled            bool                   `json:"wikiEnabled"`
+	WsURL                  string                 `json:"wsUrl"`
+	WsRetryHandshake       int64                  `json:"wsRetryHandshake"`
+	EnablePdfCaching       bool                   `json:"enablePdfCaching"`
+	ResetServiceWorker     bool                   `json:"resetServiceWorker"`
+	EditorThemes           []string               `json:"editorThemes"`
+	TextExtensions         []sharedTypes.FileType `json:"textExtensions"`
+	ValidRootDocExtensions []sharedTypes.FileType `json:"validRootDocExtensions"`
+}
+
+type EditorBootstrap struct {
+	AllowedImageNames    []AllowedImageName           `json:"allowedImageNames"`
+	Anonymous            bool                         `json:"anonymous"`
+	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
+	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
+	JWTProject           string                       `json:"jwtCompile"`
+	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
+	JWTSpelling          string                       `json:"jwtSpelling"`
+	Project              project.LoadEditorViewPublic `json:"project"`
+	RootDocPath          clsiTypes.RootResourcePath   `json:"rootDocPath"`
+	User                 user.WithLoadEditorInfo      `json:"user"`
+	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
+}
+
+type WSBootstrap struct {
+	JWT       string `json:"bootstrap"`
+	ExpiresIn int64  `json:"expiresIn"`
+}
+
+type AllowedImageName struct {
+	AdminOnly bool                `json:"adminOnly"`
+	Name      clsiTypes.ImageName `json:"name"`
+	Desc      string              `json:"desc"`
+}
+
+type ProjectEditorData struct {
+	AngularLayoutData
+	EditorBootstrap *EditorBootstrap
+
+	AngularSnippetPDFURL template.HTMLAttr
+}
+
+func (d *ProjectEditorData) Entrypoint() string {
+	return "frontend/js/ide.js"
+}
+
+func (d *ProjectEditorData) Meta() []metaEntry {
+	out := d.AngularLayoutData.Meta()
+	out = append(out, metaEntry{
+		Name:    "ol-bootstrapEditor",
+		Content: d.EditorBootstrap,
+		Type:    jsonContentType,
+	})
+	out = append(out, metaEntry{
+		Name:    "ol-publicEditorSettings",
+		Content: d.Settings.EditorSettings,
+		Type:    jsonContentType,
+	})
+	return out
+}
+
+func (d *ProjectEditorData) Render() (string, error) {
+	d.AngularSnippetPDFURL = ` ng-src="{{ pdf.url | trusted }}" `
+	return render("project/editor.gohtml", 150*1024, d)
 }

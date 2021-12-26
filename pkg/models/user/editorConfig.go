@@ -55,6 +55,50 @@ const (
 	editorPdfViewerNative = "native"
 )
 
+var (
+	//goland:noinspection SpellCheckingInspection
+	EditorThemes = []string{
+		"ambiance",
+		"chaos",
+		"chrome",
+		"clouds",
+		"clouds_midnight",
+		"cobalt",
+		"crimson_editor",
+		"dawn",
+		"dracula",
+		"dreamweaver",
+		"eclipse",
+		"github",
+		"gob",
+		"gruvbox",
+		"idle_fingers",
+		"iplastic",
+		"katzenmilch",
+		"kr_theme",
+		"kuroir",
+		"merbivore",
+		"merbivore_soft",
+		"mono_industrial",
+		"monokai",
+		"overleaf",
+		"pastel_on_dark",
+		"solarized_dark",
+		"solarized_light",
+		"sqlserver",
+		"terminal",
+		"textmate",
+		"tomorrow",
+		"tomorrow_night",
+		"tomorrow_night_blue",
+		"tomorrow_night_bright",
+		"tomorrow_night_eighties",
+		"twilight",
+		"vibrant_ink",
+		"xcode",
+	}
+)
+
 func (e *EditorConfig) Validate() error {
 	switch e.FontFamily {
 	case editorFontFamilyMonaco:
@@ -111,48 +155,14 @@ func (e *EditorConfig) Validate() error {
 		}
 	}
 
-	//goland:noinspection SpellCheckingInspection
-	switch e.Theme {
-	case "ambiance":
-	case "chaos":
-	case "chrome":
-	case "clouds":
-	case "clouds_midnight":
-	case "cobalt":
-	case "crimson_editor":
-	case "dawn":
-	case "dracula":
-	case "dreamweaver":
-	case "eclipse":
-	case "github":
-	case "gob":
-	case "gruvbox":
-	case "idle_fingers":
-	case "iplastic":
-	case "katzenmilch":
-	case "kr_theme":
-	case "kuroir":
-	case "merbivore":
-	case "merbivore_soft":
-	case "mono_industrial":
-	case "monokai":
-	case "overleaf":
-	case "pastel_on_dark":
-	case "solarized_dark":
-	case "solarized_light":
-	case "sqlserver":
-	case "terminal":
-	case "textmate":
-	case "tomorrow":
-	case "tomorrow_night":
-	case "tomorrow_night_blue":
-	case "tomorrow_night_bright":
-	case "tomorrow_night_eighties":
-	case "twilight":
-	case "vibrant_ink":
-	case "xcode":
-		// valid
-	default:
+	foundTheme := false
+	for _, theme := range EditorThemes {
+		if theme == e.Theme {
+			foundTheme = true
+			break
+		}
+	}
+	if !foundTheme {
 		return &errors.ValidationError{Msg: "unknown theme"}
 	}
 	return nil

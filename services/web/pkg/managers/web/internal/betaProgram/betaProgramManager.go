@@ -74,7 +74,6 @@ func (m *manager) BetaProgramParticipatePage(ctx context.Context, request *types
 					TitleLocale: "sharelatex_beta_program",
 					Viewport:    true,
 				},
-				CustomEntrypoint: "frontend/js/pages/user/beta.js",
 			},
 		},
 		AlreadyInBetaProgram: u.BetaProgram,

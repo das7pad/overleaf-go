@@ -38,7 +38,9 @@ func (h Hash) CheckMatches(other Hash) error {
 }
 
 const (
-	maxDocLength = 2 * 1024 * 1024
+	MaxDocLength = 2 * 1024 * 1024
+	// MaxDocSizeBytes allows for 4 bytes per unicode character
+	MaxDocSizeBytes = 4 * MaxDocLength
 )
 
 var (
@@ -50,7 +52,7 @@ var (
 type Snapshot []rune
 
 func (s Snapshot) CheckSize() error {
-	if len(s) > maxDocLength {
+	if len(s) > MaxDocLength {
 		return ErrDocIsTooLarge
 	}
 	return nil

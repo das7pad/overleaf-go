@@ -1,0 +1,2123 @@
+{{/*
+    Golang port of Overleaf
+    Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021 Overleaf <team@overleaf.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+{{ template "layout-angular" . }}
+{{ define "headScripts" }}
+  <link
+    rel="stylesheet"
+    href="{{ buildJsPath "ide.js.css" }}"
+  />
+  <meta
+    name="ol-theme-default"
+    content="{{ buildCssPath "" }}"
+  >
+  <meta
+    name="ol-theme-light"
+    content="{{ buildCssPath "light-" }}"
+  >
+  <meta
+    name="ol-mathJaxEntrypoint"
+    content="{{ buildMathJaxEntrypoint }}"
+  >
+{{ end }}
+{{ define "navbar" }}<!-- Hide Navbar -->{{ end }}
+{{ define "footer" }}<!-- Hide Footer -->{{ end }}
+{{ define "content" }}
+  <div
+    class="editor full-size"
+    ng-controller="IdeController"
+  >
+    <shared-context-react></shared-context-react>
+    <div
+      class="loading-screen"
+      ng-if="state.loading"
+    >
+      <div class="loading-screen-brand-container">
+        <div
+          class="loading-screen-brand loading-screen-brand-20"
+          ng-style="{ 'height': state.load_progress + '%' }"
+        ></div>
+      </div>
+      <h3
+        class="loading-screen-label"
+        ng-if="!state.error"
+      >{{ translate "loading" . }}
+        <span class="loading-screen-ellip">.</span><span class="loading-screen-ellip">.</span><span class="loading-screen-ellip">.</span>
+      </h3>
+      <p
+        class="loading-screen-error ng-cloak"
+        ng-if="state.error"
+      ><span ng-bind-html="state.error"></span></p>
+    </div>
+    <div
+      class="global-alerts"
+      ng-cloak="ng-cloak"
+      ng-hide="editor.error_state"
+    >
+      <div
+        class="alert alert-danger small"
+        ng-if="connection.forced_disconnect"
+      ><strong>{{ translate "disconnected" . }}</strong></div>
+      <div
+        class="alert alert-warning small"
+        ng-if="connection.reconnection_countdown"
+      ><strong>{{ translate "lost_connection" . }}
+          .</strong> {{ translate "reconnecting_in_x_secs" . }}.<a
+          id="try-reconnect-now-button"
+          class="alert-link-as-btn pull-right"
+          href="#"
+          ng-click="tryReconnectNow()"
+        >{{ translate "try_now" . }}</a></div>
+      <div
+        class="alert alert-warning small"
+        ng-if="connection.reconnecting && connection.stillReconnecting"
+      ><strong>{{ translate "reconnecting" . }}…</strong></div>
+      <div
+        class="alert alert-warning small"
+        ng-if="sync_tex_error"
+      ><strong>{{ translate "synctex_failed" . }}.</strong><a
+          id="synctex-more-info-button"
+          class="alert-link-as-btn pull-right"
+          href="/learn/how-to/SyncTeX_Errors"
+          target="_blank"
+        >{{ translate "more_info" . }}</a></div>
+      <div
+        class="alert alert-warning small"
+        ng-if="connection.inactive_disconnect"
+      >
+        <strong>{{ translate "editor_disconected_click_to_reconnect" . }}</strong>
+      </div>
+      <div
+        class="alert alert-warning small"
+        ng-if="connection.debug"
+      >{{ `{{ connection.state }}` }}</div>
+      <div
+        class="div"
+        ng-controller="SavingNotificationController"
+      >
+        <div
+          class="alert alert-warning small"
+          ng-repeat="(doc_id, state) in docSavingStatus"
+          ng-if="state.unsavedSeconds > 8"
+        >{{ translate "saving_notification_with_seconds" . }}
+        </div>
+      </div>
+      <div
+        class="div"
+        ng-controller="SystemMessagesController"
+      >
+        <div
+          class="alert alert-warning system-message"
+          ng-repeat="message in messages"
+          ng-controller="SystemMessageController"
+          ng-hide="hidden"
+        >
+          <button
+            ng-hide="protected"
+            ng-click="hide()"
+            class="close pull-right"
+          >
+            <span aria-hidden="true">&times;</span><span class="sr-only">{{ translate "close" . }}</span>
+          </button>
+          <div
+            class="system-message-content"
+            ng-bind-html="htmlContent"
+          ></div>
+        </div>
+      </div>
+    </div>
+    <aside
+      id="left-menu"
+      class="full-size"
+      ng-class="{ 'shown': ui.leftMenuShown }"
+      ng-cloak="ng-cloak"
+    ><h4>{{ translate "download" . }}</h4>
+      <ul class="list-unstyled nav nav-downloads text-center">
+        <li><a
+            ng-href="/api/project/{{ `{{ project_id }}` }}/download/zip"
+            target="_blank"
+          ><i class="fa fa-file-archive-o fa-2x"></i><br/>{{ translate "source" . }}
+          </a></li>
+        <li><a
+            ng-href="{{ `{{pdf.downloadUrl || pdf.url}}` }}"
+            download="{{ `{{ project.name }}` }}.pdf"
+            target="_blank"
+            ng-if="pdf.url"
+          ><i class="fa fa-file-pdf-o fa-2x"></i><br/>PDF</a>
+          <div
+            class="link-disabled"
+            ng-if="!pdf.url"
+            tooltip="{{ translate "please_compile_pdf_before_download" . }}"
+            tooltip-placement="bottom"
+          ><i class="fa fa-file-pdf-o fa-2x"></i><br/>PDF
+          </div>
+        </li>
+      </ul>
+      <span ng-show="!anonymous"><h4>{{ translate "actions" . }}</h4>
+        <ul class="list-unstyled nav">
+          <li ng-controller="LeftMenuCloneProjectModalController"><a
+              href="#"
+              ng-click="openCloneProjectModal()"
+            ><i class="fa fa-fw fa-copy"></i>&nbsp;&nbsp; {{ translate "copy_project" . }}
+            </a>
+            <clone-project-modal
+              handle-hide="handleHide"
+              project-id="projectId"
+              project-name="projectName"
+              open-project="openProject"
+              show="show"
+            ></clone-project-modal>
+          </li>
+          <li ng-controller="WordCountModalController"><a
+              href="#"
+              ng-if="pdf.url"
+              ng-click="openWordCountModal()"
+            ><i class="fa fa-fw fa-eye"></i><span>&nbsp;&nbsp; {{ translate "word_count" . }}</span></a><a
+              class="link-disabled"
+              href="#"
+              ng-if="!pdf.url"
+              tooltip="{{ translate "please_compile_pdf_before_word_count" . }}"
+            ><i class="fa fa-fw fa-eye"></i><span class="link-disabled">&nbsp;&nbsp; {{ translate "word_count" . }}</span></a>
+            <word-count-modal
+              clsi-server-id="clsiServerId"
+              image-name="imageName"
+              file-name="fileName"
+              handle-hide="handleHide"
+              project-id="projectId"
+              show="show"
+            ></word-count-modal>
+          </li>
+        </ul>
+      </span><h4>{{ translate "settings" . }}</h4>
+      <form
+        class="settings"
+        ng-controller="SettingsController"
+      >
+        <div class="containter-fluid">
+          <div
+            class="form-controls"
+            ng-show="permissions.write"
+          ><label for="compiler">{{ translate "compiler" . }}</label><select
+              name="compiler"
+              ng-model="project.compiler"
+            >
+              <option value="pdflatex">pdfLaTeX</option>
+              <option value="latex">LaTeX</option>
+              <option value="xelatex">XeLaTeX</option>
+              <option value="lualatex">LuaLaTeX</option>
+            </select></div>
+          <div
+            class="form-controls"
+            ng-show="permissions.write"
+          >
+            <label for="imageName">{{ translate "tex_live_version" . }}</label><select
+              name="imageName"
+              ng-model="project.imageName"
+              ng-options="image.name as image.desc for image in allowedImageNames"
+            ></select></div>
+          <div
+            class="form-controls"
+            ng-show="permissions.write"
+          >
+            <label for="rootDoc_id">{{ translate "main_document" . }}</label><select
+              name="rootDoc_id"
+              ng-model="project.rootDoc_id"
+              ng-options="doc.doc.id as doc.path for doc in getValidMainDocs()"
+            ></select></div>
+          <div
+            class="form-controls"
+            ng-show="!anonymous"
+          >
+            <label for="spellCheckLanguage">{{ translate "spell_check" . }}</label><select
+              name="spellCheckLanguage"
+              ng-model="project.spellCheckLanguage"
+            >
+              <option value="">{{ translate "off" . }}</option>
+              <optgroup label="Language">
+                <option value="en">
+                    {{ index .Settings.TranslatedLanguages "en" }}
+                </option>
+                <option value="de">
+                    {{ index .Settings.TranslatedLanguages "de" }}
+                </option>
+                <option value="es">
+                    {{ index .Settings.TranslatedLanguages "es" }}
+                </option>
+                <option value="fr">
+                    {{ index .Settings.TranslatedLanguages "fr" }}
+                </option>
+                <option value="pt_PT">
+                    {{ index .Settings.TranslatedLanguages "pt" }}
+                </option>
+              </optgroup>
+            </select></div>
+          <div
+            class="form-controls"
+            ng-show="!anonymous"
+          >
+            <label for="autoComplete">{{ translate "auto_complete" . }}</label><select
+              name="autoComplete"
+              ng-model="settings.autoComplete"
+              ng-options="o.v as o.n for o in [{ n: 'On', v: true }, { n: 'Off', v: false }]"
+            ></select></div>
+          <div
+            class="form-controls"
+            ng-show="!anonymous"
+          >
+            <label for="autoPairDelimiters">{{ translate "auto_close_brackets" . }}</label><select
+              name="autoPairDelimiters"
+              ng-model="settings.autoPairDelimiters"
+              ng-options="o.v as o.n for o in [{ n: 'On', v: true }, { n: 'Off', v: false }]"
+            ></select></div>
+          <div
+            class="form-controls code-check-setting"
+            ng-show="!anonymous"
+          >
+            <label for="syntaxValidation">{{ translate "syntax_validation" . }}</label><select
+              name="syntaxValidation"
+              ng-model="settings.syntaxValidation"
+              ng-options="o.v as o.n for o in [{ n: 'On', v: true }, { n: 'Off', v: false }]"
+            ></select></div>
+          <div class="form-controls">
+            <label for="theme">{{ translate "editor_theme" . }}</label><select
+              name="theme"
+              ng-model="settings.theme"
+              ng-options="item.value as item.name for item in editorThemes"
+            ></select></div>
+          <div class="form-controls">
+            <label for="overallTheme">{{ translate "overall_theme" . }}</label><select
+              name="overallTheme"
+              ng-if="!ui.loadingStyleSheet"
+              ng-model="settings.overallTheme"
+              ng-options="overallTheme.value as overallTheme.name for overallTheme in overallThemesList"
+            ></select>
+            <p
+              class="loading pull-right"
+              ng-if="ui.loadingStyleSheet"
+            ><i class="fa fa-fw fa-spin fa-refresh"></i></p>
+          </div>
+          <div class="form-controls">
+            <label for="mode">{{ translate "keybindings" . }}</label><select
+              name="mode"
+              ng-model="settings.mode"
+            >
+              <option value="default">None</option>
+              <option value="vim">Vim</option>
+              <option value="emacs">Emacs</option>
+            </select></div>
+          <div class="form-controls">
+            <label for="fontSize">{{ translate "font_size" . }}</label><select
+              name="fontSize"
+              ng-model="fontSizeAsStr"
+              ng-model-options="{ getterSetter: true }"
+              ng-options="size as size for size in ['10','11','12','13','14','16','18','20','22','24']"
+            ></select></div>
+          <div class="form-controls">
+            <label for="fontFamily">{{ translate "font_family" . }}</label><select
+              name="fontFamily"
+              ng-model="settings.fontFamily"
+            >
+              <option value="monaco">Monaco / Menlo / Consolas</option>
+              <option value="lucida">Lucida / Source Code Pro</option>
+            </select></div>
+          <div class="form-controls">
+            <label for="lineHeight">{{ translate "line_height" . }}</label><select
+              name="lineHeight"
+              ng-model="settings.lineHeight"
+            >
+              <option value="compact">{{ translate "compact" . }}</option>
+              <option value="normal">{{ translate "normal" . }}</option>
+              <option value="wide">{{ translate "wide" . }}</option>
+            </select></div>
+          <div class="form-controls">
+            <label for="pdfViewer">{{ translate "pdf_viewer" . }}</label><select
+              name="pdfViewer"
+              ng-model="settings.pdfViewer"
+            >
+              <option value="pdfjs">{{ translate "built_in" . }}</option>
+              <option value="native">{{ translate "native" . }}</option>
+            </select></div>
+        </div>
+      </form>
+      <h4>{{ translate "help" . }}</h4>
+      <ul class="list-unstyled nav">
+        <li ng-controller="HotkeysModalController">
+          <a ng-click="openHotkeysModal()"><i class="fa fa-keyboard-o fa-fw"></i>&nbsp;&nbsp; {{ translate "show_hotkeys" . }}
+          </a>
+          <hotkeys-modal
+            handle-hide="handleHide"
+            show="show"
+            track-changes-visible="trackChangesVisible"
+            is-mac="isMac"
+          ></hotkeys-modal>
+        </li>
+        <li><a
+            href="/learn"
+            target="_blank"
+          ><i class="fa fa-book fa-fw"></i>&nbsp;&nbsp; {{ translate "documentation" . }}
+          </a></li>
+      </ul>
+    </aside>
+    <div
+      id="left-menu-mask"
+      ng-show="ui.leftMenuShown"
+      ng-click="ui.leftMenuShown = false"
+      ng-cloak="ng-cloak"
+    ></div>
+    <div
+      id="chat-wrapper"
+      class="full-size"
+      layout="chat"
+      spacing-open="{{ `{{ ui.chatResizerSizeOpen }}` }}"
+      spacing-closed="{{ `{{ ui.chatResizerSizeClosed }}` }}"
+      initial-size-east="250"
+      init-closed-east="true"
+      open-east="ui.chatOpen"
+      ng-hide="state.loading"
+      ng-cloak="ng-cloak"
+    >
+      <div class="ui-layout-center">
+        <div ng-controller="ReactShareProjectModalController">
+          <share-project-modal
+            handle-hide="handleHide"
+            show="show"
+            is-admin="isAdmin"
+          ></share-project-modal>
+          <div ng-controller="EditorNavigationToolbarController">
+            <editor-navigation-toolbar-root
+              open-doc="openDoc"
+              online-users-array="onlineUsersArray"
+              open-share-project-modal="openShareProjectModal"
+            ></editor-navigation-toolbar-root>
+          </div>
+        </div>
+        <main
+          id="ide-body"
+          ng-cloak="ng-cloak"
+          role="main"
+          ng-class="{ 'ide-history-open' : (ui.view == 'history' && history.isV2) }"
+          layout="main"
+          ng-hide="state.loading"
+          resize-on="layout:chat:resize,history:toggle"
+          minimum-restore-size-west="130"
+          custom-toggler-pane="west"
+          custom-toggler-msg-when-open="{{ translate "tooltip_hide_filetree" . }}"
+          custom-toggler-msg-when-closed="{{ translate "tooltip_show_filetree" . }}"
+        >
+        <div class="ui-layout-west">
+          <aside
+            class="editor-sidebar full-size"
+            ng-show="ui.view != 'history'"
+            vertical-resizable-panes="outline-resizer"
+            vertical-resizable-panes-toggled-externally-on="outline-toggled"
+            vertical-resizable-panes-min-size="32"
+            vertical-resizable-panes-max-size="75%"
+            vertical-resizable-panes-resize-on="left-pane-resize-all"
+          >
+            <div
+              class="file-tree"
+              ng-controller="ReactFileTreeController"
+              vertical-resizable-top="vertical-resizable-top"
+            >
+              <file-tree-root
+                project-id="projectId"
+                root-folder="rootFolder"
+                root-doc-id="rootDocId"
+                has-write-permissions="hasWritePermissions"
+                on-select="onSelect"
+                on-init="onInit"
+                is-connected="isConnected"
+                user-has-feature="userHasFeature"
+                ref-providers="refProviders"
+                reindex-references="reindexReferences"
+                set-ref-provider-enabled="setRefProviderEnabled"
+                set-started-free-trial="setStartedFreeTrial"
+              ></file-tree-root>
+            </div>
+            <div
+              class="outline-container"
+              vertical-resizable-bottom="vertical-resizable-bottom"
+              ng-controller="OutlineController"
+            >
+              <outline-pane
+                is-tex-file="isTexFile"
+                outline="outline"
+                project-id="project_id"
+                jump-to-line="jumpToLine"
+                on-toggle="onToggle"
+                event-tracking="eventTracking"
+                highlighted-line="highlightedLine"
+              ></outline-pane>
+            </div>
+          </aside>
+          <aside
+            class="editor-sidebar full-size"
+            ng-controller="FileTreeController"
+            ng-class="{ 'multi-selected': multiSelectedCount > 0 }"
+            ng-show="ui.view == 'history' && !history.isV2"
+          >
+            <div class="file-tree">
+              <div
+                class="file-tree-inner"
+                ng-if="rootFolder"
+                ng-class="no-toolbar"
+              >
+                <ul class="list-unstyled file-tree-list">
+                  <file-entity
+                    entity="entity"
+                    ng-repeat="entity in rootFolder.children | orderBy:[orderByFoldersFirst, 'name']"
+                  ></file-entity>
+                  <li ng-show="deletedDocs.length > 0 && ui.view == 'history'">
+                    <h3>{{ translate "deleted_files" . }}</h3></li>
+                  <li
+                    ng-class="{ 'selected': entity.selected }"
+                    ng-repeat="entity in deletedDocs | orderBy:'name'"
+                    ng-controller="FileTreeEntityController"
+                    ng-show="ui.view == 'history'"
+                  >
+                    <div class="entity">
+                      <div
+                        class="entity-name"
+                        ng-click="select($event)"
+                      >
+                        <i class="fa fa-fw toggle"></i><i class="fa fa-fw fa-file"></i><span> {{ `{{ entity.name }}` }}</span>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </aside>
+          <script
+            type="text/ng-template"
+            id="entityListItemTemplate"
+          >
+            <li
+              ng-class="{ 'selected': entity.selected, 'multi-selected': entity.multiSelected }"
+              ng-controller="FileTreeEntityController"
+            >
+              <div
+                class="entity"
+                ng-if="entity.type != 'folder'"
+              >
+                <div
+                  class="entity-name"
+                  ng-click="select($event)"
+                  context-menu="context-menu"
+                  data-target="context-menu-{{ `{{ entity.id }}` }}"
+                  context-menu-container="body"
+                  context-menu-disabled="true"
+                ><i
+                    class="fa fa-fw toggle"
+                    ng-if="entity.type != 'folder'"
+                  ></i><i
+                    class="fa fa-fw"
+                    ng-if="entity.type != 'folder'"
+                    ng-class="'fa-' + iconTypeFromName(entity.name)"
+                  ><i
+                      class="fa fa-external-link-square fa-rotate-180 linked-file-highlight"
+                      ng-if="entity.linkedFileData.provider"
+                    ></i></i><span ng-hide="entity.renaming"> {{`{{ entity.renamingToName || entity.name }}`}}</span>
+                </div>
+              </div>
+              <div
+                class="entity"
+                ng-if="entity.type == 'folder'"
+                ng-controller="FileTreeFolderController"
+              >
+                <div
+                  class="entity-name"
+                  ng-click="select($event)"
+                >
+                  <div
+                    context-menu="context-menu"
+                    data-target="context-menu-{{ `{{ entity.id }}` }}"
+                    context-menu-container="body"
+                    context-menu-disabled="true"
+                  ><i
+                      class="fa fa-fw toggle"
+                      ng-if="entity.type == 'folder'"
+                      ng-class="{'fa-angle-right': !expanded, 'fa-angle-down': expanded}"
+                      ng-click="toggleExpanded()"
+                    ></i><i
+                      class="fa fa-fw"
+                      ng-if="entity.type == 'folder'"
+                      ng-class="{	'fa-folder': !expanded, 'fa-folder-open': expanded }"
+                      ng-click="select($event)"
+                    ></i><span ng-hide="entity.renaming"> {{`{{ entity.renamingToName || entity.name }}`}}</span>
+                  </div>
+                </div>
+                <ul
+                  class="list-unstyled"
+                  ng-if="entity.type == 'folder' && (depth == null || depth < MAX_DEPTH)"
+                  ng-show="expanded"
+                >
+                  <file-entity
+                    entity="child"
+                    ng-repeat="child in entity.children | orderBy:[orderByFoldersFirst, 'name']"
+                    depth="(depth || 0) + 1"
+                  ></file-entity>
+                </ul>
+                <div
+                  class="entity-limit-hit"
+                  ng-if="depth === MAX_DEPTH"
+                  ng-show="expanded"
+                >
+                  <i class="fa fa-fw"></i><span class="entity-limit-hit-message">Some
+                    files might be hidden<i
+                      class="fa fa-question-circle entity-limit-hit-tooltip-trigger"
+                      tooltip="Your project has hit Overleaf's maximum file depth limit. Files within this folder won't be visible."
+                      tooltip-append-to-body="true"
+                      aria-hidden="true"
+                    ></i><span class="sr-only">Your project has hit Overleaf's
+                      maximum file depth limit. Files within this folder won't
+                      be
+                      visible. </span></span></div>
+              </div>
+            </li></script>
+        </div>
+        <div class="ui-layout-center">
+          <div
+            class="full-size"
+            ng-show="ui.view == 'editor'"
+            layout="pdf"
+            layout-disabled="ui.pdfLayout != 'sideBySide'"
+            mask-iframes-on-resize="true"
+            resize-on="layout:main:resize"
+            resize-proportionally="true"
+            initial-size-east="'50%'"
+            minimum-restore-size-east="300"
+            allow-overflow-on="'center'"
+            custom-toggler-pane="east"
+            custom-toggler-msg-when-open="{{ translate "tooltip_hide_pdf" . }}"
+            custom-toggler-msg-when-closed="{{ translate "tooltip_show_pdf" . }}"
+          >
+            <div
+              class="ui-layout-center"
+              ng-controller="ReviewPanelController"
+              ng-class="{'rp-unsupported': editor.showRichText,'rp-state-current-file': (reviewPanel.subView === SubViews.CUR_FILE),'rp-state-current-file-expanded': (reviewPanel.subView === SubViews.CUR_FILE && ui.reviewPanelOpen),'rp-state-current-file-mini': (reviewPanel.subView === SubViews.CUR_FILE && !ui.reviewPanelOpen),'rp-state-overview': (reviewPanel.subView === SubViews.OVERVIEW),'rp-size-mini': ui.miniReviewPanelVisible,'rp-size-expanded': ui.reviewPanelOpen,'rp-layout-left': reviewPanel.layoutToLeft,'rp-loading-threads': reviewPanel.loadingThreads,}"
+            >
+              <div
+                class="editor-container full-size"
+                vertical-resizable-panes="symbol-palette-resizer"
+                vertical-resizable-panes-hidden-externally-on="symbol-palette-toggled"
+                vertical-resizable-panes-hidden-initially="true"
+                vertical-resizable-panes-default-size="196"
+                vertical-resizable-panes-min-size="144"
+                vertical-resizable-panes-max-size="336"
+                vertical-resizable-panes-resize-on="left-pane-resize-all"
+              >
+                <div
+                  class="div"
+                  vertical-resizable-top="vertical-resizable-top"
+                >
+                  <div
+                    class="loading-panel rich-text-spacing"
+                    ng-show="(!editor.sharejs_doc || editor.opening) && !editor.error_state"
+                  >
+                    <span ng-show="editor.open_doc_id"><i class="fa fa-spin fa-refresh"></i>&nbsp;&nbsp;{{ translate "loading" . }}
+                      …</span><span ng-show="!editor.open_doc_id"><i class="fa fa-arrow-left"></i>&nbsp;&nbsp;{{ translate "open_a_file_on_the_left" . }}
+                    </span></div>
+                  <div ng-controller="EditorLoaderController">
+                    <div
+                      class="toolbar toolbar-editor"
+                      ng-controller="EditorToolbarController"
+                    >
+                      <div class="toggle-wrapper">
+                        <toggle-switch
+                          description="Editor mode."
+                          label-false="Source"
+                          label-true="Rich Text"
+                          ng-model="editor.showRichText"
+                        ></toggle-switch>
+                      </div>
+                      <button
+                        class="btn btn-warning symbol-palette-toggle"
+                        ng-click="editor.toggleSymbolPalette()"
+                        title="Symbol Palette"
+                      >Σ
+                      </button>
+                      <div
+                        formatting-buttons="formatting-buttons"
+                        ng-cloak="ng-cloak"
+                        ng-if="editor.showRichText"
+                        buttons="buttons"
+                        opening="editor.opening"
+                        resize-on="layout:main:resize,layout:pdf:resize,layout:review:resize,review-panel:toggle"
+                        is-fullscreen-editor="ui.view == 'editor' && ui.pdfLayout == 'flat'"
+                        class="formatting-buttons"
+                      ></div>
+                      <div class="toolbar-right"><a
+                          href="#"
+                          ng-click="switchToFlatLayout('editor')"
+                          ng-show="ui.pdfLayout == 'sideBySide'"
+                          tooltip="{{ translate "full_screen" . }}"
+                          tooltip-placement="bottom"
+                          tooltip-append-to-body="true"
+                        ><i class="fa fa-expand"></i><i class="full-screen"></i></a><a
+                          href="#"
+                          ng-click="switchToSideBySideLayout('editor')"
+                          ng-show="ui.pdfLayout == 'flat'"
+                          tooltip="{{ translate "split_screen" . }}"
+                          tooltip-placement="bottom"
+                          tooltip-append-to-body="true"
+                        ><i class="fa fa-compress"></i><i class="split-screen"></i><i class="split-screen"></i></a>
+                      </div>
+                      <script
+                        type="text/ng-template"
+                        id="formattingButtonsTpl"
+                      >
+                        <div class="formatting-buttons-wrapper">&nbsp;<button
+                            class="btn formatting-btn formatting-btn--icon"
+                            ng-repeat="button in shownButtons"
+                            ng-click="button.handleClick()"
+                            title="{{ `{{ button.title }}` }}"
+                          >
+                            <i class="{{ `{{ button.iconClass }}` }}">{{ `{{ button.iconText }}` }}</i>
+                          </button>
+                          <div
+                            class="dropdown formatting-more"
+                            ng-if="showMore"
+                            dropdown="dropdown"
+                            dropdown-append-to-body="dropdown-append-to-body"
+                          >
+                            <button
+                              class="btn formatting-btn formatting-btn--more dropdown-toggle"
+                              dropdown-toggle="dropdown-toggle"
+                            >{{ translate "more" . }}
+                              &nbsp;<span class="caret"></span></button>
+                            <ul
+                              class="dropdown-menu formatting-menu"
+                              role="menu"
+                            >
+                              <li
+                                class="formatting-menu-item"
+                                ng-repeat="button in overflowedButtons"
+                              >
+                                <button
+                                  class="btn formatting-btn formatting-btn--icon"
+                                  ng-click="button.handleClick()"
+                                  title="{{ `{{ button.title }}` }}"
+                                >
+                                  <i class="{{ `{{ button.iconClass }}` }}">{{ `{{ button.iconText }}` }}</i>
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
+                        </div></script>
+                    </div>
+                    <div
+                      id="editor-rich-text"
+                      cm-editor="cm-editor"
+                      ng-if="editor.showRichText && richText.bundle"
+                      ng-show="!!editor.sharejs_doc && !editor.opening"
+                      bundle="richText.bundle"
+                      formatting-events="richText.formattingEvents"
+                      init-code-mirror="initCodeMirror"
+                      sharejs-doc="editor.sharejs_doc"
+                      read-only="!permissions.write"
+                      resize-on="layout:main:resize,layout:pdf:resize,layout:review:resize,review-panel:toggle"
+                      spell-check="!anonymous"
+                      spell-check-language="project.spellCheckLanguage"
+                      track-changes="editor.trackChanges"
+                      auto-complete="settings.autoComplete"
+                      auto-close-brackets="settings.autoPairDelimiters"
+                      font-size="settings.fontSize"
+                      line-height="settings.lineHeight || ui.defaultLineHeight"
+                      doc-id="editor.open_doc_id"
+                      on-save="recompileViaKey"
+                    ></div>
+                  </div>
+                  <div
+                    class="multi-selection-ongoing"
+                    ng-show="multiSelectedCount > 0"
+                  >
+                    <div class="multi-selection-message">
+                      <h4>{{ `{{ multiSelectedCount }}` }} {{ translate "files_selected" . }}</h4>
+                    </div>
+                  </div>
+                  <div
+                    id="editor"
+                    ace-editor="editor"
+                    ng-if="!editor.showRichText"
+                    ng-show="!!editor.sharejs_doc && !editor.opening && multiSelectedCount === 0 && !editor.error_state"
+                    theme="settings.theme"
+                    keybindings="settings.mode"
+                    font-size="settings.fontSize"
+                    auto-complete="settings.autoComplete"
+                    auto-pair-delimiters="settings.autoPairDelimiters"
+                    spell-check="!anonymous"
+                    spell-check-language="project.spellCheckLanguage"
+                    highlights="onlineUserCursorHighlights[editor.open_doc_id]"
+                    show-print-margin="false"
+                    sharejs-doc="editor.sharejs_doc"
+                    last-updated="editor.last_updated"
+                    cursor-position="editor.cursorPosition"
+                    goto-line="editor.gotoLine"
+                    resize-on="layout:main:resize,layout:pdf:resize,layout:review:resize,review-panel:toggle,layout:flat-screen:toggle"
+                    annotations="pdf.logEntryAnnotations[editor.open_doc_id]"
+                    read-only="!permissions.write"
+                    file-name="editor.open_doc_name"
+                    on-ctrl-enter="recompileViaKey"
+                    on-save="recompileViaKey"
+                    on-ctrl-j="toggleReviewPanel"
+                    on-ctrl-shift-c="addNewCommentFromKbdShortcut"
+                    on-ctrl-shift-a="toggleTrackChangesFromKbdShortcut"
+                    syntax-validation="settings.syntaxValidation"
+                    review-panel="reviewPanel"
+                    events-bridge="reviewPanelEventsBridge"
+                    track-changes="editor.trackChanges"
+                    doc-id="editor.open_doc_id"
+                    renderer-data="reviewPanel.rendererData"
+                    font-family="settings.fontFamily"
+                    line-height="settings.lineHeight"
+                  ></div>
+                  <div ng-if="!isRestrictedTokenMember">
+                    <div id="review-panel">
+                      <div class="rp-in-editor-widgets"><a
+                          class="rp-track-changes-indicator"
+                          href="#"
+                          ng-if="editor.wantTrackChanges"
+                          ng-click="toggleReviewPanel();"
+                          ng-class="{ 'rp-track-changes-indicator-on-dark' : darkTheme }"
+                        ><span ng-bind-html="translate('track_changes_is_on')"></span></a><a
+                          class="rp-bulk-actions-btn"
+                          href="#"
+                          ng-if="reviewPanel.nVisibleSelectedChanges > 1"
+                          ng-click="showBulkAcceptDialog();"
+                        ><i class="fa fa-check"></i>&nbsp;{{ translate "accept_all" . }}
+                          ({{ `{{ reviewPanel.nVisibleSelectedChanges }}` }}
+                          )</a><a
+                          class="rp-bulk-actions-btn"
+                          href="#"
+                          ng-if="reviewPanel.nVisibleSelectedChanges > 1"
+                          ng-click="showBulkRejectDialog();"
+                        ><i class="fa fa-times"></i>&nbsp;{{ translate "reject_all" . }}
+                          ({{ `{{ reviewPanel.nVisibleSelectedChanges }}` }}
+                          )</a><a
+                          class="rp-add-comment-btn"
+                          href="#"
+                          ng-if="reviewPanel.entries[editor.open_doc_id]['add-comment'] != null && permissions.comment"
+                          ng-click="addNewComment();"
+                        ><i class="fa fa-comment"></i>&nbsp;{{ translate "add_comment" . }}
+                        </a></div>
+                      <a
+                        class="review-panel-toggler"
+                        href="#"
+                        ng-click="handleTogglerClick($event);"
+                      ></a>
+                      <div class="review-panel-toolbar">
+                        <resolved-comments-dropdown
+                          class="rp-flex-block"
+                          entries="reviewPanel.resolvedComments"
+                          threads="reviewPanel.commentThreads"
+                          resolved-ids="reviewPanel.resolvedThreadIds"
+                          docs="docs"
+                          on-open="refreshResolvedCommentsDropdown();"
+                          on-unresolve="unresolveComment(threadId);"
+                          on-delete="deleteThread(entryId, docId, threadId);"
+                          is-loading="reviewPanel.dropdown.loading"
+                          permissions="permissions"
+                        ></resolved-comments-dropdown>
+                        <span class="review-panel-toolbar-label"><span
+                            class="review-panel-toolbar-icon-on"
+                            ng-if="editor.wantTrackChanges === true"
+                          ><i class="fa fa-circle"></i></span><span ng-click="toggleFullTCStateCollapse();"><span
+                              ng-if="editor.wantTrackChanges === false"
+                              ng-bind-html="translate('track_changes_is_off')"
+                            ></span><span
+                              ng-if="editor.wantTrackChanges === true"
+                              ng-bind-html="translate('track_changes_is_on')"
+                            ></span><span
+                              class="rp-tc-state-collapse"
+                              ng-class="{ 'rp-tc-state-collapse-on': reviewPanel.fullTCStateCollapsed }"
+                            ><i class="fa fa-angle-down"></i></span></span></span>
+                        <ul
+                          class="rp-tc-state"
+                          review-panel-collapse-height="reviewPanel.fullTCStateCollapsed"
+                        >
+                          <li class="rp-tc-state-item rp-tc-state-item-everyone">
+                            <span
+                              class="rp-tc-state-item-name"
+                              tooltip="{{ translate "tc_switch_everyone_tip" . }}"
+                              tooltip-placement="left"
+                              tooltip-append-to-body="true"
+                              tooltip-popup-delay="1000"
+                            >{{ translate "tc_everyone" . }}</span>
+                            <review-panel-toggle
+                              description="Track changes for everyone"
+                              ng-model="reviewPanel.trackChangesOnForEveryone"
+                              on-toggle="toggleTrackChangesForEveryone(isOn);"
+                              is-disabled="!project.features.trackChanges || !permissions.write"
+                            ></review-panel-toggle>
+                          </li>
+                          <li
+                            class="rp-tc-state-item"
+                            ng-repeat="member in reviewPanel.formattedProjectMembers"
+                          ><span
+                              class="rp-tc-state-item-name"
+                              ng-class="{ 'rp-tc-state-item-name-disabled' : reviewPanel.trackChangesOnForEveryone}"
+                              ng-style="{color: 'hsl({{ `{{ member.hue }}` }}, 70%, 40%)'}"
+                              tooltip="{{ translate "tc_switch_user_tip" . }}"
+                              tooltip-placement="left"
+                              tooltip-append-to-body="true"
+                              tooltip-popup-delay="1000"
+                            >{{ `{{ member.name }}` }}</span>
+                            <review-panel-toggle
+                              description="Track changes for {{ `{{ member.name }}` }}"
+                              ng-model="reviewPanel.trackChangesState[member.id].value"
+                              on-toggle="toggleTrackChangesForUser(isOn, member.id);"
+                              is-disabled="reviewPanel.trackChangesOnForEveryone || !project.features.trackChanges || !permissions.write"
+                            ></review-panel-toggle>
+                          </li>
+                          <li class="rp-tc-state-separator"></li>
+                          <li class="rp-tc-state-item rp-tc-state-item-guests">
+                            <span
+                              class="rp-tc-state-item-name"
+                              ng-class="{ 'rp-tc-state-item-name-disabled' : reviewPanel.trackChangesOnForEveryone}"
+                              tooltip="{{ translate "tc_switch_guests_tip" . }}"
+                              tooltip-placement="left"
+                              tooltip-append-to-body="true"
+                              tooltip-popup-delay="1000"
+                            >{{ translate "tc_guests" . }}</span>
+                            <review-panel-toggle
+                              description="Track changes for guests"
+                              ng-model="reviewPanel.trackChangesOnForGuests"
+                              on-toggle="toggleTrackChangesForGuests(isOn);"
+                              is-disabled="reviewPanel.trackChangesOnForEveryone || !project.features.trackChanges || !permissions.write || !reviewPanel.trackChangesForGuestsAvailable"
+                            ></review-panel-toggle>
+                          </li>
+                        </ul>
+                      </div>
+                      <div
+                        class="rp-entry-list"
+                        review-panel-sorted="review-panel-sorted"
+                        ng-if="reviewPanel.subView === SubViews.CUR_FILE"
+                      >
+                        <div class="rp-entry-list-inner">
+                          <div
+                            class="rp-entry-wrapper"
+                            ng-repeat="(entry_id, entry) in reviewPanel.entries[editor.open_doc_id]"
+                            ng-if="entry.visible"
+                          >
+                            <div ng-if="entry.type === 'insert' || entry.type === 'delete'">
+                              <change-entry
+                                entry="entry"
+                                user="users[entry.metadata.user_id]"
+                                on-reject="rejectChanges(entry.entry_ids);"
+                                on-accept="acceptChanges(entry.entry_ids);"
+                                on-indicator-click="toggleReviewPanel();"
+                                on-body-click="gotoEntry(editor.open_doc_id, entry)"
+                                permissions="permissions"
+                              ></change-entry>
+                            </div>
+                            <div ng-if="entry.type === 'aggregate-change'">
+                              <aggregate-change-entry
+                                entry="entry"
+                                user="users[entry.metadata.user_id]"
+                                on-reject="rejectChanges(entry.entry_ids);"
+                                on-accept="acceptChanges(entry.entry_ids);"
+                                on-indicator-click="toggleReviewPanel();"
+                                on-body-click="gotoEntry(editor.open_doc_id, entry)"
+                                permissions="permissions"
+                              ></aggregate-change-entry>
+                            </div>
+                            <div ng-if="entry.type === 'comment'">
+                              <comment-entry
+                                entry="entry"
+                                threads="reviewPanel.commentThreads"
+                                on-resolve="resolveComment(entry, entry_id)"
+                                on-reply="submitReply(entry, entry_id);"
+                                on-indicator-click="toggleReviewPanel();"
+                                on-save-edit="saveEdit(entry.thread_id, comment)"
+                                on-delete="deleteComment(entry.thread_id, comment)"
+                                on-body-click="gotoEntry(editor.open_doc_id, entry)"
+                                permissions="permissions"
+                                ng-if="!reviewPanel.loadingThreads"
+                              ></comment-entry>
+                            </div>
+                            <div ng-if="entry.type === 'add-comment' && permissions.comment">
+                              <add-comment-entry
+                                on-start-new="startNewComment();"
+                                on-submit="submitNewComment(content);"
+                                on-cancel="cancelNewComment();"
+                              ></add-comment-entry>
+                            </div>
+                            <div ng-if="entry.type === 'bulk-actions'">
+                              <bulk-actions-entry
+                                on-bulk-accept="showBulkAcceptDialog();"
+                                on-bulk-reject="showBulkRejectDialog();"
+                                n-entries="reviewPanel.nVisibleSelectedChanges"
+                              ></bulk-actions-entry>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="rp-entry-list"
+                        ng-if="reviewPanel.subView === SubViews.OVERVIEW"
+                      >
+                        <div
+                          class="rp-loading"
+                          ng-if="reviewPanel.overview.loading"
+                        ><i class="fa fa-spinner fa-spin"></i></div>
+                        <div
+                          class="rp-overview-file"
+                          ng-repeat="doc in docs"
+                          ng-if="!reviewPanel.overview.loading"
+                        >
+                          <div
+                            class="rp-overview-file-header"
+                            ng-if="(reviewPanel.entries[doc.doc.id] != null) && (reviewPanel.entries[doc.doc.id] | notEmpty)"
+                            ng-click="reviewPanel.overview.docsCollapsedState[doc.doc.id] = ! reviewPanel.overview.docsCollapsedState[doc.doc.id]"
+                          ><span
+                              class="rp-overview-file-header-collapse"
+                              ng-class="{ 'rp-overview-file-header-collapse-on': reviewPanel.overview.docsCollapsedState[doc.doc.id] }"
+                            ><i class="fa fa-angle-down"></i></span>{{ `{{ doc.path }}` }}
+                            <span
+                              class="rp-overview-file-num-entries"
+                              ng-show="reviewPanel.overview.docsCollapsedState[doc.doc.id]"
+                            >&nbsp;({{`{{ reviewPanel.entries[doc.doc.id] | numKeys }}`}}
+                              )</span></div>
+                          <div
+                            class="rp-overview-file-entries"
+                            review-panel-collapse-height="reviewPanel.overview.docsCollapsedState[doc.doc.id]"
+                          >
+                            <div
+                              class="rp-entry-wrapper"
+                              ng-repeat="(entry_id, entry) in reviewPanel.entries[doc.doc.id] | orderOverviewEntries"
+                              ng-if="!(entry.type === 'comment' && reviewPanel.commentThreads[entry.thread_id].resolved === true)"
+                            >
+                              <div ng-if="entry.type === 'insert' || entry.type === 'delete'">
+                                <change-entry
+                                  entry="entry"
+                                  user="users[entry.metadata.user_id]"
+                                  ng-click="gotoEntry(doc.doc.id, entry)"
+                                  permissions="permissions"
+                                ></change-entry>
+                              </div>
+                              <div ng-if="entry.type === 'aggregate-change'">
+                                <aggregate-change-entry
+                                  entry="entry"
+                                  user="users[entry.metadata.user_id]"
+                                  ng-click="gotoEntry(editor.open_doc_id, entry)"
+                                  permissions="permissions"
+                                ></aggregate-change-entry>
+                              </div>
+                              <div ng-if="entry.type === 'comment'">
+                                <comment-entry
+                                  entry="entry"
+                                  threads="reviewPanel.commentThreads"
+                                  on-reply="submitReply(entry, entry_id);"
+                                  on-save-edit="saveEdit(entry.thread_id, comment)"
+                                  on-delete="deleteComment(entry.thread_id, comment)"
+                                  ng-click="gotoEntry(doc.doc.id, entry)"
+                                  permissions="permissions"
+                                ></comment-entry>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="rp-nav"><a
+                          class="rp-nav-item"
+                          href="#"
+                          ng-click="setSubView(SubViews.CUR_FILE);"
+                          ng-class="{ 'rp-nav-item-active' : reviewPanel.subView === SubViews.CUR_FILE }"
+                        ><i class="fa fa-file-text-o"></i><span class="rp-nav-label">{{ translate "current_file" . }}</span></a><a
+                          class="rp-nav-item"
+                          href="#"
+                          ng-click="setSubView(SubViews.OVERVIEW);"
+                          ng-class="{ 'rp-nav-item-active' : reviewPanel.subView === SubViews.OVERVIEW }"
+                        ><i class="fa fa-list"></i><span class="rp-nav-label">{{ translate "overview" . }}</span></a>
+                      </div>
+                      <div class="rp-unsupported-msg-wrapper">
+                        <div class="rp-unsupported-msg">
+                          <i class="fa fa-5x fa-exclamation-triangle"></i>
+                          <p class="rp-unsupported-msg-title">Track Changes
+                            support in rich text mode is a work in progress.
+                          </p>
+                          <p>You can see tracked insertions and deletions, but
+                            you can't see comments and changes in this side bar
+                            yet.
+                          </p>
+                          <p>We're working hard to add them as soon as they're
+                            ready.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <script
+                      type="text/ng-template"
+                      id="changeEntryTemplate"
+                    >
+                      <div>
+                        <div
+                          class="rp-entry-callout"
+                          ng-class="'rp-entry-callout-' + entry.type"
+                        ></div>
+                        <div
+                          class="rp-entry-indicator"
+                          ng-switch="entry.type"
+                          ng-class="{ 'rp-entry-indicator-focused': entry.focused }"
+                          ng-click="onIndicatorClick();"
+                        ><i
+                            class="fa fa-pencil"
+                            ng-switch-when="insert"
+                          ></i><i
+                            class="rp-icon-delete"
+                            ng-switch-when="delete"
+                          ></i></div>
+                        <div
+                          class="rp-entry"
+                          ng-class="{ 'rp-entry-focused': entry.focused, 'rp-entry-add-comment': entry.type == 'add-comment', 'rp-entry-aggregate-change': entry.type == 'aggregate-change', 'rp-entry-bulk-actions': entry.type == 'bulk-actions', 'rp-entry-comment': entry.type == 'comment', 'rp-entry-delete': entry.type == 'delete', 'rp-entry-insert': entry.type == 'insert' }"
+                        >
+                          <div class="rp-entry-body">
+                            <div
+                              class="rp-entry-action-icon"
+                              ng-switch="entry.type"
+                            ><i
+                                class="fa fa-pencil"
+                                ng-switch-when="insert"
+                              ></i><i
+                                class="rp-icon-delete"
+                                ng-switch-when="delete"
+                              ></i></div>
+                            <div class="rp-entry-details">
+                              <div
+                                class="rp-entry-description"
+                                ng-switch="entry.type"
+                              >
+                                <span ng-switch-when="insert">{{ translate "tracked_change_added" . }}
+                                  &nbsp;<ins class="rp-content-highlight">
+                                    <span ng-if="isCollapsed">{{`{{ entry.content | limitTo:contentLimit }}`}}</span><span ng-if="!isCollapsed">{{ `{{ entry.content }}` }}</span>
+                                  </ins>
+                                  <a
+                                    class="rp-collapse-toggle"
+                                    href="#"
+                                    ng-if="needsCollapsing"
+                                    ng-click="toggleCollapse();"
+                                  ><span ng-if="isCollapsed">…
+                                      ({{ translate "show_all" . }}
+                                      )</span><span ng-if="!isCollapsed">({{ translate "show_less" . }}
+                                      )</span></a></span><span ng-switch-when="delete">{{ translate "tracked_change_deleted" . }}
+                                  &nbsp;<del class="rp-content-highlight">
+                                    <span ng-if="isCollapsed">{{`{{ entry.content | limitTo:contentLimit}}`}}</span><span ng-if="!isCollapsed">{{ `{{ entry.content }}` }}</span>
+                                  </del>
+                                  <a
+                                    class="rp-collapse-toggle"
+                                    href="#"
+                                    ng-if="needsCollapsing"
+                                    ng-click="toggleCollapse();"
+                                  ><span ng-if="isCollapsed">…
+                                      ({{ translate "show_all" . }}
+                                      )</span><span ng-if="!isCollapsed">({{ translate "show_less" . }}
+                                      )</span></a></span></div>
+                              <div class="rp-entry-metadata">{{`{{ entry.metadata.ts | date:'MMM d, y h:mm a' }}`}}
+                                &nbsp;&bull;&nbsp;<span
+                                  class="rp-entry-user"
+                                  ng-style="{color: 'hsl({{ `{{ user.hue }}` }}, 70%, 40%)'}"
+                                >{{ `{{ user.name }}` }}</span></div>
+                            </div>
+                          </div>
+                          <div
+                            class="rp-entry-actions"
+                            ng-if="permissions.write"
+                          ><a
+                              class="rp-entry-button"
+                              href="#"
+                              ng-click="onReject();"
+                            ><i class="fa fa-times"></i>&nbsp;{{ translate "reject" . }}
+                            </a><a
+                              class="rp-entry-button"
+                              href="#"
+                              ng-click="onAccept();"
+                            ><i class="fa fa-check"></i>&nbsp;{{ translate "accept" . }}
+                            </a></div>
+                        </div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="aggregateChangeEntryTemplate"
+                    >
+                      <div>
+                        <div class="rp-entry-callout rp-entry-callout-aggregate"></div>
+                        <div
+                          class="rp-entry-indicator"
+                          ng-class="{ 'rp-entry-indicator-focused': entry.focused }"
+                          ng-click="onIndicatorClick();"
+                        ><i class="fa fa-pencil"></i></div>
+                        <div
+                          class="rp-entry rp-entry-aggregate"
+                          ng-class="{ 'rp-entry-focused': entry.focused }"
+                        >
+                          <div class="rp-entry-body">
+                            <div class="rp-entry-action-icon">
+                              <i class="fa fa-pencil"></i></div>
+                            <div class="rp-entry-details">
+                              <div class="rp-entry-description">{{ translate "aggregate_changed" . }}
+                                &nbsp;<del class="rp-content-highlight">
+                                  <span ng-if="isDeletionCollapsed">{{`{{ entry.metadata.replaced_content | limitTo:contentLimit}}`}}</span><span ng-if="!isDeletionCollapsed">{{ `{{ entry.metadata.replaced_content }}` }}</span>
+                                </del>
+                                <a
+                                  class="rp-collapse-toggle"
+                                  href="#"
+                                  ng-if="deletionNeedsCollapsing"
+                                  ng-click="toggleDeletionCollapse();"
+                                ><span ng-if="isDeletionCollapsed">…
+                                    ({{ translate "show_all" . }}
+                                    )</span><span ng-if="!isDeletionCollapsed">({{ translate "show_less" . }}
+                                    )</span></a>&nbsp;{{ translate "aggregate_to" . }}
+                                &nbsp;<ins class="rp-content-highlight">
+                                  <span ng-if="isInsertionCollapsed">{{`{{ entry.content | limitTo:contentLimit}}`}}</span><span ng-if="!isInsertionCollapsed">{{ `{{ entry.content }}` }}</span>
+                                </ins>
+                                <a
+                                  class="rp-collapse-toggle"
+                                  href="#"
+                                  ng-if="insertionNeedsCollapsing"
+                                  ng-click="toggleInsertionCollapse();"
+                                ><span ng-if="isInsertionCollapsed">…
+                                    ({{ translate "show_all" . }}
+                                    )</span><span ng-if="!isInsertionCollapsed">({{ translate "show_less" . }}
+                                    )</span></a></div>
+                              <div class="rp-entry-metadata">{{`{{ entry.metadata.ts | date:'MMM d, y h:mm a' }}`}}
+                                &nbsp;&bull;&nbsp;<span
+                                  class="rp-entry-user"
+                                  ng-style="{color: 'hsl({{ `{{ user.hue }}` }}, 70%, 40%)'}"
+                                >{{ `{{ user.name }}` }}</span></div>
+                            </div>
+                          </div>
+                          <div
+                            class="rp-entry-actions"
+                            ng-if="permissions.write"
+                          ><a
+                              class="rp-entry-button"
+                              href="#"
+                              ng-click="onReject();"
+                            ><i class="fa fa-times"></i>&nbsp;{{ translate "reject" . }}
+                            </a><a
+                              class="rp-entry-button"
+                              href="#"
+                              ng-click="onAccept();"
+                            ><i class="fa fa-check"></i>&nbsp;{{ translate "accept" . }}
+                            </a></div>
+                        </div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="commentEntryTemplate"
+                    >
+                      <div
+                        class="rp-comment-wrapper"
+                        ng-class="{ 'rp-comment-wrapper-resolving': state.animating }"
+                      >
+                        <div class="rp-entry-callout rp-entry-callout-comment"></div>
+                        <div
+                          class="rp-entry-indicator"
+                          ng-class="{ 'rp-entry-indicator-focused': entry.focused }"
+                          ng-click="onIndicatorClick();"
+                        ><i class="fa fa-comment"></i></div>
+                        <div
+                          class="rp-entry rp-entry-comment"
+                          ng-class="{ 'rp-entry-focused': entry.focused, 'rp-entry-comment-resolving': state.animating }"
+                        >
+                          <div
+                            class="rp-loading"
+                            ng-if="!threads[entry.thread_id].submitting && (!threads[entry.thread_id] || threads[entry.thread_id].messages.length == 0)"
+                          ><span>{{ translate "no_comments" . }}</span></div>
+                          <div class="rp-comment-loaded">
+                            <div
+                              class="rp-comment"
+                              ng-repeat="comment in threads[entry.thread_id].messages track by comment.id"
+                            >
+                              <p class="rp-comment-content">
+                                <span ng-if="!comment.editing"><span
+                                    class="rp-entry-user"
+                                    ng-style="{color: 'hsl({{ `{{ comment.user.hue }}` }}, 70%, 40%)'}"
+                                  >{{ `{{ comment.user.name }}` }}
+                                    :&nbsp;</span><span ng-bind-html="comment.content | linky:'_blank':{rel: 'noreferrer noopener'}"></span></span><textarea
+                                  class="rp-comment-input"
+                                  expandable-text-area="expandable-text-area"
+                                  ng-if="comment.editing"
+                                  ng-model="comment.content"
+                                  ng-keypress="saveEditOnEnter($event, comment);"
+                                  ng-blur="saveEdit(comment)"
+                                  autofocus="autofocus"
+                                  stop-propagation="click"
+                                ></textarea></p>
+                              <div
+                                class="rp-entry-metadata"
+                                ng-if="!comment.editing"
+                              >
+                                <span ng-if="!comment.deleting">{{`{{ comment.timestamp | date:'MMM d, y h:mm a' }}`}}</span><span
+                                  class="rp-comment-actions"
+                                  ng-if="comment.user.isSelf && !comment.deleting"
+                                >&nbsp;&bull;&nbsp;<a
+                                    href="#"
+                                    ng-click="startEditing(comment)"
+                                  >{{ translate "edit" . }}</a><span ng-if="threads[entry.thread_id].messages.length > 1">&nbsp;&bull;&nbsp;<a
+                                      href="#"
+                                      ng-click="confirmDelete(comment)"
+                                    ><span>{{ translate "delete" . }}</span></a></span></span><span
+                                  class="rp-confim-delete"
+                                  ng-if="comment.user.isSelf && comment.deleting"
+                                ><span>{{ translate "are_you_sure" . }}</span>&bull;&nbsp;<a
+                                    href="#"
+                                    ng-click="doDelete(comment)"
+                                  ><span>{{ translate "delete" . }}</span></a>&nbsp;&bull;&nbsp;<a
+                                    href="#"
+                                    ng-click="cancelDelete(comment)"
+                                  ><span>{{ translate "cancel" . }}</span></a></span>
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            class="rp-loading"
+                            ng-if="threads[entry.thread_id].submitting"
+                          ><i class="fa fa-spinner fa-spin"></i></div>
+                          <div
+                            class="rp-comment-reply"
+                            ng-if="permissions.comment"
+                          ><textarea
+                              class="rp-comment-input"
+                              expandable-text-area="expandable-text-area"
+                              ng-model="entry.replyContent"
+                              ng-keypress="handleCommentReplyKeyPress($event);"
+                              stop-propagation="click"
+                              placeholder="{{ translate "hit_enter_to_reply" . }}"
+                            ></textarea></div>
+                          <div class="rp-entry-actions">
+                            <button
+                              class="rp-entry-button"
+                              ng-click="animateAndCallOnResolve();"
+                              ng-if="permissions.comment && permissions.write"
+                            >
+                              <i class="fa fa-inbox"></i>&nbsp;{{ translate "resolve" . }}
+                            </button>
+                            <button
+                              class="rp-entry-button"
+                              ng-click="onReply();"
+                              ng-if="permissions.comment"
+                              ng-disabled="!entry.replyContent.length"
+                            >
+                              <i class="fa fa-reply"></i>&nbsp;{{ translate "reply" . }}
+                            </button>
+                          </div>
+                        </div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="resolvedCommentEntryTemplate"
+                    >
+                      <div class="rp-resolved-comment">
+                        <div>
+                          <div class="rp-resolved-comment-context">{{ translate "quoted_text_in" . }}
+                            &nbsp;<span class="rp-resolved-comment-context-file">{{ `{{ thread.docName }}` }}</span>
+                            <p class="rp-resolved-comment-context-quote">
+                              <span ng-if="isCollapsed">{{`{{ thread.content | limitTo:contentLimit }}`}}</span><span ng-if="!isCollapsed">{{ `{{ thread.content }}` }}</span>
+                              <a
+                                class="rp-collapse-toggle"
+                                href="#"
+                                ng-if="needsCollapsing"
+                                ng-click="toggleCollapse();"
+                              >&nbsp;<span ng-if="isCollapsed">…
+                                  ({{ translate "show_all" . }}
+                                  )</span><span ng-if="!isCollapsed">({{ translate "show_less" . }}
+                                  )</span></a>
+                            </p>
+                          </div>
+                          <div
+                            class="rp-comment"
+                            ng-repeat="comment in thread.messages track by comment.id"
+                          >
+                            <p class="rp-comment-content"><span
+                                class="rp-entry-user"
+                                ng-style="{color: 'hsl({{ `{{ comment.user.hue }}` }}, 70%, 40%)'}"
+                                ng-if="$first || comment.user.id !== thread.messages[$index - 1].user.id"
+                              >{{ `{{ comment.user.name }}` }}
+                                :&nbsp;</span><span ng-bind-html="comment.content | linky:'_blank':{rel: 'noreferrer noopener'}"></span>
+                            </p>
+                            <div class="rp-entry-metadata">{{`{{ comment.timestamp | date: 'MMM d, y h:mm a' }}`}}
+                            </div>
+                          </div>
+                          <div class="rp-comment rp-comment-resolver">
+                            <p class="rp-comment-resolver-content"><span
+                                class="rp-entry-user"
+                                ng-style="{color: 'hsl({{ `{{ thread.resolved_by_user.hue }}` }}, 70%, 40%)'}"
+                              >{{ `{{ thread.resolved_by_user.name }}` }}
+                                :&nbsp;</span>{{ translate "mark_as_resolved" . }}
+                              .
+                            </p>
+                            <div class="rp-entry-metadata">{{`{{ thread.resolved_at | date:'MMM d, y h:mm a' }}`}}
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          class="rp-entry-actions"
+                          ng-if="permissions.comment && permissions.write"
+                        ><a
+                            class="rp-entry-button"
+                            href="#"
+                            ng-click="onUnresolve({ 'threadId': thread.threadId });"
+                          >&nbsp;<span>{{ translate "reopen" . }}</span></a><a
+                            class="rp-entry-button"
+                            href="#"
+                            ng-click="onDelete({ 'entryId': thread.entryId, 'docId': thread.docId, 'threadId': thread.threadId });"
+                          >&nbsp;<span>{{ translate "delete" . }}</span></a>
+                        </div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="addCommentEntryTemplate"
+                    >
+                      <div>
+                        <div class="rp-entry-callout rp-entry-callout-add-comment"></div>
+                        <div
+                          class="rp-entry rp-entry-add-comment"
+                          ng-class="{ 'rp-entry-adding-comment': state.isAdding, 'rp-entry-focused': entry.focused }"
+                        ><a
+                            class="rp-add-comment-btn"
+                            href="#"
+                            ng-if="!state.isAdding"
+                            ng-click="startNewComment();"
+                          ><i class="fa fa-comment"></i>&nbsp;{{ translate "add_comment" . }}
+                          </a>
+                          <div ng-if="state.isAdding">
+                            <div class="rp-new-comment"><textarea
+                                class="rp-comment-input"
+                                expandable-text-area="expandable-text-area"
+                                ng-model="state.content"
+                                ng-keypress="handleCommentKeyPress($event);"
+                                placeholder="{{ translate "add_your_comment_here" . }}"
+                                focus-on="comment:new:open"
+                              ></textarea></div>
+                            <div class="rp-entry-actions">
+                              <button
+                                class="rp-entry-button rp-entry-button-cancel"
+                                ng-click="cancelNewComment();"
+                              >
+                                <i class="fa fa-times"></i>&nbsp;{{ translate "cancel" . }}
+                              </button>
+                              <button
+                                class="rp-entry-button"
+                                ng-click="submitNewComment()"
+                                ng-disabled="!state.content.length"
+                              >
+                                <i class="fa fa-comment"></i>&nbsp;{{ translate "comment" . }}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="bulkActionsEntryTemplate"
+                    >
+                      <div ng-if="nEntries > 1">
+                        <div class="rp-entry-callout rp-entry-callout-bulk-actions"></div>
+                        <div class="rp-entry rp-entry-bulk-actions"><a
+                            class="rp-bulk-actions-btn"
+                            href="#"
+                            ng-click="bulkReject();"
+                          ><i class="fa fa-times"></i>&nbsp;{{ translate "reject_all" . }}
+                            ({{ `{{ nEntries }}` }}
+                            )</a><a
+                            class="rp-bulk-actions-btn"
+                            href="#"
+                            ng-click="bulkAccept();"
+                          ><i class="fa fa-check"></i>&nbsp;{{ translate "accept_all" . }}
+                            ({{ `{{ nEntries }}` }}
+                            )</a></div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="resolvedCommentsDropdownTemplate"
+                    >
+                      <div class="resolved-comments">
+                        <div
+                          class="resolved-comments-backdrop"
+                          ng-class="{ 'resolved-comments-backdrop-visible' : state.isOpen }"
+                          ng-click="state.isOpen = false"
+                        ></div>
+                        <a
+                          class="resolved-comments-toggle"
+                          href="#"
+                          ng-click="toggleOpenState();"
+                          tooltip="{{ translate "resolved_comments" . }}"
+                          tooltip-placement="bottom"
+                          tooltip-append-to-body="true"
+                        ><i class="fa fa-inbox"></i></a>
+                        <div
+                          class="resolved-comments-dropdown"
+                          ng-class="{ 'resolved-comments-dropdown-open' : state.isOpen }"
+                        >
+                          <div
+                            class="rp-loading"
+                            ng-if="isLoading"
+                          ><i class="fa fa-spinner fa-spin"></i></div>
+                          <div
+                            class="resolved-comments-scroller"
+                            ng-if="!isLoading"
+                          >
+                            <resolved-comment-entry
+                              ng-repeat="thread in resolvedComments | orderBy:'resolved_at':true"
+                              thread="thread"
+                              on-unresolve="handleUnresolve(threadId);"
+                              on-delete="handleDelete(entryId, docId, threadId);"
+                              permissions="permissions"
+                            ></resolved-comment-entry>
+                            <div
+                              class="rp-loading"
+                              ng-if="!resolvedComments.length"
+                            >{{ translate "no_resolved_threads" . }}.
+                            </div>
+                          </div>
+                        </div>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="trackChangesUpgradeModalTemplate"
+                    >
+                      <div class="modal-header">
+                        <button
+                          class="close"
+                          type="button"
+                          data-dismiss="modal"
+                          ng-click="cancel()"
+                          aria-label="Close"
+                        ><span aria-hidden="true">&times;</span></button>
+                        <h3>{{ translate "upgrade_to_track_changes" . }}</h3>
+                      </div>
+                      <div class="modal-body">
+                        <h4 class="teaser-title">{{ translate "see_changes_in_your_documents_live" . }}</h4>
+                        <p
+                          class="small"
+                          ng-show="startedFreeTrial"
+                        >{{ translate "refresh_page_after_starting_free_trial" . }}</p>
+                        <div class="row">
+                          <div class="col-md-10 col-md-offset-1">
+                            <ul class="list-unstyled">
+                              <li>
+                                <i class="fa fa-check">&nbsp;</i>{{ translate "track_any_change_in_real_time" . }}
+                              </li>
+                              <li>
+                                <i class="fa fa-check">&nbsp;</i>{{ translate "review_your_peers_work" . }}
+                              </li>
+                              <li>
+                                <i class="fa fa-check">&nbsp;</i>{{ translate "accept_or_reject_each_changes_individually" . }}
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button
+                          class="btn btn-default"
+                          ng-click="cancel()"
+                        ><span>{{ translate "close" . }}</span></button>
+                      </div></script>
+                    <script
+                      type="text/ng-template"
+                      id="bulkActionsModalTemplate"
+                    >
+                      <div class="modal-header">
+                        <button
+                          class="close"
+                          type="button"
+                          data-dismiss="modal"
+                          ng-click="cancel()"
+                          aria-label="Close"
+                        ><span aria-hidden="true">&times;</span></button>
+                        <h3>
+                          <span ng-if="isAccept">{{ translate "accept_all" . }}</span><span ng-if="!isAccept">{{ translate "reject_all" . }}</span>
+                        </h3></div>
+                      <div class="modal-body">
+                        <p ng-if="isAccept">{{translate "bulk_accept_confirm" . }}
+                        </p>
+                        <p ng-if="!isAccept">{{translate "bulk_reject_confirm" .}}
+                        </p>
+                      </div>
+                      <div class="modal-footer">
+                        <button
+                          class="btn btn-default"
+                          ng-click="cancel()"
+                        ><span>{{ translate "cancel" . }}</span></button>
+                        <button
+                          class="btn btn-primary"
+                          ng-click="confirm()"
+                        ><span>{{ translate "ok" . }}</span></button>
+                      </div></script>
+                  </div>
+                </div>
+                <div
+                  class="div"
+                  vertical-resizable-bottom="vertical-resizable-bottom"
+                >
+                  <symbol-palette
+                    show="editor.showSymbolPalette"
+                    handle-select="editor.insertSymbol"
+                  ></symbol-palette>
+                </div>
+              </div>
+            </div>
+            <div class="ui-layout-east">
+              <div ng-if="ui.pdfLayout == 'sideBySide'">
+                  {{ template "pdfController" . }}
+              </div>
+            </div>
+            <div
+              class="ui-layout-resizer-controls synctex-controls"
+              ng-show="!!pdf.url && settings.pdfViewer == 'pdfjs'"
+              ng-controller="PdfSynctexController"
+            ><a
+                class="btn btn-default btn-xs synctex-control synctex-control-goto-pdf"
+                tooltip="{{ translate "go_to_code_location_in_pdf" . }}"
+                tooltip-placement="right"
+                tooltip-append-to-body="true"
+                ng-click="syncToPdf()"
+                ng-disabled="syncToPdfInFlight"
+              ><i
+                  class="synctex-control-icon"
+                  ng-show="!syncToPdfInFlight"
+                ></i><i
+                  class="synctex-spin-icon fa fa-refresh fa-spin"
+                  ng-show="syncToPdfInFlight"
+                ></i></a><a
+                class="btn btn-default btn-xs synctex-control synctex-control-goto-code"
+                tooltip="{{ translate "go_to_pdf_location_in_code" . }}"
+                tooltip-placement="right"
+                tooltip-append-to-body="true"
+                ng-click="syncToCode()"
+                ng-disabled="syncToCodeInFlight"
+              ><i
+                  class="synctex-control-icon"
+                  ng-show="!syncToCodeInFlight"
+                ></i><i
+                  class="synctex-spin-icon fa fa-refresh fa-spin"
+                  ng-show="syncToCodeInFlight"
+                ></i></a></div>
+          </div>
+          <div
+            class="full-size"
+            ng-if="ui.pdfLayout == 'flat'"
+            ng-show="ui.view == 'pdf'"
+          >
+              {{ template "pdfController" . }}
+          </div><!-- fallback, shown when no file/view is selected -->
+          <div
+            class="full-size no-file-selection"
+            ng-if="!ui.view"
+          >
+            <div
+              class="no-file-selection-message"
+              ng-if="rootFolder.children && rootFolder.children.length > 0"
+            ><h3>{{ translate "no_selection_select_file" . }}</h3></div>
+            <div
+              class="no-file-selection-message"
+              ng-if="rootFolder.children && rootFolder.children.length === 0"
+            ><h3>{{ translate "no_selection_create_new_file" . }}</h3>
+              <div ng-controller="FileTreeController">
+                <button
+                  class="btn btn-primary"
+                  ng-click="openNewDocModal()"
+                >{{ translate "new_file" . }}</button>
+              </div>
+            </div>
+          </div>
+          <div
+            ng-controller="FileViewController"
+            ng-show="ui.view == 'file'"
+            ng-if="openFile"
+          >
+            <file-view
+              file="file"
+              store-references-keys="storeReferencesKeys"
+            ></file-view>
+          </div>
+          <div
+            id="history"
+            ng-show="ui.view == 'history' && history.updates.length > 0"
+          >
+            <aside
+              class="change-list"
+              ng-if="!history.isV2"
+              ng-controller="HistoryListController"
+              infinite-scroll="loadMore()"
+              infinite-scroll-disabled="history.loading || history.atEnd"
+              infinite-scroll-initialize="ui.view == 'history'"
+            >
+              <div class="infinite-scroll-inner">
+                <ul
+                  class="list-unstyled"
+                  ng-class="{'hover-state': history.hoveringOverListSelectors}"
+                >
+                  <li
+                    class="change"
+                    ng-repeat="update in history.updates"
+                    ng-class="{'first-in-day': update.meta.first_in_day,'selected': update.inSelection,'selected-to': update.selectedTo,'selected-from': update.selectedFrom,'hover-selected': update.inHoverSelection,'hover-selected-to': update.hoverSelectedTo,'hover-selected-from': update.hoverSelectedFrom}"
+                    ng-controller="HistoryListItemController"
+                  >
+                    <div
+                      class="day"
+                      ng-show="update.meta.first_in_day"
+                    >{{ `{{ update.meta.end_ts | relativeDate }}` }}</div>
+                    <div class="selectors">
+                      <div class="range"></div>
+                      <form><input
+                          class="selector-from"
+                          type="radio"
+                          name="fromVersion"
+                          ng-model="update.selectedFrom"
+                          ng-value="true"
+                          ng-mouseover="mouseOverSelectedFrom()"
+                          ng-mouseout="mouseOutSelectedFrom()"
+                          ng-show="update.afterSelection || update.inSelection"
+                        /></form>
+                      <form><input
+                          class="selector-to"
+                          type="radio"
+                          name="toVersion"
+                          ng-model="update.selectedTo"
+                          ng-value="true"
+                          ng-mouseover="mouseOverSelectedTo()"
+                          ng-mouseout="mouseOutSelectedTo()"
+                          ng-show="update.beforeSelection || update.inSelection"
+                        /></form>
+                    </div>
+                    <div
+                      class="description"
+                      ng-click="select()"
+                    >
+                      <div class="time">{{`{{ update.meta.end_ts | formatDate:'h:mm a' }}`}}
+                      </div>
+                      <div
+                        class="action action-edited"
+                        ng-if="history.isV2 && update.pathnames.length > 0"
+                      >{{ translate "file_action_edited" . }}</div>
+                      <div
+                        class="docs"
+                        ng-repeat="pathname in update.pathnames"
+                      >
+                        <div class="doc">{{ `{{ pathname }}` }}</div>
+                      </div>
+                      <div
+                        class="docs"
+                        ng-repeat="project_op in update.project_ops"
+                      >
+                        <div ng-if="project_op.rename">
+                          <div class="action">{{ translate "file_action_renamed" . }}</div>
+                          <div class="doc">{{ `{{ project_op.rename.pathname }}` }}
+                            &rarr; {{ `{{ project_op.rename.newPathname }}` }}</div>
+                        </div>
+                        <div ng-if="project_op.add">
+                          <div class="action">{{ translate "file_action_created" . }} </div>
+                          <div class="doc">{{ `{{ project_op.add.pathname }}` }}</div>
+                        </div>
+                        <div ng-if="project_op.remove">
+                          <div class="action">{{ translate "file_action_deleted" . }}</div>
+                          <div class="doc">{{ `{{ project_op.remove.pathname }}` }}</div>
+                        </div>
+                      </div>
+                      <div class="users">
+                        <div
+                          class="user"
+                          ng-repeat="update_user in update.meta.users"
+                        >
+                          <div
+                            class="color-square"
+                            ng-if="update_user != null"
+                            ng-style="{'background-color': 'hsl({{ `{{ update_user.hue }}` }}, 70%, 50%)'}"
+                          ></div>
+                          <div
+                            class="color-square"
+                            ng-if="update_user == null"
+                            ng-style="{'background-color': 'hsl(100, 70%, 50%)'}"
+                          ></div>
+                          <div
+                            class="name"
+                            ng-if="update_user && update_user.id != user.id"
+                            ng-bind="displayName(update_user)"
+                          ></div>
+                          <div
+                            class="name"
+                            ng-if="update_user && update_user.id == user.id"
+                          >You
+                          </div>
+                          <div
+                            class="name"
+                            ng-if="update_user == null"
+                          >{{ translate "anonymous" . }}</div>
+                        </div>
+                        <div
+                          class="user"
+                          ng-if="update.meta.users.length == 0"
+                        >
+                          <div
+                            class="color-square"
+                            ng-style="{'background-color': 'hsl(100, 100%, 50%)'}"
+                          ></div>
+                          <span>{{ translate "anonymous" . }}</span></div>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+                <div
+                  class="loading"
+                  ng-show="history.loading"
+                >
+                  <i class="fa fa-spin fa-refresh"></i>&nbsp;&nbsp; {{ translate "loading" . }}
+                  …
+                </div>
+              </div>
+            </aside>
+            <div
+              class="diff-panel full-size"
+              ng-if="!history.isV2"
+              ng-controller="HistoryDiffController"
+            >
+              <div
+                class="diff"
+                ng-if="!!history.diff && !history.diff.loading && !history.diff.deleted && !history.diff.error && !history.diff.binary"
+              >
+                <div class="toolbar toolbar-alt">
+                  <span class="name"><strong>{{ `{{ history.diff.highlights.length }}` }} </strong>
+                    <ng-pluralize
+                      count="history.diff.highlights.length"
+                      when="{'one': 'change','other': 'changes'}"
+                    ></ng-pluralize>
+                    in
+                    <strong>{{ `{{ history.diff.pathname }}` }}</strong></span>
+                  <div
+                    class="toolbar-right"
+                    ng-if="permissions.write"
+                  ><a
+                      class="btn btn-danger btn-xs"
+                      href="#"
+                      ng-click="openRestoreDiffModal()"
+                    >{{ translate "restore_to_before_these_changes" . }}</a>
+                  </div>
+                </div>
+                <div
+                  class="diff-editor hide-ace-cursor"
+                  ace-editor="history"
+                  theme="settings.theme"
+                  font-size="settings.fontSize"
+                  text="history.diff.text"
+                  highlights="history.diff.highlights"
+                  read-only="true"
+                  resize-on="layout:main:resize"
+                  navigate-highlights="true"
+                ></div>
+              </div>
+              <div
+                class="diff-deleted text-centered"
+                ng-show="history.diff.deleted && !history.diff.restoreDeletedSuccess"
+              >
+                <p class="text-serif">{{translate "file_has_been_deleted" . }}
+                </p>
+                <p><a
+                    class="btn btn-primary btn-lg"
+                    href="#"
+                    ng-click="restoreDeletedDoc()"
+                    ng-disabled="history.diff.restoreInProgress"
+                  >{{ translate "restore" . }}</a></p>
+              </div>
+              <div
+                class="diff-deleted text-centered"
+                ng-show="history.diff.deleted && history.diff.restoreDeletedSuccess"
+              >
+                <p class="text-serif"> {{translate "file_restored" . }}
+                </p>
+                <p class="text-serif"> {{ translate "file_restored_back_to_editor" . }}</p>
+                <p><a
+                    class="btn btn-default"
+                    href="#"
+                    ng-click="backToEditorAfterRestore()"
+                  >{{ translate "file_restored_back_to_editor_btn" . }}</a></p>
+              </div>
+              <div
+                class="loading-panel"
+                ng-show="history.diff.loading"
+              >
+                <i class="fa fa-spin fa-refresh"></i>&nbsp;&nbsp;{{ translate "loading" . }}
+                …
+              </div>
+              <div
+                class="error-panel"
+                ng-show="history.diff.error"
+              >
+                <div class="alert alert-danger">{{ translate "generic_something_went_wrong" . }}</div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="full-size"
+            ng-if="ui.view == 'history' && history.updates.length === 0 && !isHistoryLoading()"
+          >
+            <div class="no-history-available">
+              <h3>{{ translate "no_history_available" . }}</h3></div>
+          </div>
+          <script
+            type="text/ng-template"
+            id="historyRestoreDiffModalTemplate"
+          >
+            <div class="modal-header">
+              <button
+                class="close"
+                type="button"
+                data-dismiss="modal"
+                ng-click="cancel()"
+                aria-label="Close"
+              ><span aria-hidden="true">&times;</span></button>
+              <h3>{{ translate "restore" . }} {{ `{{ diff.doc.name }}` }}</h3>
+            </div>
+            <div class="modal-body modal-body-share">
+              <p>{{ translate "sure_you_want_to_restore_before" . }}</p>
+            </div>
+            <div class="modal-footer">
+              <button
+                class="btn btn-default"
+                ng-click="cancel()"
+                ng-disabled="state.inflight"
+              >{{ translate "cancel" . }}</button>
+              <button
+                class="btn btn-danger"
+                ng-click="restore()"
+                ng-disabled="state.inflight"
+              >
+                <span ng-show="!state.inflight">{{ translate "restore" . }}</span><span ng-show="state.inflight">{{ translate "restoring" . }}
+                  …</span></button>
+            </div></script>
+          <script
+            type="text/ng-template"
+            id="historyLabelTpl"
+          >
+            <div
+              class="history-label"
+              ng-class="{'history-label-own' : $ctrl.isOwnedByCurrentUser,'history-label-pseudo-current-state': $ctrl.isPseudoCurrentStateLabel}"
+            ><span
+                class="history-label-comment"
+                tooltip-append-to-body="true"
+                tooltip-template="'historyLabelTooltipTpl'"
+                tooltip-placement="left"
+                tooltip-enable="$ctrl.showTooltip"
+              ><i class="fa fa-tag"></i>&nbsp;<span ng-if="$ctrl.isPseudoCurrentStateLabel">{{ translate "history_label_project_current_state" . }}</span><span ng-if="!$ctrl.isPseudoCurrentStateLabel">{{ `{{ $ctrl.isPseudoCurrentStateLabel }}` }}</span></span>
+              <button
+                class="history-label-delete-btn"
+                ng-if="$ctrl.isOwnedByCurrentUser && !$ctrl.isPseudoCurrentStateLabel"
+                stop-propagation="click"
+                ng-click="$ctrl.onLabelDelete()"
+                aria-label="{{ translate "delete" . }}"
+              ><span aria-hidden="true">&times;</span></button>
+            </div></script>
+          <script
+            type="text/ng-template"
+            id="historyLabelTooltipTpl"
+          >
+            <div class="history-label-tooltip">
+              <p class="history-label-tooltip-title"><i class="fa fa-tag"></i>&nbsp;{{ `{{ $ctrl.labelText }}` }}
+              </p>
+              <p class="history-label-tooltip-owner">{{ translate "history_label_created_by" . }} {{ `{{ $ctrl.labelOwnerName }}` }}</p>
+              <time class="history-label-tooltip-datetime">{{ `{{ $ctrl.labelCreationDateTime | formatDate }}` }}</time>
+            </div></script>
+          <script
+            type="text/ng-template"
+            id="historyV2DeleteLabelModalTemplate"
+          >
+            <div class="modal-header">
+              <h3>{{ translate "history_delete_label" . }}</h3></div>
+            <div class="modal-body">
+              <div
+                class="alert alert-danger"
+                ng-show="state.error.message"
+              >{{ `{{ state.error.message }}` }} </div>
+              <div
+                class="alert alert-danger"
+                ng-show="state.error && !state.error.message"
+              >{{ translate "generic_something_went_wrong" . }}</div>
+              <p ng-if="labelDetails">{{ translate "history_are_you_sure_delete_label" . }}
+                <strong> "{{ `{{ labelDetails.comment }}` }}"</strong>?
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button
+                class="btn btn-default"
+                type="button"
+                ng-disabled="state.inflight"
+                ng-click="$dismiss()"
+              >{{ translate "cancel" . }}</button>
+              <button
+                class="btn btn-primary"
+                type="button"
+                ng-click="deleteLabel()"
+                ng-disabled="state.inflight"
+              >
+                <span ng-if="state.inflight">{{ translate "history_deleting_label" . }}</span><span ng-if="!state.inflight">{{ translate "history_delete_label" . }}</span>
+              </button>
+            </div></script>
+        </div>
+        </main>
+      </div>
+      <div class="ui-layout-east">
+        <aside
+          class="chat"
+          ng-controller="ReactChatController"
+        >
+          <chat></chat>
+        </aside>
+      </div>
+    </div>
+  </div>
+  <script
+    type="text/ng-template"
+    id="genericMessageModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="done()"
+        aria-label="Close"
+      ><span aria-hidden="true">&times;</span></button>
+      <h3>{{ `{{ title }}` }}</h3></div>
+    <div
+      class="modal-body"
+      ng-bind-html="message"
+    ></div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-info"
+        ng-click="done()"
+      >{{ translate "ok" . }}</button>
+    </div></script>
+  <script
+    type="text/ng-template"
+    id="outOfSyncModalTemplate"
+  >
+    <div class="modal-header">
+      <button
+        class="close"
+        type="button"
+        data-dismiss="modal"
+        ng-click="done()"
+        aria-label="Close"
+      ><span aria-hidden="true">&times;</span></button>
+      <h3>{{ `{{ title }}` }}</h3></div>
+    <div
+      class="modal-body"
+      ng-bind-html="message"
+    ></div>
+    <div class="modal-body">
+      <button
+        class="btn btn-info"
+        ng-init="showFileContents = false"
+        ng-click="showFileContents = !showFileContents"
+      >
+        <span ng-if="showFileContents">Hide</span>
+        <span ng-if="!showFileContents">Show</span> &nbsp; Local File Contents
+      </button>
+      <div
+        class="text-preview"
+        ng-show="showFileContents"
+      ><textarea
+          class="scroll-container"
+          readonly="readonly"
+          rows="{{ `{{ editorContentRows }}` }}"
+        >{{ `{{ editorContent }}` }}</textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button
+        class="btn btn-info"
+        ng-click="done()"
+      >{{ translate "reload_editor" . }}</button>
+    </div></script>
+  <script
+    type="text/ng-template"
+    id="lockEditorModalTemplate"
+  >
+    <div class="modal-header"><h3>{{ `{{ title }}` }}</h3></div>
+    <div
+      class="modal-body"
+      ng-bind-html="message"
+    ></div>
+  </script>
+{{ end }}
+
+
+{{ define "pdfController" }}
+  <div
+    class="full-size pdf"
+    ng-controller="PdfController"
+  >
+    <preview-pane
+      compiler-state="{autoCompileHasChanges: changesToAutoCompile, autoCompileHasLintingError: autoCompileLintingError, isAutoCompileOn: autocompile_enabled, isClearingCache: pdf.clearingCache, isCompiling: pdf.compiling, isDraftModeOn: draft, isSyntaxCheckOn: stop_on_validation_error, lastCompileTimestamp: pdf.lastCompileTimestamp, logEntries: pdf.logEntries, validationIssues: pdf.validation, errors: clsiErrors, rawLog: pdf.rawLog, compileFailed: pdf.compileFailed }"
+      on-clear-cache="clearCache"
+      on-recompile="recompile"
+      on-recompile-from-scratch="recompileFromScratch"
+      on-run-syntax-check-now="runSyntaxCheckNow"
+      on-set-auto-compile="setAutoCompile"
+      on-set-draft-mode="setDraftMode"
+      on-set-syntax-check="setSyntaxCheck"
+      on-toggle-logs="toggleLogs"
+      output-files="pdf.outputFiles"
+      pdf-download-url="pdf.downloadUrl"
+      split-layout="ui.pdfLayout === 'sideBySide'"
+      on-set-split-layout="setPdfSplitLayout"
+      on-set-full-layout="setPdfFullLayout"
+      on-stop-compilation="stop"
+      variant-with-first-error-popup="false"
+      show-logs="shouldShowLogs"
+      on-log-entry-location-click="openInEditor"
+      project-name="project.name"
+    ></preview-pane><!-- non-log views (pdf and errors) -->
+    <div
+      ng-show="!shouldShowLogs"
+      ng-switch="pdf.view"
+    >
+      <div
+        class="pdf-uncompiled"
+        ng-switch-when="uncompiled"
+        ng-show="!pdf.compiling"
+      >
+        &nbsp;<i class="fa fa-level-up fa-flip-horizontal fa-2x"></i>&nbsp;&nbsp;{{ translate "click_here_to_preview_pdf" . }}
+      </div>
+      <div
+        class="pdf-viewer"
+        ng-switch-when="pdf"
+      >
+        <div
+          pdfng="pdfng"
+          ng-if="settings.pdfViewer == 'pdfjs'"
+          pdf-src="pdf.url"
+          key="{{ `{{ project_id }}` }}"
+          resize-on="layout:main:resize,layout:pdf:resize"
+          highlights="pdf.highlights"
+          position="pdf.position"
+          first-render-done="pdf.firstRenderDone"
+          update-consumed-bandwidth="pdf.updateConsumedBandwidth"
+          dbl-click-callback="syncToCode"
+        ></div>
+        <iframe
+                {{ .AngularSnippetPDFURL }}
+          ng-if="settings.pdfViewer == 'native'"
+        ></iframe>
+      </div>
+    </div>
+  </div>
+{{ end }}

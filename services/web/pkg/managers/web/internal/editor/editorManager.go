@@ -37,6 +37,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
+	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -49,7 +50,7 @@ type Manager interface {
 	RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error
 	SetMemberPrivilegeLevelInProject(ctx context.Context, request *types.SetMemberPrivilegeLevelInProjectRequest) error
 	TransferProjectOwnership(ctx context.Context, request *types.TransferProjectOwnershipRequest) error
-	LoadEditor(ctx context.Context, request *types.LoadEditorRequest, response *types.LoadEditorResponse) error
+	ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, response *types.ProjectEditorPageResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
 	GetWSBootstrap(ctx context.Context, request *types.GetWSBootstrapRequest, response *types.GetWSBootstrapResponse) error
@@ -62,42 +63,52 @@ type Manager interface {
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contact.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contact.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+	publicImageNames := make([]templates.AllowedImageName, 0)
+	for _, allowedImageName := range options.AllowedImageNames {
+		if !allowedImageName.AdminOnly {
+			publicImageNames = append(publicImageNames, allowedImageName)
+		}
+	}
 	return &manager{
-		client:          client,
-		cm:              cm,
-		csm:             csm,
-		db:              db,
-		dm:              dm,
-		editorEvents:    editorEvents,
-		fm:              fm,
-		jwtProject:      projectJWTHandler,
-		jwtLoggedInUser: loggedInUserJWTHandler,
-		jwtSpelling:     userIdJWT.New(options.JWT.Spelling),
-		options:         options,
-		pm:              pm,
-		tm:              tm,
-		um:              um,
-		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
+		client:           client,
+		cm:               cm,
+		csm:              csm,
+		db:               db,
+		dm:               dm,
+		editorEvents:     editorEvents,
+		fm:               fm,
+		jwtProject:       projectJWTHandler,
+		jwtLoggedInUser:  loggedInUserJWTHandler,
+		jwtSpelling:      userIdJWT.New(options.JWT.Spelling),
+		options:          options,
+		pm:               pm,
+		ps:               ps,
+		publicImageNames: publicImageNames,
+		tm:               tm,
+		um:               um,
+		wsBootstrap:      wsBootstrap.New(options.JWT.RealTime),
 	}
 }
 
 type manager struct {
-	client          redis.UniversalClient
-	cm              chat.Manager
-	csm             contact.Manager
-	db              *mongo.Database
-	dm              docstore.Manager
-	editorEvents    channel.Writer
-	fm              filestore.Manager
-	jwtProject      jwtHandler.JWTHandler
-	jwtLoggedInUser jwtHandler.JWTHandler
-	jwtSpelling     jwtHandler.JWTHandler
-	options         *types.Options
-	pm              project.Manager
-	tm              tag.Manager
-	um              user.Manager
-	wsBootstrap     jwtHandler.JWTHandler
+	client           redis.UniversalClient
+	cm               chat.Manager
+	csm              contact.Manager
+	db               *mongo.Database
+	dm               docstore.Manager
+	editorEvents     channel.Writer
+	fm               filestore.Manager
+	jwtProject       jwtHandler.JWTHandler
+	jwtLoggedInUser  jwtHandler.JWTHandler
+	jwtSpelling      jwtHandler.JWTHandler
+	options          *types.Options
+	pm               project.Manager
+	ps               *templates.PublicSettings
+	publicImageNames []templates.AllowedImageName
+	tm               tag.Manager
+	um               user.Manager
+	wsBootstrap      jwtHandler.JWTHandler
 }
 
 func (m *manager) notifyEditor(projectId primitive.ObjectID, message string, args ...interface{}) {
