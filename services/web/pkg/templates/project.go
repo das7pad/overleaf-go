@@ -17,7 +17,6 @@
 package templates
 
 import (
-	"html/template"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -47,7 +46,7 @@ func (d *ProjectTokenAccessData) Meta() []metaEntry {
 }
 
 func (d *ProjectTokenAccessData) Render() (string, error) {
-	return render("project/tokenAccess.gohtml", 30*1024, d)
+	return render("project/tokenAccess.gohtml", 12*1024, d)
 }
 
 type ProjectViewInviteData struct {
@@ -60,7 +59,7 @@ type ProjectViewInviteData struct {
 }
 
 func (d *ProjectViewInviteData) Render() (string, error) {
-	return render("project/viewInvite.gohtml", 30*1024, d)
+	return render("project/viewInvite.gohtml", 11*1024, d)
 }
 
 type ProjectListProjectView struct {
@@ -114,7 +113,8 @@ func (d *ProjectListData) Meta() []metaEntry {
 }
 
 func (d *ProjectListData) Render() (string, error) {
-	return render("project/list.gohtml", 200*1024, d)
+	n := 1024 * (70 + len(d.Projects)*3/4 + len(d.Tags)/10)
+	return render("project/list.gohtml", n, d)
 }
 
 type EditorSettings struct {
@@ -159,8 +159,6 @@ type AllowedImageName struct {
 type ProjectEditorData struct {
 	AngularLayoutData
 	EditorBootstrap *EditorBootstrap
-
-	AngularSnippetPDFURL template.HTMLAttr
 }
 
 func (d *ProjectEditorData) Entrypoint() string {
@@ -188,6 +186,5 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 }
 
 func (d *ProjectEditorData) Render() (string, error) {
-	d.AngularSnippetPDFURL = ` ng-src="{{ pdf.url | trusted }}" `
-	return render("project/editor.gohtml", 150*1024, d)
+	return render("project/editor.gohtml", 110*1024, d)
 }

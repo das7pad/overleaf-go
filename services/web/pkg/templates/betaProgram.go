@@ -37,5 +37,5 @@ func (d *BetaProgramParticipate) Meta() []metaEntry {
 }
 
 func (d *BetaProgramParticipate) Render() (string, error) {
-	return render("betaProgram/participate.gohtml", 15*1024, d)
+	return render("betaProgram/participate.gohtml", 11*1024, d)
 }

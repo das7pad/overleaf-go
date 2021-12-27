@@ -270,8 +270,22 @@ func (s *Session) DestroyOthers(ctx context.Context, d *OtherSessionsDetails) er
 	return nil
 }
 
+func (s *Session) Touch(ctx context.Context) error {
+	_, err := s.client.Pipelined(ctx, func(p redis.Pipeliner) error {
+		p.Expire(ctx, s.id.toKey(), s.expiry)
+		if s.IsLoggedIn() {
+			p.Expire(ctx, userSessionsKey(s.User.Id), s.expiry)
+		}
+		return nil
+	})
+	return err
+}
+
 func (s *Session) Save(ctx context.Context) (bool, error) {
 	if s.id == "" {
+		if s.IsEmpty() {
+			return true, nil
+		}
 		r, err := s.assignNewSessionId(ctx)
 		if err != nil {
 			return false, err

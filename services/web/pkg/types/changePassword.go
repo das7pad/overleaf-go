@@ -54,7 +54,8 @@ func (r *ChangePasswordRequest) Validate() error {
 type ChangePasswordResponse = asyncForm.Response
 
 type SetPasswordRequest struct {
-	IPAddress string `json:"-"`
+	Session   *session.Session `json:"-"`
+	IPAddress string           `json:"-"`
 
 	Token    oneTimeToken.OneTimeToken `json:"passwordResetToken"`
 	Password UserPassword              `json:"password"`

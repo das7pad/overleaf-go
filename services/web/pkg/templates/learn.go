@@ -28,6 +28,10 @@ type LearnPageData struct {
 }
 
 func (d *LearnPageData) Render() (string, error) {
-	n := 10*1024 + len(d.PageContent) + len(d.ContentsContent) + 4*len(d.Title)
+	n := 11*1024 +
+		len(d.PageContent) +
+		len(d.ContentsContent) +
+		4*len(d.Title) +
+		4*len(d.TitleLocale)
 	return render("learn/page.gohtml", n, d)
 }

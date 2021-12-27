@@ -87,10 +87,14 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 		return err
 	}
 	m.postProcessPasswordChange(u, nil)
+	if r.Session.PasswordResetToken != "" {
+		r.Session.PasswordResetToken = ""
+		_, _ = r.Session.Save(ctx)
+	}
 	return nil
 }
 
-func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswordPageRequest, response *types.SetPasswordPageResponse) error {
+func (m *manager) SetPasswordPage(_ context.Context, request *types.SetPasswordPageRequest, response *types.SetPasswordPageResponse) error {
 	var e sharedTypes.Email
 	var q url.Values
 	if request.Email.Validate() == nil {
@@ -109,9 +113,6 @@ func (m *manager) SetPasswordPage(ctx context.Context, request *types.SetPasswor
 			return err
 		}
 		request.Session.PasswordResetToken = request.Token
-		if _, err := request.Session.Save(ctx); err != nil {
-			return err
-		}
 		response.Redirect = m.options.SiteURL.
 			WithPath("/user/password/set").
 			WithQuery(q).

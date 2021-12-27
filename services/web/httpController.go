@@ -65,20 +65,18 @@ func (h *httpController) GetRouter(
 		StatusMessage:   "web is alive (go)\n",
 		ClientIPOptions: clientIPOptions,
 	})
-	router.NoRoute(h.notFound)
-
-	publicRouter := router.Group("")
-	publicRouter.Use(httpUtils.NoCache())
+	router.Use(httpUtils.NoCache())
 	{
 		// SECURITY: Attach gateway page before CORS middleware.
 		//           All 3rd parties are allowed to send users to the gw page.
-		publicRouter.GET("/docs", h.openInOverleafGatewayPage)
-		publicRouter.POST("/docs", h.openInOverleafGatewayPage)
+		router.GET("/docs", h.openInOverleafGatewayPage)
+		router.POST("/docs", h.openInOverleafGatewayPage)
 	}
-	publicRouter.Use(httpUtils.CORS(corsOptions))
+	router.Use(httpUtils.CORS(corsOptions))
+	router.NoRoute(h.notFound)
 
 	{
-		r := publicRouter.Group("")
+		r := router.Group("")
 		r.Use(h.blockUnsupportedBrowser)
 		r.GET("/", h.homePage)
 		r.GET("/admin", h.adminManageSitePage)
@@ -88,13 +86,15 @@ func (h *httpController) GetRouter(
 		r.GET("/health_check", h.smokeTestFull)
 		r.GET("/health_check/api", h.smokeTestAPI)
 		r.GET("/health_check/full", h.smokeTestFull)
+		// NOTE: Intercept cleanup of trailing slash. We might need to redirect
+		//        somewhere else again and can shortcut a chain of redirects.
 		r.GET("/learn", h.learn)
 		r.GET("/learn/", h.learn)
 		r.GET("/learn/:section", h.learn)
 		r.GET("/learn/:section/", h.learn)
 		r.GET("/learn/:section/:page", h.learn)
 		r.GET("/learn/:section/:page/", h.learn)
-		r.GET("/learn-scripts/images/:hex1/:hex2/:name", h.proxyLearnImage)
+		r.GET("/learn-scripts/images/:a/:b/:c", h.proxyLearnImage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
 		r.GET("/project", h.projectListPage)
@@ -115,50 +115,49 @@ func (h *httpController) GetRouter(
 		rp.GET("/invite/token/:token", h.viewProjectInvitePage)
 	}
 
-	publicApiRouter := publicRouter.Group("/api")
-	publicApiRouter.POST("/open", h.openInOverleaf)
-	publicApiRouter.POST("/beta/opt-in", h.optInBetaProgram)
-	publicApiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
-	publicApiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
-	publicApiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
-	publicApiRouter.POST("/project/new", h.createExampleProject)
-	publicApiRouter.POST("/project/new/upload", h.createFromZip)
-	publicApiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
-	publicApiRouter.POST("/register", h.registerUser)
-	publicApiRouter.GET("/user/contacts", h.getUserContacts)
-	publicApiRouter.POST("/user/delete", h.deleteUser)
-	publicApiRouter.POST("/user/emails/confirm", h.confirmEmail)
-	publicApiRouter.POST("/user/emails/resend_confirmation", h.resendEmailConfirmation)
-	publicApiRouter.POST("/user/password/reset", h.requestPasswordReset)
-	publicApiRouter.POST("/user/password/set", h.setPassword)
-	publicApiRouter.POST("/user/password/update", h.changePassword)
-	publicApiRouter.POST("/user/reconfirm", h.requestPasswordReset)
-	publicApiRouter.POST("/user/sessions/clear", h.clearSessions)
-	publicApiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
-	publicApiRouter.PUT("/user/settings/email", h.changeEmailAddress)
-	publicApiRouter.PUT("/user/settings/name", h.setUserName)
-	publicApiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
-	publicApiRouter.GET("/user/projects", h.getUserProjects)
-	publicApiRouter.POST("/login", h.login)
-	publicApiRouter.POST("/logout", h.logout)
+	apiRouter := router.Group("/api")
+	apiRouter.POST("/open", h.openInOverleaf)
+	apiRouter.POST("/beta/opt-in", h.optInBetaProgram)
+	apiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
+	apiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
+	apiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
+	apiRouter.POST("/project/new", h.createExampleProject)
+	apiRouter.POST("/project/new/upload", h.createFromZip)
+	apiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
+	apiRouter.POST("/register", h.registerUser)
+	apiRouter.GET("/user/contacts", h.getUserContacts)
+	apiRouter.POST("/user/delete", h.deleteUser)
+	apiRouter.POST("/user/emails/confirm", h.confirmEmail)
+	apiRouter.POST("/user/emails/resend_confirmation", h.resendEmailConfirmation)
+	apiRouter.POST("/user/password/reset", h.requestPasswordReset)
+	apiRouter.POST("/user/password/set", h.setPassword)
+	apiRouter.POST("/user/password/update", h.changePassword)
+	apiRouter.POST("/user/reconfirm", h.requestPasswordReset)
+	apiRouter.POST("/user/sessions/clear", h.clearSessions)
+	apiRouter.PUT("/user/settings/editor", h.updateEditorConfig)
+	apiRouter.PUT("/user/settings/email", h.changeEmailAddress)
+	apiRouter.PUT("/user/settings/name", h.setUserName)
+	apiRouter.POST("/user/jwt", h.getLoggedInUserJWT)
+	apiRouter.GET("/user/projects", h.getUserProjects)
+	apiRouter.POST("/login", h.login)
+	apiRouter.POST("/logout", h.logout)
 
 	{
 		// admin endpoints
-		r := publicApiRouter.Group("/admin")
+		r := apiRouter.Group("/admin")
 		r.POST("/register", h.adminCreateUser)
 	}
 	{
 		// Notifications routes
-		r := publicApiRouter.Group("/notifications")
+		r := apiRouter.Group("/notifications")
 		r.GET("", h.getUserNotifications)
-		rById := publicApiRouter.Group("/notification/:notificationId")
+		rById := apiRouter.Group("/notification/:notificationId")
 		rById.Use(httpUtils.ValidateAndSetId("notificationId"))
 		r.DELETE("", h.removeNotification)
 	}
-
 	{
 		// Tag routes
-		r := publicApiRouter.Group("/tag")
+		r := apiRouter.Group("/tag")
 		r.POST("", h.createTag)
 
 		rt := r.Group("/:tagId")
@@ -174,7 +173,7 @@ func (h *httpController) GetRouter(
 
 	{
 		// Project routes with session auth
-		r := publicApiRouter.Group("/project/:projectId")
+		r := apiRouter.Group("/project/:projectId")
 		r.Use(httpUtils.ValidateAndSetId("projectId"))
 		r.DELETE("", h.deleteProject)
 		r.DELETE("/archive", h.unArchiveProject)
@@ -201,12 +200,17 @@ func (h *httpController) GetRouter(
 		rTokenInvite.POST("/accept", h.acceptProjectInvite)
 	}
 
-	jwtRouter := publicRouter.Group("/jwt/web")
+	jwtRouter := router.Group("/jwt/web")
 
-	loggedInUserJWTRouter := jwtRouter.Group("")
-	loggedInUserJWTRouter.Use(
-		httpUtils.NewJWTHandler(h.wm.GetLoggedInUserJWTHandler()).Middleware(),
-	)
+	{
+		// The /system/messages endpoint is polled from both the project list
+		//  and project editor pages.
+		// Use a cheap authentication mechanism for this high volume traffic.
+		r := jwtRouter.Group("")
+		j := h.wm.GetLoggedInUserJWTHandler()
+		r.Use(httpUtils.NewJWTHandler(j).Middleware())
+		r.GET("/system/messages", h.getSystemMessages)
+	}
 
 	projectJWTRouter := jwtRouter.Group("/project/:projectId")
 	projectJWTRouter.Use(
@@ -323,10 +327,7 @@ func (h *httpController) GetRouter(
 
 	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
 	projectJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
-
 	projectJWTDocRouter.POST("/metadata", h.getMetadataForDoc)
-
-	loggedInUserJWTRouter.GET("/system/messages", h.getSystemMessages)
 	return router
 }
 
@@ -389,7 +390,9 @@ func (h *httpController) unsupportedBrowserPage(c *gin.Context) {
 			WithPath(c.Request.URL.Path).
 			WithQuery(c.Request.URL.Query()),
 	}
-	templates.RespondHTML(c, body, nil, s, h.ps, h.wm.Flush)
+	templates.RespondHTMLCustomStatus(
+		c, http.StatusNotAcceptable, body, nil, s, h.ps, h.wm.Flush,
+	)
 }
 
 func (h *httpController) notFound(c *gin.Context) {
@@ -1597,13 +1600,19 @@ func (h *httpController) requestPasswordReset(c *gin.Context) {
 }
 
 func (h *httpController) setPassword(c *gin.Context) {
+	s, err := h.wm.GetOrCreateSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
 	request := &types.SetPasswordRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
+	request.Session = s
 	request.IPAddress = c.ClientIP()
 	res := &types.SetPasswordResponse{}
-	err := h.wm.SetPassword(c.Request.Context(), request, res)
+	err = h.wm.SetPassword(c.Request.Context(), request, res)
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
@@ -1967,8 +1976,10 @@ func (h *httpController) setPasswordPage(c *gin.Context) {
 	res := &types.SetPasswordPageResponse{}
 	err = h.wm.SetPasswordPage(c.Request.Context(), request, res)
 	if err == nil && res.Redirect != "" {
-		httpUtils.Redirect(c, res.Redirect)
-		return
+		if err = h.wm.Flush(c, s); err == nil {
+			httpUtils.Redirect(c, res.Redirect)
+			return
+		}
 	}
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
@@ -2038,6 +2049,7 @@ func (h *httpController) settingsPage(c *gin.Context) {
 	request := &types.SettingsPageRequest{Session: s}
 	res := &types.SettingsPageResponse{}
 	err = h.wm.SettingsPage(c.Request.Context(), request, res)
+	h.wm.TouchSession(c, s)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
@@ -2120,6 +2132,7 @@ func (h *httpController) projectListPage(c *gin.Context) {
 	request := &types.ProjectListPageRequest{Session: s}
 	res := &types.ProjectListPageResponse{}
 	err = h.wm.ProjectListPage(c.Request.Context(), request, res)
+	h.wm.TouchSession(c, s)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
@@ -2140,6 +2153,7 @@ func (h *httpController) projectEditorPage(c *gin.Context) {
 	}
 	res := &types.ProjectEditorPageResponse{}
 	err = h.wm.ProjectEditorPage(c.Request.Context(), request, res)
+	h.wm.TouchSession(c, s)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
@@ -2195,6 +2209,7 @@ func (h *httpController) learn(c *gin.Context) {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
+	h.wm.TouchSession(c, s)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 

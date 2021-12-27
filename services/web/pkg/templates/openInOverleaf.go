@@ -35,7 +35,7 @@ func (d *OpenInOverleafDocumentationData) GatewayURL() string {
 }
 
 func (d *OpenInOverleafDocumentationData) Render() (string, error) {
-	return render("openInOverleaf/documentation.gohtml", 31*1024, d)
+	return render("openInOverleaf/documentation.gohtml", 32*1024, d)
 }
 
 type OpenInOverleafGatewayData struct {

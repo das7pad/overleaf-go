@@ -33,7 +33,7 @@ type UserConfirmEmailData struct {
 }
 
 func (d *UserConfirmEmailData) Render() (string, error) {
-	return render("user/confirmEmail.gohtml", 30*1024, d)
+	return render("user/confirmEmail.gohtml", 12*1024, d)
 }
 
 type UserLoginData struct {
@@ -41,7 +41,7 @@ type UserLoginData struct {
 }
 
 func (d *UserLoginData) Render() (string, error) {
-	return render("user/login.gohtml", 30*1024, d)
+	return render("user/login.gohtml", 10*1024, d)
 }
 
 type UserLogoutData struct {
@@ -49,7 +49,7 @@ type UserLogoutData struct {
 }
 
 func (d *UserLogoutData) Render() (string, error) {
-	return render("user/logout.gohtml", 30*1024, d)
+	return render("user/logout.gohtml", 10*1024, d)
 }
 
 type UserReconfirmData struct {
@@ -58,7 +58,7 @@ type UserReconfirmData struct {
 }
 
 func (d *UserReconfirmData) Render() (string, error) {
-	return render("user/reconfirm.gohtml", 30*1024, d)
+	return render("user/reconfirm.gohtml", 9*1024, d)
 }
 
 type SharedProjectData struct {
@@ -87,7 +87,7 @@ type UserRegisterData struct {
 }
 
 func (d *UserRegisterData) Render() (string, error) {
-	return render("user/register.gohtml", 30*1024, d)
+	return render("user/register.gohtml", 10*1024, d)
 }
 
 type UserRestrictedData struct {
@@ -95,7 +95,7 @@ type UserRestrictedData struct {
 }
 
 func (d *UserRestrictedData) Render() (string, error) {
-	return render("user/restricted.gohtml", 10*1024, d)
+	return render("user/restricted.gohtml", 11*1024, d)
 }
 
 type UserSessionsData struct {
@@ -105,7 +105,8 @@ type UserSessionsData struct {
 }
 
 func (d *UserSessionsData) Render() (string, error) {
-	return render("user/sessions.gohtml", 30*1024, d)
+	n := 1024 * (13 + len(d.OtherSessions)*2/10)
+	return render("user/sessions.gohtml", n, d)
 }
 
 type UserSetPasswordData struct {
@@ -115,7 +116,7 @@ type UserSetPasswordData struct {
 }
 
 func (d *UserSetPasswordData) Render() (string, error) {
-	return render("user/setPassword.gohtml", 30*1024, d)
+	return render("user/setPassword.gohtml", 13*1024, d)
 }
 
 type UserActivateData struct {
@@ -125,7 +126,7 @@ type UserActivateData struct {
 }
 
 func (d *UserActivateData) Render() (string, error) {
-	return render("user/activate.gohtml", 30*1024, d)
+	return render("user/activate.gohtml", 14*1024, d)
 }
 
 type UserPasswordResetData struct {
@@ -134,7 +135,7 @@ type UserPasswordResetData struct {
 }
 
 func (d *UserPasswordResetData) Render() (string, error) {
-	return render("user/passwordReset.gohtml", 30*1024, d)
+	return render("user/passwordReset.gohtml", 12*1024, d)
 }
 
 type UserSettingsData struct {
@@ -143,5 +144,7 @@ type UserSettingsData struct {
 }
 
 func (d *UserSettingsData) Render() (string, error) {
-	return render("user/settings.gohtml", 30*1024, d)
+	n := 1024 * (24 +
+		(len(d.User.FirstName)+len(d.User.LastName)+3*len(d.User.Email))/1024)
+	return render("user/settings.gohtml", n, d)
 }

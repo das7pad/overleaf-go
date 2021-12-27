@@ -65,6 +65,25 @@ type Data struct {
 	User               *User                     `json:"user,omitempty"`
 }
 
+func (d *Data) IsEmpty() bool {
+	if d == nil {
+		return true
+	}
+	if d.PasswordResetToken != "" {
+		return false
+	}
+	if d.PostLoginRedirect != "" {
+		return false
+	}
+	if d.User != anonymousUser {
+		return false
+	}
+	if len(d.AnonTokenAccess) != 0 {
+		return false
+	}
+	return true
+}
+
 func (d *Data) GetAnonTokenAccess(projectId primitive.ObjectID) project.AccessToken {
 	return d.AnonTokenAccess[projectId.Hex()]
 }

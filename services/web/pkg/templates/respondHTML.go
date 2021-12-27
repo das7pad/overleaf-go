@@ -17,7 +17,9 @@
 package templates
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -59,8 +61,19 @@ func RespondHTML(
 	ps *PublicSettings,
 	flushSession func(c *gin.Context, session *session.Session) error,
 ) {
+	RespondHTMLCustomStatus(c, http.StatusOK, body, err, s, ps, flushSession)
+}
+
+func RespondHTMLCustomStatus(
+	c *gin.Context,
+	code int,
+	body Renderer,
+	err error,
+	s *session.Session,
+	ps *PublicSettings,
+	flushSession func(c *gin.Context, session *session.Session) error,
+) {
 	c.Abort()
-	code := http.StatusOK
 	if err != nil {
 		if shouldRedirectToLogin(c, s, err) {
 			s.PostLoginRedirect = ps.SiteURL.
@@ -146,7 +159,10 @@ func RespondHTML(
 		RespondHTML(c, body, err, s, ps, flushSession)
 		return
 	}
-	httpUtils.EndTotalTimer(c)
+	n := strconv.FormatInt(int64(len(blob)), 10)
+	c.Header("Content-Length", n)
 	c.Header("Content-Type", "text/html; charset=utf-8")
+	fmt.Println(c.Writer.Header())
+	httpUtils.EndTotalTimer(c)
 	c.String(code, blob)
 }

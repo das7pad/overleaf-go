@@ -21,6 +21,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"hash"
+	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -38,6 +40,7 @@ type Manager interface {
 	GetSessionById(ctx context.Context, id Id) (*Session, error)
 	Flush(c *gin.Context, session *Session) error
 	RequireLoggedInSession(c *gin.Context) (*Session, error)
+	TouchSession(c *gin.Context, session *Session)
 }
 
 func New(options signedCookie.Options, client redis.UniversalClient) Manager {
@@ -170,4 +173,22 @@ func (m *manager) Flush(c *gin.Context, session *Session) error {
 	}
 	m.signedCookie.Set(c, string(session.id))
 	return nil
+}
+
+func (m *manager) TouchSession(c *gin.Context, session *Session) {
+	if session.id == "" {
+		return
+	}
+	m.signedCookie.Set(c, string(session.id))
+
+	// NOTE: The context will get reused by the next request. Do not access.
+	c = nil
+
+	go func() {
+		ctx, done := context.WithTimeout(context.Background(), 3*time.Second)
+		defer done()
+		if err := session.Touch(ctx); err != nil {
+			log.Printf("touch session failed: %q", err.Error())
+		}
+	}()
 }
