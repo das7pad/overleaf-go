@@ -42,6 +42,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/healthCheck"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/history"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/inactiveProject"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/learn"
@@ -75,6 +76,7 @@ type Manager interface {
 	compileManager
 	editorManager
 	fileTreeManager
+	healthCheckManager
 	historyManager
 	inactiveProjectManager
 	learnManager
@@ -97,7 +99,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, db *mongo.Database, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, db *mongo.Database, client redis.UniversalClient, localURL string) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
@@ -170,6 +172,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err != nil {
 		return nil, err
 	}
+	hcm, err := healthCheck.New(options, client, um, localURL)
+	if err != nil {
+		return nil, err
+	}
 	return &manager{
 		projectJWTHandler:      projectJWTHandler,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -178,6 +184,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		compileManager:         cm,
 		editorManager:          em,
 		fileTreeManager:        ftm,
+		healthCheckManager:     hcm,
 		historyManager:         hm,
 		inactiveProjectManager: ipm,
 		learnManager:           learnM,
@@ -206,6 +213,7 @@ type betaProgramManager = betaProgram.Manager
 type compileManager = compile.Manager
 type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
+type healthCheckManager = healthCheck.Manager
 type historyManager = history.Manager
 type inactiveProjectManager = inactiveProject.Manager
 type learnManager = learn.Manager
@@ -233,6 +241,7 @@ type manager struct {
 	compileManager
 	editorManager
 	fileTreeManager
+	healthCheckManager
 	historyManager
 	inactiveProjectManager
 	learnManager

@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -66,9 +68,15 @@ type Options struct {
 	RobotsNoindex             bool                  `json:"robots_noindex"`
 	Sentry                    SentryOptions         `json:"sentry"`
 	SiteURL                   sharedTypes.URL       `json:"site_url"`
-	StatusPageURL             sharedTypes.URL       `json:"status_page_url"`
-	TeXLiveImageNameOverride  clsiTypes.ImageName   `json:"texlive_image_name_override"`
-	WatchManifest             bool                  `json:"watch_manifest"`
+	SmokeTest                 struct {
+		Email     sharedTypes.Email  `json:"email"`
+		Password  UserPassword       `json:"password"`
+		ProjectId primitive.ObjectID `json:"projectId"`
+		UserId    primitive.ObjectID `json:"userId"`
+	} `json:"smoke_test"`
+	StatusPageURL            sharedTypes.URL     `json:"status_page_url"`
+	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
+	WatchManifest            bool                `json:"watch_manifest"`
 
 	APIs struct {
 		Clsi struct {
@@ -157,6 +165,19 @@ func (o *Options) Validate() error {
 	}
 	if err := o.StatusPageURL.Validate(); err != nil {
 		return errors.Tag(err, "status_page_url is invalid")
+	}
+
+	if err := o.SmokeTest.Email.Validate(); err != nil {
+		return errors.Tag(err, "smoke_test.email is invalid")
+	}
+	if err := o.SmokeTest.Password.Validate(); err != nil {
+		return errors.Tag(err, "smoke_test.password is invalid")
+	}
+	if o.SmokeTest.ProjectId.IsZero() {
+		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
+	}
+	if o.SmokeTest.UserId.IsZero() {
+		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
 
 	if o.Email.From == nil {

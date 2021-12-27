@@ -170,6 +170,11 @@ func (d *ProjectEditorData) Entrypoint() string {
 func (d *ProjectEditorData) Meta() []metaEntry {
 	out := d.AngularLayoutData.Meta()
 	out = append(out, metaEntry{
+		Name:    "ol-project_id",
+		Content: d.EditorBootstrap.Project.Id.Hex(),
+		Type:    stringContentType,
+	})
+	out = append(out, metaEntry{
 		Name:    "ol-bootstrapEditor",
 		Content: d.EditorBootstrap,
 		Type:    jsonContentType,

@@ -63,7 +63,7 @@ func main() {
 		panic(err)
 	}
 
-	wm, err := web.New(o.options, db, redisClient)
+	wm, err := web.New(o.options, db, redisClient, "http://"+o.address)
 	if err != nil {
 		panic(err)
 	}

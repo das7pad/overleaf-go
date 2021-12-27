@@ -85,6 +85,9 @@ func (h *httpController) GetRouter(
 		r.GET("/admin/register", h.adminRegisterUsersPage)
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
 		r.GET("/devs", h.openInOverleafDocumentationPage)
+		r.GET("/health_check", h.smokeTestFull)
+		r.GET("/health_check/api", h.smokeTestAPI)
+		r.GET("/health_check/full", h.smokeTestFull)
 		r.GET("/learn", h.learn)
 		r.GET("/learn/", h.learn)
 		r.GET("/learn/:section", h.learn)
@@ -2233,4 +2236,24 @@ func (h *httpController) adminRegisterUsersPage(c *gin.Context) {
 	res := &types.AdminRegisterUsersPageResponse{}
 	err = h.wm.AdminRegisterUsersPage(c.Request.Context(), request, res)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) smokeTestAPI(c *gin.Context) {
+	err := h.wm.SmokeTestAPI(c.Request.Context())
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) smokeTestFull(c *gin.Context) {
+	res := &types.SmokeTestResponse{}
+	err := h.wm.SmokeTestFull(c.Request.Context(), res)
+	if err != nil {
+		httpUtils.GetAndLogErrResponseDetails(c, err)
+	}
+	httpUtils.EndTotalTimer(c)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+	}
+	e := json.NewEncoder(c.Writer)
+	e.SetIndent("", "  ")
+	_ = e.Encode(res)
 }
