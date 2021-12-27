@@ -17,7 +17,6 @@
 package templates
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -162,7 +161,6 @@ func RespondHTMLCustomStatus(
 	n := strconv.FormatInt(int64(len(blob)), 10)
 	c.Header("Content-Length", n)
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	fmt.Println(c.Writer.Header())
 	httpUtils.EndTotalTimer(c)
 	c.String(code, blob)
 }

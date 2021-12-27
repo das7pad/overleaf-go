@@ -19,7 +19,6 @@ package assets
 import (
 	"encoding/json"
 	"html/template"
-	"log"
 	"os"
 	"strings"
 
@@ -52,8 +51,11 @@ func Load(options *Options) (Manager, error) {
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
 	}
-	if err := m.init(options.WatchManifest); err != nil {
+	if err := m.load(); err != nil {
 		return nil, err
+	}
+	if options.WatchManifest {
+		go m.watch()
 	}
 	return m, nil
 }
@@ -68,26 +70,6 @@ type manager struct {
 type manifest struct {
 	Assets           map[string]template.URL   `json:"assets"`
 	EntrypointChunks map[string][]template.URL `json:"entrypointChunks"`
-}
-
-func (m *manager) init(watch bool) error {
-	if err := m.load(); err != nil {
-		return err
-	}
-	if !watch {
-		return nil
-	}
-	go func() {
-		if err := m.watch(); err != nil {
-			log.Println(err.Error())
-		}
-	}()
-	return nil
-}
-
-func (m *manager) watch() error {
-	// TODO: watch the manifest (folder for renames) or invoke esbuild?
-	return nil
 }
 
 func (m *manager) load() error {
