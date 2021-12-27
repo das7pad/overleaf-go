@@ -117,6 +117,10 @@ func (d *AngularLayoutData) Entrypoint() string {
 	return "frontend/js/main.js"
 }
 
+func (d *AngularLayoutData) CSP() string {
+	return d.Settings.CSPs.Angular
+}
+
 type MarketingLayoutData struct {
 	CommonData
 }
@@ -125,6 +129,14 @@ func (d *MarketingLayoutData) Entrypoint() string {
 	return "frontend/js/marketing.js"
 }
 
+func (d *MarketingLayoutData) CSP() string {
+	return d.Settings.CSPs.Marketing
+}
+
 type NoJsLayoutData struct {
 	CommonData
+}
+
+func (d *NoJsLayoutData) CSP() string {
+	return d.Settings.CSPs.NoJs
 }

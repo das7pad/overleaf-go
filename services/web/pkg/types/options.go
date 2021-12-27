@@ -24,6 +24,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/assets"
+	"github.com/das7pad/overleaf-go/pkg/csp"
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -31,12 +33,11 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
+	"github.com/das7pad/overleaf-go/pkg/templates"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
-	"github.com/das7pad/overleaf-go/services/web/pkg/assets"
-	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 type Options struct {
@@ -46,6 +47,7 @@ type Options struct {
 	AppName           string                       `json:"app_name"`
 	BcryptCost        int                          `json:"bcrypt_cost"`
 	CDNURL            sharedTypes.URL              `json:"cdn_url"`
+	CSPReportURL      *sharedTypes.URL             `json:"csp_report_url"`
 	DefaultImage      clsiTypes.ImageName          `json:"default_image"`
 	Email             struct {
 		CustomFooter     string            `json:"custom_footer"`
@@ -282,12 +284,35 @@ type SentryOptions struct {
 	Frontend templates.SentryFrontendOptions
 }
 
-func (o *Options) PublicSettings() *templates.PublicSettings {
+func (o *Options) PublicSettings() (*templates.PublicSettings, error) {
+	var sentryDSN, pdfDownloadDomain *sharedTypes.URL
+	if dsn := o.Sentry.Frontend.Dsn; dsn != "" {
+		u, err := sharedTypes.ParseAndValidateURL(dsn)
+		if err != nil {
+			return nil, errors.Tag(err, "sentry.frontend.dsn is invalid")
+		}
+		sentryDSN = u
+	}
+	if d := o.PDFDownloadDomain; d != "" {
+		u, err := sharedTypes.ParseAndValidateURL(string(d))
+		if err != nil {
+			return nil, errors.Tag(err, "pdf_download_domain is invalid")
+		}
+		pdfDownloadDomain = u
+	}
+
 	//goland:noinspection SpellCheckingInspection
 	return &templates.PublicSettings{
 		AppName:    o.AppName,
 		AdminEmail: o.AdminEmail,
 		CDNURL:     o.CDNURL,
+		CSPs: csp.Generate(&csp.Options{
+			CDNURL:            o.CDNURL,
+			PdfDownloadDomain: pdfDownloadDomain,
+			ReportURL:         o.CSPReportURL,
+			SentryDSN:         sentryDSN,
+			SiteURL:           o.SiteURL,
+		}),
 		EditorSettings: &templates.EditorSettings{
 			MaxDocLength:           sharedTypes.MaxDocLength,
 			MaxEntitiesPerProject:  2000,
@@ -335,5 +360,5 @@ func (o *Options) PublicSettings() *templates.PublicSettings {
 			"zh-CN": "简体中文",
 		},
 		ZipFileSizeLimit: MaxUploadSize,
-	}
+	}, nil
 }

@@ -17,12 +17,13 @@
 package learn
 
 import (
+	"fmt"
 	"html/template"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
+	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 //goland:noinspection SpellCheckingInspection
@@ -44,8 +45,7 @@ type pageContentRaw struct {
 
 func (pc *pageContentRaw) isHidden() bool {
 	for _, category := range pc.Parse.Categories {
-		switch category.Star {
-		case "Hide", "Draft":
+		if category.Star == "Hide" {
 			return true
 		}
 	}
@@ -68,9 +68,11 @@ var regexOverleafLinks = regexp.MustCompile(
 func (pc *pageContentRaw) parse(ps *templates.PublicSettings) *pageContent {
 	if pc.Parse.RevId == 0 {
 		// Page not found.
+		fmt.Println("revId")
 		return &pageContent{exists: false}
 	}
 	if pc.isHidden() {
+		fmt.Println("hidden")
 		return &pageContent{exists: false}
 	}
 	if redirect := pc.redirect(); redirect != "" {

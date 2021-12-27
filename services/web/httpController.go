@@ -35,9 +35,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/templates"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
-	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -45,9 +45,9 @@ const (
 	maxDocSize = sharedTypes.MaxDocSizeBytes
 )
 
-func newHttpController(ps *templates.PublicSettings, wm web.Manager) httpController {
+func newHttpController(wm web.Manager) httpController {
 	return httpController{
-		ps: ps,
+		ps: wm.GetPublicSettings(),
 		wm: wm,
 	}
 }
@@ -116,6 +116,7 @@ func (h *httpController) GetRouter(
 	}
 
 	apiRouter := router.Group("/api")
+	apiRouter.Use(h.addApiCSP)
 	apiRouter.POST("/open", h.openInOverleaf)
 	apiRouter.POST("/beta/opt-in", h.optInBetaProgram)
 	apiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
@@ -201,6 +202,7 @@ func (h *httpController) GetRouter(
 	}
 
 	jwtRouter := router.Group("/jwt/web")
+	jwtRouter.Use(h.addApiCSP)
 
 	{
 		// The /system/messages endpoint is polled from both the project list
@@ -366,6 +368,10 @@ func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompi
 	return projectJWT.MustGet(c).SignedCompileProjectRequestOptions
 }
 
+func (h *httpController) addApiCSP(c *gin.Context) {
+	c.Header("Content-Security-Policy", h.ps.CSPs.API)
+}
+
 var unsupportedBrowsers = regexp.MustCompile("Trident/|MSIE")
 
 func (h *httpController) blockUnsupportedBrowser(c *gin.Context) {
@@ -399,6 +405,7 @@ func (h *httpController) notFound(c *gin.Context) {
 	err := &errors.NotFoundError{}
 	p := c.Request.URL.Path
 	if strings.HasPrefix(p, "/api") || strings.HasPrefix(p, "/jwt") {
+		h.addApiCSP(c)
 		httpUtils.RespondErr(c, err)
 		return
 	}

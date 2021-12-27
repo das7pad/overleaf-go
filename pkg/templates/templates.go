@@ -24,13 +24,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/das7pad/overleaf-go/pkg/assets"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/translations"
-	"github.com/das7pad/overleaf-go/services/web/pkg/assets"
 )
 
 type Renderer interface {
 	Render() (string, error)
+	CSP() string
 }
 
 //go:embed */*.gohtml

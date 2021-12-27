@@ -17,6 +17,7 @@
 package templates
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/csp"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -69,6 +70,7 @@ type PublicSettings struct {
 	AppName                   string
 	AdminEmail                sharedTypes.Email
 	CDNURL                    sharedTypes.URL
+	CSPs                      csp.CSPs
 	EditorSettings            *EditorSettings
 	EmailConfirmationDisabled bool
 	I18n                      I18nOptions

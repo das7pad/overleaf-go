@@ -188,3 +188,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 func (d *ProjectEditorData) Render() (string, error) {
 	return render("project/editor.gohtml", 110*1024, d)
 }
+
+func (d *ProjectEditorData) CSP() string {
+	return d.Settings.CSPs.Editor
+}

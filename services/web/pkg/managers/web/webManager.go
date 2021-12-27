@@ -33,6 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -68,6 +69,7 @@ import (
 
 type Manager interface {
 	Cron(ctx context.Context, dryRun bool) bool
+	GetPublicSettings() *templates.PublicSettings
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
@@ -103,7 +105,10 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
-	ps := options.PublicSettings()
+	ps, err := options.PublicSettings()
+	if err != nil {
+		return nil, err
+	}
 	sm := session.New(options.SessionCookie, client)
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
@@ -177,8 +182,6 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		return nil, err
 	}
 	return &manager{
-		projectJWTHandler:      projectJWTHandler,
-		loggedInUserJWTHandler: loggedInUserJWTHandler,
 		adminManager:           am,
 		betaProgramManager:     bm,
 		compileManager:         cm,
@@ -189,15 +192,18 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 		inactiveProjectManager: ipm,
 		learnManager:           learnM,
 		linkedFileManager:      lfm,
+		loggedInUserJWTHandler: loggedInUserJWTHandler,
 		loginManager:           lm,
 		notificationsManager:   nm,
 		openInOverleafManager:  OIOm,
 		projectDeletionManager: pDelM,
 		projectDownloadManager: pdm,
 		projectInviteManager:   pim,
+		projectJWTHandler:      projectJWTHandler,
 		projectListManager:     plm,
 		projectMetadataManager: pmm,
 		projectUploadManager:   pum,
+		ps:                     ps,
 		reviewManager:          rm,
 		sessionManager:         sm,
 		systemMessageManager:   smm,
@@ -262,8 +268,13 @@ type manager struct {
 	tokenAccessManager
 	userCreationManager
 	userDeletionManager
-	projectJWTHandler      jwtHandler.JWTHandler
 	loggedInUserJWTHandler jwtHandler.JWTHandler
+	projectJWTHandler      jwtHandler.JWTHandler
+	ps                     *templates.PublicSettings
+}
+
+func (m *manager) GetPublicSettings() *templates.PublicSettings {
+	return m.ps
 }
 
 func (m *manager) GetProjectJWTHandler() jwtHandler.JWTHandler {

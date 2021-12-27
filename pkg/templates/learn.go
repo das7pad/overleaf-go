@@ -35,3 +35,7 @@ func (d *LearnPageData) Render() (string, error) {
 		4*len(d.TitleLocale)
 	return render("learn/page.gohtml", n, d)
 }
+
+func (d *LearnPageData) CSP() string {
+	return d.Settings.CSPs.Learn
+}

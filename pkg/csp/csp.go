@@ -1,0 +1,286 @@
+// Golang port of Overleaf
+// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package csp
+
+import (
+	"crypto/sha512"
+	"encoding/base64"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
+type csp struct {
+	omitProtocol     bool
+	reportURL        *sharedTypes.URL
+	reportViolations bool
+	siteURL          sharedTypes.URL
+	trimPolicy       bool
+
+	baseURI        []string
+	childSrc       []string
+	connectSRC     []string
+	defaultSrc     []string
+	fontSrc        []string
+	formAction     []string
+	frameAncestors []string
+	frameSrc       []string
+	imgSrc         []string
+	manifestSrc    []string
+	mediaSrc       []string
+	scriptSrc      []string
+	styleSrc       []string
+	workerSrc      []string
+}
+
+type directive struct {
+	name         string
+	isStandalone bool
+	items        []string
+}
+
+func (c csp) render() string {
+	// Backwards compatibility for CSP level 3 directives
+	c.childSrc = append(c.childSrc, c.workerSrc...)
+
+	directives := []directive{
+		{
+			name:  "base-uri",
+			items: c.baseURI,
+		},
+		{
+			name:  "child-src",
+			items: c.childSrc,
+		},
+		{
+			name:  "connect-src",
+			items: c.connectSRC,
+		},
+		{
+			name:  "default-src",
+			items: c.defaultSrc,
+		},
+		{
+			name:  "font-src",
+			items: c.fontSrc,
+		},
+		{
+			name:  "form-action",
+			items: c.formAction,
+		},
+		{
+			name:  "frame-ancestors",
+			items: c.frameAncestors,
+		},
+		{
+			name:  "frame-src",
+			items: c.frameSrc,
+		},
+		{
+			name:  "img-src",
+			items: c.imgSrc,
+		},
+		{
+			name:  "manifest-src",
+			items: c.manifestSrc,
+		},
+		{
+			name:  "script-src",
+			items: c.scriptSrc,
+		},
+		{
+			name:  "style-src",
+			items: c.styleSrc,
+		},
+		{
+			name:  "worker-src",
+			items: c.workerSrc,
+		},
+	}
+
+	if c.omitProtocol {
+		directives = append(directives, directive{
+			name:         "block-all-mixed-content",
+			isStandalone: true,
+		})
+	}
+	if c.reportViolations && c.reportURL != nil {
+		directives = append(directives, directive{
+			name:  "report-uri",
+			items: []string{c.reportURL.String()},
+		})
+	}
+
+	b := &strings.Builder{}
+	siteOrigin := c.siteURL.Host
+	for i, d := range directives {
+		uniq := make(map[string]bool, 0)
+		for _, item := range d.items {
+			if item == "" {
+				continue
+			}
+			if item == siteOrigin {
+				item = "'self'"
+			}
+			if !c.omitProtocol {
+				switch item {
+				case "data:", "blob:", "'self'":
+					// constants
+				default:
+					if !(strings.HasPrefix(item, "http://") ||
+						strings.HasPrefix(item, "https://") ||
+						strings.HasPrefix(item, "'")) {
+						item = "https://" + item
+					}
+				}
+			}
+			uniq[item] = true
+		}
+		if len(uniq) == 0 {
+			if c.trimPolicy &&
+				d.name != "default-src" &&
+				strings.HasSuffix(d.name, "-src") {
+				continue
+			}
+			uniq["'none'"] = true
+		}
+		flat := make([]string, 0, len(uniq))
+		for s := range uniq {
+			flat = append(flat, s)
+		}
+		sort.Slice(flat, func(i, j int) bool {
+			return flat[i] < flat[j]
+		})
+
+		if i != 0 {
+			b.WriteString("; ")
+		}
+		b.WriteString(d.name)
+		if d.isStandalone {
+			continue
+		}
+		for _, s := range flat {
+			b.WriteString(" ")
+			b.WriteString(s)
+		}
+	}
+	return b.String()
+}
+
+func getDigest(blob string) string {
+	h := sha512.New()
+	h.Write([]byte(blob))
+	return fmt.Sprintf(
+		"'sha512-%s'",
+		base64.StdEncoding.EncodeToString(h.Sum(nil)),
+	)
+}
+
+type Options struct {
+	CDNURL            sharedTypes.URL
+	PdfDownloadDomain *sharedTypes.URL
+	ReportURL         *sharedTypes.URL
+	SentryDSN         *sharedTypes.URL
+	SiteURL           sharedTypes.URL
+}
+
+type CSPs struct {
+	API       string
+	Angular   string
+	Marketing string
+	NoJs      string
+	Editor    string
+	Learn     string
+}
+
+func Generate(o *Options) CSPs {
+	// NOTE: expectation: everything is on https://.
+	siteOrigin := o.SiteURL.Host
+	cdnOrigin := o.CDNURL.Host
+	pdfDownloadOrigin := o.PdfDownloadDomain.Host
+	sentryOrigin := ""
+	if o.SentryDSN != nil {
+		sentryOrigin = o.SentryDSN.Host
+	}
+
+	noJs := csp{
+		omitProtocol:     true,
+		reportURL:        o.ReportURL,
+		reportViolations: true,
+		siteURL:          o.SiteURL,
+
+		baseURI:    []string{siteOrigin},
+		connectSRC: []string{},
+		fontSrc:    []string{cdnOrigin},
+		formAction: []string{siteOrigin},
+		frameSrc:   []string{},
+		imgSrc:     []string{cdnOrigin, "data:", "blob:"},
+		scriptSrc:  []string{},
+		styleSrc:   []string{cdnOrigin},
+	}
+
+	js := noJs
+	js.connectSRC = append(js.connectSRC, siteOrigin, sentryOrigin)
+	js.scriptSrc = append(js.scriptSrc, cdnOrigin)
+
+	angular := js
+	// angular-sanitize probe
+	angular.styleSrc = append(angular.styleSrc, getDigest(`<img src="`))
+
+	marketing := js
+
+	learn := marketing
+	// Media files and Tutorial videos.
+	learn.frameSrc = append(learn.frameSrc, "www.youtube.com")
+	learn.imgSrc = append(learn.imgSrc, siteOrigin, "wikimedia.org", "www.filepicker.io")
+	learn.mediaSrc = append(learn.mediaSrc, "videos.ctfassets.net")
+	// Too many inline styles to put on an allow-list.
+	learn.styleSrc = append(learn.styleSrc, "'unsafe-inline'")
+
+	editor := angular
+	// PDF.js character maps and PDF/logs requests
+	editor.connectSRC = append(editor.connectSRC, cdnOrigin, pdfDownloadOrigin)
+	// Browser pdf viewer
+	editor.frameSrc = append(editor.frameSrc, pdfDownloadOrigin)
+	// Binary file preview
+	editor.imgSrc = append(editor.imgSrc, siteOrigin)
+	// Ace and pdf.js
+	editor.workerSrc = append(editor.workerSrc, "blob:")
+	if siteOrigin == cdnOrigin {
+		// PDF.js worker loading supports CORS and has an 'optimization'.
+		// - siteOrigin!=cdnOrigin: Load Worker from Blob with importScripts().
+		// - siteOrigin==cdnOrigin: Load Worker directly from URL.
+		editor.workerSrc = append(editor.workerSrc, siteOrigin)
+	}
+
+	api := csp{
+		siteURL:    o.SiteURL,
+		trimPolicy: true,
+		imgSrc:     []string{siteOrigin, cdnOrigin},
+	}
+
+	return CSPs{
+		API:       api.render(),
+		Angular:   angular.render(),
+		Marketing: marketing.render(),
+		NoJs:      noJs.render(),
+		Editor:    editor.render(),
+		Learn:     learn.render(),
+	}
+}

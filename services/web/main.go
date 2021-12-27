@@ -25,8 +25,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
-	"github.com/das7pad/overleaf-go/services/web/pkg/templates"
 )
 
 func waitForDb(ctx context.Context, client *mongo.Client) error {
@@ -82,7 +82,7 @@ func main() {
 		panic(err)
 	}
 
-	handler := newHttpController(o.options.PublicSettings(), wm)
+	handler := newHttpController(wm)
 	router := handler.GetRouter(o.clientIPOptions, o.corsOptions)
 	if err = router.Run(o.address); err != nil {
 		panic(err)
