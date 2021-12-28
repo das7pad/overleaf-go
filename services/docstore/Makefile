@@ -49,15 +49,13 @@ run-ci:
 
 check-not-changed:
 	$(BUILD_IN) golang:1.17-alpine3.14 go list -f '{{ join .Deps "\n" }}' \
-	| grep $(PACKAGE) | sed s,$(PACKAGE)/,../../, | xargs \
-	| xargs sh -e -c 'find . "$$@" -type f -name "*.go"' | sort | uniq \
-	| xargs git diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
-
-	git diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT) \
-		../../go.mod \
-		../../go.sum \
-		Dockerfile \
-		Makefile \
+	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
+	| xargs echo \
+	 	go.mod \
+	 	go.sum \
+	 	services/$(SERVICE) \
+	| sort | uniq \
+	| xargs git -C ../../ diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
 
 .PHONY: $(SERVICE)
 $(SERVICE):
