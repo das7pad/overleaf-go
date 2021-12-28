@@ -281,7 +281,7 @@ func (o *Options) EmailOptions() *EmailOptions {
 }
 
 type SentryOptions struct {
-	Frontend templates.SentryFrontendOptions
+	Frontend templates.SentryFrontendOptions `json:"frontend"`
 }
 
 func (o *Options) PublicSettings() (*templates.PublicSettings, error) {

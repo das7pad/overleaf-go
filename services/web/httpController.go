@@ -84,8 +84,11 @@ func (h *httpController) GetRouter(
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
 		r.GET("/devs", h.openInOverleafDocumentationPage)
 		r.GET("/health_check", h.smokeTestFull)
+		r.HEAD("/health_check", h.smokeTestFull)
 		r.GET("/health_check/api", h.smokeTestAPI)
+		r.HEAD("/health_check/api", h.smokeTestAPI)
 		r.GET("/health_check/full", h.smokeTestFull)
+		r.HEAD("/health_check/full", h.smokeTestFull)
 		// NOTE: Intercept cleanup of trailing slash. We might need to redirect
 		//        somewhere else again and can shortcut a chain of redirects.
 		r.GET("/learn", h.learn)
