@@ -227,9 +227,10 @@ func (m *manager) SmokeTestFull(ctx context.Context, response *types.SmokeTestRe
 		done()
 	}
 	response.Stats = &types.SmokeTestStats{
-		Start: start,
-		Steps: steps,
-		End:   lastEnd,
+		Start:    start,
+		Steps:    steps,
+		End:      lastEnd,
+		Duration: lastEnd.Sub(start).String(),
 	}
 	return fatalError
 }

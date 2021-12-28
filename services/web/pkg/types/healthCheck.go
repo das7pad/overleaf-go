@@ -31,7 +31,7 @@ type SmokeTestStats struct {
 	Start    time.Time        `json:"start"`
 	Steps    []*SmokeTestStep `json:"steps"`
 	End      time.Time        `json:"end"`
-	Duration time.Duration    `json:"duration"`
+	Duration string           `json:"duration"`
 }
 
 type SmokeTestResponse struct {
