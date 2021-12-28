@@ -28,7 +28,7 @@ func (m *manager) watch() {
 	for {
 		res, err := http.Get(string(m.base) + "/event-source")
 		if err != nil {
-			time.Sleep(1)
+			time.Sleep(time.Second)
 			log.Printf(
 				"assets: watch: GET /event-source: %q",
 				err.Error(),
@@ -36,16 +36,16 @@ func (m *manager) watch() {
 			continue
 		}
 		if status := res.StatusCode; status != 200 {
-			time.Sleep(1)
+			time.Sleep(time.Second)
 			log.Printf(
-				"assets: watch: GET /event-source: unexpected status: %q",
+				"assets: watch: GET /event-source: unexpected status: %d",
 				status,
 			)
 			_ = res.Body.Close()
 			continue
 		}
 		if ct := res.Header.Get("Content-Type"); ct != "text/event-stream" {
-			time.Sleep(1)
+			time.Sleep(time.Second)
 			log.Printf(
 				"assets: watch: GET /event-source: unexpected CT: %q", ct,
 			)
@@ -61,13 +61,13 @@ func (m *manager) watch() {
 			}
 			if err = m.load(); err != nil {
 				log.Printf(
-					"assets: watch: reload failed: %s", err.Error(),
+					"assets: watch: reload failed: %q", err.Error(),
 				)
 				continue
 			}
 		}
 		log.Printf(
-			"assets: watch: streaming stopped with err=%s", r.Err(),
+			"assets: watch: streaming stopped with err=%q", r.Err(),
 		)
 		_ = res.Body.Close()
 	}

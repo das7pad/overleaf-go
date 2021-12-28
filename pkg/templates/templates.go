@@ -136,7 +136,7 @@ func Load(appName string, assetsOptions *assets.Options) error {
 		if err != nil {
 			return errors.Tag(err, "cannot clone layout for "+p)
 		}
-		templates[p], err = c.New(filepath.Base(p)).ParseFS(_fs, p)
+		templates[p], err = c.New(filepath.Base(p)).Parse(s)
 		if err != nil {
 			return errors.Tag(err, "cannot parse "+p)
 		}

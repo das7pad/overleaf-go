@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -57,9 +56,9 @@ type renderer interface {
 	Render(data interface{}) (template.HTML, error)
 }
 
-type simpleLocale string
+type staticLocale string
 
-func (l simpleLocale) Render(interface{}) (template.HTML, error) {
+func (l staticLocale) Render(interface{}) (template.HTML, error) {
 	return template.HTML(l), nil
 }
 
@@ -105,20 +104,28 @@ func Load(appName string) (Manager, error) {
 }
 
 func parseLocales(raw map[string]string, appName string) (map[string]renderer, error) {
-	appNameRegex := regexp.MustCompile("{{ .Settings.AppName }}")
+	type minSettings struct {
+		AppName string
+	}
+	type minData struct {
+		Settings minSettings
+	}
+	data := &minData{Settings: minSettings{AppName: appName}}
 
 	d := make(map[string]renderer, len(raw))
+	buffer := &strings.Builder{}
 	for key, s := range raw {
-		s = appNameRegex.ReplaceAllString(s, appName)
-		if !strings.Contains(s, "{{") && !strings.Contains(s, "<") {
-			d[key] = simpleLocale(template.HTMLEscapeString(s))
-			continue
-		}
 		t, err := template.New(key).Parse(s)
 		if err != nil {
 			return nil, errors.Tag(err, "cannot parse locale: "+key)
 		}
-		d[key] = &templateLocale{t: t}
+		buffer.Reset()
+		// Escape the template and identify static locales.
+		if err = t.Execute(buffer, data); err == nil {
+			d[key] = staticLocale(buffer.String())
+		} else {
+			d[key] = &templateLocale{t: t}
+		}
 	}
 	return d, nil
 }
