@@ -43,6 +43,15 @@ pipeline {
 EOF
 
 for path in services/*/; do
+  case $path in
+  services/chat/ | services/docstore/ | services/filestore/)
+    # virtual
+    continue
+    ;;
+  services/track-changes/)
+    continue
+    ;;
+  esac
   service=${path%/}
   serviceName=${service#services/}
   cat <<EOF

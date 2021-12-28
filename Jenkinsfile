@@ -20,28 +20,6 @@ pipeline {
   stages {
     stage('Fan out') {
       parallel {
-        stage('chat') {
-          agent {
-            label 'docker_builder'
-          }
-          steps {
-            dir('services/chat') {
-              sh 'make run-ci-if-needed'
-            }
-            archiveArtifacts(
-              allowEmptyArchive: true,
-              artifacts:         'services/chat/docker-image.digest.txt*',
-              onlyIfSuccessful:  true,
-            )
-          }
-          post {
-            cleanup {
-              dir('services/chat') {
-                sh 'make docker/clean'
-              }
-            }
-          }
-        }
         stage('clsi') {
           agent {
             label 'docker_builder'
@@ -64,28 +42,6 @@ pipeline {
             }
           }
         }
-        stage('docstore') {
-          agent {
-            label 'docker_builder'
-          }
-          steps {
-            dir('services/docstore') {
-              sh 'make run-ci-if-needed'
-            }
-            archiveArtifacts(
-              allowEmptyArchive: true,
-              artifacts:         'services/docstore/docker-image.digest.txt*',
-              onlyIfSuccessful:  true,
-            )
-          }
-          post {
-            cleanup {
-              dir('services/docstore') {
-                sh 'make docker/clean'
-              }
-            }
-          }
-        }
         stage('document-updater') {
           agent {
             label 'docker_builder'
@@ -103,28 +59,6 @@ pipeline {
           post {
             cleanup {
               dir('services/document-updater') {
-                sh 'make docker/clean'
-              }
-            }
-          }
-        }
-        stage('filestore') {
-          agent {
-            label 'docker_builder'
-          }
-          steps {
-            dir('services/filestore') {
-              sh 'make run-ci-if-needed'
-            }
-            archiveArtifacts(
-              allowEmptyArchive: true,
-              artifacts:         'services/filestore/docker-image.digest.txt*',
-              onlyIfSuccessful:  true,
-            )
-          }
-          post {
-            cleanup {
-              dir('services/filestore') {
                 sh 'make docker/clean'
               }
             }
