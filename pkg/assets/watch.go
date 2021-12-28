@@ -59,6 +59,7 @@ func (m *manager) watch() {
 			if blob != "event: epoch" && blob != "event: rebuild" {
 				continue
 			}
+			log.Println("assets: watch: reloading")
 			if err = m.load(); err != nil {
 				log.Printf(
 					"assets: watch: reload failed: %q", err.Error(),
@@ -67,7 +68,7 @@ func (m *manager) watch() {
 			}
 		}
 		log.Printf(
-			"assets: watch: streaming stopped with err=%q", r.Err(),
+			"assets: watch: streaming stopped with err=%v", r.Err(),
 		)
 		_ = res.Body.Close()
 	}

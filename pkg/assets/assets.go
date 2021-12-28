@@ -94,7 +94,7 @@ func (m *manager) load() error {
 		assets[s] = m.base + url
 	}
 	// NOTE: In theory, a template could use a mix of stale/fresh data.
-	//       In praxis, this code path is at boot-time and in dev only.
+	//       In praxis, this code path is hit at boot-time and in dev only.
 	m.assets = assets
 	m.entrypointChunks = entrypointChunks
 	return nil
