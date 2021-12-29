@@ -37,7 +37,7 @@ func NewProject(ownerId primitive.ObjectID) *ForCreation {
 			Compiler: DefaultCompiler,
 		},
 		EpochField: EpochField{
-			Epoch: 0,
+			Epoch: 1,
 		},
 		IdField: IdField{
 			Id: primitive.NewObjectID(),
