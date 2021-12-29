@@ -151,7 +151,12 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 		// Ignore errors as there is no option to recover from any error
 		//  (e.g. retry logging out) as the actual session data has been
 		//  cleared already.
-		_ = s.client.SRem(ctx, userSessionsKey(*s.incomingUserId), key).Err()
+		go func() {
+			bCtx, done :=
+				context.WithTimeout(context.Background(), 3*time.Second)
+			defer done()
+			s.client.SRem(bCtx, userSessionsKey(*s.incomingUserId), key)
+		}()
 	}
 	return nil
 }
