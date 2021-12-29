@@ -2277,7 +2277,9 @@ func (h *httpController) smokeTestFull(c *gin.Context) {
 	httpUtils.EndTotalTimer(c)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
+		httpUtils.GetAndLogErrResponseDetails(c, err)
 	}
+	c.Header("Content-Type", "application/json; charset=utf-8")
 	e := json.NewEncoder(c.Writer)
 	e.SetIndent("", "  ")
 	_ = e.Encode(res)
