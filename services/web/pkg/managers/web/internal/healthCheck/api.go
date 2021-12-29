@@ -23,7 +23,10 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 )
 
 func (m *manager) smokeTestRedis(ctx context.Context) error {
@@ -54,14 +57,39 @@ func (m *manager) smokeTestMongo(ctx context.Context) error {
 	return nil
 }
 
-func (m *manager) SmokeTestAPI(ctx context.Context) error {
-	ctx, done := context.WithTimeout(ctx, 5*time.Second)
+func (m *manager) smokeTestAPI() error {
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	if err := m.smokeTestRedis(ctx); err != nil {
-		return errors.Tag(err, "redis check failed")
+	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		if err := m.smokeTestRedis(pCtx); err != nil {
+			return errors.Tag(err, "redis check failed")
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		if err := m.smokeTestMongo(pCtx); err != nil {
+			return errors.Tag(err, "mongo check failed")
+		}
+		return nil
+	})
+	return eg.Wait()
+}
+
+func (m *manager) getPendingOrStartApiSmokeTest() pendingOperation.PendingOperation {
+	m.apiMux.Lock()
+	defer m.apiMux.Unlock()
+	if p := m.apiPending; p != nil && m.apiValidUntil.After(time.Now()) {
+		return p
 	}
-	if err := m.smokeTestMongo(ctx); err != nil {
-		return errors.Tag(err, "mongo check failed")
-	}
-	return nil
+	p := pendingOperation.TrackOperation(func() error {
+		return m.smokeTestAPI()
+	})
+	m.apiPending = p
+	m.apiValidUntil = time.Now().Add(5 * time.Second)
+	return p
+}
+
+func (m *manager) SmokeTestAPI(ctx context.Context) error {
+	return m.getPendingOrStartApiSmokeTest().Wait(ctx)
 }

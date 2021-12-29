@@ -24,12 +24,15 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sync"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -82,6 +85,10 @@ type manager struct {
 	client       redis.UniversalClient
 	randomPrefix string
 	um           user.Manager
+
+	apiMux        sync.Mutex
+	apiPending    pendingOperation.PendingOperation
+	apiValidUntil time.Time
 
 	smokeTestLoginBody     []byte
 	smokeTestProjectIdMeta *regexp.Regexp
