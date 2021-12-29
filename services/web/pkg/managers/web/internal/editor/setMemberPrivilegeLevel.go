@@ -45,8 +45,6 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, request 
 			return errUserIsNotAMember
 		}
 
-		// Clearing the epoch is OK to do at any time.
-		// Clear it just ahead of changing access.
 		err = projectJWT.ClearProjectField(ctx, m.client, projectId)
 		if err != nil {
 			return err
@@ -54,8 +52,6 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, request 
 		err = m.pm.GrantMemberAccess(
 			ctx, projectId, d.Epoch, userId, request.PrivilegeLevel,
 		)
-		// Clear it immediately after changing access.
-		_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
 		if err != nil {
 			if errors.GetCause(err) == project.ErrEpochIsNotStable {
 				continue

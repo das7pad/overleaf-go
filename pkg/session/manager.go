@@ -106,9 +106,7 @@ func (m *manager) DestroyAllForUser(ctx context.Context, userId primitive.Object
 	return nil
 }
 
-var ErrNotLoggedIn = &errors.UnauthorizedError{
-	Reason: "not logged in",
-}
+var ErrNotLoggedIn = &errors.UnauthorizedError{Reason: "not logged in"}
 
 func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {
 	sess, err := m.GetSession(c)

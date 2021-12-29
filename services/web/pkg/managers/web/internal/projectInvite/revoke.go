@@ -40,18 +40,12 @@ func (m *manager) RevokeProjectInvite(ctx context.Context, request *types.Revoke
 			return errors.Tag(err, "cannot delete invite notification")
 		}
 
-		// Clearing the epoch is OK to do at any time.
-		// Clear it just ahead of committing the tx.
 		err := projectJWT.ClearProjectField(ctx, m.client, projectId)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
-	// Clearing the epoch is OK to do at any time.
-	// Clear it immediately after aborting/committing the tx.
-	_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
-
 	if err != nil {
 		return err
 	}

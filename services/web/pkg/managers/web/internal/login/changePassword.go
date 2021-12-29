@@ -81,9 +81,11 @@ func (m *manager) changePassword(ctx context.Context, u *user.ForPasswordChange,
 	if err != nil {
 		return err
 	}
-	_ = projectJWT.ClearUserField(ctx, m.client, u.Id)
+	err = projectJWT.ClearUserField(ctx, m.client, u.Id)
+	if err != nil {
+		return err
+	}
 	errChange := m.um.ChangePassword(ctx, u, ip, action, hashedPassword)
-	_ = projectJWT.ClearUserField(ctx, m.client, u.Id)
 	if errChange != nil {
 		return errors.Tag(errChange, "cannot change password")
 	}

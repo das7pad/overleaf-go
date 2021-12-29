@@ -49,9 +49,11 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 	}
 
 	{
-		_ = projectJWT.ClearUserField(ctx, m.client, userId)
-		err := m.um.ChangeEmailAddress(ctx, u, r.IPAddress, newEmail)
-		_ = projectJWT.ClearUserField(ctx, m.client, userId)
+		err := projectJWT.ClearUserField(ctx, m.client, userId)
+		if err != nil {
+			return err
+		}
+		err = m.um.ChangeEmailAddress(ctx, u, r.IPAddress, newEmail)
 		if err != nil {
 			return errors.Tag(err, "cannot change email")
 		}

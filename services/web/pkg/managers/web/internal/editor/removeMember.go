@@ -74,17 +74,12 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId primiti
 		if err := m.tm.RemoveProjectForUser(ctx, userId, projectId); err != nil {
 			return errors.Tag(err, "cannot remove project from tags")
 		}
-		// Clearing the epoch is OK to do at any time.
-		// Clear it just ahead of committing the tx.
 		err := projectJWT.ClearProjectField(ctx, m.client, projectId)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
-	// Clearing the epoch is OK to do at any time.
-	// Clear it immediately after aborting/committing the tx.
-	_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
 	if err != nil {
 		return err
 	}

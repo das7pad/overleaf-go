@@ -84,15 +84,11 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 			}
 		}
 
-		// Clearing the epoch is OK to do at any time.
-		// Clear it just ahead of changing access.
 		err = projectJWT.ClearProjectField(ctx, m.client, projectId)
 		if err != nil {
 			return err
 		}
 		err = m.pm.TransferOwnership(ctx, p, newOwnerId)
-		// Clear it immediately after potentially changing access.
-		_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
 		if err != nil {
 			if errors.GetCause(err) == project.ErrEpochIsNotStable {
 				continue

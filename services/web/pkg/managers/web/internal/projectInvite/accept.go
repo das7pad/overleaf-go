@@ -78,8 +78,6 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			}
 
 			if grantAccess {
-				// Clearing the epoch is OK to do at any time.
-				// Clear it just ahead of committing the tx.
 				err = projectJWT.ClearProjectField(ctx, m.client, projectId)
 				if err != nil {
 					return err
@@ -87,12 +85,6 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			}
 			return nil
 		})
-		if grantAccess {
-			// Clearing the epoch is OK to do at any time.
-			// Clear it immediately after aborting/committing the tx.
-			// The user may already be a member by now. Do not error out.
-			_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
-		}
 		if err != nil {
 			if errors.GetCause(err) == project.ErrEpochIsNotStable {
 				continue

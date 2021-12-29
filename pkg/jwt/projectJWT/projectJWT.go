@@ -68,24 +68,21 @@ func (c *Claims) Valid() error {
 	return nil
 }
 
-func (c *Claims) EpochItems() epochJWT.FetchJWTEpochItems {
-	return epochJWT.FetchJWTEpochItems{
-		Items: epochJWT.JWTEpochItems{
-			{
-				Field: projectIdField,
-				Id:    c.ProjectId,
-				Epoch: &c.AuthorizationDetails.Epoch,
-				Fetch: c.fetchProjectEpoch,
-			},
-			{
-				Field: userIdField,
-				Id:    c.UserId,
-				Epoch: &c.EpochUser,
-				Fetch: c.fetchUserEpoch,
-			},
+func (c *Claims) CheckEpochItems(ctx context.Context) error {
+	return epochJWT.JWTEpochItems{
+		{
+			Field:             projectIdField,
+			Id:                c.ProjectId,
+			UserProvidedEpoch: c.AuthorizationDetails.Epoch,
+			Fetch:             c.fetchProjectEpoch,
 		},
-		Client: c.client,
-	}
+		{
+			Field:             userIdField,
+			Id:                c.UserId,
+			UserProvidedEpoch: c.EpochUser,
+			Fetch:             c.fetchUserEpoch,
+		},
+	}.Check(ctx, c.client)
 }
 
 func (c *Claims) PostProcess(target *gin.Context) error {
@@ -94,7 +91,7 @@ func (c *Claims) PostProcess(target *gin.Context) error {
 		return ErrMismatchingProjectId
 	}
 
-	if err := c.EpochItems().Check(target.Request.Context()); err != nil {
+	if err := c.CheckEpochItems(target.Request.Context()); err != nil {
 		return err
 	}
 

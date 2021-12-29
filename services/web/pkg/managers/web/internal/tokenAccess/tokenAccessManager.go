@@ -82,15 +82,11 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 		projectId := r.ProjectId
 		if request.Session.IsLoggedIn() {
 			if r.ShouldGrantHigherAccess() {
-				// Clearing the epoch is OK to do at any time.
-				// Clear it just ahead of committing the tx.
 				err = projectJWT.ClearProjectField(ctx, m.client, projectId)
 				if err != nil {
 					return err
 				}
 				err = granter(ctx, projectId, r.Epoch, userId)
-				// Clear it again after potentially updating the epoch.
-				_ = projectJWT.ClearProjectField(ctx, m.client, projectId)
 				if err != nil {
 					if errors.GetCause(err) == project.ErrEpochIsNotStable {
 						continue

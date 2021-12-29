@@ -27,7 +27,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/cmd/internal/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -47,11 +46,23 @@ func rewriteMongoError(err error) error {
 
 func setIsAdmin(ctx context.Context, c *mongo.Collection, client redis.UniversalClient, sm session.Manager, email sharedTypes.Email, isAdmin bool) error {
 	u := &user.IdField{}
-	err := c.FindOneAndUpdate(
+	q := user.EmailField{Email: email}
+	log.Println("looking for user")
+	if err := c.FindOne(ctx, q).Decode(u); err != nil {
+		return rewriteMongoError(err)
+	}
+	log.Println("clearing JWT state")
+	if err := projectJWT.ClearUserField(ctx, client, u.Id); err != nil {
+		return errors.Tag(err, "cannot cleanup JWT state, please retry")
+	}
+	log.Println("clearing sessions")
+	if err := sm.DestroyAllForUser(ctx, u.Id); err != nil {
+		return errors.Tag(err, "cannot cleanup sessions, please retry")
+	}
+	log.Println("updating user in mongo")
+	r, err := c.UpdateOne(
 		ctx,
-		user.EmailField{
-			Email: email,
-		},
+		u,
 		bson.M{
 			"$set": user.IsAdminField{
 				IsAdmin: isAdmin,
@@ -60,18 +71,12 @@ func setIsAdmin(ctx context.Context, c *mongo.Collection, client redis.Universal
 				Epoch: 1,
 			},
 		},
-		options.FindOneAndUpdate().SetProjection(bson.M{"_id": true}),
-	).Decode(u)
+	)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
-	log.Println("clearing JWT state")
-	if err = projectJWT.ClearUserField(ctx, client, u.Id); err != nil {
-		return errors.Tag(err, "cannot cleanup JWT state, please retry")
-	}
-	log.Println("clearing sessions")
-	if err = sm.DestroyAllForUser(ctx, u.Id); err != nil {
-		return errors.Tag(err, "cannot cleanup sessions, please retry")
+	if r.ModifiedCount != 1 {
+		return &errors.InvalidStateError{Msg: "could not update user"}
 	}
 	return nil
 }

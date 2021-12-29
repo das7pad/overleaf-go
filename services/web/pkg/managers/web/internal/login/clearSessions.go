@@ -30,26 +30,15 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) wrapInEpochClear(ctx context.Context, userId primitive.ObjectID, action func() error) error {
-	_ = projectJWT.ClearUserField(ctx, m.client, userId)
-	errAction := action()
-	errClearAgain := projectJWT.ClearUserField(ctx, m.client, userId)
-	if errAction != nil {
-		return errors.Tag(errAction, "action failed")
+func (m *manager) bumpEpoch(ctx context.Context, userId primitive.ObjectID) error {
+	err := projectJWT.ClearUserField(ctx, m.client, userId)
+	if err != nil {
+		return err
 	}
-	if errClearAgain != nil {
-		return errors.Tag(errClearAgain, "cannot clear epoch in redis")
+	if err = m.um.BumpEpoch(ctx, userId); err != nil {
+		return errors.Tag(err, "cannot bump user epoch in mongo")
 	}
 	return nil
-}
-
-func (m *manager) bumpEpoch(ctx context.Context, userId primitive.ObjectID) error {
-	return m.wrapInEpochClear(ctx, userId, func() error {
-		if err := m.um.BumpEpoch(ctx, userId); err != nil {
-			return errors.Tag(err, "cannot bump user epoch in mongo")
-		}
-		return nil
-	})
 }
 
 type clearSessionsAuditLogInfo struct {
@@ -111,15 +100,13 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	info := &clearSessionsAuditLogInfo{Sessions: d.Sessions}
 
 	// Add audit log entry and bump user epoch.
-	err = m.wrapInEpochClear(ctx, userId, func() error {
-		err2 := m.um.TrackClearSessions(ctx, userId, request.IPAddress, info)
-		if err2 != nil {
-			return errors.Tag(err2, "cannot track session clearing in mongo")
-		}
-		return nil
-	})
+	err = projectJWT.ClearUserField(ctx, m.client, userId)
 	if err != nil {
 		return err
+	}
+	err = m.um.TrackClearSessions(ctx, userId, request.IPAddress, info)
+	if err != nil {
+		return errors.Tag(err, "cannot track session clearing in mongo")
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {

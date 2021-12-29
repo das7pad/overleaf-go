@@ -19,23 +19,14 @@ package login
 import (
 	"context"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) Logout(ctx context.Context, request *types.LogoutRequest) error {
 	if request.Session.IsLoggedIn() {
-		userId := request.Session.User.Id
-		_ = projectJWT.ClearUserField(ctx, m.client, userId)
-		errBump := m.um.BumpEpoch(ctx, userId)
-		errClearAgain := projectJWT.ClearUserField(ctx, m.client, userId)
-		if errBump != nil {
-			return errors.Tag(errBump, "cannot bump user epoch in mongo")
-		}
-		if errClearAgain != nil {
-			return errors.Tag(errClearAgain, "cannot clear epoch in redis")
+		if err := m.bumpEpoch(ctx, request.Session.User.Id); err != nil {
+			return err
 		}
 	}
 	return request.Session.Destroy(ctx)
