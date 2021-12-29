@@ -123,7 +123,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		p, err = m.pm.GetLoadEditorDetails(ctx, projectId, userId)
+		p, err = m.pm.GetLoadEditorDetails(pCtx, projectId, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get project details")
 		}

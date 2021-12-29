@@ -132,8 +132,8 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 			return nil
 		})
 		eg.Go(func() error {
-			return m.setSpellCheckLanguage(
-				ctx, &p.SpellCheckLanguageField, userId,
+			return m.setSpellCheckLanguageInProject(
+				pCtx, &p.SpellCheckLanguageField, userId,
 			)
 		})
 

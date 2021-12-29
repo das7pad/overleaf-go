@@ -162,7 +162,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 	var tags []tag.Full
 	eg.Go(func() error {
 		var err error
-		tags, err = m.tm.GetAll(ctx, userId)
+		tags, err = m.tm.GetAll(pCtx, userId)
 		if err != nil {
 			return errors.Tag(err, "cannot get tags")
 		}

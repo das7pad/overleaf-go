@@ -65,7 +65,9 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 			return errNoRootFolder
 		}
 
-		eg, pCtx := errgroup.WithContext(ctx)
+		// NOTE: Flushing and un-archiving is expensive.
+		//       Do not abort on transient session/sibling action errors.
+		eg := &errgroup.Group{}
 		eg.Go(func() error {
 			if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
 				return errors.Tag(err, "cannot flush docs to mongo")
@@ -135,7 +137,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 
 		copyFileQueue := make(chan *copyFileQueueEntry, parallelUploads)
 		doneCopyingFileQueue := make(chan *copyFileQueueEntry, parallelUploads)
-		eg, pCtx = errgroup.WithContext(sCtx)
+		eg, pCtx := errgroup.WithContext(sCtx)
 		go func() {
 			<-pCtx.Done()
 			if pCtx.Err() != nil {
