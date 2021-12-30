@@ -47,6 +47,10 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
+const (
+	prefetchN = 100
+)
+
 type manager struct {
 	c *mongo.Collection
 }
@@ -104,7 +108,11 @@ func (m *manager) GetAllForProject(ctx context.Context, projectId primitive.Obje
 
 	invites := make([]*WithoutToken, 0)
 	r, err := m.c.Find(
-		ctx, q, options.Find().SetProjection(getProjection(invites)),
+		ctx,
+		q,
+		options.Find().
+			SetProjection(getProjection(invites)).
+			SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)

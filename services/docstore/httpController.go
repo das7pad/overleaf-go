@@ -27,7 +27,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
 func newHttpController(dm docstore.Manager) httpController {
@@ -72,22 +71,10 @@ func (h *httpController) status(c *gin.Context) {
 	c.String(http.StatusOK, "docstore is alive (go)\n")
 }
 
-type peakDeletedDocNamesOptions struct {
-	Limit types.Limit `form:"limit"`
-}
-
 func (h *httpController) peakDeletedDocNames(c *gin.Context) {
-	requestOptions := &peakDeletedDocNamesOptions{}
-	_ = c.ShouldBindQuery(requestOptions)
-	limit := docstore.DefaultLimit
-	if requestOptions.Limit > 0 {
-		limit = requestOptions.Limit
-	}
-
 	docNames, err := h.dm.PeakDeletedDocNames(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
-		limit,
 	)
 	httpUtils.Respond(c, http.StatusOK, docNames, err)
 }

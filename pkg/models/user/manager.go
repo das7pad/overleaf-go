@@ -366,7 +366,9 @@ func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []primitiv
 				"$in": userIds,
 			},
 		},
-		options.Find().SetProjection(getProjection(users)),
+		options.Find().
+			SetProjection(getProjection(users)).
+			SetBatchSize(int32(len(userIds))),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)

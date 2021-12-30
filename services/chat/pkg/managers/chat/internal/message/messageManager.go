@@ -73,6 +73,10 @@ func New(db *mongo.Database) Manager {
 	}
 }
 
+const (
+	prefetchN = 100
+)
+
 type manager struct {
 	messagesCollection *mongo.Collection
 }
@@ -133,7 +137,8 @@ func (m *manager) GetMessages(
 			SetSort(bson.M{
 				"timestamp": -1,
 			}).
-			SetLimit(limit),
+			SetLimit(limit).
+			SetBatchSize(int32(limit)),
 	)
 	if err != nil {
 		return nil, err
@@ -153,9 +158,11 @@ func (m *manager) FindAllMessagesInRooms(
 	}
 	c, err := m.messagesCollection.Find(
 		ctx, query,
-		options.Find().SetSort(bson.M{
-			"timestamp": 1,
-		}),
+		options.Find().
+			SetSort(bson.M{
+				"timestamp": 1,
+			}).
+			SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, err

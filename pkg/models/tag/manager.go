@@ -45,6 +45,10 @@ func New(db *mongo.Database) Manager {
 	}
 }
 
+const (
+	prefetchN = 100
+)
+
 type manager struct {
 	c *mongo.Collection
 }
@@ -129,7 +133,9 @@ func (m *manager) GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full
 	r, err := m.c.Find(
 		ctx,
 		UserIdField{UserId: userId.Hex()},
-		options.Find().SetProjection(getProjection(tags)),
+		options.Find().
+			SetProjection(getProjection(tags)).
+			SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)

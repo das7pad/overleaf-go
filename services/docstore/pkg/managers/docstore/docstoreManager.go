@@ -18,7 +18,6 @@ package docstore
 
 import (
 	"context"
-	"math"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,8 +30,6 @@ import (
 )
 
 type Modified bool
-
-const DefaultLimit types.Limit = -1
 
 type Manager interface {
 	IsDocDeleted(
@@ -56,7 +53,6 @@ type Manager interface {
 	PeakDeletedDocNames(
 		ctx context.Context,
 		projectId primitive.ObjectID,
-		limit types.Limit,
 	) ([]doc.Name, error)
 
 	GetAllRanges(
@@ -132,7 +128,7 @@ func New(options *types.Options, db *mongo.Database) (Manager, error) {
 type manager struct {
 	da             docArchive.Manager
 	dm             doc.Manager
-	maxDeletedDocs types.Limit
+	maxDeletedDocs int64
 }
 
 func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
@@ -174,22 +170,8 @@ func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID,
 	}
 }
 
-func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit types.Limit) ([]doc.Name, error) {
-	if limit == DefaultLimit {
-		limit = m.maxDeletedDocs
-	} else if limit < 1 {
-		return nil, &errors.ValidationError{
-			Msg: "limit must be greater or equal 1",
-		}
-	} else {
-		// Silently limit the provided value to the configured default limit.
-		limit = types.Limit(math.Min(
-			float64(limit),
-			float64(m.maxDeletedDocs),
-		))
-	}
-
-	return m.dm.PeakDeletedDocNames(ctx, projectId, int64(limit))
+func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID) ([]doc.Name, error) {
+	return m.dm.PeakDeletedDocNames(ctx, projectId, m.maxDeletedDocs)
 }
 
 func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]doc.Ranges, error) {

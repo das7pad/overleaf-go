@@ -62,7 +62,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err2 error
-		deletedDocs, err2 = m.dm.PeakDeletedDocNames(pCtx, request.ProjectId, -1)
+		deletedDocs, err2 = m.dm.PeakDeletedDocNames(pCtx, request.ProjectId)
 		if err2 != nil {
 			return errors.Tag(err, "cannot get deleted doc names")
 		}

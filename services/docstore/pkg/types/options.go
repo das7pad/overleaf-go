@@ -25,7 +25,7 @@ type Options struct {
 	ArchivePLimits PLimits               `json:"archive_p_limits"`
 	BackendOptions objectStorage.Options `json:"backend_options"`
 	Bucket         string                `json:"bucket"`
-	MaxDeletedDocs Limit                 `json:"max_deleted_docs"`
+	MaxDeletedDocs int64                 `json:"max_deleted_docs"`
 }
 
 func (o *Options) Validate() error {

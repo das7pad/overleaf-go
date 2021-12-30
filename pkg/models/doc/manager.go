@@ -147,6 +147,10 @@ func New(db *mongo.Database) Manager {
 	}
 }
 
+const (
+	prefetchN = 100
+)
+
 type manager struct {
 	db      *mongo.Database
 	cDocs   *mongo.Collection
@@ -266,7 +270,8 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 			SetSort(bson.M{
 				"deletedAt": -1,
 			}).
-			SetLimit(limit),
+			SetLimit(limit).
+			SetBatchSize(int32(limit)),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)
@@ -283,7 +288,9 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 	res, err := m.cDocs.Find(
 		ctx,
 		projectFilterNonDeleted(projectId),
-		options.Find().SetProjection(getProjection(docs)),
+		options.Find().
+			SetProjection(getProjection(docs)).
+			SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)
@@ -304,7 +311,9 @@ func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.Obj
 	res, err := m.cDocs.Find(
 		ctx,
 		projectFilterNonDeleted(projectId),
-		options.Find().SetProjection(getProjection(docs)),
+		options.Find().
+			SetProjection(getProjection(docs)).
+			SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)

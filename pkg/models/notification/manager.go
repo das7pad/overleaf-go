@@ -42,6 +42,10 @@ func New(db *mongo.Database) Manager {
 	}
 }
 
+const (
+	prefetchN = 10
+)
+
 type manager struct {
 	c *mongo.Collection
 }
@@ -64,6 +68,7 @@ func (m *manager) GetAllForUser(ctx context.Context, userId primitive.ObjectID, 
 				"$exists": true,
 			},
 		},
+		options.Find().SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return err

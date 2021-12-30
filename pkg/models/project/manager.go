@@ -124,12 +124,15 @@ func matchUsersProjects(userId primitive.ObjectID) bson.M {
 	}
 }
 
+const (
+	inactiveProjectBufferSize = 10
+	prefetchN                 = 200
+)
+
 type manager struct {
 	c     *mongo.Collection
 	cSlow *mongo.Collection
 }
-
-const inactiveProjectBufferSize = 10
 
 func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error) {
 	cutOff := time.Now().UTC().Add(-age)
@@ -518,7 +521,11 @@ func (m *manager) GetProjectNames(ctx context.Context, userId primitive.ObjectID
 	q := matchUsersProjects(userId)
 	var projects []NameField
 	r, err := m.c.Find(
-		ctx, q, options.Find().SetProjection(getProjection(projects)),
+		ctx,
+		q,
+		options.Find().
+			SetProjection(getProjection(projects)).
+			SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, rewriteMongoError(err)
@@ -553,7 +560,11 @@ func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) (
 
 	q := matchUsersProjects(userId)
 
-	r, err := m.c.Find(ctx, q, options.Find().SetProjection(projection))
+	r, err := m.c.Find(
+		ctx,
+		q,
+		options.Find().SetProjection(projection).SetBatchSize(prefetchN),
+	)
 	if err != nil {
 		return projects, rewriteMongoError(err)
 	}

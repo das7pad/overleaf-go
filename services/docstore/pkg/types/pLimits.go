@@ -16,8 +16,6 @@
 
 package types
 
-type Limit int64
-
 type PLimits struct {
 	ParallelArchiveJobs int64 `json:"parallelArchiveJobs"`
 	BatchSize           int32 `json:"batchSize"`

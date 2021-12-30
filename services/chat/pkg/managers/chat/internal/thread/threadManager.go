@@ -74,6 +74,10 @@ func NewThreadManager(db *mongo.Database) Manager {
 	}
 }
 
+const (
+	prefetchN = 100
+)
+
 type manager struct {
 	roomsCollection *mongo.Collection
 }
@@ -139,7 +143,7 @@ func (m *manager) FindAllThreadRooms(
 	c, err := m.roomsCollection.Find(
 		ctx,
 		query,
-		options.Find().SetProjection(projection),
+		options.Find().SetProjection(projection).SetBatchSize(prefetchN),
 	)
 	if err != nil {
 		return nil, err
