@@ -162,6 +162,7 @@ func RespondHTMLCustomStatus(
 	c.Header("Content-Length", n)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Content-Security-Policy", body.CSP())
+	c.Header("Link", body.ResourceHints())
 	httpUtils.EndTotalTimer(c)
 	c.String(code, blob)
 }

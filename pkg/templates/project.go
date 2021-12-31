@@ -192,3 +192,10 @@ func (d *ProjectEditorData) Render() (string, error) {
 func (d *ProjectEditorData) CSP() string {
 	return d.Settings.CSPs.Editor
 }
+
+func (d *ProjectEditorData) ResourceHints() string {
+	if d.ThemeModifier == "light-" {
+		return resourceHints.ResourceHintsEditorLight()
+	}
+	return resourceHints.ResourceHintsEditorDefault()
+}

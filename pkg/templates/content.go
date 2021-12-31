@@ -109,6 +109,10 @@ func (d *CommonData) Meta() []metaEntry {
 	return out
 }
 
+func (d *CommonData) ResourceHints() string {
+	return resourceHints.ResourceHintsDefault()
+}
+
 type AngularLayoutData struct {
 	CommonData
 }

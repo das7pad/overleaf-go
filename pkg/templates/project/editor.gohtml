@@ -18,9 +18,9 @@
 */ -}}
 {{ template "layout-angular" . }}
 {{ define "headScripts" }}
-  <link
-    rel="stylesheet"
-    href="{{ buildJsPath "ide.js.css" }}"
+  <meta
+    name="ol-ide-css"
+    content="{{ buildJsPath "ide.js.css" }}"
   />
   <meta
     name="ol-theme-default"

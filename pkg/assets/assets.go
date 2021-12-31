@@ -35,6 +35,13 @@ type Manager interface {
 	BuildTPath(lng string) template.URL
 	GetEntrypointChunks(path string) []template.URL
 	StaticPath(path string) template.URL
+	ResourceHintsManager
+}
+
+type ResourceHintsManager interface {
+	ResourceHintsDefault() string
+	ResourceHintsEditorDefault() string
+	ResourceHintsEditorLight() string
 }
 
 type Options struct {
@@ -65,6 +72,7 @@ type manager struct {
 	base             template.URL
 	assets           map[string]template.URL
 	entrypointChunks map[string][]template.URL
+	hints            resourceHints
 }
 
 type manifest struct {
@@ -97,6 +105,7 @@ func (m *manager) load() error {
 	//       In praxis, this code path is hit at boot-time and in dev only.
 	m.assets = assets
 	m.entrypointChunks = entrypointChunks
+	m.generateResourceHints()
 	return nil
 }
 
@@ -126,6 +135,18 @@ func (m *manager) BuildTPath(lng string) template.URL {
 
 func (m *manager) GetEntrypointChunks(path string) []template.URL {
 	return m.entrypointChunks[path]
+}
+
+func (m *manager) ResourceHintsDefault() string {
+	return m.hints.Default
+}
+
+func (m *manager) ResourceHintsEditorDefault() string {
+	return m.hints.EditorDefault
+}
+
+func (m *manager) ResourceHintsEditorLight() string {
+	return m.hints.EditorLight
 }
 
 func (m *manager) StaticPath(path string) template.URL {

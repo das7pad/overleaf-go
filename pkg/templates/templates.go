@@ -30,14 +30,16 @@ import (
 )
 
 type Renderer interface {
-	Render() (string, error)
 	CSP() string
+	Render() (string, error)
+	ResourceHints() string
 }
 
 //go:embed */*.gohtml
 var _fs embed.FS
 
 var templates map[string]*template.Template
+var resourceHints assets.ResourceHintsManager
 
 func render(p string, estimate int, data interface{}) (string, error) {
 	buffer := &strings.Builder{}
@@ -63,6 +65,7 @@ func Load(appName string, assetsOptions *assets.Options) error {
 		if err != nil {
 			return errors.Tag(err, "cannot load assets")
 		}
+		resourceHints = am
 		funcMap["buildCssPath"] = am.BuildCssPath
 		funcMap["buildFontPath"] = am.BuildFontPath
 		funcMap["buildImgPath"] = am.BuildImgPath
