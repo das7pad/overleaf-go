@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -85,7 +85,6 @@ func (m *manager) generateResourceHints() {
 	m.hints = resourceHints{
 		Default: resources{
 			style(""),
-			font("font-awesome-v470.woff2"),
 			font("merriweather-v21-latin-regular.woff2"),
 		}.flatten(),
 		EditorDefault: editor("").flatten(),
