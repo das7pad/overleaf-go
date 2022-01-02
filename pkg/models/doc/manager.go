@@ -445,20 +445,18 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 }
 
 type upsertDocUpdate struct {
-	LinesField     `bson:"inline"`
-	RangesField    `bson:"inline"`
-	ProjectIdField `bson:"inline"`
+	LinesField  `bson:"inline"`
+	RangesField `bson:"inline"`
 }
 
 func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, ranges sharedTypes.Ranges) error {
 	updates := upsertDocUpdate{}
 	updates.Lines = lines
 	updates.Ranges = ranges
-	updates.ProjectId = projectId
 
 	_, err := m.cDocs.UpdateOne(
 		ctx,
-		IdField{Id: docId},
+		docFilter(projectId, docId),
 		bson.M{
 			"$set":   updates,
 			"$inc":   RevisionField{Revision: 1},
