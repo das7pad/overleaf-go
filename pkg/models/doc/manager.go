@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -111,7 +111,7 @@ type Manager interface {
 		docId primitive.ObjectID,
 		lines sharedTypes.Lines,
 		ranges sharedTypes.Ranges,
-	) (sharedTypes.Revision, error)
+	) error
 
 	SetDocVersion(
 		ctx context.Context,
@@ -395,7 +395,7 @@ func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId pri
 	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		eg, pCtx := errgroup.WithContext(sCtx)
 		eg.Go(func() error {
-			_, err := m.UpsertDoc(pCtx, projectId, docId, snapshot.ToLines(), sharedTypes.Ranges{})
+			err := m.UpsertDoc(pCtx, projectId, docId, snapshot.ToLines(), sharedTypes.Ranges{})
 			if err != nil {
 				return errors.Tag(err, "cannot set doc")
 			}
@@ -450,14 +450,13 @@ type upsertDocUpdate struct {
 	ProjectIdField `bson:"inline"`
 }
 
-func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, ranges sharedTypes.Ranges) (sharedTypes.Revision, error) {
+func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, ranges sharedTypes.Ranges) error {
 	updates := upsertDocUpdate{}
 	updates.Lines = lines
 	updates.Ranges = ranges
 	updates.ProjectId = projectId
 
-	var doc RevisionField
-	err := m.cDocs.FindOneAndUpdate(
+	_, err := m.cDocs.UpdateOne(
 		ctx,
 		IdField{Id: docId},
 		bson.M{
@@ -465,15 +464,12 @@ func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, d
 			"$inc":   RevisionField{Revision: 1},
 			"$unset": InS3Field{InS3: true},
 		},
-		options.FindOneAndUpdate().
-			SetUpsert(true).
-			SetProjection(getProjection(doc)).
-			SetReturnDocument(options.After),
-	).Decode(&doc)
+		options.Update().SetUpsert(true),
+	)
 	if err != nil {
-		return 0, rewriteMongoError(err)
+		return rewriteMongoError(err)
 	}
-	return doc.Revision, nil
+	return nil
 }
 
 func (m *manager) SetDocVersion(ctx context.Context, docId primitive.ObjectID, version sharedTypes.Version) error {

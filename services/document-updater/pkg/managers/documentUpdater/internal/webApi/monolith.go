@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -69,7 +69,7 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId primitive
 }
 
 func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error {
-	modified, _, err := m.dm.UpdateDoc(
+	modified, err := m.dm.UpdateDoc(
 		ctx, projectId, docId, doc.Lines, doc.Version, doc.Ranges,
 	)
 	if err != nil {

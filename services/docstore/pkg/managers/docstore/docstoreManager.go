@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -76,7 +76,7 @@ type Manager interface {
 		lines sharedTypes.Lines,
 		version sharedTypes.Version,
 		ranges sharedTypes.Ranges,
-	) (Modified, sharedTypes.Revision, error)
+	) (Modified, error)
 
 	PatchDoc(
 		ctx context.Context,
@@ -234,14 +234,13 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 	return m.dm.CreateDocsWithContent(ctx, projectId, docs)
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, version sharedTypes.Version, ranges sharedTypes.Ranges) (Modified, sharedTypes.Revision, error) {
+func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, version sharedTypes.Version, ranges sharedTypes.Ranges) (Modified, error) {
 	if err := validateDocLines(lines); err != nil {
-		return false, 0, err
+		return false, err
 	}
 
 	var modifiedContents bool
 	var modifiedVersion bool
-	var revision sharedTypes.Revision
 
 	if d, err := m.GetFullDoc(ctx, projectId, docId); err == nil {
 		modifiedContents = false
@@ -255,25 +254,23 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 		if !d.Version.Equals(version) {
 			modifiedVersion = true
 		}
-		revision = d.Revision
 	} else if errors.IsDocNotFoundError(err) {
 		if version != 0 {
 			// Block 'creation' of documents with non-zero version.
-			return false, 0, err
+			return false, err
 		}
 
 		modifiedContents = true
 		modifiedVersion = true
-		revision = 0
 	} else {
-		return false, 0, err
+		return false, err
 	}
 
 	if !modifiedContents && !modifiedVersion {
-		return false, revision, nil
+		return false, nil
 	}
 	if modifiedContents {
-		rev, err := m.dm.UpsertDoc(
+		err := m.dm.UpsertDoc(
 			ctx,
 			projectId,
 			docId,
@@ -281,9 +278,8 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 			ranges,
 		)
 		if err != nil {
-			return false, 0, err
+			return false, err
 		}
-		revision = rev
 	}
 	if modifiedVersion {
 		err := m.dm.SetDocVersion(
@@ -292,10 +288,10 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 			version,
 		)
 		if err != nil {
-			return false, 0, err
+			return false, err
 		}
 	}
-	return true, revision, nil
+	return true, nil
 }
 
 func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta doc.Meta) error {
