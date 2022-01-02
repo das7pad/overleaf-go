@@ -1,9 +1,0 @@
-# IDE / vim
-.idea/
-.*.swp
-
-# ci
-docker-image.digest.txt
-
-# binary
-/chat
