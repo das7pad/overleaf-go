@@ -22,6 +22,13 @@ type forInsertion struct {
 	ProjectIdField `bson:"inline"`
 	RangesField    `bson:"inline"`
 	VersionField   `bson:"inline"`
+	RevisionField  `bson:"inline"`
+}
+
+type ForDocUpdate struct {
+	LinesField   `bson:"inline"`
+	RangesField  `bson:"inline"`
+	VersionField `bson:"inline"`
 }
 
 type ArchiveContents struct {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -32,6 +32,12 @@ func docFilter(projectId primitive.ObjectID, docId primitive.ObjectID) bson.M {
 func docFilterWithRevision(projectId primitive.ObjectID, docId primitive.ObjectID, revision sharedTypes.Revision) bson.M {
 	filter := docFilter(projectId, docId)
 	filter["rev"] = revision
+	return filter
+}
+
+func docFilterInS3(projectId, docId primitive.ObjectID) bson.M {
+	filter := docFilter(projectId, docId)
+	filter["inS3"] = true
 	return filter
 }
 

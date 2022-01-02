@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -99,18 +100,18 @@ func (s *SetDocRequest) Validate() error {
 }
 
 type SetDocDetails struct {
-	Lines         sharedTypes.Lines   `json:"lines"`
-	Ranges        sharedTypes.Ranges  `json:"ranges"`
-	Version       sharedTypes.Version `json:"version"`
-	LastUpdatedAt int64               `json:"lastUpdatedAt"`
-	LastUpdatedBy primitive.ObjectID  `json:"lastUpdatedBy"`
+	*doc.ForDocUpdate
+	LastUpdatedAt int64              `json:"lastUpdatedAt"`
+	LastUpdatedBy primitive.ObjectID `json:"lastUpdatedBy"`
 }
 
 func (d *Doc) ToSetDocDetails() *SetDocDetails {
 	return &SetDocDetails{
-		Lines:         d.Snapshot.ToLines(),
-		Ranges:        d.Ranges,
-		Version:       d.Version,
+		ForDocUpdate: &doc.ForDocUpdate{
+			LinesField:   doc.LinesField{Lines: d.Snapshot.ToLines()},
+			RangesField:  doc.RangesField{Ranges: d.Ranges},
+			VersionField: doc.VersionField{Version: d.Version},
+		},
 		LastUpdatedAt: d.LastUpdatedCtx.At,
 		LastUpdatedBy: d.LastUpdatedCtx.By,
 	}

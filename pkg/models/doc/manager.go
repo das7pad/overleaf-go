@@ -23,11 +23,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/docOps"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -105,19 +103,8 @@ type Manager interface {
 	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
 	CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []Contents) error
 
-	UpsertDoc(
-		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
-		lines sharedTypes.Lines,
-		ranges sharedTypes.Ranges,
-	) error
-
-	SetDocVersion(
-		ctx context.Context,
-		docId primitive.ObjectID,
-		version sharedTypes.Version,
-	) error
+	UpdateDoc(ctx context.Context, projectId, docId primitive.ObjectID, update *ForDocUpdate) error
+	RestoreArchivedContent(ctx context.Context, projectId, docId primitive.ObjectID, contents *ArchiveContents) error
 
 	PatchDocMeta(
 		ctx context.Context,
@@ -396,82 +383,45 @@ func (m *manager) GetDocIdsForUnArchiving(ctx context.Context, projectId primiti
 }
 
 func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
-	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		eg, pCtx := errgroup.WithContext(sCtx)
-		eg.Go(func() error {
-			err := m.UpsertDoc(pCtx, projectId, docId, snapshot.ToLines(), sharedTypes.Ranges{})
-			if err != nil {
-				return errors.Tag(err, "cannot set doc")
-			}
-			return nil
-		})
-		eg.Go(func() error {
-			if err := m.SetDocVersion(pCtx, docId, 0); err != nil {
-				return errors.Tag(err, "cannot set doc version")
-			}
-			return nil
-		})
-		return eg.Wait()
+	_, err := m.cDocs.InsertOne(ctx, &forInsertion{
+		IdField:        IdField{Id: docId},
+		ProjectIdField: ProjectIdField{ProjectId: projectId},
+		LinesField:     LinesField{Lines: snapshot.ToLines()},
+		RevisionField:  RevisionField{Revision: 0},
+		VersionField:   VersionField{Version: 0},
 	})
+	if err != nil {
+		return errors.Tag(err, "cannot insert doc")
+	}
+	return nil
 }
 
 func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []Contents) error {
-	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		eg, pCtx := errgroup.WithContext(sCtx)
-		eg.Go(func() error {
-			docContents := make([]interface{}, len(docs))
-			for i, doc := range docs {
-				docContents[i] = forInsertion{
-					IdField:        doc.IdField,
-					LinesField:     doc.LinesField,
-					ProjectIdField: ProjectIdField{ProjectId: projectId},
-					VersionField: VersionField{
-						Version: ExternalVersionTombstone,
-					},
-				}
-			}
-			if _, err := m.cDocs.InsertMany(pCtx, docContents); err != nil {
-				return errors.Tag(err, "cannot insert doc contents")
-			}
-			return nil
-		})
-		eg.Go(func() error {
-			docVersions := make([]interface{}, len(docs))
-			for i, doc := range docs {
-				docVersions[i] = docOps.Full{
-					DocIdField: docOps.DocIdField{DocId: doc.Id},
-				}
-			}
-			if _, err := m.cDocOps.InsertMany(pCtx, docVersions); err != nil {
-				return errors.Tag(err, "cannot insert doc versions")
-			}
-			return nil
-		})
-		return eg.Wait()
-	})
+	docContents := make([]interface{}, len(docs))
+	for i, doc := range docs {
+		docContents[i] = &forInsertion{
+			IdField:        doc.IdField,
+			LinesField:     doc.LinesField,
+			ProjectIdField: ProjectIdField{ProjectId: projectId},
+			RevisionField:  RevisionField{Revision: 0},
+			VersionField:   VersionField{Version: 0},
+		}
+	}
+	if _, err := m.cDocs.InsertMany(ctx, docContents); err != nil {
+		return errors.Tag(err, "cannot insert doc contents")
+	}
+	return nil
 }
 
-type upsertDocUpdate struct {
-	LinesField   `bson:"inline"`
-	RangesField  `bson:"inline"`
-	VersionField `bson:"inline"`
-}
-
-func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, ranges sharedTypes.Ranges) error {
-	updates := upsertDocUpdate{}
-	updates.Lines = lines
-	updates.Ranges = ranges
-	updates.Version = ExternalVersionTombstone
-
+func (m *manager) UpdateDoc(ctx context.Context, projectId, docId primitive.ObjectID, update *ForDocUpdate) error {
 	_, err := m.cDocs.UpdateOne(
 		ctx,
 		docFilter(projectId, docId),
 		bson.M{
-			"$set":   updates,
+			"$set":   update,
 			"$inc":   RevisionField{Revision: 1},
 			"$unset": InS3Field{InS3: true},
 		},
-		options.Update().SetUpsert(true),
 	)
 	if err != nil {
 		return rewriteMongoError(err)
@@ -479,14 +429,15 @@ func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, d
 	return nil
 }
 
-func (m *manager) SetDocVersion(ctx context.Context, docId primitive.ObjectID, version sharedTypes.Version) error {
-	_, err := m.cDocOps.UpdateOne(
+func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId primitive.ObjectID, contents *ArchiveContents) error {
+	_, err := m.cDocs.UpdateOne(
 		ctx,
-		docOps.DocIdField{DocId: docId},
+		docFilterInS3(projectId, docId),
 		bson.M{
-			"$set": docOps.VersionField{Version: version},
+			"$set":   contents,
+			"$inc":   RevisionField{Revision: 1},
+			"$unset": InS3Field{InS3: true},
 		},
-		options.Update().SetUpsert(true),
 	)
 	if err != nil {
 		return rewriteMongoError(err)

@@ -69,9 +69,7 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId primitive
 }
 
 func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error {
-	modified, err := m.dm.UpdateDoc(
-		ctx, projectId, docId, doc.Lines, doc.Version, doc.Ranges,
-	)
+	modified, err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ForDocUpdate)
 	if err != nil {
 		return errors.Tag(err, "cannot set doc in mongo")
 	}

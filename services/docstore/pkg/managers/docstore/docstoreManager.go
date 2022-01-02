@@ -73,9 +73,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		docId primitive.ObjectID,
-		lines sharedTypes.Lines,
-		version sharedTypes.Version,
-		ranges sharedTypes.Ranges,
+		update *doc.ForDocUpdate,
 	) (Modified, error)
 
 	PatchDoc(
@@ -234,62 +232,26 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 	return m.dm.CreateDocsWithContent(ctx, projectId, docs)
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, version sharedTypes.Version, ranges sharedTypes.Ranges) (Modified, error) {
-	if err := validateDocLines(lines); err != nil {
+func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, update *doc.ForDocUpdate) (Modified, error) {
+	if err := validateDocLines(update.Lines); err != nil {
 		return false, err
 	}
 
-	var modifiedContents bool
-	var modifiedVersion bool
-
-	if d, err := m.GetFullDoc(ctx, projectId, docId); err == nil {
-		modifiedContents = false
-		modifiedVersion = false
-		if !d.Lines.Equals(lines) {
-			modifiedContents = true
-		}
-		if !d.Ranges.Equals(ranges) {
-			modifiedContents = true
-		}
-		if !d.Version.Equals(version) {
-			modifiedVersion = true
-		}
-	} else if errors.IsDocNotFoundError(err) {
-		if version != 0 {
-			// Block 'creation' of documents with non-zero version.
-			return false, err
-		}
-
-		modifiedContents = true
-		modifiedVersion = true
+	if d, err := m.GetFullDoc(ctx, projectId, docId); err != nil {
+		// error path, doc might not exist (in this project).
+		return false, err
 	} else {
-		return false, err
+		if d.Lines.Equals(update.Lines) &&
+			d.Ranges.Equals(update.Ranges) &&
+			d.Version.Equals(update.Version) {
+			// fast path: Not modified.
+			return false, nil
+		}
+		// slow path: update the doc
 	}
 
-	if !modifiedContents && !modifiedVersion {
-		return false, nil
-	}
-	if modifiedContents {
-		err := m.dm.UpsertDoc(
-			ctx,
-			projectId,
-			docId,
-			lines,
-			ranges,
-		)
-		if err != nil {
-			return false, err
-		}
-	}
-	if modifiedVersion {
-		err := m.dm.SetDocVersion(
-			ctx,
-			docId,
-			version,
-		)
-		if err != nil {
-			return false, err
-		}
+	if err := m.dm.UpdateDoc(ctx, projectId, docId, update); err != nil {
+		return false, err
 	}
 	return true, nil
 }

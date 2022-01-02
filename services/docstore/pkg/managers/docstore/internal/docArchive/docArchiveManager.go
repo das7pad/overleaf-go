@@ -194,7 +194,7 @@ type archivedDocV1 struct {
 	Ranges sharedTypes.Ranges `json:"ranges"`
 }
 
-type archivedDocV0 sharedTypes.Lines
+type archivedDocV0 = sharedTypes.Lines
 
 var (
 	errDocHasNoLines        = errors.New("doc has no lines")
@@ -287,33 +287,36 @@ func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID
 	if int64(len(blob)) != s {
 		return errors.New("partial download")
 	}
-	lines, ranges, err := deserializeArchive(blob)
+	contents, err := deserializeArchive(blob)
 	if err != nil {
 		return err
 	}
-	err = m.dm.UpsertDoc(
-		ctx,
-		projectId,
-		docId,
-		lines,
-		ranges,
-	)
+	err = m.dm.RestoreArchivedContent(ctx, projectId, docId, contents)
 	if err != nil {
 		return err
 	}
 	return m.b.DeleteObject(ctx, m.bucket, key)
 }
 
-func deserializeArchive(blob []byte) (sharedTypes.Lines, sharedTypes.Ranges, error) {
-	var archiveV1 archivedDocV1
-	if err := json.Unmarshal(blob, &archiveV1); err == nil {
-		return archiveV1.Lines, archiveV1.Ranges, nil
+func deserializeArchive(blob []byte) (*doc.ArchiveContents, error) {
+	{
+		var archiveV1 archivedDocV1
+		if err := json.Unmarshal(blob, &archiveV1); err == nil {
+			return &doc.ArchiveContents{
+				LinesField:  doc.LinesField{Lines: archiveV1.Lines},
+				RangesField: doc.RangesField{Ranges: archiveV1.Ranges},
+			}, nil
+		}
 	}
-	var archiveV0 archivedDocV0
-	if err := json.Unmarshal(blob, &archiveV0); err == nil {
-		return sharedTypes.Lines(archiveV0), sharedTypes.Ranges{}, nil
+	{
+		var archiveV0 archivedDocV0
+		if err := json.Unmarshal(blob, &archiveV0); err == nil {
+			return &doc.ArchiveContents{
+				LinesField: doc.LinesField{Lines: archiveV0},
+			}, nil
+		}
 	}
-	return nil, sharedTypes.Ranges{}, errUnknownArchiveFormat
+	return nil, errUnknownArchiveFormat
 }
 
 func (m *manager) DestroyDocs(ctx context.Context, projectId primitive.ObjectID) error {
