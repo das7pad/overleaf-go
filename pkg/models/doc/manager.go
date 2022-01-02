@@ -149,7 +149,7 @@ func New(db *mongo.Database) Manager {
 
 const (
 	prefetchN                = 100
-	externalVersionTombstone = -42
+	ExternalVersionTombstone = -42
 )
 
 type manager struct {
@@ -213,7 +213,7 @@ func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId p
 	if err = doc.Validate(); err != nil {
 		return nil, err
 	}
-	if doc.Version != externalVersionTombstone {
+	if doc.Version != ExternalVersionTombstone {
 		return &doc, nil
 	}
 
@@ -426,7 +426,7 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 					LinesField:     doc.LinesField,
 					ProjectIdField: ProjectIdField{ProjectId: projectId},
 					VersionField: VersionField{
-						Version: externalVersionTombstone,
+						Version: ExternalVersionTombstone,
 					},
 				}
 			}
@@ -461,7 +461,7 @@ func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, d
 	updates := upsertDocUpdate{}
 	updates.Lines = lines
 	updates.Ranges = ranges
-	updates.Version = externalVersionTombstone
+	updates.Version = ExternalVersionTombstone
 
 	_, err := m.cDocs.UpdateOne(
 		ctx,
