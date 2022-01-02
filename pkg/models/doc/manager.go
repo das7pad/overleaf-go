@@ -148,7 +148,8 @@ func New(db *mongo.Database) Manager {
 }
 
 const (
-	prefetchN = 100
+	prefetchN                = 100
+	externalVersionTombstone = -42
 )
 
 type manager struct {
@@ -211,6 +212,9 @@ func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId p
 	}
 	if err = doc.Validate(); err != nil {
 		return nil, err
+	}
+	if doc.Version != externalVersionTombstone {
+		return &doc, nil
 	}
 
 	var docVersion docOps.VersionField
@@ -421,6 +425,9 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 					IdField:        doc.IdField,
 					LinesField:     doc.LinesField,
 					ProjectIdField: ProjectIdField{ProjectId: projectId},
+					VersionField: VersionField{
+						Version: externalVersionTombstone,
+					},
 				}
 			}
 			if _, err := m.cDocs.InsertMany(pCtx, docContents); err != nil {
@@ -445,14 +452,16 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 }
 
 type upsertDocUpdate struct {
-	LinesField  `bson:"inline"`
-	RangesField `bson:"inline"`
+	LinesField   `bson:"inline"`
+	RangesField  `bson:"inline"`
+	VersionField `bson:"inline"`
 }
 
 func (m *manager) UpsertDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, lines sharedTypes.Lines, ranges sharedTypes.Ranges) error {
 	updates := upsertDocUpdate{}
 	updates.Lines = lines
 	updates.Ranges = ranges
+	updates.Version = externalVersionTombstone
 
 	_, err := m.cDocs.UpdateOne(
 		ctx,

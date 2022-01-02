@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -16,15 +16,12 @@
 
 package doc
 
-import (
-	"github.com/das7pad/overleaf-go/pkg/models/docOps"
-)
-
 type forInsertion struct {
 	IdField        `bson:"inline"`
 	LinesField     `bson:"inline"`
 	ProjectIdField `bson:"inline"`
 	RangesField    `bson:"inline"`
+	VersionField   `bson:"inline"`
 }
 
 type ArchiveContents struct {
@@ -61,8 +58,7 @@ type ContentsWithFullContext struct {
 	// Fetch InS3Field as well.
 	InS3Field `bson:"inline"`
 
-	// NOTE: docOps.VersionField is not part of the `docs` collection entry.
-	docOps.VersionField
+	VersionField `bson:"inline"`
 }
 
 type Lines struct {
