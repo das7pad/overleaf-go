@@ -25,7 +25,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/docOps"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -129,8 +128,7 @@ type Manager interface {
 
 func New(db *mongo.Database) Manager {
 	return &manager{
-		cDocs:   db.Collection("docs"),
-		cDocOps: db.Collection("docOps"),
+		c: db.Collection("docs"),
 	}
 }
 
@@ -140,9 +138,8 @@ const (
 )
 
 type manager struct {
-	db      *mongo.Database
-	cDocs   *mongo.Collection
-	cDocOps *mongo.Collection
+	db *mongo.Database
+	c  *mongo.Collection
 }
 
 func rewriteMongoError(err error) error {
@@ -154,7 +151,7 @@ func rewriteMongoError(err error) error {
 
 func (m *manager) IsDocArchived(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
 	var doc InS3Field
-	err := m.cDocs.FindOne(
+	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
 		options.FindOne().SetProjection(getProjection(doc)),
@@ -167,7 +164,7 @@ func (m *manager) IsDocArchived(ctx context.Context, projectId primitive.ObjectI
 
 func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
 	var doc DeletedField
-	err := m.cDocs.FindOne(
+	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
 		options.FindOne().SetProjection(getProjection(doc)),
@@ -179,7 +176,7 @@ func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID
 }
 
 func (m *manager) CheckDocExists(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
-	err := m.cDocs.FindOne(
+	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
 		options.FindOne().SetProjection(docIdFieldProjection),
@@ -189,7 +186,7 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId primitive.Object
 
 func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*ContentsWithFullContext, error) {
 	var doc ContentsWithFullContext
-	err := m.cDocs.FindOne(
+	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
 		options.FindOne().SetProjection(getProjection(doc)),
@@ -200,26 +197,12 @@ func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId p
 	if err = doc.Validate(); err != nil {
 		return nil, err
 	}
-	if doc.Version != ExternalVersionTombstone {
-		return &doc, nil
-	}
-
-	var docVersion docOps.VersionField
-	err = m.cDocOps.FindOne(
-		ctx,
-		docOps.DocIdField{DocId: docId},
-		options.FindOne().SetProjection(getProjection(docVersion)),
-	).Decode(&docVersion)
-	if err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	doc.Version = docVersion.Version
 	return &doc, nil
 }
 
 func (m *manager) GetDocForArchiving(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*ArchiveContext, error) {
 	var doc ArchiveContext
-	err := m.cDocs.FindOne(
+	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
 		options.FindOne().SetProjection(getProjection(doc)),
@@ -236,7 +219,7 @@ func (m *manager) GetDocForArchiving(ctx context.Context, projectId primitive.Ob
 
 func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (sharedTypes.Lines, error) {
 	var doc Lines
-	err := m.cDocs.FindOne(
+	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
 		options.FindOne().SetProjection(getProjection(doc)),
@@ -253,7 +236,7 @@ func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID,
 
 func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit int64) ([]Name, error) {
 	docs := make(NameCollection, 0)
-	res, err := m.cDocs.Find(
+	res, err := m.c.Find(
 		ctx,
 		projectFilterDeleted(projectId),
 		options.Find().
@@ -276,7 +259,7 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 
 func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]Ranges, error) {
 	docs := make(RangesCollection, 0)
-	res, err := m.cDocs.Find(
+	res, err := m.c.Find(
 		ctx,
 		projectFilterNonDeleted(projectId),
 		options.Find().
@@ -299,7 +282,7 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 
 func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) (ContentsCollection, error) {
 	docs := make(ContentsCollection, 0)
-	res, err := m.cDocs.Find(
+	res, err := m.c.Find(
 		ctx,
 		projectFilterNonDeleted(projectId),
 		options.Find().
@@ -327,7 +310,7 @@ func (m *manager) streamDocIds(ctx context.Context, filter bson.M, batchSize int
 		defer close(ids)
 		defer close(errs)
 
-		cursor, err := m.cDocs.Find(
+		cursor, err := m.c.Find(
 			ctx,
 			filter,
 			options.Find().
@@ -383,7 +366,7 @@ func (m *manager) GetDocIdsForUnArchiving(ctx context.Context, projectId primiti
 }
 
 func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
-	_, err := m.cDocs.InsertOne(ctx, &forInsertion{
+	_, err := m.c.InsertOne(ctx, &forInsertion{
 		IdField:        IdField{Id: docId},
 		ProjectIdField: ProjectIdField{ProjectId: projectId},
 		LinesField:     LinesField{Lines: snapshot.ToLines()},
@@ -407,14 +390,14 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 			VersionField:   VersionField{Version: 0},
 		}
 	}
-	if _, err := m.cDocs.InsertMany(ctx, docContents); err != nil {
+	if _, err := m.c.InsertMany(ctx, docContents); err != nil {
 		return errors.Tag(err, "cannot insert doc contents")
 	}
 	return nil
 }
 
 func (m *manager) UpdateDoc(ctx context.Context, projectId, docId primitive.ObjectID, update *ForDocUpdate) error {
-	_, err := m.cDocs.UpdateOne(
+	_, err := m.c.UpdateOne(
 		ctx,
 		docFilter(projectId, docId),
 		bson.M{
@@ -430,7 +413,7 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId primitive.Obje
 }
 
 func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId primitive.ObjectID, contents *ArchiveContents) error {
-	_, err := m.cDocs.UpdateOne(
+	_, err := m.c.UpdateOne(
 		ctx,
 		docFilterInS3(projectId, docId),
 		bson.M{
@@ -446,7 +429,7 @@ func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId p
 }
 
 func (m *manager) PatchDocMeta(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta Meta) error {
-	_, err := m.cDocs.UpdateOne(
+	_, err := m.c.UpdateOne(
 		ctx,
 		docFilter(projectId, docId),
 		bson.M{
@@ -458,7 +441,7 @@ func (m *manager) PatchDocMeta(ctx context.Context, projectId primitive.ObjectID
 
 func (m *manager) MarkDocAsArchived(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, revision sharedTypes.Revision) error {
 	filter := docFilterWithRevision(projectId, docId, revision)
-	_, err := m.cDocs.UpdateOne(
+	_, err := m.c.UpdateOne(
 		ctx,
 		filter,
 		bson.M{
@@ -470,16 +453,8 @@ func (m *manager) MarkDocAsArchived(ctx context.Context, projectId primitive.Obj
 }
 
 func (m *manager) DestroyDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
-	_, err1 := m.cDocs.DeleteOne(
-		ctx,
-		docFilter(projectId, docId),
-	)
-	_, err2 := m.cDocOps.DeleteOne(
-		ctx,
-		docOps.DocIdField{DocId: docId},
-	)
-	if err1 != nil {
-		return rewriteMongoError(err1)
+	if _, err := m.c.DeleteOne(ctx, docFilter(projectId, docId)); err != nil {
+		return rewriteMongoError(err)
 	}
-	return rewriteMongoError(err2)
+	return nil
 }
