@@ -18,4 +18,5 @@ package migrations
 
 import (
 	_ "github.com/das7pad/overleaf-go/cmd/migrate/internal/migrations/20220102130000_docVersion_stage2"
+	_ "github.com/das7pad/overleaf-go/cmd/migrate/internal/migrations/20220102130000_docVersion_stage4"
 )
