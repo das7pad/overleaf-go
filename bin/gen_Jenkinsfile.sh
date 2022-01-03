@@ -1,6 +1,6 @@
 #!/bin/bash
 # Golang port of Overleaf
-# Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+# Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,7 @@ exec > Jenkinsfile
 
 cat <<EOF
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,7 +42,7 @@ pipeline {
       parallel {
 EOF
 
-for path in services/*/; do
+for path in services/*/ cmd/; do
   case $path in
   services/chat/ | services/docstore/ | services/filestore/)
     # virtual

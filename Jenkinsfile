@@ -152,6 +152,28 @@ pipeline {
             }
           }
         }
+        stage('cmd') {
+          agent {
+            label 'docker_builder'
+          }
+          steps {
+            dir('cmd') {
+              sh 'make run-ci-if-needed'
+            }
+            archiveArtifacts(
+              allowEmptyArchive: true,
+              artifacts:         'cmd/docker-image.digest.txt*',
+              onlyIfSuccessful:  true,
+            )
+          }
+          post {
+            cleanup {
+              dir('cmd') {
+                sh 'make docker/clean'
+              }
+            }
+          }
+        }
       }
     }
   }
