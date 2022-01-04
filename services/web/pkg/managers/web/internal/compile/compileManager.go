@@ -105,7 +105,7 @@ func unexpectedStatus(res *http.Response) error {
 	return errors.Tag(err, "non-success status code from clsi")
 }
 
-func (m *manager) getImageName(raw clsiTypes.ImageName) clsiTypes.ImageName {
+func (m *manager) getImageName(raw sharedTypes.ImageName) sharedTypes.ImageName {
 	if m.options.TeXLiveImageNameOverride == "" {
 		return raw
 	}

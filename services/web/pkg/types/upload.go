@@ -27,7 +27,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types/internal/conflictChecker"
 )
 
@@ -88,7 +87,7 @@ type CreateProjectFile interface {
 
 type CreateProjectRequest struct {
 	AddHeader      AddHeaderFn
-	Compiler       clsiTypes.Compiler
+	Compiler       sharedTypes.Compiler
 	Files          []CreateProjectFile
 	HasDefaultName bool
 	Name           project.Name

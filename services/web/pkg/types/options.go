@@ -34,7 +34,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
@@ -42,13 +41,13 @@ import (
 
 type Options struct {
 	AdminEmail        sharedTypes.Email            `json:"admin_email"`
-	AllowedImages     []clsiTypes.ImageName        `json:"allowed_images"`
+	AllowedImages     []sharedTypes.ImageName      `json:"allowed_images"`
 	AllowedImageNames []templates.AllowedImageName `json:"allowed_image_names"`
 	AppName           string                       `json:"app_name"`
 	BcryptCost        int                          `json:"bcrypt_cost"`
 	CDNURL            sharedTypes.URL              `json:"cdn_url"`
 	CSPReportURL      *sharedTypes.URL             `json:"csp_report_url"`
-	DefaultImage      clsiTypes.ImageName          `json:"default_image"`
+	DefaultImage      sharedTypes.ImageName        `json:"default_image"`
 	Email             struct {
 		CustomFooter     string            `json:"custom_footer"`
 		CustomFooterHTML template.HTML     `json:"custom_footer_html"`
@@ -76,9 +75,9 @@ type Options struct {
 		ProjectId primitive.ObjectID `json:"projectId"`
 		UserId    primitive.ObjectID `json:"userId"`
 	} `json:"smoke_test"`
-	StatusPageURL            sharedTypes.URL     `json:"status_page_url"`
-	TeXLiveImageNameOverride clsiTypes.ImageName `json:"texlive_image_name_override"`
-	WatchManifest            bool                `json:"watch_manifest"`
+	StatusPageURL            sharedTypes.URL       `json:"status_page_url"`
+	TeXLiveImageNameOverride sharedTypes.ImageName `json:"texlive_image_name_override"`
+	WatchManifest            bool                  `json:"watch_manifest"`
 
 	APIs struct {
 		Clsi struct {

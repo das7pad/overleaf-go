@@ -22,7 +22,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -32,13 +32,13 @@ type UpdateEditorConfigRequest struct {
 }
 
 type SetCompilerRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	Compiler  clsiTypes.Compiler `json:"compiler"`
+	ProjectId primitive.ObjectID   `json:"-"`
+	Compiler  sharedTypes.Compiler `json:"compiler"`
 }
 
 type SetImageNameRequest struct {
-	ProjectId primitive.ObjectID  `json:"-"`
-	ImageName clsiTypes.ImageName `json:"imageName"`
+	ProjectId primitive.ObjectID    `json:"-"`
+	ImageName sharedTypes.ImageName `json:"imageName"`
 }
 
 type SetSpellCheckLanguageRequest struct {

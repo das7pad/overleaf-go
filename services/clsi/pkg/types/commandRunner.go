@@ -50,7 +50,7 @@ type CommandOptions struct {
 	CommandLine
 	Environment
 	Timeout
-	ImageName
+	sharedTypes.ImageName
 	CompileGroup
 	CommandOutputFiles
 	*sharedTypes.Timed

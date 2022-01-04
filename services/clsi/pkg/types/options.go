@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 //goland:noinspection SpellCheckingInspection
@@ -54,7 +55,7 @@ type DockerContainerOptions struct {
 }
 
 type Options struct {
-	AllowedImages []ImageName `json:"allowed_images"`
+	AllowedImages []sharedTypes.ImageName `json:"allowed_images"`
 
 	ProjectCacheDuration    time.Duration `json:"project_cache_duration_ns"`
 	GetCapacityRefreshEvery time.Duration `json:"get_capacity_refresh_every_ns"`

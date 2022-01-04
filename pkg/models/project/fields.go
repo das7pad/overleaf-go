@@ -22,7 +22,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -44,8 +43,7 @@ type CollaboratorRefsField struct {
 }
 
 type CompilerField struct {
-	// TODO: move Compiler into sharedTypes
-	Compiler clsiTypes.Compiler `json:"compiler" bson:"compiler"`
+	Compiler sharedTypes.Compiler `json:"compiler" bson:"compiler"`
 }
 
 type EpochField struct {
@@ -57,8 +55,7 @@ type IdField struct {
 }
 
 type ImageNameField struct {
-	// TODO: move ImageName into sharedTypes
-	ImageName clsiTypes.ImageName `json:"imageName" bson:"imageName"`
+	ImageName sharedTypes.ImageName `json:"imageName" bson:"imageName"`
 }
 
 type LastOpenedField struct {

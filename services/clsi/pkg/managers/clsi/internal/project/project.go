@@ -27,6 +27,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -461,7 +462,7 @@ func (p *project) needsRunnerSetup(deadline time.Time) bool {
 	return p.runnerSetupValidUntil.Before(deadline)
 }
 
-func (p *project) setupRunner(ctx context.Context, imageName types.ImageName) error {
+func (p *project) setupRunner(ctx context.Context, imageName sharedTypes.ImageName) error {
 	pending, err := p.triggerRunnerSetup(ctx, imageName)
 	if err != nil {
 		return err
@@ -487,7 +488,7 @@ func (p *project) setupRunner(ctx context.Context, imageName types.ImageName) er
 	return nil
 }
 
-func (p *project) triggerRunnerSetup(ctx context.Context, imageName types.ImageName) (pendingOperation.PendingOperation, error) {
+func (p *project) triggerRunnerSetup(ctx context.Context, imageName sharedTypes.ImageName) (pendingOperation.PendingOperation, error) {
 	pendingBeforeLock := p.pendingRunnerSetup
 	if pendingBeforeLock != nil && pendingBeforeLock.IsPending() {
 		return pendingBeforeLock, nil

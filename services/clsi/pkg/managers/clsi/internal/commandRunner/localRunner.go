@@ -41,7 +41,7 @@ func (l *localRunner) Stop(_ types.Namespace) error {
 	return nil
 }
 
-func (l *localRunner) Setup(_ context.Context, _ types.Namespace, _ types.ImageName) (*time.Time, error) {
+func (l *localRunner) Setup(_ context.Context, _ types.Namespace, _ sharedTypes.ImageName) (*time.Time, error) {
 	validUntilTomorrow := time.Now().Add(time.Hour * 24)
 	return &validUntilTomorrow, nil
 }

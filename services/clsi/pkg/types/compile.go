@@ -26,28 +26,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
 
-const (
-	Latex    = Compiler("latex")
-	LuaLatex = Compiler("lualatex")
-	PDFLatex = Compiler("pdflatex")
-	XeLatex  = Compiler("xelatex")
-)
-
-var ValidCompilers = []Compiler{
-	Latex, LuaLatex, PDFLatex, XeLatex,
-}
-
-type Compiler string
-
-func (c Compiler) Validate() error {
-	for _, compiler := range ValidCompilers {
-		if c == compiler {
-			return nil
-		}
-	}
-	return &errors.ValidationError{Msg: "compiler not allowed"}
-}
-
 type DraftModeFlag bool
 
 func (d DraftModeFlag) Validate() error {
@@ -203,14 +181,14 @@ func (r Resources) Validate() error {
 }
 
 type CompileOptions struct {
-	Check        CheckMode     `json:"check"`
-	Compiler     Compiler      `json:"compiler"`
-	CompileGroup CompileGroup  `json:"compileGroup"`
-	Draft        DraftModeFlag `json:"draft"`
-	ImageName    ImageName     `json:"imageName"`
-	SyncState    SyncState     `json:"syncState"`
-	SyncType     SyncType      `json:"syncType"`
-	Timeout      Timeout       `json:"timeout"`
+	Check        CheckMode             `json:"check"`
+	Compiler     sharedTypes.Compiler  `json:"compiler"`
+	CompileGroup CompileGroup          `json:"compileGroup"`
+	Draft        DraftModeFlag         `json:"draft"`
+	ImageName    sharedTypes.ImageName `json:"imageName"`
+	SyncState    SyncState             `json:"syncState"`
+	SyncType     SyncType              `json:"syncType"`
+	Timeout      Timeout               `json:"timeout"`
 }
 
 func (c CompileOptions) Validate() error {
@@ -256,7 +234,7 @@ func (c *CompileRequest) Preprocess() error {
 		c.RootResourcePath = "main.tex"
 	}
 	if c.Options.Compiler == "" {
-		c.Options.Compiler = PDFLatex
+		c.Options.Compiler = sharedTypes.PDFLatex
 	}
 	if c.Options.Timeout == 0 {
 		// TODO: This is a bad default.

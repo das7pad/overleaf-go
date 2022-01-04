@@ -45,11 +45,11 @@ type latexRunner struct {
 
 //goland:noinspection SpellCheckingInspection
 var (
-	compilerFlag = map[types.Compiler]string{
-		types.Latex:    "-pdfdvi",
-		types.LuaLatex: "-lualatex",
-		types.PDFLatex: "-pdf",
-		types.XeLatex:  "-xelatex",
+	compilerFlag = map[sharedTypes.Compiler]string{
+		sharedTypes.Latex:    "-pdfdvi",
+		sharedTypes.LuaLatex: "-lualatex",
+		sharedTypes.PDFLatex: "-pdf",
+		sharedTypes.XeLatex:  "-xelatex",
 	}
 
 	preProcessedFileTypes = []sharedTypes.FileType{

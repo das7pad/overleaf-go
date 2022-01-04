@@ -143,7 +143,7 @@ const clsiProcessEpochLabel = "com.overleaf.clsi.process.epoch"
 
 var currentClsiProcessEpoch = time.Now().UTC().Format(time.RFC3339Nano)
 
-func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
+func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
 	validUntil, err := a.createContainer(ctx, namespace, imageName)
 	if err == nil {
 		// Happy path.
@@ -212,7 +212,7 @@ func (a *agentRunner) getExpectedEndOfAgentLife() *time.Time {
 	return &validUntil
 }
 
-func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName types.ImageName) (*time.Time, error) {
+func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
 	compileDir := a.o.CompileBaseDir.CompileDir(namespace)
 	outputDir := a.o.OutputBaseDir.OutputDir(namespace)
 

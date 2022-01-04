@@ -151,9 +151,9 @@ type WSBootstrap struct {
 }
 
 type AllowedImageName struct {
-	AdminOnly bool                `json:"adminOnly"`
-	Name      clsiTypes.ImageName `json:"name"`
-	Desc      string              `json:"desc"`
+	AdminOnly bool                  `json:"adminOnly"`
+	Name      sharedTypes.ImageName `json:"name"`
+	Desc      string                `json:"desc"`
 }
 
 type ProjectEditorData struct {

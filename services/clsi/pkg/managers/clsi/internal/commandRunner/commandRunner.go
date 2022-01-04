@@ -33,7 +33,7 @@ type Runner interface {
 	Setup(
 		ctx context.Context,
 		namespace types.Namespace,
-		imageName types.ImageName,
+		imageName sharedTypes.ImageName,
 	) (*time.Time, error)
 
 	Run(

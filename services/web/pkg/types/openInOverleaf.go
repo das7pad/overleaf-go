@@ -26,7 +26,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type OpenInOverleafSnippet struct {
@@ -60,7 +59,7 @@ func (s *OpenInOverleafSnippet) Validate() error {
 type OpenInOverleafRequest struct {
 	Session *session.Session `json:"-"`
 
-	Compiler       clsiTypes.Compiler       `json:"compiler"`
+	Compiler       sharedTypes.Compiler     `json:"compiler"`
 	HasDefaultName bool                     `json:"-"`
 	ProjectName    project.Name             `json:"project_name"`
 	Snippets       []*OpenInOverleafSnippet `json:"snippets"`
@@ -166,10 +165,10 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 		return err
 	}
 	if s := params.Get("engine"); s != "" {
-		c := clsiTypes.Compiler(s)
+		c := sharedTypes.Compiler(s)
 		//goland:noinspection SpellCheckingInspection
 		if c == "latex_dvipdf" {
-			c = clsiTypes.Latex
+			c = sharedTypes.Latex
 		}
 		if err := c.Validate(); err != nil {
 			return errors.Tag(err, "engine")

@@ -79,38 +79,6 @@ func (c CompileGroup) Validate() error {
 	return &errors.ValidationError{Msg: "compileGroup is not allowed"}
 }
 
-var imageNameYearRegex = regexp.MustCompile(":([0-9]+)\\.[0-9]+")
-
-type ImageName string
-
-func (i ImageName) Year() string {
-	m := imageNameYearRegex.FindStringSubmatch(string(i))
-	return m[1]
-}
-
-func (i ImageName) CheckIsAllowed(allowedImages []ImageName) error {
-	for _, image := range allowedImages {
-		if i == image {
-			return nil
-		}
-	}
-	return &errors.ValidationError{Msg: "imageName is not allowed"}
-}
-
-func (i ImageName) Validate() error {
-	if i == "" {
-		return &errors.ValidationError{
-			Msg: "imageName missing",
-		}
-	}
-	if !imageNameYearRegex.MatchString(string(i)) {
-		return &errors.ValidationError{
-			Msg: "imageName does not match year regex",
-		}
-	}
-	return nil
-}
-
 var anonymousSuffix = "-" + primitive.NilObjectID.Hex()
 
 type Namespace string

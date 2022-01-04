@@ -219,7 +219,7 @@ Hello world
 		Options: types.CompileOptions{
 			Check:        types.NoCheck,
 			CompileGroup: types.ValidCompileGroups[0],
-			Compiler:     types.PDFLatex,
+			Compiler:     sharedTypes.PDFLatex,
 			ImageName:    m.options.AllowedImages[0],
 			SyncType:     types.SyncTypeFull,
 			Timeout:      types.Timeout(10 * time.Second),

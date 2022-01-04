@@ -19,6 +19,7 @@ package types
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -39,9 +40,9 @@ type CompileProjectRequest struct {
 
 	AutoCompile                bool                       `json:"autoCompile"`
 	CheckMode                  clsiTypes.CheckMode        `json:"checkMode"`
-	Compiler                   clsiTypes.Compiler         `json:"compiler"`
+	Compiler                   sharedTypes.Compiler       `json:"compiler"`
 	Draft                      clsiTypes.DraftModeFlag    `json:"draft"`
-	ImageName                  clsiTypes.ImageName        `json:"imageName"`
+	ImageName                  sharedTypes.ImageName      `json:"imageName"`
 	IncrementalCompilesEnabled bool                       `json:"incrementalCompilesEnabled"`
 	RootDocId                  primitive.ObjectID         `json:"rootDocId"`
 	RootDocPath                clsiTypes.RootResourcePath `json:"rootDocPath"`

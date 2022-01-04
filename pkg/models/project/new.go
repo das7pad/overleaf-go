@@ -21,11 +21,11 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 const (
-	DefaultCompiler = clsiTypes.PDFLatex
+	DefaultCompiler = sharedTypes.PDFLatex
 )
 
 func NewProject(ownerId primitive.ObjectID) *ForCreation {

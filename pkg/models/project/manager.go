@@ -30,7 +30,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -65,8 +64,8 @@ type Manager interface {
 	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
 	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
 	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
-	SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler clsiTypes.Compiler) error
-	SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName clsiTypes.ImageName) error
+	SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler sharedTypes.Compiler) error
+	SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName sharedTypes.ImageName) error
 	SetSpellCheckLanguage(ctx context.Context, projectId primitive.ObjectID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
 	SetRootDocId(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, rootDocId primitive.ObjectID) error
 	SetPublicAccessLevel(ctx context.Context, projectId primitive.ObjectID, epoch int64, level PublicAccessLevel) error
@@ -231,13 +230,13 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId primitive.Object
 	return nil, errors.Tag(allErrors, "bad random source")
 }
 
-func (m *manager) SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler clsiTypes.Compiler) error {
+func (m *manager) SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler sharedTypes.Compiler) error {
 	return m.set(ctx, projectId, CompilerField{
 		Compiler: compiler,
 	})
 }
 
-func (m *manager) SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName clsiTypes.ImageName) error {
+func (m *manager) SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName sharedTypes.ImageName) error {
 	return m.set(ctx, projectId, ImageNameField{
 		ImageName: imageName,
 	})
