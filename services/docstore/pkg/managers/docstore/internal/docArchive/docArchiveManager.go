@@ -22,9 +22,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
@@ -96,81 +96,34 @@ type pMapProducer func(
 ) (docIds <-chan primitive.ObjectID, errors <-chan error)
 
 func (m *manager) pMap(ctx context.Context, projectId primitive.ObjectID, producer pMapProducer, worker pMapWorker) error {
-	pCtx, done := context.WithCancel(ctx)
-	defer done()
+	eg, pCtx := errgroup.WithContext(ctx)
 	docIds, errs := producer(pCtx, projectId, m.pLimits.BatchSize)
-
-	l := sync.Mutex{}
-	var firstError error
-
-	setErr := func(err error) {
-		l.Lock()
-		defer l.Unlock()
-
-		if firstError == nil {
-			firstError = err
-			done()
+	eg.Go(func() error {
+		<-pCtx.Done()
+		for range docIds {
+			// Flush the queue.
 		}
-	}
-	doWork := func(docId primitive.ObjectID) error {
-		if err := worker(pCtx, projectId, docId); err != nil {
-			setErr(errors.Tag(err, "failed for "+docId.Hex()))
-			return err
+		return pCtx.Err()
+	})
+	eg.Go(func() error {
+		mergedErr := &errors.MergedError{}
+		mergedErr.Add(<-errs)
+		for err := range errs {
+			mergedErr.Add(err)
 		}
-		return nil
-	}
-
-	workerFinished := make(chan bool)
-	workerSpawned := 0
-	for workerSpawned < int(m.pLimits.ParallelArchiveJobs) {
-		if firstError != nil {
-			break
-		}
-		select {
-		case docId, gotWork := <-docIds:
-			if !gotWork {
-				break
-			}
-			if err := doWork(docId); err != nil {
-				break
-			}
-		case <-pCtx.Done():
-			setErr(pCtx.Err())
-			break
-		case err, gotError := <-errs:
-			if gotError {
-				setErr(err)
-			}
-			break
-		}
-
-		// spawn new worker
-		workerSpawned += 1
-		go func() {
+		return mergedErr.Finalize()
+	})
+	for i := 0; i < m.pLimits.ParallelArchiveJobs; i++ {
+		eg.Go(func() error {
 			for docId := range docIds {
-				if err := doWork(docId); err != nil {
-					break
+				if err := worker(pCtx, projectId, docId); err != nil {
+					return errors.Tag(err, "failed for "+docId.Hex())
 				}
 			}
-
-			workerFinished <- true
-		}()
+			return nil
+		})
 	}
-	for i := 0; i < workerSpawned; i++ {
-		select {
-		case <-workerFinished:
-			continue
-		case <-pCtx.Done():
-			setErr(pCtx.Err())
-			break
-		case err, gotError := <-errs:
-			if gotError {
-				setErr(err)
-			}
-			break
-		}
-	}
-	return firstError
+	return eg.Wait()
 }
 
 func (m *manager) ArchiveDocs(ctx context.Context, projectId primitive.ObjectID) error {

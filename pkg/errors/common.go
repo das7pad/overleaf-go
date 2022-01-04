@@ -82,6 +82,9 @@ func (m *MergedError) Finalize() error {
 	if len(m.errors) == 0 {
 		return nil
 	}
+	if len(m.errors) == 1 {
+		return m.errors[0]
+	}
 	return m
 }
 
