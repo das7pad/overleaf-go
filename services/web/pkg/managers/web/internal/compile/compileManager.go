@@ -358,9 +358,14 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 			return err
 		}
 		return nil
-	// TODO: convert other codes into proper errors
+	case http.StatusBadRequest:
+		return &errors.ValidationError{}
+	case http.StatusNotFound:
+		return &errors.NotFoundError{}
 	case http.StatusConflict:
 		return &errors.InvalidStateError{}
+	case http.StatusLocked:
+		return &errors.AlreadyCompilingError{}
 	default:
 		return unexpectedStatus(res)
 	}
