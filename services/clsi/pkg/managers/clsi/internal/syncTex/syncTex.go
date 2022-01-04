@@ -150,7 +150,7 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 	return nil
 }
 
-const timeout = 60 * time.Second
+const timeout = sharedTypes.ComputeTimeout(60 * time.Second)
 
 func (m *manager) runSyncTex(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request types.SyncTexRequestCommon) ([]string, error) {
 	compileDir := m.options.CompileBaseDir.CompileDir(namespace)
@@ -177,7 +177,7 @@ func (m *manager) runSyncTex(ctx context.Context, run commandRunner.NamespacedRu
 	cmd := &types.CommandOptions{
 		CommandLine:        request.CommandLine(),
 		ImageName:          syncTexOptions.ImageName,
-		Timeout:            types.Timeout(timeout),
+		ComputeTimeout:     timeout,
 		CompileGroup:       syncTexOptions.CompileGroup,
 		CommandOutputFiles: *files,
 	}

@@ -65,9 +65,9 @@ type SyncTexRequestCommon interface {
 }
 
 type SyncTexOptions struct {
-	BuildId      BuildId               `json:"buildId"`
-	CompileGroup CompileGroup          `json:"compileGroup"`
-	ImageName    sharedTypes.ImageName `json:"imageName"`
+	BuildId      BuildId                  `json:"buildId"`
+	CompileGroup sharedTypes.CompileGroup `json:"compileGroup"`
+	ImageName    sharedTypes.ImageName    `json:"imageName"`
 }
 
 func (o *SyncTexOptions) Validate() error {

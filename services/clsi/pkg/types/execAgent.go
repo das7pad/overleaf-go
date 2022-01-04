@@ -21,10 +21,10 @@ import (
 )
 
 type ExecAgentRequestOptions struct {
-	CommandLine        `json:"command_line"`
-	Environment        `json:"environment"`
-	Timeout            `json:"timeout"`
-	CommandOutputFiles `json:"command_output_files"`
+	CommandLine                `json:"command_line"`
+	Environment                `json:"environment"`
+	sharedTypes.ComputeTimeout `json:"timeout"`
+	CommandOutputFiles         `json:"command_output_files"`
 }
 
 type ExecAgentResponseBody struct {

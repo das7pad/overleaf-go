@@ -419,7 +419,7 @@ func (p *project) triggerCleanup() pendingOperation.PendingOperation {
 }
 
 func (p *project) run(ctx context.Context, options *types.CommandOptions) (types.ExitCode, error) {
-	timeout := time.Duration(options.Timeout)
+	timeout := time.Duration(options.ComputeTimeout)
 	ctx, done := context.WithTimeout(ctx, timeout)
 	defer done()
 
@@ -542,7 +542,7 @@ func (p *project) tryRun(ctx context.Context, options *types.CommandOptions) (ty
 	}
 
 	// Update the timeout
-	options.Timeout = types.Timeout(deadline.Sub(time.Now()))
+	options.ComputeTimeout = sharedTypes.ComputeTimeout(deadline.Sub(time.Now()))
 
 	return p.runner.Run(ctx, p.namespace, options)
 }

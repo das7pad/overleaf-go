@@ -17,14 +17,14 @@
 package user
 
 import (
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Features struct {
-	Collaborators       int                    `json:"collaborators" bson:"collaborators"`
-	Versioning          bool                   `json:"versioning" bson:"versioning"`
-	CompileTimeout      clsiTypes.Timeout      `json:"compileTimeout" bson:"compileTimeout"`
-	CompileGroup        clsiTypes.CompileGroup `json:"compileGroup" bson:"compileGroup"`
-	TrackChanges        bool                   `json:"trackChanges" bson:"trackChanges"`
-	TrackChangesVisible bool                   `json:"trackChangesVisible"`
+	Collaborators       int                        `json:"collaborators" bson:"collaborators"`
+	Versioning          bool                       `json:"versioning" bson:"versioning"`
+	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" bson:"compileTimeout"`
+	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" bson:"compileGroup"`
+	TrackChanges        bool                       `json:"trackChanges" bson:"trackChanges"`
+	TrackChangesVisible bool                       `json:"trackChangesVisible"`
 }

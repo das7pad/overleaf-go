@@ -124,11 +124,11 @@ func (o *Options) Validate() error {
 			Msg: "url_download_timeout_ns cannot be lower than 1",
 		}
 	}
-	maxCompileTime := time.Duration(MaxTimeout)
-	if o.ProjectCacheDuration < maxCompileTime {
+	maxComputeTime := time.Duration(sharedTypes.MaxComputeTimeout)
+	if o.ProjectCacheDuration < maxComputeTime {
 		return &errors.ValidationError{
 			Msg: "project_cache_duration_ns cannot be lower than " +
-				maxCompileTime.String(),
+				maxComputeTime.String(),
 		}
 	}
 	if o.GetCapacityRefreshEvery < 1 {

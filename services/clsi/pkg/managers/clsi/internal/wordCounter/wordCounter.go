@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -75,7 +76,7 @@ func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, na
 	options := &types.CommandOptions{
 		CommandLine:        cmd,
 		ImageName:          request.ImageName,
-		Timeout:            types.Timeout(timeout),
+		ComputeTimeout:     sharedTypes.ComputeTimeout(timeout),
 		CompileGroup:       request.CompileGroup,
 		CommandOutputFiles: *files,
 	}

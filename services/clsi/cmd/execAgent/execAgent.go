@@ -89,7 +89,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timeout := time.Duration(options.Timeout)
+	timeout := time.Duration(options.ComputeTimeout)
 	ctx, done := context.WithTimeout(r.Context(), timeout)
 	defer done()
 	code, err := do(ctx, &options, &timed)

@@ -85,7 +85,7 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 				Collaborators:       -1,
 				Versioning:          true,
 				CompileTimeout:      180,
-				CompileGroup:        "standard",
+				CompileGroup:        sharedTypes.StandardCompileGroup,
 				TrackChanges:        true,
 				TrackChangesVisible: true,
 			},

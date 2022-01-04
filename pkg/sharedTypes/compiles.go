@@ -18,6 +18,7 @@ package sharedTypes
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -42,6 +43,48 @@ func (c Compiler) Validate() error {
 		}
 	}
 	return &errors.ValidationError{Msg: "compiler not allowed"}
+}
+
+const (
+	StandardCompileGroup = CompileGroup("standard")
+	PriorityCompileGroup = CompileGroup("priority")
+)
+
+var validCompileGroups = []CompileGroup{
+	StandardCompileGroup,
+	PriorityCompileGroup,
+}
+
+type CompileGroup string
+
+func (c CompileGroup) Validate() error {
+	if c == "" {
+		return &errors.ValidationError{Msg: "compileGroup missing"}
+	}
+	for _, compileGroup := range validCompileGroups {
+		if c == compileGroup {
+			return nil
+		}
+	}
+	return &errors.ValidationError{Msg: "compileGroup is not allowed"}
+}
+
+type ComputeTimeout time.Duration
+
+const MaxComputeTimeout = ComputeTimeout(10 * time.Minute)
+
+var errTimeoutTooHigh = &errors.ValidationError{
+	Msg: "timeout must be below " + time.Duration(MaxComputeTimeout).String(),
+}
+
+func (t ComputeTimeout) Validate() error {
+	if t <= 0 {
+		return &errors.ValidationError{Msg: "timeout must be greater zero"}
+	}
+	if t > MaxComputeTimeout {
+		return errTimeoutTooHigh
+	}
+	return nil
 }
 
 var imageNameYearRegex = regexp.MustCompile(":([0-9]+)\\.[0-9]+")

@@ -181,14 +181,14 @@ func (r Resources) Validate() error {
 }
 
 type CompileOptions struct {
-	Check        CheckMode             `json:"check"`
-	Compiler     sharedTypes.Compiler  `json:"compiler"`
-	CompileGroup CompileGroup          `json:"compileGroup"`
-	Draft        DraftModeFlag         `json:"draft"`
-	ImageName    sharedTypes.ImageName `json:"imageName"`
-	SyncState    SyncState             `json:"syncState"`
-	SyncType     SyncType              `json:"syncType"`
-	Timeout      Timeout               `json:"timeout"`
+	Check        CheckMode                  `json:"check"`
+	Compiler     sharedTypes.Compiler       `json:"compiler"`
+	CompileGroup sharedTypes.CompileGroup   `json:"compileGroup"`
+	Draft        DraftModeFlag              `json:"draft"`
+	ImageName    sharedTypes.ImageName      `json:"imageName"`
+	SyncState    SyncState                  `json:"syncState"`
+	SyncType     SyncType                   `json:"syncType"`
+	Timeout      sharedTypes.ComputeTimeout `json:"timeout"`
 }
 
 func (c CompileOptions) Validate() error {
@@ -235,10 +235,6 @@ func (c *CompileRequest) Preprocess() error {
 	}
 	if c.Options.Compiler == "" {
 		c.Options.Compiler = sharedTypes.PDFLatex
-	}
-	if c.Options.Timeout == 0 {
-		// TODO: This is a bad default.
-		c.Options.Timeout = MaxTimeout
 	}
 	if c.Options.Timeout < 1000 {
 		// timeout is likely in seconds.

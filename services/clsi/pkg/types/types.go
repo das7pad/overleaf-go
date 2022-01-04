@@ -59,26 +59,6 @@ func (i BuildId) Age() (time.Duration, error) {
 	return time.Now().Sub(time.Unix(0, ns)), nil
 }
 
-var ValidCompileGroups = []CompileGroup{
-	"standard",
-	"priority",
-	"alpha",
-}
-
-type CompileGroup string
-
-func (c CompileGroup) Validate() error {
-	if c == "" {
-		return &errors.ValidationError{Msg: "compileGroup missing"}
-	}
-	for _, compileGroup := range ValidCompileGroups {
-		if c == compileGroup {
-			return nil
-		}
-	}
-	return &errors.ValidationError{Msg: "compileGroup is not allowed"}
-}
-
 var anonymousSuffix = "-" + primitive.NilObjectID.Hex()
 
 type Namespace string

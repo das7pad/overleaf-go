@@ -87,7 +87,7 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	runner := agentRunner{
 		dockerClient: dockerClient,
 		agentClient: http.Client{
-			Timeout: time.Duration(types.MaxTimeout),
+			Timeout: time.Duration(sharedTypes.MaxComputeTimeout),
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 					if len(addr) != 24+1+24+3 {
@@ -332,7 +332,7 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) erro
 		CommandLine:        types.CommandLine{"true"},
 		CommandOutputFiles: types.CommandOutputFiles{},
 		Environment:        types.Environment{},
-		Timeout:            types.Timeout(timeout),
+		ComputeTimeout:     sharedTypes.ComputeTimeout(timeout),
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -378,7 +378,7 @@ func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, op
 		CommandLine:        options.CommandLine,
 		CommandOutputFiles: options.CommandOutputFiles,
 		Environment:        options.Environment,
-		Timeout:            options.Timeout,
+		ComputeTimeout:     options.ComputeTimeout,
 	}
 	blob, err := json.Marshal(request)
 	if err != nil {

@@ -18,9 +18,7 @@ package types
 
 import (
 	"os"
-	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -28,30 +26,12 @@ type CommandLine []string
 
 type Environment []string
 
-type Timeout time.Duration
-
-const MaxTimeout = Timeout(10 * time.Minute)
-
-var maxTimeoutPretty = time.Duration(MaxTimeout).String()
-
-func (t Timeout) Validate() error {
-	if t <= 0 {
-		return &errors.ValidationError{Msg: "timeout must be greater zero"}
-	}
-	if t > MaxTimeout {
-		return &errors.ValidationError{
-			Msg: "timeout must be below " + maxTimeoutPretty,
-		}
-	}
-	return nil
-}
-
 type CommandOptions struct {
 	CommandLine
 	Environment
-	Timeout
+	sharedTypes.ComputeTimeout
 	sharedTypes.ImageName
-	CompileGroup
+	sharedTypes.CompileGroup
 	CommandOutputFiles
 	*sharedTypes.Timed
 }

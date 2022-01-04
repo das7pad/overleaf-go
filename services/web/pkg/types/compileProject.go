@@ -24,10 +24,10 @@ import (
 )
 
 type SignedCompileProjectRequestOptions struct {
-	CompileGroup clsiTypes.CompileGroup `json:"c"`
-	ProjectId    primitive.ObjectID     `json:"p"`
-	UserId       primitive.ObjectID     `json:"u"`
-	Timeout      clsiTypes.Timeout      `json:"t"`
+	CompileGroup sharedTypes.CompileGroup   `json:"c"`
+	ProjectId    primitive.ObjectID         `json:"p"`
+	UserId       primitive.ObjectID         `json:"u"`
+	Timeout      sharedTypes.ComputeTimeout `json:"t"`
 }
 
 type CompileProjectHeadlessRequest struct {
@@ -78,7 +78,7 @@ type PDFDownloadDomain string
 
 type CompileProjectResponse struct {
 	clsiTypes.CompileResponse
-	ClsiServerId      ClsiServerId           `json:"clsiServerId,omitempty"`
-	CompileGroup      clsiTypes.CompileGroup `json:"compileGroup,omitempty"`
-	PDFDownloadDomain PDFDownloadDomain      `json:"pdfDownloadDomain,omitempty"`
+	ClsiServerId      ClsiServerId             `json:"clsiServerId,omitempty"`
+	CompileGroup      sharedTypes.CompileGroup `json:"compileGroup,omitempty"`
+	PDFDownloadDomain PDFDownloadDomain        `json:"pdfDownloadDomain,omitempty"`
 }

@@ -150,7 +150,7 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 		CommandLine:        cmd,
 		Environment:        env,
 		ImageName:          request.Options.ImageName,
-		Timeout:            request.Options.Timeout,
+		ComputeTimeout:     request.Options.Timeout,
 		CompileGroup:       request.Options.CompileGroup,
 		CommandOutputFiles: files,
 		Timed:              &response.Timings.Compile,
