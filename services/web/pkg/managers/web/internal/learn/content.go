@@ -17,7 +17,6 @@
 package learn
 
 import (
-	"fmt"
 	"html/template"
 	"regexp"
 	"strings"
@@ -68,11 +67,9 @@ var regexOverleafLinks = regexp.MustCompile(
 func (pc *pageContentRaw) parse(ps *templates.PublicSettings) *pageContent {
 	if pc.Parse.RevId == 0 {
 		// Page not found.
-		fmt.Println("revId")
 		return &pageContent{exists: false}
 	}
 	if pc.isHidden() {
-		fmt.Println("hidden")
 		return &pageContent{exists: false}
 	}
 	if redirect := pc.redirect(); redirect != "" {
