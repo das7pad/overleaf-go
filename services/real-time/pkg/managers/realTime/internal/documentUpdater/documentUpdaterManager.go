@@ -18,15 +18,11 @@ package documentUpdater
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
 
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -40,111 +36,9 @@ type Manager interface {
 }
 
 func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
-	if options.APIs.DocumentUpdater.Options != nil {
-		return documentUpdater.New(
-			options.APIs.DocumentUpdater.Options,
-			client,
-			db,
-		)
-	}
-	return &manager{
-		baseURL: options.APIs.DocumentUpdater.URL.String(),
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}, nil
-}
-
-type manager struct {
-	baseURL string
-
-	client *http.Client
-}
-
-func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error) {
-	u := m.baseURL
-	u += "/project/" + projectId.Hex()
-	u += "/doc/" + docId.Hex()
-	u += "?fromVersion=" + fromVersion.String()
-	u += "&snapshot=true"
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	res, err := m.client.Do(r)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = res.Body.Close()
-	}()
-	switch res.StatusCode {
-	case http.StatusOK:
-		var body documentUpdaterTypes.GetDocResponse
-		err = json.NewDecoder(res.Body).Decode(&body)
-		if err != nil {
-			return nil, err
-		}
-		return &body, nil
-	case http.StatusForbidden:
-		return nil, &errors.NotAuthorizedError{}
-	case http.StatusNotFound, http.StatusUnprocessableEntity:
-		return nil, &errors.CodedError{
-			Description: "doc updater could not load requested ops",
-			Code:        "DocNotFoundOrVersionTooOld",
-		}
-	default:
-		return nil, errors.New(
-			"non-success status code from document-updater: " + res.Status,
-		)
-	}
-}
-
-func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {
-	u := m.baseURL
-	u += "/project/" + projectId.Hex()
-	u += "/doc/" + docId.Hex()
-	u += "/exists"
-	r, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
-	if err != nil {
-		return err
-	}
-	res, err := m.client.Do(r)
-	if err != nil {
-		return err
-	}
-	_ = res.Body.Close()
-	switch res.StatusCode {
-	case http.StatusNoContent:
-		return nil
-	case http.StatusForbidden, http.StatusNotFound:
-		return &errors.NotAuthorizedError{}
-	default:
-		return errors.New(
-			"non-success status code from document-updater: " + res.Status,
-		)
-	}
-}
-
-func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
-	u := m.baseURL
-	u += "/project/" + projectId.Hex()
-	u += "?background=true"
-	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
-	if err != nil {
-		return err
-	}
-	res, err := m.client.Do(r)
-	if err != nil {
-		return err
-	}
-	_ = res.Body.Close()
-	switch res.StatusCode {
-	case http.StatusNoContent:
-		return nil
-	default:
-		return errors.New(
-			"non-success status code from document-updater: " + res.Status,
-		)
-	}
+	return documentUpdater.New(
+		options.APIs.DocumentUpdater.Options,
+		client,
+		db,
+	)
 }

@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
@@ -39,12 +38,7 @@ type Options struct {
 		} `json:"docstore"`
 		DocumentUpdater struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
-			URL     sharedTypes.URL               `json:"url"`
 		} `json:"document_updater"`
-		WebApi struct {
-			Monolith bool            `json:"monolith"`
-			URL      sharedTypes.URL `json:"url"`
-		} `json:"web_api"`
 	} `json:"apis"`
 }
 
@@ -61,26 +55,11 @@ func (o *Options) Validate() error {
 		}
 	}
 
-	if o.APIs.DocumentUpdater.Options != nil {
-		if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
-			return errors.Tag(err, "apis.document_updater.options is invalid")
-		}
-	} else if err := o.APIs.DocumentUpdater.URL.Validate(); err != nil {
-		return errors.Tag(err, "apis.document_updater.url is invalid")
+	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
+		return errors.Tag(err, "apis.document_updater.options is invalid")
 	}
-	if o.APIs.WebApi.Monolith {
-		if o.APIs.Docstore.Options == nil {
-			return &errors.ValidationError{
-				Msg: "apis.docstore.options is missing",
-			}
-		}
-		if err := o.APIs.Docstore.Options.Validate(); err != nil {
-			return errors.Tag(err, "apis.docstore.options is invalid")
-		}
-	} else {
-		if err := o.APIs.WebApi.URL.Validate(); err != nil {
-			return errors.Tag(err, "apis.web_api.url is invalid")
-		}
+	if err := o.APIs.Docstore.Options.Validate(); err != nil {
+		return errors.Tag(err, "apis.docstore.options is invalid")
 	}
 	return nil
 }

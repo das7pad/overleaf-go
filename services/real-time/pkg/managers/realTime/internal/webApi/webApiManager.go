@@ -18,13 +18,9 @@ package webApi
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -37,79 +33,17 @@ type Manager interface {
 }
 
 func New(options *types.Options, db *mongo.Database) (Manager, error) {
-	if options.APIs.WebApi.Monolith {
-		dm, err := docstore.New(options.APIs.Docstore.Options, db)
-		if err != nil {
-			return nil, err
-		}
-		pim := projectInvite.New(db)
-		pm := project.New(db)
-		um := user.New(db)
-		return &monolithManager{
-			dm:  dm,
-			pim: pim,
-			pm:  pm,
-			um:  um,
-		}, nil
+	dm, err := docstore.New(options.APIs.Docstore.Options, db)
+	if err != nil {
+		return nil, err
 	}
-	return &manager{
-		baseURL: options.APIs.WebApi.URL.String(),
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+	pim := projectInvite.New(db)
+	pm := project.New(db)
+	um := user.New(db)
+	return &monolithManager{
+		dm:  dm,
+		pim: pim,
+		pm:  pm,
+		um:  um,
 	}, nil
-}
-
-type manager struct {
-	baseURL string
-
-	client *http.Client
-}
-
-const (
-	anonymousAccessTokenHeader = "x-sl-anonymous-access-token"
-)
-
-func (m *manager) JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error) {
-	u := m.baseURL
-	u += "/project/" + request.ProjectId.Hex() + "/join"
-	u += "?user_id=" + client.User.Id.Hex()
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
-	if err != nil {
-		return nil, "", err
-	}
-	r.Header.Set(anonymousAccessTokenHeader, string(request.AnonymousAccessToken))
-	res, err := m.client.Do(r)
-	if err != nil {
-		return nil, "", err
-	}
-	defer func() {
-		_ = res.Body.Close()
-	}()
-	by := res.Header.Get("X-Served-By")
-	switch res.StatusCode {
-	case http.StatusOK:
-		var body types.JoinProjectWebApiResponse
-		err = json.NewDecoder(res.Body).Decode(&body)
-		if err != nil {
-			return nil, by, err
-		}
-		return &body, by, nil
-	case http.StatusForbidden:
-		return nil, by, &errors.NotAuthorizedError{}
-	case http.StatusNotFound:
-		return nil, by, &errors.CodedError{
-			Description: "project not found",
-			Code:        "ProjectNotFound",
-		}
-	case http.StatusTooManyRequests:
-		return nil, by, &errors.CodedError{
-			Description: "rate-limit hit when joining project",
-			Code:        "TooManyRequests",
-		}
-	default:
-		return nil, by, errors.New(
-			"non-success status code from web: " + res.Status,
-		)
-	}
 }
