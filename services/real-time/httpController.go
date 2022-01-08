@@ -62,7 +62,6 @@ func (h *httpController) GetRouter() http.Handler {
 	router.HEAD("/status", h.status)
 
 	router.GET("/socket.io", h.ws)
-	router.GET("/socket.io/socket.io.js", h.clientBlob)
 	return router
 }
 
@@ -83,11 +82,6 @@ func (h *httpController) status(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, "real-time is alive (go)\n")
-}
-
-func (h *httpController) clientBlob(c *gin.Context) {
-	c.Header("Content-Type", "application/javascript")
-	c.String(http.StatusOK, "window.io='plain'")
 }
 
 func sendAndForget(conn *websocket.Conn, entry *types.WriteQueueEntry) {
