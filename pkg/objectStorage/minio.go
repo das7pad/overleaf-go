@@ -93,15 +93,18 @@ func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key str
 	_, err = r.Read(make([]byte, 0))
 	if err == io.EOF {
 		if s, err2 := r.Stat(); err2 == nil && s.Size == 0 {
+			_ = r.Close()
 			// This is an empty file.
 			return 0, r, nil
 		}
 	}
 	if err != nil {
+		_ = r.Close()
 		return 0, nil, errors.Tag(rewriteError(err), "probe")
 	}
 	s, err := r.Stat()
 	if err != nil {
+		_ = r.Close()
 		return 0, nil, errors.Tag(rewriteError(err), "stat")
 	}
 	return s.Size, r, nil

@@ -880,6 +880,9 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
 	c.Header("Content-Disposition", cd)
 	httpUtils.EndTotalTimer(c)
+	defer func() {
+		_ = response.Reader.Close()
+	}()
 	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
 }
 
