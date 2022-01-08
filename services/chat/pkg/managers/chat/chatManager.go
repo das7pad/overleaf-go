@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/message"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/thread"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
@@ -34,7 +35,7 @@ type Manager interface {
 		ctx context.Context,
 		projectId primitive.ObjectID,
 		limit int64,
-		before float64,
+		before sharedTypes.Timestamp,
 	) ([]*types.Message, error)
 
 	SendGlobalMessage(
@@ -128,7 +129,7 @@ func (m *manager) GetGlobalMessages(
 	ctx context.Context,
 	projectId primitive.ObjectID,
 	limit int64,
-	before float64,
+	before sharedTypes.Timestamp,
 ) ([]*types.Message, error) {
 	room, err := m.tm.FindOrCreateThread(
 		ctx,

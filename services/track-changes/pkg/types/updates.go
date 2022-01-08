@@ -17,8 +17,11 @@
 package types
 
 import (
+	"net/url"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -44,8 +47,14 @@ type GetProjectHistoryUpdatesRequest struct {
 	ProjectId primitive.ObjectID `json:"-"`
 	UserId    primitive.ObjectID `json:"-"`
 
-	MinCount sharedTypes.Int       `form:"min_count" json:"min_count"`
-	Before   sharedTypes.Timestamp `form:"before" json:"before"`
+	Before sharedTypes.Timestamp `form:"before" json:"before"`
+}
+
+func (r *GetProjectHistoryUpdatesRequest) FromQuery(q url.Values) error {
+	if err := r.Before.ParseIfSet(q.Get("before")); err != nil {
+		return errors.Tag(err, "query parameter 'before'")
+	}
+	return nil
 }
 
 type GetProjectHistoryUpdatesResponse struct {

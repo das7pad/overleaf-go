@@ -24,8 +24,10 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+const chatPageSize = 50
+
 func (m *manager) GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error {
-	rawMessages, err := m.cm.GetGlobalMessages(ctx, request.ProjectId, request.Limit, request.Before)
+	rawMessages, err := m.cm.GetGlobalMessages(ctx, request.ProjectId, chatPageSize, request.Before)
 	if err != nil {
 		return errors.Tag(err, "cannot get messages")
 	}

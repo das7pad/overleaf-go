@@ -75,13 +75,14 @@ func (h *httpController) getWsBootstrap(c *gin.Context) (*wsBootstrap.Claims, er
 
 func (h *httpController) status(c *gin.Context) {
 	if h.rtm.IsShuttingDown() {
-		c.String(
+		httpUtils.RespondPlain(
+			c,
 			http.StatusServiceUnavailable,
 			"real-time is shutting down (go)\n",
 		)
 		return
 	}
-	c.String(http.StatusOK, "real-time is alive (go)\n")
+	httpUtils.RespondPlain(c, http.StatusOK, "real-time is alive (go)\n")
 }
 
 func sendAndForget(conn *websocket.Conn, entry *types.WriteQueueEntry) {

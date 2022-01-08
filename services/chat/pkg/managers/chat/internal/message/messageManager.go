@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
@@ -39,7 +40,7 @@ type Manager interface {
 		ctx context.Context,
 		roomId primitive.ObjectID,
 		limit int64,
-		before float64,
+		before sharedTypes.Timestamp,
 	) ([]*types.Message, error)
 
 	FindAllMessagesInRooms(
@@ -117,7 +118,7 @@ func (m *manager) GetMessages(
 	ctx context.Context,
 	roomId primitive.ObjectID,
 	limit int64,
-	before float64,
+	before sharedTypes.Timestamp,
 ) ([]*types.Message, error) {
 	query := bson.M{
 		"room_id": roomId,
@@ -126,7 +127,7 @@ func (m *manager) GetMessages(
 		query = bson.M{
 			"room_id": roomId,
 			"timestamp": bson.M{
-				"$lt": before,
+				"$lt": int64(before),
 			},
 		}
 	}

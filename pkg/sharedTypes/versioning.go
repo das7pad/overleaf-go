@@ -16,6 +16,12 @@
 
 package sharedTypes
 
+import (
+	"strconv"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+)
+
 type Revision int64
 
 type Version int64
@@ -26,4 +32,16 @@ func (v Version) Equals(other Version) bool {
 
 func (v Version) String() string {
 	return Int(v).String()
+}
+
+func (v *Version) ParseIfSet(s string) error {
+	if s == "" {
+		return nil
+	}
+	raw, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return &errors.ValidationError{Msg: "invalid version (int)"}
+	}
+	*v = Version(raw)
+	return nil
 }

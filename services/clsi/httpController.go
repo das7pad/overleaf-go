@@ -61,11 +61,11 @@ func (h *httpController) GetRouter() http.Handler {
 }
 
 func (h *httpController) status(c *gin.Context) {
-	c.String(http.StatusOK, "clsi is alive (go)\n")
+	httpUtils.RespondPlain(c, http.StatusOK, "clsi is alive (go)\n")
 }
 
 type compileRequestBody struct {
-	Request *types.CompileRequest `json:"compile" binding:"required"`
+	Request types.CompileRequest `json:"compile" binding:"required"`
 }
 type compileResponseBody struct {
 	Response *types.CompileResponse `json:"compile"`
@@ -85,7 +85,7 @@ func (h *httpController) compile(c *gin.Context) {
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
-		requestBody.Request,
+		&requestBody.Request,
 		&response,
 	)
 	if err != nil {
@@ -165,7 +165,7 @@ func (h *httpController) wordCount(c *gin.Context) {
 }
 
 func (h *httpController) cookieStatus(c *gin.Context) {
-	c.Status(http.StatusOK)
+	c.Writer.WriteHeader(http.StatusOK)
 }
 
 func (h *httpController) healthCheck(c *gin.Context) {

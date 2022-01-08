@@ -24,6 +24,6 @@ import (
 
 func Age(c *gin.Context, age int64) {
 	if age != -1 {
-		c.Header("Age", strconv.FormatInt(age, 10))
+		c.Writer.Header().Set("Age", strconv.FormatInt(age, 10))
 	}
 }

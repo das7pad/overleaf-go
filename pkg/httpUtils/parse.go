@@ -17,13 +17,18 @@
 package httpUtils
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 func MustParseJSON(dst interface{}, c *gin.Context) bool {
-	if err := c.ShouldBindJSON(dst); err != nil {
+	defer func() {
+		_ = c.Request.Body.Close()
+	}()
+	if err := json.NewDecoder(c.Request.Body).Decode(dst); err != nil {
 		RespondErr(c, &errors.ValidationError{
 			Msg: "invalid body: " + err.Error(),
 		})

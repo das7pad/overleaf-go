@@ -105,7 +105,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func respond(w http.ResponseWriter, status int, code types.ExitCode, timed sharedTypes.Timed, message string) {
-	w.Header().Add("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	msg := &types.ExecAgentResponseBody{
 		ExitCode:     code,

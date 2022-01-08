@@ -17,6 +17,8 @@
 package types
 
 import (
+	"net/url"
+
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -37,6 +39,11 @@ func (r *ConfirmEmailRequest) Validate() error {
 type ConfirmEmailPageRequest struct {
 	Session *session.Session          `form:"-"`
 	Token   oneTimeToken.OneTimeToken `form:"token"`
+}
+
+func (r *ConfirmEmailPageRequest) FromQuery(q url.Values) error {
+	r.Token = oneTimeToken.OneTimeToken(q.Get("token"))
+	return nil
 }
 
 func (r *ConfirmEmailPageRequest) Validate() error {

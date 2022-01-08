@@ -17,16 +17,26 @@
 package types
 
 import (
+	"net/url"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type GetProjectChatMessagesRequest struct {
-	ProjectId primitive.ObjectID `form:"-"`
-	Before    float64            `form:"before"`
-	Limit     int64              `form:"limit"`
+	ProjectId primitive.ObjectID    `form:"-"`
+	Before    sharedTypes.Timestamp `form:"before"`
+}
+
+func (r *GetProjectChatMessagesRequest) FromQuery(q url.Values) error {
+	if err := r.Before.ParseIfSet(q.Get("before")); err != nil {
+		return errors.Tag(err, "query parameter 'before'")
+	}
+	return nil
 }
 
 type GetProjectChatMessagesResponse []*ChatMessage

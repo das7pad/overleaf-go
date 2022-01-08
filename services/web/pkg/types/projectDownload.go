@@ -17,6 +17,7 @@
 package types
 
 import (
+	"net/url"
 	"os"
 	"strings"
 
@@ -32,8 +33,8 @@ type CreateMultiProjectZIPRequest struct {
 	ProjectIds []primitive.ObjectID `json:"-"`
 }
 
-func (r *CreateMultiProjectZIPRequest) ParseProjectIds(s string) error {
-	for _, raw := range strings.Split(s, ",") {
+func (r *CreateMultiProjectZIPRequest) FromQuery(q url.Values) error {
+	for _, raw := range strings.Split(q.Get("project_ids"), ",") {
 		id, err := primitive.ObjectIDFromHex(raw)
 		if err != nil {
 			return &errors.ValidationError{

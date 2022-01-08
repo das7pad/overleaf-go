@@ -49,6 +49,10 @@ func New(options *types.Options, um user.Manager) Manager {
 	}
 }
 
+const (
+	fetchAtLeastNUpdates = "10"
+)
+
 type manager struct {
 	base   sharedTypes.URL
 	client *http.Client
@@ -86,7 +90,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 		"/project/%s/updates", r.ProjectId.Hex(),
 	))
 	query := url.Values{
-		"min_count": {r.MinCount.String()},
+		"min_count": {fetchAtLeastNUpdates},
 	}
 	if r.Before != 0 {
 		query.Set("before", strconv.FormatInt(int64(r.Before), 10))

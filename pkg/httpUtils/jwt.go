@@ -60,9 +60,9 @@ func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
 
 	var blob string
 	if h.fromQuery != "" {
-		blob = c.Query(h.fromQuery)
+		blob = c.Request.URL.Query().Get(h.fromQuery)
 	} else {
-		v := c.GetHeader("Authorization")
+		v := c.Request.Header.Get("Authorization")
 		if len(v) > 7 && v[:7] == "Bearer " {
 			blob = v[7:]
 		}

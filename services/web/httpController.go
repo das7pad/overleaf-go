@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -372,13 +371,13 @@ func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompi
 }
 
 func (h *httpController) addApiCSP(c *gin.Context) {
-	c.Header("Content-Security-Policy", h.ps.CSPs.API)
+	c.Writer.Header().Set("Content-Security-Policy", h.ps.CSPs.API)
 }
 
 var unsupportedBrowsers = regexp.MustCompile("Trident/|MSIE")
 
 func (h *httpController) blockUnsupportedBrowser(c *gin.Context) {
-	if unsupportedBrowsers.MatchString(c.GetHeader("User-Agent")) {
+	if unsupportedBrowsers.MatchString(c.Request.Header.Get("User-Agent")) {
 		c.Abort()
 		h.unsupportedBrowserPage(c)
 	}
@@ -621,7 +620,8 @@ func (h *httpController) getWSBootstrap(c *gin.Context) {
 
 func (h *httpController) getProjectMessages(c *gin.Context) {
 	request := &types.GetProjectChatMessagesRequest{}
-	if err := c.MustBindWith(request, binding.Query); err != nil {
+	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
+		httpUtils.RespondErr(c, err)
 		return
 	}
 	request.ProjectId = projectJWT.MustGet(c).ProjectId
@@ -877,13 +877,16 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
 	}
-	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
-	c.Header("Content-Disposition", cd)
 	httpUtils.EndTotalTimer(c)
-	defer func() {
-		_ = response.Reader.Close()
-	}()
-	c.DataFromReader(http.StatusOK, response.Size, contentTypeOctetStream, response.Reader, nil)
+	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
+	c.Writer.Header().Set("Content-Disposition", cd)
+	c.Writer.Header().Set("Content-Type", contentTypeOctetStream)
+	c.Writer.Header().Set(
+		"Content-Length", strconv.FormatInt(response.Size, 10),
+	)
+	c.Writer.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(c.Writer, response.Reader)
+	_ = response.Reader.Close()
 }
 
 func (h *httpController) getProjectFileSize(c *gin.Context) {
@@ -900,7 +903,9 @@ func (h *httpController) getProjectFileSize(c *gin.Context) {
 	response := &types.GetProjectFileSizeResponse{}
 	err = h.wm.GetProjectFileSize(c.Request.Context(), request, response)
 	if err == nil {
-		c.Header("Content-Length", strconv.FormatInt(response.Size, 10))
+		c.Writer.Header().Set(
+			"Content-Length", strconv.FormatInt(response.Size, 10),
+		)
 	}
 	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
@@ -1377,7 +1382,7 @@ func (h *httpController) openInOverleaf(c *gin.Context) {
 		return
 	}
 	request := &types.OpenInOverleafRequest{}
-	if c.ContentType() == "application/json" {
+	if c.Request.Header.Get("Content-Type") == "application/json" {
 		if !httpUtils.MustParseJSON(request, c) {
 			return
 		}
@@ -1461,7 +1466,7 @@ func (h *httpController) createProjectZIP(c *gin.Context) {
 		return
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
-	c.Header("Content-Disposition", cd)
+	c.Writer.Header().Set("Content-Disposition", cd)
 	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
@@ -1473,7 +1478,7 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 		return
 	}
 	request := &types.CreateMultiProjectZIPRequest{}
-	if err = request.ParseProjectIds(c.Query("project_ids")); err != nil {
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		httpUtils.RespondErr(c, err)
 		return
 	}
@@ -1487,7 +1492,7 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 		return
 	}
 	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
-	c.Header("Content-Disposition", cd)
+	c.Writer.Header().Set("Content-Disposition", cd)
 	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
@@ -1656,7 +1661,8 @@ func (h *httpController) resendEmailConfirmation(c *gin.Context) {
 func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetProjectHistoryUpdatesRequest{}
-	if err := c.MustBindWith(request, binding.Query); err != nil {
+	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
+		httpUtils.RespondErr(c, err)
 		return
 	}
 	request.ProjectId = o.ProjectId
@@ -1669,7 +1675,8 @@ func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {
 func (h *httpController) getProjectDocDiff(c *gin.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetDocDiffRequest{}
-	if err := c.MustBindWith(request, binding.Query); err != nil {
+	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
+		httpUtils.RespondErr(c, err)
 		return
 	}
 	request.ProjectId = o.ProjectId
@@ -1914,8 +1921,7 @@ func (h *httpController) confirmEmailPage(c *gin.Context) {
 		return
 	}
 	request := &types.ConfirmEmailPageRequest{}
-	if err = c.BindQuery(&request); err != nil {
-		err = errors.ToValidationError(err)
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
@@ -1948,8 +1954,7 @@ func (h *httpController) registerUserPage(c *gin.Context) {
 		return
 	}
 	request := &types.RegisterUserPageRequest{}
-	if err = c.BindQuery(&request); err != nil {
-		err = errors.ToValidationError(err)
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
@@ -1980,8 +1985,7 @@ func (h *httpController) setPasswordPage(c *gin.Context) {
 		return
 	}
 	request := &types.SetPasswordPageRequest{}
-	if err = c.BindQuery(&request); err != nil {
-		err = errors.ToValidationError(err)
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
@@ -2004,8 +2008,7 @@ func (h *httpController) requestPasswordResetPage(c *gin.Context) {
 		return
 	}
 	request := &types.RequestPasswordResetPageRequest{}
-	if err = c.BindQuery(&request); err != nil {
-		err = errors.ToValidationError(err)
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
@@ -2026,8 +2029,7 @@ func (h *httpController) activateUserPage(c *gin.Context) {
 		return
 	}
 	request := &types.ActivateUserPageRequest{}
-	if err = c.BindQuery(&request); err != nil {
-		err = errors.ToValidationError(err)
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
@@ -2087,9 +2089,9 @@ func (h *httpController) openInOverleafDocumentationPage(c *gin.Context) {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
-	r := &types.OpenInOverleafDocumentationPageRequest{Session: s}
+	request := &types.OpenInOverleafDocumentationPageRequest{Session: s}
 	res := &types.OpenInOverleafDocumentationPageResponse{}
-	err = h.wm.OpenInOverleafDocumentationPage(c.Request.Context(), r, res)
+	err = h.wm.OpenInOverleafDocumentationPage(c.Request.Context(), request, res)
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
@@ -2108,7 +2110,7 @@ func (h *httpController) openInOverleafGatewayPage(c *gin.Context) {
 		c.Request.Body = http.MaxBytesReader(
 			c.Writer, c.Request.Body, types.MaxUploadSize,
 		)
-		if c.GetHeader("Content-Type") == "application/json" {
+		if c.Request.Header.Get("Content-Type") == "application/json" {
 			var body []byte
 			if body, err = io.ReadAll(c.Request.Body); err == nil {
 				request.Body = (*json.RawMessage)(&body)
@@ -2182,8 +2184,7 @@ func (h *httpController) viewProjectInvitePage(c *gin.Context) {
 		return
 	}
 	request := &types.ViewProjectInvitePageRequest{}
-	if err = c.BindQuery(&request); err != nil {
-		err = errors.ToValidationError(err)
+	if err = request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return
 	}
@@ -2236,7 +2237,7 @@ func (h *httpController) proxyLearnImage(c *gin.Context) {
 		httpUtils.RespondErr(c, err)
 		return
 	}
-	c.Header("Cache-Control", "public, max-age=604800")
+	c.Writer.Header().Set("Cache-Control", "public, max-age=604800")
 	httpUtils.Age(c, res.Age)
 	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, res.FSPath)
@@ -2278,12 +2279,10 @@ func (h *httpController) smokeTestFull(c *gin.Context) {
 		httpUtils.GetAndLogErrResponseDetails(c, err)
 	}
 	httpUtils.EndTotalTimer(c)
+	status := http.StatusOK
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
+		status = http.StatusInternalServerError
 		httpUtils.GetAndLogErrResponseDetails(c, err)
 	}
-	c.Header("Content-Type", "application/json; charset=utf-8")
-	e := json.NewEncoder(c.Writer)
-	e.SetIndent("", "  ")
-	_ = e.Encode(res)
+	httpUtils.RespondWithIndent(c, status, res, err)
 }

@@ -20,10 +20,10 @@ import (
 	trackChangesTypes "github.com/das7pad/overleaf-go/services/track-changes/pkg/types"
 )
 
-type GetProjectHistoryUpdatesRequest trackChangesTypes.GetProjectHistoryUpdatesRequest
-type GetProjectHistoryUpdatesResponse trackChangesTypes.GetProjectHistoryUpdatesResponse
+type GetProjectHistoryUpdatesRequest = trackChangesTypes.GetProjectHistoryUpdatesRequest
+type GetProjectHistoryUpdatesResponse = trackChangesTypes.GetProjectHistoryUpdatesResponse
 
-type GetDocDiffRequest trackChangesTypes.GetDocDiffRequest
-type GetDocDiffResponse trackChangesTypes.GetDocDiffResponse
+type GetDocDiffRequest = trackChangesTypes.GetDocDiffRequest
+type GetDocDiffResponse = trackChangesTypes.GetDocDiffResponse
 
-type RestoreDocVersionRequest trackChangesTypes.RestoreDocVersionRequest
+type RestoreDocVersionRequest = trackChangesTypes.RestoreDocVersionRequest

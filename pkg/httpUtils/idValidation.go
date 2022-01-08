@@ -34,7 +34,7 @@ func ParseAndValidateId(c *gin.Context, name string) (primitive.ObjectID, error)
 }
 
 func GetId(c *gin.Context, name string) primitive.ObjectID {
-	return c.MustGet(name).(primitive.ObjectID)
+	return c.Value(name).(primitive.ObjectID)
 }
 
 func ValidateAndSetId(name string) gin.HandlerFunc {

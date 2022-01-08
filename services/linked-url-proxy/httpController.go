@@ -64,7 +64,9 @@ func (h *httpController) GetRouter() http.Handler {
 }
 
 func (h *httpController) status(c *gin.Context) {
-	c.String(http.StatusOK, "linked-url-proxy is alive (go)\n")
+	httpUtils.RespondPlain(
+		c, http.StatusOK, "linked-url-proxy is alive (go)\n",
+	)
 }
 
 func (h *httpController) checkAuth(c *gin.Context) error {
@@ -81,7 +83,7 @@ func (h *httpController) proxy(c *gin.Context) {
 		httpUtils.RespondErr(c, err)
 		return
 	}
-	url := c.Query("url")
+	url := c.Request.URL.Query().Get("url")
 	if url == "" {
 		httpUtils.RespondErr(c, &errors.ValidationError{Msg: "url missing"})
 		return
@@ -110,9 +112,9 @@ func (h *httpController) proxy(c *gin.Context) {
 		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
 		return
 	}
-	if statusCode := response.StatusCode; statusCode != 200 {
+	if statusCode := response.StatusCode; statusCode != http.StatusOK {
 		s := strconv.FormatInt(int64(statusCode), 10)
-		c.Header("X-Upstream-Status-Code", s)
+		c.Writer.Header().Set("X-Upstream-Status-Code", s)
 		httpUtils.RespondErr(c, &errors.UnprocessableEntityError{
 			Msg: "upstream responded with " + s,
 		})
@@ -126,13 +128,12 @@ func (h *httpController) proxy(c *gin.Context) {
 		httpUtils.RespondErr(c, err)
 		return
 	}
-	c.DataFromReader(
-		response.StatusCode,
-		response.ContentLength,
-		contentType,
-		body,
-		map[string]string{
-			"Content-Disposition": `attachment; filename="response"`,
-		},
+	c.Writer.Header().Set(
+		"Content-Disposition", `attachment; filename="response"`,
 	)
+	c.Writer.Header().Set(
+		"Content-Length", strconv.FormatInt(response.ContentLength, 10),
+	)
+	c.Writer.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(c.Writer, body)
 }

@@ -22,6 +22,6 @@ import (
 
 func NoCache() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Cache-Control", "no-store")
+		c.Writer.Header().Set("Cache-Control", "no-store")
 	}
 }

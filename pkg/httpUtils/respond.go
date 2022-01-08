@@ -17,14 +17,26 @@
 package httpUtils
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
+
+func RespondPlain(c *gin.Context, status int, body string) {
+	EndTotalTimer(c)
+	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	c.Writer.Header().Set(
+		"Content-Length", strconv.FormatInt(int64(len(body)), 10),
+	)
+	c.Writer.WriteHeader(status)
+	_, _ = c.Writer.Write([]byte(body))
+}
 
 func RespondErr(c *gin.Context, err error) {
 	Respond(c, 0, nil, err)
@@ -36,12 +48,33 @@ func Respond(
 	body interface{},
 	err error,
 ) {
+	respondJSON(c, code, body, err, false)
+}
+
+func RespondWithIndent(
+	c *gin.Context,
+	code int,
+	body interface{},
+	err error,
+) {
+	respondJSON(c, code, body, err, true)
+}
+
+var fatalSerializeError []byte
+
+func respondJSON(
+	c *gin.Context,
+	code int,
+	body interface{},
+	err error,
+	indent bool,
+) {
 	c.Abort()
 	if err != nil {
 		var errMessage string
 		code, errMessage = GetAndLogErrResponseDetails(c, err)
 		if body == nil {
-			body = gin.H{"message": errMessage}
+			body = map[string]string{"message": errMessage}
 		} else if r, ok := body.(*asyncForm.Response); ok && r.Message == nil {
 			r.Message = &asyncForm.Message{
 				Text: errMessage,
@@ -51,10 +84,29 @@ func Respond(
 	}
 	EndTotalTimer(c)
 	if body == nil {
-		c.Status(code)
-	} else {
-		c.JSON(code, body)
+		c.Writer.Header().Set("Content-Length", "0")
+		c.Writer.WriteHeader(code)
+		return
 	}
+	var blob []byte
+	if indent {
+		blob, err = json.MarshalIndent(body, "", "  ")
+	} else {
+		blob, err = json.Marshal(body)
+	}
+	if err != nil {
+		GetAndLogErrResponseDetails(
+			c, errors.Tag(err, "cannot serialize body"),
+		)
+		code = http.StatusInternalServerError
+		blob = fatalSerializeError
+	}
+	c.Writer.Header().Set(
+		"Content-Length", strconv.FormatInt(int64(len(blob)), 10),
+	)
+	c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+	c.Writer.WriteHeader(code)
+	_, _ = c.Writer.Write(blob)
 }
 
 func GetAndLogErrResponseDetails(c *gin.Context, err error) (int, string) {
@@ -91,4 +143,14 @@ func GetAndLogErrResponseDetails(c *gin.Context, err error) (int, string) {
 		errMessage = "internal server error"
 	}
 	return code, errMessage
+}
+
+func init() {
+	var err error
+	fatalSerializeError, err = json.Marshal(
+		map[string]string{"message": "internal server error"},
+	)
+	if err != nil {
+		panic(errors.Tag(err, "cannot build fatalSerializeError"))
+	}
 }

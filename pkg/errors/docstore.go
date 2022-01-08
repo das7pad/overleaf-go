@@ -21,7 +21,7 @@ type BodyTooLargeError struct {
 }
 
 func (e BodyTooLargeError) Error() string {
-	return "document body too large"
+	return "body too large"
 }
 
 func IsBodyTooLargeError(err error) bool {

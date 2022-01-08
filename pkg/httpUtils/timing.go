@@ -39,11 +39,10 @@ func StartTimer(key string) gin.HandlerFunc {
 
 func EndTimer(key string, label string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		raw, exists := c.Get(key)
-		if !exists {
+		t, ok := c.Value(key).(*sharedTypes.Timed)
+		if !ok {
 			return
 		}
-		t := raw.(*sharedTypes.Timed)
 		t.End()
 		c.Writer.Header().Add("Server-Timing", label+";dur="+t.MS())
 	}

@@ -17,6 +17,8 @@
 package types
 
 import (
+	"net/url"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
@@ -69,6 +71,12 @@ type SetPasswordPageRequest struct {
 	Token   oneTimeToken.OneTimeToken `form:"passwordResetToken"`
 }
 
+func (r *SetPasswordPageRequest) FromQuery(q url.Values) error {
+	r.Email = sharedTypes.Email(q.Get("email"))
+	r.Token = oneTimeToken.OneTimeToken(q.Get("passwordResetToken"))
+	return nil
+}
+
 type SetPasswordPageResponse struct {
 	Data     *templates.UserSetPasswordData
 	Redirect string
@@ -94,6 +102,11 @@ type RequestPasswordResetPageRequest struct {
 	Email   sharedTypes.Email `form:"email"`
 }
 
+func (r *RequestPasswordResetPageRequest) FromQuery(q url.Values) error {
+	r.Email = sharedTypes.Email(q.Get("email"))
+	return nil
+}
+
 type RequestPasswordResetPageResponse struct {
 	Data     *templates.UserPasswordResetData
 	Redirect string
@@ -103,6 +116,18 @@ type ActivateUserPageRequest struct {
 	Session   *session.Session          `form:"-"`
 	UserIdHex string                    `form:"user_id"`
 	Token     oneTimeToken.OneTimeToken `form:"token"`
+}
+
+func (r *ActivateUserPageRequest) FromQuery(q url.Values) error {
+	id, err := primitive.ObjectIDFromHex(q.Get("user_id"))
+	if err != nil {
+		return &errors.ValidationError{
+			Msg: `query parameter "user_id" should be an ObjectID`,
+		}
+	}
+	r.UserIdHex = id.Hex()
+	r.Token = oneTimeToken.OneTimeToken(q.Get("token"))
+	return nil
 }
 
 func (r *ActivateUserPageRequest) Validate() error {

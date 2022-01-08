@@ -17,6 +17,7 @@
 package sharedTypes
 
 import (
+	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -54,6 +55,18 @@ func (t Timestamp) Validate() error {
 	if t < 0 {
 		return &errors.ValidationError{Msg: "ts must be greater zero"}
 	}
+	return nil
+}
+
+func (t *Timestamp) ParseIfSet(s string) error {
+	if s == "" {
+		return nil
+	}
+	raw, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return &errors.ValidationError{Msg: "invalid timestamp (int)"}
+	}
+	*t = Timestamp(raw)
 	return nil
 }
 

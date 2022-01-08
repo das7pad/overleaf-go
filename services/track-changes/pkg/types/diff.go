@@ -17,8 +17,11 @@
 package types
 
 import (
+	"net/url"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -46,6 +49,16 @@ type GetDocDiffRequest struct {
 
 	From sharedTypes.Version `form:"from" json:"from"`
 	To   sharedTypes.Version `form:"to" json:"to"`
+}
+
+func (r *GetDocDiffRequest) FromQuery(q url.Values) error {
+	if err := r.From.ParseIfSet(q.Get("from")); err != nil {
+		return errors.Tag(err, "query parameter 'from'")
+	}
+	if err := r.To.ParseIfSet(q.Get("to")); err != nil {
+		return errors.Tag(err, "query parameter 'to'")
+	}
+	return nil
 }
 
 type GetDocDiffResponse struct {

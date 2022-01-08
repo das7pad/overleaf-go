@@ -17,6 +17,7 @@
 package templates
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
@@ -64,6 +65,12 @@ func (d *UserReconfirmData) Render() (string, error) {
 type SharedProjectData struct {
 	ProjectName project.Name `form:"project_name"`
 	UserName    string       `form:"user_first_name"`
+}
+
+func (d *SharedProjectData) FromQuery(q url.Values) error {
+	d.ProjectName = project.Name(q.Get("project_name"))
+	d.UserName = q.Get("user_first_name")
+	return nil
 }
 
 func (d *SharedProjectData) IsSet() bool {

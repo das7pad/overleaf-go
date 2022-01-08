@@ -25,5 +25,6 @@ import (
 func Redirect(c *gin.Context, target string) {
 	c.Abort()
 	EndTotalTimer(c)
-	c.Redirect(http.StatusFound, target)
+	c.Writer.Header().Set("Location", target)
+	c.Writer.WriteHeader(http.StatusFound)
 }

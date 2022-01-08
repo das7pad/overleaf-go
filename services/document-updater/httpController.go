@@ -18,6 +18,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 
@@ -67,7 +68,9 @@ func (h *httpController) GetRouter() http.Handler {
 }
 
 func (h *httpController) status(c *gin.Context) {
-	c.String(http.StatusOK, "document-updater is alive (go)\n")
+	httpUtils.RespondPlain(
+		c, http.StatusOK, "document-updater is alive (go)\n",
+	)
 }
 
 func (h *httpController) handle404(c *gin.Context) {
@@ -87,12 +90,22 @@ type getDocRequestOptions struct {
 	FromVersion sharedTypes.Version `form:"fromVersion" binding:"required"`
 }
 
+func (r *getDocRequestOptions) FromQuery(q url.Values) error {
+	if !q.Has("fromVersion") {
+		return &errors.ValidationError{
+			Msg: "missing query parameter 'fromVersion'",
+		}
+	}
+	if err := r.FromVersion.ParseIfSet(q.Get("fromVersion")); err != nil {
+		return errors.Tag(err, "query parameter 'fromVersion'")
+	}
+	return nil
+}
+
 func (h *httpController) getDoc(c *gin.Context) {
 	requestOptions := &getDocRequestOptions{}
-	if err := c.ShouldBindQuery(requestOptions); err != nil {
-		httpUtils.RespondErr(c, &errors.ValidationError{
-			Msg: "invalid fromVersion",
-		})
+	if err := requestOptions.FromQuery(c.Request.URL.Query()); err != nil {
+		httpUtils.RespondErr(c, err)
 		return
 	}
 	doc, err := h.dum.GetDoc(
@@ -120,8 +133,7 @@ func (h *httpController) setDoc(c *gin.Context) {
 	}
 	if err := request.Validate(); err != nil {
 		if err == sharedTypes.ErrDocIsTooLarge {
-			c.JSON(http.StatusNotAcceptable, gin.H{"message": err.Error()})
-			return
+			err = &errors.BodyTooLargeError{}
 		}
 		httpUtils.RespondErr(c, err)
 		return
@@ -172,7 +184,7 @@ func (h *httpController) flushAndDeleteProject(c *gin.Context) {
 func (h *httpController) getAndFlushIfOld(c *gin.Context) {
 	var docs interface{}
 	var err error
-	if c.Query("snapshot") == "true" {
+	if c.Request.URL.Query().Get("snapshot") == "true" {
 		docs, err = h.dum.GetProjectDocsAndFlushIfOldSnapshot(
 			c.Request.Context(),
 			httpUtils.GetId(c, "projectId"),
