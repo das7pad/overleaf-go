@@ -17,14 +17,10 @@
 package main
 
 import (
-	"go.mongodb.org/mongo-driver/mongo/options"
-
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/clientIPOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -33,9 +29,6 @@ type spellingOptions struct {
 	address         string
 	clientIPOptions *httpUtils.ClientIPOptions
 	corsOptions     httpUtils.CORSOptions
-	jwtOptions      jwtOptions.JWTOptions
-	mongoOptions    *options.ClientOptions
-	dbName          string
 	options         *types.Options
 }
 
@@ -45,7 +38,5 @@ func getOptions() *spellingOptions {
 	o.address = listenAddress.Parse(3005)
 	o.clientIPOptions = clientIPOptions.Parse()
 	o.corsOptions = corsOptions.Parse()
-	o.jwtOptions = jwtOptions.Parse("JWT_SPELLING_VERIFY_SECRET")
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	return o
 }

@@ -22,8 +22,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -39,37 +37,16 @@ type httpController struct {
 func (h *httpController) GetRouter(
 	clientIPOptions *httpUtils.ClientIPOptions,
 	corsOptions httpUtils.CORSOptions,
-	jwtOptions jwtOptions.JWTOptions,
 ) http.Handler {
 	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
 		StatusMessage:   "spelling is alive (go)\n",
 		ClientIPOptions: clientIPOptions,
 	})
 
-	jwtRouter := router.Group("/jwt/spelling/v20200714")
-	jwtRouter.Use(httpUtils.CORS(corsOptions))
-	jwtRouter.Use(httpUtils.NoCache())
-	jwtRouter.Use(
-		httpUtils.NewJWTHandler(userIdJWT.New(jwtOptions)).Middleware(),
-	)
-	jwtRouter.POST("/check", h.check)
-	jwtRouter.GET("/dict", h.getDictionary)
-	jwtRouter.POST("/learn", h.learn)
-	jwtRouter.POST("/unlearn", h.unlearn)
-
-	prefixes := []string{"", "/v20200714"}
-	for _, prefix := range prefixes {
-		router.POST(prefix+"/check", h.check)
-
-		userRouter := router.Group(prefix + "/user/:userId")
-		userRouter.Use(httpUtils.ValidateAndSetId("userId"))
-		userRouter.DELETE("", h.deleteDictionary)
-		userRouter.GET("", h.getDictionary)
-		userRouter.POST("/check", h.check)
-		userRouter.DELETE("/dict", h.getDictionary)
-		userRouter.POST("/learn", h.learn)
-		userRouter.POST("/unlearn", h.unlearn)
-	}
+	r := router.Group("/spelling/api")
+	r.Use(httpUtils.CORS(corsOptions))
+	r.Use(httpUtils.NoCache())
+	r.POST("/check", h.check)
 	return router
 }
 
@@ -94,50 +71,4 @@ func (h *httpController) check(c *gin.Context) {
 	)
 	responseBody := checkResponseBody{Misspellings: misspellings}
 	httpUtils.Respond(c, http.StatusOK, responseBody, err)
-}
-
-func (h *httpController) deleteDictionary(c *gin.Context) {
-	err := h.sm.DeleteDictionary(
-		c.Request.Context(),
-		httpUtils.GetId(c, "userId"),
-	)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
-}
-
-func (h *httpController) getDictionary(c *gin.Context) {
-	dictionary, err := h.sm.GetDictionary(
-		c.Request.Context(),
-		httpUtils.GetId(c, "userId"),
-	)
-	httpUtils.Respond(c, http.StatusOK, dictionary, err)
-}
-
-type learnRequestBody struct {
-	Word string `json:"word"`
-}
-
-func (h *httpController) learn(c *gin.Context) {
-	requestBody := &learnRequestBody{}
-	if !httpUtils.MustParseJSON(requestBody, c) {
-		return
-	}
-	err := h.sm.LearnWord(
-		c.Request.Context(),
-		httpUtils.GetId(c, "userId"),
-		requestBody.Word,
-	)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
-}
-
-func (h *httpController) unlearn(c *gin.Context) {
-	requestBody := &learnRequestBody{}
-	if !httpUtils.MustParseJSON(requestBody, c) {
-		return
-	}
-	err := h.sm.UnlearnWord(
-		c.Request.Context(),
-		httpUtils.GetId(c, "userId"),
-		requestBody.Word,
-	)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

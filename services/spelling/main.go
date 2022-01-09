@@ -17,42 +17,22 @@
 package main
 
 import (
-	"context"
 	"net/http"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
 )
 
-func waitForDb(ctx context.Context, client *mongo.Client) error {
-	return client.Ping(ctx, readpref.Primary())
-}
-
 func main() {
 	o := getOptions()
-	ctx := context.Background()
-	client, err := mongo.Connect(ctx, o.mongoOptions)
-	if err != nil {
-		panic(err)
-	}
-	err = waitForDb(ctx, client)
-	if err != nil {
-		panic(err)
-	}
-	db := client.Database(o.dbName)
-	sm, err := spelling.New(o.options, db)
+	sm, err := spelling.New(o.options)
 	if err != nil {
 		panic(err)
 	}
 	handler := newHttpController(sm)
 
 	server := http.Server{
-		Addr: o.address,
-		Handler: handler.GetRouter(
-			o.clientIPOptions, o.corsOptions, o.jwtOptions,
-		),
+		Addr:    o.address,
+		Handler: handler.GetRouter(o.clientIPOptions, o.corsOptions),
 	}
 	err = server.ListenAndServe()
 	if err != nil {

@@ -107,7 +107,6 @@ type Options struct {
 	JWT struct {
 		Compile      jwtOptions.JWTOptions `json:"compile"`
 		LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
-		Spelling     jwtOptions.JWTOptions `json:"spelling"`
 		RealTime     jwtOptions.JWTOptions `json:"realTime"`
 	} `json:"jwt"`
 
@@ -118,7 +117,6 @@ func (o *Options) FillFromEnv() {
 	utils.ParseJSONFromEnv("OPTIONS", o)
 	o.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
-	o.JWT.Spelling.FillFromEnv("JWT_SPELLING_VERIFY_SECRET")
 	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 	o.SessionCookie.FillFromEnv("SESSION_SECRET")
 }
@@ -233,9 +231,6 @@ func (o *Options) Validate() error {
 	}
 	if err := o.JWT.RealTime.Validate(); err != nil {
 		return errors.Tag(err, "jwt.realTime is invalid")
-	}
-	if err := o.JWT.Spelling.Validate(); err != nil {
-		return errors.Tag(err, "jwt.spelling is invalid")
 	}
 
 	if err := o.SessionCookie.Validate(); err != nil {

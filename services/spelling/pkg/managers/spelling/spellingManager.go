@@ -17,37 +17,29 @@
 package spelling
 
 import (
-	"go.mongodb.org/mongo-driver/mongo"
-
-	"github.com/das7pad/overleaf-go/pkg/models/learnedWords"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/aspell"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type Manager interface {
 	aspellManager
-	learnedWordsManager
 }
 
-func New(options *types.Options, db *mongo.Database) (Manager, error) {
+func New(options *types.Options) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
-
 	a, err := aspell.New(options.LRUSize)
 	if err != nil {
 		return nil, err
 	}
 	return &manager{
-		aspellManager:       a,
-		learnedWordsManager: learnedWords.New(db),
+		aspellManager: a,
 	}, nil
 }
 
-type learnedWordsManager learnedWords.Manager
 type aspellManager aspell.Manager
 
 type manager struct {
 	aspellManager
-	learnedWordsManager
 }

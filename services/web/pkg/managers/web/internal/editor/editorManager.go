@@ -26,7 +26,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -80,7 +79,6 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 		fm:               fm,
 		jwtProject:       projectJWTHandler,
 		jwtLoggedInUser:  loggedInUserJWTHandler,
-		jwtSpelling:      userIdJWT.New(options.JWT.Spelling),
 		options:          options,
 		pm:               pm,
 		ps:               ps,
@@ -101,7 +99,6 @@ type manager struct {
 	fm               filestore.Manager
 	jwtProject       jwtHandler.JWTHandler
 	jwtLoggedInUser  jwtHandler.JWTHandler
-	jwtSpelling      jwtHandler.JWTHandler
 	options          *types.Options
 	pm               project.Manager
 	ps               *templates.PublicSettings

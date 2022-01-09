@@ -21,8 +21,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
 
 type Claims struct {
@@ -33,10 +31,4 @@ type Claims struct {
 func (c *Claims) PostProcess(target *gin.Context) error {
 	target.Set("userId", c.UserId)
 	return nil
-}
-
-func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
-		return &Claims{}
-	})
 }

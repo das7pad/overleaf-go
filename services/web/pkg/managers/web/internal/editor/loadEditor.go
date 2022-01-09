@@ -27,7 +27,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -57,12 +56,6 @@ func (m *manager) genJWTLoggedInUser(userId primitive.ObjectID) (string, error) 
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 	c.UserId = userId
 	return m.jwtLoggedInUser.SetExpiryAndSign(c)
-}
-
-func (m *manager) genJWTSpelling(userId primitive.ObjectID) (string, error) {
-	c := m.jwtSpelling.New().(*userIdJWT.Claims)
-	c.UserId = userId
-	return m.jwtSpelling.SetExpiryAndSign(c)
 }
 
 func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
@@ -201,14 +194,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}()
 
 	if !isAnonymous {
-		eg.Go(func() error {
-			s, err := m.genJWTSpelling(userId)
-			if err != nil {
-				return errors.Tag(err, "cannot get spelling jwt")
-			}
-			response.JWTSpelling = s
-			return nil
-		})
 		eg.Go(func() error {
 			s, err := m.genJWTLoggedInUser(userId)
 			if err != nil {
