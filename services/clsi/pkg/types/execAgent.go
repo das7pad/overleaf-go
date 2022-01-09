@@ -22,13 +22,13 @@ import (
 
 type ExecAgentRequestOptions struct {
 	CommandLine                `json:"command_line"`
-	Environment                `json:"environment"`
+	Environment                `json:"e,omitempty"`
 	sharedTypes.ComputeTimeout `json:"timeout"`
 	CommandOutputFiles         `json:"command_output_files"`
 }
 
 type ExecAgentResponseBody struct {
-	ExitCode     ExitCode          `json:"exitCode"`
-	ErrorMessage string            `json:"error_message"`
+	ExitCode     ExitCode          `json:"exitCode,omitempty"`
+	ErrorMessage string            `json:"error_message,omitempty"`
 	Timed        sharedTypes.Timed `json:"timed"`
 }
