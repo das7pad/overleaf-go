@@ -128,6 +128,8 @@ func (h *httpController) GetRouter(
 	apiRouter.POST("/project/new/upload", h.createFromZip)
 	apiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
 	apiRouter.POST("/register", h.registerUser)
+	apiRouter.GET("/spelling/dict", h.getDictionary)
+	apiRouter.POST("/spelling/learn", h.learnWord)
 	apiRouter.GET("/user/contacts", h.getUserContacts)
 	apiRouter.POST("/user/delete", h.deleteUser)
 	apiRouter.POST("/user/emails/confirm", h.confirmEmail)
@@ -2285,4 +2287,31 @@ func (h *httpController) smokeTestFull(c *gin.Context) {
 		httpUtils.GetAndLogErrResponseDetails(c, err)
 	}
 	httpUtils.RespondWithIndent(c, status, res, err)
+}
+
+func (h *httpController) getDictionary(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.GetDictionaryRequest{Session: s}
+	res := &types.GetDictionaryResponse{}
+	err = h.wm.GetDictionary(c.Request.Context(), request, res)
+	httpUtils.Respond(c, http.StatusOK, res, err)
+}
+
+func (h *httpController) learnWord(c *gin.Context) {
+	s, err := h.wm.RequireLoggedInSession(c)
+	if err != nil {
+		httpUtils.RespondErr(c, err)
+		return
+	}
+	request := &types.LearnWordRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.Session = s
+	err = h.wm.LearnWord(c.Request.Context(), request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
