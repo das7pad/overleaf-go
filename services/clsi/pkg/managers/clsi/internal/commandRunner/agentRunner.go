@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -273,7 +274,10 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		return nil, err
 	}
 	year := imageName.Year()
-	PATH := "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/texlive/" + year + "/bin/x86_64-linux/"
+	PATH := fmt.Sprintf(
+		"/usr/local/texlive/%s/bin/x86_64-linux:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+		year,
+	)
 	env = append(env, "PATH="+PATH, "HOME=/tmp")
 
 	_, err := a.dockerClient.ContainerCreate(
