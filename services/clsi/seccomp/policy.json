@@ -92,6 +92,11 @@
       "args": []
     },
     {
+      "name": "nanosleep",
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
       "name": "clone",
       "action": "SCMP_ACT_ALLOW",
       "args": [
