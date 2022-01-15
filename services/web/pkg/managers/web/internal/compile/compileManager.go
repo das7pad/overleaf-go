@@ -50,8 +50,7 @@ type Manager interface {
 
 	ClearCache(
 		ctx context.Context,
-		options types.SignedCompileProjectRequestOptions,
-		clsiServerId types.ClsiServerId,
+		request *types.ClearCompileCacheRequest,
 	) error
 
 	SyncFromCode(
@@ -113,8 +112,10 @@ func (m *manager) getImageName(raw sharedTypes.ImageName) sharedTypes.ImageName 
 	return m.options.TeXLiveImageNameOverride + "/" + raw[idx+1:]
 }
 
-func (m *manager) ClearCache(ctx context.Context, request types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId) error {
-	clearPersistenceError := m.clearServerId(ctx, request)
+func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error {
+	clearPersistenceError := m.clearServerId(
+		ctx, request.SignedCompileProjectRequestOptions,
+	)
 
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.Hex()
@@ -124,7 +125,7 @@ func (m *manager) ClearCache(ctx context.Context, request types.SignedCompilePro
 	if err != nil {
 		return errors.Tag(err, "cannot create clear cache request")
 	}
-	res, err := m.doStaticRequest(clsiServerId, r)
+	res, err := m.doStaticRequest(request.ClsiServerId, r)
 	if err != nil {
 		return errors.Tag(err, "cannot action clear cache request")
 	}

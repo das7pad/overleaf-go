@@ -429,19 +429,16 @@ func (h *httpController) notFound(c *httpUtils.Context) {
 	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 }
 
-type clearProjectCacheRequestBody struct {
-	types.ClsiServerId `json:"clsiServerId"`
-}
-
 func (h *httpController) clearProjectCache(c *httpUtils.Context) {
-	request := &clearProjectCacheRequestBody{}
+	request := &types.ClearCompileCacheRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
+	request.SignedCompileProjectRequestOptions =
+		mustGetSignedCompileProjectOptionsFromJwt(c)
 	err := h.wm.ClearCache(
 		c.Request.Context(),
-		mustGetSignedCompileProjectOptionsFromJwt(c),
-		request.ClsiServerId,
+		request,
 	)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

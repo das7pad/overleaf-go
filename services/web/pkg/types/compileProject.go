@@ -35,6 +35,11 @@ type CompileProjectHeadlessRequest struct {
 	UserId    primitive.ObjectID `json:"-"`
 }
 
+type ClearCompileCacheRequest struct {
+	SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId                       ClsiServerId `json:"clsiServerId"`
+}
+
 type CompileProjectRequest struct {
 	SignedCompileProjectRequestOptions `json:"-"`
 
