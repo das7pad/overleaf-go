@@ -22,13 +22,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func RespondPlain(c *gin.Context, status int, body string) {
+func RespondPlain(c *Context, status int, body string) {
 	EndTotalTimer(c)
 	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	c.Writer.Header().Set(
@@ -38,12 +36,12 @@ func RespondPlain(c *gin.Context, status int, body string) {
 	_, _ = c.Writer.Write([]byte(body))
 }
 
-func RespondErr(c *gin.Context, err error) {
+func RespondErr(c *Context, err error) {
 	Respond(c, 0, nil, err)
 }
 
 func Respond(
-	c *gin.Context,
+	c *Context,
 	code int,
 	body interface{},
 	err error,
@@ -52,7 +50,7 @@ func Respond(
 }
 
 func RespondWithIndent(
-	c *gin.Context,
+	c *Context,
 	code int,
 	body interface{},
 	err error,
@@ -63,13 +61,12 @@ func RespondWithIndent(
 var fatalSerializeError []byte
 
 func respondJSON(
-	c *gin.Context,
+	c *Context,
 	code int,
 	body interface{},
 	err error,
 	indent bool,
 ) {
-	c.Abort()
 	if err != nil {
 		var errMessage string
 		code, errMessage = GetAndLogErrResponseDetails(c, err)
@@ -109,7 +106,7 @@ func respondJSON(
 	_, _ = c.Writer.Write(blob)
 }
 
-func GetAndLogErrResponseDetails(c *gin.Context, err error) (int, string) {
+func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
 	code := 500
 	errMessage := err.Error()
 	if errors.IsValidationError(err) {

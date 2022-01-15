@@ -19,8 +19,6 @@ package httpUtils
 import (
 	"mime/multipart"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -33,7 +31,7 @@ type UploadDetails struct {
 
 const multipartHeaderOverhead = 5 * 1024
 
-func ProcessFileUpload(c *gin.Context, sizeLimit, memoryLimit int64, d *UploadDetails) bool {
+func ProcessFileUpload(c *Context, sizeLimit, memoryLimit int64, d *UploadDetails) bool {
 	if c.Request.ContentLength > sizeLimit+multipartHeaderOverhead {
 		RespondErr(c, &errors.BodyTooLargeError{})
 		return false

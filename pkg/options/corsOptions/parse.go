@@ -23,18 +23,14 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-func Parse(allowWebsockets ...bool) httpUtils.CORSOptions {
+func Parse() httpUtils.CORSOptions {
 	siteUrl := utils.GetStringFromEnv("PUBLIC_URL", "http://localhost:3000")
 	allowOrigins := strings.Split(
 		utils.GetStringFromEnv("ALLOWED_ORIGINS", siteUrl),
 		",",
 	)
 
-	if len(allowWebsockets) == 0 {
-		allowWebsockets = []bool{false}
-	}
 	return httpUtils.CORSOptions{
-		AllowOrigins:    allowOrigins,
-		AllowWebsockets: allowWebsockets[0],
+		AllowOrigins: allowOrigins,
 	}
 }

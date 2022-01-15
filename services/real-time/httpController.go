@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -56,16 +55,16 @@ type httpController struct {
 const jwtQueryParameter = "bootstrap"
 
 func (h *httpController) GetRouter() http.Handler {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.GET("/status", h.status)
-	router.HEAD("/status", h.status)
-
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
+		Ready: func() bool {
+			return !h.rtm.IsShuttingDown()
+		},
+	})
 	router.GET("/socket.io", h.ws)
 	return router
 }
 
-func (h *httpController) getWsBootstrap(c *gin.Context) (*wsBootstrap.Claims, error) {
+func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Claims, error) {
 	genericClaims, jwtError := h.jwt.Parse(c)
 	if jwtError != nil {
 		return nil, jwtError
@@ -73,23 +72,11 @@ func (h *httpController) getWsBootstrap(c *gin.Context) (*wsBootstrap.Claims, er
 	return genericClaims.(*wsBootstrap.Claims), nil
 }
 
-func (h *httpController) status(c *gin.Context) {
-	if h.rtm.IsShuttingDown() {
-		httpUtils.RespondPlain(
-			c,
-			http.StatusServiceUnavailable,
-			"real-time is shutting down (go)\n",
-		)
-		return
-	}
-	httpUtils.RespondPlain(c, http.StatusOK, "real-time is alive (go)\n")
-}
-
 func sendAndForget(conn *websocket.Conn, entry *types.WriteQueueEntry) {
 	_ = conn.WritePreparedMessage(entry.Msg)
 }
 
-func (h *httpController) ws(requestCtx *gin.Context) {
+func (h *httpController) ws(requestCtx *httpUtils.Context) {
 	setupTime := sharedTypes.Timed{}
 	setupTime.Begin()
 	conn, upgradeErr := h.u.Upgrade(

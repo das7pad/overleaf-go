@@ -17,7 +17,6 @@
 package httpUtils
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -25,7 +24,7 @@ import (
 )
 
 type PostProcessClaims interface {
-	PostProcess(c *gin.Context) error
+	PostProcess(c *Context) error
 }
 
 func NewJWTHandlerFromQuery(handler jwtHandler.JWTHandler, fromQuery string) *JWTHTTPHandler {
@@ -54,10 +53,7 @@ type JWTHTTPHandler struct {
 	fromQuery string
 }
 
-func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
-	startJWTTimer(c)
-	defer endJWTTimer(c)
-
+func (h *JWTHTTPHandler) Parse(c *Context) (jwt.Claims, error) {
 	var blob string
 	if h.fromQuery != "" {
 		blob = c.Request.URL.Query().Get(h.fromQuery)
@@ -86,12 +82,17 @@ func (h *JWTHTTPHandler) Parse(c *gin.Context) (jwt.Claims, error) {
 	return claims, nil
 }
 
-func (h *JWTHTTPHandler) Middleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		_, err := h.Parse(c)
-		if err != nil {
-			RespondErr(c, err)
-			return
+func (h *JWTHTTPHandler) Middleware() MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(c *Context) {
+			startJWTTimer(c)
+			_, err := h.Parse(c)
+			endJWTTimer(c)
+			if err != nil {
+				RespondErr(c, err)
+				return
+			}
+			next(c)
 		}
 	}
 }

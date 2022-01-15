@@ -19,14 +19,17 @@ package signedCookie
 import (
 	"crypto/sha256"
 	"net/http"
+	"net/url"
+	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 )
 
 type Manager interface {
-	Get(c *gin.Context) (string, error)
-	Set(c *gin.Context, s string)
+	Get(c *httpUtils.Context) (string, error)
+	Set(c *httpUtils.Context, s string)
 }
 
 func New(options Options, payloadLength int) Manager {
@@ -54,16 +57,21 @@ type manager struct {
 	secrets       [][]byte
 }
 
-func (m *manager) Get(c *gin.Context) (string, error) {
-	s, err := c.Cookie(m.Name)
+func (m *manager) Get(c *httpUtils.Context) (string, error) {
+	v, err := c.Request.Cookie(m.Name)
 	if err != nil {
 		if err == http.ErrNoCookie {
 			return "", ErrNoCookie
 		}
 		return "", err
 	}
+	s := v.Value
 	if s == "" {
 		return "", ErrNoCookie
+	}
+	if strings.HasPrefix(s, "s%3A") && len(s) <= 3*m.size {
+		// Legacy cookie value.
+		s, _ = url.QueryUnescape(s)
 	}
 
 	if len(s) != m.size || s[m.posDot] != '.' || s[0] != 's' || s[1] != ':' {
@@ -72,8 +80,7 @@ func (m *manager) Get(c *gin.Context) (string, error) {
 	return m.unSign(s)
 }
 
-func (m *manager) Set(c *gin.Context, s string) {
-	c.SetSameSite(http.SameSiteLaxMode)
+func (m *manager) Set(c *httpUtils.Context, s string) {
 	var v string
 	var expiry int
 	if s == "" {
@@ -83,13 +90,14 @@ func (m *manager) Set(c *gin.Context, s string) {
 		v = m.sign(s)
 		expiry = int(m.Expiry.Seconds())
 	}
-	c.SetCookie(
-		m.Name,
-		v,
-		expiry,
-		m.Path,
-		m.Domain,
-		true,
-		true,
-	)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     m.Name,
+		Value:    v,
+		Path:     m.Path,
+		Domain:   m.Domain,
+		MaxAge:   expiry,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 }

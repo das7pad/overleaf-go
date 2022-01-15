@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"time"
 
@@ -83,8 +84,8 @@ func main() {
 	}
 
 	handler := newHttpController(wm)
-	router := handler.GetRouter(o.clientIPOptions, o.corsOptions)
-	if err = router.Run(o.address); err != nil {
+	router := handler.GetRouter(o.corsOptions)
+	if err = http.ListenAndServe(o.address, router); err != nil {
 		panic(err)
 	}
 }

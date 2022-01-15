@@ -18,7 +18,6 @@ package main
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/options/clientIPOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
@@ -26,17 +25,15 @@ import (
 )
 
 type spellingOptions struct {
-	address         string
-	clientIPOptions *httpUtils.ClientIPOptions
-	corsOptions     httpUtils.CORSOptions
-	options         *types.Options
+	address     string
+	corsOptions httpUtils.CORSOptions
+	options     *types.Options
 }
 
 func getOptions() *spellingOptions {
 	o := &spellingOptions{}
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(3005)
-	o.clientIPOptions = clientIPOptions.Parse()
 	o.corsOptions = corsOptions.Parse()
 	return o
 }

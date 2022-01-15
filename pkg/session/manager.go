@@ -24,7 +24,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -35,12 +34,12 @@ import (
 
 type Manager interface {
 	DestroyAllForUser(ctx context.Context, userId primitive.ObjectID) error
-	GetSession(c *gin.Context) (*Session, error)
-	GetOrCreateSession(c *gin.Context) (*Session, error)
+	GetSession(c *httpUtils.Context) (*Session, error)
+	GetOrCreateSession(c *httpUtils.Context) (*Session, error)
 	GetSessionById(ctx context.Context, id Id) (*Session, error)
-	Flush(c *gin.Context, session *Session) error
-	RequireLoggedInSession(c *gin.Context) (*Session, error)
-	TouchSession(c *gin.Context, session *Session)
+	Flush(c *httpUtils.Context, session *Session) error
+	RequireLoggedInSession(c *httpUtils.Context) (*Session, error)
+	TouchSession(c *httpUtils.Context, session *Session)
 }
 
 func New(options signedCookie.Options, client redis.UniversalClient) Manager {
@@ -108,7 +107,7 @@ func (m *manager) DestroyAllForUser(ctx context.Context, userId primitive.Object
 
 var ErrNotLoggedIn = &errors.UnauthorizedError{Reason: "not logged in"}
 
-func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {
+func (m *manager) RequireLoggedInSession(c *httpUtils.Context) (*Session, error) {
 	sess, err := m.GetSession(c)
 	if err != nil {
 		if err == redis.Nil || err == signedCookie.ErrNoCookie {
@@ -122,7 +121,7 @@ func (m *manager) RequireLoggedInSession(c *gin.Context) (*Session, error) {
 	return sess, nil
 }
 
-func (m *manager) GetSession(c *gin.Context) (*Session, error) {
+func (m *manager) GetSession(c *httpUtils.Context) (*Session, error) {
 	timerStartGet(c)
 	defer timerEndGet(c)
 
@@ -146,7 +145,7 @@ func (m *manager) GetSessionById(c context.Context, id Id) (*Session, error) {
 	return sess, nil
 }
 
-func (m *manager) GetOrCreateSession(c *gin.Context) (*Session, error) {
+func (m *manager) GetOrCreateSession(c *httpUtils.Context) (*Session, error) {
 	sess, err := m.GetSession(c)
 	if sess == nil {
 		sess = m.new("", nil, &Data{})
@@ -157,7 +156,7 @@ func (m *manager) GetOrCreateSession(c *gin.Context) (*Session, error) {
 	return sess, err
 }
 
-func (m *manager) Flush(c *gin.Context, session *Session) error {
+func (m *manager) Flush(c *httpUtils.Context, session *Session) error {
 	if !session.noAutoSave {
 		skipped, err := session.Save(c.Request.Context())
 		if err != nil {
@@ -173,7 +172,7 @@ func (m *manager) Flush(c *gin.Context, session *Session) error {
 	return nil
 }
 
-func (m *manager) TouchSession(c *gin.Context, session *Session) {
+func (m *manager) TouchSession(c *httpUtils.Context, session *Session) {
 	if session.id == "" {
 		return
 	}

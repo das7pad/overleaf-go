@@ -61,7 +61,7 @@ check-not-changed:
 .PHONY: $(SERVICE)
 $(SERVICE):
 	$(BUILD_IN) golang:1.17 sh -c \
- 		'go build -tags nomsgpack && touch -m -d 2021-01-01T00:00Z $@'
+ 		'go build && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true

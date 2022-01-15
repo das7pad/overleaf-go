@@ -19,8 +19,6 @@ package main
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
@@ -36,16 +34,13 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.GET("/status", h.status)
-	router.HEAD("/status", h.status)
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
 	router.GET("/health_check", h.healthCheck)
 	router.HEAD("/health_check", h.healthCheck)
 
-	projectRouter := router.Group("/project/:projectId")
+	projectRouter := router.Group("/project/{projectId}")
 	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
-	userRouter := projectRouter.Group("/user/:userId")
+	userRouter := projectRouter.Group("/user/{userId}")
 	userRouter.Use(httpUtils.ValidateAndSetIdZeroOK("userId"))
 
 	userRouter.POST("/compile", h.compile)
@@ -60,10 +55,6 @@ func (h *httpController) GetRouter() http.Handler {
 	return router
 }
 
-func (h *httpController) status(c *gin.Context) {
-	httpUtils.RespondPlain(c, http.StatusOK, "clsi is alive (go)\n")
-}
-
 type compileRequestBody struct {
 	Request types.CompileRequest `json:"compile" binding:"required"`
 }
@@ -71,7 +62,7 @@ type compileResponseBody struct {
 	Response *types.CompileResponse `json:"compile"`
 }
 
-func (h *httpController) compile(c *gin.Context) {
+func (h *httpController) compile(c *httpUtils.Context) {
 	requestBody := &compileRequestBody{}
 	if !httpUtils.MustParseJSON(requestBody, c) {
 		return
@@ -95,7 +86,7 @@ func (h *httpController) compile(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
-func (h *httpController) stopCompile(c *gin.Context) {
+func (h *httpController) stopCompile(c *httpUtils.Context) {
 	err := h.cm.StopCompile(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -104,7 +95,7 @@ func (h *httpController) stopCompile(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) clearCache(c *gin.Context) {
+func (h *httpController) clearCache(c *httpUtils.Context) {
 	err := h.cm.ClearCache(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -113,7 +104,7 @@ func (h *httpController) clearCache(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) syncFromCode(c *gin.Context) {
+func (h *httpController) syncFromCode(c *httpUtils.Context) {
 	request := &types.SyncFromCodeRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -130,7 +121,7 @@ func (h *httpController) syncFromCode(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
-func (h *httpController) syncFromPDF(c *gin.Context) {
+func (h *httpController) syncFromPDF(c *httpUtils.Context) {
 	request := &types.SyncFromPDFRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -147,7 +138,7 @@ func (h *httpController) syncFromPDF(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
-func (h *httpController) wordCount(c *gin.Context) {
+func (h *httpController) wordCount(c *httpUtils.Context) {
 	request := &types.WordCountRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -164,11 +155,11 @@ func (h *httpController) wordCount(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, body, err)
 }
 
-func (h *httpController) cookieStatus(c *gin.Context) {
+func (h *httpController) cookieStatus(c *httpUtils.Context) {
 	c.Writer.WriteHeader(http.StatusOK)
 }
 
-func (h *httpController) healthCheck(c *gin.Context) {
+func (h *httpController) healthCheck(c *httpUtils.Context) {
 	err := h.cm.HealthCheck(c.Request.Context())
 	httpUtils.Respond(c, http.StatusOK, nil, err)
 }

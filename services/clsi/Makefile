@@ -60,7 +60,7 @@ check-not-changed:
 .PHONY: $(SERVICE)
 $(SERVICE):
 	$(BUILD_IN) golang:1.17-alpine3.14 sh -c \
-		'go build -tags nomsgpack && touch -m -d 2021-01-01-00:00:00 $@'
+		'go build && touch -m -d 2021-01-01-00:00:00 $@'
 
 # Build the execAgent in ubuntu/debian. The texlive image will use debian.
 .PHONY: execAgent

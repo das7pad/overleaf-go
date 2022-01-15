@@ -19,8 +19,6 @@ package main
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -35,17 +33,12 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter(
-	clientIPOptions *httpUtils.ClientIPOptions,
 	corsOptions httpUtils.CORSOptions,
 ) http.Handler {
-	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
-		StatusMessage:   "spelling is alive (go)\n",
-		ClientIPOptions: clientIPOptions,
-	})
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
 
 	r := router.Group("/spelling/api")
 	r.Use(httpUtils.CORS(corsOptions))
-	r.Use(httpUtils.NoCache())
 	r.POST("/check", h.check)
 	return router
 }
@@ -59,7 +52,7 @@ type checkResponseBody struct {
 	Misspellings []types.Misspelling `json:"misspellings"`
 }
 
-func (h *httpController) check(c *gin.Context) {
+func (h *httpController) check(c *httpUtils.Context) {
 	requestBody := &checkRequestBody{}
 	if !httpUtils.MustParseJSON(requestBody, c) {
 		return

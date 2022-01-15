@@ -17,13 +17,12 @@
 package httpUtils
 
 import (
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func ParseAndValidateId(c *gin.Context, name string) (primitive.ObjectID, error) {
+func ParseAndValidateId(c *Context, name string) (primitive.ObjectID, error) {
 	id, err := primitive.ObjectIDFromHex(c.Param(name))
 	if err != nil || id == primitive.NilObjectID {
 		return primitive.NilObjectID, &errors.ValidationError{
@@ -33,33 +32,35 @@ func ParseAndValidateId(c *gin.Context, name string) (primitive.ObjectID, error)
 	return id, nil
 }
 
-func GetId(c *gin.Context, name string) primitive.ObjectID {
+func GetId(c *Context, name string) primitive.ObjectID {
 	return c.Value(name).(primitive.ObjectID)
 }
 
-func ValidateAndSetId(name string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, err := ParseAndValidateId(c, name)
-		if err != nil {
-			RespondErr(c, err)
-			return
-		}
-		c.Set(name, id)
-	}
-}
-
-func ValidateAndSetIdZeroOK(name string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		raw := c.Param(name)
-		if raw == "000000000000000000000000" {
-			c.Set(name, primitive.NilObjectID)
-		} else {
+func ValidateAndSetId(name string) MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(c *Context) {
 			id, err := ParseAndValidateId(c, name)
 			if err != nil {
 				RespondErr(c, err)
 				return
 			}
-			c.Set(name, id)
+			c.AddValue(name, id)
+			next(c)
+		}
+	}
+}
+
+func ValidateAndSetIdZeroOK(name string) MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		handleRegularId := ValidateAndSetId(name)(next)
+		return func(c *Context) {
+			raw := c.Param(name)
+			if raw == "000000000000000000000000" {
+				c.AddValue(name, primitive.NilObjectID)
+				next(c)
+			} else {
+				handleRegularId(c)
+			}
 		}
 	}
 }

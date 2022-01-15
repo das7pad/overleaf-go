@@ -26,7 +26,7 @@ type AdminManageSiteData struct {
 	SystemMessages []systemMessage.Full
 }
 
-func (d *AdminManageSiteData) Render() (string, error) {
+func (d *AdminManageSiteData) Render() ([]byte, error) {
 	return render("admin/manageSite.gohtml", 13*1024, d)
 }
 
@@ -34,6 +34,6 @@ type AdminRegisterUsersData struct {
 	AngularLayoutData
 }
 
-func (d *AdminRegisterUsersData) Render() (string, error) {
+func (d *AdminRegisterUsersData) Render() ([]byte, error) {
 	return render("admin/registerUsers.gohtml", 13*1024, d)
 }

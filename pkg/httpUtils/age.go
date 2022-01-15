@@ -18,11 +18,9 @@ package httpUtils
 
 import (
 	"strconv"
-
-	"github.com/gin-gonic/gin"
 )
 
-func Age(c *gin.Context, age int64) {
+func Age(c *Context, age int64) {
 	if age != -1 {
 		c.Writer.Header().Set("Age", strconv.FormatInt(age, 10))
 	}

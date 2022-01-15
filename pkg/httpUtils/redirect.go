@@ -18,12 +18,9 @@ package httpUtils
 
 import (
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
-func Redirect(c *gin.Context, target string) {
-	c.Abort()
+func Redirect(c *Context, target string) {
 	EndTotalTimer(c)
 	c.Writer.Header().Set("Location", target)
 	c.Writer.WriteHeader(http.StatusFound)

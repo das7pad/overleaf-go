@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -36,55 +34,49 @@ var (
 	timerEndRender   = httpUtils.EndTimer(timingKeyRender, "render")
 )
 
-func shouldRedirectToLogin(c *gin.Context, s *session.Session, err error) bool {
-	if c.Request.Method != http.MethodGet {
-		return false
-	}
+func shouldRedirectToLogin(s *session.Session, err error) bool {
 	if !errors.IsUnauthorizedError(err) {
 		return false
 	}
 	if s.IsLoggedIn() {
 		return false
 	}
-	if c.NegotiateFormat("application/json", "*") != "*" {
-		return false
-	}
 	return true
 }
 
 func RespondHTML(
-	c *gin.Context,
+	c *httpUtils.Context,
 	body Renderer,
 	err error,
 	s *session.Session,
 	ps *PublicSettings,
-	flushSession func(c *gin.Context, session *session.Session) error,
+	flushSession func(c *httpUtils.Context, session *session.Session) error,
 ) {
 	RespondHTMLCustomStatus(c, http.StatusOK, body, err, s, ps, flushSession)
 }
 
 func RespondHTMLCustomStatus(
-	c *gin.Context,
+	c *httpUtils.Context,
 	code int,
 	body Renderer,
 	err error,
 	s *session.Session,
 	ps *PublicSettings,
-	flushSession func(c *gin.Context, session *session.Session) error,
+	flushSession func(c *httpUtils.Context, session *session.Session) error,
 ) {
-	c.Abort()
 	if err != nil {
-		if shouldRedirectToLogin(c, s, err) {
+		if shouldRedirectToLogin(s, err) {
 			s.PostLoginRedirect = ps.SiteURL.
 				WithPath(c.Request.URL.Path).
 				WithQuery(c.Request.URL.Query()).
 				String()
 			_ = flushSession(c, s)
-			if c.Query("project_name") != "" {
+			q := c.Request.URL.Query()
+			if q.Get("project_name") != "" {
 				// Show SharedProjectData details on registration page.
 				httpUtils.Redirect(c, ps.SiteURL.
 					WithPath("/register").
-					WithQuery(c.Request.URL.Query()).
+					WithQuery(q).
 					String(),
 				)
 			} else {
@@ -144,25 +136,27 @@ func RespondHTMLCustomStatus(
 			}
 		}
 	}
-	var blob string
+	var blob []byte
 	timerStartRender(c)
 	blob, err = body.Render()
 	timerEndRender(c)
 	if err != nil {
-		if code == 500 {
-			httpUtils.EndTotalTimer(c)
+		if code == http.StatusInternalServerError {
 			httpUtils.GetAndLogErrResponseDetails(c, err)
-			c.String(500, "internal render error")
+			httpUtils.RespondPlain(
+				c, http.StatusInternalServerError, "internal render error",
+			)
 			return
 		}
 		RespondHTML(c, body, err, s, ps, flushSession)
 		return
 	}
-	n := strconv.FormatInt(int64(len(blob)), 10)
-	c.Header("Content-Length", n)
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Header("Content-Security-Policy", body.CSP())
-	c.Header("Link", body.ResourceHints())
+	h := c.Writer.Header()
+	h.Set("Content-Length", strconv.FormatInt(int64(len(blob)), 10))
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Content-Security-Policy", body.CSP())
+	h.Set("Link", body.ResourceHints())
 	httpUtils.EndTotalTimer(c)
-	c.String(code, blob)
+	c.Writer.WriteHeader(code)
+	_, _ = c.Writer.Write(blob)
 }

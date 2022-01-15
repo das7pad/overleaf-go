@@ -19,12 +19,10 @@ package httpUtils
 import (
 	"encoding/json"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func MustParseJSON(dst interface{}, c *gin.Context) bool {
+func MustParseJSON(dst interface{}, c *Context) bool {
 	defer func() {
 		_ = c.Request.Body.Close()
 	}()

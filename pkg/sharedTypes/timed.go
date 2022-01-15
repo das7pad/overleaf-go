@@ -50,7 +50,7 @@ func (t *Timed) String() string {
 }
 
 func (t *Timed) MS() string {
-	v := math.Ceil(float64(t.diff.Nanoseconds())/1e3) / 1e3
+	v := math.Ceil(float64(t.diff.Nanoseconds())/1000) / 1000
 	return Float(v).String()
 }
 

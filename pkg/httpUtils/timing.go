@@ -17,9 +17,8 @@
 package httpUtils
 
 import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"fmt"
+	"time"
 )
 
 const timingKeyTotal = "httpUtils.timing.total"
@@ -29,21 +28,24 @@ var (
 	EndTotalTimer   = EndTimer(timingKeyTotal, "total")
 )
 
-func StartTimer(key string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		t := &sharedTypes.Timed{}
-		t.Begin()
-		c.Set(key, t)
+func StartTimer(key interface{}) HandlerFunc {
+	return func(c *Context) {
+		c.AddValue(key, time.Now())
 	}
 }
 
-func EndTimer(key string, label string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		t, ok := c.Value(key).(*sharedTypes.Timed)
+func EndTimer(key interface{}, label string) HandlerFunc {
+	return func(c *Context) {
+		t, ok := c.Value(key).(time.Time)
 		if !ok {
 			return
 		}
-		t.End()
-		c.Writer.Header().Add("Server-Timing", label+";dur="+t.MS())
+		diff := time.Now().Sub(t)
+		ms := diff / time.Millisecond
+		micro := diff % time.Millisecond / time.Microsecond
+		c.Writer.Header().Add(
+			"Server-Timing",
+			fmt.Sprintf("%s;dur=%d.%03d", label, ms, micro),
+		)
 	}
 }

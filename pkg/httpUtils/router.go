@@ -17,30 +17,127 @@
 package httpUtils
 
 import (
+	"context"
 	"net/http"
+	"strings"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 )
 
 type RouterOptions struct {
-	StatusMessage   string
-	ClientIPOptions *ClientIPOptions
+	Ready func() bool
 }
 
-func NewRouter(options *RouterOptions) *gin.Engine {
-	router := gin.New()
-	if options.ClientIPOptions != nil {
-		router.RemoteIPHeaders = []string{"X-Forwarded-For"}
-		router.TrustedProxies = options.ClientIPOptions.TrustedProxies
-	}
-	router.Use(gin.Recovery())
+type appendOnlyCtx = context.Context
 
-	status := func(c *gin.Context) {
-		c.String(http.StatusOK, options.StatusMessage)
-	}
-	router.GET("/status", status)
-	router.HEAD("/status", status)
+type Context struct {
+	appendOnlyCtx
+	Writer  http.ResponseWriter
+	Request *http.Request
+}
 
-	router.Use(StartTotalTimer)
+func (c *Context) Param(key string) string {
+	return mux.Vars(c.Request)[key]
+}
+
+func (c *Context) AddValue(key interface{}, v interface{}) {
+	c.appendOnlyCtx = context.WithValue(c.appendOnlyCtx, key, v)
+}
+
+// ClientIP returns the last IP of the last X-Forwarded-For header on the
+//  request, if any, else it returns the requests .RemoteAddr.
+func (c *Context) ClientIP() string {
+	ip := c.Request.RemoteAddr
+	for _, s := range c.Request.Header.Values("X-Forwarded-For") {
+		ip = strings.TrimSpace(s[strings.LastIndexByte(s, ',')+1:])
+	}
+	return ip
+}
+
+type HandlerFunc func(c *Context)
+
+func (f HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c := &Context{
+		appendOnlyCtx: r.Context(),
+		Writer:        w,
+		Request:       r,
+	}
+	c.Request = r.WithContext(c)
+	w.Header().Set("Cache-Control", "no-store")
+	StartTotalTimer(c)
+	f(c)
+}
+
+type MiddlewareFunc func(next HandlerFunc) HandlerFunc
+
+type Router struct {
+	*mux.Router
+	middlewares []MiddlewareFunc
+}
+
+func (r *Router) Use(fns ...MiddlewareFunc) {
+	r.middlewares = append(r.middlewares, fns...)
+}
+
+func (r *Router) wrap(f HandlerFunc) HandlerFunc {
+	for i := len(r.middlewares) - 1; i >= 0; i-- {
+		f = r.middlewares[i](f)
+	}
+	return f
+}
+
+func (r *Router) NoRoute(f HandlerFunc) {
+	r.NotFoundHandler = r.wrap(f)
+}
+
+func (r *Router) DELETE(endpoint string, f HandlerFunc) {
+	r.NewRoute().Methods(http.MethodDelete).Path(endpoint).Handler(r.wrap(f))
+}
+
+func (r *Router) GET(endpoint string, f HandlerFunc) {
+	r.NewRoute().Methods(http.MethodGet).Path(endpoint).Handler(r.wrap(f))
+}
+
+func (r *Router) HEAD(endpoint string, f HandlerFunc) {
+	r.NewRoute().Methods(http.MethodHead).Path(endpoint).Handler(r.wrap(f))
+}
+
+func (r *Router) POST(endpoint string, f HandlerFunc) {
+	r.NewRoute().Methods(http.MethodPost).Path(endpoint).Handler(r.wrap(f))
+}
+
+func (r *Router) PUT(endpoint string, f HandlerFunc) {
+	r.NewRoute().Methods(http.MethodPut).Path(endpoint).Handler(r.wrap(f))
+}
+
+func (r *Router) Group(partial string) *Router {
+	middlewares := make([]MiddlewareFunc, len(r.middlewares))
+	copy(middlewares, r.middlewares)
+	return &Router{
+		Router:      r.Router.PathPrefix(partial).Subrouter(),
+		middlewares: middlewares,
+	}
+}
+
+func NewRouter(options *RouterOptions) *Router {
+	router := &Router{
+		Router: mux.NewRouter(),
+	}
+	statusHandler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+	if options.Ready != nil {
+		statusHandler = func(w http.ResponseWriter, _ *http.Request) {
+			if options.Ready() {
+				w.WriteHeader(http.StatusOK)
+			} else {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}
+		}
+	}
+	router.NewRoute().
+		Methods(http.MethodGet, http.MethodHead).
+		Path("/status").
+		HandlerFunc(statusHandler)
 	return router
 }

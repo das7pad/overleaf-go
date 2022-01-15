@@ -45,7 +45,7 @@ func (d *ProjectTokenAccessData) Meta() []metaEntry {
 	return out
 }
 
-func (d *ProjectTokenAccessData) Render() (string, error) {
+func (d *ProjectTokenAccessData) Render() ([]byte, error) {
 	return render("project/tokenAccess.gohtml", 12*1024, d)
 }
 
@@ -58,7 +58,7 @@ type ProjectViewInviteData struct {
 	Valid             bool
 }
 
-func (d *ProjectViewInviteData) Render() (string, error) {
+func (d *ProjectViewInviteData) Render() ([]byte, error) {
 	return render("project/viewInvite.gohtml", 11*1024, d)
 }
 
@@ -112,7 +112,7 @@ func (d *ProjectListData) Meta() []metaEntry {
 	return out
 }
 
-func (d *ProjectListData) Render() (string, error) {
+func (d *ProjectListData) Render() ([]byte, error) {
 	n := 1024 * (70 + len(d.Projects)*3/4 + len(d.Tags)/10)
 	return render("project/list.gohtml", n, d)
 }
@@ -185,7 +185,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 	return out
 }
 
-func (d *ProjectEditorData) Render() (string, error) {
+func (d *ProjectEditorData) Render() ([]byte, error) {
 	return render("project/editor.gohtml", 110*1024, d)
 }
 

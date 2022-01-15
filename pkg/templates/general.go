@@ -25,7 +25,7 @@ type General400Data struct {
 	Message string
 }
 
-func (d *General400Data) Render() (string, error) {
+func (d *General400Data) Render() ([]byte, error) {
 	return render("general/400.gohtml", 5*1024, d)
 }
 
@@ -33,7 +33,7 @@ type General404Data struct {
 	MarketingLayoutData
 }
 
-func (d *General404Data) Render() (string, error) {
+func (d *General404Data) Render() ([]byte, error) {
 	return render("general/404.gohtml", 10*1024, d)
 }
 
@@ -41,7 +41,7 @@ type General500Data struct {
 	NoJsLayoutData
 }
 
-func (d *General500Data) Render() (string, error) {
+func (d *General500Data) Render() ([]byte, error) {
 	return render("general/500.gohtml", 4*1024, d)
 }
 
@@ -50,6 +50,6 @@ type GeneralUnsupportedBrowserData struct {
 	FromURL *sharedTypes.URL
 }
 
-func (d *GeneralUnsupportedBrowserData) Render() (string, error) {
+func (d *GeneralUnsupportedBrowserData) Render() ([]byte, error) {
 	return render("general/unsupported-browser.gohtml", 5*1024, d)
 }

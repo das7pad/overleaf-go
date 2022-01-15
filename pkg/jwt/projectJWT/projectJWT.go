@@ -19,11 +19,11 @@ package projectJWT
 import (
 	"context"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
@@ -85,17 +85,17 @@ func (c *Claims) CheckEpochItems(ctx context.Context) error {
 	}.Check(ctx, c.client)
 }
 
-func (c *Claims) PostProcess(target *gin.Context) error {
+func (c *Claims) PostProcess(target *httpUtils.Context) error {
 	p := target.Param(projectIdField)
 	if p == "" || p != c.ProjectId.Hex() {
 		return ErrMismatchingProjectId
 	}
 
-	if err := c.CheckEpochItems(target.Request.Context()); err != nil {
+	if err := c.CheckEpochItems(target); err != nil {
 		return err
 	}
 
-	target.Set(jwtField, c)
+	target.AddValue(jwtField, c)
 	return nil
 }
 
@@ -121,8 +121,8 @@ func ClearUserField(ctx context.Context, client redis.UniversalClient, userId pr
 	return nil
 }
 
-func MustGet(c *gin.Context) *Claims {
-	return c.MustGet(jwtField).(*Claims)
+func MustGet(c *httpUtils.Context) *Claims {
+	return c.Value(jwtField).(*Claims)
 }
 
 func New(options jwtOptions.JWTOptions, fetchProjectEpoch, fetchUserEpoch epochJWT.FetchEpochFromMongo, client redis.UniversalClient) jwtHandler.JWTHandler {

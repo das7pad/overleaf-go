@@ -27,7 +27,7 @@ type LearnPageData struct {
 	ContentsContent template.HTML
 }
 
-func (d *LearnPageData) Render() (string, error) {
+func (d *LearnPageData) Render() ([]byte, error) {
 	n := 11*1024 +
 		len(d.PageContent) +
 		len(d.ContentsContent) +

@@ -17,9 +17,9 @@
 package userIdJWT
 
 import (
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 )
 
@@ -28,7 +28,7 @@ type Claims struct {
 	UserId primitive.ObjectID `json:"userId"`
 }
 
-func (c *Claims) PostProcess(target *gin.Context) error {
-	target.Set("userId", c.UserId)
+func (c *Claims) PostProcess(target *httpUtils.Context) error {
+	target.AddValue("userId", c.UserId)
 	return nil
 }

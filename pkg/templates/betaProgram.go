@@ -36,6 +36,6 @@ func (d *BetaProgramParticipate) Meta() []metaEntry {
 	return m
 }
 
-func (d *BetaProgramParticipate) Render() (string, error) {
+func (d *BetaProgramParticipate) Render() ([]byte, error) {
 	return render("betaProgram/participate.gohtml", 11*1024, d)
 }

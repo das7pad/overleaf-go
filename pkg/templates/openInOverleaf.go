@@ -34,7 +34,7 @@ func (d *OpenInOverleafDocumentationData) GatewayURL() string {
 	return d.gwURL
 }
 
-func (d *OpenInOverleafDocumentationData) Render() (string, error) {
+func (d *OpenInOverleafDocumentationData) Render() ([]byte, error) {
 	return render("openInOverleaf/documentation.gohtml", 32*1024, d)
 }
 
@@ -63,6 +63,6 @@ func (d *OpenInOverleafGatewayData) Meta() []metaEntry {
 	return m
 }
 
-func (d *OpenInOverleafGatewayData) Render() (string, error) {
+func (d *OpenInOverleafGatewayData) Render() ([]byte, error) {
 	return render("openInOverleaf/gateway.gohtml", 100*1024, d)
 }

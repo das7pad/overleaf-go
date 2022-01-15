@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -57,14 +55,9 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter(
-	clientIPOptions *httpUtils.ClientIPOptions,
 	corsOptions httpUtils.CORSOptions,
-) *gin.Engine {
-	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
-		StatusMessage:   "web is alive (go)\n",
-		ClientIPOptions: clientIPOptions,
-	})
-	router.Use(httpUtils.NoCache())
+) http.Handler {
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
 	{
 		// SECURITY: Attach gateway page before CORS middleware.
 		//           All 3rd parties are allowed to send users to the gw page.
@@ -92,11 +85,11 @@ func (h *httpController) GetRouter(
 		//        somewhere else again and can shortcut a chain of redirects.
 		r.GET("/learn", h.learn)
 		r.GET("/learn/", h.learn)
-		r.GET("/learn/:section", h.learn)
-		r.GET("/learn/:section/", h.learn)
-		r.GET("/learn/:section/:page", h.learn)
-		r.GET("/learn/:section/:page/", h.learn)
-		r.GET("/learn-scripts/images/:a/:b/:c", h.proxyLearnImage)
+		r.GET("/learn/{section}", h.learn)
+		r.GET("/learn/{section}/", h.learn)
+		r.GET("/learn/{section}/{page}", h.learn)
+		r.GET("/learn/{section}/{page}/", h.learn)
+		r.GET("/learn-scripts/images/{a}/{b}/{c}", h.proxyLearnImage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
 		r.GET("/project", h.projectListPage)
@@ -109,21 +102,21 @@ func (h *httpController) GetRouter(
 		r.GET("/user/reconfirm", h.reconfirmAccountPage)
 		r.GET("/user/sessions", h.sessionsPage)
 		r.GET("/user/settings", h.settingsPage)
-		r.GET("/read/:token", h.tokenAccessPage)
-		r.GET("/:token", h.tokenAccessPage)
+		r.GET("/read/{token}", h.tokenAccessPage)
+		r.GET("/{token}", h.tokenAccessPage)
 
-		rp := r.Group("/project/:projectId")
+		rp := r.Group("/project/{projectId}")
 		rp.GET("", h.projectEditorPage)
-		rp.GET("/invite/token/:token", h.viewProjectInvitePage)
+		rp.GET("/invite/token/{token}", h.viewProjectInvitePage)
 	}
 
 	apiRouter := router.Group("/api")
-	apiRouter.Use(h.addApiCSP)
+	apiRouter.Use(h.addApiCSPmw)
 	apiRouter.POST("/open", h.openInOverleaf)
 	apiRouter.POST("/beta/opt-in", h.optInBetaProgram)
 	apiRouter.POST("/beta/opt-out", h.optOutBetaProgram)
-	apiRouter.POST("/grant/ro/:token", h.grantTokenAccessReadOnly)
-	apiRouter.POST("/grant/rw/:token", h.grantTokenAccessReadAndWrite)
+	apiRouter.POST("/grant/ro/{token}", h.grantTokenAccessReadOnly)
+	apiRouter.POST("/grant/rw/{token}", h.grantTokenAccessReadAndWrite)
 	apiRouter.POST("/project/new", h.createExampleProject)
 	apiRouter.POST("/project/new/upload", h.createFromZip)
 	apiRouter.GET("/project/download/zip", h.createMultiProjectZIP)
@@ -156,7 +149,7 @@ func (h *httpController) GetRouter(
 		// Notifications routes
 		r := apiRouter.Group("/notifications")
 		r.GET("", h.getUserNotifications)
-		rById := apiRouter.Group("/notification/:notificationId")
+		rById := apiRouter.Group("/notification/{notificationId}")
 		rById.Use(httpUtils.ValidateAndSetId("notificationId"))
 		r.DELETE("", h.removeNotification)
 	}
@@ -165,12 +158,12 @@ func (h *httpController) GetRouter(
 		r := apiRouter.Group("/tag")
 		r.POST("", h.createTag)
 
-		rt := r.Group("/:tagId")
+		rt := r.Group("/{tagId}")
 		rt.Use(httpUtils.ValidateAndSetId("tagId"))
 		rt.DELETE("", h.deleteTag)
 		rt.POST("/rename", h.renameTag)
 
-		rtp := rt.Group("/project/:projectId")
+		rtp := rt.Group("/project/{projectId}")
 		rtp.Use(httpUtils.ValidateAndSetId("projectId"))
 		rtp.DELETE("", h.removeProjectToTag)
 		rtp.POST("", h.addProjectToTag)
@@ -178,7 +171,7 @@ func (h *httpController) GetRouter(
 
 	{
 		// Project routes with session auth
-		r := apiRouter.Group("/project/:projectId")
+		r := apiRouter.Group("/project/{projectId}")
 		r.Use(httpUtils.ValidateAndSetId("projectId"))
 		r.DELETE("", h.deleteProject)
 		r.DELETE("/archive", h.unArchiveProject)
@@ -195,18 +188,18 @@ func (h *httpController) GetRouter(
 		r.POST("/ws/bootstrap", h.getWSBootstrap)
 		r.GET("/download/zip", h.createProjectZIP)
 
-		rFile := r.Group("/file/:fileId")
+		rFile := r.Group("/file/{fileId}")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
 		rFile.GET("", h.getProjectFile)
 		rFile.HEAD("", h.getProjectFileSize)
 
 		rInvite := r.Group("/invite")
-		rTokenInvite := rInvite.Group("/token/:token")
+		rTokenInvite := rInvite.Group("/token/{token}")
 		rTokenInvite.POST("/accept", h.acceptProjectInvite)
 	}
 
 	jwtRouter := router.Group("/jwt/web")
-	jwtRouter.Use(h.addApiCSP)
+	jwtRouter.Use(h.addApiCSPmw)
 
 	{
 		// The /system/messages endpoint is polled from both the project list
@@ -218,7 +211,7 @@ func (h *httpController) GetRouter(
 		r.GET("/system/messages", h.getSystemMessages)
 	}
 
-	projectJWTRouter := jwtRouter.Group("/project/:projectId")
+	projectJWTRouter := jwtRouter.Group("/project/{projectId}")
 	projectJWTRouter.Use(
 		httpUtils.NewJWTHandler(h.wm.GetProjectJWTHandler()).Middleware(),
 	)
@@ -247,7 +240,7 @@ func (h *httpController) GetRouter(
 
 		r.POST("/track_changes", h.setTrackChangesState)
 
-		rDoc := r.Group("/doc/:docId")
+		rDoc := r.Group("/doc/{docId}")
 		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
 		rDoc.DELETE("", h.deleteDocFromProject)
 		rDoc.POST("/rename", h.renameDocInProject)
@@ -255,36 +248,36 @@ func (h *httpController) GetRouter(
 		rDoc.POST("/restore", h.restoreDeletedDocInProject)
 		rDoc.POST("/changes/accept", h.acceptReviewChanges)
 
-		rDocThread := rDoc.Group("/thread/:threadId")
+		rDocThread := rDoc.Group("/thread/{threadId}")
 		rDocThread.Use(httpUtils.ValidateAndSetId("threadId"))
 		rDocThread.DELETE("", h.deleteReviewThread)
 
-		rDocV := rDoc.Group("/version/:version")
+		rDocV := rDoc.Group("/version/{version}")
 		rDocV.POST("/restore", h.restoreDocVersion)
 
-		rFile := r.Group("/file/:fileId")
+		rFile := r.Group("/file/{fileId}")
 		rFile.Use(httpUtils.ValidateAndSetId("fileId"))
 		rFile.DELETE("", h.deleteFileFromProject)
 		rFile.POST("/rename", h.renameFileInProject)
 		rFile.POST("/move", h.moveFileInProject)
 
-		rLinkedFile := r.Group("/linked_file/:fileId")
+		rLinkedFile := r.Group("/linked_file/{fileId}")
 		rLinkedFile.Use(httpUtils.ValidateAndSetId("fileId"))
 		rLinkedFile.POST("/refresh", h.refreshLinkedFile)
 
-		rFolder := r.Group("/folder/:folderId")
+		rFolder := r.Group("/folder/{folderId}")
 		rFolder.Use(httpUtils.ValidateAndSetId("folderId"))
 		rFolder.DELETE("", h.deleteFolderFromProject)
 		rFolder.POST("/rename", h.renameFolderInProject)
 		rFolder.POST("/move", h.moveFolderInProject)
 		rFolder.POST("/upload", h.uploadFile)
 
-		rThread := r.Group("/thread/:threadId")
+		rThread := r.Group("/thread/{threadId}")
 		rThread.Use(httpUtils.ValidateAndSetId("threadId"))
 		rThread.POST("/reopen", h.reopenReviewThread)
 		rThread.POST("/resolve", h.resolveReviewThread)
 
-		rThreadMessage := rThread.Group("/messages/:messageId")
+		rThreadMessage := rThread.Group("/messages/{messageId}")
 		rThreadMessage.Use(httpUtils.ValidateAndSetId("messageId"))
 		rThreadMessage.POST("/edit", h.editReviewComment)
 		rThreadMessage.DELETE("", h.deleteReviewComment)
@@ -300,13 +293,13 @@ func (h *httpController) GetRouter(
 		// review
 		r.GET("/changes/users", h.getReviewUsers)
 		r.GET("/threads", h.getReviewThreads)
-		rThread := r.Group("/thread/:threadId")
+		rThread := r.Group("/thread/{threadId}")
 		rThread.Use(httpUtils.ValidateAndSetId("threadId"))
 		rThread.POST("/messages", h.sendReviewComment)
 
 		// History
 		r.GET("/updates", h.getProjectHistoryUpdates)
-		rDoc := r.Group("/doc/:docId")
+		rDoc := r.Group("/doc/{docId}")
 		rDoc.Use(httpUtils.ValidateAndSetId("docId"))
 		rDoc.GET("/diff", h.getProjectDocDiff)
 	}
@@ -319,19 +312,19 @@ func (h *httpController) GetRouter(
 
 		r.POST("/invite", h.createProjectInvite)
 		r.GET("/invites", h.listProjectInvites)
-		rInvite := r.Group("/invite/:inviteId")
+		rInvite := r.Group("/invite/{inviteId}")
 		rInvite.Use(httpUtils.ValidateAndSetId("inviteId"))
 		rInvite.DELETE("", h.revokeProjectInvite)
 		rInvite.POST("/resend", h.resendProjectInvite)
 
 		r.POST("/transfer-ownership", h.transferProjectOwnership)
-		rUser := r.Group("/users/:userId")
+		rUser := r.Group("/users/{userId}")
 		rUser.Use(httpUtils.ValidateAndSetId("userId"))
 		rUser.DELETE("", h.removeMemberFromProject)
 		rUser.PUT("", h.setMemberPrivilegeLevelInProject)
 	}
 
-	projectJWTDocRouter := projectJWTRouter.Group("/doc/:docId")
+	projectJWTDocRouter := projectJWTRouter.Group("/doc/{docId}")
 	projectJWTDocRouter.Use(httpUtils.ValidateAndSetId("docId"))
 	projectJWTDocRouter.POST("/metadata", h.getMetadataForDoc)
 	return router
@@ -341,51 +334,70 @@ var (
 	err403 = &errors.NotAuthorizedError{}
 )
 
-func blockRestrictedUsers(c *gin.Context) {
-	if projectJWT.MustGet(c).IsRestrictedUser() {
-		httpUtils.Respond(c, http.StatusOK, nil, err403)
-		return
+func blockRestrictedUsers(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
+	return func(c *httpUtils.Context) {
+		if projectJWT.MustGet(c).IsRestrictedUser() {
+			httpUtils.Respond(c, http.StatusOK, nil, err403)
+			return
+		}
+		next(c)
 	}
 }
 
-func requireProjectAdminAccess(c *gin.Context) {
-	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
-		sharedTypes.PrivilegeLevelOwner,
-	)
-	if err != nil {
-		httpUtils.Respond(c, http.StatusOK, nil, err)
-		return
+func requireProjectAdminAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
+	return func(c *httpUtils.Context) {
+		err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
+			sharedTypes.PrivilegeLevelOwner,
+		)
+		if err != nil {
+			httpUtils.Respond(c, http.StatusOK, nil, err)
+			return
+		}
+		next(c)
 	}
 }
 
-func requireWriteAccess(c *gin.Context) {
-	err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
-		sharedTypes.PrivilegeLevelReadAndWrite,
-	)
-	if err != nil {
-		httpUtils.Respond(c, http.StatusOK, nil, err)
-		return
+func requireWriteAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
+	return func(c *httpUtils.Context) {
+		err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
+			sharedTypes.PrivilegeLevelReadAndWrite,
+		)
+		if err != nil {
+			httpUtils.Respond(c, http.StatusOK, nil, err)
+			return
+		}
+		next(c)
 	}
 }
 
-func mustGetSignedCompileProjectOptionsFromJwt(c *gin.Context) types.SignedCompileProjectRequestOptions {
+func mustGetSignedCompileProjectOptionsFromJwt(c *httpUtils.Context) types.SignedCompileProjectRequestOptions {
 	return projectJWT.MustGet(c).SignedCompileProjectRequestOptions
 }
 
-func (h *httpController) addApiCSP(c *gin.Context) {
+func (h *httpController) addApiCSP(c *httpUtils.Context) {
 	c.Writer.Header().Set("Content-Security-Policy", h.ps.CSPs.API)
+}
+
+func (h *httpController) addApiCSPmw(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
+	return func(c *httpUtils.Context) {
+		c.Writer.Header().Set("Content-Security-Policy", h.ps.CSPs.API)
+		next(c)
+	}
 }
 
 var unsupportedBrowsers = regexp.MustCompile("Trident/|MSIE")
 
-func (h *httpController) blockUnsupportedBrowser(c *gin.Context) {
-	if unsupportedBrowsers.MatchString(c.Request.Header.Get("User-Agent")) {
-		c.Abort()
-		h.unsupportedBrowserPage(c)
+func (h *httpController) blockUnsupportedBrowser(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
+	return func(c *httpUtils.Context) {
+		if unsupportedBrowsers.MatchString(c.Request.Header.Get("User-Agent")) {
+			h.unsupportedBrowserPage(c)
+			return
+		}
+		next(c)
 	}
 }
 
-func (h *httpController) unsupportedBrowserPage(c *gin.Context) {
+func (h *httpController) unsupportedBrowserPage(c *httpUtils.Context) {
 	s, _ := h.wm.GetOrCreateSession(c)
 	body := &templates.GeneralUnsupportedBrowserData{
 		NoJsLayoutData: templates.NoJsLayoutData{
@@ -405,7 +417,7 @@ func (h *httpController) unsupportedBrowserPage(c *gin.Context) {
 	)
 }
 
-func (h *httpController) notFound(c *gin.Context) {
+func (h *httpController) notFound(c *httpUtils.Context) {
 	err := &errors.NotFoundError{}
 	p := c.Request.URL.Path
 	if strings.HasPrefix(p, "/api") || strings.HasPrefix(p, "/jwt") {
@@ -421,7 +433,7 @@ type clearProjectCacheRequestBody struct {
 	types.ClsiServerId `json:"clsiServerId"`
 }
 
-func (h *httpController) clearProjectCache(c *gin.Context) {
+func (h *httpController) clearProjectCache(c *httpUtils.Context) {
 	request := &clearProjectCacheRequestBody{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -434,7 +446,7 @@ func (h *httpController) clearProjectCache(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) compileProject(c *gin.Context) {
+func (h *httpController) compileProject(c *httpUtils.Context) {
 	request := &types.CompileProjectRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -450,7 +462,7 @@ func (h *httpController) compileProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) syncFromCode(c *gin.Context) {
+func (h *httpController) syncFromCode(c *httpUtils.Context) {
 	request := &types.SyncFromCodeRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -467,7 +479,7 @@ func (h *httpController) syncFromCode(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) syncFromPDF(c *gin.Context) {
+func (h *httpController) syncFromPDF(c *httpUtils.Context) {
 	request := &types.SyncFromPDFRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -484,7 +496,7 @@ func (h *httpController) syncFromPDF(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) wordCount(c *gin.Context) {
+func (h *httpController) wordCount(c *httpUtils.Context) {
 	request := &types.WordCountRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -501,14 +513,14 @@ func (h *httpController) wordCount(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) getSystemMessages(c *gin.Context) {
+func (h *httpController) getSystemMessages(c *httpUtils.Context) {
 	m := h.wm.GetAllCached(
 		c.Request.Context(), httpUtils.GetId(c, "userId"),
 	)
 	httpUtils.Respond(c, http.StatusOK, m, nil)
 }
 
-func (h *httpController) getUserProjects(c *gin.Context) {
+func (h *httpController) getUserProjects(c *httpUtils.Context) {
 	resp := &types.GetUserProjectsResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -520,13 +532,13 @@ func (h *httpController) getUserProjects(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getMetadataForProject(c *gin.Context) {
+func (h *httpController) getMetadataForProject(c *httpUtils.Context) {
 	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
 	resp, err := h.wm.GetMetadataForProject(c.Request.Context(), projectId)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getMetadataForDoc(c *gin.Context) {
+func (h *httpController) getMetadataForDoc(c *httpUtils.Context) {
 	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
 	docId := httpUtils.GetId(c, "docId")
 	request := &types.ProjectDocMetadataRequest{}
@@ -539,7 +551,7 @@ func (h *httpController) getMetadataForDoc(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) login(c *gin.Context) {
+func (h *httpController) login(c *httpUtils.Context) {
 	resp := &types.LoginResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -559,7 +571,7 @@ func (h *httpController) login(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) logout(c *gin.Context) {
+func (h *httpController) logout(c *httpUtils.Context) {
 	resp := &types.LogoutResponse{
 		RedirectTo: "/login",
 	}
@@ -576,7 +588,7 @@ func (h *httpController) logout(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getLoggedInUserJWT(c *gin.Context) {
+func (h *httpController) getLoggedInUserJWT(c *httpUtils.Context) {
 	resp := types.GetLoggedInUserJWTResponse("")
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -590,7 +602,7 @@ func (h *httpController) getLoggedInUserJWT(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getProjectJWT(c *gin.Context) {
+func (h *httpController) getProjectJWT(c *httpUtils.Context) {
 	resp := types.GetProjectJWTResponse("")
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -605,7 +617,7 @@ func (h *httpController) getProjectJWT(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getWSBootstrap(c *gin.Context) {
+func (h *httpController) getWSBootstrap(c *httpUtils.Context) {
 	resp := types.GetWSBootstrapResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -620,7 +632,7 @@ func (h *httpController) getWSBootstrap(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) getProjectMessages(c *gin.Context) {
+func (h *httpController) getProjectMessages(c *httpUtils.Context) {
 	request := &types.GetProjectChatMessagesRequest{}
 	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
 		httpUtils.RespondErr(c, err)
@@ -632,7 +644,7 @@ func (h *httpController) getProjectMessages(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) sendProjectMessage(c *gin.Context) {
+func (h *httpController) sendProjectMessage(c *httpUtils.Context) {
 	request := &types.SendProjectChatMessageRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -643,7 +655,7 @@ func (h *httpController) sendProjectMessage(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) optInBetaProgram(c *gin.Context) {
+func (h *httpController) optInBetaProgram(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -654,7 +666,7 @@ func (h *httpController) optInBetaProgram(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) optOutBetaProgram(c *gin.Context) {
+func (h *httpController) optOutBetaProgram(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -665,7 +677,7 @@ func (h *httpController) optOutBetaProgram(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getProjectEntities(c *gin.Context) {
+func (h *httpController) getProjectEntities(c *httpUtils.Context) {
 	resp := &types.GetProjectEntitiesResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -680,7 +692,7 @@ func (h *httpController) getProjectEntities(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) grantTokenAccessReadAndWrite(c *gin.Context) {
+func (h *httpController) grantTokenAccessReadAndWrite(c *httpUtils.Context) {
 	resp := &types.GrantTokenAccessResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -698,7 +710,7 @@ func (h *httpController) grantTokenAccessReadAndWrite(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) grantTokenAccessReadOnly(c *gin.Context) {
+func (h *httpController) grantTokenAccessReadOnly(c *httpUtils.Context) {
 	resp := &types.GrantTokenAccessResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -716,7 +728,7 @@ func (h *httpController) grantTokenAccessReadOnly(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) addProjectToTag(c *gin.Context) {
+func (h *httpController) addProjectToTag(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -731,7 +743,7 @@ func (h *httpController) addProjectToTag(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) createTag(c *gin.Context) {
+func (h *httpController) createTag(c *httpUtils.Context) {
 	resp := &types.CreateTagResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -747,7 +759,7 @@ func (h *httpController) createTag(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) deleteTag(c *gin.Context) {
+func (h *httpController) deleteTag(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -761,7 +773,7 @@ func (h *httpController) deleteTag(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) renameTag(c *gin.Context) {
+func (h *httpController) renameTag(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -777,7 +789,7 @@ func (h *httpController) renameTag(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) removeProjectToTag(c *gin.Context) {
+func (h *httpController) removeProjectToTag(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -792,7 +804,7 @@ func (h *httpController) removeProjectToTag(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getUserContacts(c *gin.Context) {
+func (h *httpController) getUserContacts(c *httpUtils.Context) {
 	resp := &types.GetUserContactsResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -804,7 +816,7 @@ func (h *httpController) getUserContacts(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) archiveProject(c *gin.Context) {
+func (h *httpController) archiveProject(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -818,7 +830,7 @@ func (h *httpController) archiveProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) unArchiveProject(c *gin.Context) {
+func (h *httpController) unArchiveProject(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -832,7 +844,7 @@ func (h *httpController) unArchiveProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) trashProject(c *gin.Context) {
+func (h *httpController) trashProject(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -846,7 +858,7 @@ func (h *httpController) trashProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) unTrashProject(c *gin.Context) {
+func (h *httpController) unTrashProject(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -862,7 +874,7 @@ func (h *httpController) unTrashProject(c *gin.Context) {
 
 const contentTypeOctetStream = "application/octet-stream"
 
-func (h *httpController) getProjectFile(c *gin.Context) {
+func (h *httpController) getProjectFile(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -891,7 +903,7 @@ func (h *httpController) getProjectFile(c *gin.Context) {
 	_ = response.Reader.Close()
 }
 
-func (h *httpController) getProjectFileSize(c *gin.Context) {
+func (h *httpController) getProjectFileSize(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -912,7 +924,7 @@ func (h *httpController) getProjectFileSize(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
-func (h *httpController) addDocToProject(c *gin.Context) {
+func (h *httpController) addDocToProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.AddDocRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -924,7 +936,7 @@ func (h *httpController) addDocToProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) addFolderToProject(c *gin.Context) {
+func (h *httpController) addFolderToProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.AddFolderRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -936,7 +948,7 @@ func (h *httpController) addFolderToProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) uploadFile(c *gin.Context) {
+func (h *httpController) uploadFile(c *httpUtils.Context) {
 	j := projectJWT.MustGet(c)
 	d := &httpUtils.UploadDetails{}
 	if !httpUtils.ProcessFileUpload(c, types.MaxUploadSize, maxDocSize, d) {
@@ -957,7 +969,7 @@ func (h *httpController) uploadFile(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, asyncForm.Response{}, err)
 }
 
-func (h *httpController) deleteDocFromProject(c *gin.Context) {
+func (h *httpController) deleteDocFromProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.DeleteDocRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -969,7 +981,7 @@ func (h *httpController) deleteDocFromProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) deleteFileFromProject(c *gin.Context) {
+func (h *httpController) deleteFileFromProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.DeleteFileRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -981,7 +993,7 @@ func (h *httpController) deleteFileFromProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) deleteFolderFromProject(c *gin.Context) {
+func (h *httpController) deleteFolderFromProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.DeleteFolderRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -993,7 +1005,7 @@ func (h *httpController) deleteFolderFromProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) moveDocInProject(c *gin.Context) {
+func (h *httpController) moveDocInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.MoveDocRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1005,7 +1017,7 @@ func (h *httpController) moveDocInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) moveFileInProject(c *gin.Context) {
+func (h *httpController) moveFileInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.MoveFileRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1017,7 +1029,7 @@ func (h *httpController) moveFileInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) moveFolderInProject(c *gin.Context) {
+func (h *httpController) moveFolderInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.MoveFolderRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1029,7 +1041,7 @@ func (h *httpController) moveFolderInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) renameDocInProject(c *gin.Context) {
+func (h *httpController) renameDocInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RenameDocRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1041,7 +1053,7 @@ func (h *httpController) renameDocInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) renameFileInProject(c *gin.Context) {
+func (h *httpController) renameFileInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RenameFileRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1053,7 +1065,7 @@ func (h *httpController) renameFileInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) renameFolderInProject(c *gin.Context) {
+func (h *httpController) renameFolderInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RenameFolderRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1065,7 +1077,7 @@ func (h *httpController) renameFolderInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) restoreDeletedDocInProject(c *gin.Context) {
+func (h *httpController) restoreDeletedDocInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RestoreDeletedDocRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1078,7 +1090,7 @@ func (h *httpController) restoreDeletedDocInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) renameProject(c *gin.Context) {
+func (h *httpController) renameProject(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -1094,7 +1106,7 @@ func (h *httpController) renameProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) acceptProjectInvite(c *gin.Context) {
+func (h *httpController) acceptProjectInvite(c *httpUtils.Context) {
 	response := &types.AcceptProjectInviteResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -1110,7 +1122,7 @@ func (h *httpController) acceptProjectInvite(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) createProjectInvite(c *gin.Context) {
+func (h *httpController) createProjectInvite(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.CreateProjectInviteRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1122,7 +1134,7 @@ func (h *httpController) createProjectInvite(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) resendProjectInvite(c *gin.Context) {
+func (h *httpController) resendProjectInvite(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ResendProjectInviteRequest{
 		ProjectId: o.ProjectId,
@@ -1132,7 +1144,7 @@ func (h *httpController) resendProjectInvite(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) revokeProjectInvite(c *gin.Context) {
+func (h *httpController) revokeProjectInvite(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RevokeProjectInviteRequest{
 		ProjectId: o.ProjectId,
@@ -1142,7 +1154,7 @@ func (h *httpController) revokeProjectInvite(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) listProjectInvites(c *gin.Context) {
+func (h *httpController) listProjectInvites(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ListProjectInvitesRequest{
 		ProjectId: o.ProjectId,
@@ -1152,7 +1164,7 @@ func (h *httpController) listProjectInvites(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) listProjectMembers(c *gin.Context) {
+func (h *httpController) listProjectMembers(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ListProjectMembersRequest{
 		ProjectId: o.ProjectId,
@@ -1162,7 +1174,7 @@ func (h *httpController) listProjectMembers(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) removeMemberFromProject(c *gin.Context) {
+func (h *httpController) removeMemberFromProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RemoveProjectMemberRequest{
 		ProjectId: o.ProjectId,
@@ -1173,7 +1185,7 @@ func (h *httpController) removeMemberFromProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setMemberPrivilegeLevelInProject(c *gin.Context) {
+func (h *httpController) setMemberPrivilegeLevelInProject(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetMemberPrivilegeLevelInProjectRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1185,7 +1197,7 @@ func (h *httpController) setMemberPrivilegeLevelInProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) transferProjectOwnership(c *gin.Context) {
+func (h *httpController) transferProjectOwnership(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.TransferProjectOwnershipRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1197,7 +1209,7 @@ func (h *httpController) transferProjectOwnership(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) leaveProject(c *gin.Context) {
+func (h *httpController) leaveProject(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -1211,7 +1223,7 @@ func (h *httpController) leaveProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setCompiler(c *gin.Context) {
+func (h *httpController) setCompiler(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetCompilerRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1222,7 +1234,7 @@ func (h *httpController) setCompiler(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setImageName(c *gin.Context) {
+func (h *httpController) setImageName(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetImageNameRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1233,7 +1245,7 @@ func (h *httpController) setImageName(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setSpellCheckLanguage(c *gin.Context) {
+func (h *httpController) setSpellCheckLanguage(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetSpellCheckLanguageRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1244,7 +1256,7 @@ func (h *httpController) setSpellCheckLanguage(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setRootDocId(c *gin.Context) {
+func (h *httpController) setRootDocId(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetRootDocIdRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1255,7 +1267,7 @@ func (h *httpController) setRootDocId(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setPublicAccessLevel(c *gin.Context) {
+func (h *httpController) setPublicAccessLevel(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetPublicAccessLevelRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1267,7 +1279,7 @@ func (h *httpController) setPublicAccessLevel(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) clearSessions(c *gin.Context) {
+func (h *httpController) clearSessions(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -1281,7 +1293,7 @@ func (h *httpController) clearSessions(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) cloneProject(c *gin.Context) {
+func (h *httpController) cloneProject(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1298,7 +1310,7 @@ func (h *httpController) cloneProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) createExampleProject(c *gin.Context) {
+func (h *httpController) createExampleProject(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1319,7 +1331,7 @@ func (h *httpController) createExampleProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) createFromZip(c *gin.Context) {
+func (h *httpController) createFromZip(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1349,7 +1361,7 @@ func (h *httpController) createFromZip(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) getUserNotifications(c *gin.Context) {
+func (h *httpController) getUserNotifications(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1363,7 +1375,7 @@ func (h *httpController) getUserNotifications(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) removeNotification(c *gin.Context) {
+func (h *httpController) removeNotification(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1377,7 +1389,7 @@ func (h *httpController) removeNotification(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) openInOverleaf(c *gin.Context) {
+func (h *httpController) openInOverleaf(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1407,7 +1419,7 @@ func (h *httpController) openInOverleaf(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) compileProjectHeadless(c *gin.Context) {
+func (h *httpController) compileProjectHeadless(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1426,7 +1438,7 @@ func (h *httpController) compileProjectHeadless(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) createLinkedFile(c *gin.Context) {
+func (h *httpController) createLinkedFile(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.CreateLinkedFileRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1438,7 +1450,7 @@ func (h *httpController) createLinkedFile(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) refreshLinkedFile(c *gin.Context) {
+func (h *httpController) refreshLinkedFile(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RefreshLinkedFileRequest{
 		UserId:    o.UserId,
@@ -1449,7 +1461,7 @@ func (h *httpController) refreshLinkedFile(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) createProjectZIP(c *gin.Context) {
+func (h *httpController) createProjectZIP(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1473,7 +1485,7 @@ func (h *httpController) createProjectZIP(c *gin.Context) {
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
 
-func (h *httpController) createMultiProjectZIP(c *gin.Context) {
+func (h *httpController) createMultiProjectZIP(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1499,7 +1511,7 @@ func (h *httpController) createMultiProjectZIP(c *gin.Context) {
 	http.ServeFile(c.Writer, c.Request, response.FSPath)
 }
 
-func (h *httpController) deleteProject(c *gin.Context) {
+func (h *httpController) deleteProject(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1514,7 +1526,7 @@ func (h *httpController) deleteProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) undeleteProject(c *gin.Context) {
+func (h *httpController) undeleteProject(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1528,7 +1540,7 @@ func (h *httpController) undeleteProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) deleteUser(c *gin.Context) {
+func (h *httpController) deleteUser(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1545,7 +1557,7 @@ func (h *httpController) deleteUser(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) updateEditorConfig(c *gin.Context) {
+func (h *httpController) updateEditorConfig(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1560,7 +1572,7 @@ func (h *httpController) updateEditorConfig(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) changeEmailAddress(c *gin.Context) {
+func (h *httpController) changeEmailAddress(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1577,7 +1589,7 @@ func (h *httpController) changeEmailAddress(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setUserName(c *gin.Context) {
+func (h *httpController) setUserName(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1593,7 +1605,7 @@ func (h *httpController) setUserName(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) changePassword(c *gin.Context) {
+func (h *httpController) changePassword(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1610,7 +1622,7 @@ func (h *httpController) changePassword(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) requestPasswordReset(c *gin.Context) {
+func (h *httpController) requestPasswordReset(c *httpUtils.Context) {
 	request := &types.RequestPasswordResetRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -1619,7 +1631,7 @@ func (h *httpController) requestPasswordReset(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setPassword(c *gin.Context) {
+func (h *httpController) setPassword(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1636,7 +1648,7 @@ func (h *httpController) setPassword(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) confirmEmail(c *gin.Context) {
+func (h *httpController) confirmEmail(c *httpUtils.Context) {
 	request := &types.ConfirmEmailRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
@@ -1645,7 +1657,7 @@ func (h *httpController) confirmEmail(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) resendEmailConfirmation(c *gin.Context) {
+func (h *httpController) resendEmailConfirmation(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -1660,7 +1672,7 @@ func (h *httpController) resendEmailConfirmation(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {
+func (h *httpController) getProjectHistoryUpdates(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetProjectHistoryUpdatesRequest{}
 	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
@@ -1674,7 +1686,7 @@ func (h *httpController) getProjectHistoryUpdates(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) getProjectDocDiff(c *gin.Context) {
+func (h *httpController) getProjectDocDiff(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetDocDiffRequest{}
 	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
@@ -1689,7 +1701,7 @@ func (h *httpController) getProjectDocDiff(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) restoreDocVersion(c *gin.Context) {
+func (h *httpController) restoreDocVersion(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	i, err := strconv.ParseInt(c.Param("version"), 10, 64)
 	if err != nil {
@@ -1706,7 +1718,7 @@ func (h *httpController) restoreDocVersion(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) registerUser(c *gin.Context) {
+func (h *httpController) registerUser(c *httpUtils.Context) {
 	resp := &types.RegisterUserResponse{}
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
@@ -1726,7 +1738,7 @@ func (h *httpController) registerUser(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) adminCreateUser(c *gin.Context) {
+func (h *httpController) adminCreateUser(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
@@ -1742,7 +1754,7 @@ func (h *httpController) adminCreateUser(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
-func (h *httpController) acceptReviewChanges(c *gin.Context) {
+func (h *httpController) acceptReviewChanges(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.AcceptReviewChangesRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1754,7 +1766,7 @@ func (h *httpController) acceptReviewChanges(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) deleteReviewComment(c *gin.Context) {
+func (h *httpController) deleteReviewComment(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.DeleteReviewCommentRequest{}
 	request.ProjectId = o.ProjectId
@@ -1764,7 +1776,7 @@ func (h *httpController) deleteReviewComment(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) deleteReviewThread(c *gin.Context) {
+func (h *httpController) deleteReviewThread(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.DeleteReviewThreadRequest{}
 	request.ProjectId = o.ProjectId
@@ -1774,7 +1786,7 @@ func (h *httpController) deleteReviewThread(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) editReviewComment(c *gin.Context) {
+func (h *httpController) editReviewComment(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.EditReviewCommentRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1787,7 +1799,7 @@ func (h *httpController) editReviewComment(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getReviewRanges(c *gin.Context) {
+func (h *httpController) getReviewRanges(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetReviewRangesRequest{}
 	request.ProjectId = o.ProjectId
@@ -1796,7 +1808,7 @@ func (h *httpController) getReviewRanges(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) getReviewThreads(c *gin.Context) {
+func (h *httpController) getReviewThreads(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetReviewThreadsRequest{}
 	request.ProjectId = o.ProjectId
@@ -1805,7 +1817,7 @@ func (h *httpController) getReviewThreads(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) getReviewUsers(c *gin.Context) {
+func (h *httpController) getReviewUsers(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetReviewUsersRequest{}
 	request.ProjectId = o.ProjectId
@@ -1814,7 +1826,7 @@ func (h *httpController) getReviewUsers(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) reopenReviewThread(c *gin.Context) {
+func (h *httpController) reopenReviewThread(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ReopenReviewThreadRequest{}
 	request.ProjectId = o.ProjectId
@@ -1823,7 +1835,7 @@ func (h *httpController) reopenReviewThread(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) resolveReviewThread(c *gin.Context) {
+func (h *httpController) resolveReviewThread(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ResolveReviewThreadRequest{}
 	request.ProjectId = o.ProjectId
@@ -1833,7 +1845,7 @@ func (h *httpController) resolveReviewThread(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) sendReviewComment(c *gin.Context) {
+func (h *httpController) sendReviewComment(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SendReviewCommentRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1846,7 +1858,7 @@ func (h *httpController) sendReviewComment(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) setTrackChangesState(c *gin.Context) {
+func (h *httpController) setTrackChangesState(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.SetTrackChangesStateRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
@@ -1857,7 +1869,7 @@ func (h *httpController) setTrackChangesState(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) homePage(c *gin.Context) {
+func (h *httpController) homePage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1870,7 +1882,7 @@ func (h *httpController) homePage(c *gin.Context) {
 	}
 }
 
-func (h *httpController) betaProgramParticipatePage(c *gin.Context) {
+func (h *httpController) betaProgramParticipatePage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1882,7 +1894,7 @@ func (h *httpController) betaProgramParticipatePage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) loginPage(c *gin.Context) {
+func (h *httpController) loginPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1904,7 +1916,7 @@ func (h *httpController) loginPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) logoutPage(c *gin.Context) {
+func (h *httpController) logoutPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1916,7 +1928,7 @@ func (h *httpController) logoutPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) confirmEmailPage(c *gin.Context) {
+func (h *httpController) confirmEmailPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1933,7 +1945,7 @@ func (h *httpController) confirmEmailPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) reconfirmAccountPage(c *gin.Context) {
+func (h *httpController) reconfirmAccountPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1949,7 +1961,7 @@ func (h *httpController) reconfirmAccountPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) registerUserPage(c *gin.Context) {
+func (h *httpController) registerUserPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1970,7 +1982,7 @@ func (h *httpController) registerUserPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) restrictedPage(c *gin.Context) {
+func (h *httpController) restrictedPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -1980,7 +1992,7 @@ func (h *httpController) restrictedPage(c *gin.Context) {
 	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) setPasswordPage(c *gin.Context) {
+func (h *httpController) setPasswordPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2003,7 +2015,7 @@ func (h *httpController) setPasswordPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) requestPasswordResetPage(c *gin.Context) {
+func (h *httpController) requestPasswordResetPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2024,7 +2036,7 @@ func (h *httpController) requestPasswordResetPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) activateUserPage(c *gin.Context) {
+func (h *httpController) activateUserPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2045,7 +2057,7 @@ func (h *httpController) activateUserPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) sessionsPage(c *gin.Context) {
+func (h *httpController) sessionsPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2057,7 +2069,7 @@ func (h *httpController) sessionsPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) settingsPage(c *gin.Context) {
+func (h *httpController) settingsPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2070,7 +2082,7 @@ func (h *httpController) settingsPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) tokenAccessPage(c *gin.Context) {
+func (h *httpController) tokenAccessPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2085,7 +2097,7 @@ func (h *httpController) tokenAccessPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) openInOverleafDocumentationPage(c *gin.Context) {
+func (h *httpController) openInOverleafDocumentationPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2097,7 +2109,7 @@ func (h *httpController) openInOverleafDocumentationPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) openInOverleafGatewayPage(c *gin.Context) {
+func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2140,7 +2152,7 @@ func (h *httpController) openInOverleafGatewayPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) projectListPage(c *gin.Context) {
+func (h *httpController) projectListPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2153,7 +2165,7 @@ func (h *httpController) projectListPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) projectEditorPage(c *gin.Context) {
+func (h *httpController) projectEditorPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2174,7 +2186,7 @@ func (h *httpController) projectEditorPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) viewProjectInvitePage(c *gin.Context) {
+func (h *httpController) viewProjectInvitePage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2202,7 +2214,7 @@ func (h *httpController) viewProjectInvitePage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) learn(c *gin.Context) {
+func (h *httpController) learn(c *httpUtils.Context) {
 	request := &types.LearnPageRequest{
 		Section:         c.Param("section"),
 		Page:            c.Param("page"),
@@ -2229,7 +2241,7 @@ func (h *httpController) learn(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) proxyLearnImage(c *gin.Context) {
+func (h *httpController) proxyLearnImage(c *httpUtils.Context) {
 	request := &types.LearnImageRequest{
 		Path: sharedTypes.PathName(c.Request.URL.Path)[1:],
 	}
@@ -2245,7 +2257,7 @@ func (h *httpController) proxyLearnImage(c *gin.Context) {
 	http.ServeFile(c.Writer, c.Request, res.FSPath)
 }
 
-func (h *httpController) adminManageSitePage(c *gin.Context) {
+func (h *httpController) adminManageSitePage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2257,7 +2269,7 @@ func (h *httpController) adminManageSitePage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) adminRegisterUsersPage(c *gin.Context) {
+func (h *httpController) adminRegisterUsersPage(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -2269,12 +2281,12 @@ func (h *httpController) adminRegisterUsersPage(c *gin.Context) {
 	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
 }
 
-func (h *httpController) smokeTestAPI(c *gin.Context) {
+func (h *httpController) smokeTestAPI(c *httpUtils.Context) {
 	err := h.wm.SmokeTestAPI(c.Request.Context())
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) smokeTestFull(c *gin.Context) {
+func (h *httpController) smokeTestFull(c *httpUtils.Context) {
 	res := &types.SmokeTestResponse{}
 	err := h.wm.SmokeTestFull(c.Request.Context(), res)
 	if err != nil {
@@ -2289,7 +2301,7 @@ func (h *httpController) smokeTestFull(c *gin.Context) {
 	httpUtils.RespondWithIndent(c, status, res, err)
 }
 
-func (h *httpController) getDictionary(c *gin.Context) {
+func (h *httpController) getDictionary(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
@@ -2301,7 +2313,7 @@ func (h *httpController) getDictionary(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
-func (h *httpController) learnWord(c *gin.Context) {
+func (h *httpController) learnWord(c *httpUtils.Context) {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)

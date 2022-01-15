@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -41,12 +39,9 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.GET("/status", h.status)
-	router.HEAD("/status", h.status)
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
 
-	projectRouter := router.Group("/project/:projectId")
+	projectRouter := router.Group("/project/{projectId}")
 	projectRouter.Use(httpUtils.ValidateAndSetId("projectId"))
 
 	projectRouter.DELETE("", h.flushAndDeleteProject)
@@ -55,7 +50,7 @@ func (h *httpController) GetRouter() http.Handler {
 	projectRouter.POST("/flush", h.flushProject)
 	projectRouter.POST("/get_and_flush_if_old", h.getAndFlushIfOld)
 
-	docRouter := projectRouter.Group("/doc/:docId")
+	docRouter := projectRouter.Group("/doc/{docId}")
 	docRouter.Use(httpUtils.ValidateAndSetId("docId"))
 
 	docRouter.GET("", h.getDoc)
@@ -67,17 +62,11 @@ func (h *httpController) GetRouter() http.Handler {
 	return router
 }
 
-func (h *httpController) status(c *gin.Context) {
-	httpUtils.RespondPlain(
-		c, http.StatusOK, "document-updater is alive (go)\n",
-	)
-}
-
-func (h *httpController) handle404(c *gin.Context) {
+func (h *httpController) handle404(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusNotFound, nil, errors.New("404"))
 }
 
-func (h *httpController) checkDocExists(c *gin.Context) {
+func (h *httpController) checkDocExists(c *httpUtils.Context) {
 	err := h.dum.CheckDocExists(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -102,7 +91,7 @@ func (r *getDocRequestOptions) FromQuery(q url.Values) error {
 	return nil
 }
 
-func (h *httpController) getDoc(c *gin.Context) {
+func (h *httpController) getDoc(c *httpUtils.Context) {
 	requestOptions := &getDocRequestOptions{}
 	if err := requestOptions.FromQuery(c.Request.URL.Query()); err != nil {
 		httpUtils.RespondErr(c, err)
@@ -121,7 +110,7 @@ const (
 	maxSetDocRequestSize = 8 * 1024 * 1024
 )
 
-func (h *httpController) setDoc(c *gin.Context) {
+func (h *httpController) setDoc(c *httpUtils.Context) {
 	n := c.Request.ContentLength
 	if n > maxSetDocRequestSize {
 		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
@@ -147,7 +136,7 @@ func (h *httpController) setDoc(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushProject(c *gin.Context) {
+func (h *httpController) flushProject(c *httpUtils.Context) {
 	err := h.dum.FlushProject(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -155,7 +144,7 @@ func (h *httpController) flushProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushDocIfLoaded(c *gin.Context) {
+func (h *httpController) flushDocIfLoaded(c *httpUtils.Context) {
 	err := h.dum.FlushDocIfLoaded(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -164,7 +153,7 @@ func (h *httpController) flushDocIfLoaded(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushAndDeleteDoc(c *gin.Context) {
+func (h *httpController) flushAndDeleteDoc(c *httpUtils.Context) {
 	err := h.dum.FlushAndDeleteDoc(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -173,7 +162,7 @@ func (h *httpController) flushAndDeleteDoc(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) flushAndDeleteProject(c *gin.Context) {
+func (h *httpController) flushAndDeleteProject(c *httpUtils.Context) {
 	err := h.dum.FlushAndDeleteProject(
 		c.Request.Context(),
 		httpUtils.GetId(c, "projectId"),
@@ -181,7 +170,7 @@ func (h *httpController) flushAndDeleteProject(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) getAndFlushIfOld(c *gin.Context) {
+func (h *httpController) getAndFlushIfOld(c *httpUtils.Context) {
 	var docs interface{}
 	var err error
 	if c.Request.URL.Query().Get("snapshot") == "true" {
@@ -198,11 +187,11 @@ func (h *httpController) getAndFlushIfOld(c *gin.Context) {
 	httpUtils.Respond(c, http.StatusOK, docs, err)
 }
 
-func (h *httpController) clearProjectState(c *gin.Context) {
+func (h *httpController) clearProjectState(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, nil)
 }
 
-func (h *httpController) processProjectUpdates(c *gin.Context) {
+func (h *httpController) processProjectUpdates(c *httpUtils.Context) {
 	request := &types.ProcessProjectUpdatesRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return

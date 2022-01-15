@@ -23,8 +23,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 )
@@ -55,21 +53,12 @@ type httpController struct {
 }
 
 func (h *httpController) GetRouter() http.Handler {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.GET("/status", h.status)
-	router.HEAD("/status", h.status)
-	router.GET("/proxy/:token", h.proxy)
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
+	router.GET("/proxy/{token}", h.proxy)
 	return router
 }
 
-func (h *httpController) status(c *gin.Context) {
-	httpUtils.RespondPlain(
-		c, http.StatusOK, "linked-url-proxy is alive (go)\n",
-	)
-}
-
-func (h *httpController) checkAuth(c *gin.Context) error {
+func (h *httpController) checkAuth(c *httpUtils.Context) error {
 	a := []byte(c.Request.URL.Path)
 	b := []byte(h.proxyPathWithToken)
 	if subtle.ConstantTimeCompare(a, b) == 1 {
@@ -78,7 +67,7 @@ func (h *httpController) checkAuth(c *gin.Context) error {
 	return &errors.NotAuthorizedError{}
 }
 
-func (h *httpController) proxy(c *gin.Context) {
+func (h *httpController) proxy(c *httpUtils.Context) {
 	if err := h.checkAuth(c); err != nil {
 		httpUtils.RespondErr(c, err)
 		return

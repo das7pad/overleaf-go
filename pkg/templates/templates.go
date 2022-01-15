@@ -17,6 +17,7 @@
 package templates
 
 import (
+	"bytes"
 	"embed"
 	"html/template"
 	"io"
@@ -31,7 +32,7 @@ import (
 
 type Renderer interface {
 	CSP() string
-	Render() (string, error)
+	Render() ([]byte, error)
 	ResourceHints() string
 }
 
@@ -41,13 +42,14 @@ var _fs embed.FS
 var templates map[string]*template.Template
 var resourceHints assets.ResourceHintsManager
 
-func render(p string, estimate int, data interface{}) (string, error) {
-	buffer := &strings.Builder{}
+func render(p string, estimate int, data interface{}) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	buffer.Bytes()
 	buffer.Grow(estimate)
 	if err := templates[p].Execute(buffer, data); err != nil {
-		return "", errors.Tag(err, "cannot render "+p)
+		return nil, errors.Tag(err, "cannot render "+p)
 	}
-	return buffer.String(), nil
+	return buffer.Bytes(), nil
 }
 
 func Load(appName string, assetsOptions *assets.Options) error {
