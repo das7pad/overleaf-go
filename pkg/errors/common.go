@@ -179,13 +179,6 @@ func IsValidationError(err error) bool {
 	return isValidationError
 }
 
-func ToValidationError(err error) error {
-	if IsValidationError(err) {
-		return err
-	}
-	return &ValidationError{Msg: err.Error()}
-}
-
 type UnprocessableEntityError struct {
 	Msg string
 }
