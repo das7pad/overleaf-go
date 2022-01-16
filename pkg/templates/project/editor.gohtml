@@ -35,8 +35,6 @@
     content="{{ buildMathJaxEntrypoint }}"
   >
 {{ end }}
-{{ define "navbar" }}<!-- Hide Navbar -->{{ end }}
-{{ define "footer" }}<!-- Hide Footer -->{{ end }}
 {{ define "content" }}
   <div
     class="editor full-size"
@@ -532,7 +530,7 @@
                   ><i
                       class="fa fa-external-link-square fa-rotate-180 linked-file-highlight"
                       ng-if="entity.linkedFileData.provider"
-                    ></i></i><span ng-hide="entity.renaming"> {{`{{ entity.renamingToName || entity.name }}`}}</span>
+                    ></i></i><span ng-hide="entity.renaming"> {{ `{{ entity.renamingToName || entity.name }}` }}</span>
                 </div>
               </div>
               <div
@@ -559,7 +557,7 @@
                       ng-if="entity.type == 'folder'"
                       ng-class="{	'fa-folder': !expanded, 'fa-folder-open': expanded }"
                       ng-click="select($event)"
-                    ></i><span ng-hide="entity.renaming"> {{`{{ entity.renamingToName || entity.name }}`}}</span>
+                    ></i><span ng-hide="entity.renaming"> {{ `{{ entity.renamingToName || entity.name }}` }}</span>
                   </div>
                 </div>
                 <ul
@@ -992,7 +990,7 @@
                             <span
                               class="rp-overview-file-num-entries"
                               ng-show="reviewPanel.overview.docsCollapsedState[doc.doc.id]"
-                            >&nbsp;({{`{{ reviewPanel.entries[doc.doc.id] | numKeys }}`}}
+                            >&nbsp;({{ `{{ reviewPanel.entries[doc.doc.id] | numKeys }}` }}
                               )</span></div>
                           <div
                             class="rp-overview-file-entries"
@@ -1105,7 +1103,7 @@
                               >
                                 <span ng-switch-when="insert">{{ translate "tracked_change_added" . }}
                                   &nbsp;<ins class="rp-content-highlight">
-                                    <span ng-if="isCollapsed">{{`{{ entry.content | limitTo:contentLimit }}`}}</span><span ng-if="!isCollapsed">{{ `{{ entry.content }}` }}</span>
+                                    <span ng-if="isCollapsed">{{ `{{ entry.content | limitTo:contentLimit }}` }}</span><span ng-if="!isCollapsed">{{ `{{ entry.content }}` }}</span>
                                   </ins>
                                   <a
                                     class="rp-collapse-toggle"
@@ -1117,7 +1115,7 @@
                                       )</span><span ng-if="!isCollapsed">({{ translate "show_less" . }}
                                       )</span></a></span><span ng-switch-when="delete">{{ translate "tracked_change_deleted" . }}
                                   &nbsp;<del class="rp-content-highlight">
-                                    <span ng-if="isCollapsed">{{`{{ entry.content | limitTo:contentLimit}}`}}</span><span ng-if="!isCollapsed">{{ `{{ entry.content }}` }}</span>
+                                    <span ng-if="isCollapsed">{{ `{{ entry.content | limitTo:contentLimit}}` }}</span><span ng-if="!isCollapsed">{{ `{{ entry.content }}` }}</span>
                                   </del>
                                   <a
                                     class="rp-collapse-toggle"
@@ -1128,7 +1126,7 @@
                                       ({{ translate "show_all" . }}
                                       )</span><span ng-if="!isCollapsed">({{ translate "show_less" . }}
                                       )</span></a></span></div>
-                              <div class="rp-entry-metadata">{{`{{ entry.metadata.ts | date:'MMM d, y h:mm a' }}`}}
+                              <div class="rp-entry-metadata">{{ `{{ entry.metadata.ts | date:'MMM d, y h:mm a' }}` }}
                                 &nbsp;&bull;&nbsp;<span
                                   class="rp-entry-user"
                                   ng-style="{color: 'hsl({{ `{{ user.hue }}` }}, 70%, 40%)'}"
@@ -1172,7 +1170,7 @@
                             <div class="rp-entry-details">
                               <div class="rp-entry-description">{{ translate "aggregate_changed" . }}
                                 &nbsp;<del class="rp-content-highlight">
-                                  <span ng-if="isDeletionCollapsed">{{`{{ entry.metadata.replaced_content | limitTo:contentLimit}}`}}</span><span ng-if="!isDeletionCollapsed">{{ `{{ entry.metadata.replaced_content }}` }}</span>
+                                  <span ng-if="isDeletionCollapsed">{{ `{{ entry.metadata.replaced_content | limitTo:contentLimit}}` }}</span><span ng-if="!isDeletionCollapsed">{{ `{{ entry.metadata.replaced_content }}` }}</span>
                                 </del>
                                 <a
                                   class="rp-collapse-toggle"
@@ -1184,7 +1182,7 @@
                                     )</span><span ng-if="!isDeletionCollapsed">({{ translate "show_less" . }}
                                     )</span></a>&nbsp;{{ translate "aggregate_to" . }}
                                 &nbsp;<ins class="rp-content-highlight">
-                                  <span ng-if="isInsertionCollapsed">{{`{{ entry.content | limitTo:contentLimit}}`}}</span><span ng-if="!isInsertionCollapsed">{{ `{{ entry.content }}` }}</span>
+                                  <span ng-if="isInsertionCollapsed">{{ `{{ entry.content | limitTo:contentLimit}}` }}</span><span ng-if="!isInsertionCollapsed">{{ `{{ entry.content }}` }}</span>
                                 </ins>
                                 <a
                                   class="rp-collapse-toggle"
@@ -1195,7 +1193,7 @@
                                     ({{ translate "show_all" . }}
                                     )</span><span ng-if="!isInsertionCollapsed">({{ translate "show_less" . }}
                                     )</span></a></div>
-                              <div class="rp-entry-metadata">{{`{{ entry.metadata.ts | date:'MMM d, y h:mm a' }}`}}
+                              <div class="rp-entry-metadata">{{ `{{ entry.metadata.ts | date:'MMM d, y h:mm a' }}` }}
                                 &nbsp;&bull;&nbsp;<span
                                   class="rp-entry-user"
                                   ng-style="{color: 'hsl({{ `{{ user.hue }}` }}, 70%, 40%)'}"
@@ -1264,7 +1262,7 @@
                                 class="rp-entry-metadata"
                                 ng-if="!comment.editing"
                               >
-                                <span ng-if="!comment.deleting">{{`{{ comment.timestamp | date:'MMM d, y h:mm a' }}`}}</span><span
+                                <span ng-if="!comment.deleting">{{ `{{ comment.timestamp | date:'MMM d, y h:mm a' }}` }}</span><span
                                   class="rp-comment-actions"
                                   ng-if="comment.user.isSelf && !comment.deleting"
                                 >&nbsp;&bull;&nbsp;<a
@@ -1329,7 +1327,7 @@
                           <div class="rp-resolved-comment-context">{{ translate "quoted_text_in" . }}
                             &nbsp;<span class="rp-resolved-comment-context-file">{{ `{{ thread.docName }}` }}</span>
                             <p class="rp-resolved-comment-context-quote">
-                              <span ng-if="isCollapsed">{{`{{ thread.content | limitTo:contentLimit }}`}}</span><span ng-if="!isCollapsed">{{ `{{ thread.content }}` }}</span>
+                              <span ng-if="isCollapsed">{{ `{{ thread.content | limitTo:contentLimit }}` }}</span><span ng-if="!isCollapsed">{{ `{{ thread.content }}` }}</span>
                               <a
                                 class="rp-collapse-toggle"
                                 href="#"
@@ -1352,7 +1350,7 @@
                               >{{ `{{ comment.user.name }}` }}
                                 :&nbsp;</span><span ng-bind-html="comment.content | linky:'_blank':{rel: 'noreferrer noopener'}"></span>
                             </p>
-                            <div class="rp-entry-metadata">{{`{{ comment.timestamp | date: 'MMM d, y h:mm a' }}`}}
+                            <div class="rp-entry-metadata">{{ `{{ comment.timestamp | date: 'MMM d, y h:mm a' }}` }}
                             </div>
                           </div>
                           <div class="rp-comment rp-comment-resolver">
@@ -1363,7 +1361,7 @@
                                 :&nbsp;</span>{{ translate "mark_as_resolved" . }}
                               .
                             </p>
-                            <div class="rp-entry-metadata">{{`{{ thread.resolved_at | date:'MMM d, y h:mm a' }}`}}
+                            <div class="rp-entry-metadata">{{ `{{ thread.resolved_at | date:'MMM d, y h:mm a' }}` }}
                             </div>
                           </div>
                         </div>
@@ -1703,7 +1701,7 @@
                       class="description"
                       ng-click="select()"
                     >
-                      <div class="time">{{`{{ update.meta.end_ts | formatDate:'h:mm a' }}`}}
+                      <div class="time">{{ `{{ update.meta.end_ts | formatDate:'h:mm a' }}` }}
                       </div>
                       <div
                         class="action action-edited"

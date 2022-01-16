@@ -28,7 +28,7 @@ type LearnPageData struct {
 }
 
 func (d *LearnPageData) Render() ([]byte, error) {
-	n := 11*1024 +
+	n := 6*1024 +
 		len(d.PageContent) +
 		len(d.ContentsContent) +
 		4*len(d.Title) +

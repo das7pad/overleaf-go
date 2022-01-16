@@ -21,7 +21,7 @@
   <html lang="{{ .CurrentLngCode }}">
   {{ template "head" . }}
   <body ng-csp="">
-  {{ block "navbar" . }}
+  {{ if not .HideNavBar }}
     <a
       class="skip-to-content"
       href="#main-content"
@@ -68,7 +68,6 @@
                 >
                   <a
                     class="dropdown-toggle"
-                    href="href"
                     dropdown-toggle="dropdown-toggle"
                   >
                     Admin <b class="caret"></b>
@@ -205,13 +204,13 @@
     </nav>
   {{ end }}
   {{ template "content" . }}
-  {{ block "footer" . }}
+  {{ if not .HideFooter }}
     <footer class="site-footer">
       <div class="site-footer-content hidden-print">
         <div class="row">
           <ul class="col-md-9">
-            <li>© 2022
-              <a
+            <li>
+              © 2022 <a
                 href="https://github.com/overleaf/overleaf"
               >Powered by Overleaf</a>
             <li>

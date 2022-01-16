@@ -26,7 +26,7 @@ type General400Data struct {
 }
 
 func (d *General400Data) Render() ([]byte, error) {
-	return render("general/400.gohtml", 5*1024, d)
+	return render("general/400.gohtml", 3*1024, d)
 }
 
 type General404Data struct {
@@ -34,7 +34,7 @@ type General404Data struct {
 }
 
 func (d *General404Data) Render() ([]byte, error) {
-	return render("general/404.gohtml", 10*1024, d)
+	return render("general/404.gohtml", 5*1024, d)
 }
 
 type General500Data struct {
@@ -42,7 +42,7 @@ type General500Data struct {
 }
 
 func (d *General500Data) Render() ([]byte, error) {
-	return render("general/500.gohtml", 4*1024, d)
+	return render("general/500.gohtml", 3*1024, d)
 }
 
 type GeneralUnsupportedBrowserData struct {
@@ -51,5 +51,5 @@ type GeneralUnsupportedBrowserData struct {
 }
 
 func (d *GeneralUnsupportedBrowserData) Render() ([]byte, error) {
-	return render("general/unsupported-browser.gohtml", 5*1024, d)
+	return render("general/unsupported-browser.gohtml", 4*1024, d)
 }

@@ -30,12 +30,13 @@
           Sorry, we don't support your browser anymore. Please see below what
           browsers we support.
           <br/>
-          If you think you're seeing this message in error,
-          <a href="mailto:{{ .Settings.AdminEmail }}">please let us know</a>.
+          If you think you're seeing this message in error, <a
+            href="mailto:{{ .Settings.AdminEmail }}"
+          >please let us know</a>.
         </p>
           {{ if .FromURL }}
-            <p>URL:
-              <a href="{{ .FromURL }}">{{ .FromURL }}</a>
+            <p>
+              URL: <a href="{{ .FromURL }}">{{ .FromURL }}</a>
             </p>
           {{ end }}
         <hr/>
@@ -47,10 +48,10 @@
         </p>
         <p>
           Support for beta or developer-preview browser versions cannot be
-          guaranteed. Please
-          <a href="mailto:{{ .Settings.AdminEmail }}">get in touch</a>
-          if you encounter any issues while using the service with beta or
-          developer-preview releases of supported browsers.
+          guaranteed. Please <a
+            href="mailto:{{ .Settings.AdminEmail }}"
+          >get in touch</a> if you encounter any issues while using the service
+          with beta or developer-preview releases of supported browsers.
         </p>
         <p>
           <strong>
@@ -59,8 +60,9 @@
           </strong>
         </p>
         <p>
-          If you cannot upgrade to one of the supported browsers,
-          <a href="mailto:{{ .Settings.AdminEmail }}">please let us know</a>.
+          If you cannot upgrade to one of the supported browsers, <a
+            href="mailto:{{ .Settings.AdminEmail }}"
+          >please let us know</a>.
         </p>
       </div>
     </div>

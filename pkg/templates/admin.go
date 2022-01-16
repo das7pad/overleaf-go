@@ -27,7 +27,7 @@ type AdminManageSiteData struct {
 }
 
 func (d *AdminManageSiteData) Render() ([]byte, error) {
-	return render("admin/manageSite.gohtml", 13*1024, d)
+	return render("admin/manageSite.gohtml", 7*1024, d)
 }
 
 type AdminRegisterUsersData struct {
@@ -35,5 +35,5 @@ type AdminRegisterUsersData struct {
 }
 
 func (d *AdminRegisterUsersData) Render() ([]byte, error) {
-	return render("admin/registerUsers.gohtml", 13*1024, d)
+	return render("admin/registerUsers.gohtml", 7*1024, d)
 }

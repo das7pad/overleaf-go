@@ -141,9 +141,13 @@ func Load(appName string, assetsOptions *assets.Options) error {
 		if err != nil {
 			return errors.Tag(err, "cannot clone layout for "+p)
 		}
-		templates[p], err = c.New(filepath.Base(p)).Parse(s)
+		var raw *template.Template
+		raw, err = c.New(filepath.Base(p)).Parse(s)
 		if err != nil {
 			return errors.Tag(err, "cannot parse "+p)
+		}
+		if templates[p], err = minifyTemplate(raw, funcMap); err != nil {
+			return errors.Tag(err, "minify "+p)
 		}
 		// Finalize the template. With nil data, the rendering will fail fast.
 		_ = templates[p].Execute(io.Discard, nil)

@@ -647,9 +647,8 @@
                         >{{ `{{project.lastUpdated | fromNowDate}}` }}</span>
                         <span
                           ng-show="project.lastUpdatedBy"
-                        >
-                            {{ translate "by" . }}
-                            {{ `{{getUserName(project.lastUpdatedBy)}}` }}
+                        >&nbsp;{{ translate "by" . }}
+                            {{ ` {{getUserName(project.lastUpdatedBy)}}` }}
                         </span>
                       </td>
                       <td class="project-list-table-actions-cell">
@@ -804,8 +803,9 @@
                 >
                   <h2>{{ translate "welcome_to_sl" . }}</h2>
                   <p>
-                    <span>{{ translate "new_to_latex_look_at" . }} </span>
-                    <a href="/learn">{{ translate "latex_help_guide" . }}</a>
+                      {{ translate "new_to_latex_look_at" . }}&nbsp;<a
+                      href="/learn"
+                    >{{ translate "latex_help_guide" . }}</a>
                   </p>
                   <div class="row">
                     <div class="col-md-offset-4 col-md-4">
@@ -1303,7 +1303,7 @@
     </div>
   </script>
   <script
-    type="text/template"
+    type="text/ng-template"
     id="qq-project-uploader-template"
   >
     <div class="qq-uploader-selector">

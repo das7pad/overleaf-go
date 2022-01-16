@@ -31,13 +31,15 @@
             </h1>
             <div>
                 {{ translate "join_sl_to_view_project" . }}.
-                {{ translate "if_you_are_registered" . }},
-              <a href="/login">{{ translate "login_here" . }}</a>
+                {{ translate "if_you_are_registered" . }}, <a
+                href="/login"
+              >{{ translate "login_here" . }}</a>
             </div>
           {{ else }}
             <div>
-              <span>{{ translate "already_have_sl_account" . }}</span>
-              <a href="/login">{{ translate "login_here" . }}</a>
+                {{ translate "already_have_sl_account" . }}&nbsp;<a
+                href="/login"
+              >{{ translate "login_here" . }}</a>
             </div>
           {{ end }}
       </div>

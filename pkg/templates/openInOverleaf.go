@@ -35,7 +35,7 @@ func (d *OpenInOverleafDocumentationData) GatewayURL() string {
 }
 
 func (d *OpenInOverleafDocumentationData) Render() ([]byte, error) {
-	return render("openInOverleaf/documentation.gohtml", 32*1024, d)
+	return render("openInOverleaf/documentation.gohtml", 21*1024, d)
 }
 
 type OpenInOverleafGatewayData struct {
@@ -64,5 +64,7 @@ func (d *OpenInOverleafGatewayData) Meta() []metaEntry {
 }
 
 func (d *OpenInOverleafGatewayData) Render() ([]byte, error) {
+	d.HideFooter = true
+	d.HideNavBar = true
 	return render("openInOverleaf/gateway.gohtml", 100*1024, d)
 }

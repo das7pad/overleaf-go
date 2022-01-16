@@ -29,8 +29,8 @@
           <h1
             class="card-header text-capitalize"
           >{{ translate "reconfirm_account" . }}</h1>
-          <p>{{ translate "reconfirm_explained" . }}
-            <a
+          <p>
+              {{ translate "reconfirm_explained" . }}&nbsp;<a
               href="mailto:{{ .Settings.AdminEmail }}"
             >{{ .Settings.AdminEmail }}</a>.
           </p>

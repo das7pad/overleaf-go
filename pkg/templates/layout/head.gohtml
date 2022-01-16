@@ -18,22 +18,34 @@
 */ -}}
 {{ define "head" }}
   <head>
-      {{ $title := .Title }}
       {{ if .TitleLocale }}
-          {{ $title = translate .TitleLocale . }}
+          {{ $title := translate .TitleLocale . }}
+          <title>
+              {{- $title }} - {{ .Settings.AppName -}}
+            , {{ translate "online_latex_editor" . -}}
+          </title>
+          <meta
+            name="twitter:title"
+            content="{{ $title }}"
+          />
+          <meta
+            name="og:title"
+            content="{{ $title }}"
+          />
+      {{ else }}
+        <title>
+            {{- .Title }} - {{ .Settings.AppName -}}
+          , {{ translate "online_latex_editor" . -}}
+        </title>
+        <meta
+          name="twitter:title"
+          content="{{ .Title }}"
+        />
+        <meta
+          name="og:title"
+          content="{{ .Title }}"
+        />
       {{ end }}
-    <title>
-        {{ $title }} - {{ .Settings.AppName }},
-        {{ translate "online_latex_editor" . }}
-    </title>
-    <meta
-      name="twitter:title"
-      content="{{ $title }}"
-    />
-    <meta
-      name="og:title"
-      content="{{ $title }}"
-    />
     <meta
       name="description"
       content="{{ translate "site_description" . }}"
@@ -145,6 +157,8 @@
           content="{{ $meta.ContentAsString }}"
         />
       {{ end }}
-      {{ block "headScripts" . }}{{ end }}
+      {{ template "headScripts" . }}
   </head>
 {{ end }}
+
+{{ define "headScripts" }}{{ end }}
