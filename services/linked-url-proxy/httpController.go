@@ -120,9 +120,12 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	c.Writer.Header().Set(
 		"Content-Disposition", `attachment; filename="response"`,
 	)
-	c.Writer.Header().Set(
-		"Content-Length", strconv.FormatInt(response.ContentLength, 10),
-	)
+	if response.ContentLength != -1 {
+		c.Writer.Header().Set(
+			"Content-Length",
+			strconv.FormatInt(response.ContentLength, 10),
+		)
+	}
 	c.Writer.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(c.Writer, body)
 }
