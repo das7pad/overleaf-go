@@ -69,20 +69,27 @@ func (c *Claims) Valid() error {
 }
 
 func (c *Claims) CheckEpochItems(ctx context.Context) error {
-	return epochJWT.JWTEpochItems{
-		{
-			Field:             projectIdField,
-			Id:                c.ProjectId,
-			UserProvidedEpoch: c.AuthorizationDetails.Epoch,
-			Fetch:             c.fetchProjectEpoch,
-		},
-		{
-			Field:             userIdField,
-			Id:                c.UserId,
-			UserProvidedEpoch: c.EpochUser,
-			Fetch:             c.fetchUserEpoch,
-		},
-	}.Check(ctx, c.client)
+	projectItem := &epochJWT.JWTEpochItem{
+		Field:             projectIdField,
+		Id:                c.ProjectId,
+		UserProvidedEpoch: c.AuthorizationDetails.Epoch,
+		Fetch:             c.fetchProjectEpoch,
+	}
+	var items epochJWT.JWTEpochItems
+	if c.UserId.IsZero() {
+		items = epochJWT.JWTEpochItems{projectItem}
+	} else {
+		items = epochJWT.JWTEpochItems{
+			projectItem,
+			{
+				Field:             userIdField,
+				Id:                c.UserId,
+				UserProvidedEpoch: c.EpochUser,
+				Fetch:             c.fetchUserEpoch,
+			},
+		}
+	}
+	return items.Check(ctx, c.client)
 }
 
 func (c *Claims) PostProcess(target *httpUtils.Context) error {

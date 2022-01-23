@@ -38,6 +38,9 @@ import (
 
 var (
 	defaultUser = &user.WithLoadEditorInfo{
+		EpochField: user.EpochField{
+			Epoch: user.AnonymousUserEpoch,
+		},
 		EditorConfigField: user.EditorConfigField{
 			EditorConfig: user.EditorConfig{
 				Mode:               "none",

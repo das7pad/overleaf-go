@@ -38,9 +38,9 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	}
 
 	accessToken := request.Session.GetAnonTokenAccess(projectId)
-	authorizationDetails, err := p.GetPrivilegeLevel(userId, accessToken)
-	if err != nil {
-		return err
+	authorizationDetails, errAuth := p.GetPrivilegeLevel(userId, accessToken)
+	if errAuth != nil {
+		return errAuth
 	}
 
 	var ownerFeatures user.Features
@@ -49,8 +49,8 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	if p.OwnerRef == userId {
 		eg.Go(func() error {
 			u := &user.WithEpochAndFeatures{}
-			if err2 := m.um.GetUser(pCtx, userId, u); err2 != nil {
-				return errors.Tag(err2, "cannot get epoch/owner features")
+			if err := m.um.GetUser(pCtx, userId, u); err != nil {
+				return errors.Tag(err, "cannot get epoch/owner features")
 			}
 			ownerFeatures = u.Features
 			userEpoch = u.EpochField
@@ -59,20 +59,24 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	} else {
 		eg.Go(func() error {
 			u := &user.FeaturesField{}
-			if err2 := m.um.GetUser(pCtx, p.OwnerRef, u); err2 != nil {
-				return errors.Tag(err2, "cannot get owner features")
+			if err := m.um.GetUser(pCtx, p.OwnerRef, u); err != nil {
+				return errors.Tag(err, "cannot get owner features")
 			}
 			ownerFeatures = u.Features
 			return nil
 		})
-		eg.Go(func() error {
-			if err2 := m.um.GetUser(pCtx, userId, &userEpoch); err2 != nil {
-				return errors.Tag(err2, "cannot get user epoch")
-			}
-			return nil
-		})
+		if userId.IsZero() {
+			userEpoch.Epoch = user.AnonymousUserEpoch
+		} else {
+			eg.Go(func() error {
+				if err := m.um.GetUser(pCtx, userId, &userEpoch); err != nil {
+					return errors.Tag(err, "cannot get user epoch")
+				}
+				return nil
+			})
+		}
 	}
-	if err = eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 
