@@ -647,13 +647,14 @@
                       <button
                         class="btn btn-warning symbol-palette-toggle"
                         ng-click="editor.toggleSymbolPalette()"
+                        ng-if="permissions.write"
                         title="Symbol Palette"
                       >Σ
                       </button>
                       <div
                         formatting-buttons="formatting-buttons"
                         ng-cloak="ng-cloak"
-                        ng-if="editor.showRichText"
+                        ng-if="editor.showRichText && permissions.write"
                         buttons="buttons"
                         opening="editor.opening"
                         resize-on="layout:main:resize,layout:pdf:resize,layout:review:resize,review-panel:toggle"
