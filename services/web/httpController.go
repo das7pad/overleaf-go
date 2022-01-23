@@ -2289,7 +2289,6 @@ func (h *httpController) smokeTestFull(c *httpUtils.Context) {
 	if err != nil {
 		httpUtils.GetAndLogErrResponseDetails(c, err)
 	}
-	httpUtils.EndTotalTimer(c)
 	status := http.StatusOK
 	if err != nil {
 		status = http.StatusInternalServerError
