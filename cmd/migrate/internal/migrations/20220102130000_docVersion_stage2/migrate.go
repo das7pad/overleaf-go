@@ -28,7 +28,11 @@ import (
 
 func Migrate(ctx context.Context, db *mongo.Database) error {
 	c := db.Collection("docs")
-	q := bson.M{}
+	q := bson.M{
+		"version": bson.M{
+			"$exists": false,
+		},
+	}
 	u := bson.M{
 		"$set": doc.VersionField{
 			Version: doc.ExternalVersionTombstone,
