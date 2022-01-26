@@ -97,18 +97,18 @@ func Migrate(ctx context.Context, db *mongo.Database) error {
 			queue <- next
 			i++
 			if i%100 == queueSize {
-				log.Printf("DocVersionStage3: %d/%d", i-queueSize, total)
+				log.Printf("progess: %d/%d", i-queueSize, total)
 			}
 		}
 		if err := r.Err(); err != nil {
 			return errors.Tag(err, "cannot iter cursor")
 		}
-		log.Printf("DocVersionStage3: %d back-filled", i)
+		log.Printf("progress: %d back-filled", i)
 		return nil
 	})
 	return eg.Wait()
 }
 
 func init() {
-	register.Migration("20220102220000_docVersion_stage3", Migrate)
+	register.Migration("20220102130000_docVersion_stage4", Migrate)
 }
