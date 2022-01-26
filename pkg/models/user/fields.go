@@ -98,5 +98,5 @@ type ReferralIdField struct {
 }
 
 type SignUpDateField struct {
-	SignUpDate time.Time `bson:"SignUpDate"`
+	SignUpDate time.Time `bson:"signUpDate"`
 }
