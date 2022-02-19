@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 FROM alpine:3.14
+ENV SERVICE_NAME="cmd"
 ENTRYPOINT []
 ADD ./bin.tar /usr/local/bin/
 USER nobody
