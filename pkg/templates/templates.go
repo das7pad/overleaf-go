@@ -87,7 +87,7 @@ func Load(appName string, assetsOptions *assets.Options) error {
 	//  create an override for the "content" template.
 	// In the future we might be able to go back to something as simple as:
 	//
-	// 	all, err := template.ParseFS(_fs, "**/*.gohtml")
+	//	all, err := template.ParseFS(_fs, "**/*.gohtml")
 	//	all.ExecuteTemplate("user/login.gohtml", w, data)
 	// For now, we need to work around this limitation with an extra 50 lines
 	//  of boilerplate code for getting a chain of templates with copies of

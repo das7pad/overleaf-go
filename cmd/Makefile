@@ -32,12 +32,12 @@ IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 
 BUILD_IN = \
 	docker run \
- 		--rm \
-	 	--volume $(ROOT):$(ROOT_DOCKER) \
-	 	--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
-	 	--workdir $(PWD_DOCKER) \
-	 	--env HOME=$(ROOT_DOCKER)/.cache/home/ \
-	 	--user $(shell id -u)
+		--rm \
+		--volume $(ROOT):$(ROOT_DOCKER) \
+		--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
+		--workdir $(PWD_DOCKER) \
+		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
+		--user $(shell id -u)
 
 run-ci-if-needed:
 	rm -f docker-image.digest.txt
@@ -49,12 +49,12 @@ run-ci:
 
 check-not-changed:
 	$(BUILD_IN) golang:1.17-alpine3.14 \
- 		go list -f '{{ join .Deps "\n" }}' $(addprefix ./cmd/,$(BINS)) \
+		go list -f '{{ join .Deps "\n" }}' $(addprefix ./cmd/,$(BINS)) \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
-	 	go.mod \
-	 	go.sum \
-	 	cmd/ \
+		go.mod \
+		go.sum \
+		cmd/ \
 	| sort | uniq \
 	| xargs git -C ../ diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
 
