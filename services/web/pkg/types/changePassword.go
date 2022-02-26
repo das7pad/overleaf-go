@@ -19,7 +19,7 @@ package types
 import (
 	"net/url"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -119,19 +119,19 @@ type ActivateUserPageRequest struct {
 }
 
 func (r *ActivateUserPageRequest) FromQuery(q url.Values) error {
-	id, err := primitive.ObjectIDFromHex(q.Get("user_id"))
+	id, err := edgedb.ParseUUID(q.Get("user_id"))
 	if err != nil {
 		return &errors.ValidationError{
 			Msg: `query parameter "user_id" should be an ObjectID`,
 		}
 	}
-	r.UserIdHex = id.Hex()
+	r.UserIdHex = id.String()
 	r.Token = oneTimeToken.OneTimeToken(q.Get("token"))
 	return nil
 }
 
 func (r *ActivateUserPageRequest) Validate() error {
-	if !primitive.IsValidObjectID(r.UserIdHex) {
+	if _, err := edgedb.ParseUUID(r.UserIdHex); err != nil {
 		return &errors.ValidationError{Msg: "missing user_id"}
 	}
 	if err := r.Token.Validate(); err != nil {

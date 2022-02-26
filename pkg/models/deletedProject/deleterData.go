@@ -19,34 +19,34 @@ package deletedProject
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 )
 
 type DeleterDataDeletedProjectIdField struct {
-	DeletedProjectId primitive.ObjectID `bson:"deletedProjectId"`
+	DeletedProjectId edgedb.UUID `edgedb:"deletedProjectId"`
 }
 
 type DeleterData struct {
-	DeleterDataDeletedProjectIdField      `bson:"inline"`
-	DeletedAt                             time.Time           `bson:"deletedAt"`
-	DeleterId                             primitive.ObjectID  `bson:"deleterId"`
-	DeleterIpAddress                      string              `bson:"deleterIpAddress"`
-	DeletedProjectOwnerId                 primitive.ObjectID  `bson:"DeletedProjectOwnerId"`
-	DeletedProjectCollaboratorIds         project.Refs        `bson:"deletedProjectCollaboratorIds"`
-	DeletedProjectReadOnlyIds             project.Refs        `bson:"deletedProjectReadOnlyIds"`
-	DeletedProjectReadWriteTokenAccessIds project.Refs        `bson:"deletedProjectReadWriteTokenAccessIds"`
-	DeletedProjectReadOnlyTokenAccessIds  project.Refs        `bson:"deletedProjectReadOnlyTokenAccessIds"`
-	DeletedProjectReadWriteToken          project.AccessToken `bson:"deletedProjectReadWriteToken"`
-	DeletedProjectReadOnlyToken           project.AccessToken `bson:"deletedProjectReadOnlyToken"`
-	DeletedProjectLastUpdatedAt           time.Time           `bson:"deletedProjectLastUpdatedAt"`
+	DeleterDataDeletedProjectIdField      `edgedb:"inline"`
+	DeletedAt                             time.Time           `edgedb:"deletedAt"`
+	DeleterId                             edgedb.UUID         `edgedb:"deleterId"`
+	DeleterIpAddress                      string              `edgedb:"deleterIpAddress"`
+	DeletedProjectOwnerId                 edgedb.UUID         `edgedb:"DeletedProjectOwnerId"`
+	DeletedProjectCollaboratorIds         project.Refs        `edgedb:"deletedProjectCollaboratorIds"`
+	DeletedProjectReadOnlyIds             project.Refs        `edgedb:"deletedProjectReadOnlyIds"`
+	DeletedProjectReadWriteTokenAccessIds project.Refs        `edgedb:"deletedProjectReadWriteTokenAccessIds"`
+	DeletedProjectReadOnlyTokenAccessIds  project.Refs        `edgedb:"deletedProjectReadOnlyTokenAccessIds"`
+	DeletedProjectReadWriteToken          project.AccessToken `edgedb:"deletedProjectReadWriteToken"`
+	DeletedProjectReadOnlyToken           project.AccessToken `edgedb:"deletedProjectReadOnlyToken"`
+	DeletedProjectLastUpdatedAt           time.Time           `edgedb:"deletedProjectLastUpdatedAt"`
 }
 
 type deleterDataOnlyProjectId struct {
-	DeleterDataDeletedProjectIdField `bson:"inline"`
+	DeleterDataDeletedProjectIdField `edgedb:"inline"`
 }
 
 type forListing struct {
-	DeleterData deleterDataOnlyProjectId `bson:"deleterData"`
+	DeleterData deleterDataOnlyProjectId `edgedb:"deleterData"`
 }

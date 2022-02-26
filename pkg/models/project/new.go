@@ -19,7 +19,7 @@ package project
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -28,7 +28,7 @@ const (
 	DefaultCompiler = sharedTypes.PDFLatex
 )
 
-func NewProject(ownerId primitive.ObjectID) *ForCreation {
+func NewProject(ownerId edgedb.UUID) *ForCreation {
 	return &ForCreation{
 		ActiveField: ActiveField{
 			Active: true,
@@ -40,7 +40,8 @@ func NewProject(ownerId primitive.ObjectID) *ForCreation {
 			Epoch: 1,
 		},
 		IdField: IdField{
-			Id: primitive.NewObjectID(),
+			// TODO: refactor into server side gen.
+			Id: edgedb.UUID{},
 		},
 		LastUpdatedAtField: LastUpdatedAtField{
 			LastUpdatedAt: time.Now().UTC(),

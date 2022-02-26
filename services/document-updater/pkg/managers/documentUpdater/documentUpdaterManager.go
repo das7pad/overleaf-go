@@ -19,8 +19,8 @@ package documentUpdater
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
@@ -32,27 +32,27 @@ import (
 
 type Manager interface {
 	StartBackgroundTasks(ctx context.Context)
-	AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error
+	AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error
 	CheckDocExists(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
-	DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error
+	DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error
 	GetDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		fromVersion sharedTypes.Version,
 	) (*types.GetDocResponse, error)
-	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID) ([]*types.DocContentLines, error)
-	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID) (types.DocContentSnapshots, error)
-	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
-	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
-	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
-	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
-	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
-	ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error
+	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId edgedb.UUID) ([]*types.DocContentLines, error)
+	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error)
+	FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error
+	FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error
+	FlushProject(ctx context.Context, projectId edgedb.UUID) error
+	FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
+	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error
+	ProcessProjectUpdates(ctx context.Context, projectId edgedb.UUID, request *types.ProcessProjectUpdatesRequest) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
@@ -79,7 +79,7 @@ func (m *manager) StartBackgroundTasks(ctx context.Context) {
 	m.dispatcher.Start(ctx)
 }
 
-func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive.ObjectID, request *types.ProcessProjectUpdatesRequest) error {
+func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId edgedb.UUID, request *types.ProcessProjectUpdatesRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -106,26 +106,26 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId primitive
 	return nil
 }
 
-func (m *manager) CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) CheckDocExists(ctx context.Context, projectId, docId edgedb.UUID) error {
 	_, err := m.dm.GetDoc(ctx, projectId, docId)
 	return err
 }
 
-func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error {
+func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.AcceptReviewChanges(ctx, projectId, docId, changeIds)
 }
 
-func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error {
+func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.DeleteReviewThread(ctx, projectId, docId, threadId)
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
 	response := &types.GetDocResponse{}
 	if fromVersion == -1 {
 		doc, err := m.dm.GetDoc(ctx, projectId, docId)
@@ -151,7 +151,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	return response, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId primitive.ObjectID) ([]*types.DocContentLines, error) {
+func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId edgedb.UUID) ([]*types.DocContentLines, error) {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectI
 	return docContentsLines, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId primitive.ObjectID) (types.DocContentSnapshots, error) {
+func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error) {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return nil, err
 	}
@@ -181,35 +181,35 @@ func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, proje
 	return docContentsSnapshot, nil
 }
 
-func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {
+func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 
-func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushDocIfLoaded(ctx, projectId, docId)
 }
 
-func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushAndDeleteDoc(ctx, projectId, docId)
 }
 
-func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushProject(ctx, projectId)
 }
 
-func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}

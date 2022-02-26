@@ -19,7 +19,7 @@ package user
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 const (
@@ -31,9 +31,9 @@ const (
 )
 
 type AuditLogEntry struct {
-	Info        interface{}        `bson:"info,omitempty"`
-	InitiatorId primitive.ObjectID `bson:"initiatorId"`
-	IpAddress   string             `bson:"ipAddress"`
-	Operation   string             `bson:"operation"`
-	Timestamp   time.Time          `bson:"timestamp"`
+	Info        interface{} `edgedb:"info"`
+	InitiatorId edgedb.UUID `edgedb:"initiatorId"`
+	IpAddress   string      `edgedb:"ipAddress"`
+	Operation   string      `edgedb:"operation"`
+	Timestamp   time.Time   `edgedb:"timestamp"`
 }

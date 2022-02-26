@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -35,8 +35,8 @@ import (
 type Runner func(ctx context.Context)
 
 type Locker interface {
-	RunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error
-	TryRunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error
+	RunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error
+	TryRunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error
 }
 
 func New(client redis.UniversalClient) (Locker, error) {
@@ -96,19 +96,19 @@ func (l *locker) getUniqueValue() string {
 	)
 }
 
-func getBlockingKey(docId primitive.ObjectID) string {
-	return "Blocking:{" + docId.Hex() + "}"
+func getBlockingKey(docId edgedb.UUID) string {
+	return "Blocking:{" + docId.String() + "}"
 }
 
-func (l *locker) RunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error {
+func (l *locker) RunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error {
 	return l.runWithLock(ctx, docId, runner, true)
 }
 
-func (l *locker) TryRunWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner) error {
+func (l *locker) TryRunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error {
 	return l.runWithLock(ctx, docId, runner, false)
 }
 
-func (l *locker) runWithLock(ctx context.Context, docId primitive.ObjectID, runner Runner, poll bool) error {
+func (l *locker) runWithLock(ctx context.Context, docId edgedb.UUID, runner Runner, poll bool) error {
 	key := getBlockingKey(docId)
 	lockValue := l.getUniqueValue()
 

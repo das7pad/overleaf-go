@@ -19,9 +19,8 @@ package systemMessage
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -32,19 +31,14 @@ type Manager interface {
 	GetAll(ctx context.Context) ([]Full, error)
 }
 
-func New(db *mongo.Database) Manager {
-	//goland:noinspection SpellCheckingInspection
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		c: db.Collection("systemmessages"),
+		c: c,
 	}
 }
 
-const (
-	prefetchN = 100
-)
-
 type manager struct {
-	c *mongo.Collection
+	c *edgedb.Client
 }
 
 func rewriteMongoError(err error) error {
@@ -55,7 +49,12 @@ func rewriteMongoError(err error) error {
 }
 
 func (m *manager) Create(ctx context.Context, content string) error {
-	_, err := m.c.InsertOne(ctx, &ContentField{Content: content})
+	err := m.c.QuerySingle(
+		ctx,
+		"insert SystemMessage{ content := <str>$0 }",
+		&IdField{},
+		content,
+	)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -63,7 +62,7 @@ func (m *manager) Create(ctx context.Context, content string) error {
 }
 
 func (m *manager) DeleteAll(ctx context.Context) error {
-	if _, err := m.c.DeleteMany(ctx, bson.M{}); err != nil {
+	if err := m.c.Execute(ctx, "delete SystemMessage"); err != nil {
 		return rewriteMongoError(err)
 	}
 	return nil
@@ -71,17 +70,12 @@ func (m *manager) DeleteAll(ctx context.Context) error {
 
 func (m *manager) GetAll(ctx context.Context) ([]Full, error) {
 	messages := make([]Full, 0)
-	r, err := m.c.Find(
+	err := m.c.Query(
 		ctx,
-		bson.M{},
-		options.Find().
-			SetProjection(getProjection(messages)).
-			SetBatchSize(prefetchN),
+		"select SystemMessage{ id, content }",
+		&messages,
 	)
 	if err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	if err = r.All(ctx, &messages); err != nil {
 		return nil, rewriteMongoError(err)
 	}
 	return messages, nil

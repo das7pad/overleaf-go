@@ -20,52 +20,52 @@ import (
 	"context"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ResolvedDetails struct {
-	At       time.Time          `bson:"ts"`
-	ByUserId primitive.ObjectID `bson:"user_id"`
+	At       time.Time   `edgedb:"ts"`
+	ByUserId edgedb.UUID `edgedb:"user_id"`
 }
 
 type Room struct {
-	Id        primitive.ObjectID  `bson:"_id"`
-	ProjectId primitive.ObjectID  `bson:"project_id"`
-	ThreadId  *primitive.ObjectID `bson:"thread_id,omitempty"`
-	Resolved  *ResolvedDetails    `bson:"resolved,omitempty"`
+	Id        edgedb.UUID      `edgedb:"id"`
+	ProjectId edgedb.UUID      `edgedb:"project_id"`
+	ThreadId  *edgedb.UUID     `edgedb:"thread_id"`
+	Resolved  *ResolvedDetails `edgedb:"resolved"`
 }
 
 type Manager interface {
 	FindOrCreateThread(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		threadId *primitive.ObjectID,
+		projectId edgedb.UUID,
+		threadId *edgedb.UUID,
 	) (*Room, error)
 
 	FindAllThreadRooms(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) ([]Room, error)
 
 	ResolveThread(
 		ctx context.Context,
-		projectId, threadId, userId primitive.ObjectID,
+		projectId, threadId, userId edgedb.UUID,
 	) error
 
 	ReopenThread(
 		ctx context.Context,
-		projectId, threadId primitive.ObjectID,
+		projectId, threadId edgedb.UUID,
 	) error
 
 	DeleteThread(
 		ctx context.Context,
-		projectId, threadId primitive.ObjectID,
-	) (*primitive.ObjectID, error)
+		projectId, threadId edgedb.UUID,
+	) (*edgedb.UUID, error)
 
-	DeleteProjectThreads(ctx context.Context, projectId primitive.ObjectID) error
+	DeleteProjectThreads(ctx context.Context, projectId edgedb.UUID) error
 }
 
 func NewThreadManager(db *mongo.Database) Manager {
@@ -84,8 +84,8 @@ type manager struct {
 
 func (m *manager) FindOrCreateThread(
 	ctx context.Context,
-	projectId primitive.ObjectID,
-	threadId *primitive.ObjectID,
+	projectId edgedb.UUID,
+	threadId *edgedb.UUID,
 ) (*Room, error) {
 
 	var query, roomDetails bson.M
@@ -128,7 +128,7 @@ func (m *manager) FindOrCreateThread(
 
 func (m *manager) FindAllThreadRooms(
 	ctx context.Context,
-	projectId primitive.ObjectID,
+	projectId edgedb.UUID,
 ) ([]Room, error) {
 	query := bson.M{
 		"project_id": projectId,
@@ -158,7 +158,7 @@ func (m *manager) FindAllThreadRooms(
 
 func (m *manager) ResolveThread(
 	ctx context.Context,
-	projectId, threadId, userId primitive.ObjectID,
+	projectId, threadId, userId edgedb.UUID,
 ) error {
 	query := bson.M{
 		"project_id": projectId,
@@ -178,7 +178,7 @@ func (m *manager) ResolveThread(
 
 func (m *manager) ReopenThread(
 	ctx context.Context,
-	projectId, threadId primitive.ObjectID,
+	projectId, threadId edgedb.UUID,
 ) error {
 	query := bson.M{
 		"project_id": projectId,
@@ -195,8 +195,8 @@ func (m *manager) ReopenThread(
 
 func (m *manager) DeleteThread(
 	ctx context.Context,
-	projectId, threadId primitive.ObjectID,
-) (*primitive.ObjectID, error) {
+	projectId, threadId edgedb.UUID,
+) (*edgedb.UUID, error) {
 	thread, err := m.FindOrCreateThread(ctx, projectId, &threadId)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (m *manager) DeleteThread(
 	return &thread.Id, err
 }
 
-func (m *manager) DeleteProjectThreads(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) DeleteProjectThreads(ctx context.Context, projectId edgedb.UUID) error {
 	q := bson.M{
 		"project_id": projectId,
 	}

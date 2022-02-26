@@ -21,7 +21,7 @@ import (
 	"io"
 	"mime/multipart"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -40,9 +40,9 @@ var errTotalSizeTooHigh = errors.Tag(
 )
 
 type UploadFileRequest struct {
-	ProjectId      primitive.ObjectID      `json:"-"`
-	UserId         primitive.ObjectID      `json:"-"`
-	ParentFolderId primitive.ObjectID      `json:"-"`
+	ProjectId      edgedb.UUID             `json:"-"`
+	UserId         edgedb.UUID             `json:"-"`
+	ParentFolderId edgedb.UUID             `json:"-"`
 	LinkedFileData *project.LinkedFileData `json:"-"`
 	UploadDetails
 }
@@ -91,11 +91,11 @@ type CreateProjectRequest struct {
 	Files          []CreateProjectFile
 	HasDefaultName bool
 	Name           project.Name
-	UserId         primitive.ObjectID
+	UserId         edgedb.UUID
 }
 
 func (r *CreateProjectRequest) Validate() error {
-	if r.UserId.IsZero() {
+	if r.UserId == (edgedb.UUID{}) {
 		return errors.New("must be logged in")
 	}
 	if r.Compiler != "" {
@@ -138,9 +138,9 @@ func (r *CreateProjectRequest) Validate() error {
 }
 
 type CreateProjectResponse struct {
-	Success   bool                `json:"success"`
-	Error     string              `json:"error,omitempty"`
-	ProjectId *primitive.ObjectID `json:"project_id,omitempty"`
+	Success   bool         `json:"success"`
+	Error     string       `json:"error,omitempty"`
+	ProjectId *edgedb.UUID `json:"project_id,omitempty"`
 }
 
 type UploadDetails struct {

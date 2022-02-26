@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -38,14 +38,14 @@ type Manager interface {
 
 	ClearCache(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		userId primitive.ObjectID,
+		projectId edgedb.UUID,
+		userId edgedb.UUID,
 	) error
 
 	Compile(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		userId primitive.ObjectID,
+		projectId edgedb.UUID,
+		userId edgedb.UUID,
 		request *types.CompileRequest,
 		response *types.CompileResponse,
 	) error
@@ -58,30 +58,30 @@ type Manager interface {
 
 	StopCompile(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		userId primitive.ObjectID,
+		projectId edgedb.UUID,
+		userId edgedb.UUID,
 	) error
 
 	SyncFromCode(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		userId primitive.ObjectID,
+		projectId edgedb.UUID,
+		userId edgedb.UUID,
 		request *types.SyncFromCodeRequest,
 		positions *types.PDFPositions,
 	) error
 
 	SyncFromPDF(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		userId primitive.ObjectID,
+		projectId edgedb.UUID,
+		userId edgedb.UUID,
 		request *types.SyncFromPDFRequest,
 		positions *types.CodePositions,
 	) error
 
 	WordCount(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		userId primitive.ObjectID,
+		projectId edgedb.UUID,
+		userId edgedb.UUID,
 		request *types.WordCountRequest,
 		words *types.Words,
 	) error
@@ -137,11 +137,11 @@ func (m *manager) CleanupOldProjects(ctx context.Context, threshold time.Time) e
 	return m.pm.CleanupOldProjects(ctx, threshold)
 }
 
-func (m *manager) ClearCache(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID) error {
+func (m *manager) ClearCache(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID) error {
 	return m.pm.CleanupProject(ctx, projectId, userId)
 }
 
-func (m *manager) Compile(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.CompileRequest, response *types.CompileResponse) error {
+func (m *manager) Compile(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID, request *types.CompileRequest, response *types.CompileResponse) error {
 	response.Timings.CompileE2E.Begin()
 	if err := request.Preprocess(); err != nil {
 		return err
@@ -237,8 +237,8 @@ Hello world
 	}
 	err := m.Compile(
 		ctx,
-		primitive.NilObjectID,
-		primitive.NilObjectID,
+		edgedb.UUID{},
+		edgedb.UUID{},
 		req,
 		resp,
 	)
@@ -286,7 +286,7 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 	}
 }
 
-func (m *manager) StopCompile(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID) error {
+func (m *manager) StopCompile(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID) error {
 	p, err := m.pm.GetProject(ctx, projectId, userId)
 	if err != nil {
 		return err
@@ -294,7 +294,7 @@ func (m *manager) StopCompile(ctx context.Context, projectId primitive.ObjectID,
 	return p.StopCompile(ctx)
 }
 
-func (m *manager) SyncFromCode(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
+func (m *manager) SyncFromCode(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (m *manager) SyncFromCode(ctx context.Context, projectId primitive.ObjectID
 	)
 }
 
-func (m *manager) SyncFromPDF(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
+func (m *manager) SyncFromPDF(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (m *manager) SyncFromPDF(ctx context.Context, projectId primitive.ObjectID,
 	)
 }
 
-func (m *manager) WordCount(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, request *types.WordCountRequest, words *types.Words) error {
+func (m *manager) WordCount(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID, request *types.WordCountRequest, words *types.Words) error {
 	if err := request.Preprocess(); err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func (m *manager) WordCount(ctx context.Context, projectId primitive.ObjectID, u
 	)
 }
 
-func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId primitive.ObjectID, userId primitive.ObjectID, fn func(p project.Project) error) error {
+func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID, fn func(p project.Project) error) error {
 	var lastErr error
 	for i := 0; i < 3; i++ {
 		p, err := m.pm.GetProject(ctx, projectId, userId)

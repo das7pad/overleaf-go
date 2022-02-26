@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type ProjectMetadataResponse struct {
@@ -28,7 +28,7 @@ type ProjectDocMetadataRequest struct {
 }
 
 type ProjectDocMetadataResponse struct {
-	DocId              primitive.ObjectID  `json:"docId"`
+	DocId              edgedb.UUID         `json:"docId"`
 	ProjectDocMetadata *ProjectDocMetadata `json:"meta"`
 }
 

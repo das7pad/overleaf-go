@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	docModel "github.com/das7pad/overleaf-go/pkg/models/doc"
@@ -30,7 +30,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) markDocAsDeleted(ctx context.Context, projectId primitive.ObjectID, doc *project.Doc) error {
+func (m *manager) markDocAsDeleted(ctx context.Context, projectId edgedb.UUID, doc *project.Doc) error {
 	meta := docModel.Meta{}
 	meta.Deleted = true
 	meta.DeletedAt = time.Now().UTC()
@@ -41,7 +41,7 @@ func (m *manager) markDocAsDeleted(ctx context.Context, projectId primitive.Obje
 	return nil
 }
 
-func (m *manager) deleteDocFromProject(ctx context.Context, projectId primitive.ObjectID, v sharedTypes.Version, rootDocId primitive.ObjectID, mongoPath project.MongoPath, doc *project.Doc) error {
+func (m *manager) deleteDocFromProject(ctx context.Context, projectId edgedb.UUID, v sharedTypes.Version, rootDocId edgedb.UUID, mongoPath project.MongoPath, doc *project.Doc) error {
 	if err := m.markDocAsDeleted(ctx, projectId, doc); err != nil {
 		return errors.Tag(err, "cannot delete doc")
 	}
@@ -125,7 +125,7 @@ func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.Delet
 	return nil
 }
 
-func (m *manager) cleanupDocDeletion(ctx context.Context, projectId, docId primitive.ObjectID) {
+func (m *manager) cleanupDocDeletion(ctx context.Context, projectId, docId edgedb.UUID) {
 	// Cleanup in document-updater
 	_ = m.dum.FlushAndDeleteDoc(ctx, projectId, docId)
 	// Bonus: Archive the doc

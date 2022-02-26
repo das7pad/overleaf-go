@@ -19,7 +19,7 @@ package editor
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -66,7 +66,7 @@ func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.Re
 	return m.removeMemberFromProject(ctx, projectId, epoch, userId)
 }
 
-func (m *manager) removeMemberFromProject(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
+func (m *manager) removeMemberFromProject(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
 	err := mongoTx.For(m.db, ctx, func(ctx context.Context) error {
 		if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
 			return errors.Tag(err, "cannot remove user from project")

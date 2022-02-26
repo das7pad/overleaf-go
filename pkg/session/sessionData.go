@@ -19,7 +19,7 @@ package session
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -35,16 +35,16 @@ var (
 
 //goland:noinspection SpellCheckingInspection
 type User struct {
-	Email          sharedTypes.Email  `json:"email"`
-	Epoch          int64              `json:"epoch,omitempty"`
-	FirstName      string             `json:"first_name,omitempty"`
-	IPAddress      string             `json:"ip_address"`
-	Id             primitive.ObjectID `json:"_id,omitempty"`
-	IsAdmin        bool               `json:"isAdmin,omitempty"`
-	LastName       string             `json:"last_name,omitempty"`
-	Language       string             `json:"lng"`
-	ReferralId     string             `json:"referal_id"`
-	SessionCreated time.Time          `json:"session_created"`
+	Email          sharedTypes.Email `json:"email"`
+	Epoch          int64             `json:"epoch,omitempty"`
+	FirstName      string            `json:"first_name,omitempty"`
+	IPAddress      string            `json:"ip_address"`
+	Id             edgedb.UUID       `json:"_id,omitempty"`
+	IsAdmin        bool              `json:"isAdmin,omitempty"`
+	LastName       string            `json:"last_name,omitempty"`
+	Language       string            `json:"lng"`
+	ReferralId     string            `json:"referal_id"`
+	SessionCreated time.Time         `json:"session_created"`
 }
 
 func (u *User) ToPublicUserInfo() *user.WithPublicInfo {
@@ -84,13 +84,13 @@ func (d *Data) IsEmpty() bool {
 	return true
 }
 
-func (d *Data) GetAnonTokenAccess(projectId primitive.ObjectID) project.AccessToken {
-	return d.AnonTokenAccess[projectId.Hex()]
+func (d *Data) GetAnonTokenAccess(projectId edgedb.UUID) project.AccessToken {
+	return d.AnonTokenAccess[projectId.String()]
 }
 
-func (d *Data) AddAnonTokenAccess(projectId primitive.ObjectID, token project.AccessToken) {
+func (d *Data) AddAnonTokenAccess(projectId edgedb.UUID, token project.AccessToken) {
 	if d.AnonTokenAccess == nil {
 		d.AnonTokenAccess = make(anonTokenAccess, 1)
 	}
-	d.AnonTokenAccess[projectId.Hex()] = token
+	d.AnonTokenAccess[projectId.String()] = token
 }

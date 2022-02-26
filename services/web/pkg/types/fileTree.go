@@ -17,85 +17,85 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AddDocRequest struct {
-	ProjectId      primitive.ObjectID   `json:"-"`
+	ProjectId      edgedb.UUID          `json:"-"`
 	Name           sharedTypes.Filename `json:"name"`
-	ParentFolderId primitive.ObjectID   `json:"parent_folder_id"`
+	ParentFolderId edgedb.UUID          `json:"parent_folder_id"`
 }
 
 type AddDocResponse = project.Doc
 
 type AddFolderRequest struct {
-	ProjectId      primitive.ObjectID   `json:"-"`
+	ProjectId      edgedb.UUID          `json:"-"`
 	Name           sharedTypes.Filename `json:"name"`
-	ParentFolderId primitive.ObjectID   `json:"parent_folder_id"`
+	ParentFolderId edgedb.UUID          `json:"parent_folder_id"`
 }
 
 type AddFolderResponse = project.Folder
 
 type DeleteDocRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	DocId     primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	DocId     edgedb.UUID `json:"-"`
 }
 
 type DeleteFileRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	FileId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	FileId    edgedb.UUID `json:"-"`
 }
 
 type DeleteFolderRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	FolderId  primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	FolderId  edgedb.UUID `json:"-"`
 }
 
 type MoveDocRequest struct {
-	ProjectId      primitive.ObjectID `json:"-"`
-	DocId          primitive.ObjectID `json:"-"`
-	TargetFolderId primitive.ObjectID `json:"folder_id"`
+	ProjectId      edgedb.UUID `json:"-"`
+	DocId          edgedb.UUID `json:"-"`
+	TargetFolderId edgedb.UUID `json:"folder_id"`
 }
 
 type MoveFileRequest struct {
-	ProjectId      primitive.ObjectID `json:"-"`
-	FileId         primitive.ObjectID `json:"-"`
-	TargetFolderId primitive.ObjectID `json:"folder_id"`
+	ProjectId      edgedb.UUID `json:"-"`
+	FileId         edgedb.UUID `json:"-"`
+	TargetFolderId edgedb.UUID `json:"folder_id"`
 }
 
 type MoveFolderRequest struct {
-	ProjectId      primitive.ObjectID `json:"-"`
-	FolderId       primitive.ObjectID `json:"-"`
-	TargetFolderId primitive.ObjectID `json:"folder_id"`
+	ProjectId      edgedb.UUID `json:"-"`
+	FolderId       edgedb.UUID `json:"-"`
+	TargetFolderId edgedb.UUID `json:"folder_id"`
 }
 
 type RenameDocRequest struct {
-	ProjectId primitive.ObjectID   `json:"-"`
-	DocId     primitive.ObjectID   `json:"-"`
+	ProjectId edgedb.UUID          `json:"-"`
+	DocId     edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RenameFileRequest struct {
-	ProjectId primitive.ObjectID   `json:"-"`
-	FileId    primitive.ObjectID   `json:"-"`
+	ProjectId edgedb.UUID          `json:"-"`
+	FileId    edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RenameFolderRequest struct {
-	ProjectId primitive.ObjectID   `json:"-"`
-	FolderId  primitive.ObjectID   `json:"-"`
+	ProjectId edgedb.UUID          `json:"-"`
+	FolderId  edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocRequest struct {
-	ProjectId primitive.ObjectID   `json:"-"`
-	DocId     primitive.ObjectID   `json:"-"`
+	ProjectId edgedb.UUID          `json:"-"`
+	DocId     edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocResponse struct {
-	DocId primitive.ObjectID `json:"doc_id"`
+	DocId edgedb.UUID `json:"doc_id"`
 }

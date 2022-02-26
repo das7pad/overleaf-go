@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -29,7 +29,7 @@ type GetUserProjectsRequest struct {
 }
 
 type GetUserProjectsEntry struct {
-	Id             primitive.ObjectID         `json:"_id"`
+	Id             edgedb.UUID                `json:"_id"`
 	Name           project.Name               `json:"name"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"accessLevel"`
 }

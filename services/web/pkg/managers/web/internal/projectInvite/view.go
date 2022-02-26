@@ -46,7 +46,7 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 			if d.AccessSource == project.AccessSourceInvite ||
 				// They might have been promoted to project owner.
 				d.AccessSource == project.AccessSourceOwner {
-				response.Redirect = "/project/" + projectId.Hex()
+				response.Redirect = "/project/" + projectId.String()
 				return nil
 			}
 		} else if errors.IsNotAuthorizedError(err) {

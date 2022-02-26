@@ -21,8 +21,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 
@@ -94,16 +94,19 @@ func (m *shard) run(ctx context.Context) {
 	}
 }
 
-func parseKey(key string) (projectId, docId primitive.ObjectID, err error) {
+func parseKey(key string) (projectId, docId edgedb.UUID, err error) {
+	// TODO: bump
 	if len(key) != 24+24+1 {
 		err = &errors.ValidationError{Msg: "unexpected length"}
 		return
 	}
-	projectId, err = primitive.ObjectIDFromHex(key[:24])
+	// TODO: bump
+	projectId, err = edgedb.ParseUUID(key[:24])
 	if err != nil {
 		return
 	}
-	docId, err = primitive.ObjectIDFromHex(key[25:])
+	// TODO: bump
+	docId, err = edgedb.ParseUUID(key[25:])
 	return
 }
 
@@ -121,7 +124,7 @@ func (m *shard) process(work chan string) {
 		err = m.dm.ProcessUpdatesForDocHeadless(ctx, projectId, docId)
 		cancel()
 		if err != nil {
-			ids := projectId.Hex() + "/" + docId.Hex()
+			ids := projectId.String() + "/" + docId.String()
 			err = errors.Tag(err, ids)
 			log.Println(err.Error())
 		}

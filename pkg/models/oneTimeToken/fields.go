@@ -21,29 +21,29 @@ import (
 )
 
 type UseField struct {
-	Use string `bson:"use"`
+	Use string `edgedb:"use"`
 }
 
 type TokenField struct {
-	Token OneTimeToken `bson:"token"`
+	Token OneTimeToken `edgedb:"token"`
 }
 
 type CreatedAtField struct {
-	CreatedAt time.Time `bson:"createdAt"`
+	CreatedAt time.Time `edgedb:"createdAt"`
 }
 
 type ExpiresAtField struct {
-	ExpiresAt time.Time `bson:"expiresAt"`
+	ExpiresAt time.Time `edgedb:"expiresAt"`
 }
 
 type UsedAtField struct {
-	UsedAt time.Time `bson:"usedAt"`
+	UsedAt time.Time `edgedb:"usedAt"`
 }
 
 type EmailConfirmationDataField struct {
-	EmailConfirmationData EmailConfirmationData `bson:"data"`
+	EmailConfirmationData EmailConfirmationData `edgedb:"data"`
 }
 
 type PasswordResetDataField struct {
-	PasswordResetData PasswordResetData `bson:"data"`
+	PasswordResetData PasswordResetData `edgedb:"data"`
 }

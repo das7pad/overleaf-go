@@ -17,13 +17,13 @@
 package contact
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type UserIdField struct {
-	UserId primitive.ObjectID `bson:"user_id"`
+	UserId edgedb.UUID `edgedb:"user_id"`
 }
 
 type ContactsField struct {
-	Contacts map[string]contactDetails `bson:"contacts"`
+	Contacts map[string]contactDetails `edgedb:"contacts"`
 }

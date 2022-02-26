@@ -24,9 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -37,38 +36,38 @@ import (
 type Manager interface {
 	PutDocInMemory(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		doc *types.Doc,
 	) error
 
 	RemoveDocFromMemory(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
 
 	GetDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (*types.Doc, error)
 
 	GetDocVersion(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 	) (sharedTypes.Version, error)
 
 	GetPreviousDocUpdates(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 		start sharedTypes.Version,
 		end sharedTypes.Version,
 	) ([]sharedTypes.DocumentUpdate, error)
 
 	GetPreviousDocUpdatesUnderLock(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 		begin sharedTypes.Version,
 		end sharedTypes.Version,
 		docVersion sharedTypes.Version,
@@ -76,43 +75,43 @@ type Manager interface {
 
 	UpdateDocument(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 		doc *types.Doc,
 		appliedUpdates []sharedTypes.DocumentUpdate,
 	) (int64, error)
 
 	RenameDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		doc *types.Doc,
 		update *types.RenameDocUpdate,
 	) error
 
 	ClearUnFlushedTime(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 	) error
 
 	GetDocIdsInProject(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-	) ([]primitive.ObjectID, error)
+		projectId edgedb.UUID,
+	) ([]edgedb.UUID, error)
 
 	GetDocTimestamps(
 		ctx context.Context,
-		docIds []primitive.ObjectID,
+		docIds []edgedb.UUID,
 	) ([]int64, error)
 
 	QueueFlushAndDeleteProject(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 
 	GetNextProjectToFlushAndDelete(
 		ctx context.Context,
 		cutoffTime time.Time,
-	) (primitive.ObjectID, int64, int64, error)
+	) (edgedb.UUID, int64, int64, error)
 }
 
 func New(rClient redis.UniversalClient) Manager {
@@ -132,34 +131,34 @@ type manager struct {
 	rClient redis.UniversalClient
 }
 
-func getDocsInProjectKey(projectId primitive.ObjectID) string {
-	return "DocsIn:{" + projectId.Hex() + "}"
+func getDocsInProjectKey(projectId edgedb.UUID) string {
+	return "DocsIn:{" + projectId.String() + "}"
 }
-func getDocCoreKey(docId primitive.ObjectID) string {
-	return "docCore:{" + docId.Hex() + "}"
+func getDocCoreKey(docId edgedb.UUID) string {
+	return "docCore:{" + docId.String() + "}"
 }
-func getDocVersionKey(docId primitive.ObjectID) string {
-	return "DocVersion:{" + docId.Hex() + "}"
+func getDocVersionKey(docId edgedb.UUID) string {
+	return "DocVersion:{" + docId.String() + "}"
 }
-func getUnFlushedTimeKey(docId primitive.ObjectID) string {
+func getUnFlushedTimeKey(docId edgedb.UUID) string {
 	//goland:noinspection SpellCheckingInspection
-	return "UnflushedTime:{" + docId.Hex() + "}"
+	return "UnflushedTime:{" + docId.String() + "}"
 }
-func getLastUpdatedCtxKey(docId primitive.ObjectID) string {
-	return "lastUpdatedCtx:{" + docId.Hex() + "}"
+func getLastUpdatedCtxKey(docId edgedb.UUID) string {
+	return "lastUpdatedCtx:{" + docId.String() + "}"
 }
-func getDocUpdatesKey(docId primitive.ObjectID) string {
-	return "DocOps:{" + docId.Hex() + "}"
+func getDocUpdatesKey(docId edgedb.UUID) string {
+	return "DocOps:{" + docId.String() + "}"
 }
-func getUncompressedHistoryOpsKey(docId primitive.ObjectID) string {
-	return "UncompressedHistoryOps:{" + docId.Hex() + "}"
+func getUncompressedHistoryOpsKey(docId edgedb.UUID) string {
+	return "UncompressedHistoryOps:{" + docId.String() + "}"
 }
 func getFlushAndDeleteQueueKey() string {
 	return "DocUpdaterFlushAndDeleteQueue"
 }
 
-func (m *manager) PutDocInMemory(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, doc *types.Doc) error {
-	err := m.rClient.SAdd(ctx, getDocsInProjectKey(projectId), docId.Hex()).Err()
+func (m *manager) PutDocInMemory(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, doc *types.Doc) error {
+	err := m.rClient.SAdd(ctx, getDocsInProjectKey(projectId), docId.String()).Err()
 	if err != nil {
 		return errors.Tag(err, "cannot record doc in project")
 	}
@@ -180,7 +179,7 @@ func (m *manager) PutDocInMemory(ctx context.Context, projectId primitive.Object
 	return nil
 }
 
-func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	err := m.rClient.Del(
 		ctx,
 		getDocCoreKey(docId),
@@ -192,14 +191,14 @@ func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId primitive.O
 		return errors.Tag(err, "cannot cleanup doc details")
 	}
 
-	err = m.rClient.SRem(ctx, getDocsInProjectKey(projectId), docId.Hex()).Err()
+	err = m.rClient.SRem(ctx, getDocsInProjectKey(projectId), docId.String()).Err()
 	if err != nil {
 		return errors.Tag(err, "cannot cleanup project tracking")
 	}
 	return nil
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*types.Doc, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (*types.Doc, error) {
 	res := m.rClient.MGet(
 		ctx,
 		getDocCoreKey(docId),
@@ -256,7 +255,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId primitive.ObjectID, docI
 	return doc, nil
 }
 
-func (m *manager) GetDocVersion(ctx context.Context, docId primitive.ObjectID) (sharedTypes.Version, error) {
+func (m *manager) GetDocVersion(ctx context.Context, docId edgedb.UUID) (sharedTypes.Version, error) {
 	raw, err := m.rClient.Get(ctx, getDocVersionKey(docId)).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -291,7 +290,7 @@ if stop > -1 then stop = (stop - first_version_in_redis) end
 return redis.call("LRANGE", KEYS[1], start, stop)
 `)
 
-func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.ObjectID, start sharedTypes.Version, end sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId edgedb.UUID, start sharedTypes.Version, end sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
 	if start == end {
 		return make([]sharedTypes.DocumentUpdate, 0), nil
 	}
@@ -332,7 +331,7 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId primitive.Obj
 	return m.parseDocumentUpdates(start, blobs)
 }
 
-func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId primitive.ObjectID, begin sharedTypes.Version, end sharedTypes.Version, docVersion sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
+func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId edgedb.UUID, begin sharedTypes.Version, end sharedTypes.Version, docVersion sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
 	if begin == end {
 		return nil, nil
 	}
@@ -366,7 +365,7 @@ func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) 
 	return updates, nil
 }
 
-func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, appliedUpdates []sharedTypes.DocumentUpdate) (int64, error) {
+func (m *manager) UpdateDocument(ctx context.Context, docId edgedb.UUID, doc *types.Doc, appliedUpdates []sharedTypes.DocumentUpdate) (int64, error) {
 	currentVersion, err := m.GetDocVersion(ctx, docId)
 	if err != nil {
 		return 0, errors.Tag(err, "cannot get doc version for validation")
@@ -439,7 +438,7 @@ func (m *manager) UpdateDocument(ctx context.Context, docId primitive.ObjectID, 
 	return -1, nil
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, doc *types.Doc, update *types.RenameDocUpdate) error {
+func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, doc *types.Doc, update *types.RenameDocUpdate) error {
 	doc.PathName = update.NewPathName
 	if err := m.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
 		return errors.Tag(err, "cannot rewrite doc in redis")
@@ -447,19 +446,19 @@ func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, d
 	return nil
 }
 
-func (m *manager) ClearUnFlushedTime(ctx context.Context, docId primitive.ObjectID) error {
+func (m *manager) ClearUnFlushedTime(ctx context.Context, docId edgedb.UUID) error {
 	return m.rClient.Del(ctx, getUnFlushedTimeKey(docId)).Err()
 }
 
-func (m *manager) GetDocIdsInProject(ctx context.Context, projectId primitive.ObjectID) ([]primitive.ObjectID, error) {
+func (m *manager) GetDocIdsInProject(ctx context.Context, projectId edgedb.UUID) ([]edgedb.UUID, error) {
 	res := m.rClient.SMembers(ctx, getDocsInProjectKey(projectId))
 	if err := res.Err(); err != nil {
 		return nil, errors.Tag(err, "cannot get docs from redis")
 	}
 	rawIds := res.Val()
-	docIds := make([]primitive.ObjectID, len(rawIds))
+	docIds := make([]edgedb.UUID, len(rawIds))
 	for i, raw := range rawIds {
-		id, err := primitive.ObjectIDFromHex(raw)
+		id, err := edgedb.ParseUUID(raw)
 		if err != nil {
 			return nil, errors.Tag(err, "cannot parse raw docId: "+raw)
 		}
@@ -468,7 +467,7 @@ func (m *manager) GetDocIdsInProject(ctx context.Context, projectId primitive.Ob
 	return docIds, nil
 }
 
-func (m *manager) GetDocTimestamps(ctx context.Context, docIds []primitive.ObjectID) ([]int64, error) {
+func (m *manager) GetDocTimestamps(ctx context.Context, docIds []edgedb.UUID) ([]int64, error) {
 	if len(docIds) == 0 {
 		return nil, nil
 	}
@@ -503,17 +502,17 @@ func (m *manager) GetDocTimestamps(ctx context.Context, docIds []primitive.Objec
 
 const SmoothingOffset = int64(time.Second)
 
-func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	smoothingOffset := time.Duration(rand.Int63n(SmoothingOffset))
 	score := time.Now().Add(smoothingOffset).Unix()
 	queueEntry := &redis.Z{
 		Score:  float64(score),
-		Member: projectId.Hex(),
+		Member: projectId.String(),
 	}
 	return m.rClient.ZAdd(ctx, getFlushAndDeleteQueueKey(), queueEntry).Err()
 }
 
-func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime time.Time) (primitive.ObjectID, int64, int64, error) {
+func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime time.Time) (edgedb.UUID, int64, int64, error) {
 	potentialOldEntries, err := m.rClient.ZRangeByScore(
 		ctx,
 		getFlushAndDeleteQueueKey(),
@@ -525,12 +524,12 @@ func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime
 		},
 	).Result()
 	if err != nil {
-		return primitive.NilObjectID, 0, 0, errors.Tag(
+		return edgedb.UUID{}, 0, 0, errors.Tag(
 			err, "cannot get old entries by score",
 		)
 	}
 	if len(potentialOldEntries) == 0 {
-		return primitive.NilObjectID, 0, 0, nil
+		return edgedb.UUID{}, 0, 0, nil
 	}
 	// NOTE: The score of the returned member my not be above cutoffTime due to
 	//        multiple pods racing and popping entries from the queue.
@@ -541,18 +540,18 @@ func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime
 		1,
 	).Result()
 	if len(entries) == 0 {
-		return primitive.NilObjectID, 0, 0, nil
+		return edgedb.UUID{}, 0, 0, nil
 	}
 	var raw string
 	switch val := entries[0].Member.(type) {
 	case string:
 		raw = val
 	default:
-		return primitive.NilObjectID, 0, 0, errors.New("unexpected queue entry")
+		return edgedb.UUID{}, 0, 0, errors.New("unexpected queue entry")
 	}
-	id, err := primitive.ObjectIDFromHex(raw)
+	id, err := edgedb.ParseUUID(raw)
 	if err != nil {
-		return primitive.NilObjectID, 0, 0, errors.Tag(err, "unexpected queue entry")
+		return edgedb.UUID{}, 0, 0, errors.Tag(err, "unexpected queue entry")
 	}
 	return id, int64(entries[0].Score), 0, nil
 }

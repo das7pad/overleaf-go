@@ -19,8 +19,8 @@ package projectJWT
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -76,7 +76,7 @@ func (c *Claims) CheckEpochItems(ctx context.Context) error {
 		Fetch:             c.fetchProjectEpoch,
 	}
 	var items epochJWT.JWTEpochItems
-	if c.UserId.IsZero() {
+	if c.UserId == (edgedb.UUID{}) {
 		items = epochJWT.JWTEpochItems{projectItem}
 	} else {
 		items = epochJWT.JWTEpochItems{
@@ -94,7 +94,7 @@ func (c *Claims) CheckEpochItems(ctx context.Context) error {
 
 func (c *Claims) PostProcess(target *httpUtils.Context) error {
 	p := target.Param(projectIdField)
-	if p == "" || p != c.ProjectId.Hex() {
+	if p == "" || p != c.ProjectId.String() {
 		return ErrMismatchingProjectId
 	}
 
@@ -106,7 +106,7 @@ func (c *Claims) PostProcess(target *httpUtils.Context) error {
 	return nil
 }
 
-func ClearProjectField(ctx context.Context, client redis.UniversalClient, projectId primitive.ObjectID) error {
+func ClearProjectField(ctx context.Context, client redis.UniversalClient, projectId edgedb.UUID) error {
 	i := &epochJWT.JWTEpochItem{
 		Field: projectIdField,
 		Id:    projectId,
@@ -117,7 +117,7 @@ func ClearProjectField(ctx context.Context, client redis.UniversalClient, projec
 	return nil
 }
 
-func ClearUserField(ctx context.Context, client redis.UniversalClient, userId primitive.ObjectID) error {
+func ClearUserField(ctx context.Context, client redis.UniversalClient, userId edgedb.UUID) error {
 	i := &epochJWT.JWTEpochItem{
 		Field: userIdField,
 		Id:    userId,

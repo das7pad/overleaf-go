@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -32,7 +32,7 @@ type CreateExampleProjectRequest struct {
 
 type CreateExampleProjectResponse struct {
 	Error     string               `json:"error,omitempty"`
-	ProjectId *primitive.ObjectID  `json:"project_id,omitempty"`
+	ProjectId *edgedb.UUID         `json:"project_id,omitempty"`
 	Name      project.Name         `json:"name,omitempty"`
 	Owner     *user.WithPublicInfo `json:"owner,omitempty"`
 }

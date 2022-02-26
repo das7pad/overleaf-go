@@ -66,13 +66,13 @@ func (m *manager) QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate
 	}
 
 	docId := rpc.Client.DocId
-	pendingUpdateKey := "PendingUpdates:{" + docId.Hex() + "}"
+	pendingUpdateKey := "PendingUpdates:{" + docId.String() + "}"
 	if err = m.client.RPush(rpc, pendingUpdateKey, blob).Err(); err != nil {
 		return errors.Tag(err, "cannot queue update")
 	}
 
 	shardKey := m.getPendingUpdatesListKey()
-	docKey := rpc.Client.ProjectId.Hex() + ":" + docId.Hex()
+	docKey := rpc.Client.ProjectId.String() + ":" + docId.String()
 	if err = m.client.RPush(rpc, shardKey, docKey).Err(); err != nil {
 		return errors.Tag(
 			err,

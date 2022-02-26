@@ -19,28 +19,28 @@ package deletedUser
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type DeleterDataDeletedUserIdField struct {
-	DeletedUserId primitive.ObjectID `bson:"deletedUserId"`
+	DeletedUserId edgedb.UUID `edgedb:"deletedUserId"`
 }
 
 type DeleterData struct {
-	DeleterDataDeletedUserIdField `bson:"inline"`
-	DeletedAt                     time.Time          `bson:"deletedAt"`
-	DeleterId                     primitive.ObjectID `bson:"deleterId"`
-	DeleterIpAddress              string             `bson:"deleterIpAddress"`
-	DeletedUserLastLoggedIn       *time.Time         `bson:"deletedUserLastLoggedIn"`
-	DeletedUserSignUpDate         time.Time          `bson:"deletedUserSignUpDate"`
-	DeletedUserLoginCount         int64              `bson:"deletedUserLoginCount"`
-	DeletedUserReferralId         string             `bson:"deletedUserReferralId"`
+	DeleterDataDeletedUserIdField `edgedb:"inline"`
+	DeletedAt                     time.Time   `edgedb:"deletedAt"`
+	DeleterId                     edgedb.UUID `edgedb:"deleterId"`
+	DeleterIpAddress              string      `edgedb:"deleterIpAddress"`
+	DeletedUserLastLoggedIn       *time.Time  `edgedb:"deletedUserLastLoggedIn"`
+	DeletedUserSignUpDate         time.Time   `edgedb:"deletedUserSignUpDate"`
+	DeletedUserLoginCount         int64       `edgedb:"deletedUserLoginCount"`
+	DeletedUserReferralId         string      `edgedb:"deletedUserReferralId"`
 }
 
 type deleterDataOnlyUserId struct {
-	DeleterDataDeletedUserIdField `bson:"inline"`
+	DeleterDataDeletedUserIdField `edgedb:"inline"`
 }
 
 type forListing struct {
-	DeleterData deleterDataOnlyUserId `bson:"deleterData"`
+	DeleterData deleterDataOnlyUserId `edgedb:"deleterData"`
 }

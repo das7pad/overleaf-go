@@ -19,7 +19,7 @@ package fileTree
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -46,7 +46,7 @@ func ignoreAlreadyMovedErr(err error) error {
 	return err
 }
 
-func (m *manager) move(ctx context.Context, projectId, targetId primitive.ObjectID, source project.TreeElement) (*moveResult, error) {
+func (m *manager) move(ctx context.Context, projectId, targetId edgedb.UUID, source project.TreeElement) (*moveResult, error) {
 	sourceId := source.GetId()
 	if sourceId == targetId {
 		return nil, errCannotMoveIntoItself

@@ -19,40 +19,40 @@ package doc
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type ProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"project_id" bson:"project_id"`
+	ProjectId edgedb.UUID `json:"project_id" edgedb:"project_id"`
 }
 
 type LinesField struct {
-	Lines sharedTypes.Lines `json:"lines" bson:"lines"`
+	Lines sharedTypes.Lines `json:"lines" edgedb:"lines"`
 }
 
 type RevisionField struct {
-	Revision sharedTypes.Revision `json:"rev" bson:"rev"`
+	Revision sharedTypes.Revision `json:"rev" edgedb:"rev"`
 }
 
 type NameField struct {
-	Name sharedTypes.Filename `json:"name" bson:"name"`
+	Name sharedTypes.Filename `json:"name" edgedb:"name"`
 }
 
 type DeletedField struct {
-	Deleted bool `json:"deleted" bson:"deleted"`
+	Deleted bool `json:"deleted" edgedb:"deleted"`
 }
 
 type DeletedAtField struct {
-	DeletedAt time.Time `json:"deletedAt" bson:"deletedAt"`
+	DeletedAt time.Time `json:"deletedAt" edgedb:"deletedAt"`
 }
 type InS3Field struct {
-	InS3 bool `json:"inS3" bson:"inS3"`
+	InS3 bool `json:"inS3" edgedb:"inS3"`
 }
 
 func (f InS3Field) IsArchived() bool {
@@ -60,9 +60,9 @@ func (f InS3Field) IsArchived() bool {
 }
 
 type RangesField struct {
-	Ranges sharedTypes.Ranges `json:"ranges" bson:"ranges"`
+	Ranges sharedTypes.Ranges `json:"ranges" edgedb:"ranges"`
 }
 
 type VersionField struct {
-	Version sharedTypes.Version `json:"version" bson:"version"`
+	Version sharedTypes.Version `json:"version" edgedb:"version"`
 }

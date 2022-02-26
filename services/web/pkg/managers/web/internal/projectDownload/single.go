@@ -22,7 +22,7 @@ import (
 	"io"
 	"os"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -81,7 +81,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 		return errors.Tag(err, "cannot get docs")
 	}
 
-	docsById := make(map[primitive.ObjectID][]byte, len(docs))
+	docsById := make(map[edgedb.UUID][]byte, len(docs))
 	for i, d := range docs {
 		docsById[d.Id] = []byte(string(d.Lines.ToSnapshot()))
 		docs[i] = nil
@@ -112,7 +112,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 			b, exists := docsById[e.GetId()]
 			if !exists {
 				return &errors.InvalidStateError{
-					Msg: "missing doc: " + e.GetId().Hex(),
+					Msg: "missing doc: " + e.GetId().String(),
 				}
 			}
 			_, err = w.Write(b)
@@ -122,7 +122,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 				ctx, projectId, e.GetId(), objectStorage.GetOptions{},
 			)
 			if err != nil {
-				return errors.Tag(err, "get file: "+e.GetId().Hex())
+				return errors.Tag(err, "get file: "+e.GetId().String())
 			}
 			_, err = io.Copy(w, reader)
 			errClose := reader.Close()

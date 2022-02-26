@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -31,23 +31,23 @@ import (
 
 type Manager interface {
 	CreateUser(ctx context.Context, u *ForCreation) error
-	Delete(ctx context.Context, userId primitive.ObjectID, epoch int64) error
-	TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error
-	BumpEpoch(ctx context.Context, userId primitive.ObjectID) error
-	GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error)
-	GetProjectMembers(ctx context.Context, readOnly, readAndWrite []primitive.ObjectID) ([]AsProjectMember, error)
-	GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error
+	Delete(ctx context.Context, userId edgedb.UUID, epoch int64) error
+	TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error
+	BumpEpoch(ctx context.Context, userId edgedb.UUID) error
+	GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error)
+	GetProjectMembers(ctx context.Context, readOnly, readAndWrite []edgedb.UUID) ([]AsProjectMember, error)
+	GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
-	GetUsersWithPublicInfo(ctx context.Context, users []primitive.ObjectID) ([]WithPublicInfo, error)
+	GetUsersWithPublicInfo(ctx context.Context, users []edgedb.UUID) ([]WithPublicInfo, error)
 	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
-	SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error
-	UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, config EditorConfig) error
-	TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error
+	SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error
+	UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, config EditorConfig) error
+	TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
-	SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error
+	SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
-	ConfirmEmail(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) error
+	ConfirmEmail(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -89,7 +89,7 @@ func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
 	return nil
 }
 
-func (m *manager) ConfirmEmail(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) error {
+func (m *manager) ConfirmEmail(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) error {
 	now := time.Now().UTC()
 	q := bson.M{
 		"_id":          userId,
@@ -159,7 +159,7 @@ func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, 
 	return nil
 }
 
-func (m *manager) UpdateEditorConfig(ctx context.Context, userId primitive.ObjectID, editorConfig EditorConfig) error {
+func (m *manager) UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, editorConfig EditorConfig) error {
 	q := &IdField{Id: userId}
 	u := bson.M{
 		"$set": &EditorConfigField{
@@ -175,7 +175,7 @@ func (m *manager) UpdateEditorConfig(ctx context.Context, userId primitive.Objec
 
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
-func (m *manager) Delete(ctx context.Context, userId primitive.ObjectID, epoch int64) error {
+func (m *manager) Delete(ctx context.Context, userId edgedb.UUID, epoch int64) error {
 	q := &withIdAndEpoch{
 		IdField: IdField{
 			Id: userId,
@@ -194,7 +194,7 @@ func (m *manager) Delete(ctx context.Context, userId primitive.ObjectID, epoch i
 	return nil
 }
 
-func (m *manager) TrackClearSessions(ctx context.Context, userId primitive.ObjectID, ip string, info interface{}) error {
+func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error {
 	now := time.Now().UTC()
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": EpochField{Epoch: 1},
@@ -237,7 +237,8 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip 
 			EmailsField{
 				Emails: []EmailDetails{
 					{
-						Id:               primitive.NewObjectID(),
+						// TODO: refactor into server side gen.
+						Id:               edgedb.UUID{},
 						CreatedAt:        now,
 						Email:            newEmail,
 						ReversedHostname: newEmail.ReversedHostname(),
@@ -281,7 +282,7 @@ const (
 	MaxAuditLogEntries = 200
 )
 
-func (m *manager) BumpEpoch(ctx context.Context, userId primitive.ObjectID) error {
+func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": &EpochField{Epoch: 1},
 	})
@@ -291,7 +292,7 @@ func (m *manager) BumpEpoch(ctx context.Context, userId primitive.ObjectID) erro
 	return nil
 }
 
-func (m *manager) SetBetaProgram(ctx context.Context, userId primitive.ObjectID, joined bool) error {
+func (m *manager) SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error {
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$set": &BetaProgramField{BetaProgram: joined},
 	})
@@ -301,7 +302,7 @@ func (m *manager) SetBetaProgram(ctx context.Context, userId primitive.ObjectID,
 	return nil
 }
 
-func (m *manager) SetUserName(ctx context.Context, userId primitive.ObjectID, u *WithNames) error {
+func (m *manager) SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error {
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$set": u,
 	})
@@ -311,7 +312,7 @@ func (m *manager) SetUserName(ctx context.Context, userId primitive.ObjectID, u 
 	return nil
 }
 
-func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip string) error {
+func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error {
 	now := time.Now().UTC()
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": LoginCountField{
@@ -345,13 +346,13 @@ func (m *manager) TrackLogin(ctx context.Context, userId primitive.ObjectID, ip 
 	return nil
 }
 
-func (m *manager) GetEpoch(ctx context.Context, userId primitive.ObjectID) (int64, error) {
+func (m *manager) GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error) {
 	p := &EpochField{}
 	err := m.GetUser(ctx, userId, p)
 	return p.Epoch, err
 }
 
-func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []primitive.ObjectID) ([]WithPublicInfo, error) {
+func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []edgedb.UUID) ([]WithPublicInfo, error) {
 	if len(userIds) == 0 {
 		return make([]WithPublicInfo, 0), nil
 	}
@@ -377,7 +378,7 @@ func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []primitiv
 }
 
 func (m *manager) GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error) {
-	flatIds := make([]primitive.ObjectID, 0, len(ids))
+	flatIds := make([]edgedb.UUID, 0, len(ids))
 	for id := range ids {
 		flatIds = append(flatIds, id)
 	}
@@ -394,7 +395,7 @@ func (m *manager) GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (
 }
 
 func (m *manager) GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error) {
-	flatIds := make([]primitive.ObjectID, 0, len(ids))
+	flatIds := make([]edgedb.UUID, 0, len(ids))
 	for id := range ids {
 		flatIds = append(flatIds, id)
 	}
@@ -412,7 +413,7 @@ func (m *manager) GetUsersForBackFillingNonStandardId(ctx context.Context, ids U
 	return users, nil
 }
 
-func (m *manager) GetProjectMembers(ctx context.Context, readOnly, readAndWrite []primitive.ObjectID) ([]AsProjectMember, error) {
+func (m *manager) GetProjectMembers(ctx context.Context, readOnly, readAndWrite []edgedb.UUID) ([]AsProjectMember, error) {
 	ids := make(UniqUserIds, len(readOnly)+len(readAndWrite))
 	for _, id := range readOnly {
 		ids[id] = true
@@ -455,7 +456,7 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) GetUser(ctx context.Context, userId primitive.ObjectID, target interface{}) error {
+func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error {
 	return m.getUser(ctx, &IdField{Id: userId}, target)
 }
 

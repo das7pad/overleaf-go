@@ -19,84 +19,84 @@ package user
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AlphaProgramField struct {
-	AlphaProgram bool `json:"alphaProgram" bson:"alphaProgram"`
+	AlphaProgram bool `json:"alphaProgram" edgedb:"alphaProgram"`
 }
 
 type AuditLogField struct {
-	AuditLog []AuditLogEntry `bson:"auditLog"`
+	AuditLog []AuditLogEntry `edgedb:"auditLog"`
 }
 
 type BetaProgramField struct {
-	BetaProgram bool `json:"betaProgram" bson:"betaProgram"`
+	BetaProgram bool `json:"betaProgram" edgedb:"betaProgram"`
 }
 
 type EditorConfigField struct {
-	EditorConfig EditorConfig `json:"ace" bson:"ace"`
+	EditorConfig EditorConfig `json:"ace" edgedb:"ace"`
 }
 
 type EmailField struct {
-	Email sharedTypes.Email `json:"email" bson:"email"`
+	Email sharedTypes.Email `json:"email" edgedb:"email"`
 }
 
 type EmailsField struct {
-	Emails []EmailDetails `json:"emails" bson:"emails"`
+	Emails []EmailDetails `json:"emails" edgedb:"emails"`
 }
 
 type EpochField struct {
-	Epoch int64 `bson:"epoch"`
+	Epoch int64 `edgedb:"epoch"`
 }
 
 type FeaturesField struct {
-	Features Features `json:"features" bson:"features"`
+	Features Features `json:"features" edgedb:"features"`
 }
 
 type FirstNameField struct {
-	FirstName string `json:"first_name" bson:"first_name"`
+	FirstName string `json:"first_name" edgedb:"first_name"`
 }
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type IsAdminField struct {
-	IsAdmin bool `json:"isAdmin" bson:"isAdmin"`
+	IsAdmin bool `json:"isAdmin" edgedb:"isAdmin"`
 }
 
 type HashedPasswordField struct {
-	HashedPassword string `json:"-" bson:"hashedPassword"`
+	HashedPassword string `json:"-" edgedb:"hashedPassword"`
 }
 
 type LastLoggedInField struct {
-	LastLoggedIn *time.Time `bson:"lastLoggedIn"`
+	LastLoggedIn *time.Time `edgedb:"lastLoggedIn"`
 }
 
 type LastLoginIpField struct {
-	LastLoginIp string `bson:"lastLoginIp"`
+	LastLoginIp string `edgedb:"lastLoginIp"`
 }
 
 type LastNameField struct {
-	LastName string `json:"last_name" bson:"last_name"`
+	LastName string `json:"last_name" edgedb:"last_name"`
 }
 
 type LoginCountField struct {
-	LoginCount int64 `bson:"loginCount"`
+	LoginCount int64 `edgedb:"loginCount"`
 }
 
 type MustReconfirmField struct {
-	MustReconfirm bool `bson:"must_reconfirm"`
+	MustReconfirm bool `edgedb:"must_reconfirm"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type ReferralIdField struct {
-	ReferralId string `bson:"referal_id"`
+	ReferralId string `edgedb:"referal_id"`
 }
 
 type SignUpDateField struct {
-	SignUpDate time.Time `bson:"signUpDate"`
+	SignUpDate time.Time `edgedb:"signUpDate"`
 }

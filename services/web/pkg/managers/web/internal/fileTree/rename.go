@@ -19,7 +19,7 @@ package fileTree
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -45,7 +45,7 @@ func ignoreAlreadyRenamedErr(err error) error {
 	return err
 }
 
-func (m *manager) rename(ctx context.Context, projectId primitive.ObjectID, target project.TreeElement) (*renameResult, error) {
+func (m *manager) rename(ctx context.Context, projectId edgedb.UUID, target project.TreeElement) (*renameResult, error) {
 	name := target.GetName()
 	targetId := target.GetId()
 	r := &renameResult{}

@@ -17,174 +17,174 @@
 package project
 
 type JoinProjectViewPrivate struct {
-	JoinProjectViewPublic   `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
+	JoinProjectViewPublic   `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
 }
 type JoinProjectViewPublic struct {
-	IdField                 `bson:"inline"`
-	CompilerField           `bson:"inline"`
-	ImageNameField          `bson:"inline"`
-	NameField               `bson:"inline"`
-	RootDocIdField          `bson:"inline"`
-	SpellCheckLanguageField `bson:"inline"`
-	TrackChangesStateField  `bson:"inline"`
-	TreeField               `bson:"inline"`
-	VersionField            `bson:"inline"`
+	IdField                 `edgedb:"inline"`
+	CompilerField           `edgedb:"inline"`
+	ImageNameField          `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	RootDocIdField          `edgedb:"inline"`
+	SpellCheckLanguageField `edgedb:"inline"`
+	TrackChangesStateField  `edgedb:"inline"`
+	TreeField               `edgedb:"inline"`
+	VersionField            `edgedb:"inline"`
 }
 
 type ListViewPrivate struct {
-	ArchivedByField         `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
-	IdField                 `bson:"inline"`
-	LastUpdatedAtField      `bson:"inline"`
-	LastUpdatedByField      `bson:"inline"`
-	NameField               `bson:"inline"`
-	TrashedByField          `bson:"inline"`
+	ArchivedByField         `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
+	IdField                 `edgedb:"inline"`
+	LastUpdatedAtField      `edgedb:"inline"`
+	LastUpdatedByField      `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	TrashedByField          `edgedb:"inline"`
 }
 
 type LoadEditorViewPrivate struct {
-	LoadEditorViewPublic    `bson:"inline"`
-	ActiveField             `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
-	TreeField               `bson:"inline"`
+	LoadEditorViewPublic    `edgedb:"inline"`
+	ActiveField             `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
+	TreeField               `edgedb:"inline"`
 }
 
 type LoadEditorViewPublic struct {
-	CompilerField  `bson:"inline"`
-	IdField        `bson:"inline"`
-	ImageNameField `bson:"inline"`
-	NameField      `bson:"inline"`
-	RootDocIdField `bson:"inline"`
-	VersionField   `bson:"inline"`
+	CompilerField  `edgedb:"inline"`
+	IdField        `edgedb:"inline"`
+	ImageNameField `edgedb:"inline"`
+	NameField      `edgedb:"inline"`
+	RootDocIdField `edgedb:"inline"`
+	VersionField   `edgedb:"inline"`
 }
 
 type WithTokenMembers struct {
-	TokenAccessReadAndWriteRefsField `bson:"inline"`
-	TokenAccessReadOnlyRefsField     `bson:"inline"`
+	TokenAccessReadAndWriteRefsField `edgedb:"inline"`
+	TokenAccessReadOnlyRefsField     `edgedb:"inline"`
 }
 
 type WithInvitedMembers struct {
-	CollaboratorRefsField `bson:"inline"`
-	ReadOnlyRefsField     `bson:"inline"`
+	CollaboratorRefsField `edgedb:"inline"`
+	ReadOnlyRefsField     `edgedb:"inline"`
 }
 
 type WithMembers struct {
-	WithTokenMembers   `bson:"inline"`
-	WithInvitedMembers `bson:"inline"`
+	WithTokenMembers   `edgedb:"inline"`
+	WithInvitedMembers `edgedb:"inline"`
 }
 
 type ForAuthorizationDetails struct {
-	WithMembers            `bson:"inline"`
-	EpochField             `bson:"inline"`
-	OwnerRefField          `bson:"inline"`
-	PublicAccessLevelField `bson:"inline"`
-	TokensField            `bson:"inline"`
+	WithMembers            `edgedb:"inline"`
+	EpochField             `edgedb:"inline"`
+	OwnerRefField          `edgedb:"inline"`
+	PublicAccessLevelField `edgedb:"inline"`
+	TokensField            `edgedb:"inline"`
 }
 
 type forTokenAccessCheck struct {
-	IdField                 `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
+	IdField                 `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
 }
 
 type withIdAndEpoch struct {
-	IdField    `bson:"inline"`
-	EpochField `bson:"inline"`
+	IdField    `edgedb:"inline"`
+	EpochField `edgedb:"inline"`
 }
 
 type withIdAndVersion struct {
-	IdField      `bson:"inline"`
-	VersionField `bson:"inline"`
+	IdField      `edgedb:"inline"`
+	VersionField `edgedb:"inline"`
 }
 
 type withIdAndEpochAndVersion struct {
-	IdField      `bson:"inline"`
-	EpochField   `bson:"inline"`
-	VersionField `bson:"inline"`
+	IdField      `edgedb:"inline"`
+	EpochField   `edgedb:"inline"`
+	VersionField `edgedb:"inline"`
 }
 
 type ForProjectInvite struct {
-	IdField                 `bson:"inline"`
-	NameField               `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
+	IdField                 `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
 }
 
 type ForProjectOwnershipTransfer struct {
-	IdField                 `bson:"inline"`
-	NameField               `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
+	IdField                 `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
 }
 
 type WithTree struct {
-	TreeField    `bson:"inline"`
-	VersionField `bson:"inline"`
+	TreeField    `edgedb:"inline"`
+	VersionField `edgedb:"inline"`
 }
 
 type WithTreeAndRootDoc struct {
-	RootDocIdField `bson:"inline"`
-	WithTree       `bson:"inline"`
+	RootDocIdField `edgedb:"inline"`
+	WithTree       `edgedb:"inline"`
 }
 
 type WithTreeAndAuth struct {
-	ForAuthorizationDetails `bson:"inline"`
-	WithTree                `bson:"inline"`
-	NameField               `bson:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
+	WithTree                `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
 }
 
 type WithLastUpdatedDetails struct {
-	LastUpdatedAtField `bson:"inline"`
-	LastUpdatedByField `bson:"inline"`
+	LastUpdatedAtField `edgedb:"inline"`
+	LastUpdatedByField `edgedb:"inline"`
 }
 
 type forMemberRemoval struct {
-	WithMembers     `bson:"inline"`
-	ArchivedByField `bson:"inline"`
-	TrashedByField  `bson:"inline"`
+	WithMembers     `edgedb:"inline"`
+	ArchivedByField `edgedb:"inline"`
+	TrashedByField  `edgedb:"inline"`
 }
 
 type ForCreation struct {
-	ActiveField             `bson:"inline"`
-	CompilerField           `bson:"inline"`
-	EpochField              `bson:"inline"`
-	IdField                 `bson:"inline"`
-	ImageNameField          `bson:"inline"`
-	NameField               `bson:"inline"`
-	LastUpdatedAtField      `bson:"inline"`
-	LastUpdatedByField      `bson:"inline"`
-	OwnerRefField           `bson:"inline"`
-	PublicAccessLevelField  `bson:"inline"`
-	RootDocIdField          `bson:"inline"`
-	SpellCheckLanguageField `bson:"inline"`
-	TreeField               `bson:"inline"`
-	VersionField            `bson:"inline"`
+	ActiveField             `edgedb:"inline"`
+	CompilerField           `edgedb:"inline"`
+	EpochField              `edgedb:"inline"`
+	IdField                 `edgedb:"inline"`
+	ImageNameField          `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	LastUpdatedAtField      `edgedb:"inline"`
+	LastUpdatedByField      `edgedb:"inline"`
+	OwnerRefField           `edgedb:"inline"`
+	PublicAccessLevelField  `edgedb:"inline"`
+	RootDocIdField          `edgedb:"inline"`
+	SpellCheckLanguageField `edgedb:"inline"`
+	TreeField               `edgedb:"inline"`
+	VersionField            `edgedb:"inline"`
 }
 
 type ForClone struct {
-	ForAuthorizationDetails `bson:"inline"`
-	CompilerField           `bson:"inline"`
-	ImageNameField          `bson:"inline"`
-	NameField               `bson:"inline"`
-	RootDocIdField          `bson:"inline"`
-	SpellCheckLanguageField `bson:"inline"`
-	TreeField               `bson:"inline"`
-	VersionField            `bson:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
+	CompilerField           `edgedb:"inline"`
+	ImageNameField          `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	RootDocIdField          `edgedb:"inline"`
+	SpellCheckLanguageField `edgedb:"inline"`
+	TreeField               `edgedb:"inline"`
+	VersionField            `edgedb:"inline"`
 }
 
 type ForDeletion struct {
-	IdField                 `bson:"inline"`
-	ForAuthorizationDetails `bson:"inline"`
-	ActiveField             `bson:"inline"`
-	ArchivedByField         `bson:"inline"`
-	AuditLogField           `bson:"inline"`
-	CompilerField           `bson:"inline"`
-	ImageNameField          `bson:"inline"`
-	LastOpenedField         `bson:"inline"`
-	LastUpdatedAtField      `bson:"inline"`
-	LastUpdatedByField      `bson:"inline"`
-	NameField               `bson:"inline"`
-	RootDocIdField          `bson:"inline"`
-	SpellCheckLanguageField `bson:"inline"`
-	TrackChangesStateField  `bson:"inline"`
-	TrashedByField          `bson:"inline"`
-	TreeField               `bson:"inline"`
-	VersionField            `bson:"inline"`
+	IdField                 `edgedb:"inline"`
+	ForAuthorizationDetails `edgedb:"inline"`
+	ActiveField             `edgedb:"inline"`
+	ArchivedByField         `edgedb:"inline"`
+	AuditLogField           `edgedb:"inline"`
+	CompilerField           `edgedb:"inline"`
+	ImageNameField          `edgedb:"inline"`
+	LastOpenedField         `edgedb:"inline"`
+	LastUpdatedAtField      `edgedb:"inline"`
+	LastUpdatedByField      `edgedb:"inline"`
+	NameField               `edgedb:"inline"`
+	RootDocIdField          `edgedb:"inline"`
+	SpellCheckLanguageField `edgedb:"inline"`
+	TrackChangesStateField  `edgedb:"inline"`
+	TrashedByField          `edgedb:"inline"`
+	TreeField               `edgedb:"inline"`
+	VersionField            `edgedb:"inline"`
 }

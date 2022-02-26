@@ -19,8 +19,8 @@ package tokenAccess
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -64,8 +64,8 @@ func (m *manager) GrantTokenAccessReadOnly(ctx context.Context, request *types.G
 	)
 }
 
-type getTokenAccess func(ctx context.Context, userId primitive.ObjectID, token project.AccessToken) (*project.TokenAccessResult, error)
-type grantAccess func(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
+type getTokenAccess func(ctx context.Context, userId edgedb.UUID, token project.AccessToken) (*project.TokenAccessResult, error)
+type grantAccess func(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 
 func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, getter getTokenAccess, granter grantAccess) error {
 	userId := request.Session.User.Id
@@ -97,7 +97,7 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 		} else {
 			request.Session.AddAnonTokenAccess(projectId, token)
 		}
-		response.RedirectTo = "/project/" + projectId.Hex()
+		response.RedirectTo = "/project/" + projectId.String()
 		return nil
 	}
 	return project.ErrEpochIsNotStable

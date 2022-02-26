@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
@@ -81,8 +80,8 @@ type manager struct {
 	um           user.Manager
 }
 
-func getKey(inviteId primitive.ObjectID) string {
-	return "project-invite-" + inviteId.Hex()
+func getKey(inviteId edgedb.UUID) string {
+	return "project-invite-" + inviteId.String()
 }
 
 type refreshMembershipDetails struct {
@@ -90,7 +89,7 @@ type refreshMembershipDetails struct {
 	Members bool `json:"members,omitempty"`
 }
 
-func (m *manager) notifyEditorAboutChanges(projectId primitive.ObjectID, r *refreshMembershipDetails) {
+func (m *manager) notifyEditorAboutChanges(projectId edgedb.UUID, r *refreshMembershipDetails) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
@@ -114,10 +113,10 @@ func (m *manager) createNotification(ctx context.Context, d *projectInviteDetail
 	n.Key = getKey(d.invite.Id)
 	n.TemplateKey = "notification_project_invite"
 	n.UserId = d.user.Id
-	n.MessageOptions = &bson.M{
+	n.MessageOptions = map[string]interface{}{
 		"userName":    d.sender.DisplayName(),
 		"projectName": d.project.Name,
-		"projectId":   d.invite.ProjectId.Hex(),
+		"projectId":   d.invite.ProjectId.String(),
 		"token":       d.invite.Token,
 	}
 	if err := m.nm.Add(ctx, n, true); err != nil {

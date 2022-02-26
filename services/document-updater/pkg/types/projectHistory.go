@@ -17,14 +17,14 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type coreProjectUpdate struct {
-	Id       primitive.ObjectID   `json:"id"`
+	Id       edgedb.UUID          `json:"id"`
 	PathName sharedTypes.PathName `json:"pathname"`
 	Version  string               `json:"version"`
 	Type     string               `json:"type"`
@@ -81,7 +81,7 @@ func (r *RenameDocUpdate) ToGeneric() *GenericProjectUpdate {
 	}
 }
 
-func NewRenameDocUpdate(id primitive.ObjectID, oldPath, newPath sharedTypes.PathName) *RenameDocUpdate {
+func NewRenameDocUpdate(id edgedb.UUID, oldPath, newPath sharedTypes.PathName) *RenameDocUpdate {
 	return &RenameDocUpdate{
 		coreProjectUpdate: coreProjectUpdate{
 			Id:       id,

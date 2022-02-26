@@ -17,13 +17,13 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type JoinDocRequest struct {
-	DocId       primitive.ObjectID
+	DocId       edgedb.UUID
 	FromVersion sharedTypes.Version `json:"fromVersion"`
 }
 

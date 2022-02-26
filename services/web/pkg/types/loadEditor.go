@@ -17,15 +17,15 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type ProjectEditorPageRequest struct {
-	ProjectId primitive.ObjectID `form:"-"`
-	Session   *session.Session   `form:"-"`
+	ProjectId edgedb.UUID      `form:"-"`
+	Session   *session.Session `form:"-"`
 }
 
 type ProjectEditorPageResponse struct {

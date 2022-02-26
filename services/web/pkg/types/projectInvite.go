@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -29,15 +29,15 @@ import (
 
 type AcceptProjectInviteRequest struct {
 	Session   *session.Session    `json:"-"`
-	ProjectId primitive.ObjectID  `json:"-"`
+	ProjectId edgedb.UUID         `json:"-"`
 	Token     projectInvite.Token `json:"-"`
 }
 
 type AcceptProjectInviteResponse = asyncForm.Response
 
 type CreateProjectInviteRequest struct {
-	ProjectId      primitive.ObjectID         `json:"-"`
-	SenderUserId   primitive.ObjectID         `json:"-"`
+	ProjectId      edgedb.UUID                `json:"-"`
+	SenderUserId   edgedb.UUID                `json:"-"`
 	Email          sharedTypes.Email          `json:"email"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
 }
@@ -62,17 +62,17 @@ func (r *CreateProjectInviteRequest) Validate() error {
 }
 
 type ResendProjectInviteRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	InviteId  primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	InviteId  edgedb.UUID `json:"-"`
 }
 
 type RevokeProjectInviteRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	InviteId  primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	InviteId  edgedb.UUID `json:"-"`
 }
 
 type ListProjectInvitesRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
 }
 
 type ListProjectInvitesResponse struct {
@@ -81,7 +81,7 @@ type ListProjectInvitesResponse struct {
 
 type ViewProjectInvitePageRequest struct {
 	Session   *session.Session    `form:"-"`
-	ProjectId primitive.ObjectID  `form:"-"`
+	ProjectId edgedb.UUID         `form:"-"`
 	Token     projectInvite.Token `form:"-"`
 	templates.SharedProjectData
 }

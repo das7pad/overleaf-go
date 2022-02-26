@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
@@ -27,71 +27,71 @@ import (
 )
 
 type AcceptReviewChangesRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	DocId     primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	DocId     edgedb.UUID `json:"-"`
 
-	ChangeIds []primitive.ObjectID `json:"change_ids"`
+	ChangeIds []edgedb.UUID `json:"change_ids"`
 }
 
 type DeleteReviewCommentRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	ThreadId  primitive.ObjectID `json:"-"`
-	MessageId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	ThreadId  edgedb.UUID `json:"-"`
+	MessageId edgedb.UUID `json:"-"`
 }
 
 type DeleteReviewThreadRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	DocId     primitive.ObjectID `json:"-"`
-	ThreadId  primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	DocId     edgedb.UUID `json:"-"`
+	ThreadId  edgedb.UUID `json:"-"`
 }
 
 type EditReviewCommentRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	ThreadId  primitive.ObjectID `json:"-"`
-	MessageId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	ThreadId  edgedb.UUID `json:"-"`
+	MessageId edgedb.UUID `json:"-"`
 
-	Content string `bson:"content"`
+	Content string `json:"content"`
 }
 
 type GetReviewRangesRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
 }
 
 type GetReviewRangesResponse = []doc.Ranges
 
 type GetReviewThreadsRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
 }
 
 type GetReviewThreadsResponse = chatTypes.Threads
 
 type GetReviewUsersRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
 }
 
 type GetReviewUsersResponse = []*user.WithPublicInfoAndNonStandardId
 
 type ReopenReviewThreadRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	ThreadId  primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	ThreadId  edgedb.UUID `json:"-"`
 }
 
 type ResolveReviewThreadRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	ThreadId  primitive.ObjectID `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	ThreadId  edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 }
 
 type SendReviewCommentRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	ThreadId  primitive.ObjectID `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	ThreadId  edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 
-	Content string `bson:"content"`
+	Content string `json:"content"`
 }
 
 type SetTrackChangesStateRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
 
 	On          *bool                     `json:"on"`
 	OnFor       project.TrackChangesState `json:"on_for"`

@@ -101,7 +101,7 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 			Owner:   true,
 		})
 
-		projectURL := m.options.SiteURL.WithPath("/project/" + p.Id.Hex())
+		projectURL := m.options.SiteURL.WithPath("/project/" + p.Id.String())
 		details := &transferOwnershipEmailDetails{
 			previousOwner: previousOwner,
 			newOwner:      newOwner,

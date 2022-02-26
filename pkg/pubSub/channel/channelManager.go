@@ -22,8 +22,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -37,12 +37,12 @@ const (
 
 type PubSubMessage struct {
 	Msg     string
-	Channel primitive.ObjectID
+	Channel edgedb.UUID
 	Action  Action
 }
 
 type Message interface {
-	ChannelId() primitive.ObjectID
+	ChannelId() edgedb.UUID
 }
 
 type Writer interface {
@@ -52,8 +52,8 @@ type Writer interface {
 
 type Manager interface {
 	Writer
-	Subscribe(ctx context.Context, id primitive.ObjectID) error
-	Unsubscribe(ctx context.Context, id primitive.ObjectID) error
+	Subscribe(ctx context.Context, id edgedb.UUID) error
+	Unsubscribe(ctx context.Context, id edgedb.UUID) error
 	Listen(ctx context.Context) (<-chan *PubSubMessage, error)
 	Close()
 }
@@ -61,15 +61,16 @@ type Manager interface {
 type BaseChannel string
 type channel string
 
-func (c BaseChannel) join(id primitive.ObjectID) channel {
-	return channel(string(c) + ":" + id.Hex())
+func (c BaseChannel) join(id edgedb.UUID) channel {
+	return channel(string(c) + ":" + id.String())
 }
 
-func (c BaseChannel) parseIdFromChannel(s string) (primitive.ObjectID, error) {
+func (c BaseChannel) parseIdFromChannel(s string) (edgedb.UUID, error) {
+	// TODO: bump
 	if len(s) != len(c)+25 {
-		return primitive.NilObjectID, primitive.ErrInvalidHex
+		return edgedb.UUID{}, errors.New("invalid channel format")
 	}
-	return primitive.ObjectIDFromHex(s[len(c)+1:])
+	return edgedb.ParseUUID(s[len(c)+1:])
 }
 
 func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
@@ -89,11 +90,11 @@ type manager struct {
 	base   BaseChannel
 }
 
-func (m *manager) Subscribe(ctx context.Context, id primitive.ObjectID) error {
+func (m *manager) Subscribe(ctx context.Context, id edgedb.UUID) error {
 	return m.p.Subscribe(ctx, string(m.base.join(id)))
 }
 
-func (m *manager) Unsubscribe(ctx context.Context, id primitive.ObjectID) error {
+func (m *manager) Unsubscribe(ctx context.Context, id edgedb.UUID) error {
 	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
 }
 
@@ -118,7 +119,7 @@ func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Mess
 }
 
 func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
-	m.p = m.client.Subscribe(ctx, string(m.base.join(primitive.NilObjectID)))
+	m.p = m.client.Subscribe(ctx, string(m.base.join(edgedb.UUID{})))
 	if _, err := m.p.Receive(ctx); err != nil {
 		return nil, err
 	}

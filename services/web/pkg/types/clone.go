@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -25,13 +25,13 @@ import (
 )
 
 type CloneProjectRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	Name      project.Name       `json:"projectName"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
+	Name      project.Name     `json:"projectName"`
 }
 
 type CloneProjectResponse struct {
-	ProjectId *primitive.ObjectID  `json:"project_id,omitempty"`
+	ProjectId *edgedb.UUID         `json:"project_id,omitempty"`
 	Name      project.Name         `json:"name,omitempty"`
 	Owner     *user.WithPublicInfo `json:"owner,omitempty"`
 }

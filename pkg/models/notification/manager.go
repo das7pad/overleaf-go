@@ -19,8 +19,8 @@ package notification
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -28,11 +28,11 @@ import (
 )
 
 type Manager interface {
-	DeleteForUser(ctx context.Context, userId primitive.ObjectID) error
-	GetAllForUser(ctx context.Context, userId primitive.ObjectID, notifications *[]Notification) error
+	DeleteForUser(ctx context.Context, userId edgedb.UUID) error
+	GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error
 	Add(ctx context.Context, notification Notification, forceCreate bool) error
-	RemoveById(ctx context.Context, userId primitive.ObjectID, notificationId primitive.ObjectID) error
-	RemoveByKey(ctx context.Context, userId primitive.ObjectID, notificationKey string) error
+	RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error
+	RemoveByKey(ctx context.Context, userId edgedb.UUID, notificationKey string) error
 	RemoveByKeyOnly(ctx context.Context, notificationKey string) error
 }
 
@@ -50,7 +50,7 @@ type manager struct {
 	c *mongo.Collection
 }
 
-func (m *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) error {
+func (m *manager) DeleteForUser(ctx context.Context, userId edgedb.UUID) error {
 	q := &UserIdField{UserId: userId}
 	_, err := m.c.DeleteMany(ctx, q)
 	if err != nil {
@@ -59,7 +59,7 @@ func (m *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) 
 	return nil
 }
 
-func (m *manager) GetAllForUser(ctx context.Context, userId primitive.ObjectID, notifications *[]Notification) error {
+func (m *manager) GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error {
 	c, err := m.c.Find(
 		ctx,
 		bson.M{
@@ -112,7 +112,7 @@ func (m *manager) Add(ctx context.Context, notification Notification, forceCreat
 	return err
 }
 
-func (m *manager) RemoveById(ctx context.Context, userId primitive.ObjectID, notificationId primitive.ObjectID) error {
+func (m *manager) RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error {
 	q := userIdAndId{
 		IdField: IdField{
 			Id: notificationId,
@@ -131,7 +131,7 @@ func (m *manager) RemoveById(ctx context.Context, userId primitive.ObjectID, not
 	return err
 }
 
-func (m *manager) RemoveByKey(ctx context.Context, userId primitive.ObjectID, notificationKey string) error {
+func (m *manager) RemoveByKey(ctx context.Context, userId edgedb.UUID, notificationKey string) error {
 	if notificationKey == "" {
 		return &errors.ValidationError{
 			Msg: "cannot remove notification by key: missing notificationKey",

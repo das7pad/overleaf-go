@@ -17,26 +17,26 @@
 package projectInvite
 
 type WithoutToken struct {
-	CreatedAtField      `bson:"inline"`
-	EmailField          `bson:"inline"`
-	ExpiresAtField      `bson:"inline"`
-	IdField             `bson:"inline"`
-	PrivilegeLevelField `bson:"inline"`
-	ProjectIdField      `bson:"inline"`
-	SendingUserIdField  `bson:"inline"`
+	CreatedAtField      `edgedb:"inline"`
+	EmailField          `edgedb:"inline"`
+	ExpiresAtField      `edgedb:"inline"`
+	IdField             `edgedb:"inline"`
+	PrivilegeLevelField `edgedb:"inline"`
+	ProjectIdField      `edgedb:"inline"`
+	SendingUserIdField  `edgedb:"inline"`
 }
 
 type WithToken struct {
-	WithoutToken `bson:"inline"`
-	TokenField   `bson:"inline"`
+	WithoutToken `edgedb:"inline"`
+	TokenField   `edgedb:"inline"`
 }
 
 type projectIdAndToken struct {
-	ProjectIdField `bson:"inline"`
-	TokenField     `bson:"inline"`
+	ProjectIdField `edgedb:"inline"`
+	TokenField     `edgedb:"inline"`
 }
 
 type projectIdAndInviteId struct {
-	IdField        `bson:"inline"`
-	ProjectIdField `bson:"inline"`
+	IdField        `edgedb:"inline"`
+	ProjectIdField `edgedb:"inline"`
 }

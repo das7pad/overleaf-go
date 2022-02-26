@@ -34,8 +34,8 @@ func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest
 		return err
 	}
 	u := m.baseURL
-	u += "/project/" + request.ProjectId.Hex()
-	u += "/user/" + request.UserId.Hex()
+	u += "/project/" + request.ProjectId.String()
+	u += "/user/" + request.UserId.String()
 	u += "/wordcount"
 
 	request.ImageName = m.getImageName(request.ImageName)

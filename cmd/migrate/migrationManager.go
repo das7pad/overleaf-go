@@ -46,8 +46,8 @@ type manager struct {
 }
 
 type migration struct {
-	Name       string    `bson:"name"`
-	MigratedAt time.Time `bson:"migratedAt"`
+	Name       string    `edgedb:"name"`
+	MigratedAt time.Time `edgedb:"migratedAt"`
 }
 
 func (m *manager) getMigrated(ctx context.Context) (map[string]time.Time, error) {

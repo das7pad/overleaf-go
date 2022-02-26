@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -31,9 +31,9 @@ import (
 )
 
 type Manager interface {
-	Create(ctx context.Context, deletion *user.ForDeletion, userId primitive.ObjectID, ipAddress string) error
-	Expire(ctx context.Context, projectId primitive.ObjectID) error
-	GetExpired(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error)
+	Create(ctx context.Context, deletion *user.ForDeletion, userId edgedb.UUID, ipAddress string) error
+	Expire(ctx context.Context, projectId edgedb.UUID) error
+	GetExpired(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error)
 }
 
 func New(db *mongo.Database) Manager {
@@ -59,7 +59,7 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId primitive.ObjectID, ipAddress string) error {
+func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId edgedb.UUID, ipAddress string) error {
 	entry := &Full{
 		UserField: UserField{User: u},
 		DeleterDataField: DeleterDataField{
@@ -84,7 +84,7 @@ func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId primit
 	return nil
 }
 
-func (m *manager) Expire(ctx context.Context, userId primitive.ObjectID) error {
+func (m *manager) Expire(ctx context.Context, userId edgedb.UUID) error {
 	q := bson.M{
 		"deleterData.deletedUserId": userId,
 	}
@@ -103,7 +103,7 @@ func (m *manager) Expire(ctx context.Context, userId primitive.ObjectID) error {
 
 const bufferSize = 10
 
-func (m *manager) GetExpired(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error) {
+func (m *manager) GetExpired(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error) {
 	q := bson.M{
 		"deleterData.deletedAt": bson.M{
 			"$lt": time.Now().UTC().Add(-age),
@@ -123,7 +123,7 @@ func (m *manager) GetExpired(ctx context.Context, age time.Duration) (<-chan pri
 	if errFind != nil {
 		return nil, rewriteMongoError(errFind)
 	}
-	queue := make(chan primitive.ObjectID, bufferSize)
+	queue := make(chan edgedb.UUID, bufferSize)
 
 	// Peek once into the batch, then ignore any errors during background
 	//  streaming.

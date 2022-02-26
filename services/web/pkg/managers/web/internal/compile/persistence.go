@@ -33,8 +33,8 @@ func getPersistenceKey(options types.SignedCompileProjectRequestOptions) string 
 	return fmt.Sprintf(
 		"clsiserver:%s:%s:%s",
 		options.CompileGroup,
-		options.ProjectId.Hex(),
-		options.UserId.Hex(),
+		options.ProjectId.String(),
+		options.UserId.String(),
 	)
 }
 

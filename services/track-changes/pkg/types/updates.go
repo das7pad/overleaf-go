@@ -19,7 +19,7 @@ package types
 import (
 	"net/url"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -32,7 +32,7 @@ type DocUpdateBounds struct {
 }
 
 type DocUpdateMeta struct {
-	UserIds []primitive.ObjectID                   `json:"user_ids,omitempty"`
+	UserIds []edgedb.UUID                          `json:"user_ids,omitempty"`
 	Users   []*user.WithPublicInfoAndNonStandardId `json:"users,omitempty"`
 	StartTs sharedTypes.Timestamp                  `json:"start_ts"`
 	EndTs   sharedTypes.Timestamp                  `json:"end_ts"`
@@ -44,8 +44,8 @@ type Update struct {
 }
 
 type GetProjectHistoryUpdatesRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 
 	Before sharedTypes.Timestamp `form:"before" json:"before"`
 }

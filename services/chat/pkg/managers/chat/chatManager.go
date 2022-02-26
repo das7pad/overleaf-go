@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -33,57 +33,57 @@ import (
 type Manager interface {
 	GetGlobalMessages(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		limit int64,
 		before sharedTypes.Timestamp,
 	) ([]*types.Message, error)
 
 	SendGlobalMessage(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		content string,
-		userId primitive.ObjectID,
+		userId edgedb.UUID,
 	) (*types.Message, error)
 
 	SendThreadMessage(
 		ctx context.Context,
-		projectId, threadId primitive.ObjectID,
+		projectId, threadId edgedb.UUID,
 		content string,
-		userId primitive.ObjectID,
+		userId edgedb.UUID,
 	) (*types.Message, error)
 
 	GetAllThreads(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) (types.Threads, error)
 
 	ResolveThread(
 		ctx context.Context,
-		projectId, threadId, userId primitive.ObjectID,
+		projectId, threadId, userId edgedb.UUID,
 	) error
 
 	ReopenThread(
 		ctx context.Context,
-		projectId, threadId primitive.ObjectID,
+		projectId, threadId edgedb.UUID,
 	) error
 
 	DeleteThread(
 		ctx context.Context,
-		projectId, threadId primitive.ObjectID,
+		projectId, threadId edgedb.UUID,
 	) error
 
 	EditMessage(
 		ctx context.Context,
-		projectId, threadId, messageId primitive.ObjectID,
+		projectId, threadId, messageId edgedb.UUID,
 		content string,
 	) error
 
 	DeleteMessage(
 		ctx context.Context,
-		projectId, threadId, messageId primitive.ObjectID,
+		projectId, threadId, messageId edgedb.UUID,
 	) error
 
-	DeleteProject(ctx context.Context, projectId primitive.ObjectID) error
+	DeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -98,7 +98,7 @@ type manager struct {
 	tm thread.Manager
 }
 
-func (m *manager) DeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) DeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	chatThread, err := m.tm.FindOrCreateThread(ctx, projectId, nil)
 	if err != nil {
 		return errors.Tag(err, "cannot get chat thread")
@@ -107,7 +107,7 @@ func (m *manager) DeleteProject(ctx context.Context, projectId primitive.ObjectI
 	if err != nil {
 		return errors.Tag(err, "cannot get review threads")
 	}
-	roomIds := make([]primitive.ObjectID, len(threads)+1)
+	roomIds := make([]edgedb.UUID, len(threads)+1)
 	for i, room := range threads {
 		roomIds[i] = room.Id
 	}
@@ -127,7 +127,7 @@ func nowMS() float64 {
 
 func (m *manager) GetGlobalMessages(
 	ctx context.Context,
-	projectId primitive.ObjectID,
+	projectId edgedb.UUID,
 	limit int64,
 	before sharedTypes.Timestamp,
 ) ([]*types.Message, error) {
@@ -149,18 +149,18 @@ func (m *manager) GetGlobalMessages(
 
 func (m *manager) SendGlobalMessage(
 	ctx context.Context,
-	projectId primitive.ObjectID,
+	projectId edgedb.UUID,
 	content string,
-	userId primitive.ObjectID,
+	userId edgedb.UUID,
 ) (*types.Message, error) {
 	return m.sendMessage(ctx, projectId, nil, content, userId)
 }
 
 func (m *manager) SendThreadMessage(
 	ctx context.Context,
-	projectId, threadId primitive.ObjectID,
+	projectId, threadId edgedb.UUID,
 	content string,
-	userId primitive.ObjectID,
+	userId edgedb.UUID,
 ) (*types.Message, error) {
 	return m.sendMessage(ctx, projectId, &threadId, content, userId)
 }
@@ -175,10 +175,10 @@ var (
 
 func (m *manager) sendMessage(
 	ctx context.Context,
-	projectId primitive.ObjectID,
-	threadId *primitive.ObjectID,
+	projectId edgedb.UUID,
+	threadId *edgedb.UUID,
 	content string,
-	userId primitive.ObjectID,
+	userId edgedb.UUID,
 ) (*types.Message, error) {
 	if content == "" {
 		return nil, NoContentProvided
@@ -210,7 +210,7 @@ func (m *manager) sendMessage(
 }
 
 func groupMessagesByThreads(rooms []thread.Room, messages []*types.Message) types.Threads {
-	roomById := map[primitive.ObjectID]thread.Room{}
+	roomById := map[edgedb.UUID]thread.Room{}
 	for _, room := range rooms {
 		roomById[room.Id] = room
 	}
@@ -220,7 +220,7 @@ func groupMessagesByThreads(rooms []thread.Room, messages []*types.Message) type
 		if !exists {
 			continue
 		}
-		t, exists := threads[room.ThreadId.Hex()]
+		t, exists := threads[room.ThreadId.String()]
 		if !exists {
 			t = &types.Thread{
 				Messages: make([]*types.Message, 0),
@@ -233,21 +233,21 @@ func groupMessagesByThreads(rooms []thread.Room, messages []*types.Message) type
 			}
 		}
 		t.Messages = append(t.Messages, msg)
-		threads[room.ThreadId.Hex()] = t
+		threads[room.ThreadId.String()] = t
 	}
 	return threads
 }
 
 func (m *manager) GetAllThreads(
 	ctx context.Context,
-	projectId primitive.ObjectID,
+	projectId edgedb.UUID,
 ) (types.Threads, error) {
 	rooms, err := m.tm.FindAllThreadRooms(ctx, projectId)
 	if err != nil {
 		return nil, err
 	}
 
-	roomIds := make([]primitive.ObjectID, len(rooms))
+	roomIds := make([]edgedb.UUID, len(rooms))
 	for i, room := range rooms {
 		roomIds[i] = room.Id
 	}
@@ -258,21 +258,21 @@ func (m *manager) GetAllThreads(
 
 func (m *manager) ResolveThread(
 	ctx context.Context,
-	projectId, threadId, userId primitive.ObjectID,
+	projectId, threadId, userId edgedb.UUID,
 ) error {
 	return m.tm.ResolveThread(ctx, projectId, threadId, userId)
 }
 
 func (m *manager) ReopenThread(
 	ctx context.Context,
-	projectId, threadId primitive.ObjectID,
+	projectId, threadId edgedb.UUID,
 ) error {
 	return m.tm.ReopenThread(ctx, projectId, threadId)
 }
 
 func (m *manager) DeleteThread(
 	ctx context.Context,
-	projectId, threadId primitive.ObjectID,
+	projectId, threadId edgedb.UUID,
 ) error {
 	roomId, err := m.tm.DeleteThread(ctx, projectId, threadId)
 	if err != nil {
@@ -283,7 +283,7 @@ func (m *manager) DeleteThread(
 
 func (m *manager) EditMessage(
 	ctx context.Context,
-	projectId, threadId, messageId primitive.ObjectID,
+	projectId, threadId, messageId edgedb.UUID,
 	content string,
 ) error {
 	room, err := m.tm.FindOrCreateThread(
@@ -305,7 +305,7 @@ func (m *manager) EditMessage(
 
 func (m *manager) DeleteMessage(
 	ctx context.Context,
-	projectId, threadId, messageId primitive.ObjectID,
+	projectId, threadId, messageId edgedb.UUID,
 ) error {
 	room, err := m.tm.FindOrCreateThread(
 		ctx,

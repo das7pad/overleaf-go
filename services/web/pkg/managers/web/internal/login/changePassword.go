@@ -129,7 +129,7 @@ func (m *manager) postProcessPasswordChange(u *user.ForPasswordChange, s *sessio
 	if err := eg.Wait(); err != nil {
 		log.Printf(
 			"%s: cannot finalize password change: %s",
-			u.Id.Hex(), err.Error(),
+			u.Id.String(), err.Error(),
 		)
 	}
 }

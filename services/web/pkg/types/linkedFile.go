@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -28,28 +28,28 @@ import (
 type CreateLinkedFileProviderParameter struct {
 	ClsiServerId         ClsiServerId         `json:"clsiServerId"`
 	BuildId              clsiTypes.BuildId    `json:"build_id"`
-	SourceProjectId      primitive.ObjectID   `json:"source_project_id"`
+	SourceProjectId      edgedb.UUID          `json:"source_project_id"`
 	SourceEntityPath     sharedTypes.PathName `json:"source_entity_path"`
 	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path"`
 	URL                  *sharedTypes.URL     `json:"url"`
 }
 
 type CreateLinkedFileRequest struct {
-	UserId         primitive.ObjectID                `json:"-"`
-	ProjectId      primitive.ObjectID                `json:"-"`
-	ParentFolderId primitive.ObjectID                `json:"parent_folder_id"`
+	UserId         edgedb.UUID                       `json:"-"`
+	ProjectId      edgedb.UUID                       `json:"-"`
+	ParentFolderId edgedb.UUID                       `json:"parent_folder_id"`
 	Name           sharedTypes.Filename              `json:"name"`
 	Provider       project.LinkedFileProvider        `json:"provider"`
 	Parameter      CreateLinkedFileProviderParameter `json:"data"`
 }
 
 type RefreshLinkedFileRequest struct {
-	UserId    primitive.ObjectID `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	FileId    primitive.ObjectID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	FileId    edgedb.UUID `json:"-"`
 
-	ParentFolderId primitive.ObjectID `json:"-"`
-	File           *project.FileRef   `json:"-"`
+	ParentFolderId edgedb.UUID      `json:"-"`
+	File           *project.FileRef `json:"-"`
 }
 
 func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
@@ -58,7 +58,7 @@ func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
 	if r.Provider == project.LinkedFileProviderURL {
 		uri = r.Parameter.URL.String()
 	} else {
-		sourceProjectId = r.Parameter.SourceProjectId.Hex()
+		sourceProjectId = r.Parameter.SourceProjectId.String()
 	}
 	return &project.LinkedFileData{
 		Provider:             r.Provider,
@@ -87,7 +87,7 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		}
 		return nil
 	case project.LinkedFileProviderProjectFile:
-		if r.Parameter.SourceProjectId.IsZero() {
+		if r.Parameter.SourceProjectId == (edgedb.UUID{}) {
 			return &errors.ValidationError{Msg: "missing source_project_id"}
 		}
 		if err := r.Parameter.SourceEntityPath.Validate(); err != nil {
@@ -95,7 +95,7 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		}
 		return nil
 	case project.LinkedFileProviderProjectOutputFile:
-		if r.Parameter.SourceProjectId.IsZero() {
+		if r.Parameter.SourceProjectId == (edgedb.UUID{}) {
 			return &errors.ValidationError{Msg: "missing source_project_id"}
 		}
 		if err := r.Parameter.SourceOutputFilePath.Validate(); err != nil {

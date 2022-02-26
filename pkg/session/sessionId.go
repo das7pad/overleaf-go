@@ -21,8 +21,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const sessionIdSizeBytes = 24
@@ -80,8 +80,8 @@ func (r *newSessionIdResult) Populate(s *Session) {
 	s.persisted = r.blob
 }
 
-func userSessionsKey(id primitive.ObjectID) string {
-	return "UserSessions:{" + id.Hex() + "}"
+func userSessionsKey(id edgedb.UUID) string {
+	return "UserSessions:{" + id.String() + "}"
 }
 
 func (s *Session) newSessionIdOnceVia(ctx context.Context, runner redis.Cmdable) (*newSessionIdResult, error) {

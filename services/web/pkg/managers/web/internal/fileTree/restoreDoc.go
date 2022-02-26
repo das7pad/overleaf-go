@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -44,7 +44,7 @@ func (m *manager) RestoreDeletedDocInProject(ctx context.Context, request *types
 	}
 	doc := project.NewDoc(request.Name)
 
-	var rootFolderId primitive.ObjectID
+	var rootFolderId edgedb.UUID
 	var projectVersion sharedTypes.Version
 
 	err := m.txWithRetries(ctx, func(ctx context.Context) error {

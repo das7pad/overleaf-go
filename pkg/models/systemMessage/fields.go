@@ -17,13 +17,13 @@
 package systemMessage
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type ContentField struct {
-	Content string `json:"content" bson:"content"`
+	Content string `json:"content" edgedb:"content"`
 }

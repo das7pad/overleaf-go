@@ -17,17 +17,17 @@
 package tag
 
 type Full struct {
-	IdField         `bson:"inline"`
-	NameField       `bson:"inline"`
-	ProjectIdsField `bson:"inline"`
+	IdField         `edgedb:"inline"`
+	NameField       `edgedb:"inline"`
+	ProjectIdsField `edgedb:"inline"`
 }
 
 type userIdAndTagId struct {
-	IdField     `bson:"inline"`
-	UserIdField `bson:"inline"`
+	IdField     `edgedb:"inline"`
+	UserIdField `edgedb:"inline"`
 }
 
 type userIdAndTagName struct {
-	NameField   `bson:"inline"`
-	UserIdField `bson:"inline"`
+	NameField   `edgedb:"inline"`
+	UserIdField `edgedb:"inline"`
 }

@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -27,7 +27,7 @@ import (
 )
 
 type JoinProjectRequest struct {
-	ProjectId            primitive.ObjectID  `json:"project_id"`
+	ProjectId            edgedb.UUID         `json:"project_id"`
 	AnonymousAccessToken project.AccessToken `json:"anonymousAccessToken"`
 }
 

@@ -22,7 +22,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -54,7 +54,8 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 	pi.CreatedAt = now
 	pi.Email = request.Email
 	pi.Expires = now.Add(30 * 24 * time.Hour)
-	pi.Id = primitive.NewObjectID()
+	// TODO: refactor into server side gen.
+	pi.Id = edgedb.UUID{}
 	pi.PrivilegeLevel = request.PrivilegeLevel
 	pi.ProjectId = request.ProjectId
 	pi.SendingUserId = request.SenderUserId

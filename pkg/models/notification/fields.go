@@ -19,30 +19,29 @@ package notification
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type KeyField struct {
-	Key string `json:"key" bson:"key"`
+	Key string `json:"key" edgedb:"key"`
 }
 
 type UserIdField struct {
-	UserId primitive.ObjectID `json:"user_id" bson:"user_id"`
+	UserId edgedb.UUID `json:"user_id" edgedb:"user_id"`
 }
 
 type ExpiresField struct {
-	Expires time.Time `json:"expires,omitempty" bson:"expires,omitempty"`
+	Expires time.Time `json:"expires,omitempty" edgedb:"expires"`
 }
 
 type TemplateKeyField struct {
-	TemplateKey string `json:"templateKey,omitempty" bson:"templateKey,omitempty"`
+	TemplateKey string `json:"templateKey,omitempty" edgedb:"templateKey"`
 }
 
 type MessageOptsField struct {
-	MessageOptions *bson.M `json:"messageOpts,omitempty" bson:"messageOpts,omitempty"`
+	MessageOptions map[string]interface{} `json:"messageOpts,omitempty" edgedb:"messageOpts"`
 }

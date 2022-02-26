@@ -48,7 +48,7 @@ func (m *manager) CreateMultiProjectZIP(ctx context.Context, request *types.Crea
 			return f.Create(string(filename))
 		})
 		if err != nil {
-			return errors.Tag(err, "project: "+projectId.Hex())
+			return errors.Tag(err, "project: "+projectId.String())
 		}
 	}
 	errCloseZIP := f.Close()

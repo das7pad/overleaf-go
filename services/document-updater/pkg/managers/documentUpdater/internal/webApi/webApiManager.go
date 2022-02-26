@@ -19,7 +19,7 @@ package webApi
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -29,8 +29,8 @@ import (
 )
 
 type Manager interface {
-	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.FlushedDoc, error)
-	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error
+	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.FlushedDoc, error)
+	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *types.SetDocDetails) error
 }
 
 func New(options *types.Options, db *mongo.Database) (Manager, error) {

@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -30,9 +30,9 @@ import (
 )
 
 type Manager interface {
-	NewForEmailConfirmation(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
-	NewForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
-	NewForPasswordSet(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForEmailConfirmation(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForPasswordSet(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) (*EmailConfirmationData, error)
 	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken) (*PasswordResetData, error)
 }
@@ -59,7 +59,7 @@ type manager struct {
 	c *mongo.Collection
 }
 
-func (m *manager) NewForEmailConfirmation(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
+func (m *manager) NewForEmailConfirmation(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
 	now := time.Now().UTC()
 	return m.newToken(ctx, func(token OneTimeToken) interface{} {
 		return &forEmailConfirmation{
@@ -85,15 +85,15 @@ func (m *manager) NewForEmailConfirmation(ctx context.Context, userId primitive.
 	})
 }
 
-func (m *manager) NewForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
+func (m *manager) NewForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
 	return m.newForPasswordReset(ctx, userId, email, time.Hour)
 }
 
-func (m *manager) NewForPasswordSet(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email) (OneTimeToken, error) {
+func (m *manager) NewForPasswordSet(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
 	return m.newForPasswordReset(ctx, userId, email, 7*24*time.Hour)
 }
 
-func (m *manager) newForPasswordReset(ctx context.Context, userId primitive.ObjectID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
+func (m *manager) newForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
 	now := time.Now().UTC()
 	return m.newToken(ctx, func(token OneTimeToken) interface{} {
 		return &forNewPasswordReset{
@@ -106,7 +106,7 @@ func (m *manager) newForPasswordReset(ctx context.Context, userId primitive.Obje
 			PasswordResetDataField: PasswordResetDataField{
 				PasswordResetData: PasswordResetData{
 					Email:     email,
-					HexUserId: userId.Hex(),
+					HexUserId: userId.String(),
 				},
 			},
 			CreatedAtField: CreatedAtField{

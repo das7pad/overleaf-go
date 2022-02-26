@@ -69,9 +69,9 @@ func (t AccessToken) ValidateReadOnly() error {
 }
 
 type Tokens struct {
-	ReadOnly           AccessToken `json:"readOnly" bson:"readOnly"`
-	ReadAndWrite       AccessToken `json:"readAndWrite" bson:"readAndWrite"`
-	ReadAndWritePrefix string      `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
+	ReadOnly           AccessToken `json:"readOnly" edgedb:"readOnly"`
+	ReadAndWrite       AccessToken `json:"readAndWrite" edgedb:"readAndWrite"`
+	ReadAndWritePrefix string      `json:"readAndWritePrefix" edgedb:"readAndWritePrefix"`
 }
 
 //goland:noinspection SpellCheckingInspection

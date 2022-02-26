@@ -17,12 +17,12 @@
 package oneTimeToken
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type EmailConfirmationData struct {
-	Email  sharedTypes.Email  `bson:"email"`
-	UserId primitive.ObjectID `bson:"user_id"`
+	Email  sharedTypes.Email `edgedb:"email"`
+	UserId edgedb.UUID       `edgedb:"user_id"`
 }

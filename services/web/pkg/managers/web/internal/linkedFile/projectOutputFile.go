@@ -20,7 +20,7 @@ import (
 	"context"
 	"net/url"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -62,7 +62,7 @@ func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLink
 }
 
 func (m *manager) refreshProjectOutputFile(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
-	sourceProjectId, err := primitive.ObjectIDFromHex(
+	sourceProjectId, err := edgedb.ParseUUID(
 		r.File.LinkedFileData.SourceProjectId,
 	)
 	if err != nil {

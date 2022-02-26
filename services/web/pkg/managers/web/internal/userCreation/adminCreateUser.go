@@ -77,7 +77,7 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 		WithPath("/user/activate").
 		WithQuery(url.Values{
 			"token":   {string(t)},
-			"user_id": {u.Id.Hex()},
+			"user_id": {u.Id.String()},
 		})
 
 	response.SetNewPasswordURL = setPasswordURL

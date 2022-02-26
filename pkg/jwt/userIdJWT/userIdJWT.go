@@ -17,7 +17,7 @@
 package userIdJWT
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
@@ -25,7 +25,7 @@ import (
 
 type Claims struct {
 	expiringJWT.Claims
-	UserId primitive.ObjectID `json:"userId"`
+	UserId edgedb.UUID `json:"userId"`
 }
 
 func (c *Claims) PostProcess(target *httpUtils.Context) error {

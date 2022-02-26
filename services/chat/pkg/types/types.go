@@ -19,25 +19,25 @@ package types
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type Message struct {
-	Id        primitive.ObjectID                   `json:"id" bson:"_id,omitempty"`
-	Content   string                               `json:"content" bson:"content"`
-	Timestamp float64                              `json:"timestamp" bson:"timestamp"`
-	UserId    primitive.ObjectID                   `json:"user_id" bson:"user_id"`
-	User      *user.WithPublicInfoAndNonStandardId `json:"user,omitempty" bson:"-"`
-	EditedAt  float64                              `json:"edited_at,omitempty" bson:"edited_at,omitempty"`
-	RoomId    primitive.ObjectID                   `json:"room_id,omitempty" bson:"room_id"`
+	Id        edgedb.UUID                          `json:"id" edgedb:"id"`
+	Content   string                               `json:"content" edgedb:"content"`
+	Timestamp float64                              `json:"timestamp" edgedb:"timestamp"`
+	UserId    edgedb.UUID                          `json:"user_id" edgedb:"user_id"`
+	User      *user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"-"`
+	EditedAt  float64                              `json:"edited_at,omitempty" edgedb:"edited_at"`
+	RoomId    edgedb.UUID                          `json:"room_id,omitempty" edgedb:"room_id"`
 }
 
 type Thread struct {
 	Resolved         *bool                                `json:"resolved,omitempty"`
 	ResolvedAt       *time.Time                           `json:"resolved_at,omitempty"`
-	ResolvedByUserId *primitive.ObjectID                  `json:"resolved_by_user_id,omitempty"`
+	ResolvedByUserId *edgedb.UUID                         `json:"resolved_by_user_id,omitempty"`
 	ResolvedByUser   *user.WithPublicInfoAndNonStandardId `json:"resolved_by_user,omitempty"`
 	Messages         []*Message                           `json:"messages"`
 }

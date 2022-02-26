@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"io"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -37,29 +37,29 @@ import (
 type Manager interface {
 	ArchiveDocs(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 
 	ArchiveDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
 
 	UnArchiveDocs(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 
 	UnArchiveDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
 
 	DestroyDocs(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 }
 
@@ -85,17 +85,17 @@ type manager struct {
 
 type pMapWorker func(
 	ctx context.Context,
-	projectId primitive.ObjectID,
-	docId primitive.ObjectID,
+	projectId edgedb.UUID,
+	docId edgedb.UUID,
 ) error
 
 type pMapProducer func(
 	ctx context.Context,
-	projectId primitive.ObjectID,
+	projectId edgedb.UUID,
 	limit int32,
-) (docIds <-chan primitive.ObjectID, errors <-chan error)
+) (docIds <-chan edgedb.UUID, errors <-chan error)
 
-func (m *manager) pMap(ctx context.Context, projectId primitive.ObjectID, producer pMapProducer, worker pMapWorker) error {
+func (m *manager) pMap(ctx context.Context, projectId edgedb.UUID, producer pMapProducer, worker pMapWorker) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	docIds, errs := producer(pCtx, projectId, m.pLimits.BatchSize)
 	eg.Go(func() error {
@@ -117,7 +117,7 @@ func (m *manager) pMap(ctx context.Context, projectId primitive.ObjectID, produc
 		eg.Go(func() error {
 			for docId := range docIds {
 				if err := worker(pCtx, projectId, docId); err != nil {
-					return errors.Tag(err, "failed for "+docId.Hex())
+					return errors.Tag(err, "failed for "+docId.String())
 				}
 			}
 			return nil
@@ -126,15 +126,15 @@ func (m *manager) pMap(ctx context.Context, projectId primitive.ObjectID, produc
 	return eg.Wait()
 }
 
-func (m *manager) ArchiveDocs(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) ArchiveDocs(ctx context.Context, projectId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.pMap(ctx, projectId, m.dm.GetDocIdsForArchiving, m.ArchiveDoc)
 }
 
-func docKey(projectId primitive.ObjectID, docId primitive.ObjectID) string {
-	return fmt.Sprintf("%s/%s", projectId.Hex(), docId.Hex())
+func docKey(projectId edgedb.UUID, docId edgedb.UUID) string {
+	return fmt.Sprintf("%s/%s", projectId.String(), docId.String())
 }
 
 type archivedDocBase struct {
@@ -154,7 +154,7 @@ var (
 	errUnknownArchiveFormat = errors.New("unknown archive format")
 )
 
-func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) ArchiveDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
@@ -194,14 +194,14 @@ func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, 
 	return m.dm.MarkDocAsArchived(ctx, projectId, docId, d.Revision)
 }
 
-func (m *manager) UnArchiveDocs(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) UnArchiveDocs(ctx context.Context, projectId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.pMap(ctx, projectId, m.dm.GetDocIdsForUnArchiving, m.UnArchiveDoc)
 }
 
-func (m *manager) UnArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) UnArchiveDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
@@ -272,14 +272,14 @@ func deserializeArchive(blob []byte) (*doc.ArchiveContents, error) {
 	return nil, errUnknownArchiveFormat
 }
 
-func (m *manager) DestroyDocs(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) DestroyDocs(ctx context.Context, projectId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.pMap(ctx, projectId, m.dm.GetDocIdsForDeletion, m.DestroyDoc)
 }
 
-func (m *manager) DestroyDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) DestroyDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	if err := mongoTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}

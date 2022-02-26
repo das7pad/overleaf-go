@@ -19,7 +19,7 @@ package editor
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -31,7 +31,7 @@ func (m *manager) GetUserContacts(ctx context.Context, request *types.GetUserCon
 		return err
 	}
 	userId := request.Session.User.Id
-	sortedIds := make([]primitive.ObjectID, 0)
+	sortedIds := make([]edgedb.UUID, 0)
 	err := m.csm.GetForUser(ctx, userId, &sortedIds)
 	if err != nil {
 		return errors.Tag(err, "cannot get contacts")

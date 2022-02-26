@@ -19,8 +19,8 @@ package doc
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -31,98 +31,98 @@ import (
 type Manager interface {
 	IsDocArchived(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (bool, error)
 
 	IsDocDeleted(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (bool, error)
 
 	CheckDocExists(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
 
 	GetDocContentsWithFullContext(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (*ContentsWithFullContext, error)
 
 	GetDocForArchiving(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (*ArchiveContext, error)
 
 	GetDocLines(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (sharedTypes.Lines, error)
 
 	PeakDeletedDocNames(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		limit int64,
 	) ([]Name, error)
 
 	GetAllRanges(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) ([]Ranges, error)
 
 	GetAllDocContents(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) (ContentsCollection, error)
 
 	GetDocIdsForDeletion(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		batchSize int32,
-	) (<-chan primitive.ObjectID, <-chan error)
+	) (<-chan edgedb.UUID, <-chan error)
 
 	GetDocIdsForArchiving(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		batchSize int32,
-	) (<-chan primitive.ObjectID, <-chan error)
+	) (<-chan edgedb.UUID, <-chan error)
 
 	GetDocIdsForUnArchiving(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		batchSize int32,
-	) (<-chan primitive.ObjectID, <-chan error)
+	) (<-chan edgedb.UUID, <-chan error)
 
-	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
-	CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []Contents) error
+	CreateDocWithContent(ctx context.Context, projectId, docId edgedb.UUID, snapshot sharedTypes.Snapshot) error
+	CreateDocsWithContent(ctx context.Context, projectId edgedb.UUID, docs []Contents) error
 
-	UpdateDoc(ctx context.Context, projectId, docId primitive.ObjectID, update *ForDocUpdate) error
-	RestoreArchivedContent(ctx context.Context, projectId, docId primitive.ObjectID, contents *ArchiveContents) error
+	UpdateDoc(ctx context.Context, projectId, docId edgedb.UUID, update *ForDocUpdate) error
+	RestoreArchivedContent(ctx context.Context, projectId, docId edgedb.UUID, contents *ArchiveContents) error
 
 	PatchDocMeta(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		docMeta Meta,
 	) error
 
 	MarkDocAsArchived(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		revision sharedTypes.Revision,
 	) error
 
 	DestroyDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
 }
 
@@ -149,7 +149,7 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) IsDocArchived(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
+func (m *manager) IsDocArchived(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (bool, error) {
 	var doc InS3Field
 	err := m.c.FindOne(
 		ctx,
@@ -162,7 +162,7 @@ func (m *manager) IsDocArchived(ctx context.Context, projectId primitive.ObjectI
 	return doc.IsArchived(), nil
 }
 
-func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
+func (m *manager) IsDocDeleted(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (bool, error) {
 	var doc DeletedField
 	err := m.c.FindOne(
 		ctx,
@@ -175,7 +175,7 @@ func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID
 	return doc.Deleted, nil
 }
 
-func (m *manager) CheckDocExists(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) CheckDocExists(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	err := m.c.FindOne(
 		ctx,
 		docFilter(projectId, docId),
@@ -184,7 +184,7 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId primitive.Object
 	return rewriteMongoError(err)
 }
 
-func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*ContentsWithFullContext, error) {
+func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (*ContentsWithFullContext, error) {
 	var doc ContentsWithFullContext
 	err := m.c.FindOne(
 		ctx,
@@ -200,7 +200,7 @@ func (m *manager) GetDocContentsWithFullContext(ctx context.Context, projectId p
 	return &doc, nil
 }
 
-func (m *manager) GetDocForArchiving(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*ArchiveContext, error) {
+func (m *manager) GetDocForArchiving(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (*ArchiveContext, error) {
 	var doc ArchiveContext
 	err := m.c.FindOne(
 		ctx,
@@ -217,7 +217,7 @@ func (m *manager) GetDocForArchiving(ctx context.Context, projectId primitive.Ob
 	return &doc, nil
 }
 
-func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (sharedTypes.Lines, error) {
+func (m *manager) GetDocLines(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (sharedTypes.Lines, error) {
 	var doc Lines
 	err := m.c.FindOne(
 		ctx,
@@ -234,7 +234,7 @@ func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID,
 	return doc.Lines, nil
 }
 
-func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID, limit int64) ([]Name, error) {
+func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId edgedb.UUID, limit int64) ([]Name, error) {
 	docs := make(NameCollection, 0)
 	res, err := m.c.Find(
 		ctx,
@@ -257,7 +257,7 @@ func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.O
 	return docs, nil
 }
 
-func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]Ranges, error) {
+func (m *manager) GetAllRanges(ctx context.Context, projectId edgedb.UUID) ([]Ranges, error) {
 	docs := make(RangesCollection, 0)
 	res, err := m.c.Find(
 		ctx,
@@ -280,7 +280,7 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 	return docs, nil
 }
 
-func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) (ContentsCollection, error) {
+func (m *manager) GetAllDocContents(ctx context.Context, projectId edgedb.UUID) (ContentsCollection, error) {
 	docs := make(ContentsCollection, 0)
 	res, err := m.c.Find(
 		ctx,
@@ -302,8 +302,8 @@ func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.Obj
 	return docs, nil
 }
 
-func (m *manager) streamDocIds(ctx context.Context, filter bson.M, batchSize int32) (<-chan primitive.ObjectID, <-chan error) {
-	ids := make(chan primitive.ObjectID)
+func (m *manager) streamDocIds(ctx context.Context, filter bson.M, batchSize int32) (<-chan edgedb.UUID, <-chan error) {
+	ids := make(chan edgedb.UUID)
 	errs := make(chan error)
 
 	go func() {
@@ -341,7 +341,7 @@ func (m *manager) streamDocIds(ctx context.Context, filter bson.M, batchSize int
 	return ids, errs
 }
 
-func (m *manager) GetDocIdsForDeletion(ctx context.Context, projectId primitive.ObjectID, batchSize int32) (<-chan primitive.ObjectID, <-chan error) {
+func (m *manager) GetDocIdsForDeletion(ctx context.Context, projectId edgedb.UUID, batchSize int32) (<-chan edgedb.UUID, <-chan error) {
 	return m.streamDocIds(
 		ctx,
 		projectFilterAllDocs(projectId),
@@ -349,7 +349,7 @@ func (m *manager) GetDocIdsForDeletion(ctx context.Context, projectId primitive.
 	)
 }
 
-func (m *manager) GetDocIdsForArchiving(ctx context.Context, projectId primitive.ObjectID, batchSize int32) (<-chan primitive.ObjectID, <-chan error) {
+func (m *manager) GetDocIdsForArchiving(ctx context.Context, projectId edgedb.UUID, batchSize int32) (<-chan edgedb.UUID, <-chan error) {
 	return m.streamDocIds(
 		ctx,
 		projectFilterNonArchivedDocs(projectId),
@@ -357,7 +357,7 @@ func (m *manager) GetDocIdsForArchiving(ctx context.Context, projectId primitive
 	)
 }
 
-func (m *manager) GetDocIdsForUnArchiving(ctx context.Context, projectId primitive.ObjectID, batchSize int32) (<-chan primitive.ObjectID, <-chan error) {
+func (m *manager) GetDocIdsForUnArchiving(ctx context.Context, projectId edgedb.UUID, batchSize int32) (<-chan edgedb.UUID, <-chan error) {
 	return m.streamDocIds(
 		ctx,
 		projectFilterNeedsUnArchiving(projectId),
@@ -365,7 +365,7 @@ func (m *manager) GetDocIdsForUnArchiving(ctx context.Context, projectId primiti
 	)
 }
 
-func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
+func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId edgedb.UUID, snapshot sharedTypes.Snapshot) error {
 	_, err := m.c.InsertOne(ctx, &forInsertion{
 		IdField:        IdField{Id: docId},
 		ProjectIdField: ProjectIdField{ProjectId: projectId},
@@ -379,7 +379,7 @@ func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId pri
 	return nil
 }
 
-func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []Contents) error {
+func (m *manager) CreateDocsWithContent(ctx context.Context, projectId edgedb.UUID, docs []Contents) error {
 	docContents := make([]interface{}, len(docs))
 	for i, doc := range docs {
 		docContents[i] = &forInsertion{
@@ -396,7 +396,7 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive
 	return nil
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId, docId primitive.ObjectID, update *ForDocUpdate) error {
+func (m *manager) UpdateDoc(ctx context.Context, projectId, docId edgedb.UUID, update *ForDocUpdate) error {
 	_, err := m.c.UpdateOne(
 		ctx,
 		docFilter(projectId, docId),
@@ -412,7 +412,7 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId primitive.Obje
 	return nil
 }
 
-func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId primitive.ObjectID, contents *ArchiveContents) error {
+func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId edgedb.UUID, contents *ArchiveContents) error {
 	_, err := m.c.UpdateOne(
 		ctx,
 		docFilterInS3(projectId, docId),
@@ -428,7 +428,7 @@ func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId p
 	return nil
 }
 
-func (m *manager) PatchDocMeta(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta Meta) error {
+func (m *manager) PatchDocMeta(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, meta Meta) error {
 	_, err := m.c.UpdateOne(
 		ctx,
 		docFilter(projectId, docId),
@@ -439,7 +439,7 @@ func (m *manager) PatchDocMeta(ctx context.Context, projectId primitive.ObjectID
 	return err
 }
 
-func (m *manager) MarkDocAsArchived(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, revision sharedTypes.Revision) error {
+func (m *manager) MarkDocAsArchived(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, revision sharedTypes.Revision) error {
 	filter := docFilterWithRevision(projectId, docId, revision)
 	_, err := m.c.UpdateOne(
 		ctx,
@@ -452,7 +452,7 @@ func (m *manager) MarkDocAsArchived(ctx context.Context, projectId primitive.Obj
 	return rewriteMongoError(err)
 }
 
-func (m *manager) DestroyDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) DestroyDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	if _, err := m.c.DeleteOne(ctx, docFilter(projectId, docId)); err != nil {
 		return rewriteMongoError(err)
 	}

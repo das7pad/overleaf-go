@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/deletedFile"
@@ -77,7 +77,7 @@ type manager struct {
 	projectMetadata projectMetadata.Manager
 }
 
-func (m *manager) notifyEditor(projectId primitive.ObjectID, message string, args ...interface{}) {
+func (m *manager) notifyEditor(projectId edgedb.UUID, message string, args ...interface{}) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	blob, err := json.Marshal(args)

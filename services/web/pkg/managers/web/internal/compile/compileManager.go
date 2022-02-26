@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -118,8 +118,8 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 	)
 
 	u := m.baseURL
-	u += "/project/" + request.ProjectId.Hex()
-	u += "/user/" + request.UserId.Hex()
+	u += "/project/" + request.ProjectId.String()
+	u += "/user/" + request.UserId.String()
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
 	if err != nil {
@@ -223,7 +223,7 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 		return nil, "", errors.Tag(err, "cannot get folder from mongo")
 	}
 	files := make(clsiTypes.Resources, 0)
-	docs := make(map[primitive.ObjectID]sharedTypes.PathName, 0)
+	docs := make(map[edgedb.UUID]sharedTypes.PathName, 0)
 
 	err = folder.Walk(func(e project.TreeElement, p sharedTypes.PathName) error {
 		switch entry := e.(type) {
@@ -257,7 +257,7 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 		p, exists := docs[doc.Id]
 		if !exists {
 			return nil, "", errors.Tag(
-				&errors.NotFoundError{}, "cannot find doc "+doc.Id.Hex(),
+				&errors.NotFoundError{}, "cannot find doc "+doc.Id.String(),
 			)
 		}
 
@@ -323,8 +323,8 @@ type compileResponseBody struct {
 
 func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRequest, requestBody *clsiTypes.CompileRequest, response *types.CompileProjectResponse) error {
 	u := m.baseURL
-	u += "/project/" + request.ProjectId.Hex()
-	u += "/user/" + request.UserId.Hex()
+	u += "/project/" + request.ProjectId.String()
+	u += "/user/" + request.UserId.String()
 	u += "/compile"
 
 	blob, err := json.Marshal(&compileRequestBody{Request: requestBody})

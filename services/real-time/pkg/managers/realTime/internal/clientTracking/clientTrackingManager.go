@@ -22,8 +22,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -56,12 +56,12 @@ const (
 	positionField = "cursorData"
 )
 
-func getConnectedUserKey(projectId primitive.ObjectID, id sharedTypes.PublicId) string {
-	return "connected_user:{" + projectId.Hex() + "}:" + string(id)
+func getConnectedUserKey(projectId edgedb.UUID, id sharedTypes.PublicId) string {
+	return "connected_user:{" + projectId.String() + "}:" + string(id)
 }
 
-func getProjectKey(projectId primitive.ObjectID) string {
-	return "clients_in_project:{" + projectId.Hex() + "}"
+func getProjectKey(projectId edgedb.UUID) string {
+	return "clients_in_project:{" + projectId.String() + "}"
 }
 
 func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
@@ -144,7 +144,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	return connectedClients, nil
 }
 
-func (m *manager) cleanupStaleClients(projectId primitive.ObjectID, staleClients []sharedTypes.PublicId) {
+func (m *manager) cleanupStaleClients(projectId edgedb.UUID, staleClients []sharedTypes.PublicId) {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 

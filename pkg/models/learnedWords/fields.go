@@ -17,5 +17,5 @@
 package learnedWords
 
 type spellingPreference struct {
-	LearnedWords []string `bson:"learnedWords"`
+	LearnedWords []string `edgedb:"learnedWords"`
 }

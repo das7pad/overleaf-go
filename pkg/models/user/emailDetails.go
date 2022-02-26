@@ -19,18 +19,18 @@ package user
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type EmailDetails struct {
-	Id               primitive.ObjectID           `bson:"_id"`
-	CreatedAt        time.Time                    `json:"createdAt" bson:"createdAt"`
-	ConfirmedAt      *time.Time                   `json:"confirmedAt" bson:"confirmedAt"`
-	ReconfirmedAt    *time.Time                   `json:"reconfirmedAt" bson:"reconfirmedAt"`
-	Email            sharedTypes.Email            `json:"email" bson:"email"`
-	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" bson:"reversedHostname"`
+	Id               edgedb.UUID                  `edgedb:"id"`
+	CreatedAt        time.Time                    `json:"createdAt" edgedb:"createdAt"`
+	ConfirmedAt      *time.Time                   `json:"confirmedAt" edgedb:"confirmedAt"`
+	ReconfirmedAt    *time.Time                   `json:"reconfirmedAt" edgedb:"reconfirmedAt"`
+	Email            sharedTypes.Email            `json:"email" edgedb:"email"`
+	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" edgedb:"reversedHostname"`
 }
 
 type EmailDetailsWithDefaultFlag struct {

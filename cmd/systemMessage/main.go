@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -35,14 +34,9 @@ func main() {
 	timeout := flag.Duration("timout", 10*time.Second, "timeout for operation")
 	flag.Parse()
 	*msg = strings.TrimSpace(*msg)
-	if *clear == false && *msg == "" {
-		fmt.Println("ERR: must set -clear or -message")
-		flag.Usage()
-		os.Exit(101)
-	}
 
-	db := utils.MustConnectMongo(*timeout)
-	smm := systemMessage.New(db)
+	c := utils.MustConnectEdgedb(*timeout)
+	smm := systemMessage.New(c)
 
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
@@ -50,9 +44,17 @@ func main() {
 	if *clear {
 		log.Println("Deleting all system messages.")
 		err = smm.DeleteAll(ctx)
-	} else {
+	} else if *msg != "" {
 		log.Println("Creating new system message.")
 		err = smm.Create(ctx, *msg)
+	} else {
+		var messages []systemMessage.Full
+		messages, err = smm.GetAll(ctx)
+		if err == nil {
+			for i, message := range messages {
+				fmt.Printf("%d: %s: %s\n", i, message.Id, message.Content)
+			}
+		}
 	}
 	if err != nil {
 		panic(err)

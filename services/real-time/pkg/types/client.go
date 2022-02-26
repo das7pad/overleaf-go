@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/gorilla/websocket"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -104,7 +104,7 @@ func generatePublicId() (sharedTypes.PublicId, error) {
 	return id, nil
 }
 
-func NewClient(projectId primitive.ObjectID, user User, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
+func NewClient(projectId edgedb.UUID, user User, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
@@ -121,14 +121,14 @@ func NewClient(projectId primitive.ObjectID, user User, writerChanges chan bool,
 
 type Client struct {
 	capabilities    Capabilities
-	lockedProjectId primitive.ObjectID
+	lockedProjectId edgedb.UUID
 
-	DocId     *primitive.ObjectID
+	DocId     *edgedb.UUID
 	PublicId  sharedTypes.PublicId
-	ProjectId *primitive.ObjectID
+	ProjectId *edgedb.UUID
 	User      User
 
-	knownDocs []primitive.ObjectID
+	knownDocs []edgedb.UUID
 
 	writerChanges chan bool
 	writeQueue    WriteQueue
@@ -143,7 +143,7 @@ func (c *Client) RemoveWriter() {
 	c.writerChanges <- false
 }
 
-func (c *Client) IsKnownDoc(id primitive.ObjectID) bool {
+func (c *Client) IsKnownDoc(id edgedb.UUID) bool {
 	if c.knownDocs == nil {
 		return false
 	}
@@ -157,7 +157,7 @@ func (c *Client) IsKnownDoc(id primitive.ObjectID) bool {
 
 const MaxKnownDocsToKeep = 100
 
-func (c *Client) AddKnownDoc(id primitive.ObjectID) {
+func (c *Client) AddKnownDoc(id edgedb.UUID) {
 	if len(c.knownDocs) < MaxKnownDocsToKeep {
 		c.knownDocs = append(c.knownDocs, id)
 	} else {
@@ -211,11 +211,11 @@ func (c *Client) requireJoinedProjectAndDoc() error {
 	return nil
 }
 
-func (c *Client) CanJoinProject(id primitive.ObjectID) error {
+func (c *Client) CanJoinProject(id edgedb.UUID) error {
 	if id != c.lockedProjectId {
 		return errors.Tag(
 			&errors.NotAuthorizedError{},
-			"rejecting cross project join "+id.Hex(),
+			"rejecting cross project join "+id.String(),
 		)
 	}
 	return nil
@@ -229,7 +229,7 @@ func (c *Client) CheckHasCapability(component CapabilityComponent) error {
 	return c.capabilities.CheckIncludes(component)
 }
 
-func (c *Client) CanDo(action Action, docId primitive.ObjectID) error {
+func (c *Client) CanDo(action Action, docId edgedb.UUID) error {
 	switch action {
 	case Ping:
 		return nil

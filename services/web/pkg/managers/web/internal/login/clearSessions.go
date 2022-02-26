@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -30,7 +30,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) bumpEpoch(ctx context.Context, userId primitive.ObjectID) error {
+func (m *manager) bumpEpoch(ctx context.Context, userId edgedb.UUID) error {
 	err := projectJWT.ClearUserField(ctx, m.client, userId)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func (m *manager) bumpEpoch(ctx context.Context, userId primitive.ObjectID) erro
 }
 
 type clearSessionsAuditLogInfo struct {
-	Sessions []*session.OtherSessionData `json:"sessions" bson:"sessions"`
+	Sessions []*session.OtherSessionData `json:"sessions"`
 }
 
 func (m *manager) ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error {

@@ -36,8 +36,8 @@ const (
 )
 
 type withMisspelledSignUpDate struct {
-	user.IdField `bson:"inline"`
-	SignUpDate   time.Time `bson:"SignUpDate"`
+	user.IdField `edgedb:"inline"`
+	SignUpDate   time.Time `edgedb:"SignUpDate"`
 }
 
 func Migrate(ctx context.Context, db *mongo.Database) error {
@@ -73,7 +73,7 @@ func Migrate(ctx context.Context, db *mongo.Database) error {
 				}
 				if _, err := c.UpdateOne(pCtx, next.IdField, u); err != nil {
 					return errors.Tag(
-						err, "cannot rename field for: "+next.Id.Hex(),
+						err, "cannot rename field for: "+next.Id.String(),
 					)
 				}
 			}

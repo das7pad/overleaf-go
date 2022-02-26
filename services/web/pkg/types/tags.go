@@ -17,16 +17,16 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
 type AddProjectToTagRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	TagId     primitive.ObjectID `json:"-"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
+	TagId     edgedb.UUID      `json:"-"`
 }
 
 type CreateTagRequest struct {
@@ -37,18 +37,18 @@ type CreateTagRequest struct {
 type CreateTagResponse = tag.Full
 
 type DeleteTagRequest struct {
-	Session *session.Session   `json:"-"`
-	TagId   primitive.ObjectID `json:"-"`
+	Session *session.Session `json:"-"`
+	TagId   edgedb.UUID      `json:"-"`
 }
 
 type RemoveProjectToTagRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	TagId     primitive.ObjectID `json:"-"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
+	TagId     edgedb.UUID      `json:"-"`
 }
 
 type RenameTagRequest struct {
-	Session *session.Session   `json:"-"`
-	TagId   primitive.ObjectID `json:"-"`
-	Name    string             `json:"name"`
+	Session *session.Session `json:"-"`
+	TagId   edgedb.UUID      `json:"-"`
+	Name    string           `json:"name"`
 }

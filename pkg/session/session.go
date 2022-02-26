@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -39,7 +39,7 @@ type Session struct {
 	client         redis.UniversalClient
 	expiry         time.Duration
 	id             Id
-	incomingUserId *primitive.ObjectID
+	incomingUserId *edgedb.UUID
 	noAutoSave     bool
 	persisted      []byte
 	providedId     Id
@@ -65,7 +65,7 @@ func (s *Session) CheckIsLoggedIn() error {
 }
 
 func (s *Session) IsLoggedIn() bool {
-	return !s.User.Id.IsZero()
+	return s.User.Id != (edgedb.UUID{})
 }
 
 func (s *Session) SetNoAutoSave() {
@@ -145,7 +145,7 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 	if err != nil && err != redis.Nil {
 		return err
 	}
-	if !s.incomingUserId.IsZero() {
+	if s.incomingUserId != nil && *s.incomingUserId != (edgedb.UUID{}) {
 		// Multi/EXEC skips over nil error from `DEL`.
 		// Perform tracking calls after deleting session id.
 		// Ignore errors as there is no option to recover from any error

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -71,12 +71,12 @@ func (t *Timestamp) ParseIfSet(s string) error {
 }
 
 type DocumentUpdateMeta struct {
-	Type             string             `json:"type,omitempty"`
-	Source           PublicId           `json:"source"`
-	Timestamp        Timestamp          `json:"ts,omitempty"`
-	TrackChangesSeed TrackChangesSeed   `json:"tc,omitempty"`
-	UserId           primitive.ObjectID `json:"user_id,omitempty"`
-	IngestionTime    *time.Time         `json:"ingestion_time,omitempty"`
+	Type             string           `json:"type,omitempty"`
+	Source           PublicId         `json:"source"`
+	Timestamp        Timestamp        `json:"ts,omitempty"`
+	TrackChangesSeed TrackChangesSeed `json:"tc,omitempty"`
+	UserId           edgedb.UUID      `json:"user_id,omitempty"`
+	IngestionTime    *time.Time       `json:"ingestion_time,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {
@@ -93,12 +93,12 @@ func (d *DocumentUpdateMeta) Validate() error {
 }
 
 type Component struct {
-	Comment   Snippet             `json:"c,omitempty"`
-	Deletion  Snippet             `json:"d,omitempty"`
-	Insertion Snippet             `json:"i,omitempty"`
-	Position  int                 `json:"p"`
-	Thread    *primitive.ObjectID `json:"t,omitempty"`
-	Undo      bool                `json:"undo,omitempty"`
+	Comment   Snippet      `json:"c,omitempty"`
+	Deletion  Snippet      `json:"d,omitempty"`
+	Insertion Snippet      `json:"i,omitempty"`
+	Position  int          `json:"p"`
+	Thread    *edgedb.UUID `json:"t,omitempty"`
+	Undo      bool         `json:"undo,omitempty"`
 }
 
 func (o *Component) IsComment() bool {
@@ -115,7 +115,7 @@ func (o *Component) Validate() error {
 		return &errors.ValidationError{Msg: "position is negative"}
 	}
 	if o.IsComment() {
-		if o.Thread == nil || o.Thread.IsZero() {
+		if o.Thread == nil || *o.Thread == (edgedb.UUID{}) {
 			return &errors.ValidationError{Msg: "comment op is missing thread"}
 		}
 		return nil
@@ -172,7 +172,7 @@ func (d DupIfSource) Contains(id PublicId) bool {
 }
 
 type DocumentUpdate struct {
-	DocId       primitive.ObjectID `json:"doc"`
+	DocId       edgedb.UUID        `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
 	DupIfSource DupIfSource        `json:"dupIfSource,omitempty"`
 	Hash        Hash               `json:"hash,omitempty"`
@@ -223,19 +223,19 @@ func (d *DocumentUpdate) CheckVersion(current Version) error {
 }
 
 type DocumentUpdateAck struct {
-	DocId   primitive.ObjectID `json:"doc"`
-	Version Version            `json:"v"`
+	DocId   edgedb.UUID `json:"doc"`
+	Version Version     `json:"v"`
 }
 
 type AppliedOpsMessage struct {
-	DocId       primitive.ObjectID      `json:"doc_id"`
+	DocId       edgedb.UUID             `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
 	Update      *DocumentUpdate         `json:"op,omitempty"`
 	ProcessedBy string                  `json:"processed_by,omitempty"`
 }
 
-func (m *AppliedOpsMessage) ChannelId() primitive.ObjectID {
+func (m *AppliedOpsMessage) ChannelId() edgedb.UUID {
 	return m.DocId
 }
 

@@ -17,23 +17,23 @@
 package httpUtils
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func ParseAndValidateId(c *Context, name string) (primitive.ObjectID, error) {
-	id, err := primitive.ObjectIDFromHex(c.Param(name))
-	if err != nil || id == primitive.NilObjectID {
-		return primitive.NilObjectID, &errors.ValidationError{
+func ParseAndValidateId(c *Context, name string) (edgedb.UUID, error) {
+	id, err := edgedb.ParseUUID(c.Param(name))
+	if err != nil || id == (edgedb.UUID{}) {
+		return edgedb.UUID{}, &errors.ValidationError{
 			Msg: "invalid " + name,
 		}
 	}
 	return id, nil
 }
 
-func GetId(c *Context, name string) primitive.ObjectID {
-	return c.Value(name).(primitive.ObjectID)
+func GetId(c *Context, name string) edgedb.UUID {
+	return c.Value(name).(edgedb.UUID)
 }
 
 func ValidateAndSetId(name string) MiddlewareFunc {
@@ -56,7 +56,7 @@ func ValidateAndSetIdZeroOK(name string) MiddlewareFunc {
 		return func(c *Context) {
 			raw := c.Param(name)
 			if raw == "000000000000000000000000" {
-				c.AddValue(name, primitive.NilObjectID)
+				c.AddValue(name, edgedb.UUID{})
 				next(c)
 			} else {
 				handleRegularId(c)

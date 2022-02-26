@@ -21,8 +21,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/sync/errgroup"
 
@@ -40,24 +40,24 @@ import (
 )
 
 type Manager interface {
-	AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error
-	DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error
+	AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error
+	DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error
 
-	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error)
-	GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
-	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID) ([]*types.Doc, error)
+	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error)
+	GetDocAndRecentUpdates(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
+	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edgedb.UUID) ([]*types.Doc, error)
 
-	SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error
+	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error
 
-	RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameDocUpdate) error
+	RenameDoc(ctx context.Context, projectId edgedb.UUID, update *types.RenameDocUpdate) error
 
-	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error
+	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId edgedb.UUID) error
 
-	FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error
-	FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
-	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
-	FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
-	QueueFlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error
+	FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error
+	FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error
+	FlushProject(ctx context.Context, projectId edgedb.UUID) error
+	FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
+	QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
@@ -98,7 +98,7 @@ type manager struct {
 	webApi webApi.Manager
 }
 
-func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId primitive.ObjectID, changeIds []primitive.ObjectID) error {
+func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error {
 	if len(changeIds) == 0 {
 		return &errors.ValidationError{Msg: "missing change_ids"}
 	}
@@ -107,13 +107,13 @@ func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId prim
 	})
 }
 
-func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId primitive.ObjectID) error {
+func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error {
 	return m.operateOnRanges(ctx, projectId, docId, func(doc *types.Doc) (bool, error) {
 		return doc.DeleteReviewThread(threadId), nil
 	})
 }
 
-func (m *manager) operateOnRanges(ctx context.Context, projectId, docId primitive.ObjectID, fn func(doc *types.Doc) (bool, error)) error {
+func (m *manager) operateOnRanges(ctx context.Context, projectId, docId edgedb.UUID, fn func(doc *types.Doc) (bool, error)) error {
 	for {
 		var err error
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
@@ -150,7 +150,7 @@ func (m *manager) operateOnRanges(ctx context.Context, projectId, docId primitiv
 	}
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, update *types.RenameDocUpdate) error {
+func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, update *types.RenameDocUpdate) error {
 	docId := update.Id
 	for {
 		var err error
@@ -183,7 +183,7 @@ func (m *manager) RenameDoc(ctx context.Context, projectId primitive.ObjectID, u
 	}
 }
 
-func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
+func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
 	doc, err := m.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, nil, err
@@ -196,7 +196,7 @@ func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId p
 	return doc, updates, nil
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
 	doc, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
 		return doc, nil
@@ -217,7 +217,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	return doc, nil
 }
 
-func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
+func (m *manager) getDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
 	doc, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
 		return doc, nil
@@ -236,7 +236,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	return doc, nil
 }
 
-func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, request *types.SetDocRequest) error {
+func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -322,7 +322,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectI
 	}
 }
 
-func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId edgedb.UUID) error {
 	var err error
 	for {
 		err = nil
@@ -352,7 +352,7 @@ const (
 	maxUnFlushedAge = 5 * time.Minute
 )
 
-func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
+func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
 	var doc *types.Doc
 	var err error
 
@@ -397,7 +397,7 @@ var (
 	errPartialFlush = errors.New("partial flush")
 )
 
-func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.Doc, error) {
+func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
 	doc, err := m.getDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, err
@@ -460,7 +460,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId pri
 
 func (m *manager) persistProcessedUpdates(
 	ctx context.Context,
-	projectId, docId primitive.ObjectID,
+	projectId, docId edgedb.UUID,
 	doc *types.Doc,
 	initialVersion sharedTypes.Version,
 	processed []sharedTypes.DocumentUpdate,
@@ -493,7 +493,7 @@ func (m *manager) persistProcessedUpdates(
 		err = m.rtRm.ConfirmUpdates(confirmCtx, processed)
 		cancel()
 		if err != nil {
-			ids := projectId.Hex() + "/" + docId.Hex()
+			ids := projectId.String() + "/" + docId.String()
 			err = errors.Tag(err, "cannot confirm updates in "+ids)
 			log.Println(err.Error())
 		}
@@ -515,7 +515,7 @@ func (m *manager) persistProcessedUpdates(
 	return nil
 }
 
-func (m *manager) reportError(projectId, docId primitive.ObjectID, err error) {
+func (m *manager) reportError(projectId, docId edgedb.UUID, err error) {
 	// NOTE: This used to be in the background in Node.JS.
 	//       Move in foreground to avoid race-conditions.
 	reportCtx, cancel := context.WithTimeout(
@@ -524,13 +524,13 @@ func (m *manager) reportError(projectId, docId primitive.ObjectID, err error) {
 	err2 := m.rtRm.ReportError(reportCtx, docId, err)
 	cancel()
 	if err2 != nil {
-		ids := projectId.Hex() + "/" + docId.Hex()
+		ids := projectId.String() + "/" + docId.String()
 		err2 = errors.Tag(err2, "cannot report error in "+ids)
 		log.Println(err2.Error())
 	}
 }
 
-func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId primitive.ObjectID) bool {
+func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId edgedb.UUID) bool {
 	// Look for the doc (version) and updates gracefully, ignoring errors.
 	// It's only used for taking a short-cut when already flushed.
 	// Else we go the long way of fetch doc, check for updates and then flush.
@@ -546,15 +546,15 @@ func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId primi
 	return n == 0
 }
 
-func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error {
 	return m.flushAndMaybeDeleteDoc(ctx, projectId, docId, false)
 }
 
-func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
 	return m.flushAndMaybeDeleteDoc(ctx, projectId, docId, true)
 }
 
-func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId primitive.ObjectID, delete bool) error {
+func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID, delete bool) error {
 	var err error
 
 	for {
@@ -591,7 +591,7 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId p
 	}
 }
 
-func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.Doc, deleteFromRedis bool) error {
+func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId edgedb.UUID, doc *types.Doc, deleteFromRedis bool) error {
 	if deleteFromRedis {
 		m.tc.FlushDocInBackground(projectId, docId)
 	}
@@ -618,21 +618,21 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId pr
 	return nil
 }
 
-func (m *manager) FlushProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error {
 	return m.operateOnAllProjectDocs(ctx, projectId, m.FlushDocIfLoaded)
 }
 
-func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	return m.operateOnAllProjectDocs(ctx, projectId, m.FlushAndDeleteDoc)
 }
 
-func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	return m.rm.QueueFlushAndDeleteProject(ctx, projectId)
 }
 
-type projectDocOperation func(ctx context.Context, projectId, docId primitive.ObjectID) error
+type projectDocOperation func(ctx context.Context, projectId, docId edgedb.UUID) error
 
-func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primitive.ObjectID, operation projectDocOperation) error {
+func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId edgedb.UUID, operation projectDocOperation) error {
 	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
 	if err != nil {
 		return err
@@ -641,7 +641,7 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 	for _, docId := range docIds {
 		err2 := operation(ctx, projectId, docId)
 		if err2 != nil {
-			ids := projectId.Hex() + "/" + docId.Hex()
+			ids := projectId.String() + "/" + docId.String()
 			errs = append(errs, errors.Tag(err2, ids))
 		}
 	}
@@ -658,7 +658,7 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId primiti
 	return nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId primitive.ObjectID) ([]*types.Doc, error) {
+func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edgedb.UUID) ([]*types.Doc, error) {
 	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
 	if err != nil {
 		return nil, err
@@ -674,7 +674,7 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId pri
 				pCtx, projectId, docId,
 			)
 			if err != nil {
-				return errors.Tag(err, projectId.Hex()+"/"+docId.Hex())
+				return errors.Tag(err, projectId.String()+"/"+docId.String())
 			}
 			docs[i] = doc
 			return nil

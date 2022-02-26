@@ -19,7 +19,7 @@ package projectList
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -77,7 +77,7 @@ func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserPro
 	for i, p := range projectsRaw {
 		d, err2 := p.GetPrivilegeLevelAuthenticated(userId)
 		if err2 != nil {
-			return errors.New("listed project w/o access: " + p.Id.Hex())
+			return errors.New("listed project w/o access: " + p.Id.String())
 		}
 		projects[i] = types.GetUserProjectsEntry{
 			Id:             p.Id,
@@ -117,7 +117,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			authorizationDetails, err2 :=
 				p.GetPrivilegeLevelAuthenticated(userId)
 			if err2 != nil {
-				return errors.New("listed project w/o access: " + p.Id.Hex())
+				return errors.New("listed project w/o access: " + p.Id.String())
 			}
 			isArchived := p.ArchivedBy.Contains(userId)
 			isTrashed := p.TrashedBy.Contains(userId)
@@ -139,7 +139,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			}
 		}
 		// Delete marker for missing LastUpdatedBy field.
-		delete(lookUpUserIds, primitive.NilObjectID)
+		delete(lookUpUserIds, edgedb.UUID{})
 		// Delete marker for caller, we process it later.
 		delete(lookUpUserIds, userId)
 

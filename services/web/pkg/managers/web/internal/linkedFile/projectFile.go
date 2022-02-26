@@ -21,7 +21,7 @@ import (
 	"io"
 	"os"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -112,7 +112,7 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 }
 
 func (m *manager) refreshProjectFile(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
-	id, err := primitive.ObjectIDFromHex(r.File.LinkedFileData.SourceProjectId)
+	id, err := edgedb.ParseUUID(r.File.LinkedFileData.SourceProjectId)
 	if err != nil {
 		return &errors.InvalidStateError{Msg: "corrupt source project id"}
 	}

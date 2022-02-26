@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -34,18 +34,18 @@ import (
 type URLCache interface {
 	SetupForProject(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 
 	Download(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 		resource *types.Resource,
 		dir types.CompileDir,
 	) error
 
 	ClearForProject(
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 }
 
@@ -72,7 +72,7 @@ type urlCache struct {
 	client http.Client
 }
 
-func (u *urlCache) SetupForProject(_ context.Context, projectId primitive.ObjectID) error {
+func (u *urlCache) SetupForProject(_ context.Context, projectId edgedb.UUID) error {
 	err := os.Mkdir(string(u.projectDir(projectId)), 0755)
 	if err == nil || os.IsExist(err) {
 		return nil
@@ -90,7 +90,7 @@ func atomicWrite(reader io.Reader, dest string) error {
 	return copyFile.Atomic(reader, dest, false)
 }
 
-func (u *urlCache) projectDir(projectId primitive.ObjectID) types.ProjectCacheDir {
+func (u *urlCache) projectDir(projectId edgedb.UUID) types.ProjectCacheDir {
 	return u.cacheDir.ProjectCacheDir(projectId)
 }
 
@@ -132,7 +132,7 @@ func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedT
 	return err
 }
 
-func (u *urlCache) Download(ctx context.Context, projectId primitive.ObjectID, resource *types.Resource, dir types.CompileDir) error {
+func (u *urlCache) Download(ctx context.Context, projectId edgedb.UUID, resource *types.Resource, dir types.CompileDir) error {
 	cachePath := u.projectDir(projectId).Join(hashFileResource(resource))
 	dest := dir.Join(resource.Path)
 
@@ -159,6 +159,6 @@ func (u *urlCache) Download(ctx context.Context, projectId primitive.ObjectID, r
 	return nil
 }
 
-func (u *urlCache) ClearForProject(projectId primitive.ObjectID) error {
+func (u *urlCache) ClearForProject(projectId edgedb.UUID) error {
 	return os.RemoveAll(string(u.projectDir(projectId)))
 }

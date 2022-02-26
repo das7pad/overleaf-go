@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -55,13 +55,13 @@ var (
 	}
 )
 
-func (m *manager) genJWTLoggedInUser(userId primitive.ObjectID) (string, error) {
+func (m *manager) genJWTLoggedInUser(userId edgedb.UUID) (string, error) {
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 	c.UserId = userId
 	return m.jwtLoggedInUser.SetExpiryAndSign(c)
 }
 
-func (m *manager) genWSBootstrap(projectId primitive.ObjectID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
+func (m *manager) genWSBootstrap(projectId edgedb.UUID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
 	c := m.wsBootstrap.New().(*wsBootstrap.Claims)
 	c.ProjectId = projectId
 	c.User.Id = u.Id
@@ -99,7 +99,7 @@ func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootst
 func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, res *types.ProjectEditorPageResponse) error {
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
-	isAnonymous := userId.IsZero()
+	isAnonymous := userId == (edgedb.UUID{})
 	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
 	if !isAnonymous {
 		// Logged-in users must go through the join process first
@@ -190,7 +190,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		if err := m.pm.MarkAsOpened(bCtx, projectId); err != nil {
 			log.Println(
 				errors.Tag(
-					err, "cannot mark project as opened: "+projectId.Hex(),
+					err, "cannot mark project as opened: "+projectId.String(),
 				).Error(),
 			)
 		}

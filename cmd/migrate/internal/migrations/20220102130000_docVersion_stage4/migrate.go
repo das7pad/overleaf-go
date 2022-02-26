@@ -37,8 +37,8 @@ const (
 )
 
 type docIdAndVersion struct {
-	doc.IdField      `bson:"inline"`
-	doc.VersionField `bson:"inline"`
+	doc.IdField      `edgedb:"inline"`
+	doc.VersionField `edgedb:"inline"`
 }
 
 func Migrate(ctx context.Context, db *mongo.Database) error {
@@ -73,12 +73,12 @@ func Migrate(ctx context.Context, db *mongo.Database) error {
 				}
 				if _, err := c.UpdateOne(pCtx, q, u); err != nil {
 					return errors.Tag(
-						err, "cannot back-fill version: "+next.DocId.Hex(),
+						err, "cannot back-fill version: "+next.DocId.String(),
 					)
 				}
 				if _, err := cDocOps.DeleteOne(pCtx, next); err != nil {
 					return errors.Tag(
-						err, "cannot cleanup version: "+next.DocId.Hex(),
+						err, "cannot cleanup version: "+next.DocId.String(),
 					)
 				}
 			}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -103,7 +104,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, db *mongo.Database, client redis.UniversalClient, localURL string) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client redis.UniversalClient, localURL string) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
@@ -132,7 +133,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	}
 	nm := notifications.New(db)
 	pm := project.New(db)
-	smm := systemMessage.New(db)
+	smm := systemMessage.New(c)
 	tm := tagModel.New(db)
 	um := user.New(db)
 	bm := betaProgram.New(ps, um)
@@ -174,7 +175,7 @@ func New(options *types.Options, db *mongo.Database, client redis.UniversalClien
 	ipm := inactiveProject.New(options, pm, dm)
 	ucm := userCreation.New(options, ps, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
-	am := admin.New(ps, db)
+	am := admin.New(ps, c)
 	learnM, err := learn.New(options, ps, proxy)
 	if err != nil {
 		return nil, err

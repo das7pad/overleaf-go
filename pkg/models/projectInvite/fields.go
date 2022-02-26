@@ -19,39 +19,39 @@ package projectInvite
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type CreatedAtField struct {
-	CreatedAt time.Time `json:"createdAt" bson:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" edgedb:"createdAt"`
 }
 
 type EmailField struct {
-	Email sharedTypes.Email `json:"email" bson:"email"`
+	Email sharedTypes.Email `json:"email" edgedb:"email"`
 }
 
 type ExpiresAtField struct {
-	Expires time.Time `json:"expires" bson:"expires"`
+	Expires time.Time `json:"expires" edgedb:"expires"`
 }
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type PrivilegeLevelField struct {
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" bson:"privileges"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" edgedb:"privileges"`
 }
 
 type ProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"projectId" bson:"projectId"`
+	ProjectId edgedb.UUID `json:"projectId" edgedb:"projectId"`
 }
 
 type SendingUserIdField struct {
-	SendingUserId primitive.ObjectID `json:"sendingUserId" bson:"sendingUserId"`
+	SendingUserId edgedb.UUID `json:"sendingUserId" edgedb:"sendingUserId"`
 }
 
 type TokenField struct {
-	Token Token `json:"-" bson:"token"`
+	Token Token `json:"-" edgedb:"token"`
 }

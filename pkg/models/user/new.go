@@ -19,7 +19,7 @@ package user
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -45,7 +45,8 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 					FirstName: "",
 				},
 				IdField: IdField{
-					Id: primitive.NewObjectID(),
+					// TODO: refactor into server side gen.
+					Id: edgedb.UUID{},
 				},
 				LastNameField: LastNameField{
 					LastName: "",
@@ -73,7 +74,8 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 		EmailsField: EmailsField{
 			Emails: []EmailDetails{
 				{
-					Id:               primitive.NewObjectID(),
+					// TODO: refactor into server side gen.
+					Id:               edgedb.UUID{},
 					CreatedAt:        now,
 					Email:            email,
 					ReversedHostname: email.ReversedHostname(),

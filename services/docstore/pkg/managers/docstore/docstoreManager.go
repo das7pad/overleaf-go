@@ -19,7 +19,7 @@ package docstore
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -34,74 +34,74 @@ type Modified bool
 type Manager interface {
 	IsDocDeleted(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (bool, error)
 
 	GetFullDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (*doc.ContentsWithFullContext, error)
 
 	GetDocLines(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) (sharedTypes.Lines, error)
 
 	PeakDeletedDocNames(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) ([]doc.Name, error)
 
 	GetAllRanges(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) ([]doc.Ranges, error)
 
 	GetAllDocContents(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) (doc.ContentsCollection, error)
 
-	CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error
-	CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error
-	CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []doc.Contents) error
+	CreateEmptyDoc(ctx context.Context, projectId, docId edgedb.UUID) error
+	CreateDocWithContent(ctx context.Context, projectId, docId edgedb.UUID, snapshot sharedTypes.Snapshot) error
+	CreateDocsWithContent(ctx context.Context, projectId edgedb.UUID, docs []doc.Contents) error
 
 	UpdateDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		update *doc.ForDocUpdate,
 	) (Modified, error)
 
 	PatchDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 		meta doc.Meta,
 	) error
 
 	ArchiveProject(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 
 	ArchiveDoc(
 		ctx context.Context,
-		projectId primitive.ObjectID,
-		docId primitive.ObjectID,
+		projectId edgedb.UUID,
+		docId edgedb.UUID,
 	) error
 
 	UnArchiveProject(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 
 	DestroyProject(
 		ctx context.Context,
-		projectId primitive.ObjectID,
+		projectId edgedb.UUID,
 	) error
 }
 
@@ -129,18 +129,18 @@ type manager struct {
 	maxDeletedDocs int64
 }
 
-func (m *manager) IsDocDeleted(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (bool, error) {
+func (m *manager) IsDocDeleted(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (bool, error) {
 	return m.dm.IsDocDeleted(ctx, projectId, docId)
 }
 
-func (m *manager) recoverDocError(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, err error) error {
+func (m *manager) recoverDocError(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, err error) error {
 	if errors.IsDocArchivedError(err) {
 		return m.da.UnArchiveDoc(ctx, projectId, docId)
 	}
 	return err
 }
 
-func (m *manager) GetFullDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (*doc.ContentsWithFullContext, error) {
+func (m *manager) GetFullDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (*doc.ContentsWithFullContext, error) {
 	for {
 		d, err := m.dm.GetDocContentsWithFullContext(ctx, projectId, docId)
 		if err != nil {
@@ -154,7 +154,7 @@ func (m *manager) GetFullDoc(ctx context.Context, projectId primitive.ObjectID, 
 	}
 }
 
-func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) (sharedTypes.Lines, error) {
+func (m *manager) GetDocLines(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) (sharedTypes.Lines, error) {
 	for {
 		lines, err := m.dm.GetDocLines(ctx, projectId, docId)
 		if err != nil {
@@ -168,11 +168,11 @@ func (m *manager) GetDocLines(ctx context.Context, projectId primitive.ObjectID,
 	}
 }
 
-func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId primitive.ObjectID) ([]doc.Name, error) {
+func (m *manager) PeakDeletedDocNames(ctx context.Context, projectId edgedb.UUID) ([]doc.Name, error) {
 	return m.dm.PeakDeletedDocNames(ctx, projectId, m.maxDeletedDocs)
 }
 
-func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]doc.Ranges, error) {
+func (m *manager) GetAllRanges(ctx context.Context, projectId edgedb.UUID) ([]doc.Ranges, error) {
 	for {
 		ranges, err := m.dm.GetAllRanges(ctx, projectId)
 		if err != nil {
@@ -189,7 +189,7 @@ func (m *manager) GetAllRanges(ctx context.Context, projectId primitive.ObjectID
 	}
 }
 
-func (m *manager) GetAllDocContents(ctx context.Context, projectId primitive.ObjectID) (doc.ContentsCollection, error) {
+func (m *manager) GetAllDocContents(ctx context.Context, projectId edgedb.UUID) (doc.ContentsCollection, error) {
 	for {
 		contents, err := m.dm.GetAllDocContents(ctx, projectId)
 		if err != nil {
@@ -220,19 +220,19 @@ func validateDocLines(lines sharedTypes.Lines) error {
 	return nil
 }
 
-func (m *manager) CreateEmptyDoc(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) CreateEmptyDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
 	return m.dm.CreateDocWithContent(ctx, projectId, docId, nil)
 }
 
-func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId primitive.ObjectID, snapshot sharedTypes.Snapshot) error {
+func (m *manager) CreateDocWithContent(ctx context.Context, projectId, docId edgedb.UUID, snapshot sharedTypes.Snapshot) error {
 	return m.dm.CreateDocWithContent(ctx, projectId, docId, snapshot)
 }
 
-func (m *manager) CreateDocsWithContent(ctx context.Context, projectId primitive.ObjectID, docs []doc.Contents) error {
+func (m *manager) CreateDocsWithContent(ctx context.Context, projectId edgedb.UUID, docs []doc.Contents) error {
 	return m.dm.CreateDocsWithContent(ctx, projectId, docs)
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, update *doc.ForDocUpdate) (Modified, error) {
+func (m *manager) UpdateDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, update *doc.ForDocUpdate) (Modified, error) {
 	if err := validateDocLines(update.Lines); err != nil {
 		return false, err
 	}
@@ -256,7 +256,7 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId primitive.ObjectID, d
 	return true, nil
 }
 
-func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID, meta doc.Meta) error {
+func (m *manager) PatchDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, meta doc.Meta) error {
 	if meta.Deleted {
 		if meta.Name == "" {
 			return &errors.ValidationError{Msg: "missing name when deleting"}
@@ -273,18 +273,18 @@ func (m *manager) PatchDoc(ctx context.Context, projectId primitive.ObjectID, do
 	return m.dm.PatchDocMeta(ctx, projectId, docId, meta)
 }
 
-func (m *manager) ArchiveProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) ArchiveProject(ctx context.Context, projectId edgedb.UUID) error {
 	return m.da.ArchiveDocs(ctx, projectId)
 }
 
-func (m *manager) ArchiveDoc(ctx context.Context, projectId primitive.ObjectID, docId primitive.ObjectID) error {
+func (m *manager) ArchiveDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID) error {
 	return m.da.ArchiveDoc(ctx, projectId, docId)
 }
 
-func (m *manager) UnArchiveProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) UnArchiveProject(ctx context.Context, projectId edgedb.UUID) error {
 	return m.da.UnArchiveDocs(ctx, projectId)
 }
 
-func (m *manager) DestroyProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) DestroyProject(ctx context.Context, projectId edgedb.UUID) error {
 	return m.da.DestroyDocs(ctx, projectId)
 }

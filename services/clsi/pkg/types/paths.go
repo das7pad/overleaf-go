@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
@@ -29,8 +29,8 @@ func (d CacheBaseDir) NamespacedCacheDir(namespace Namespace) NamespacedCacheDir
 	return NamespacedCacheDir(string(d) + "/" + string(namespace))
 }
 
-func (d CacheBaseDir) ProjectCacheDir(projectId primitive.ObjectID) ProjectCacheDir {
-	return ProjectCacheDir(string(d) + "/" + projectId.Hex())
+func (d CacheBaseDir) ProjectCacheDir(projectId edgedb.UUID) ProjectCacheDir {
+	return ProjectCacheDir(string(d) + "/" + projectId.String())
 }
 
 type NamespacedCacheDir string

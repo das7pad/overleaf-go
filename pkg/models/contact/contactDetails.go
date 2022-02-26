@@ -21,8 +21,8 @@ import (
 )
 
 type contactDetails struct {
-	Connections int64              `bson:"n"`
-	LastTouched primitive.DateTime `bson:"ts"`
+	Connections int64              `edgedb:"n"`
+	LastTouched primitive.DateTime `edgedb:"ts"`
 }
 
 type contact struct {

@@ -19,7 +19,7 @@ package types
 import (
 	"strings"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -289,9 +289,9 @@ type DownloadPath string
 
 const publicProjectPrefix = "/project"
 
-func BuildDownloadPath(projectId, userId primitive.ObjectID, buildId BuildId, name sharedTypes.PathName) DownloadPath {
+func BuildDownloadPath(projectId, userId edgedb.UUID, buildId BuildId, name sharedTypes.PathName) DownloadPath {
 	return BuildDownloadPathFromNamespace(
-		Namespace(projectId.Hex()+"-"+userId.Hex()), buildId, name,
+		Namespace(projectId.String()+"-"+userId.String()), buildId, name,
 	)
 }
 

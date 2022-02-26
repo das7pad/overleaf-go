@@ -90,7 +90,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 						)
 						if err != nil {
 							return errors.Tag(
-								err, "cannot delete project "+p.Id.Hex(),
+								err, "cannot delete project "+p.Id.String(),
 							)
 						}
 					} else {
@@ -98,7 +98,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 						if err != nil {
 							return errors.Tag(
 								err,
-								"cannot remove user from project "+p.Id.Hex(),
+								"cannot remove user from project "+p.Id.String(),
 							)
 						}
 					}

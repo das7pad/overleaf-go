@@ -22,14 +22,13 @@ import (
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 )
 
 type Manager interface {
-	GetAllCached(ctx context.Context, userId primitive.ObjectID) []systemMessage.Full
+	GetAllCached(ctx context.Context, userId edgedb.UUID) []systemMessage.Full
 }
 
 type manager struct {
@@ -42,15 +41,15 @@ type manager struct {
 
 var noMessages = make([]systemMessage.Full, 0)
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		sm:     systemMessage.New(db),
+		sm:     systemMessage.New(c),
 		cached: noMessages,
 	}
 }
 
-func (m *manager) GetAllCached(ctx context.Context, userId primitive.ObjectID) []systemMessage.Full {
-	if userId.IsZero() {
+func (m *manager) GetAllCached(ctx context.Context, userId edgedb.UUID) []systemMessage.Full {
+	if userId == (edgedb.UUID{}) {
 		// Hide messages for logged out users.
 		return noMessages
 	}

@@ -19,7 +19,7 @@ package types
 import (
 	"net/url"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -28,7 +28,7 @@ import (
 )
 
 type GetProjectChatMessagesRequest struct {
-	ProjectId primitive.ObjectID    `form:"-"`
+	ProjectId edgedb.UUID           `form:"-"`
 	Before    sharedTypes.Timestamp `form:"before"`
 }
 
@@ -47,7 +47,7 @@ type ChatMessage struct {
 }
 
 type SendProjectChatMessageRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
-	Content   string             `json:"content"`
+	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
+	Content   string      `json:"content"`
 }

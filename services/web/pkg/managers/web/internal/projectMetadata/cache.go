@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -38,11 +38,11 @@ type cacheEntry struct {
 	ProjectMeta    types.LightProjectMetadata `json:"projectMeta"`
 }
 
-func getCacheKey(projectId primitive.ObjectID) string {
-	return "metadata:" + projectId.Hex()
+func getCacheKey(projectId edgedb.UUID) string {
+	return "metadata:" + projectId.String()
 }
 
-func (m *manager) getCacheEntry(ctx context.Context, projectId primitive.ObjectID) (*cacheEntry, error) {
+func (m *manager) getCacheEntry(ctx context.Context, projectId edgedb.UUID) (*cacheEntry, error) {
 	raw, err := m.client.Get(ctx, getCacheKey(projectId)).Bytes()
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (m *manager) getCacheEntry(ctx context.Context, projectId primitive.ObjectI
 	return entry, nil
 }
 
-func (m *manager) setCacheEntry(ctx context.Context, projectId primitive.ObjectID, entry *cacheEntry) error {
+func (m *manager) setCacheEntry(ctx context.Context, projectId edgedb.UUID, entry *cacheEntry) error {
 	blob, err := json.Marshal(entry)
 	if err != nil {
 		return errors.Tag(err, "cannot serialize cache entry")
@@ -66,7 +66,7 @@ func (m *manager) setCacheEntry(ctx context.Context, projectId primitive.ObjectI
 	return nil
 }
 
-func (m *manager) getForProjectWithCache(ctx context.Context, projectId primitive.ObjectID) (types.LightProjectMetadata, error) {
+func (m *manager) getForProjectWithCache(ctx context.Context, projectId edgedb.UUID) (types.LightProjectMetadata, error) {
 	var cached *cacheEntry
 	var projectVersionFlushed time.Time
 	var recentlyEdited documentUpdaterTypes.DocContentSnapshots
@@ -119,7 +119,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId primitiv
 		ctx2, done := context.WithTimeout(context.Background(), time.Second*10)
 		defer done()
 		if err2 := m.setCacheEntry(ctx2, projectId, cached); err2 != nil {
-			log.Println(errors.Tag(err2, projectId.Hex()).Error())
+			log.Println(errors.Tag(err2, projectId.String()).Error())
 		}
 	}()
 	return meta, nil

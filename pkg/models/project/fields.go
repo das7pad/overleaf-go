@@ -19,106 +19,106 @@ package project
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type ActiveField struct {
-	Active bool `bson:"active"`
+	Active bool `edgedb:"active"`
 }
 
 type ArchivedByField struct {
-	ArchivedBy Refs `bson:"archived"`
+	ArchivedBy Refs `edgedb:"archived"`
 }
 
 type AuditLogField struct {
-	AuditLog []AuditLogEntry `bson:"auditLog"`
+	AuditLog []AuditLogEntry `edgedb:"auditLog"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type CollaboratorRefsField struct {
-	CollaboratorRefs Refs `bson:"collaberator_refs"`
+	CollaboratorRefs Refs `edgedb:"collaberator_refs"`
 }
 
 type CompilerField struct {
-	Compiler sharedTypes.Compiler `json:"compiler" bson:"compiler"`
+	Compiler sharedTypes.Compiler `json:"compiler" edgedb:"compiler"`
 }
 
 type EpochField struct {
-	Epoch int64 `bson:"epoch"`
+	Epoch int64 `edgedb:"epoch"`
 }
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type ImageNameField struct {
-	ImageName sharedTypes.ImageName `json:"imageName" bson:"imageName"`
+	ImageName sharedTypes.ImageName `json:"imageName" edgedb:"imageName"`
 }
 
 type LastOpenedField struct {
-	LastOpened time.Time `bson:"lastOpened"`
+	LastOpened time.Time `edgedb:"lastOpened"`
 }
 
 type LastUpdatedAtField struct {
-	LastUpdatedAt time.Time `bson:"lastUpdated"`
+	LastUpdatedAt time.Time `edgedb:"lastUpdated"`
 }
 
 type LastUpdatedByField struct {
-	LastUpdatedBy primitive.ObjectID `bson:"lastUpdatedBy"`
+	LastUpdatedBy edgedb.UUID `edgedb:"lastUpdatedBy"`
 }
 
 type NameField struct {
-	Name Name `json:"name" bson:"name"`
+	Name Name `json:"name" edgedb:"name"`
 }
 
 type OwnerRefField struct {
-	OwnerRef primitive.ObjectID `bson:"owner_ref" json:"owner_ref"`
+	OwnerRef edgedb.UUID `edgedb:"owner_ref" json:"owner_ref"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
-	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" bson:"publicAccesLevel"`
+	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" edgedb:"publicAccesLevel"`
 }
 
 type ReadOnlyRefsField struct {
-	ReadOnlyRefs Refs `bson:"readOnly_refs"`
+	ReadOnlyRefs Refs `edgedb:"readOnly_refs"`
 }
 
 type RootDocIdField struct {
-	RootDocId primitive.ObjectID `json:"rootDoc_id" bson:"rootDoc_id"`
+	RootDocId edgedb.UUID `json:"rootDoc_id" edgedb:"rootDoc_id"`
 }
 
 type SpellCheckLanguageField struct {
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spellCheckLanguage"`
 }
 
 type TokenAccessReadAndWriteRefsField struct {
-	TokenAccessReadAndWriteRefs Refs `bson:"tokenAccessReadAndWrite_refs"`
+	TokenAccessReadAndWriteRefs Refs `edgedb:"tokenAccessReadAndWrite_refs"`
 }
 
 type TokenAccessReadOnlyRefsField struct {
-	TokenAccessReadOnlyRefs Refs `bson:"tokenAccessReadOnly_refs"`
+	TokenAccessReadOnlyRefs Refs `edgedb:"tokenAccessReadOnly_refs"`
 }
 
 type TokensField struct {
-	Tokens Tokens `json:"tokens" bson:"tokens"`
+	Tokens Tokens `json:"tokens" edgedb:"tokens"`
 }
 
 type TrackChangesStateField struct {
-	TrackChangesState TrackChangesState `json:"trackChangesState" bson:"track_changes"`
+	TrackChangesState TrackChangesState `json:"trackChangesState" edgedb:"track_changes"`
 }
 
 type TrashedByField struct {
-	TrashedBy Refs `bson:"trashed"`
+	TrashedBy Refs `edgedb:"trashed"`
 }
 
 type TreeField struct {
-	RootFolder []*Folder `json:"rootFolder" bson:"rootFolder"`
+	RootFolder []*Folder `json:"rootFolder" edgedb:"rootFolder"`
 }
 
 type VersionField struct {
-	Version sharedTypes.Version `json:"version" bson:"version"`
+	Version sharedTypes.Version `json:"version" edgedb:"version"`
 }

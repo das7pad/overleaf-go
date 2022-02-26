@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -25,14 +25,14 @@ import (
 type ClientPosition struct {
 	Row    sharedTypes.Row    `json:"row"`
 	Column sharedTypes.Column `json:"column"`
-	DocId  primitive.ObjectID `json:"doc_id"`
+	DocId  edgedb.UUID        `json:"doc_id"`
 }
 
 type ClientPositionUpdateNotification struct {
 	Source sharedTypes.PublicId `json:"id"`
 	Row    sharedTypes.Row      `json:"row"`
 	Column sharedTypes.Column   `json:"column"`
-	DocId  primitive.ObjectID   `json:"doc_id"`
+	DocId  edgedb.UUID          `json:"doc_id"`
 }
 
 type ConnectedClient struct {

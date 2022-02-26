@@ -19,8 +19,8 @@ package tag
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -28,15 +28,15 @@ import (
 )
 
 type Manager interface {
-	AddProject(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error
-	Delete(ctx context.Context, userId, tagId primitive.ObjectID) error
-	DeleteForUser(ctx context.Context, userId primitive.ObjectID) error
-	EnsureExists(ctx context.Context, userId primitive.ObjectID, name string) (*Full, error)
-	GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full, error)
-	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error
-	RemoveProjectForAllUsers(ctx context.Context, userIds []primitive.ObjectID, projectId primitive.ObjectID) error
-	RemoveProjectForUser(ctx context.Context, userId, projectId primitive.ObjectID) error
-	Rename(ctx context.Context, userId, tagId primitive.ObjectID, newName string) error
+	AddProject(ctx context.Context, userId, tagId, projectId edgedb.UUID) error
+	Delete(ctx context.Context, userId, tagId edgedb.UUID) error
+	DeleteForUser(ctx context.Context, userId edgedb.UUID) error
+	EnsureExists(ctx context.Context, userId edgedb.UUID, name string) (*Full, error)
+	GetAll(ctx context.Context, userId edgedb.UUID) ([]Full, error)
+	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error
+	RemoveProjectForAllUsers(ctx context.Context, userIds []edgedb.UUID, projectId edgedb.UUID) error
+	RemoveProjectForUser(ctx context.Context, userId, projectId edgedb.UUID) error
+	Rename(ctx context.Context, userId, tagId edgedb.UUID, newName string) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -60,21 +60,21 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func filterByUserAndTagName(userId primitive.ObjectID, name string) interface{} {
+func filterByUserAndTagName(userId edgedb.UUID, name string) interface{} {
 	q := &userIdAndTagName{}
 	q.Name = name
-	q.UserId = userId.Hex()
+	q.UserId = userId.String()
 	return q
 }
 
-func filterByUserAndTagId(userId, tagId primitive.ObjectID) interface{} {
+func filterByUserAndTagId(userId, tagId edgedb.UUID) interface{} {
 	q := &userIdAndTagId{}
 	q.Id = tagId
-	q.UserId = userId.Hex()
+	q.UserId = userId.String()
 	return q
 }
 
-func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error {
+func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
 	q := filterByUserAndTagId(userId, tagId)
 	_, err := m.c.UpdateOne(ctx, q, &bson.M{
 		"$addToSet": bson.M{
@@ -87,7 +87,7 @@ func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId primi
 	return nil
 }
 
-func (m *manager) Delete(ctx context.Context, userId, tagId primitive.ObjectID) error {
+func (m *manager) Delete(ctx context.Context, userId, tagId edgedb.UUID) error {
 	q := filterByUserAndTagId(userId, tagId)
 	_, err := m.c.DeleteOne(ctx, q)
 	if err != nil {
@@ -96,8 +96,8 @@ func (m *manager) Delete(ctx context.Context, userId, tagId primitive.ObjectID) 
 	return nil
 }
 
-func (m *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) error {
-	q := &UserIdField{UserId: userId.Hex()}
+func (m *manager) DeleteForUser(ctx context.Context, userId edgedb.UUID) error {
+	q := &UserIdField{UserId: userId.String()}
 	_, err := m.c.DeleteMany(ctx, q)
 	if err != nil {
 		return rewriteMongoError(err)
@@ -107,11 +107,11 @@ func (m *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) 
 
 var initWithEmptyListOfProjects = &bson.M{
 	"$setOnInsert": &ProjectIdsField{
-		ProjectIds: make([]primitive.ObjectID, 0),
+		ProjectIds: make([]edgedb.UUID, 0),
 	},
 }
 
-func (m *manager) EnsureExists(ctx context.Context, userId primitive.ObjectID, name string) (*Full, error) {
+func (m *manager) EnsureExists(ctx context.Context, userId edgedb.UUID, name string) (*Full, error) {
 	q := filterByUserAndTagName(userId, name)
 	t := &Full{}
 	err := m.c.FindOneAndUpdate(
@@ -128,11 +128,11 @@ func (m *manager) EnsureExists(ctx context.Context, userId primitive.ObjectID, n
 	return t, nil
 }
 
-func (m *manager) GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full, error) {
+func (m *manager) GetAll(ctx context.Context, userId edgedb.UUID) ([]Full, error) {
 	tags := make([]Full, 0)
 	r, err := m.c.Find(
 		ctx,
-		UserIdField{UserId: userId.Hex()},
+		UserIdField{UserId: userId.String()},
 		options.Find().
 			SetProjection(getProjection(tags)).
 			SetBatchSize(prefetchN),
@@ -146,7 +146,7 @@ func (m *manager) GetAll(ctx context.Context, userId primitive.ObjectID) ([]Full
 	return tags, nil
 }
 
-func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId primitive.ObjectID) error {
+func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
 	q := filterByUserAndTagId(userId, tagId)
 	_, err := m.c.UpdateOne(ctx, q, &bson.M{
 		"$pull": bson.M{
@@ -159,10 +159,10 @@ func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, proje
 	return nil
 }
 
-func (m *manager) RemoveProjectForAllUsers(ctx context.Context, userIds []primitive.ObjectID, projectId primitive.ObjectID) error {
+func (m *manager) RemoveProjectForAllUsers(ctx context.Context, userIds []edgedb.UUID, projectId edgedb.UUID) error {
 	userIdsHex := make([]string, len(userIds))
 	for i, id := range userIds {
-		userIdsHex[i] = id.Hex()
+		userIdsHex[i] = id.String()
 	}
 	q := bson.M{
 		"user_id": bson.M{
@@ -180,8 +180,8 @@ func (m *manager) RemoveProjectForAllUsers(ctx context.Context, userIds []primit
 	return nil
 }
 
-func (m *manager) RemoveProjectForUser(ctx context.Context, userId, projectId primitive.ObjectID) error {
-	q := &UserIdField{UserId: userId.Hex()}
+func (m *manager) RemoveProjectForUser(ctx context.Context, userId, projectId edgedb.UUID) error {
+	q := &UserIdField{UserId: userId.String()}
 	_, err := m.c.UpdateMany(ctx, q, &bson.M{
 		"$pull": bson.M{
 			"project_ids": projectId,
@@ -193,7 +193,7 @@ func (m *manager) RemoveProjectForUser(ctx context.Context, userId, projectId pr
 	return nil
 }
 
-func (m *manager) Rename(ctx context.Context, userId, tagId primitive.ObjectID, newName string) error {
+func (m *manager) Rename(ctx context.Context, userId, tagId edgedb.UUID, newName string) error {
 	q := filterByUserAndTagId(userId, tagId)
 	_, err := m.c.UpdateOne(ctx, q, &bson.M{
 		"$set": NameField{Name: newName},

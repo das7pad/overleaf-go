@@ -21,9 +21,9 @@ import (
 )
 
 type DeleterDataField struct {
-	DeleterData DeleterData `bson:"deleterData"`
+	DeleterData DeleterData `edgedb:"deleterData"`
 }
 
 type ProjectField struct {
-	Project *project.ForDeletion `bson:"project"`
+	Project *project.ForDeletion `edgedb:"project"`
 }

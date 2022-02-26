@@ -19,6 +19,8 @@ package templates
 import (
 	"encoding/json"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/session"
 )
@@ -96,7 +98,7 @@ func (d *CommonData) LoggedIn() bool {
 	if d.SessionUser == nil {
 		return false
 	}
-	return !d.SessionUser.Id.IsZero()
+	return d.SessionUser.Id != (edgedb.UUID{})
 }
 
 func (d *CommonData) Meta() []metaEntry {

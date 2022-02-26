@@ -19,8 +19,8 @@ package message
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -31,41 +31,41 @@ import (
 type Manager interface {
 	CreateMessage(
 		ctx context.Context,
-		roomId, userId primitive.ObjectID,
+		roomId, userId edgedb.UUID,
 		content string,
 		timestamp float64,
 	) (*types.Message, error)
 
 	GetMessages(
 		ctx context.Context,
-		roomId primitive.ObjectID,
+		roomId edgedb.UUID,
 		limit int64,
 		before sharedTypes.Timestamp,
 	) ([]*types.Message, error)
 
 	FindAllMessagesInRooms(
 		ctx context.Context,
-		roomIds []primitive.ObjectID,
+		roomIds []edgedb.UUID,
 	) ([]*types.Message, error)
 
 	DeleteAllMessagesInRoom(
 		ctx context.Context,
-		roomId primitive.ObjectID,
+		roomId edgedb.UUID,
 	) error
 
 	UpdateMessage(
 		ctx context.Context,
-		roomId, messageId primitive.ObjectID,
+		roomId, messageId edgedb.UUID,
 		content string,
 		timestamp float64,
 	) error
 
 	DeleteMessage(
 		ctx context.Context,
-		roomId, messageId primitive.ObjectID,
+		roomId, messageId edgedb.UUID,
 	) error
 
-	DeleteProjectMessages(ctx context.Context, roomIds []primitive.ObjectID) error
+	DeleteProjectMessages(ctx context.Context, roomIds []edgedb.UUID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -84,7 +84,7 @@ type manager struct {
 
 func (m *manager) CreateMessage(
 	ctx context.Context,
-	roomId, userId primitive.ObjectID,
+	roomId, userId edgedb.UUID,
 	content string,
 	timestamp float64,
 ) (*types.Message, error) {
@@ -101,7 +101,7 @@ func (m *manager) CreateMessage(
 	if err != nil {
 		return nil, err
 	}
-	message.Id = result.InsertedID.(primitive.ObjectID)
+	message.Id = result.InsertedID.(edgedb.UUID)
 	return &message, nil
 }
 
@@ -116,7 +116,7 @@ func readAllMessages(ctx context.Context, c *mongo.Cursor) ([]*types.Message, er
 
 func (m *manager) GetMessages(
 	ctx context.Context,
-	roomId primitive.ObjectID,
+	roomId edgedb.UUID,
 	limit int64,
 	before sharedTypes.Timestamp,
 ) ([]*types.Message, error) {
@@ -149,7 +149,7 @@ func (m *manager) GetMessages(
 
 func (m *manager) FindAllMessagesInRooms(
 	ctx context.Context,
-	roomIds []primitive.ObjectID,
+	roomIds []edgedb.UUID,
 ) ([]*types.Message, error) {
 
 	query := bson.M{
@@ -173,7 +173,7 @@ func (m *manager) FindAllMessagesInRooms(
 
 func (m *manager) DeleteAllMessagesInRoom(
 	ctx context.Context,
-	roomId primitive.ObjectID,
+	roomId edgedb.UUID,
 ) error {
 	query := bson.M{
 		"room_id": roomId,
@@ -184,7 +184,7 @@ func (m *manager) DeleteAllMessagesInRoom(
 
 func (m *manager) UpdateMessage(
 	ctx context.Context,
-	roomId, messageId primitive.ObjectID,
+	roomId, messageId edgedb.UUID,
 	content string,
 	timestamp float64,
 ) error {
@@ -204,7 +204,7 @@ func (m *manager) UpdateMessage(
 
 func (m *manager) DeleteMessage(
 	ctx context.Context,
-	roomId, messageId primitive.ObjectID,
+	roomId, messageId edgedb.UUID,
 ) error {
 	query := bson.M{
 		"room_id": roomId,
@@ -214,7 +214,7 @@ func (m *manager) DeleteMessage(
 	return err
 }
 
-func (m *manager) DeleteProjectMessages(ctx context.Context, roomIds []primitive.ObjectID) error {
+func (m *manager) DeleteProjectMessages(ctx context.Context, roomIds []edgedb.UUID) error {
 	query := bson.M{
 		"room_id": bson.M{
 			"$in": roomIds,

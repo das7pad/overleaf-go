@@ -19,7 +19,7 @@ package projectUpload
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -92,7 +92,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 				parentCache = make(map[sharedTypes.DirName]*project.Folder)
 				t = project.NewFolder("")
 				p.RootFolder[0] = t
-				p.RootDocId = primitive.NilObjectID
+				p.RootDocId = edgedb.UUID{}
 			}
 			p.ImageName = sp.ImageName
 			p.Compiler = sp.Compiler
@@ -151,7 +151,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 			if err != nil {
 				return errors.Tag(err, "cannot get docs")
 			}
-			docPaths := make(map[primitive.ObjectID]sharedTypes.PathName, len(docs))
+			docPaths := make(map[edgedb.UUID]sharedTypes.PathName, len(docs))
 
 			err = st.WalkDocs(func(element project.TreeElement, path sharedTypes.PathName) error {
 				docPaths[element.GetId()] = path

@@ -19,6 +19,7 @@ package editor
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -65,7 +66,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 			ownerFeatures = u.Features
 			return nil
 		})
-		if userId.IsZero() {
+		if userId == (edgedb.UUID{}) {
 			userEpoch.Epoch = user.AnonymousUserEpoch
 		} else {
 			eg.Go(func() error {

@@ -19,19 +19,19 @@ package sharedTypes
 import (
 	"encoding/json"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type EditorEventsMessage struct {
-	HealthCheck bool               `json:"health_check,omitempty"`
-	RoomId      primitive.ObjectID `json:"room_id"`
-	Message     string             `json:"message"`
-	Payload     json.RawMessage    `json:"payload"`
+	HealthCheck bool            `json:"health_check,omitempty"`
+	RoomId      edgedb.UUID     `json:"room_id"`
+	Message     string          `json:"message"`
+	Payload     json.RawMessage `json:"payload"`
 }
 
-func (m *EditorEventsMessage) ChannelId() primitive.ObjectID {
+func (m *EditorEventsMessage) ChannelId() edgedb.UUID {
 	return m.RoomId
 }
 

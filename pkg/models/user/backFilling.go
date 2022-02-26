@@ -17,20 +17,20 @@
 package user
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type UniqUserIds map[primitive.ObjectID]bool
+type UniqUserIds map[edgedb.UUID]bool
 
-type UsersForBackFilling map[primitive.ObjectID]*WithPublicInfo
+type UsersForBackFilling map[edgedb.UUID]*WithPublicInfo
 
-type UsersForBackFillingNonStandardId map[primitive.ObjectID]*WithPublicInfoAndNonStandardId
+type UsersForBackFillingNonStandardId map[edgedb.UUID]*WithPublicInfoAndNonStandardId
 
 type WithPublicInfoAndNonStandardId struct {
-	WithPublicInfo `bson:"inline"`
-	IdNoUnderscore primitive.ObjectID `json:"id"`
+	WithPublicInfo `edgedb:"inline"`
+	IdNoUnderscore edgedb.UUID `json:"id"`
 }
 
 type AsProjectMember struct {

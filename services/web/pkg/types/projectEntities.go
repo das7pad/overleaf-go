@@ -17,15 +17,15 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetProjectEntitiesRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
 }
 
 type GetProjectEntitiesEntry struct {

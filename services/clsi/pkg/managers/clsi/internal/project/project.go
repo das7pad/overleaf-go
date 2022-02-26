@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
@@ -75,12 +75,12 @@ type Project interface {
 }
 
 func newProject(
-	projectId primitive.ObjectID,
-	userId primitive.ObjectID,
+	projectId edgedb.UUID,
+	userId edgedb.UUID,
 	m *managers,
 	options *types.Options,
 ) (Project, error) {
-	namespace := types.Namespace(projectId.Hex() + "-" + userId.Hex())
+	namespace := types.Namespace(projectId.String() + "-" + userId.String())
 
 	createPaths := []string{
 		string(options.CacheBaseDir.NamespacedCacheDir(namespace)),
@@ -120,7 +120,7 @@ type project struct {
 	dead       bool
 	lastAccess time.Time
 	namespace  types.Namespace
-	projectId  primitive.ObjectID
+	projectId  edgedb.UUID
 
 	state          types.SyncState
 	stateMux       sync.RWMutex

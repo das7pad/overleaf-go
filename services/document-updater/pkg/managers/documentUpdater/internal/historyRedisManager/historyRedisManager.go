@@ -19,14 +19,14 @@ package historyRedisManager
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Manager interface {
-	RecordDocHasHistory(ctx context.Context, projectId, docId primitive.ObjectID) error
+	RecordDocHasHistory(ctx context.Context, projectId, docId edgedb.UUID) error
 }
 
 func New(client redis.UniversalClient) Manager {
@@ -37,13 +37,13 @@ type manager struct {
 	client redis.UniversalClient
 }
 
-func getDocsWithHistoryOpsKey(projectId primitive.ObjectID) string {
-	return "DocsWithHistoryOps:{" + projectId.Hex() + "}"
+func getDocsWithHistoryOpsKey(projectId edgedb.UUID) string {
+	return "DocsWithHistoryOps:{" + projectId.String() + "}"
 }
 
-func (m *manager) RecordDocHasHistory(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) RecordDocHasHistory(ctx context.Context, projectId, docId edgedb.UUID) error {
 	key := getDocsWithHistoryOpsKey(projectId)
-	err := m.client.SAdd(ctx, key, docId.Hex()).Err()
+	err := m.client.SAdd(ctx, key, docId.String()).Err()
 	if err != nil {
 		return errors.Tag(err, "cannot record doc has history")
 	}

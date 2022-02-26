@@ -117,7 +117,7 @@ func (m *manager) RPC(rpc *types.RPC) {
 	}
 	log.Printf(
 		"user %s: %s: %s",
-		rpc.Client.User.Id.Hex(), rpc.Request.Action, err.Error(),
+		rpc.Client.User.Id.String(), rpc.Request.Action, err.Error(),
 	)
 	cause := errors.GetCause(err)
 	if potentiallyFatalError, ok := cause.(errors.PotentiallyFatalError); ok {
@@ -145,7 +145,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	rpc.Response.ProcessedBy = by
 	if err != nil {
 		return errors.Tag(
-			err, "webApi.joinProject failed for "+args.ProjectId.Hex(),
+			err, "webApi.joinProject failed for "+args.ProjectId.String(),
 		)
 	}
 	rpc.Client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
@@ -180,7 +180,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 
 	if err = m.editorEvents.Join(rpc, rpc.Client, args.ProjectId); err != nil {
 		return errors.Tag(
-			err, "editorEvents.Join failed for "+args.ProjectId.Hex(),
+			err, "editorEvents.Join failed for "+args.ProjectId.String(),
 		)
 	}
 
@@ -197,7 +197,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	if err != nil {
 		return errors.Tag(
 			err,
-			"encoding JoinProjectResponse failed for "+args.ProjectId.Hex(),
+			"encoding JoinProjectResponse failed for "+args.ProjectId.String(),
 		)
 	}
 	rpc.Response.Body = body
@@ -219,7 +219,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 		if err != nil {
 			return errors.Tag(
 				err,
-				"documentUpdater.CheckDocExists failed for "+args.DocId.Hex(),
+				"documentUpdater.CheckDocExists failed for "+args.DocId.String(),
 			)
 		}
 		rpc.Client.AddKnownDoc(rpc.Request.DocId)
@@ -230,7 +230,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 
 	if err := m.appliedOps.Join(rpc, rpc.Client, args.DocId); err != nil {
 		return errors.Tag(
-			err, "appliedOps.Join failed for "+args.DocId.Hex(),
+			err, "appliedOps.Join failed for "+args.DocId.String(),
 		)
 	}
 
@@ -242,7 +242,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	)
 	if err != nil {
 		return errors.Tag(
-			err, "documentUpdater.GetDoc failed for "+args.DocId.Hex(),
+			err, "documentUpdater.GetDoc failed for "+args.DocId.String(),
 		)
 	}
 	if !rpc.Client.HasCapability(types.CanSeeComments) {
@@ -259,7 +259,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	if err != nil {
 		return errors.Tag(
 			err,
-			"encoding JoinDocResponse failed for "+args.DocId.Hex(),
+			"encoding JoinDocResponse failed for "+args.DocId.String(),
 		)
 	}
 	rpc.Response.Body = blob
@@ -274,7 +274,7 @@ func (m *manager) leaveDoc(rpc *types.RPC) error {
 	err := m.appliedOps.Leave(rpc.Client, *docId)
 	if err != nil {
 		return errors.Tag(
-			err, "appliedOps.Leave failed for "+docId.Hex(),
+			err, "appliedOps.Leave failed for "+docId.String(),
 		)
 	}
 	rpc.Client.DocId = nil
@@ -448,7 +448,7 @@ func (m *manager) backgroundFlush(client *types.Client) {
 	if err != nil {
 		log.Println(
 			errors.Tag(
-				err, "background flush failed for "+client.ProjectId.Hex(),
+				err, "background flush failed for "+client.ProjectId.String(),
 			).Error(),
 		)
 	}

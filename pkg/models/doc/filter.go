@@ -17,43 +17,43 @@
 package doc
 
 import (
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func docFilter(projectId primitive.ObjectID, docId primitive.ObjectID) bson.M {
+func docFilter(projectId edgedb.UUID, docId edgedb.UUID) bson.M {
 	return bson.M{
 		"project_id": projectId,
 		"_id":        docId,
 	}
 }
-func docFilterWithRevision(projectId primitive.ObjectID, docId primitive.ObjectID, revision sharedTypes.Revision) bson.M {
+func docFilterWithRevision(projectId edgedb.UUID, docId edgedb.UUID, revision sharedTypes.Revision) bson.M {
 	filter := docFilter(projectId, docId)
 	filter["rev"] = revision
 	return filter
 }
 
-func docFilterInS3(projectId, docId primitive.ObjectID) bson.M {
+func docFilterInS3(projectId, docId edgedb.UUID) bson.M {
 	filter := docFilter(projectId, docId)
 	filter["inS3"] = true
 	return filter
 }
 
-func projectFilterAllDocs(projectId primitive.ObjectID) bson.M {
+func projectFilterAllDocs(projectId edgedb.UUID) bson.M {
 	return bson.M{
 		"project_id": projectId,
 	}
 }
 
-func projectFilterDeleted(projectId primitive.ObjectID) bson.M {
+func projectFilterDeleted(projectId edgedb.UUID) bson.M {
 	filter := projectFilterAllDocs(projectId)
 	filter["deleted"] = true
 	return filter
 }
 
-func projectFilterNonArchivedDocs(projectId primitive.ObjectID) bson.M {
+func projectFilterNonArchivedDocs(projectId edgedb.UUID) bson.M {
 	filter := projectFilterAllDocs(projectId)
 	filter["inS3"] = bson.M{
 		"$ne": true,
@@ -61,7 +61,7 @@ func projectFilterNonArchivedDocs(projectId primitive.ObjectID) bson.M {
 	return filter
 }
 
-func projectFilterNonDeleted(projectId primitive.ObjectID) bson.M {
+func projectFilterNonDeleted(projectId edgedb.UUID) bson.M {
 	filter := projectFilterAllDocs(projectId)
 	filter["deleted"] = bson.M{
 		"$ne": true,
@@ -69,7 +69,7 @@ func projectFilterNonDeleted(projectId primitive.ObjectID) bson.M {
 	return filter
 }
 
-func projectFilterNeedsUnArchiving(projectId primitive.ObjectID) bson.M {
+func projectFilterNeedsUnArchiving(projectId edgedb.UUID) bson.M {
 	filter := projectFilterNonDeleted(projectId)
 	filter["inS3"] = true
 	return filter

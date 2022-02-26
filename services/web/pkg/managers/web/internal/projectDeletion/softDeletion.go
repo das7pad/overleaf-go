@@ -20,7 +20,7 @@ import (
 	"context"
 	"log"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -29,13 +29,13 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func getAllUserIds(p *project.ForDeletion) []primitive.ObjectID {
+func getAllUserIds(p *project.ForDeletion) []edgedb.UUID {
 	n := 1 +
 		len(p.CollaboratorRefs) +
 		len(p.ReadOnlyRefs) +
 		len(p.TokenAccessReadAndWriteRefs) +
 		len(p.TokenAccessReadOnlyRefs)
-	userIds := make([]primitive.ObjectID, n)
+	userIds := make([]edgedb.UUID, n)
 	userIds[0] = p.OwnerRef
 	i := 1
 	i += copy(userIds[i:], p.CollaboratorRefs)
@@ -80,7 +80,7 @@ func (m *manager) DeleteProjectInTx(ctx, sCtx context.Context, request *types.De
 			// NOTE: Archiving the docs here is an optimization.
 			//       They will get deleted from both mongo/s3 on hard deletion.
 			err = errors.Tag(err, "cannot archive project")
-			log.Printf("%s: %s", projectId.Hex(), err)
+			log.Printf("%s: %s", projectId.String(), err)
 		}
 
 		if err := m.dpm.Create(sCtx, p, userId, ipAddress); err != nil {

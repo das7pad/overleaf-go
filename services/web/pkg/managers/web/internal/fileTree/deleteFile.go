@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -29,7 +29,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) deleteFileFromProject(ctx context.Context, projectId primitive.ObjectID, v sharedTypes.Version, mongoPath project.MongoPath, fileRef *project.FileRef) error {
+func (m *manager) deleteFileFromProject(ctx context.Context, projectId edgedb.UUID, v sharedTypes.Version, mongoPath project.MongoPath, fileRef *project.FileRef) error {
 	if err := m.dfm.Create(ctx, projectId, fileRef); err != nil {
 		return errors.Tag(err, "cannot create deletedFiles entry")
 	}

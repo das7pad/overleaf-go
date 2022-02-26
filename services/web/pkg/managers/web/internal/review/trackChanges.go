@@ -19,7 +19,7 @@ package review
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
@@ -39,7 +39,7 @@ func (m *manager) AcceptReviewChanges(ctx context.Context, r *types.AcceptReview
 	return nil
 }
 
-func (m *manager) getAllRanges(ctx context.Context, projectId primitive.ObjectID) ([]doc.Ranges, error) {
+func (m *manager) getAllRanges(ctx context.Context, projectId edgedb.UUID) ([]doc.Ranges, error) {
 	if err := m.dum.FlushProject(ctx, projectId); err != nil {
 		return nil, errors.Tag(err, "cannot flush project")
 	}

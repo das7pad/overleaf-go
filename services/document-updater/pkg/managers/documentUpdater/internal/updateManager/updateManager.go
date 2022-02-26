@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -34,14 +34,14 @@ import (
 type Manager interface {
 	ProcessOutstandingUpdates(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 		doc *types.Doc,
 		transformUpdatesCache []sharedTypes.DocumentUpdate,
 	) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
 
 	ProcessUpdates(
 		ctx context.Context,
-		docId primitive.ObjectID,
+		docId edgedb.UUID,
 		doc *types.Doc,
 		updates, transformUpdatesCache []sharedTypes.DocumentUpdate,
 	) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
@@ -59,7 +59,7 @@ type manager struct {
 	rtRm realTimeRedisManager.Manager
 }
 
-func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
+func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId edgedb.UUID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
 	updates, err := m.rtRm.GetPendingUpdatesForDoc(ctx, docId)
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot get work")
@@ -67,7 +67,7 @@ func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId primitive
 	return m.ProcessUpdates(ctx, docId, doc, updates, transformUpdatesCache)
 }
 
-func (m *manager) ProcessUpdates(ctx context.Context, docId primitive.ObjectID, doc *types.Doc, updates, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
+func (m *manager) ProcessUpdates(ctx context.Context, docId edgedb.UUID, doc *types.Doc, updates, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
 	if len(updates) == 0 {
 		return nil, nil, nil
 	}

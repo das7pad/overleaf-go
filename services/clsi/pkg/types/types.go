@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -59,7 +59,7 @@ func (i BuildId) Age() (time.Duration, error) {
 	return time.Now().Sub(time.Unix(0, ns)), nil
 }
 
-var anonymousSuffix = "-" + primitive.NilObjectID.Hex()
+var anonymousSuffix = "-" + edgedb.UUID{}.String()
 
 type Namespace string
 

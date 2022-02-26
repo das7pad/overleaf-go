@@ -97,7 +97,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			Members: true,
 		})
 
-		response.RedirectTo = "/project/" + projectId.Hex()
+		response.RedirectTo = "/project/" + projectId.String()
 		return nil
 	}
 	return project.ErrEpochIsNotStable

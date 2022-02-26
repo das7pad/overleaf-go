@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
@@ -36,8 +36,8 @@ const MaxRangesSize = 3 * megabytes
 type UnFlushedTime int64
 
 type LastUpdatedCtx struct {
-	At int64              `json:"at"`
-	By primitive.ObjectID `json:"by,omitempty"`
+	At int64       `json:"at"`
+	By edgedb.UUID `json:"by,omitempty"`
 }
 
 type FlushedDoc struct {
@@ -52,7 +52,7 @@ type DocCore struct {
 	Hash       sharedTypes.Hash     `json:"hash"`
 	JsonRanges json.RawMessage      `json:"json_ranges"`
 	Ranges     sharedTypes.Ranges   `json:"-"`
-	ProjectId  primitive.ObjectID   `json:"project_id"`
+	ProjectId  edgedb.UUID          `json:"project_id"`
 	PathName   sharedTypes.PathName `json:"path_name"`
 }
 
@@ -61,11 +61,11 @@ type Doc struct {
 	LastUpdatedCtx
 	sharedTypes.Version
 	UnFlushedTime
-	DocId               primitive.ObjectID
+	DocId               edgedb.UUID
 	JustLoadedIntoRedis bool
 }
 
-func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId primitive.ObjectID) *Doc {
+func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId edgedb.UUID) *Doc {
 	d := &Doc{}
 	d.DocId = docId
 	d.JustLoadedIntoRedis = true
@@ -81,7 +81,7 @@ type SetDocRequest struct {
 	Lines    sharedTypes.Lines    `json:"lines"`
 	Snapshot sharedTypes.Snapshot `json:"snapshot"`
 	Source   string               `json:"source"`
-	UserId   primitive.ObjectID   `json:"user_id"`
+	UserId   edgedb.UUID          `json:"user_id"`
 	Undoing  bool                 `json:"undoing"`
 }
 
@@ -101,8 +101,8 @@ func (s *SetDocRequest) Validate() error {
 
 type SetDocDetails struct {
 	*doc.ForDocUpdate
-	LastUpdatedAt int64              `json:"lastUpdatedAt"`
-	LastUpdatedBy primitive.ObjectID `json:"lastUpdatedBy"`
+	LastUpdatedAt int64       `json:"lastUpdatedAt"`
+	LastUpdatedBy edgedb.UUID `json:"lastUpdatedBy"`
 }
 
 func (d *Doc) ToSetDocDetails() *SetDocDetails {
@@ -118,14 +118,14 @@ func (d *Doc) ToSetDocDetails() *SetDocDetails {
 }
 
 type DocContentLines struct {
-	Id       primitive.ObjectID   `json:"_id"`
+	Id       edgedb.UUID          `json:"_id"`
 	Lines    sharedTypes.Lines    `json:"lines"`
 	PathName sharedTypes.PathName `json:"pathname"`
 	Version  sharedTypes.Version  `json:"v"`
 }
 
 type DocContentSnapshot struct {
-	Id            primitive.ObjectID   `json:"_id"`
+	Id            edgedb.UUID          `json:"_id"`
 	Snapshot      sharedTypes.Snapshot `json:"snapshot"`
 	PathName      sharedTypes.PathName `json:"pathname"`
 	Version       sharedTypes.Version  `json:"v"`
@@ -151,7 +151,7 @@ func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 	}
 }
 
-func (d *Doc) DeleteReviewThread(threadId primitive.ObjectID) bool {
+func (d *Doc) DeleteReviewThread(threadId edgedb.UUID) bool {
 	n := len(d.Ranges.Comments)
 	if n == 0 {
 		return false
@@ -171,12 +171,12 @@ func (d *Doc) DeleteReviewThread(threadId primitive.ObjectID) bool {
 	return true
 }
 
-func (d *Doc) AcceptReviewChanges(changeIds []primitive.ObjectID) bool {
+func (d *Doc) AcceptReviewChanges(changeIds []edgedb.UUID) bool {
 	n := len(d.Ranges.Changes)
 	if n == 0 {
 		return false
 	}
-	lookup := make(map[primitive.ObjectID]struct{})
+	lookup := make(map[edgedb.UUID]struct{})
 	for _, id := range changeIds {
 		lookup[id] = struct{}{}
 	}
@@ -240,7 +240,7 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 
 	core.JsonRanges = parts[2]
 
-	core.ProjectId, err = primitive.ObjectIDFromHex(string(parts[3]))
+	core.ProjectId, err = edgedb.ParseUUID(string(parts[3]))
 	if err != nil {
 		return errors.Tag(err, "cannot parse projectId")
 	}

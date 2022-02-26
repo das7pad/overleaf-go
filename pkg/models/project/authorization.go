@@ -17,7 +17,7 @@
 package project
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -61,9 +61,9 @@ func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
 	)
 }
 
-type Refs []primitive.ObjectID
+type Refs []edgedb.UUID
 
-func (r Refs) Contains(userId primitive.ObjectID) bool {
+func (r Refs) Contains(userId edgedb.UUID) bool {
 	for _, ref := range r {
 		if userId == ref {
 			return true
@@ -100,7 +100,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
-func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error {
+func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error {
 	d, err := p.GetPrivilegeLevelAuthenticated(userId)
 	if err != nil {
 		return err
@@ -108,7 +108,7 @@ func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId primitive.O
 	return d.PrivilegeLevel.CheckIsAtLeast(level)
 }
 
-func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitive.ObjectID) (*AuthorizationDetails, error) {
+func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId edgedb.UUID) (*AuthorizationDetails, error) {
 	if p.OwnerRef == userId {
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
@@ -154,8 +154,8 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId primitiv
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
-func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, accessToken AccessToken) (*AuthorizationDetails, error) {
-	if userId.IsZero() {
+func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId edgedb.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
+	if userId == (edgedb.UUID{}) {
 		return p.GetPrivilegeLevelAnonymous(accessToken)
 	} else {
 		return p.GetPrivilegeLevelAuthenticated(userId)
@@ -163,7 +163,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId primitive.ObjectID, a
 }
 
 type TokenAccessResult struct {
-	ProjectId primitive.ObjectID
+	ProjectId edgedb.UUID
 	Epoch     int64
 	Fresh     *AuthorizationDetails
 	Existing  *AuthorizationDetails

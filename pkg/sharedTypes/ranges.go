@@ -19,12 +19,12 @@ package sharedTypes
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type Change struct {
-	RangeEntryBase `bson:"inline"`
-	Op             ChangeOp `json:"op" bson:"op"`
+	RangeEntryBase `edgedb:"inline"`
+	Op             ChangeOp `json:"op" edgedb:"op"`
 }
 
 func (c Change) Equals(other Change) bool {
@@ -52,9 +52,9 @@ func (c Changes) Equals(other Changes) bool {
 }
 
 type ChangeOp struct {
-	Deletion  string `json:"d,omitempty" bson:"d,omitempty"`
-	Insertion string `json:"i,omitempty" bson:"i,omitempty"`
-	Position  int64  `json:"p" bson:"p"`
+	Deletion  string `json:"d,omitempty" edgedb:"d"`
+	Insertion string `json:"i,omitempty" edgedb:"i"`
+	Position  int64  `json:"p" edgedb:"p"`
 }
 
 func (o ChangeOp) Equals(other ChangeOp) bool {
@@ -71,8 +71,8 @@ func (o ChangeOp) Equals(other ChangeOp) bool {
 }
 
 type Comment struct {
-	RangeEntryBase `bson:"inline"`
-	Op             CommentOp `json:"op" bson:"op"`
+	RangeEntryBase `edgedb:"inline"`
+	Op             CommentOp `json:"op" edgedb:"op"`
 }
 
 func (c Comment) Equals(other Comment) bool {
@@ -100,9 +100,9 @@ func (c Comments) Equals(other Comments) bool {
 }
 
 type CommentOp struct {
-	Comment  string             `json:"c" bson:"c"`
-	Position int64              `json:"p" bson:"p"`
-	Thread   primitive.ObjectID `json:"t" bson:"t"`
+	Comment  string      `json:"c" edgedb:"c"`
+	Position int64       `json:"p" edgedb:"p"`
+	Thread   edgedb.UUID `json:"t" edgedb:"t"`
 }
 
 func (o CommentOp) Equals(other CommentOp) bool {
@@ -112,15 +112,15 @@ func (o CommentOp) Equals(other CommentOp) bool {
 	if o.Position != other.Position {
 		return false
 	}
-	if o.Thread.Hex() != other.Thread.Hex() {
+	if o.Thread.String() != other.Thread.String() {
 		return false
 	}
 	return true
 }
 
 type RangeMetaData struct {
-	Timestamp time.Time           `json:"ts" bson:"ts"`
-	UserId    *primitive.ObjectID `json:"user_id,omitempty" bson:"user_id,omitempty"`
+	Timestamp time.Time    `json:"ts" edgedb:"ts"`
+	UserId    *edgedb.UUID `json:"user_id,omitempty" edgedb:"user_id"`
 }
 
 func (d RangeMetaData) Equals(other RangeMetaData) bool {
@@ -133,15 +133,15 @@ func (d RangeMetaData) Equals(other RangeMetaData) bool {
 	if other.UserId == nil && d.UserId != nil {
 		return false
 	}
-	if d.UserId.Hex() != other.UserId.Hex() {
+	if d.UserId.String() != other.UserId.String() {
 		return false
 	}
 	return true
 }
 
 type RangeEntryBase struct {
-	Id       primitive.ObjectID `json:"id" bson:"id"`
-	MetaData RangeMetaData      `json:"metadata" bson:"metadata"`
+	Id       edgedb.UUID   `json:"id" edgedb:"id"`
+	MetaData RangeMetaData `json:"metadata" edgedb:"metadata"`
 }
 
 func (b RangeEntryBase) Equals(other RangeEntryBase) bool {
@@ -155,8 +155,8 @@ func (b RangeEntryBase) Equals(other RangeEntryBase) bool {
 }
 
 type Ranges struct {
-	Changes  Changes  `json:"changes,omitempty" bson:"changes,omitempty"`
-	Comments Comments `json:"comments,omitempty" bson:"comments,omitempty"`
+	Changes  Changes  `json:"changes,omitempty" edgedb:"changes"`
+	Comments Comments `json:"comments,omitempty" edgedb:"comments"`
 }
 
 func (r Ranges) Equals(other Ranges) bool {

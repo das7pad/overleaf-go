@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -32,27 +32,27 @@ type UpdateEditorConfigRequest struct {
 }
 
 type SetCompilerRequest struct {
-	ProjectId primitive.ObjectID   `json:"-"`
+	ProjectId edgedb.UUID          `json:"-"`
 	Compiler  sharedTypes.Compiler `json:"compiler"`
 }
 
 type SetImageNameRequest struct {
-	ProjectId primitive.ObjectID    `json:"-"`
+	ProjectId edgedb.UUID           `json:"-"`
 	ImageName sharedTypes.ImageName `json:"imageName"`
 }
 
 type SetSpellCheckLanguageRequest struct {
-	ProjectId          primitive.ObjectID               `json:"-"`
+	ProjectId          edgedb.UUID                      `json:"-"`
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
 }
 
 type SetRootDocIdRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	RootDocId primitive.ObjectID `json:"rootDocId"`
+	ProjectId edgedb.UUID `json:"-"`
+	RootDocId edgedb.UUID `json:"rootDocId"`
 }
 
 type SetPublicAccessLevelRequest struct {
-	ProjectId         primitive.ObjectID        `json:"-"`
+	ProjectId         edgedb.UUID               `json:"-"`
 	Epoch             int64                     `json:"-"`
 	PublicAccessLevel project.PublicAccessLevel `json:"publicAccessLevel"`
 }

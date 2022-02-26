@@ -17,20 +17,20 @@
 package docOps
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type VersionField struct {
-	Version sharedTypes.Version `json:"version" bson:"version"`
+	Version sharedTypes.Version `json:"version" edgedb:"version"`
 }
 
 type DocIdField struct {
-	DocId primitive.ObjectID `bson:"doc_id"`
+	DocId edgedb.UUID `edgedb:"doc_id"`
 }
 
 type Full struct {
-	DocIdField   `bson:"inline"`
-	VersionField `bson:"inline"`
+	DocIdField   `edgedb:"inline"`
+	VersionField `edgedb:"inline"`
 }

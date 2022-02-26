@@ -17,10 +17,10 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type WsBootstrap struct {
-	ProjectId primitive.ObjectID `json:"projectId"`
-	User      User               `json:"user"`
+	ProjectId edgedb.UUID `json:"projectId"`
+	User      User        `json:"user"`
 }

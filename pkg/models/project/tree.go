@@ -21,25 +21,25 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type TreeElement interface {
-	GetId() primitive.ObjectID
+	GetId() edgedb.UUID
 	GetName() sharedTypes.Filename
 	SetName(name sharedTypes.Filename)
 	FieldNameInFolder() MongoPath
 }
 
 type CommonTreeFields struct {
-	Id   primitive.ObjectID   `json:"_id" bson:"_id"`
-	Name sharedTypes.Filename `json:"name" bson:"name"`
+	Id   edgedb.UUID          `json:"_id" edgedb:"id"`
+	Name sharedTypes.Filename `json:"name" edgedb:"name"`
 }
 
-func (c CommonTreeFields) GetId() primitive.ObjectID {
+func (c CommonTreeFields) GetId() edgedb.UUID {
 	return c.Id
 }
 
@@ -52,7 +52,7 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 }
 
 type Doc struct {
-	CommonTreeFields `bson:"inline"`
+	CommonTreeFields `edgedb:"inline"`
 }
 
 func (d *Doc) FieldNameInFolder() MongoPath {
@@ -61,7 +61,8 @@ func (d *Doc) FieldNameInFolder() MongoPath {
 
 func NewDoc(name sharedTypes.Filename) *Doc {
 	return &Doc{CommonTreeFields: CommonTreeFields{
-		Id:   primitive.NewObjectID(),
+		// TODO: refactor into server side gen.
+		Id:   edgedb.UUID{},
 		Name: name,
 	}}
 }
@@ -86,20 +87,20 @@ func (p LinkedFileProvider) Validate() error {
 }
 
 type LinkedFileData struct {
-	Provider             LinkedFileProvider `json:"provider" bson:"provider"`
-	SourceProjectId      string             `json:"source_project_id,omitempty" bson:"source_project_id,omitempty"`
-	SourceEntityPath     string             `json:"source_entity_path,omitempty" bson:"source_entity_path,omitempty"`
-	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" bson:"source_output_file_path,omitempty"`
-	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
+	Provider             LinkedFileProvider `json:"provider" edgedb:"provider"`
+	SourceProjectId      string             `json:"source_project_id,omitempty" edgedb:"source_project_id"`
+	SourceEntityPath     string             `json:"source_entity_path,omitempty" edgedb:"source_entity_path"`
+	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" edgedb:"source_output_file_path"`
+	URL                  string             `json:"url,omitempty" edgedb:"url"`
 }
 
 type FileRef struct {
-	CommonTreeFields `bson:"inline"`
+	CommonTreeFields `edgedb:"inline"`
 
-	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" bson:"linkedFileData,omitempty"`
-	Hash           sharedTypes.Hash `json:"hash" bson:"hash"`
-	Created        time.Time        `json:"created" bson:"created"`
-	Size           *int64           `json:"size" bson:"size"`
+	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linkedFileData"`
+	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
+	Created        time.Time        `json:"created" edgedb:"created"`
+	Size           *int64           `json:"size" edgedb:"size"`
 }
 
 func (f *FileRef) FieldNameInFolder() MongoPath {
@@ -109,7 +110,8 @@ func (f *FileRef) FieldNameInFolder() MongoPath {
 func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size *int64) *FileRef {
 	return &FileRef{
 		CommonTreeFields: CommonTreeFields{
-			Id:   primitive.NewObjectID(),
+			// TODO: refactor into server side gen.
+			Id:   edgedb.UUID{},
 			Name: name,
 		},
 		Created: time.Now().UTC(),
@@ -119,11 +121,11 @@ func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size *int64) *
 }
 
 type Folder struct {
-	CommonTreeFields `bson:"inline"`
+	CommonTreeFields `edgedb:"inline"`
 
-	Docs     []*Doc     `json:"docs" bson:"docs"`
-	FileRefs []*FileRef `json:"fileRefs" bson:"fileRefs"`
-	Folders  []*Folder  `json:"folders" bson:"folders"`
+	Docs     []*Doc     `json:"docs" edgedb:"docs"`
+	FileRefs []*FileRef `json:"fileRefs" edgedb:"fileRefs"`
+	Folders  []*Folder  `json:"folders" edgedb:"folders"`
 }
 
 func (t *Folder) FieldNameInFolder() MongoPath {
@@ -186,7 +188,8 @@ func (t *Folder) CheckHasUniqueEntries() error {
 func NewFolder(name sharedTypes.Filename) *Folder {
 	return &Folder{
 		CommonTreeFields: CommonTreeFields{
-			Id:   primitive.NewObjectID(),
+			// TODO: refactor into server side gen.
+			Id:   edgedb.UUID{},
 			Name: name,
 		},
 		Docs:     make([]*Doc, 0),

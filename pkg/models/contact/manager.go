@@ -22,15 +22,16 @@ import (
 	"sort"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Manager interface {
-	DeleteForUser(ctx context.Context, userId primitive.ObjectID) error
-	GetForUser(ctx context.Context, userId primitive.ObjectID, contacts *[]primitive.ObjectID) error
-	Add(ctx context.Context, userId, contactId primitive.ObjectID) error
+	DeleteForUser(ctx context.Context, userId edgedb.UUID) error
+	GetForUser(ctx context.Context, userId edgedb.UUID, contacts *[]edgedb.UUID) error
+	Add(ctx context.Context, userId, contactId edgedb.UUID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -41,7 +42,7 @@ type manager struct {
 	c *mongo.Collection
 }
 
-func (cm *manager) GetForUser(ctx context.Context, userId primitive.ObjectID, contacts *[]primitive.ObjectID) error {
+func (cm *manager) GetForUser(ctx context.Context, userId edgedb.UUID, contacts *[]edgedb.UUID) error {
 	entry := &ContactsField{}
 	err := cm.c.FindOne(ctx, UserIdField{UserId: userId}).Decode(entry)
 	if err != nil && err != mongo.ErrNoDocuments {
@@ -63,9 +64,9 @@ func (cm *manager) GetForUser(ctx context.Context, userId primitive.ObjectID, co
 	if n > 50 {
 		n = 50
 	}
-	contactIds := make([]primitive.ObjectID, n)
+	contactIds := make([]edgedb.UUID, n)
 	for i := 0; i < n; i++ {
-		id, err2 := primitive.ObjectIDFromHex(raw[i].UserId)
+		id, err2 := edgedb.ParseUUID(raw[i].UserId)
 		if err2 != nil {
 			return err2
 		}
@@ -76,23 +77,23 @@ func (cm *manager) GetForUser(ctx context.Context, userId primitive.ObjectID, co
 }
 
 func prepareTouchContactOneWay(
-	userId, contactId primitive.ObjectID,
+	userId, contactId edgedb.UUID,
 ) mongo.WriteModel {
 	now := primitive.NewDateTimeFromTime(time.Now())
 	return mongo.NewUpdateOneModel().
 		SetFilter(UserIdField{UserId: userId}).
 		SetUpdate(bson.M{
 			"$inc": bson.M{
-				fmt.Sprintf("contacts.%s.n", contactId.Hex()): 1,
+				fmt.Sprintf("contacts.%s.n", contactId.String()): 1,
 			},
 			"$set": bson.M{
-				fmt.Sprintf("contacts.%s.ts", contactId.Hex()): now,
+				fmt.Sprintf("contacts.%s.ts", contactId.String()): now,
 			},
 		}).
 		SetUpsert(true)
 }
 
-func (cm *manager) Add(ctx context.Context, userId, contactId primitive.ObjectID) error {
+func (cm *manager) Add(ctx context.Context, userId, contactId edgedb.UUID) error {
 	_, err := cm.c.BulkWrite(
 		ctx,
 		[]mongo.WriteModel{
@@ -106,7 +107,7 @@ func (cm *manager) Add(ctx context.Context, userId, contactId primitive.ObjectID
 	return nil
 }
 
-func (cm *manager) DeleteForUser(ctx context.Context, userId primitive.ObjectID) error {
+func (cm *manager) DeleteForUser(ctx context.Context, userId edgedb.UUID) error {
 	q := &UserIdField{UserId: userId}
 	_, err := cm.c.DeleteOne(ctx, q)
 	if err != nil {

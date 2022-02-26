@@ -17,7 +17,7 @@
 package wsBootstrap
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
@@ -27,8 +27,8 @@ import (
 
 type Claims struct {
 	expiringJWT.Claims
-	ProjectId primitive.ObjectID `json:"projectId"`
-	User      types.User         `json:"user"`
+	ProjectId edgedb.UUID `json:"projectId"`
+	User      types.User  `json:"user"`
 }
 
 func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {

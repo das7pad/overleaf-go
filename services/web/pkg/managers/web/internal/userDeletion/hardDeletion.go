@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -49,14 +49,14 @@ func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error
 		eg.Go(func() error {
 			for userId := range queue {
 				if dryRun {
-					log.Println("dry-run hard deleting user " + userId.Hex())
+					log.Println("dry-run hard deleting user " + userId.String())
 					continue
 				}
 				// Use the original ctx in order to ignore imminent failure
 				//  of another consumer.
 				if err := m.HardDeleteUser(ctx, userId); err != nil {
 					err = errors.Tag(
-						err, "hard deletion failed for user "+userId.Hex(),
+						err, "hard deletion failed for user "+userId.String(),
 					)
 					log.Println(err.Error())
 					return err
@@ -68,7 +68,7 @@ func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error
 	return eg.Wait()
 }
 
-func (m *manager) HardDeleteUser(ctx context.Context, userId primitive.ObjectID) error {
+func (m *manager) HardDeleteUser(ctx context.Context, userId edgedb.UUID) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		if err := m.cm.DeleteForUser(pCtx, userId); err != nil {

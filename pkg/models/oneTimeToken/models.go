@@ -17,17 +17,17 @@
 package oneTimeToken
 
 type forNewPasswordReset struct {
-	UseField               `bson:"inline"`
-	TokenField             `bson:"inline"`
-	PasswordResetDataField `bson:"inline"`
-	CreatedAtField         `bson:"inline"`
-	ExpiresAtField         `bson:"inline"`
+	UseField               `edgedb:"inline"`
+	TokenField             `edgedb:"inline"`
+	PasswordResetDataField `edgedb:"inline"`
+	CreatedAtField         `edgedb:"inline"`
+	ExpiresAtField         `edgedb:"inline"`
 }
 
 type forEmailConfirmation struct {
-	UseField                   `bson:"inline"`
-	TokenField                 `bson:"inline"`
-	EmailConfirmationDataField `bson:"inline"`
-	CreatedAtField             `bson:"inline"`
-	ExpiresAtField             `bson:"inline"`
+	UseField                   `edgedb:"inline"`
+	TokenField                 `edgedb:"inline"`
+	EmailConfirmationDataField `edgedb:"inline"`
+	CreatedAtField             `edgedb:"inline"`
+	ExpiresAtField             `edgedb:"inline"`
 }

@@ -19,7 +19,7 @@ package admin
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -30,10 +30,10 @@ type Manager interface {
 	AdminManageSitePage(ctx context.Context, request *types.AdminManageSitePageRequest, response *types.AdminManageSitePageResponse) error
 }
 
-func New(ps *templates.PublicSettings, db *mongo.Database) Manager {
+func New(ps *templates.PublicSettings, c *edgedb.Client) Manager {
 	return &manager{
 		ps:  ps,
-		smm: systemMessage.New(db),
+		smm: systemMessage.New(c),
 	}
 }
 

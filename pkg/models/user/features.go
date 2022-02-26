@@ -21,10 +21,10 @@ import (
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators" bson:"collaborators"`
-	Versioning          bool                       `json:"versioning" bson:"versioning"`
-	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" bson:"compileTimeout"`
-	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" bson:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges" bson:"trackChanges"`
+	Collaborators       int                        `json:"collaborators" edgedb:"collaborators"`
+	Versioning          bool                       `json:"versioning" edgedb:"versioning"`
+	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" edgedb:"compileTimeout"`
+	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" edgedb:"compileGroup"`
+	TrackChanges        bool                       `json:"trackChanges" edgedb:"trackChanges"`
 	TrackChangesVisible bool                       `json:"trackChangesVisible"`
 }

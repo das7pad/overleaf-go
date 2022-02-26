@@ -19,7 +19,7 @@ package login
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -31,10 +31,10 @@ func (m *manager) ActivateUserPage(ctx context.Context, request *types.ActivateU
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	var userId primitive.ObjectID
+	var userId edgedb.UUID
 	{
-		id, err := primitive.ObjectIDFromHex(request.UserIdHex)
-		if err != nil || id.IsZero() {
+		id, err := edgedb.ParseUUID(request.UserIdHex)
+		if err != nil || id == (edgedb.UUID{}) {
 			return &errors.ValidationError{Msg: "invalid user_id"}
 		}
 		userId = id

@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -28,9 +28,9 @@ import (
 )
 
 type Manager interface {
-	Create(ctx context.Context, projectId primitive.ObjectID, fileRef *project.FileRef) error
-	CreateBulk(ctx context.Context, projectId primitive.ObjectID, fileRefs []*project.FileRef) error
-	DeleteBulk(ctx context.Context, projectId primitive.ObjectID) error
+	Create(ctx context.Context, projectId edgedb.UUID, fileRef *project.FileRef) error
+	CreateBulk(ctx context.Context, projectId edgedb.UUID, fileRefs []*project.FileRef) error
+	DeleteBulk(ctx context.Context, projectId edgedb.UUID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -50,7 +50,7 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) Create(ctx context.Context, projectId primitive.ObjectID, fileRef *project.FileRef) error {
+func (m *manager) Create(ctx context.Context, projectId edgedb.UUID, fileRef *project.FileRef) error {
 	entry := &Full{}
 	entry.DeletedAt = time.Now().UTC()
 	entry.FileRef = *fileRef
@@ -62,7 +62,7 @@ func (m *manager) Create(ctx context.Context, projectId primitive.ObjectID, file
 	return nil
 }
 
-func (m *manager) CreateBulk(ctx context.Context, projectId primitive.ObjectID, fileRefs []*project.FileRef) error {
+func (m *manager) CreateBulk(ctx context.Context, projectId edgedb.UUID, fileRefs []*project.FileRef) error {
 	items := make([]interface{}, len(fileRefs))
 	now := time.Now().UTC()
 	for i := range fileRefs {
@@ -79,7 +79,7 @@ func (m *manager) CreateBulk(ctx context.Context, projectId primitive.ObjectID, 
 	return nil
 }
 
-func (m *manager) DeleteBulk(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) DeleteBulk(ctx context.Context, projectId edgedb.UUID) error {
 	q := &ProjectIdField{ProjectId: projectId}
 	if _, err := m.c.DeleteMany(ctx, q); err != nil {
 		return rewriteMongoError(err)

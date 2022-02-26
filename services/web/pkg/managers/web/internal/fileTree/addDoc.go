@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -47,7 +49,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 		var target *project.Folder
 		var mongoPath project.MongoPath
-		if parentFolderId.IsZero() {
+		if parentFolderId == (edgedb.UUID{}) {
 			parentFolderId = t.Id
 		}
 		err = t.WalkFoldersMongo(func(_, f *project.Folder, fPath sharedTypes.DirName, mPath project.MongoPath) error {

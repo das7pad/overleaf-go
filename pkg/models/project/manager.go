@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,46 +38,46 @@ type Manager interface {
 	CreateProject(ctx context.Context, creation *ForCreation) error
 	Delete(ctx context.Context, p *ForDeletion) error
 	Restore(ctx context.Context, p *ForDeletion) error
-	GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error)
-	AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
-	DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
-	DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
-	MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
-	RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
-	GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error)
-	BumpEpoch(ctx context.Context, projectId primitive.ObjectID) error
-	GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error)
-	GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error)
-	GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error)
-	GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error)
-	GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, sharedTypes.Version, error)
-	GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error
-	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
-	GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error)
-	GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error)
-	GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error
-	GrantReadAndWriteTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
-	GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
-	PopulateTokens(ctx context.Context, projectId primitive.ObjectID) (*Tokens, error)
-	ListProjects(ctx context.Context, userId primitive.ObjectID) ([]*ListViewPrivate, error)
-	GetProjectNames(ctx context.Context, userId primitive.ObjectID) (Names, error)
-	MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error
-	MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error
-	MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error
-	UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error
-	SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler sharedTypes.Compiler) error
-	SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName sharedTypes.ImageName) error
-	SetSpellCheckLanguage(ctx context.Context, projectId primitive.ObjectID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
-	SetRootDocId(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, rootDocId primitive.ObjectID) error
-	SetPublicAccessLevel(ctx context.Context, projectId primitive.ObjectID, epoch int64, level PublicAccessLevel) error
-	SetTrackChangesState(ctx context.Context, projectId primitive.ObjectID, s TrackChangesState) error
-	ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
-	UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
-	TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
-	UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error
-	Rename(ctx context.Context, projectId, userId primitive.ObjectID, name Name) error
-	RemoveMember(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error
-	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId primitive.ObjectID) error
+	GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error)
+	AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	MoveTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
+	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
+	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
+	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
+	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
+	GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
+	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID) (*JoinProjectViewPrivate, error)
+	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID) (*LoadEditorViewPrivate, error)
+	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
+	GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error
+	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
+	GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
+	GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error)
+	GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error
+	GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
+	GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
+	PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*Tokens, error)
+	ListProjects(ctx context.Context, userId edgedb.UUID) ([]*ListViewPrivate, error)
+	GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error)
+	MarkAsActive(ctx context.Context, projectId edgedb.UUID) error
+	MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error
+	MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error
+	UpdateLastUpdated(ctx context.Context, projectId edgedb.UUID, at time.Time, by edgedb.UUID) error
+	SetCompiler(ctx context.Context, projectId edgedb.UUID, compiler sharedTypes.Compiler) error
+	SetImageName(ctx context.Context, projectId edgedb.UUID, imageName sharedTypes.ImageName) error
+	SetSpellCheckLanguage(ctx context.Context, projectId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
+	SetRootDocId(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, rootDocId edgedb.UUID) error
+	SetPublicAccessLevel(ctx context.Context, projectId edgedb.UUID, epoch int64, level PublicAccessLevel) error
+	SetTrackChangesState(ctx context.Context, projectId edgedb.UUID, s TrackChangesState) error
+	ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
+	UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
+	TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
+	UnTrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
+	Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
+	RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
+	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error
 }
 
 func New(db *mongo.Database) Manager {
@@ -100,7 +101,7 @@ func removeArrayIndex(path MongoPath) MongoPath {
 	return path[0:strings.LastIndexByte(string(path), '.')]
 }
 
-func matchUsersProjects(userId primitive.ObjectID) bson.M {
+func matchUsersProjects(userId edgedb.UUID) bson.M {
 	//goland:noinspection SpellCheckingInspection
 	return bson.M{
 		"$or": bson.A{
@@ -133,7 +134,7 @@ type manager struct {
 	cSlow *mongo.Collection
 }
 
-func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan primitive.ObjectID, error) {
+func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error) {
 	cutOff := time.Now().UTC().Add(-age)
 
 	q := bson.M{
@@ -160,7 +161,7 @@ func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<
 	if errFind != nil {
 		return nil, rewriteMongoError(errFind)
 	}
-	queue := make(chan primitive.ObjectID, inactiveProjectBufferSize)
+	queue := make(chan edgedb.UUID, inactiveProjectBufferSize)
 
 	// Peek once into the batch, then ignore any errors during background
 	//  streaming.
@@ -197,7 +198,7 @@ func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {
 	return nil
 }
 
-func (m *manager) PopulateTokens(ctx context.Context, projectId primitive.ObjectID) (*Tokens, error) {
+func (m *manager) PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*Tokens, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		tokens, err := generateTokens()
@@ -230,25 +231,25 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId primitive.Object
 	return nil, errors.Tag(allErrors, "bad random source")
 }
 
-func (m *manager) SetCompiler(ctx context.Context, projectId primitive.ObjectID, compiler sharedTypes.Compiler) error {
+func (m *manager) SetCompiler(ctx context.Context, projectId edgedb.UUID, compiler sharedTypes.Compiler) error {
 	return m.set(ctx, projectId, CompilerField{
 		Compiler: compiler,
 	})
 }
 
-func (m *manager) SetImageName(ctx context.Context, projectId primitive.ObjectID, imageName sharedTypes.ImageName) error {
+func (m *manager) SetImageName(ctx context.Context, projectId edgedb.UUID, imageName sharedTypes.ImageName) error {
 	return m.set(ctx, projectId, ImageNameField{
 		ImageName: imageName,
 	})
 }
 
-func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId primitive.ObjectID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
+func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
 	return m.set(ctx, projectId, SpellCheckLanguageField{
 		SpellCheckLanguage: spellCheckLanguage,
 	})
 }
 
-func (m *manager) SetRootDocId(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, rootDocId primitive.ObjectID) error {
+func (m *manager) SetRootDocId(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, rootDocId edgedb.UUID) error {
 	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
 		"$set": RootDocIdField{
 			RootDocId: rootDocId,
@@ -256,7 +257,7 @@ func (m *manager) SetRootDocId(ctx context.Context, projectId primitive.ObjectID
 	})
 }
 
-func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId primitive.ObjectID, epoch int64, publicAccessLevel PublicAccessLevel) error {
+func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId edgedb.UUID, epoch int64, publicAccessLevel PublicAccessLevel) error {
 	return m.setWithEpochGuard(ctx, projectId, epoch, bson.M{
 		"$set": PublicAccessLevelField{
 			PublicAccessLevel: publicAccessLevel,
@@ -264,13 +265,13 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId primitive.
 	})
 }
 
-func (m *manager) SetTrackChangesState(ctx context.Context, projectId primitive.ObjectID, s TrackChangesState) error {
+func (m *manager) SetTrackChangesState(ctx context.Context, projectId edgedb.UUID, s TrackChangesState) error {
 	return m.set(ctx, projectId, &TrackChangesStateField{
 		TrackChangesState: s,
 	})
 }
 
-func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId primitive.ObjectID) error {
+func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error {
 	previousOwnerId := p.OwnerRef
 
 	// We need to add the previous owner and remove the new  owner from the
@@ -323,7 +324,7 @@ func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipT
 	return m.setWithEpochGuard(ctx, p.Id, p.Epoch, u)
 }
 
-func (m *manager) Rename(ctx context.Context, projectId, userId primitive.ObjectID, name Name) error {
+func (m *manager) Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error {
 	err := m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelOwner, &bson.M{
 			"$set": NameField{
@@ -339,7 +340,7 @@ func (m *manager) Rename(ctx context.Context, projectId, userId primitive.Object
 
 var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}
 
-func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+func (m *manager) AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
 	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
 		"$push": bson.M{
 			string(mongoPath + "." + element.FieldNameInFolder()): element,
@@ -348,15 +349,15 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId primitive.Object
 	})
 }
 
-func (m *manager) DeleteTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+func (m *manager) DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
 	return m.deleteTreeElementAndMaybeRootDoc(ctx, projectId, version, mongoPath, element, false)
 }
 
-func (m *manager) DeleteTreeElementAndRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
+func (m *manager) DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
 	return m.deleteTreeElementAndMaybeRootDoc(ctx, projectId, version, mongoPath, element, true)
 }
 
-func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement, unsetRootDoc bool) error {
+func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement, unsetRootDoc bool) error {
 	u := bson.M{
 		"$pull": bson.M{
 			string(removeArrayIndex(mongoPath)): CommonTreeFields{
@@ -374,7 +375,7 @@ func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectI
 	return m.setWithVersionGuard(ctx, projectId, version, u)
 }
 
-func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error {
+func (m *manager) MoveTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error {
 	// NOTE: Mongo allows one operation per field only.
 	//       We need to push/pull into/from the same rootFolder.
 	//       Use a transaction for the move operation.
@@ -408,7 +409,7 @@ func (m *manager) MoveTreeElement(ctx context.Context, projectId primitive.Objec
 	return nil
 }
 
-func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error {
+func (m *manager) RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error {
 	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
 		"$set": bson.M{
 			string(mongoPath) + ".name": name,
@@ -417,7 +418,7 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId primitive.Obj
 	})
 }
 
-func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
 	return m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$addToSet": bson.M{
@@ -430,7 +431,7 @@ func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId primitiv
 	)
 }
 
-func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
 	return m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$pull": bson.M{
@@ -440,7 +441,7 @@ func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId primit
 	)
 }
 
-func (m *manager) TrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+func (m *manager) TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
 	return m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$addToSet": bson.M{
@@ -453,7 +454,7 @@ func (m *manager) TrashForUser(ctx context.Context, projectId, userId primitive.
 	)
 }
 
-func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitive.ObjectID) error {
+func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
 	return m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
 			"$pull": bson.M{
@@ -465,7 +466,7 @@ func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId primitiv
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
-func (m *manager) setWithEpochGuard(ctx context.Context, projectId primitive.ObjectID, epoch int64, u interface{}) error {
+func (m *manager) setWithEpochGuard(ctx context.Context, projectId edgedb.UUID, epoch int64, u interface{}) error {
 	q := withIdAndEpoch{}
 	q.Id = projectId
 	q.Epoch = epoch
@@ -479,7 +480,7 @@ func (m *manager) setWithEpochGuard(ctx context.Context, projectId primitive.Obj
 	return nil
 }
 
-func (m *manager) setWithVersionGuard(ctx context.Context, projectId primitive.ObjectID, version sharedTypes.Version, u interface{}) error {
+func (m *manager) setWithVersionGuard(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, u interface{}) error {
 	q := &withIdAndVersion{}
 	q.Id = projectId
 	q.Version = version
@@ -493,7 +494,7 @@ func (m *manager) setWithVersionGuard(ctx context.Context, projectId primitive.O
 	return nil
 }
 
-func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId primitive.ObjectID, minLevel sharedTypes.PrivilegeLevel, u interface{}) error {
+func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId edgedb.UUID, minLevel sharedTypes.PrivilegeLevel, u interface{}) error {
 	for i := 0; i < 10; i++ {
 		p := &ForAuthorizationDetails{}
 		qId := &IdField{Id: projectId}
@@ -516,7 +517,7 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId pr
 	return ErrEpochIsNotStable
 }
 
-func (m *manager) GetProjectNames(ctx context.Context, userId primitive.ObjectID) (Names, error) {
+func (m *manager) GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error) {
 	q := matchUsersProjects(userId)
 	var projects []NameField
 	r, err := m.c.Find(
@@ -539,7 +540,7 @@ func (m *manager) GetProjectNames(ctx context.Context, userId primitive.ObjectID
 	return names, nil
 }
 
-func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) ([]*ListViewPrivate, error) {
+func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID) ([]*ListViewPrivate, error) {
 	var projects []*ListViewPrivate
 	projection := getProjection(projects).CloneForWriting()
 
@@ -573,7 +574,7 @@ func (m *manager) ListProjects(ctx context.Context, userId primitive.ObjectID) (
 	return projects, nil
 }
 
-func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId primitive.ObjectID, token AccessToken) (*AuthorizationDetails, error) {
+func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
 	q := &IdField{Id: projectId}
 	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
@@ -583,7 +584,7 @@ func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId
 	return p.GetPrivilegeLevel(userId, token)
 }
 
-func (m *manager) BumpEpoch(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) BumpEpoch(ctx context.Context, projectId edgedb.UUID) error {
 	_, err := m.c.UpdateOne(ctx, &IdField{Id: projectId}, &bson.M{
 		"$inc": &EpochField{Epoch: 1},
 	})
@@ -593,13 +594,13 @@ func (m *manager) BumpEpoch(ctx context.Context, projectId primitive.ObjectID) e
 	return nil
 }
 
-func (m *manager) GetEpoch(ctx context.Context, projectId primitive.ObjectID) (int64, error) {
+func (m *manager) GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error) {
 	p := &EpochField{}
 	err := m.GetProject(ctx, projectId, p)
 	return p.Epoch, err
 }
 
-func (m *manager) set(ctx context.Context, projectId primitive.ObjectID, update interface{}) error {
+func (m *manager) set(ctx context.Context, projectId edgedb.UUID, update interface{}) error {
 	_, err := m.c.UpdateOne(
 		ctx,
 		IdField{
@@ -612,7 +613,7 @@ func (m *manager) set(ctx context.Context, projectId primitive.ObjectID, update 
 	return err
 }
 
-func (m *manager) UpdateLastUpdated(ctx context.Context, projectId primitive.ObjectID, at time.Time, by primitive.ObjectID) error {
+func (m *manager) UpdateLastUpdated(ctx context.Context, projectId edgedb.UUID, at time.Time, by edgedb.UUID) error {
 	v := WithLastUpdatedDetails{}
 	v.LastUpdatedAt = at
 	v.LastUpdatedBy = by
@@ -631,7 +632,7 @@ func (m *manager) UpdateLastUpdated(ctx context.Context, projectId primitive.Obj
 	return err
 }
 
-func (m *manager) GetDocMeta(ctx context.Context, projectId, docId primitive.ObjectID) (*Doc, sharedTypes.PathName, error) {
+func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error) {
 	f, _, err := m.GetProjectRootFolder(ctx, projectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get tree")
@@ -655,7 +656,7 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId primitive.Obj
 	return doc, p, nil
 }
 
-func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.ObjectID) (*Folder, sharedTypes.Version, error) {
+func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
 	var project WithTree
 	err := m.c.FindOne(
 		ctx,
@@ -674,7 +675,7 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId primitive.
 	return t, project.Version, nil
 }
 
-func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*JoinProjectViewPrivate, error) {
+func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID) (*JoinProjectViewPrivate, error) {
 	project := &JoinProjectViewPrivate{}
 	err := m.fetchWithMinimalAuthorizationDetails(
 		ctx, &IdField{Id: projectId}, userId, project,
@@ -685,7 +686,7 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId p
 	return project, nil
 }
 
-func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId primitive.ObjectID) (*LoadEditorViewPrivate, error) {
+func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID) (*LoadEditorViewPrivate, error) {
 	project := &LoadEditorViewPrivate{}
 	err := m.fetchWithMinimalAuthorizationDetails(
 		ctx, &IdField{Id: projectId}, userId, project,
@@ -696,9 +697,9 @@ func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId pr
 	return project, nil
 }
 
-func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q interface{}, userId primitive.ObjectID, target interface{}) error {
+func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q interface{}, userId edgedb.UUID, target interface{}) error {
 	projection := getProjection(target).CloneForWriting()
-	if userId.IsZero() {
+	if userId == (edgedb.UUID{}) {
 		for s := range withMembersProjection {
 			delete(projection, s)
 		}
@@ -728,7 +729,7 @@ func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q in
 	return nil
 }
 
-func (m *manager) GetProject(ctx context.Context, projectId primitive.ObjectID, target interface{}) error {
+func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error {
 	err := m.c.FindOne(
 		ctx,
 		IdField{Id: projectId},
@@ -740,7 +741,7 @@ func (m *manager) GetProject(ctx context.Context, projectId primitive.ObjectID, 
 	return nil
 }
 
-func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
 	if err := token.ValidateReadAndWrite(); err != nil {
 		return nil, err
 	}
@@ -753,7 +754,7 @@ func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, user
 	return m.getProjectByToken(ctx, q, userId, token)
 }
 
-func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
 	if err := token.ValidateReadOnly(); err != nil {
 		return nil, err
 	}
@@ -766,7 +767,7 @@ func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId p
 	return m.getProjectByToken(ctx, q, userId, token)
 }
 
-func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId primitive.ObjectID) (*WithTreeAndAuth, error) {
+func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error) {
 	p := &WithTreeAndAuth{}
 	q := &IdField{Id: projectId}
 	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
@@ -776,7 +777,7 @@ func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId primitiv
 	return p, nil
 }
 
-func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error {
+func (m *manager) GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error {
 	u := bson.M{
 		// Use the epoch as guard for concurrent write operations, this
 		//  includes revoking of invitations.
@@ -806,7 +807,7 @@ func (m *manager) GrantMemberAccess(ctx context.Context, projectId primitive.Obj
 	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
-func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId primitive.ObjectID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
 	p := &forTokenAccessCheck{}
 	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
 	if err != nil {
@@ -821,14 +822,14 @@ func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId p
 		Epoch:     p.Epoch,
 		Fresh:     freshAccess,
 	}
-	if userId.IsZero() {
+	if userId == (edgedb.UUID{}) {
 		return r, nil
 	}
 	r.Existing, _ = p.GetPrivilegeLevelAuthenticated(userId)
 	return r, nil
 }
 
-func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
+func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
 	u := &bson.M{
 		"$inc": EpochField{Epoch: 1},
 		"$addToSet": &bson.M{
@@ -838,7 +839,7 @@ func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId pr
 	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
-func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
+func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
 	u := &bson.M{
 		"$inc": EpochField{Epoch: 1},
 		"$addToSet": &bson.M{
@@ -848,19 +849,19 @@ func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId primit
 	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
-func (m *manager) MarkAsActive(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) MarkAsActive(ctx context.Context, projectId edgedb.UUID) error {
 	return m.set(ctx, projectId, &ActiveField{Active: true})
 }
 
-func (m *manager) MarkAsInActive(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error {
 	return m.set(ctx, projectId, &ActiveField{Active: false})
 }
 
-func (m *manager) MarkAsOpened(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error {
 	return m.set(ctx, projectId, &LastOpenedField{LastOpened: time.Now()})
 }
 
-func (m *manager) RemoveMember(ctx context.Context, projectId primitive.ObjectID, epoch int64, userId primitive.ObjectID) error {
+func (m *manager) RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
 	u := bson.M{
 		"$inc": EpochField{Epoch: 1},
 	}

@@ -34,8 +34,8 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 		return err
 	}
 	u := m.baseURL
-	u += "/project/" + request.ProjectId.Hex()
-	u += "/user/" + request.UserId.Hex()
+	u += "/project/" + request.ProjectId.String()
+	u += "/user/" + request.UserId.String()
 	u += "/sync/code"
 
 	request.ImageName = m.getImageName(request.ImageName)
@@ -73,8 +73,8 @@ func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFReq
 		return err
 	}
 	u := m.baseURL
-	u += "/project/" + request.ProjectId.Hex()
-	u += "/user/" + request.UserId.Hex()
+	u += "/project/" + request.ProjectId.String()
+	u += "/user/" + request.UserId.String()
 	u += "/sync/pdf"
 
 	request.ImageName = m.getImageName(request.ImageName)

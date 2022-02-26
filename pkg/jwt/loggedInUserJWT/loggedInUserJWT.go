@@ -17,6 +17,8 @@
 package loggedInUserJWT
 
 import (
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
@@ -34,7 +36,7 @@ func (c *Claims) Valid() error {
 	if err := c.userIdJWTClaims.Valid(); err != nil {
 		return err
 	}
-	if c.UserId.IsZero() {
+	if c.UserId == (edgedb.UUID{}) {
 		return &errors.NotAuthorizedError{}
 	}
 	return nil

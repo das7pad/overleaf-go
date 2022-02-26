@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -50,7 +50,7 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) er
 			for projectId := range queue {
 				if dryRun {
 					log.Println(
-						"dry-run hard deleting project " + projectId.Hex(),
+						"dry-run hard deleting project " + projectId.String(),
 					)
 					continue
 				}
@@ -59,7 +59,7 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) er
 				if err := m.HardDeleteProject(ctx, projectId); err != nil {
 					err = errors.Tag(
 						err,
-						"hard deletion failed for project "+projectId.Hex(),
+						"hard deletion failed for project "+projectId.String(),
 					)
 					log.Println(err.Error())
 					return err
@@ -71,7 +71,7 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) er
 	return eg.Wait()
 }
 
-func (m *manager) HardDeleteProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) HardDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		if err := m.dm.DestroyProject(pCtx, projectId); err != nil {

@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -30,6 +30,6 @@ type GetNotificationsRequest struct {
 type GetNotificationsResponse = []notification.Notification
 
 type RemoveNotificationRequest struct {
-	Session        *session.Session   `json:"-"`
-	NotificationId primitive.ObjectID `json:"-"`
+	Session        *session.Session `json:"-"`
+	NotificationId edgedb.UUID      `json:"-"`
 }

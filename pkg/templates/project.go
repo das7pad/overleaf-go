@@ -19,7 +19,7 @@ package templates
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -53,7 +53,7 @@ type ProjectViewInviteData struct {
 	MarketingLayoutData
 
 	SharedProjectData SharedProjectData
-	ProjectId         primitive.ObjectID
+	ProjectId         edgedb.UUID
 	Token             projectInvite.Token
 	Valid             bool
 }
@@ -63,17 +63,17 @@ func (d *ProjectViewInviteData) Render() ([]byte, error) {
 }
 
 type ProjectListProjectView struct {
-	Id                  primitive.ObjectID         `json:"id"`
+	Id                  edgedb.UUID                `json:"id"`
 	Name                project.Name               `json:"name"`
 	LastUpdatedAt       time.Time                  `json:"lastUpdated"`
-	LastUpdatedByUserId primitive.ObjectID         `json:"-"`
+	LastUpdatedByUserId edgedb.UUID                `json:"-"`
 	LastUpdatedBy       *user.WithPublicInfo       `json:"lastUpdatedBy"`
 	PublicAccessLevel   project.PublicAccessLevel  `json:"publicAccessLevel"`
 	AccessLevel         sharedTypes.PrivilegeLevel `json:"accessLevel"`
 	AccessSource        project.AccessSource       `json:"source"`
 	Archived            bool                       `json:"archived"`
 	Trashed             bool                       `json:"trashed"`
-	OwnerRef            primitive.ObjectID         `json:"owner_ref"`
+	OwnerRef            edgedb.UUID                `json:"owner_ref"`
 	Owner               *user.WithPublicInfo       `json:"owner"`
 }
 
@@ -169,7 +169,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 	out := d.AngularLayoutData.Meta()
 	out = append(out, metaEntry{
 		Name:    "ol-project_id",
-		Content: d.EditorBootstrap.Project.Id.Hex(),
+		Content: d.EditorBootstrap.Project.Id.String(),
 		Type:    stringContentType,
 	})
 	out = append(out, metaEntry{

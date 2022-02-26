@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -34,7 +34,7 @@ type monolithManager struct {
 	pm project.Manager
 }
 
-func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId primitive.ObjectID) (*types.FlushedDoc, error) {
+func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.FlushedDoc, error) {
 	_, p, err := m.pm.GetDocMeta(ctx, projectId, docId)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
@@ -68,7 +68,7 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId primitive
 	return doc, nil
 }
 
-func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId primitive.ObjectID, doc *types.SetDocDetails) error {
+func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *types.SetDocDetails) error {
 	modified, err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ForDocUpdate)
 	if err != nil {
 		return errors.Tag(err, "cannot set doc in mongo")

@@ -22,17 +22,17 @@ import (
 )
 
 type EditorConfig struct {
-	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
-	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
-	FontFamily         string                           `json:"fontFamily" bson:"fontFamily"`
-	FontSize           int                              `json:"fontSize" bson:"fontSize"`
-	LineHeight         string                           `json:"lineHeight" bson:"lineHeight"`
-	Mode               string                           `json:"mode" bson:"mode"`
-	OverallTheme       string                           `json:"overallTheme" bson:"overallTheme"`
-	PDFViewer          string                           `json:"pdfViewer" bson:"pdfViewer"`
-	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
-	Theme              string                           `json:"theme" bson:"theme"`
+	AutoComplete       bool                             `json:"autoComplete" edgedb:"autoComplete"`
+	AutoPairDelimiters bool                             `json:"autoPairDelimiters" edgedb:"autoPairDelimiters"`
+	FontFamily         string                           `json:"fontFamily" edgedb:"fontFamily"`
+	FontSize           int                              `json:"fontSize" edgedb:"fontSize"`
+	LineHeight         string                           `json:"lineHeight" edgedb:"lineHeight"`
+	Mode               string                           `json:"mode" edgedb:"mode"`
+	OverallTheme       string                           `json:"overallTheme" edgedb:"overallTheme"`
+	PDFViewer          string                           `json:"pdfViewer" edgedb:"pdfViewer"`
+	SyntaxValidation   bool                             `json:"syntaxValidation" edgedb:"syntaxValidation"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spellCheckLanguage"`
+	Theme              string                           `json:"theme" edgedb:"theme"`
 }
 
 //goland:noinspection SpellCheckingInspection

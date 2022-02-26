@@ -19,8 +19,8 @@ package documentUpdater
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -30,9 +30,9 @@ import (
 )
 
 type Manager interface {
-	GetDoc(ctx context.Context, projectId, docId primitive.ObjectID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error)
-	CheckDocExists(ctx context.Context, projectId, docId primitive.ObjectID) error
-	FlushProject(ctx context.Context, projectId primitive.ObjectID) error
+	GetDoc(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error)
+	CheckDocExists(ctx context.Context, projectId, docId edgedb.UUID) error
+	FlushProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {

@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -25,12 +25,12 @@ import (
 )
 
 type LeaveProjectRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
 }
 
 type ListProjectMembersRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
 }
 
 type ListProjectMembersResponse struct {
@@ -38,19 +38,19 @@ type ListProjectMembersResponse struct {
 }
 
 type RemoveProjectMemberRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	Epoch     int64              `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	Epoch     int64       `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 }
 
 type SetMemberPrivilegeLevelInProjectRequest struct {
-	ProjectId      primitive.ObjectID         `json:"-"`
-	UserId         primitive.ObjectID         `json:"-"`
+	ProjectId      edgedb.UUID                `json:"-"`
+	UserId         edgedb.UUID                `json:"-"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 }
 
 type TransferProjectOwnershipRequest struct {
-	ProjectId       primitive.ObjectID `json:"-"`
-	PreviousOwnerId primitive.ObjectID `json:"-"`
-	NewOwnerId      primitive.ObjectID `json:"user_id"`
+	ProjectId       edgedb.UUID `json:"-"`
+	PreviousOwnerId edgedb.UUID `json:"-"`
+	NewOwnerId      edgedb.UUID `json:"user_id"`
 }

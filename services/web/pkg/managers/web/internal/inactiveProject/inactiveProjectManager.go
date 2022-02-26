@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -58,12 +58,12 @@ func (m *manager) ArchiveOldProjects(ctx context.Context, dryRun bool) error {
 	nFailed := 0
 	for projectId := range queue {
 		if dryRun {
-			log.Println("dry-run archiving inactive project " + projectId.Hex())
+			log.Println("dry-run archiving inactive project " + projectId.String())
 			continue
 		}
 		if err := m.ArchiveProject(ctx, projectId); err != nil {
 			err = errors.Tag(
-				err, "archiving failed for old project "+projectId.Hex(),
+				err, "archiving failed for old project "+projectId.String(),
 			)
 			log.Println(err.Error())
 			nFailed += 1
@@ -77,7 +77,7 @@ func (m *manager) ArchiveOldProjects(ctx context.Context, dryRun bool) error {
 	return nil
 }
 
-func (m *manager) ArchiveProject(ctx context.Context, projectId primitive.ObjectID) error {
+func (m *manager) ArchiveProject(ctx context.Context, projectId edgedb.UUID) error {
 	if err := m.dm.ArchiveProject(ctx, projectId); err != nil {
 		return err
 	}

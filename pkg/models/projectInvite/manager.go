@@ -19,7 +19,7 @@ package projectInvite
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -27,11 +27,11 @@ import (
 )
 
 type Manager interface {
-	Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error
+	Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error
 	Create(ctx context.Context, pi *WithToken) error
-	GetById(ctx context.Context, projectId, inviteId primitive.ObjectID, target interface{}) error
-	GetByToken(ctx context.Context, projectId primitive.ObjectID, token Token, target interface{}) error
-	GetAllForProject(ctx context.Context, projectId primitive.ObjectID) ([]*WithoutToken, error)
+	GetById(ctx context.Context, projectId, inviteId edgedb.UUID, target interface{}) error
+	GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, target interface{}) error
+	GetAllForProject(ctx context.Context, projectId edgedb.UUID) ([]*WithoutToken, error)
 }
 
 func New(db *mongo.Database) Manager {
@@ -63,7 +63,7 @@ func (m *manager) Create(ctx context.Context, pi *WithToken) error {
 	return nil
 }
 
-func (m *manager) Delete(ctx context.Context, projectId, inviteId primitive.ObjectID) error {
+func (m *manager) Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error {
 	q := projectIdAndInviteId{}
 	q.Id = inviteId
 	q.ProjectId = projectId
@@ -77,7 +77,7 @@ func (m *manager) Delete(ctx context.Context, projectId, inviteId primitive.Obje
 	return nil
 }
 
-func (m *manager) GetById(ctx context.Context, projectId, inviteId primitive.ObjectID, target interface{}) error {
+func (m *manager) GetById(ctx context.Context, projectId, inviteId edgedb.UUID, target interface{}) error {
 	q := projectIdAndInviteId{}
 	q.ProjectId = projectId
 	q.Id = inviteId
@@ -85,7 +85,7 @@ func (m *manager) GetById(ctx context.Context, projectId, inviteId primitive.Obj
 	return m.get(ctx, q, target)
 }
 
-func (m *manager) GetByToken(ctx context.Context, projectId primitive.ObjectID, token Token, target interface{}) error {
+func (m *manager) GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, target interface{}) error {
 	q := projectIdAndToken{}
 	q.ProjectId = projectId
 	q.Token = token
@@ -103,7 +103,7 @@ func (m *manager) get(ctx context.Context, q interface{}, target interface{}) er
 	return nil
 }
 
-func (m *manager) GetAllForProject(ctx context.Context, projectId primitive.ObjectID) ([]*WithoutToken, error) {
+func (m *manager) GetAllForProject(ctx context.Context, projectId edgedb.UUID) ([]*WithoutToken, error) {
 	q := ProjectIdField{ProjectId: projectId}
 
 	invites := make([]*WithoutToken, 0)

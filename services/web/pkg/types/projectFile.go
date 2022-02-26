@@ -19,16 +19,16 @@ package types
 import (
 	"io"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetProjectFileSizeRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	FileId    primitive.ObjectID `json:"-"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
+	FileId    edgedb.UUID      `json:"-"`
 }
 
 type GetProjectFileSizeResponse struct {
@@ -36,9 +36,9 @@ type GetProjectFileSizeResponse struct {
 }
 
 type GetProjectFileRequest struct {
-	Session   *session.Session   `json:"-"`
-	ProjectId primitive.ObjectID `json:"-"`
-	FileId    primitive.ObjectID `json:"-"`
+	Session   *session.Session `json:"-"`
+	ProjectId edgedb.UUID      `json:"-"`
+	FileId    edgedb.UUID      `json:"-"`
 }
 
 type GetProjectFileResponse struct {

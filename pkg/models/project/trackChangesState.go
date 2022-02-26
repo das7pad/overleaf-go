@@ -17,7 +17,7 @@
 package project
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -32,7 +32,7 @@ type TrackChangesState map[string]bool
 
 func (t TrackChangesState) Validate() error {
 	for id := range t {
-		if _, err := primitive.ObjectIDFromHex(id); err != nil {
+		if _, err := edgedb.ParseUUID(id); err != nil {
 			return errors.Tag(err, "invalid key")
 		}
 		if id == anonymousUserId || id == globalUserId {

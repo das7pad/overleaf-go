@@ -19,19 +19,19 @@ package project
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 const MaxAuditLogEntries = 200
 
 type AuditLogEntry struct {
-	Info        interface{}        `bson:"info,omitempty"`
-	InitiatorId primitive.ObjectID `bson:"initiatorId"`
-	Operation   string             `bson:"operation"`
-	Timestamp   time.Time          `bson:"timestamp"`
+	Info        interface{} `edgedb:"info"`
+	InitiatorId edgedb.UUID `edgedb:"initiatorId"`
+	Operation   string      `edgedb:"operation"`
+	Timestamp   time.Time   `edgedb:"timestamp"`
 }
 
 type transferOwnershipAuditLogInfo struct {
-	PreviousOwnerId primitive.ObjectID `bson:"previousOwnerId"`
-	NewOwnerId      primitive.ObjectID `bson:"newOwnerId"`
+	PreviousOwnerId edgedb.UUID `edgedb:"previousOwnerId"`
+	NewOwnerId      edgedb.UUID `edgedb:"newOwnerId"`
 }

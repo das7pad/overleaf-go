@@ -20,24 +20,24 @@ import (
 	"reflect"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func TestDoc_DeleteReviewThread(t *testing.T) {
-	idA, _ := primitive.ObjectIDFromHex("012345678901234567890123")
-	idB, _ := primitive.ObjectIDFromHex("987654321098765432109876")
+	idA, _ := edgedb.ParseUUID("012345678901234567890123")
+	idB, _ := edgedb.ParseUUID("987654321098765432109876")
 	type fields struct {
 		DocCore             DocCore
 		LastUpdatedCtx      LastUpdatedCtx
 		Version             sharedTypes.Version
 		UnFlushedTime       UnFlushedTime
-		DocId               primitive.ObjectID
+		DocId               edgedb.UUID
 		JustLoadedIntoRedis bool
 	}
 	type args struct {
-		threadId primitive.ObjectID
+		threadId edgedb.UUID
 	}
 	tests := []struct {
 		name   string

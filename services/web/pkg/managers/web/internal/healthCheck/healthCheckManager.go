@@ -27,8 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -50,7 +50,7 @@ func New(options *types.Options, client redis.UniversalClient, um user.Manager, 
 		return nil, errors.Tag(err, "cannot marshal login body")
 	}
 	projectIdMeta, err := regexp.Compile(
-		"<meta\\s+name=\"ol-project_id\"\\s+data-type=\"string\"\\s+content=\"" + options.SmokeTest.ProjectId.Hex() + "\"\\s*/>",
+		"<meta\\s+name=\"ol-project_id\"\\s+data-type=\"string\"\\s+content=\"" + options.SmokeTest.ProjectId.String() + "\"\\s*/>",
 	)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot compile projectId meta regex")
@@ -75,7 +75,7 @@ func New(options *types.Options, client redis.UniversalClient, um user.Manager, 
 
 		smokeTestLoginBody:     loginBody,
 		smokeTestProjectIdMeta: projectIdMeta,
-		smokeTestProjectIdHex:  options.SmokeTest.ProjectId.Hex(),
+		smokeTestProjectIdHex:  options.SmokeTest.ProjectId.String(),
 		smokeTestBaseURL:       localURL,
 		smokeTestUserId:        options.SmokeTest.UserId,
 	}, nil
@@ -94,5 +94,5 @@ type manager struct {
 	smokeTestProjectIdMeta *regexp.Regexp
 	smokeTestProjectIdHex  string
 	smokeTestBaseURL       string
-	smokeTestUserId        primitive.ObjectID
+	smokeTestUserId        edgedb.UUID
 }

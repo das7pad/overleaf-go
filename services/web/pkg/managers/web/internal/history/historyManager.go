@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -59,12 +59,12 @@ type manager struct {
 	um     user.Manager
 }
 
-func (m *manager) apiCall(ctx context.Context, userId primitive.ObjectID, method string, url *sharedTypes.URL, dst interface{}) error {
+func (m *manager) apiCall(ctx context.Context, userId edgedb.UUID, method string, url *sharedTypes.URL, dst interface{}) error {
 	r, err := http.NewRequestWithContext(ctx, method, url.String(), nil)
 	if err != nil {
 		return errors.Tag(err, "compose request")
 	}
-	r.Header.Add("X-User-Id", userId.Hex())
+	r.Header.Add("X-User-Id", userId.String())
 	res, err := m.client.Do(r)
 	if err != nil {
 		return errors.Tag(err, "perform request")
@@ -87,7 +87,7 @@ func (m *manager) apiCall(ctx context.Context, userId primitive.ObjectID, method
 
 func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProjectHistoryUpdatesRequest, res *types.GetProjectHistoryUpdatesResponse) error {
 	u := m.base.WithPath(fmt.Sprintf(
-		"/project/%s/updates", r.ProjectId.Hex(),
+		"/project/%s/updates", r.ProjectId.String(),
 	))
 	query := url.Values{
 		"min_count": {fetchAtLeastNUpdates},
@@ -126,7 +126,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, res *types.GetDocDiffResponse) error {
 	u := m.base.WithPath(fmt.Sprintf(
 		"/project/%s/doc/%s/diff",
-		r.ProjectId.Hex(), r.DocId.Hex(),
+		r.ProjectId.String(), r.DocId.String(),
 	)).WithQuery(url.Values{
 		"from": {r.From.String()},
 		"to":   {r.To.String()},
@@ -159,7 +159,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 func (m *manager) RestoreDocVersion(ctx context.Context, r *types.RestoreDocVersionRequest) error {
 	u := m.base.WithPath(fmt.Sprintf(
 		"/project/%s/doc/%s/version/%d/restore",
-		r.ProjectId.Hex(), r.DocId.Hex(), r.FromV,
+		r.ProjectId.String(), r.DocId.String(), r.FromV,
 	))
 	return m.apiCall(ctx, r.UserId, http.MethodPost, u, nil)
 }

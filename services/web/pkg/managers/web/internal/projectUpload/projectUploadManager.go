@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -61,7 +61,7 @@ type manager struct {
 	options *types.Options
 }
 
-func (m *manager) purgeFilestoreData(projectId primitive.ObjectID) error {
+func (m *manager) purgeFilestoreData(projectId edgedb.UUID) error {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 
@@ -71,7 +71,7 @@ func (m *manager) purgeFilestoreData(projectId primitive.ObjectID) error {
 	return nil
 }
 
-func (m *manager) setSpellCheckLanguageInProject(ctx context.Context, p *project.SpellCheckLanguageField, userId primitive.ObjectID) error {
+func (m *manager) setSpellCheckLanguageInProject(ctx context.Context, p *project.SpellCheckLanguageField, userId edgedb.UUID) error {
 	u := &user.EditorConfigField{}
 	if err := m.um.GetUser(ctx, userId, u); err != nil {
 		return errors.Tag(err, "cannot get user settings")

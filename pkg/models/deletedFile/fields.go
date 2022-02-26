@@ -19,13 +19,13 @@ package deletedFile
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type DeletedAtField struct {
-	DeletedAt time.Time `json:"deletedAt" bson:"deletedAt"`
+	DeletedAt time.Time `json:"deletedAt" edgedb:"deletedAt"`
 }
 
 type ProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"projectId" bson:"projectId"`
+	ProjectId edgedb.UUID `json:"projectId" edgedb:"projectId"`
 }

@@ -91,9 +91,11 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 			Timeout: time.Duration(sharedTypes.MaxComputeTimeout),
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					// TODO: bump
 					if len(addr) != 24+1+24+3 {
 						return nil, errors.New("unexpected addr: " + addr)
 					}
+					// TODO: bump
 					namespace := types.Namespace(addr[:24+1+24])
 					compileDir := options.CompileBaseDir.CompileDir(namespace)
 					path := compileDir.Join(

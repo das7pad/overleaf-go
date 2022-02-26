@@ -17,7 +17,7 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -25,14 +25,14 @@ import (
 
 type SignedCompileProjectRequestOptions struct {
 	CompileGroup sharedTypes.CompileGroup   `json:"c"`
-	ProjectId    primitive.ObjectID         `json:"p"`
-	UserId       primitive.ObjectID         `json:"u"`
+	ProjectId    edgedb.UUID                `json:"p"`
+	UserId       edgedb.UUID                `json:"u"`
 	Timeout      sharedTypes.ComputeTimeout `json:"t"`
 }
 
 type CompileProjectHeadlessRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 }
 
 type ClearCompileCacheRequest struct {
@@ -49,7 +49,7 @@ type CompileProjectRequest struct {
 	Draft                      clsiTypes.DraftModeFlag    `json:"draft"`
 	ImageName                  sharedTypes.ImageName      `json:"imageName"`
 	IncrementalCompilesEnabled bool                       `json:"incrementalCompilesEnabled"`
-	RootDocId                  primitive.ObjectID         `json:"rootDocId"`
+	RootDocId                  edgedb.UUID                `json:"rootDocId"`
 	RootDocPath                clsiTypes.RootResourcePath `json:"rootDocPath"`
 	SyncState                  clsiTypes.SyncState        `json:"syncState"`
 }

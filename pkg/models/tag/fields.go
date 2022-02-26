@@ -17,21 +17,21 @@
 package tag
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id edgedb.UUID `json:"_id" edgedb:"id"`
 }
 
 type NameField struct {
-	Name string `json:"name" bson:"name"`
+	Name string `json:"name" edgedb:"name"`
 }
 
 type ProjectIdsField struct {
-	ProjectIds []primitive.ObjectID `json:"project_ids" bson:"project_ids"`
+	ProjectIds []edgedb.UUID `json:"project_ids" edgedb:"project_ids"`
 }
 
 type UserIdField struct {
-	UserId string `json:"user_id" bson:"user_id"`
+	UserId string `json:"user_id" edgedb:"user_id"`
 }

@@ -17,14 +17,14 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type User struct {
-	Id        primitive.ObjectID `json:"user_id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     sharedTypes.Email  `json:"email"`
+	Id        edgedb.UUID       `json:"user_id"`
+	FirstName string            `json:"first_name"`
+	LastName  string            `json:"last_name"`
+	Email     sharedTypes.Email `json:"email"`
 }

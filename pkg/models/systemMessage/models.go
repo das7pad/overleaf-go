@@ -17,6 +17,6 @@
 package systemMessage
 
 type Full struct {
-	IdField      `bson:"inline"`
-	ContentField `bson:"inline"`
+	IdField      `edgedb:"inline"`
+	ContentField `edgedb:"inline"`
 }

@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 
@@ -32,8 +32,8 @@ import (
 )
 
 type Manager interface {
-	FlushDocInBackground(projectId, docId primitive.ObjectID)
-	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId primitive.ObjectID, nUpdates, queueDepth int64) error
+	FlushDocInBackground(projectId, docId edgedb.UUID)
+	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId edgedb.UUID, nUpdates, queueDepth int64) error
 }
 
 func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
@@ -66,11 +66,11 @@ func shouldFlush(nUpdates, queueDepth int64) bool {
 	return before != after
 }
 
-func (m *manager) FlushDocInBackground(projectId, docId primitive.ObjectID) {
+func (m *manager) FlushDocInBackground(projectId, docId edgedb.UUID) {
 	go m.flushDocChangesAndLogErr(projectId, docId)
 }
 
-func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId primitive.ObjectID, nUpdates, queueDepth int64) error {
+func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId edgedb.UUID, nUpdates, queueDepth int64) error {
 	if err := m.hrm.RecordDocHasHistory(ctx, projectId, docId); err != nil {
 		return err
 	}
@@ -81,19 +81,19 @@ func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId
 	return nil
 }
 
-func (m *manager) flushDocChangesAndLogErr(projectId, docId primitive.ObjectID) {
+func (m *manager) flushDocChangesAndLogErr(projectId, docId edgedb.UUID) {
 	err := m.flushDocChanges(context.Background(), projectId, docId)
 	if err != nil {
-		ids := projectId.Hex() + "/" + docId.Hex()
+		ids := projectId.String() + "/" + docId.String()
 		err = errors.Tag(err, "cannot flush history for "+ids)
 		log.Println(err.Error())
 	}
 }
 
-func (m *manager) flushDocChanges(ctx context.Context, projectId, docId primitive.ObjectID) error {
+func (m *manager) flushDocChanges(ctx context.Context, projectId, docId edgedb.UUID) error {
 	u := m.baseURL
-	u += "/project/" + projectId.Hex()
-	u += "/doc/" + docId.Hex()
+	u += "/project/" + projectId.String()
+	u += "/doc/" + docId.String()
 	u += "/flush"
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
 	if err != nil {

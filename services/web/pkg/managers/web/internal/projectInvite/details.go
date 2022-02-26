@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -38,13 +39,13 @@ type projectInviteDetails struct {
 }
 
 func (d *projectInviteDetails) IsUserRegistered() bool {
-	return !d.user.Id.IsZero()
+	return d.user.Id != (edgedb.UUID{})
 }
 
 func (d *projectInviteDetails) GetInviteURL(siteURL sharedTypes.URL) *sharedTypes.URL {
 	return siteURL.WithPath(fmt.Sprintf(
 		"/project/%s/invite/token/%s",
-		d.project.Id.Hex(), d.invite.Token,
+		d.project.Id.String(), d.invite.Token,
 	)).WithQuery(url.Values{
 		"project_name":    {string(d.project.Name)},
 		"user_first_name": {d.sender.DisplayName()},

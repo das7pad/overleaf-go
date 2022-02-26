@@ -68,7 +68,7 @@ func (m *manager) DeleteFolderFromProject(ctx context.Context, request *types.De
 				folderContainsRootDoc = true
 			}
 			if err2 := m.markDocAsDeleted(sCtx, projectId, doc); err2 != nil {
-				return errors.Tag(err2, "child docId: "+doc.Id.Hex())
+				return errors.Tag(err2, "child docId: "+doc.Id.String())
 			}
 			return nil
 		})

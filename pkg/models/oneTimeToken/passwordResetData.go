@@ -21,6 +21,6 @@ import (
 )
 
 type PasswordResetData struct {
-	Email     sharedTypes.Email `bson:"email"`
-	HexUserId string            `bson:"user_id"`
+	Email     sharedTypes.Email `edgedb:"email"`
+	HexUserId string            `edgedb:"user_id"`
 }

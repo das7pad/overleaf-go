@@ -19,8 +19,8 @@ package learnedWords
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -28,23 +28,23 @@ import (
 type Manager interface {
 	DeleteDictionary(
 		ctx context.Context,
-		userId primitive.ObjectID,
+		userId edgedb.UUID,
 	) error
 
 	GetDictionary(
 		ctx context.Context,
-		userId primitive.ObjectID,
+		userId edgedb.UUID,
 	) ([]string, error)
 
 	LearnWord(
 		ctx context.Context,
-		userId primitive.ObjectID,
+		userId edgedb.UUID,
 		word string,
 	) error
 
 	UnlearnWord(
 		ctx context.Context,
-		userId primitive.ObjectID,
+		userId edgedb.UUID,
 		word string,
 	) error
 }
@@ -59,18 +59,18 @@ type manager struct {
 	c *mongo.Collection
 }
 
-func userMatcher(userId primitive.ObjectID) bson.M {
+func userMatcher(userId edgedb.UUID) bson.M {
 	return bson.M{
-		"token": userId.Hex(),
+		"token": userId.String(),
 	}
 }
 
-func (m manager) DeleteDictionary(ctx context.Context, userId primitive.ObjectID) error {
+func (m manager) DeleteDictionary(ctx context.Context, userId edgedb.UUID) error {
 	_, err := m.c.DeleteOne(ctx, userMatcher(userId))
 	return err
 }
 
-func (m manager) GetDictionary(ctx context.Context, userId primitive.ObjectID) ([]string, error) {
+func (m manager) GetDictionary(ctx context.Context, userId edgedb.UUID) ([]string, error) {
 	var preference spellingPreference
 	err := m.c.FindOne(ctx, userMatcher(userId)).Decode(&preference)
 	if err == mongo.ErrNoDocuments {
@@ -79,7 +79,7 @@ func (m manager) GetDictionary(ctx context.Context, userId primitive.ObjectID) (
 	return preference.LearnedWords, err
 }
 
-func (m manager) LearnWord(ctx context.Context, userId primitive.ObjectID, word string) error {
+func (m manager) LearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
 	_, err := m.c.UpdateOne(ctx, userMatcher(userId), bson.M{
 		"$addToSet": bson.M{
 			"learnedWords": word,
@@ -88,7 +88,7 @@ func (m manager) LearnWord(ctx context.Context, userId primitive.ObjectID, word 
 	return err
 }
 
-func (m manager) UnlearnWord(ctx context.Context, userId primitive.ObjectID, word string) error {
+func (m manager) UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
 	_, err := m.c.UpdateOne(ctx, userMatcher(userId), bson.M{
 		"$pull": bson.M{
 			"learnedWords": word,

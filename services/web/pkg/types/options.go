@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/assets"
 	"github.com/das7pad/overleaf-go/pkg/csp"
@@ -70,10 +70,10 @@ type Options struct {
 	Sentry                    SentryOptions         `json:"sentry"`
 	SiteURL                   sharedTypes.URL       `json:"site_url"`
 	SmokeTest                 struct {
-		Email     sharedTypes.Email  `json:"email"`
-		Password  UserPassword       `json:"password"`
-		ProjectId primitive.ObjectID `json:"projectId"`
-		UserId    primitive.ObjectID `json:"userId"`
+		Email     sharedTypes.Email `json:"email"`
+		Password  UserPassword      `json:"password"`
+		ProjectId edgedb.UUID       `json:"projectId"`
+		UserId    edgedb.UUID       `json:"userId"`
 	} `json:"smoke_test"`
 	StatusPageURL            sharedTypes.URL       `json:"status_page_url"`
 	TeXLiveImageNameOverride sharedTypes.ImageName `json:"texlive_image_name_override"`
@@ -172,10 +172,10 @@ func (o *Options) Validate() error {
 	if err := o.SmokeTest.Password.Validate(); err != nil {
 		return errors.Tag(err, "smoke_test.password is invalid")
 	}
-	if o.SmokeTest.ProjectId.IsZero() {
+	if o.SmokeTest.ProjectId == (edgedb.UUID{}) {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
-	if o.SmokeTest.UserId.IsZero() {
+	if o.SmokeTest.UserId == (edgedb.UUID{}) {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
 

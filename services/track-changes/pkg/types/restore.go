@@ -17,15 +17,15 @@
 package types
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type RestoreDocVersionRequest struct {
-	ProjectId primitive.ObjectID `json:"-"`
-	DocId     primitive.ObjectID `json:"-"`
-	UserId    primitive.ObjectID `json:"-"`
+	ProjectId edgedb.UUID `json:"-"`
+	DocId     edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 
 	FromV sharedTypes.Version `json:"from_v"`
 }

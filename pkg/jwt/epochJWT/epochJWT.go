@@ -21,8 +21,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -38,11 +38,11 @@ const (
 
 var errEpochInFuture = &errors.InvalidStateError{Msg: "epoch in future"}
 
-type FetchEpochFromMongo func(ctx context.Context, id primitive.ObjectID) (int64, error)
+type FetchEpochFromMongo func(ctx context.Context, id edgedb.UUID) (int64, error)
 
 type JWTEpochItem struct {
 	Field             string
-	Id                primitive.ObjectID
+	Id                edgedb.UUID
 	UserProvidedEpoch int64
 	Fetch             FetchEpochFromMongo
 	cmd               *redis.StringCmd
@@ -53,7 +53,7 @@ func (i *JWTEpochItem) Delete(ctx context.Context, client redis.UniversalClient)
 }
 
 func (i *JWTEpochItem) key() string {
-	return "epoch:" + i.Field + ":" + i.Id.Hex()
+	return "epoch:" + i.Field + ":" + i.Id.String()
 }
 
 func (i *JWTEpochItem) checkIsEpochSet() error {

@@ -55,7 +55,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 		if err := m.um.GetUserByEmail(sCtx, d.Email, u); err != nil {
 			return errors.Tag(err, "cannot get user")
 		}
-		if u.Id.Hex() != d.HexUserId {
+		if u.Id.String() != d.HexUserId {
 			return &errors.UnprocessableEntityError{
 				Msg: "owner of email changed",
 			}
