@@ -234,6 +234,7 @@ module default {
     }
     property template_key -> str;
     property message_options -> json;
+    constraint exclusive on (.key, .user);
   }
 
   type Tag {

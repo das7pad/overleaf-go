@@ -23,9 +23,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/deletedUser"
-	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectDeletion"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -36,16 +34,14 @@ type Manager interface {
 	HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error
 }
 
-func New(db *mongo.Database, pm project.Manager, um user.Manager, tm tag.Manager, cm contact.Manager, pDelM projectDeletion.Manager) Manager {
+func New(db *mongo.Database, pm project.Manager, um user.Manager, cm contact.Manager, pDelM projectDeletion.Manager) Manager {
 	return &manager{
 		cm:    cm,
 		db:    db,
 		delUM: deletedUser.New(db),
-		nm:    notification.New(db),
 		pm:    pm,
 		um:    um,
 		pDelM: pDelM,
-		tm:    tm,
 	}
 }
 
@@ -53,9 +49,7 @@ type manager struct {
 	cm    contact.Manager
 	db    *mongo.Database
 	delUM deletedUser.Manager
-	nm    notification.Manager
 	pm    project.Manager
 	um    user.Manager
 	pDelM projectDeletion.Manager
-	tm    tag.Manager
 }

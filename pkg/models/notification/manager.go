@@ -20,115 +20,101 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Manager interface {
-	DeleteForUser(ctx context.Context, userId edgedb.UUID) error
 	GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error
-	Add(ctx context.Context, notification Notification, forceCreate bool) error
+	Add(ctx context.Context, notification Notification) error
 	RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error
 	RemoveByKey(ctx context.Context, userId edgedb.UUID, notificationKey string) error
 	RemoveByKeyOnly(ctx context.Context, notificationKey string) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		c: db.Collection("notifications"),
+		c: c,
 	}
 }
 
-const (
-	prefetchN = 10
-)
+func rewriteEdgedbError(err error) error {
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
+		return &errors.NotFoundError{}
+	}
+	return err
+}
 
 type manager struct {
-	c *mongo.Collection
-}
-
-func (m *manager) DeleteForUser(ctx context.Context, userId edgedb.UUID) error {
-	q := &UserIdField{UserId: userId}
-	_, err := m.c.DeleteMany(ctx, q)
-	if err != nil {
-		return err
-	}
-	return nil
+	c *edgedb.Client
 }
 
 func (m *manager) GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error {
-	c, err := m.c.Find(
+	err := m.c.Query(
 		ctx,
-		bson.M{
-			"user_id": userId,
-			"templateKey": bson.M{
-				"$exists": true,
-			},
-		},
-		options.Find().SetBatchSize(prefetchN),
+		`\
+select Notification
+filter .user.id = <uuid>$0 and .template_key != ''`,
+		&notifications,
+		userId,
 	)
 	if err != nil {
-		return err
-	}
-	err = c.All(ctx, notifications)
-	if err != nil {
-		return err
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }
 
-func (m *manager) Add(ctx context.Context, notification Notification, forceCreate bool) error {
-	if notification.Key == "" {
+func (m *manager) Add(ctx context.Context, n Notification) error {
+	if n.Key == "" {
 		return &errors.ValidationError{
 			Msg: "cannot add notification: missing key",
 		}
 	}
-
-	q := userIdAndKey{
-		KeyField: KeyField{
-			Key: notification.Key,
-		},
-		UserIdField: UserIdField{
-			UserId: notification.UserId,
-		},
-	}
-	if !forceCreate {
-		if n, err := m.c.CountDocuments(ctx, q); err != nil {
-			return err
-		} else if n != 0 {
-			return nil
-		}
-	}
-
-	_, err := m.c.UpdateOne(
+	err := m.c.QuerySingle(
 		ctx,
-		q,
-		bson.M{"$set": notification},
-		options.Update().SetUpsert(true),
+		`\
+with user := (select User filter .id = <uuid>$0)
+insert Notification {
+	user := user,
+	key := <str>$1,
+	expires_at := <datetime>$2,
+	template_key := <str>$3,
+	message_options := <json>$4,
+}
+unless conflict on (.key, .user)
+else (
+	update Notification
+	filter .key = <str>$1 and .user = user
+	set {
+		expires_at := <datetime>$2,
+		template_key := <str>$3,
+		message_options := <json>$4,
+	}
+)`,
+		&IdField{},
+		n.UserId, n.Key, n.Expires, n.TemplateKey, n.MessageOptions,
 	)
-	return err
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }
 
 func (m *manager) RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error {
-	q := userIdAndId{
-		IdField: IdField{
-			Id: notificationId,
-		},
-		UserIdField: UserIdField{
-			UserId: userId,
-		},
+	err := m.c.QuerySingle(
+		ctx,
+		`\
+update Notification
+filter .id = <uuid>$0 and .user.id = <uuid>$1
+set { template_key := {}, message_options := {} }
+`,
+		&IdField{},
+		notificationId, userId,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
-	u := bson.M{
-		"$unset": bson.M{
-			"templateKey": true,
-			"messageOpts": true,
-		},
-	}
-	_, err := m.c.UpdateOne(ctx, q, u)
-	return err
+	return nil
 }
 
 func (m *manager) RemoveByKey(ctx context.Context, userId edgedb.UUID, notificationKey string) error {
@@ -138,21 +124,20 @@ func (m *manager) RemoveByKey(ctx context.Context, userId edgedb.UUID, notificat
 		}
 	}
 
-	q := userIdAndKey{
-		KeyField: KeyField{
-			Key: notificationKey,
-		},
-		UserIdField: UserIdField{
-			UserId: userId,
-		},
+	err := m.c.QuerySingle(
+		ctx,
+		`\
+update Notification
+filter .key = <str>$0 and .user.id = <uuid>$1
+set { template_key := {}, message_options := {} }
+`,
+		&IdField{},
+		notificationKey, userId,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
-	u := bson.M{
-		"$unset": bson.M{
-			"templateKey": true,
-		},
-	}
-	_, err := m.c.UpdateOne(ctx, q, u)
-	return err
+	return nil
 }
 
 func (m *manager) RemoveByKeyOnly(ctx context.Context, notificationKey string) error {
@@ -162,14 +147,18 @@ func (m *manager) RemoveByKeyOnly(ctx context.Context, notificationKey string) e
 		}
 	}
 
-	q := KeyField{
-		Key: notificationKey,
+	err := m.c.QuerySingle(
+		ctx,
+		`\
+update Notification
+filter .key = <str>$0
+set { template_key := {}, message_options := {} }
+`,
+		&IdField{},
+		notificationKey,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
-	u := bson.M{
-		"$unset": bson.M{
-			"templateKey": true,
-		},
-	}
-	_, err := m.c.UpdateOne(ctx, q, u)
-	return err
+	return nil
 }

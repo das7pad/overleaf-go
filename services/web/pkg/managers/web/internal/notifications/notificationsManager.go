@@ -19,7 +19,7 @@ package notifications
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -30,9 +30,9 @@ type Manager interface {
 	RemoveNotification(ctx context.Context, request *types.RemoveNotificationRequest) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		nm: notification.New(db),
+		nm: notification.New(c),
 	}
 }
 

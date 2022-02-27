@@ -131,10 +131,10 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	if err != nil {
 		return nil, err
 	}
-	nm := notifications.New(db)
+	nm := notifications.New(c)
 	pm := project.New(db)
 	smm := systemMessage.New(c)
-	tm := tagModel.New(db)
+	tm := tagModel.New(c)
 	um := user.New(db)
 	bm := betaProgram.New(ps, um)
 	cm, err := compile.New(options, client, dum, dm, fm, pm, um)
@@ -159,7 +159,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(ps, client, pm)
 	pim := projectInvite.New(
-		options, ps, client, db, editorEvents, pm, um, csm,
+		options, ps, c, client, db, editorEvents, pm, um, csm,
 	)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
@@ -171,7 +171,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	}
 	pdm := projectDownload.New(pm, dm, dum, fm)
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
-	uDelM := userDeletion.New(db, pm, um, tm, csm, pDelM)
+	uDelM := userDeletion.New(db, pm, um, csm, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
 	ucm := userCreation.New(options, ps, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
@@ -184,7 +184,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	if err != nil {
 		return nil, err
 	}
-	spm := spelling.New(db)
+	spm := spelling.New(c)
 	return &manager{
 		adminManager:           am,
 		betaProgramManager:     bm,

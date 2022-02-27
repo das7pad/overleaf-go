@@ -83,12 +83,12 @@ func (m *manager) EnsureExists(ctx context.Context, userId edgedb.UUID, name str
 	err := m.c.QuerySingle(
 		ctx,
 		`\
-with user := (select User filter .id = <uuid>$1)
-insert Tag { name := $0, user := user }
+with user := (select User filter .id = <uuid>$0)
+insert Tag { name := <str>$1, user := user }
 unless conflict on .name
-else (select Tag { id, projects } filter .name = $0 and .user = user)`,
+else (select Tag { id, projects } filter .name = <str>$1 and .user = user)`,
 		t,
-		name, userId,
+		userId, name,
 	)
 	if err != nil {
 		return nil, rewriteEdgedbError(err)
@@ -149,7 +149,7 @@ func (m *manager) Rename(ctx context.Context, userId, tagId edgedb.UUID, newName
 		`\
 update Tag
 filter .id = <uuid>$0 and .user.id = <uuid>$1
-set { name := $2 }`,
+set { name := <str>$2 }`,
 		&IdField{},
 		tagId, userId, newName,
 	)

@@ -20,9 +20,9 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type Manager interface {
@@ -49,50 +49,78 @@ type Manager interface {
 	) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		c: db.Collection("spellingPreferences"),
+		c: c,
 	}
+}
+
+func rewriteEdgedbError(err error) error {
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
+		return &errors.NotFoundError{}
+	}
+	return err
 }
 
 type manager struct {
-	c *mongo.Collection
-}
-
-func userMatcher(userId edgedb.UUID) bson.M {
-	return bson.M{
-		"token": userId.String(),
-	}
+	c *edgedb.Client
 }
 
 func (m manager) DeleteDictionary(ctx context.Context, userId edgedb.UUID) error {
-	_, err := m.c.DeleteOne(ctx, userMatcher(userId))
-	return err
+	return m.c.QuerySingle(
+		ctx,
+		"update User filter .id = <uuid>$0 set { learned_words := {} }",
+		&user.IdField{},
+		userId,
+	)
 }
 
 func (m manager) GetDictionary(ctx context.Context, userId edgedb.UUID) ([]string, error) {
 	var preference spellingPreference
-	err := m.c.FindOne(ctx, userMatcher(userId)).Decode(&preference)
-	if err == mongo.ErrNoDocuments {
-		return []string{}, nil
+	err := m.c.QuerySingle(
+		ctx,
+		"select User { learned_words } filter .id = <uuid>$0",
+		&preference,
+		userId,
+	)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
 	}
-	return preference.LearnedWords, err
+	return preference.LearnedWords, nil
 }
 
 func (m manager) LearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
-	_, err := m.c.UpdateOne(ctx, userMatcher(userId), bson.M{
-		"$addToSet": bson.M{
-			"learnedWords": word,
-		},
-	}, options.Update().SetUpsert(true))
-	return err
+	err := m.c.QuerySingle(
+		ctx,
+		`\
+update User
+filter .id = <uuid>$0 and <str>$1 not in .learned_words
+set { learned_words += <str>$1 }`,
+		&user.IdField{},
+		userId, word,
+	)
+	if err != nil {
+		err = rewriteEdgedbError(err)
+		if errors.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (m manager) UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
-	_, err := m.c.UpdateOne(ctx, userMatcher(userId), bson.M{
-		"$pull": bson.M{
-			"learnedWords": word,
-		},
-	})
-	return err
+	err := m.c.QuerySingle(
+		ctx,
+		`\
+update User
+filter .id = <uuid>$0
+set { learned_words -= <str>$1 }`,
+		&user.IdField{},
+		userId, word,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }

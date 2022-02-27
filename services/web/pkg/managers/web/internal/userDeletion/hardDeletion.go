@@ -76,12 +76,6 @@ func (m *manager) HardDeleteUser(ctx context.Context, userId edgedb.UUID) error 
 		}
 		return nil
 	})
-	eg.Go(func() error {
-		if err := m.nm.DeleteForUser(pCtx, userId); err != nil {
-			return errors.Tag(err, "cannot delete notifications")
-		}
-		return nil
-	})
 	if err := eg.Wait(); err != nil {
 		return err
 	}

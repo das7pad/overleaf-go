@@ -50,14 +50,14 @@ type Manager interface {
 	ViewProjectInvite(ctx context.Context, request *types.ViewProjectInvitePageRequest, response *types.ViewProjectInvitePageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contact.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contact.Manager) Manager {
 	return &manager{
 		client:       client,
 		cm:           cm,
 		db:           db,
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),
-		nm:           notification.New(db),
+		nm:           notification.New(c),
 		options:      options,
 		pim:          projectInvite.New(db),
 		pm:           pm,
@@ -119,7 +119,7 @@ func (m *manager) createNotification(ctx context.Context, d *projectInviteDetail
 		"projectId":   d.invite.ProjectId.String(),
 		"token":       d.invite.Token,
 	}
-	if err := m.nm.Add(ctx, n, true); err != nil {
+	if err := m.nm.Add(ctx, n); err != nil {
 		return errors.Tag(err, "cannot create invite notification")
 	}
 	return nil

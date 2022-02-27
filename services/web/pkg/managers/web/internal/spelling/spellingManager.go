@@ -19,7 +19,7 @@ package spelling
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/learnedWords"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -30,9 +30,9 @@ type Manager interface {
 	LearnWord(ctx context.Context, request *types.LearnWordRequest) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		lm: learnedWords.New(db),
+		lm: learnedWords.New(c),
 	}
 }
 
