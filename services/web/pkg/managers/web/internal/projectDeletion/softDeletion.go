@@ -20,30 +20,12 @@ import (
 	"context"
 	"log"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
-
-func getAllUserIds(p *project.ForDeletion) []edgedb.UUID {
-	n := 1 +
-		len(p.CollaboratorRefs) +
-		len(p.ReadOnlyRefs) +
-		len(p.TokenAccessReadAndWriteRefs) +
-		len(p.TokenAccessReadOnlyRefs)
-	userIds := make([]edgedb.UUID, n)
-	userIds[0] = p.OwnerRef
-	i := 1
-	i += copy(userIds[i:], p.CollaboratorRefs)
-	i += copy(userIds[i:], p.ReadOnlyRefs)
-	i += copy(userIds[i:], p.TokenAccessReadAndWriteRefs)
-	i += copy(userIds[i:], p.TokenAccessReadOnlyRefs)
-	return userIds
-}
 
 func (m *manager) DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error {
 	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
@@ -87,11 +69,6 @@ func (m *manager) DeleteProjectInTx(ctx, sCtx context.Context, request *types.De
 			return errors.Tag(err, "cannot create deleted project")
 		}
 
-		allUserIds := getAllUserIds(p)
-		errTags := m.tm.RemoveProjectForAllUsers(sCtx, allUserIds, projectId)
-		if errTags != nil {
-			return errors.Tag(errTags, "cannot remove project from tags")
-		}
 		if err := m.pm.Delete(sCtx, p); err != nil {
 			return errors.Tag(err, "cannot delete project")
 		}

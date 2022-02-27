@@ -82,12 +82,6 @@ func (m *manager) HardDeleteUser(ctx context.Context, userId edgedb.UUID) error 
 		}
 		return nil
 	})
-	eg.Go(func() error {
-		if err := m.tm.DeleteForUser(pCtx, userId); err != nil {
-			return errors.Tag(err, "cannot delete tags")
-		}
-		return nil
-	})
 	if err := eg.Wait(); err != nil {
 		return err
 	}

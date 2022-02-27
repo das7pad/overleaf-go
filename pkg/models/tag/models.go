@@ -17,17 +17,7 @@
 package tag
 
 type Full struct {
-	IdField         `edgedb:"inline"`
-	NameField       `edgedb:"inline"`
-	ProjectIdsField `edgedb:"inline"`
-}
-
-type userIdAndTagId struct {
-	IdField     `edgedb:"inline"`
-	UserIdField `edgedb:"inline"`
-}
-
-type userIdAndTagName struct {
-	NameField   `edgedb:"inline"`
-	UserIdField `edgedb:"inline"`
+	IdField       `edgedb:"inline"`
+	NameField     `edgedb:"inline"`
+	ProjectsField `edgedb:"inline"`
 }

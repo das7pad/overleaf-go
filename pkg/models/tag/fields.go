@@ -18,6 +18,8 @@ package tag
 
 import (
 	"github.com/edgedb/edgedb-go"
+
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 )
 
 type IdField struct {
@@ -28,10 +30,6 @@ type NameField struct {
 	Name string `json:"name" edgedb:"name"`
 }
 
-type ProjectIdsField struct {
-	ProjectIds []edgedb.UUID `json:"project_ids" edgedb:"project_ids"`
-}
-
-type UserIdField struct {
-	UserId string `json:"user_id" edgedb:"user_id"`
+type ProjectsField struct {
+	Projects []project.IdField `json:"projects" edgedb:"projects"`
 }
