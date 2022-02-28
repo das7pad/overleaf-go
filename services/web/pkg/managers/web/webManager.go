@@ -118,7 +118,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	chatM := chat.New(db)
 	csm := contact.New(db)
 	dum, err := documentUpdater.New(
-		options.APIs.DocumentUpdater.Options, client, db,
+		options.APIs.DocumentUpdater.Options, c, client, db,
 	)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		return nil, err
 	}
 	nm := notifications.New(c)
-	pm := project.New(db)
+	pm := project.New(c, db)
 	smm := systemMessage.New(c)
 	tm := tagModel.New(c)
 	um := user.New(db)

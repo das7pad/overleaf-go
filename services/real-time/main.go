@@ -23,10 +23,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/edgedbOptions"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 )
 
@@ -68,7 +71,16 @@ func main() {
 	}
 	db := client.Database(o.dbName)
 
-	rtm, err := realTime.New(context.Background(), o.options, redisClient, db)
+	dsn := edgedbOptions.Parse()
+	c, err := edgedb.CreateClientDSN(triggerExitCtx, dsn, edgedb.Options{})
+	if err != nil {
+		panic(errors.Tag(err, "cannot talk to edgedb"))
+	}
+	if err = c.EnsureConnected(triggerExitCtx); err != nil {
+		panic(errors.Tag(err, "cannot talk to edgedb"))
+	}
+
+	rtm, err := realTime.New(context.Background(), o.options, c, redisClient, db)
 	if err != nil {
 		panic(err)
 	}

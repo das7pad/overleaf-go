@@ -21,10 +21,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/edgedbOptions"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 )
 
@@ -63,7 +66,16 @@ func main() {
 	}
 	db := client.Database(o.dbName)
 
-	dum, err := documentUpdater.New(o.options, redisClient, db)
+	dsn := edgedbOptions.Parse()
+	c, err := edgedb.CreateClientDSN(ctx, dsn, edgedb.Options{})
+	if err != nil {
+		panic(errors.Tag(err, "cannot talk to edgedb"))
+	}
+	if err = c.EnsureConnected(ctx); err != nil {
+		panic(errors.Tag(err, "cannot talk to edgedb"))
+	}
+
+	dum, err := documentUpdater.New(o.options, c, redisClient, db)
 	if err != nil {
 		panic(err)
 	}

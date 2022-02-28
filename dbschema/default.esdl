@@ -30,7 +30,9 @@ module default {
     required property editor_config -> json {
       default := <json>'{"autoComplete":true,"autoPairDelimiters":true,"fontFamily":"lucida","fontSize":12,"lineHeight":"normal","mode":"default","overallTheme":"","pdfViewer":"pdfjs","syntaxValidation":false,"spellCheckLanguage":"en","theme":"textmate"}';
     }
-    required link email -> Email;
+    required link email -> Email {
+      constraint exclusive;
+    }
     required multi link emails -> Email {
       constraint exclusive;
     }
@@ -125,7 +127,9 @@ module default {
     multi link token_access_ro -> User {
       on target delete allow;
     }
-    required link tokens -> Tokens;
+    required link tokens -> Tokens {
+      constraint exclusive;
+    }
     multi link trashed -> User {
       on target delete allow;
     }
@@ -234,7 +238,7 @@ module default {
     }
     property template_key -> str;
     property message_options -> json;
-    constraint exclusive on (.key, .user);
+    constraint exclusive on ((.key, .user));
   }
 
   type Tag {
@@ -245,6 +249,7 @@ module default {
     multi link projects -> Project {
       on target delete allow;
     }
+    constraint exclusive on ((.name, .user));
   }
 
   type SystemMessage {
@@ -257,7 +262,9 @@ module default {
     }
   }
 
-  type ChatRoom extending Room {}
+  type ChatRoom extending Room {
+    constraint exclusive on ((.project));
+  }
 
   type ReviewThread extending Room {
     property resolved_at -> datetime;

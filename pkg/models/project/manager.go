@@ -27,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
@@ -80,14 +81,22 @@ type Manager interface {
 	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client, db *mongo.Database) Manager {
 	cSlow := db.Collection("projects", options.Collection().
 		SetReadPreference(readpref.SecondaryPreferred()),
 	)
 	return &manager{
-		c:     db.Collection("projects"),
+		c:     c,
+		cP:    db.Collection("projects"),
 		cSlow: cSlow,
 	}
+}
+
+func rewriteEdgedbError(err error) error {
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
+		return &errors.NotFoundError{}
+	}
+	return err
 }
 
 func rewriteMongoError(err error) error {
@@ -130,7 +139,8 @@ const (
 )
 
 type manager struct {
-	c     *mongo.Collection
+	c     *edgedb.Client
+	cP    *mongo.Collection
 	cSlow *mongo.Collection
 }
 
@@ -190,8 +200,212 @@ func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<
 	return queue, nil
 }
 
+type docForInsertion struct {
+	Name     sharedTypes.Filename
+	Size     int64
+	Snapshot sharedTypes.Snapshot
+}
+
+type fileForInsertion struct {
+	Name sharedTypes.Filename
+	Size int64
+	Hash sharedTypes.Hash
+}
+
+type folderForInsertion struct {
+	Id    edgedb.UUID
+	Docs  []docForInsertion
+	Files []fileForInsertion
+}
+
 func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {
-	_, err := m.c.InsertOne(ctx, p)
+	r, errRootFolder := p.GetRootFolder()
+	if errRootFolder != nil {
+		return errRootFolder
+	}
+	err := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
+		{
+			// Insert the Project and RootFolder
+			ids := make([]IdField, 2)
+			// TODO: fill all the project fields
+			err := tx.QuerySingle(
+				ctx,
+				`
+with
+	p := (insert Project {}),
+	rf := (insert RootFolder { project := p })
+select {p, rf}
+`,
+				&ids,
+				p,
+			)
+			if err != nil {
+				return rewriteEdgedbError(err)
+			}
+			p.Id = ids[0].Id
+			p.RootFolder[0].Id = ids[1].Id
+		}
+
+		nFoldersWithContent := 0
+		nFoldersWithChildren := 1
+		{
+			// Collect tree stats for precise allocations
+			err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
+				if len(f.Docs)+len(f.FileRefs) > 0 {
+					nFoldersWithContent++
+				}
+				if len(f.Folders) > 0 {
+					nFoldersWithChildren++
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		{
+			// Build tree of Folders
+			queue := make(chan *Folder, nFoldersWithChildren)
+			queue <- r
+
+			eg, pCtx := errgroup.WithContext(ctx)
+			for i := 0; i < 5; i++ {
+				eg.Go(func() error {
+					for folder := range queue {
+						names := make([]string, len(folder.Folders))
+						for j, f := range folder.Folders {
+							names[j] = string(f.Name)
+						}
+						ids := make([]IdField, len(folder.Folders))
+						err := tx.QuerySingle(
+							pCtx,
+							`
+with
+	project := (select Project filter .id = <uuid>$0),
+	parent := (select FolderLike filter .id = <uuid>$1)
+for name in array_unpack(<array<str>>$2) union (
+	insert Folder { project := project, parent := parent, name := <str>name }
+)`,
+							ids,
+							p.Id, folder.Id, names,
+						)
+						if err != nil {
+							return rewriteEdgedbError(err)
+						}
+						for j, f := range folder.Folders {
+							f.Id = ids[j].Id
+							if len(f.Folders) > 0 {
+								queue <- f
+							}
+						}
+					}
+					return nil
+				})
+			}
+
+			err := eg.Wait()
+			close(queue)
+			for range queue {
+				// flush the queue
+			}
+			if err != nil {
+				return err
+			}
+		}
+
+		nItems := 0
+		folders := make([]*folderForInsertion, 0, nFoldersWithContent)
+		{
+			// Prepare insertion of Docs and Files
+			err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
+				n := len(f.Docs) + len(f.FileRefs)
+				if n > 0 {
+					nItems += n
+					fi := folderForInsertion{
+						Id:    f.Id,
+						Docs:  make([]docForInsertion, len(f.Docs)),
+						Files: make([]fileForInsertion, len(f.FileRefs)),
+					}
+					for i, d := range f.Docs {
+						fi.Docs[i].Name = d.Name
+						fi.Docs[i].Size = d.Size
+						fi.Docs[i].Snapshot = d.Snapshot
+					}
+					for i, file := range f.FileRefs {
+						fi.Files[i].Name = file.Name
+						fi.Files[i].Size = file.Size
+						fi.Files[i].Hash = file.Hash
+					}
+					folders = append(folders, &fi)
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		ids := make([]IdField, nItems)
+		{
+			// Insert Docs and Files
+			err := tx.Query(ctx, `
+with
+	project := (select Project filter .id = <uuid>$0)
+for folder in json_array_unpack(<json>$1) union (
+	with
+		f := (select FolderLike filter .id = <uuid>folder['id'])
+	select (
+		for doc in json_array_unpack(folder['docs']) union (
+			insert Doc {
+				project := project,
+				parent := f,
+				name := <str>doc['name'],
+				size := <int64>doc['size'],
+				snapshot := <str>doc['snapshot'],
+				version := 0,
+			}
+		)
+	) union (
+		for file in json_array_unpack(folder['files']) union (
+			insert File {
+				project := project,
+				parent := f,
+				name := <str>file['name'],
+				size := <int64>file['size'],
+				hash := <str>file['hash'],
+	  		}
+		)
+	)
+)`,
+				&ids,
+				p.Id, folders,
+			)
+			if err != nil {
+				return rewriteEdgedbError(err)
+			}
+		}
+
+		{
+			// Back-fill ids
+			i := 0
+			err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
+				for _, doc := range f.Docs {
+					doc.Id = ids[i].Id
+					i++
+				}
+				for _, fileRef := range f.FileRefs {
+					fileRef.Id = ids[i].Id
+					i++
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -215,7 +429,7 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*T
 		u := bson.M{
 			"$set": TokensField{Tokens: *tokens},
 		}
-		r, err := m.c.UpdateOne(ctx, q, u)
+		r, err := m.cP.UpdateOne(ctx, q, u)
 		if err != nil {
 			if mongo.IsDuplicateKeyError(err) {
 				allErrors.Add(err)
@@ -394,7 +608,7 @@ func (m *manager) MoveTreeElement(ctx context.Context, projectId edgedb.UUID, ve
 		},
 		"$inc": VersionField{Version: 1},
 	}
-	err := mongoTx.For(m.c.Database(), ctx, func(ctx context.Context) error {
+	err := mongoTx.For(m.cP.Database(), ctx, func(ctx context.Context) error {
 		for _, u := range []interface{}{u1, u2} {
 			err := m.setWithVersionGuard(ctx, projectId, version, u)
 			if err != nil {
@@ -470,7 +684,7 @@ func (m *manager) setWithEpochGuard(ctx context.Context, projectId edgedb.UUID, 
 	q := withIdAndEpoch{}
 	q.Id = projectId
 	q.Epoch = epoch
-	r, err := m.c.UpdateOne(ctx, q, u)
+	r, err := m.cP.UpdateOne(ctx, q, u)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -484,7 +698,7 @@ func (m *manager) setWithVersionGuard(ctx context.Context, projectId edgedb.UUID
 	q := &withIdAndVersion{}
 	q.Id = projectId
 	q.Version = version
-	r, err := m.c.UpdateOne(ctx, q, u)
+	r, err := m.cP.UpdateOne(ctx, q, u)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -520,7 +734,7 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId ed
 func (m *manager) GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error) {
 	q := matchUsersProjects(userId)
 	var projects []NameField
-	r, err := m.c.Find(
+	r, err := m.cP.Find(
 		ctx,
 		q,
 		options.Find().
@@ -560,7 +774,7 @@ func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID) ([]*List
 
 	q := matchUsersProjects(userId)
 
-	r, err := m.c.Find(
+	r, err := m.cP.Find(
 		ctx,
 		q,
 		options.Find().SetProjection(projection).SetBatchSize(prefetchN),
@@ -585,7 +799,7 @@ func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId
 }
 
 func (m *manager) BumpEpoch(ctx context.Context, projectId edgedb.UUID) error {
-	_, err := m.c.UpdateOne(ctx, &IdField{Id: projectId}, &bson.M{
+	_, err := m.cP.UpdateOne(ctx, &IdField{Id: projectId}, &bson.M{
 		"$inc": &EpochField{Epoch: 1},
 	})
 	if err != nil {
@@ -601,7 +815,7 @@ func (m *manager) GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, e
 }
 
 func (m *manager) set(ctx context.Context, projectId edgedb.UUID, update interface{}) error {
-	_, err := m.c.UpdateOne(
+	_, err := m.cP.UpdateOne(
 		ctx,
 		IdField{
 			Id: projectId,
@@ -617,7 +831,7 @@ func (m *manager) UpdateLastUpdated(ctx context.Context, projectId edgedb.UUID, 
 	v := WithLastUpdatedDetails{}
 	v.LastUpdatedAt = at
 	v.LastUpdatedBy = by
-	_, err := m.c.UpdateOne(
+	_, err := m.cP.UpdateOne(
 		ctx,
 		bson.M{
 			"_id": projectId,
@@ -658,7 +872,7 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
 	var project WithTree
-	err := m.c.FindOne(
+	err := m.cP.FindOne(
 		ctx,
 		bson.M{
 			"_id": projectId,
@@ -718,7 +932,7 @@ func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q in
 		projection["_id"] = getId
 	}
 
-	err := m.c.FindOne(
+	err := m.cP.FindOne(
 		ctx,
 		q,
 		options.FindOne().SetProjection(projection),
@@ -730,7 +944,7 @@ func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q in
 }
 
 func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error {
-	err := m.c.FindOne(
+	err := m.cP.FindOne(
 		ctx,
 		IdField{Id: projectId},
 		options.FindOne().SetProjection(getProjection(target)),
@@ -881,7 +1095,7 @@ func (m *manager) Delete(ctx context.Context, p *ForDeletion) error {
 		EpochField:   p.EpochField,
 		VersionField: p.VersionField,
 	}
-	r, err := m.c.DeleteOne(ctx, q)
+	r, err := m.cP.DeleteOne(ctx, q)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -892,7 +1106,7 @@ func (m *manager) Delete(ctx context.Context, p *ForDeletion) error {
 }
 
 func (m *manager) Restore(ctx context.Context, p *ForDeletion) error {
-	_, err := m.c.InsertOne(ctx, p)
+	_, err := m.cP.InsertOne(ctx, p)
 	if err != nil {
 		return rewriteMongoError(err)
 	}

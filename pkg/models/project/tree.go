@@ -53,6 +53,8 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 
 type Doc struct {
 	CommonTreeFields `edgedb:"inline"`
+	Size             int64                `json:"size"`
+	Snapshot         sharedTypes.Snapshot `json:"snapshot"`
 }
 
 func (d *Doc) FieldNameInFolder() MongoPath {
@@ -100,14 +102,14 @@ type FileRef struct {
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linkedFileData"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
 	Created        time.Time        `json:"created" edgedb:"created"`
-	Size           *int64           `json:"size" edgedb:"size"`
+	Size           int64            `json:"size" edgedb:"size"`
 }
 
 func (f *FileRef) FieldNameInFolder() MongoPath {
 	return "fileRefs"
 }
 
-func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size *int64) *FileRef {
+func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) *FileRef {
 	return &FileRef{
 		CommonTreeFields: CommonTreeFields{
 			// TODO: refactor into server side gen.

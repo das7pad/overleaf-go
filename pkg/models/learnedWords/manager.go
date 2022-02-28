@@ -92,7 +92,7 @@ func (m manager) GetDictionary(ctx context.Context, userId edgedb.UUID) ([]strin
 func (m manager) LearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update User
 filter .id = <uuid>$0 and <str>$1 not in .learned_words
 set { learned_words += <str>$1 }`,
@@ -112,7 +112,7 @@ set { learned_words += <str>$1 }`,
 func (m manager) UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update User
 filter .id = <uuid>$0
 set { learned_words -= <str>$1 }`,

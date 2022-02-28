@@ -52,7 +52,7 @@ func rewriteEdgedbError(err error) error {
 func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update Tag
 filter .id = <uuid>$0 and .user.id = <uuid>$1
 set { projects += (select Project filter .id = <uuid>$2) }`,
@@ -82,7 +82,7 @@ func (m *manager) EnsureExists(ctx context.Context, userId edgedb.UUID, name str
 	t := &Full{}
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 with user := (select User filter .id = <uuid>$0)
 insert Tag { name := <str>$1, user := user }
 unless conflict on .name
@@ -114,7 +114,7 @@ func (m *manager) GetAll(ctx context.Context, userId edgedb.UUID) ([]Full, error
 func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update Tag
 filter .id = <uuid>$0 and .user.id = <uuid>$1
 set { projects -= (select Project filter .id = <uuid>$2 ) }`,
@@ -130,7 +130,7 @@ set { projects -= (select Project filter .id = <uuid>$2 ) }`,
 func (m *manager) RemoveProjectForUser(ctx context.Context, userId, projectId edgedb.UUID) error {
 	err := m.c.Query(
 		ctx,
-		`\
+		`
 update Tag
 filter .user.id = <uuid>$0
 set { projects -= (select Project filter .id = <uuid>$1) }`,
@@ -146,7 +146,7 @@ set { projects -= (select Project filter .id = <uuid>$1) }`,
 func (m *manager) Rename(ctx context.Context, userId, tagId edgedb.UUID, newName string) error {
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update Tag
 filter .id = <uuid>$0 and .user.id = <uuid>$1
 set { name := <str>$2 }`,

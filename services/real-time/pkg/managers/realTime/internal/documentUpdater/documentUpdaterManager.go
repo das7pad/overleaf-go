@@ -35,9 +35,10 @@ type Manager interface {
 	FlushProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	return documentUpdater.New(
 		options.APIs.DocumentUpdater.Options,
+		c,
 		client,
 		db,
 	)

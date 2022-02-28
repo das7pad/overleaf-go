@@ -22,6 +22,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -45,7 +46,7 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(ctx context.Context, options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
@@ -54,16 +55,16 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 	if err := a.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	c := clientTracking.New(client)
-	e := editorEvents.New(client, c)
+	ct := clientTracking.New(client)
+	e := editorEvents.New(client, ct)
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	w, err := webApi.New(options, db)
+	w, err := webApi.New(options, c, db)
 	if err != nil {
 		return nil, err
 	}
-	d, err := documentUpdater.New(options, client, db)
+	d, err := documentUpdater.New(options, c, client, db)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func New(ctx context.Context, options *types.Options, client redis.UniversalClie
 		shuttingDown:    false,
 		options:         options,
 		appliedOps:      a,
-		clientTracking:  c,
+		clientTracking:  ct,
 		editorEvents:    e,
 		documentUpdater: d,
 		webApi:          w,

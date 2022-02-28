@@ -52,7 +52,7 @@ type manager struct {
 func (m *manager) GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error {
 	err := m.c.Query(
 		ctx,
-		`\
+		`
 select Notification
 filter .user.id = <uuid>$0 and .template_key != ''`,
 		&notifications,
@@ -72,7 +72,7 @@ func (m *manager) Add(ctx context.Context, n Notification) error {
 	}
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 with user := (select User filter .id = <uuid>$0)
 insert Notification {
 	user := user,
@@ -103,7 +103,7 @@ else (
 func (m *manager) RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update Notification
 filter .id = <uuid>$0 and .user.id = <uuid>$1
 set { template_key := {}, message_options := {} }
@@ -126,7 +126,7 @@ func (m *manager) RemoveByKey(ctx context.Context, userId edgedb.UUID, notificat
 
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update Notification
 filter .key = <str>$0 and .user.id = <uuid>$1
 set { template_key := {}, message_options := {} }
@@ -149,7 +149,7 @@ func (m *manager) RemoveByKeyOnly(ctx context.Context, notificationKey string) e
 
 	err := m.c.QuerySingle(
 		ctx,
-		`\
+		`
 update Notification
 filter .key = <str>$0
 set { template_key := {}, message_options := {} }

@@ -33,11 +33,11 @@ type Manager interface {
 	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *types.SetDocDetails) error
 }
 
-func New(options *types.Options, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager, error) {
 	dm, err := docstore.New(options.APIs.Docstore.Options, db)
 	if err != nil {
 		return nil, err
 	}
-	pm := project.New(db)
+	pm := project.New(c, db)
 	return &monolithManager{dm: dm, pm: pm}, nil
 }

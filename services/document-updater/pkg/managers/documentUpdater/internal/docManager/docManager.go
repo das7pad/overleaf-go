@@ -60,7 +60,7 @@ type Manager interface {
 	QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
 	rl, err := redisLocker.New(client)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func New(options *types.Options, client redis.UniversalClient, db *mongo.Databas
 	if err != nil {
 		return nil, err
 	}
-	web, err := webApi.New(options, db)
+	web, err := webApi.New(options, c, db)
 	if err != nil {
 		return nil, err
 	}
