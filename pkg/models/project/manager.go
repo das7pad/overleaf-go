@@ -227,23 +227,35 @@ func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {
 		{
 			// Insert the Project and RootFolder
 			ids := make([]IdField, 2)
-			// TODO: fill all the project fields
 			err := tx.QuerySingle(
 				ctx,
 				`
 with
-	p := (insert Project {}),
+	owner := (select User { editor_config } filter .id = <uuid>$0),
+	provided_lng := <str>$1,
+	lng := (
+		<str>owner.editor_config['spellCheckLanguage']
+		if provided_lng = 'inherit' else provided_lng
+	),
+	p := (insert Project {
+		compiler := <str>$2,
+		image_name := <str>$3,
+		name := <str>$4,
+		last_updated_by := owner,
+		owner := owner,
+		spell_check_language := lng,
+	}),
 	rf := (insert RootFolder { project := p })
-select {p, rf}
-`,
+select {p, rf}`,
 				&ids,
-				p,
+				p.OwnerRef, p.SpellCheckLanguage, p.Compiler, p.ImageName,
+				p.Name,
 			)
 			if err != nil {
 				return rewriteEdgedbError(err)
 			}
 			p.Id = ids[0].Id
-			p.RootFolder[0].Id = ids[1].Id
+			r.Id = ids[1].Id
 		}
 
 		nFoldersWithContent := 0

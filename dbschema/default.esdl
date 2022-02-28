@@ -28,7 +28,7 @@ module default {
       property last_touched -> datetime;
     }
     required property editor_config -> json {
-      default := <json>'{"autoComplete":true,"autoPairDelimiters":true,"fontFamily":"lucida","fontSize":12,"lineHeight":"normal","mode":"default","overallTheme":"","pdfViewer":"pdfjs","syntaxValidation":false,"spellCheckLanguage":"en","theme":"textmate"}';
+      default := to_json('{"autoComplete":true,"autoPairDelimiters":true,"fontFamily":"lucida","fontSize":12,"lineHeight":"normal","mode":"default","overallTheme":"","pdfViewer":"pdfjs","syntaxValidation":false,"spellCheckLanguage":"en","theme":"textmate"}');
     }
     required link email -> Email {
       constraint exclusive;
@@ -87,6 +87,9 @@ module default {
   }
 
   type Project {
+    required property active -> bool {
+      default := true;
+    }
     required property version -> int64 {
       default := 1;
     }
@@ -105,7 +108,9 @@ module default {
     }
     required property image_name -> str;
     property last_opened -> datetime;
-    property last_updated_at -> datetime;
+    property last_updated_at -> datetime {
+      default := datetime_of_transaction();
+    }
     link last_updated_by -> User {
       on target delete allow;
     }
@@ -113,7 +118,9 @@ module default {
     required link owner -> User {
       on target delete delete source;
     }
-    property public_access_level -> str;
+    required property public_access_level -> str {
+      default := 'private';
+    }
     multi link access_ro -> User {
       on target delete allow;
     }
@@ -127,7 +134,7 @@ module default {
     multi link token_access_ro -> User {
       on target delete allow;
     }
-    required link tokens -> Tokens {
+    link tokens -> Tokens {
       constraint exclusive;
     }
     multi link trashed -> User {

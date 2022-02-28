@@ -56,7 +56,7 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 			PublicAccessLevel: PrivateAccess,
 		},
 		SpellCheckLanguageField: SpellCheckLanguageField{
-			SpellCheckLanguage: "en",
+			SpellCheckLanguage: "inherit",
 		},
 		TreeField: TreeField{
 			RootFolder: []*Folder{

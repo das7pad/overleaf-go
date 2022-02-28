@@ -253,11 +253,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			existingProjectNames = names
 			return nil
 		})
-		eg.Go(func() error {
-			return m.setSpellCheckLanguageInProject(
-				pCtx, &p.SpellCheckLanguageField, request.UserId,
-			)
-		})
 
 		if err := eg.Wait(); err != nil {
 			return err
