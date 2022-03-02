@@ -644,6 +644,60 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId edgedb.UUID, 
 	})
 }
 
+func (m *manager) RenameTreeElement1(ctx context.Context, projectId edgedb.UUID, element TreeElement) (sharedTypes.Version, error) {
+	var version sharedTypes.Version
+	err := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
+		{
+			err := tx.QuerySingle(
+				ctx,
+				`
+update VisibleTreeElement
+filter .id = <uuid>$0 and .project.id = <uuid>$1
+set { name := <str>$2 }`,
+				&IdField{},
+				element.GetId(), projectId, element.GetName(),
+			)
+			if err != nil {
+				// tx error or element does not exist
+				return rewriteEdgedbError(err)
+			}
+		}
+		// TODO: get version in either case, potentially in query above
+		// TODO: explore multi parent link for targeted tree query
+		if f, ok := element.(*Folder); ok {
+			r, v, err := m.GetProjectRootFolder(ctx, projectId)
+			if err != nil {
+				return rewriteEdgedbError(err)
+			}
+			version = v
+			_ = r.WalkFolders(func(folder *Folder, path sharedTypes.DirName) error {
+				if folder.Id == f.Id {
+					*f = *folder
+					return AbortWalk
+				}
+				return nil
+			})
+		}
+		err := tx.QuerySingle(
+			ctx,
+			`
+update Project
+filter .id = <uuid>$0
+set { version := Project.version + 1 }`,
+			&IdField{},
+			projectId,
+		)
+		if err != nil {
+			return rewriteEdgedbError(err)
+		}
+		return err
+	})
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
+	return version, nil
+}
+
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
 	return m.checkAccessAndUpdate(
 		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
@@ -883,6 +937,7 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 }
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
+	// TODO: make tx aware
 	var project WithTree
 	err := m.cP.FindOne(
 		ctx,
