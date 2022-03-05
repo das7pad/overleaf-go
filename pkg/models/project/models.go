@@ -119,6 +119,12 @@ type WithTree struct {
 	VersionField `edgedb:"inline"`
 }
 
+type ForTree struct {
+	VersionField    `edgedb:"inline"`
+	RootFolderField `edgedb:"inline"`
+	AnyFoldersField `edgedb:"inline"`
+}
+
 type WithTreeAndRootDoc struct {
 	RootDocIdField `edgedb:"inline"`
 	WithTree       `edgedb:"inline"`

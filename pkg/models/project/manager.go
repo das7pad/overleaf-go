@@ -938,22 +938,30 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
 	// TODO: make tx aware
-	var project WithTree
-	err := m.cP.FindOne(
+	var project ForTree
+	err := m.c.Query(
 		ctx,
-		bson.M{
-			"_id": projectId,
+		`
+select
+	Project {
+		version,
+		root_folder,
+		any_folders: {
+			id,
+			[is Folder].name,
+			folders,
+			docs: { id, name },
+			files: { id, name },
 		},
-		options.FindOne().SetProjection(getProjection(project)),
-	).Decode(&project)
-	if err != nil {
-		return nil, 0, rewriteMongoError(err)
 	}
-	t, err := project.GetRootFolder()
+filter .id = <uuid>$0`,
+		&project,
+		projectId,
+	)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, rewriteEdgedbError(err)
 	}
-	return t, project.Version, nil
+	return project.GetRootFolder(), project.Version, nil
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID) (*JoinProjectViewPrivate, error) {

@@ -140,6 +140,12 @@ module default {
     multi link trashed -> User {
       on target delete allow;
     }
+
+    link root_folder := .<project[is RootFolder];
+    multi link any_folders := .<project[is FolderLike];
+    multi link folders := .<project[is Folder];
+    multi link docs := .<project[is Doc];
+    multi link files := .<project[is File];
   }
 
   abstract type TreeElement {
@@ -148,7 +154,11 @@ module default {
     }
   }
 
-  abstract type FolderLike extending TreeElement {}
+  abstract type FolderLike extending TreeElement {
+      multi link folders := .<parent[is Folder];
+      multi link docs := .<parent[is Doc];
+      multi link files := .<parent[is File];
+  }
 
   type RootFolder extending FolderLike {
     constraint exclusive on ((.project));
@@ -267,6 +277,7 @@ module default {
     required link project -> Project {
       on target delete delete source;
     }
+    multi link messages := .<room[is Message];
   }
 
   type ChatRoom extending Room {

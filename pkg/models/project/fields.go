@@ -115,6 +115,26 @@ type TrashedByField struct {
 	TrashedBy Refs `edgedb:"trashed"`
 }
 
+type RootFolderField struct {
+	RootFolder *Folder `edgedb:"root_folder"`
+}
+
+type FoldersField struct {
+	Folders []*Folder `edgedb:"folders"`
+}
+
+type DocsField struct {
+	Docs []*Doc `edgedb:"docs"`
+}
+
+type FilesField struct {
+	Files []*FileRef `edgedb:"files"`
+}
+
+type AnyFoldersField struct {
+	AnyFolders []*Folder `edgedb:"any_folders"`
+}
+
 type TreeField struct {
 	RootFolder []*Folder `json:"rootFolder" edgedb:"rootFolder"`
 }

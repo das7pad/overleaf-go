@@ -397,3 +397,20 @@ func (p *TreeField) GetRootFolder() (*Folder, error) {
 	}
 	return p.RootFolder[0], nil
 }
+
+func (p *ForTree) GetRootFolder() *Folder {
+	lookup := make(map[edgedb.UUID]*Folder, len(p.AnyFolders))
+	for _, folder := range p.AnyFolders {
+		lookup[folder.Id] = folder
+	}
+
+	for _, folder := range p.AnyFolders {
+		folders := make([]*Folder, len(folder.Folders))
+		for i, f := range folder.Folders {
+			folders[i] = lookup[f.Id]
+		}
+		lookup[folder.Id].Folders = folders
+	}
+
+	return lookup[p.RootFolder.Id]
+}
