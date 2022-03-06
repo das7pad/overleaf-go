@@ -37,6 +37,7 @@ import (
 
 type Manager interface {
 	CreateProject(ctx context.Context, creation *ForCreation) error
+	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
 	Delete(ctx context.Context, p *ForDeletion) error
 	Restore(ctx context.Context, p *ForDeletion) error
 	GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error)
@@ -219,17 +220,14 @@ type folderForInsertion struct {
 }
 
 func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {
-	r, errRootFolder := p.GetRootFolder()
-	if errRootFolder != nil {
-		return errRootFolder
-	}
-	err := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
-		{
-			// Insert the Project and RootFolder
-			ids := make([]IdField, 2)
-			err := tx.QuerySingle(
-				ctx,
-				`
+	// TODO: assert in tx
+	r := p.RootFolder
+	{
+		// Insert the Project and RootFolder
+		ids := make([]IdField, 2)
+		err := m.c.QuerySingle(
+			ctx,
+			`
 with
 	owner := (select User { editor_config } filter .id = <uuid>$0),
 	provided_lng := <str>$1,
@@ -247,121 +245,121 @@ with
 	}),
 	rf := (insert RootFolder { project := p })
 select {p, rf}`,
-				&ids,
-				p.OwnerRef, p.SpellCheckLanguage, p.Compiler, p.ImageName,
-				p.Name,
-			)
-			if err != nil {
-				return rewriteEdgedbError(err)
-			}
-			p.Id = ids[0].Id
-			r.Id = ids[1].Id
+			&ids,
+			p.OwnerRef, p.SpellCheckLanguage, p.Compiler, p.ImageName,
+			p.Name,
+		)
+		if err != nil {
+			return rewriteEdgedbError(err)
 		}
+		p.Id = ids[0].Id
+		r.Id = ids[1].Id
+	}
 
-		nFoldersWithContent := 0
-		nFoldersWithChildren := 1
-		{
-			// Collect tree stats for precise allocations
-			err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-				if len(f.Docs)+len(f.FileRefs) > 0 {
-					nFoldersWithContent++
-				}
-				if len(f.Folders) > 0 {
-					nFoldersWithChildren++
-				}
-				return nil
-			})
-			if err != nil {
-				return err
+	nFoldersWithContent := 0
+	nFoldersWithChildren := 1
+	{
+		// Collect tree stats for precise allocations
+		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
+			if len(f.Docs)+len(f.FileRefs) > 0 {
+				nFoldersWithContent++
 			}
+			if len(f.Folders) > 0 {
+				nFoldersWithChildren++
+			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
+	}
 
-		{
-			// Build tree of Folders
-			queue := make(chan *Folder, nFoldersWithChildren)
-			queue <- r
+	{
+		// Build tree of Folders
+		queue := make(chan *Folder, nFoldersWithChildren)
+		queue <- r
 
-			eg, pCtx := errgroup.WithContext(ctx)
-			for i := 0; i < 5; i++ {
-				eg.Go(func() error {
-					for folder := range queue {
-						names := make([]string, len(folder.Folders))
-						for j, f := range folder.Folders {
-							names[j] = string(f.Name)
-						}
-						ids := make([]IdField, len(folder.Folders))
-						err := tx.QuerySingle(
-							pCtx,
-							`
+		eg, pCtx := errgroup.WithContext(ctx)
+		for i := 0; i < 5; i++ {
+			eg.Go(func() error {
+				for folder := range queue {
+					names := make([]string, len(folder.Folders))
+					for j, f := range folder.Folders {
+						names[j] = string(f.Name)
+					}
+					ids := make([]IdField, len(folder.Folders))
+					err := m.c.QuerySingle(
+						pCtx,
+						`
 with
 	project := (select Project filter .id = <uuid>$0),
 	parent := (select FolderLike filter .id = <uuid>$1)
 for name in array_unpack(<array<str>>$2) union (
 	insert Folder { project := project, parent := parent, name := <str>name }
 )`,
-							ids,
-							p.Id, folder.Id, names,
-						)
-						if err != nil {
-							return rewriteEdgedbError(err)
+						ids,
+						p.Id, folder.Id, names,
+					)
+					if err != nil {
+						return rewriteEdgedbError(err)
+					}
+					for j, f := range folder.Folders {
+						f.Id = ids[j].Id
+						if len(f.Folders) > 0 {
+							queue <- f
 						}
-						for j, f := range folder.Folders {
-							f.Id = ids[j].Id
-							if len(f.Folders) > 0 {
-								queue <- f
-							}
-						}
 					}
-					return nil
-				})
-			}
-
-			err := eg.Wait()
-			close(queue)
-			for range queue {
-				// flush the queue
-			}
-			if err != nil {
-				return err
-			}
-		}
-
-		nItems := 0
-		folders := make([]*folderForInsertion, 0, nFoldersWithContent)
-		{
-			// Prepare insertion of Docs and Files
-			err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-				n := len(f.Docs) + len(f.FileRefs)
-				if n > 0 {
-					nItems += n
-					fi := folderForInsertion{
-						Id:    f.Id,
-						Docs:  make([]docForInsertion, len(f.Docs)),
-						Files: make([]fileForInsertion, len(f.FileRefs)),
-					}
-					for i, d := range f.Docs {
-						fi.Docs[i].Name = d.Name
-						fi.Docs[i].Size = d.Size
-						fi.Docs[i].Snapshot = d.Snapshot
-					}
-					for i, file := range f.FileRefs {
-						fi.Files[i].Name = file.Name
-						fi.Files[i].Size = file.Size
-						fi.Files[i].Hash = file.Hash
-					}
-					folders = append(folders, &fi)
 				}
 				return nil
 			})
-			if err != nil {
-				return err
-			}
 		}
 
-		ids := make([]IdField, nItems)
-		{
-			// Insert Docs and Files
-			err := tx.Query(ctx, `
+		err := eg.Wait()
+		close(queue)
+		for range queue {
+			// flush the queue
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	nItems := 0
+	folders := make([]*folderForInsertion, 0, nFoldersWithContent)
+	{
+		// Prepare insertion of Docs and Files
+		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
+			n := len(f.Docs) + len(f.FileRefs)
+			if n > 0 {
+				nItems += n
+				fi := folderForInsertion{
+					Id:    f.Id,
+					Docs:  make([]docForInsertion, len(f.Docs)),
+					Files: make([]fileForInsertion, len(f.FileRefs)),
+				}
+				for i, d := range f.Docs {
+					fi.Docs[i].Name = d.Name
+					fi.Docs[i].Size = d.Size
+					fi.Docs[i].Snapshot = d.Snapshot
+				}
+				for i, file := range f.FileRefs {
+					fi.Files[i].Name = file.Name
+					fi.Files[i].Size = file.Size
+					fi.Files[i].Hash = file.Hash
+				}
+				folders = append(folders, &fi)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	ids := make([]IdField, nItems)
+	{
+		// Insert Docs and Files
+		err := m.c.Query(ctx, `
 with
 	project := (select Project filter .id = <uuid>$0)
 for folder in json_array_unpack(<json>$1) union (
@@ -390,36 +388,56 @@ for folder in json_array_unpack(<json>$1) union (
 		)
 	)
 )`,
-				&ids,
-				p.Id, folders,
-			)
-			if err != nil {
-				return rewriteEdgedbError(err)
-			}
+			&ids,
+			p.Id, folders,
+		)
+		if err != nil {
+			return rewriteEdgedbError(err)
 		}
+	}
 
-		{
-			// Back-fill ids
-			i := 0
-			err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-				for _, doc := range f.Docs {
-					doc.Id = ids[i].Id
-					i++
-				}
-				for _, fileRef := range f.FileRefs {
-					fileRef.Id = ids[i].Id
-					i++
-				}
-				return nil
-			})
-			if err != nil {
-				return err
+	{
+		// Back-fill ids
+		i := 0
+		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
+			for _, doc := range f.Docs {
+				doc.Id = ids[i].Id
+				i++
 			}
+			for _, fileRef := range f.FileRefs {
+				fileRef.Id = ids[i].Id
+				i++
+			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
+}
+
+func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) error {
+	var rootDocId edgedb.UUID
+	if p.RootDoc != nil {
+		rootDocId = p.RootDoc.Id
+	}
+	err := m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0
+set {
+	name := <str>$1,
+	rootDoc := (
+		select Doc
+		filter .id = <uuid>$3 and .project.id = <uuid>$0
+	)
+}
+`,
+		&IdField{},
+		p.Id, p.Name, rootDocId,
+	)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }

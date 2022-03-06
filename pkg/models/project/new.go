@@ -39,10 +39,6 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 		EpochField: EpochField{
 			Epoch: 1,
 		},
-		IdField: IdField{
-			// TODO: refactor into server side gen.
-			Id: edgedb.UUID{},
-		},
 		LastUpdatedAtField: LastUpdatedAtField{
 			LastUpdatedAt: time.Now().UTC(),
 		},
@@ -58,10 +54,8 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 		SpellCheckLanguageField: SpellCheckLanguageField{
 			SpellCheckLanguage: "inherit",
 		},
-		TreeField: TreeField{
-			RootFolder: []*Folder{
-				NewFolder(""),
-			},
+		RootFolderField: RootFolderField{
+			RootFolder: NewFolder(""),
 		},
 		VersionField: VersionField{
 			Version: 1,

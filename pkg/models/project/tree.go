@@ -63,8 +63,6 @@ func (d *Doc) FieldNameInFolder() MongoPath {
 
 func NewDoc(name sharedTypes.Filename) *Doc {
 	return &Doc{CommonTreeFields: CommonTreeFields{
-		// TODO: refactor into server side gen.
-		Id:   edgedb.UUID{},
 		Name: name,
 	}}
 }
@@ -112,8 +110,6 @@ func (f *FileRef) FieldNameInFolder() MongoPath {
 func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) *FileRef {
 	return &FileRef{
 		CommonTreeFields: CommonTreeFields{
-			// TODO: refactor into server side gen.
-			Id:   edgedb.UUID{},
 			Name: name,
 		},
 		Created: time.Now().UTC(),
@@ -190,8 +186,6 @@ func (t *Folder) CheckHasUniqueEntries() error {
 func NewFolder(name sharedTypes.Filename) *Folder {
 	return &Folder{
 		CommonTreeFields: CommonTreeFields{
-			// TODO: refactor into server side gen.
-			Id:   edgedb.UUID{},
 			Name: name,
 		},
 		Docs:     make([]*Doc, 0),

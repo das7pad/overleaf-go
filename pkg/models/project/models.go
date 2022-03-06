@@ -158,9 +158,9 @@ type ForCreation struct {
 	LastUpdatedByField      `edgedb:"inline"`
 	OwnerRefField           `edgedb:"inline"`
 	PublicAccessLevelField  `edgedb:"inline"`
-	RootDocIdField          `edgedb:"inline"`
+	RootDocField            `edgedb:"inline"`
 	SpellCheckLanguageField `edgedb:"inline"`
-	TreeField               `edgedb:"inline"`
+	RootFolderField         `edgedb:"inline"`
 	VersionField            `edgedb:"inline"`
 }
 

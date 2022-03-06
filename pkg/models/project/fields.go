@@ -91,6 +91,10 @@ type RootDocIdField struct {
 	RootDocId edgedb.UUID `json:"rootDoc_id" edgedb:"rootDoc_id"`
 }
 
+type RootDocField struct {
+	RootDoc *Doc `json:"root_doc" edgedb:"root_doc"`
+}
+
 type SpellCheckLanguageField struct {
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spellCheckLanguage"`
 }

@@ -20,13 +20,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectUpload/exampleProjects"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -46,65 +46,68 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		return errUnknownTemplate
 	}
 
-	p := project.NewProject(userId)
-	p.ImageName = m.options.DefaultImage
-	p.Name = request.Name
-	t, _ := p.GetRootFolder()
-
+	var p *project.ForCreation
 	viewData := &exampleProjects.ViewData{
 		ProjectCreationDate: time.Now().UTC(),
 		ProjectName:         request.Name,
 		Owner:               request.Session.User.ToPublicUserInfo(),
 	}
+	errCreate := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
+		p = project.NewProject(userId)
+		p.ImageName = m.options.DefaultImage
+		t := p.RootFolder
+		makeUniqName := pendingOperation.TrackOperationWithCancel(
+			ctx,
+			func(ctx context.Context) error {
+				names, err := m.pm.GetProjectNames(ctx, userId)
+				if err != nil {
+					return errors.Tag(err, "cannot get project names")
+				}
+				p.Name = names.MakeUnique(request.Name)
+				return nil
+			},
+		)
+		defer makeUniqName.Cancel()
 
-	errCreate := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		docs, files, errRender := exampleProject.Render(viewData)
 		if errRender != nil {
 			return errRender
 		}
-
-		_ = t.WalkFolders(func(f *project.Folder, _ sharedTypes.DirName) error {
-			// Reset after partial upload.
-			f.Docs = f.Docs[:0]
-			return nil
-		})
-
-		eg, pCtx := errgroup.WithContext(sCtx)
-		eg.Go(func() error {
-			newDocs := make([]doc.Contents, len(docs))
-			for i, content := range docs {
-				d := project.NewDoc(content.Path.Filename())
-				if content.Path == "main.tex" {
-					p.RootDocId = d.Id
-				}
-				newDocs[i].Id = d.Id
-				newDocs[i].Lines = content.Snapshot.ToLines()
-				parent, err := t.CreateParents(content.Path.Dir())
-				if err != nil {
-					return err
-				}
-				parent.Docs = append(parent.Docs, d)
+		fileLookup := make(
+			map[sharedTypes.PathName]*project.FileRef, len(files),
+		)
+		for _, content := range docs {
+			d := project.NewDoc(content.Path.Filename())
+			if content.Path == "main.tex" {
+				p.RootDoc = d
 			}
-			err := m.dm.CreateDocsWithContent(pCtx, p.Id, newDocs)
+			d.Snapshot = content.Snapshot
+			parent, err := t.CreateParents(content.Path.Dir())
 			if err != nil {
-				return errors.Tag(err, "cannot create docs")
+				return err
 			}
-			return nil
-		})
+			parent.Docs = append(parent.Docs, d)
+		}
+		for _, file := range files {
+			parent, err := t.CreateParents(file.Path.Dir())
+			if err != nil {
+				return err
+			}
+			fileRef := project.NewFileRef(
+				file.Path.Filename(), file.Hash, file.Size,
+			)
+			parent.FileRefs = append(parent.FileRefs, fileRef)
+			fileLookup[file.Path] = fileRef
+		}
 
+		if err := m.pm.CreateProject(ctx, p); err != nil {
+			return errors.Tag(err, "cannot insert project")
+		}
+
+		eg, pCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			for _, file := range files {
-				parent, errConflict := t.CreateParents(file.Path.Dir())
-				if errConflict != nil {
-					return errConflict
-				}
-				if parent.HasEntry(file.Path.Filename()) {
-					// already uploaded
-					continue
-				}
-				fileRef := project.NewFileRef(
-					file.Path.Filename(), file.Hash, file.Size,
-				)
+				fileRef := fileLookup[file.Path]
 				err := m.fm.SendStreamForProjectFile(
 					pCtx,
 					p.Id,
@@ -117,31 +120,23 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 				if err != nil {
 					return errors.Tag(err, "cannot copy file")
 				}
-				parent.FileRefs = append(parent.FileRefs, fileRef)
 			}
 			return nil
 		})
-
-		var existingProjectNames project.Names
 		eg.Go(func() error {
-			names, err := m.pm.GetProjectNames(pCtx, userId)
-			if err != nil {
-				return errors.Tag(err, "cannot get project names")
+			if err := makeUniqName.Wait(pCtx); err != nil {
+				return err
 			}
-			existingProjectNames = names
+			err := m.pm.FinalizeProjectCreation(
+				pCtx,
+				p,
+			)
+			if err != nil {
+				return errors.Tag(err, "cannot finalize project creation")
+			}
 			return nil
 		})
-
-		if err := eg.Wait(); err != nil {
-			return err
-		}
-
-		p.Name = existingProjectNames.MakeUnique(p.Name)
-
-		if err := m.pm.CreateProject(sCtx, p); err != nil {
-			return errors.Tag(err, "cannot create project in mongo")
-		}
-		return nil
+		return eg.Wait()
 	})
 
 	if errCreate == nil {

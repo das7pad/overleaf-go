@@ -52,6 +52,7 @@ func New(options *types.Options, db *mongo.Database, pm project.Manager, um user
 }
 
 type manager struct {
+	c       *edgedb.Client
 	db      *mongo.Database
 	dm      docstore.Manager
 	dum     documentUpdater.Manager

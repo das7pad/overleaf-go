@@ -124,7 +124,7 @@ module default {
     multi link access_ro -> User {
       on target delete allow;
     }
-    link rootDoc -> Doc {
+    link root_doc -> Doc {
       on target delete allow;
     }
     required property spell_check_language -> str;

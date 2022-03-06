@@ -77,7 +77,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	}
 
 	parentCache := make(map[sharedTypes.DirName]*project.Folder)
-	t, _ := p.GetRootFolder()
+	t := p.RootFolder
 
 	errCreate := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		foundRootDoc := false
@@ -139,7 +139,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					if path == "main.tex" ||
 						(!foundRootDoc && path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
-							p.RootDocId = d.Id
+							p.RootDoc = d
 							foundRootDoc = true
 							if request.HasDefaultName && title != "" {
 								p.Name = title
@@ -260,8 +260,8 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 
 		if len(t.Docs)+len(t.FileRefs) == 0 && len(t.Folders) == 1 {
 			// Skip one level of directories and drop name of root folder.
-			p.RootFolder = t.Folders
-			p.RootFolder[0].Name = ""
+			*t = *t.Folders[0]
+			t.Name = ""
 		}
 
 		p.Name = existingProjectNames.MakeUnique(p.Name)

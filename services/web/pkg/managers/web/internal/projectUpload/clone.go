@@ -91,8 +91,8 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 				lastVersion = sp.Version
 				parentCache = make(map[sharedTypes.DirName]*project.Folder)
 				t = project.NewFolder("")
-				p.RootFolder[0] = t
-				p.RootDocId = edgedb.UUID{}
+				p.RootFolder = t
+				p.RootDoc = nil
 			}
 			p.ImageName = sp.ImageName
 			p.Compiler = sp.Compiler
@@ -181,7 +181,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 						contents.Lines.ToSnapshot(),
 					)
 					if isRootDocCandidate {
-						p.RootDocId = d.Id
+						p.RootDoc = d
 					}
 				}
 				newDocs[i].Id = d.Id
