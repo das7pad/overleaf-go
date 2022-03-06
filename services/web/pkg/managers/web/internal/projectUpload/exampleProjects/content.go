@@ -39,7 +39,7 @@ type binaryFile struct {
 }
 
 func (f *binaryFile) reader() io.Reader {
-	return bytes.NewBuffer(f.blob)
+	return bytes.NewReader(f.blob)
 }
 
 type projectContent struct {
