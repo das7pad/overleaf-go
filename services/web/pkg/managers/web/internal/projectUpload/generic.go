@@ -248,13 +248,18 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			}
 			return nil
 		})
+		eg.Go(func() error {
+			if err := getProjectNames.Wait(pCtx); err != nil {
+				return errors.Tag(err, "cannot get project names")
+			}
+			p.Name = existingProjectNames.MakeUnique(p.Name)
+			if err := m.pm.FinalizeProjectCreation(pCtx, p); err != nil {
+				return errors.Tag(err, "cannot finalize project")
+			}
+			return nil
+		})
 		if err := eg.Wait(); err != nil {
 			return err
-		}
-
-		p.Name = existingProjectNames.MakeUnique(p.Name)
-		if err := m.pm.FinalizeProjectCreation(ctx, p); err != nil {
-			return errors.Tag(err, "cannot finalize project")
 		}
 		return nil
 	})
