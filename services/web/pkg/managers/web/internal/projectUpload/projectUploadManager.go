@@ -71,12 +71,3 @@ func (m *manager) purgeFilestoreData(projectId edgedb.UUID) error {
 	}
 	return nil
 }
-
-func (m *manager) setSpellCheckLanguageInProject(ctx context.Context, p *project.SpellCheckLanguageField, userId edgedb.UUID) error {
-	u := &user.EditorConfigField{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
-		return errors.Tag(err, "cannot get user settings")
-	}
-	p.SpellCheckLanguage = u.EditorConfig.SpellCheckLanguage
-	return nil
-}

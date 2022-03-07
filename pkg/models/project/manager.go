@@ -36,7 +36,8 @@ import (
 )
 
 type Manager interface {
-	CreateProject(ctx context.Context, creation *ForCreation) error
+	PrepareProjectCreation(ctx context.Context, p *ForCreation) error
+	CreateProjectTree(ctx context.Context, creation *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
 	Delete(ctx context.Context, p *ForDeletion) error
 	Restore(ctx context.Context, p *ForDeletion) error
@@ -219,15 +220,11 @@ type folderForInsertion struct {
 	Files []fileForInsertion
 }
 
-func (m *manager) CreateProject(ctx context.Context, p *ForCreation) error {
-	// TODO: assert in tx
-	r := p.RootFolder
-	{
-		// Insert the Project and RootFolder
-		ids := make([]IdField, 2)
-		err := m.c.QuerySingle(
-			ctx,
-			`
+func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
+	ids := make([]IdField, 2)
+	err := m.c.QuerySingle(
+		ctx,
+		`
 with
 	owner := (select User { editor_config } filter .id = <uuid>$0),
 	provided_lng := <str>$1,
@@ -245,17 +242,21 @@ with
 	}),
 	rf := (insert RootFolder { project := p })
 select {p, rf}`,
-			&ids,
-			p.OwnerRef, p.SpellCheckLanguage, p.Compiler, p.ImageName,
-			p.Name,
-		)
-		if err != nil {
-			return rewriteEdgedbError(err)
-		}
-		p.Id = ids[0].Id
-		r.Id = ids[1].Id
+		&ids,
+		p.OwnerRef, p.SpellCheckLanguage, p.Compiler, p.ImageName,
+		p.Name,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
+	p.Id = ids[0].Id
+	p.RootFolder.Id = ids[1].Id
+	return nil
+}
 
+func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
+	// TODO: assert in tx
+	r := p.RootFolder
 	nFoldersWithContent := 0
 	nFoldersWithChildren := 1
 	{

@@ -100,8 +100,11 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 			fileLookup[file.Path] = fileRef
 		}
 
-		if err := m.pm.CreateProject(ctx, p); err != nil {
+		if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
 			return errors.Tag(err, "cannot insert project")
+		}
+		if err := m.pm.CreateProjectTree(ctx, p); err != nil {
+			return errors.Tag(err, "cannot folders/docs")
 		}
 
 		eg, pCtx := errgroup.WithContext(ctx)

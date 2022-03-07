@@ -93,10 +93,7 @@ func Merge(errors ...error) error {
 	for _, err := range errors {
 		m.Add(err)
 	}
-	if len(m.errors) == 0 {
-		return nil
-	}
-	return m
+	return m.Finalize()
 }
 
 type TaggedError struct {

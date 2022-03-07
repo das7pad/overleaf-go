@@ -247,6 +247,24 @@ func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) 
 	return nil, ""
 }
 
+func (t *Folder) GetDoc(needle sharedTypes.Filename) *Doc {
+	for _, doc := range t.Docs {
+		if doc.Name == needle {
+			return doc
+		}
+	}
+	return nil
+}
+
+func (t *Folder) GetFile(needle sharedTypes.Filename) *FileRef {
+	for _, file := range t.FileRefs {
+		if file.Name == needle {
+			return file
+		}
+	}
+	return nil
+}
+
 func (t *Folder) Walk(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, "", walkModeAny))
 }

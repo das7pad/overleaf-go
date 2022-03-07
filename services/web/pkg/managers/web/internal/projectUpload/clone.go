@@ -269,7 +269,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 
 		p.Name = existingProjectNames.MakeUnique(p.Name)
 
-		if err := m.pm.CreateProject(sCtx, p); err != nil {
+		if err := m.pm.CreateProjectTree(sCtx, p); err != nil {
 			return errors.Tag(err, "cannot create project in mongo")
 		}
 		return nil

@@ -20,12 +20,13 @@ import (
 	"context"
 	"io"
 
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -35,34 +36,21 @@ const (
 	parallelUploads = 5
 )
 
-type uploadQueueEntry struct {
-	parent  *project.Folder
-	element project.TreeElement
-	file    io.ReadCloser
-	size    int64
-	s       sharedTypes.Snapshot
-}
-
-type uploadedQueueEntry struct {
-	element project.TreeElement
-	parent  *project.Folder
-}
-
 func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
 	if seeker, ok := f.(io.Seeker); ok {
 		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			return nil, errors.Tag(err, "cannot seek to start")
+			return f, errors.Tag(err, "cannot seek to start")
 		}
 		return f, nil
 	}
 	if err := f.Close(); err != nil {
-		return nil, errors.Tag(err, "cannot close file")
+		return f, errors.Tag(err, "cannot close file")
 	}
-	f, err := file.Open()
+	newF, err := file.Open()
 	if err != nil {
-		return nil, errors.Tag(err, "cannot re-open file")
+		return f, errors.Tag(err, "cannot re-open file")
 	}
-	return f, nil
+	return newF, nil
 }
 
 func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjectRequest, response *types.CreateProjectResponse) error {
@@ -76,32 +64,38 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		p.Compiler = request.Compiler
 	}
 
+	var existingProjectNames project.Names
+	getProjectNames := pendingOperation.TrackOperationWithCancel(
+		ctx,
+		func(ctx context.Context) error {
+			names, err := m.pm.GetProjectNames(ctx, request.UserId)
+			if err != nil {
+				return errors.Tag(err, "cannot get project names")
+			}
+			existingProjectNames = names
+			return nil
+		},
+	)
+	defer getProjectNames.Cancel()
+
+	fileLookup := make(map[*project.FileRef]io.ReadCloser)
+	defer func() {
+		for _, closer := range fileLookup {
+			_ = closer.Close()
+		}
+	}()
 	parentCache := make(map[sharedTypes.DirName]*project.Folder)
 	t := p.RootFolder
 
-	errCreate := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		foundRootDoc := false
-		for _, f := range parentCache {
-			// Reset after partial upload.
-			f.Docs = f.Docs[:0]
-		}
-		uploadQueue := make(chan uploadQueueEntry, parallelUploads)
-		uploadedQueue := make(chan uploadedQueueEntry, parallelUploads)
-		eg, pCtx := errgroup.WithContext(sCtx)
-		go func() {
-			<-pCtx.Done()
-			if pCtx.Err() != nil {
-				// Purge the queue as soon as any consumer/producer fails.
-				for qe := range uploadQueue {
-					if f := qe.file; f != nil {
-						_ = f.Close()
-					}
-				}
-			}
-		}()
+	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
+		eg, pCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
-			defer close(uploadQueue)
-
+			if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
+				return errors.Tag(err, "cannot init project")
+			}
+			return nil
+		})
+		eg.Go(func() error {
 			done := pCtx.Done()
 			for _, file := range request.Files {
 				select {
@@ -110,26 +104,38 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				default:
 				}
 				path := file.Path()
+				dir := path.Dir()
+				name := path.Filename()
+				parent, exists := parentCache[dir]
+				if !exists {
+					var err error
+					if parent, err = t.CreateParents(dir); err != nil {
+						return err
+					}
+					parentCache[dir] = parent
+				}
+				if fileRef := parent.GetFile(name); fileRef != nil {
+					if _, exists = fileLookup[fileRef]; !exists {
+						f, err := file.Open()
+						if err != nil {
+							return errors.Tag(err, "cannot open file")
+						}
+						fileLookup[fileRef] = f
+					}
+					continue
+				}
+				if d := parent.GetDoc(name); d != nil {
+					continue
+				}
 				size := file.Size()
 				f, err := file.Open()
 				if err != nil {
 					return errors.Tag(err, "cannot open file")
 				}
-				dir := path.Dir()
-				name := path.Filename()
 				s, isDoc, consumedFile, err := fileTree.IsTextFile(name, size, f)
 				if err != nil {
 					_ = f.Close()
 					return err
-				}
-				parent, exists := parentCache[dir]
-				if !exists {
-					parent, err = t.CreateParents(dir)
-					if err != nil {
-						_ = f.Close()
-						return err
-					}
-					parentCache[dir] = parent
 				}
 				if isDoc {
 					if err = f.Close(); err != nil {
@@ -137,10 +143,9 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					}
 					d := project.NewDoc(name)
 					if path == "main.tex" ||
-						(!foundRootDoc && path.Type().ValidForRootDoc()) {
+						(p.RootDoc == nil && path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
 							p.RootDoc = d
-							foundRootDoc = true
 							if request.HasDefaultName && title != "" {
 								p.Name = title
 							}
@@ -149,125 +154,107 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 							}
 						}
 					}
-					uploadQueue <- uploadQueueEntry{
-						parent:  parent,
-						element: d,
-						s:       s,
-					}
+					d.Snapshot = s
+					d.Size = int64(len(s))
+					parent.Docs = append(parent.Docs, d)
 				} else {
-					if parent.HasEntry(name) {
-						// already uploaded
-						if err = f.Close(); err != nil {
-							return errors.Tag(err, "cannot close file")
-						}
-						continue
-					}
 					if consumedFile {
 						if f, err = seekToStart(file, f); err != nil {
 							_ = f.Close()
 							return err
 						}
 					}
-					var hash sharedTypes.Hash
-					hash, err = fileTree.HashFile(f, size)
-					if err != nil {
-						_ = f.Close()
-						return err
-					}
-					if f, err = seekToStart(file, f); err != nil {
-						_ = f.Close()
-						return err
-					}
-					fileRef := project.NewFileRef(name, hash, size)
-					uploadQueue <- uploadQueueEntry{
-						parent:  parent,
-						element: fileRef,
-						file:    f,
-						size:    size,
+					fileRef := parent.GetFile(name)
+					if fileRef == nil {
+						var hash sharedTypes.Hash
+						hash, err = fileTree.HashFile(f, size)
+						if err != nil {
+							_ = f.Close()
+							return err
+						}
+						if f, err = seekToStart(file, f); err != nil {
+							_ = f.Close()
+							return err
+						}
+						fileRef = project.NewFileRef(name, hash, size)
+						parent.FileRefs = append(parent.FileRefs, fileRef)
+						fileLookup[fileRef] = f
 					}
 				}
 			}
+
+			if len(t.Docs)+len(t.FileRefs) == 0 && len(t.Folders) == 1 {
+				// This is a project with one top-level entry, a folder.
+				// Assume that this was single zipped-up folder.
+				// Skip one level of directories and clear the parent cache.
+				*t = *t.Folders[0]
+				parentCache = make(map[sharedTypes.DirName]*project.Folder)
+			}
 			return nil
 		})
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		if err := m.pm.CreateProjectTree(ctx, p); err != nil {
+			return err
+		}
+
+		eg, pCtx = errgroup.WithContext(ctx)
+		uploadQueue := make(chan *project.FileRef, parallelUploads)
 		uploadEg, uploadCtx := errgroup.WithContext(pCtx)
 		for i := 0; i < parallelUploads; i++ {
 			uploadEg.Go(func() error {
-				for queueEntry := range uploadQueue {
-					switch e := queueEntry.element.(type) {
-					case *project.Doc:
-						err := m.dm.CreateDocWithContent(
-							uploadCtx, p.Id, e.Id, queueEntry.s,
-						)
-						if err != nil {
-							return errors.Tag(err, "cannot upload doc")
-						}
-					case *project.FileRef:
-						err := m.fm.SendStreamForProjectFile(
-							uploadCtx,
-							p.Id,
-							e.Id,
-							queueEntry.file,
-							objectStorage.SendOptions{
-								ContentSize: queueEntry.size,
-							},
-						)
-						errClose := queueEntry.file.Close()
-						if err != nil {
-							return errors.Tag(err, "cannot upload file")
-						}
-						if errClose != nil {
-							return errors.Tag(errClose, "cannot close file")
-						}
+				for fileRef := range uploadQueue {
+					f := fileLookup[fileRef]
+					err := m.fm.SendStreamForProjectFile(
+						uploadCtx,
+						p.Id,
+						fileRef.Id,
+						f,
+						objectStorage.SendOptions{
+							ContentSize: fileRef.Size,
+						},
+					)
+					errClose := f.Close()
+					delete(fileLookup, fileRef)
+					if err != nil {
+						return errors.Tag(err, "cannot upload file")
 					}
-					uploadedQueue <- uploadedQueueEntry{
-						element: queueEntry.element,
-						parent:  queueEntry.parent,
+					if errClose != nil {
+						return errors.Tag(errClose, "cannot close file")
 					}
 				}
 				return nil
 			})
 		}
 		eg.Go(func() error {
-			for qe := range uploadedQueue {
-				switch e := qe.element.(type) {
-				case *project.Doc:
-					qe.parent.Docs = append(qe.parent.Docs, e)
-				case *project.FileRef:
-					qe.parent.FileRefs = append(qe.parent.FileRefs, e)
-				}
+			<-uploadCtx.Done()
+			// Purge queue as soon as any consumer fails/ctx gets cancelled.
+			for range uploadQueue {
 			}
 			return nil
 		})
 		eg.Go(func() error {
 			err := uploadEg.Wait()
-			close(uploadedQueue)
+			if err != nil {
+				return errors.Merge(err, m.purgeFilestoreData(p.Id))
+			}
 			return err
 		})
-
-		var existingProjectNames project.Names
 		eg.Go(func() error {
-			names, err := m.pm.GetProjectNames(pCtx, request.UserId)
-			if err != nil {
-				return errors.Tag(err, "cannot get project names")
+			for fileRef := range fileLookup {
+				uploadQueue <- fileRef
 			}
-			existingProjectNames = names
 			return nil
 		})
-
 		if err := eg.Wait(); err != nil {
 			return err
 		}
 
-		if len(t.Docs)+len(t.FileRefs) == 0 && len(t.Folders) == 1 {
-			// Skip one level of directories and drop name of root folder.
-			*t = *t.Folders[0]
-			t.Name = ""
-		}
-
 		p.Name = existingProjectNames.MakeUnique(p.Name)
-
-		if err := m.pm.CreateProject(sCtx, p); err != nil {
-			return errors.Tag(err, "cannot create project in mongo")
+		if err := m.pm.FinalizeProjectCreation(ctx, p); err != nil {
+			return errors.Tag(err, "cannot finalize project")
 		}
 		return nil
 	})
