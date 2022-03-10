@@ -21,10 +21,11 @@ import (
 	"log"
 	"net/url"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -42,13 +43,14 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 
 	var u *user.ForCreation
 	var t oneTimeToken.OneTimeToken
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+	// TODO: extend edgedb.Client.QuerySingle to use Tx
+	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		var err error
-		u, err = m.createUser(sCtx, r.Email, r.Password, r.IPAddress)
+		u, err = m.createUser(ctx, r.Email, r.Password, r.IPAddress)
 		if err != nil {
 			return err
 		}
-		t, err = m.oTTm.NewForEmailConfirmation(sCtx, u.Id, r.Email)
+		t, err = m.oTTm.NewForEmailConfirmation(ctx, u.Id, r.Email)
 		if err != nil {
 			return err
 		}

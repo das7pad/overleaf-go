@@ -153,7 +153,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		chatM, csm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
-	lm := login.New(options, ps, client, db, um, loggedInUserJWTHandler, sm)
+	lm := login.New(options, ps, c, client, db, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(ps, editorEvents, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	tagM := tag.New(tm)
@@ -173,7 +173,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, csm, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
-	ucm := userCreation.New(options, ps, db, um, lm)
+	ucm := userCreation.New(options, ps, c, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
 	am := admin.New(ps, c)
 	learnM, err := learn.New(options, ps, proxy)

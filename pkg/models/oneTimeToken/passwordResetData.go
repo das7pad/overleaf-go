@@ -17,10 +17,12 @@
 package oneTimeToken
 
 import (
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type PasswordResetData struct {
-	Email     sharedTypes.Email `edgedb:"email"`
-	HexUserId string            `edgedb:"user_id"`
+	Email  sharedTypes.Email `edgedb:"email"`
+	UserId edgedb.UUID       `edgedb:"user_id"`
 }

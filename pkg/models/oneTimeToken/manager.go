@@ -21,11 +21,10 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -33,14 +32,19 @@ type Manager interface {
 	NewForEmailConfirmation(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	NewForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	NewForPasswordSet(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
-	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) (*EmailConfirmationData, error)
-	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken) (*PasswordResetData, error)
+	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error
+	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken, change *user.ForPasswordChange) error
 }
 
-func New(db *mongo.Database) Manager {
-	return &manager{
-		c: db.Collection("tokens"),
+func New(c *edgedb.Client) Manager {
+	return &manager{c: c}
+}
+
+func rewriteEdgedbError(err error) error {
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
+		return &errors.NotFoundError{}
 	}
+	return err
 }
 
 func rewriteMongoError(err error) error {
@@ -56,33 +60,11 @@ const (
 )
 
 type manager struct {
-	c *mongo.Collection
+	c *edgedb.Client
 }
 
 func (m *manager) NewForEmailConfirmation(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
-	now := time.Now().UTC()
-	return m.newToken(ctx, func(token OneTimeToken) interface{} {
-		return &forEmailConfirmation{
-			UseField: UseField{
-				Use: emailConfirmationUse,
-			},
-			TokenField: TokenField{
-				Token: token,
-			},
-			EmailConfirmationDataField: EmailConfirmationDataField{
-				EmailConfirmationData: EmailConfirmationData{
-					Email:  email,
-					UserId: userId,
-				},
-			},
-			CreatedAtField: CreatedAtField{
-				CreatedAt: now,
-			},
-			ExpiresAtField: ExpiresAtField{
-				ExpiresAt: now.Add(time.Hour),
-			},
-		}
-	})
+	return m.newToken(ctx, userId, email, emailConfirmationUse, time.Hour)
 }
 
 func (m *manager) NewForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
@@ -94,32 +76,10 @@ func (m *manager) NewForPasswordSet(ctx context.Context, userId edgedb.UUID, ema
 }
 
 func (m *manager) newForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
-	now := time.Now().UTC()
-	return m.newToken(ctx, func(token OneTimeToken) interface{} {
-		return &forNewPasswordReset{
-			UseField: UseField{
-				Use: passwordResetUse,
-			},
-			TokenField: TokenField{
-				Token: token,
-			},
-			PasswordResetDataField: PasswordResetDataField{
-				PasswordResetData: PasswordResetData{
-					Email:     email,
-					HexUserId: userId.String(),
-				},
-			},
-			CreatedAtField: CreatedAtField{
-				CreatedAt: now,
-			},
-			ExpiresAtField: ExpiresAtField{
-				ExpiresAt: now.Add(validFor),
-			},
-		}
-	})
+	return m.newToken(ctx, userId, email, passwordResetUse, validFor)
 }
 
-func (m *manager) newToken(ctx context.Context, fn func(token OneTimeToken) interface{}) (OneTimeToken, error) {
+func (m *manager) newToken(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email, use string, expiresIn time.Duration) (OneTimeToken, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		token, err := generateNewToken()
@@ -127,9 +87,22 @@ func (m *manager) newToken(ctx context.Context, fn func(token OneTimeToken) inte
 			allErrors.Add(err)
 			continue
 		}
-		_, err = m.c.InsertOne(ctx, fn(token))
+		err = m.c.QuerySingle(ctx, `
+insert OneTimeToken {
+	expires_at := <datetime>$0,
+	token := <str>$1,
+	use := <str>$2
+	email := (
+		select Email
+		filter .email = <str>$3 and .user.id = <uuid>$4
+	)
+}
+`,
+			&IdField{},
+			time.Now().UTC().Add(expiresIn), token, use, email, userId,
+		)
 		if err != nil {
-			if mongo.IsDuplicateKeyError(err) {
+			if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
 				allErrors.Add(err)
 				continue
 			}
@@ -140,47 +113,62 @@ func (m *manager) newToken(ctx context.Context, fn func(token OneTimeToken) inte
 	return "", errors.Tag(allErrors, "bad random source")
 }
 
-func (m *manager) ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) (*EmailConfirmationData, error) {
-	res := &EmailConfirmationDataField{}
-	err := m.resolveAndExpireToken(ctx, emailConfirmationUse, token, res)
+func (m *manager) ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error {
+	err := m.c.QuerySingle(ctx, `
+with
+	t := (
+		update OneTimeToken
+		filter
+				.use = <str>$0
+			and .token = <str>$1
+			and not exists .used_at
+			and .expires_at > datetime_of_transaction()
+		set {
+			used_at := datetime_of_transaction()
+		}
+	)
+update Email
+filter Email = t.email
+set { confirmed_at := datetime_of_transaction() }
+`,
+		&IdField{},
+		emailConfirmationUse, token,
+	)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
-	return &res.EmailConfirmationData, nil
+	return nil
 }
 
-func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken) (*PasswordResetData, error) {
-	res := &PasswordResetDataField{}
-	err := m.resolveAndExpireToken(ctx, passwordResetUse, token, res)
-	if err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	return &res.PasswordResetData, nil
+func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken, u *user.ForPasswordChange) error {
+	err := m.c.QuerySingle(ctx, `
+with
+	t := (
+		update OneTimeToken
+		filter
+				.use = <str>$0
+			and .token = <str>$1
+			and not exists .used_at
+			and .expires_at > datetime_of_transaction()
+		set {
+			used_at := datetime_of_transaction()
+		}
+	)
+select User {
+	email: { email },
+	epoch,
+	first_name,
+	id,
+	last_name,
+	password_hash,
 }
-
-func (m *manager) resolveAndExpireToken(ctx context.Context, use string, token OneTimeToken, target interface{}) error {
-	now := time.Now().UTC()
-	q := bson.M{
-		"use":   use,
-		"token": token,
-		"expiresAt": bson.M{
-			"$gt": now,
-		},
-		"usedAt": bson.M{
-			"$exists": false,
-		},
-	}
-	u := bson.M{
-		"$set": UsedAtField{
-			UsedAt: now,
-		},
-	}
-	err := m.c.FindOneAndUpdate(
-		ctx, q, u,
-		options.FindOneAndUpdate().SetProjection(getProjection(target)),
-	).Decode(target)
+filter User = t.email.user
+`,
+		u,
+		passwordResetUse, token,
+	)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }

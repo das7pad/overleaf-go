@@ -19,6 +19,7 @@ package userCreation
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
@@ -35,19 +36,21 @@ type Manager interface {
 	RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, db *mongo.Database, um user.Manager, lm login.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, db *mongo.Database, um user.Manager, lm login.Manager) Manager {
 	return &manager{
+		c:            c,
 		db:           db,
 		emailOptions: options.EmailOptions(),
 		lm:           lm,
 		options:      options,
-		oTTm:         oneTimeToken.New(db),
+		oTTm:         oneTimeToken.New(c),
 		ps:           ps,
 		um:           um,
 	}
 }
 
 type manager struct {
+	c            *edgedb.Client
 	db           *mongo.Database
 	emailOptions *types.EmailOptions
 	lm           login.Manager

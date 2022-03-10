@@ -17,7 +17,7 @@
 package user
 
 type withEmailFields struct {
-	EmailField  `edgedb:"inline"`
+	EmailField  `edgedb:"email"`
 	EmailsField `edgedb:"inline"`
 }
 
@@ -37,7 +37,7 @@ type ProjectListViewCaller struct {
 }
 
 type WithPublicInfo struct {
-	EmailField     `edgedb:"inline"`
+	EmailField     `edgedb:"email"`
 	FirstNameField `edgedb:"inline"`
 	IdField        `edgedb:"inline"`
 	LastNameField  `edgedb:"inline"`
@@ -64,10 +64,9 @@ type WithLoginInfo struct {
 }
 
 type ForSession struct {
-	EpochField      `edgedb:"inline"`
-	IsAdminField    `edgedb:"inline"`
-	ReferralIdField `edgedb:"inline"`
-	WithPublicInfo  `edgedb:"inline"`
+	EpochField     `edgedb:"inline"`
+	IsAdminField   `edgedb:"inline"`
+	WithPublicInfo `edgedb:"inline"`
 }
 
 type WithEpochAndFeatures struct {
@@ -93,7 +92,7 @@ type ForDeletion struct {
 	AuditLogField       `edgedb:"inline"`
 	BetaProgramField    `edgedb:"inline"`
 	EditorConfigField   `edgedb:"inline"`
-	EmailField          `edgedb:"inline"`
+	EmailField          `edgedb:"email"`
 	EmailsField         `edgedb:"inline"`
 	EpochField          `edgedb:"inline"`
 	FeaturesField       `edgedb:"inline"`
@@ -106,12 +105,11 @@ type ForDeletion struct {
 	LastNameField       `edgedb:"inline"`
 	LoginCountField     `edgedb:"inline"`
 	MustReconfirmField  `edgedb:"inline"`
-	ReferralIdField     `edgedb:"inline"`
 	SignUpDateField     `edgedb:"inline"`
 }
 
 type ForEmailChange struct {
-	EmailField `edgedb:"inline"`
+	EmailField `edgedb:"email"`
 	EpochField `edgedb:"inline"`
 	IdField    `edgedb:"inline"`
 }
@@ -133,6 +131,6 @@ type ForSettingsPage struct {
 }
 
 type ForActivateUserPage struct {
-	EmailField      `edgedb:"inline"`
+	EmailField      `edgedb:"email"`
 	LoginCountField `edgedb:"inline"`
 }

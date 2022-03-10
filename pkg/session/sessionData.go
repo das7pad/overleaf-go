@@ -43,7 +43,6 @@ type User struct {
 	IsAdmin        bool              `json:"isAdmin,omitempty"`
 	LastName       string            `json:"last_name,omitempty"`
 	Language       string            `json:"lng"`
-	ReferralId     string            `json:"referal_id"`
 	SessionCreated time.Time         `json:"session_created"`
 }
 

@@ -73,7 +73,6 @@ func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId edgedb
 				DeletedUserLastLoggedIn: u.LastLoggedIn,
 				DeletedUserSignUpDate:   u.SignUpDate,
 				DeletedUserLoginCount:   u.LoginCount,
-				DeletedUserReferralId:   u.ReferralId,
 			},
 		},
 	}

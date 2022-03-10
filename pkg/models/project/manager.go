@@ -665,6 +665,7 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId edgedb.UUID, 
 
 func (m *manager) RenameTreeElement1(ctx context.Context, projectId edgedb.UUID, element TreeElement) (sharedTypes.Version, error) {
 	var version sharedTypes.Version
+	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	err := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
 		{
 			err := tx.QuerySingle(

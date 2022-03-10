@@ -69,7 +69,7 @@ type IsAdminField struct {
 }
 
 type HashedPasswordField struct {
-	HashedPassword string `json:"-" edgedb:"hashedPassword"`
+	HashedPassword string `json:"-" edgedb:"password_hash"`
 }
 
 type LastLoggedInField struct {
@@ -90,11 +90,6 @@ type LoginCountField struct {
 
 type MustReconfirmField struct {
 	MustReconfirm bool `edgedb:"must_reconfirm"`
-}
-
-//goland:noinspection SpellCheckingInspection
-type ReferralIdField struct {
-	ReferralId string `edgedb:"referal_id"`
 }
 
 type SignUpDateField struct {

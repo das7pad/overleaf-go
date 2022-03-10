@@ -34,7 +34,6 @@ type DeleterData struct {
 	DeletedUserLastLoggedIn       *time.Time  `edgedb:"deletedUserLastLoggedIn"`
 	DeletedUserSignUpDate         time.Time   `edgedb:"deletedUserSignUpDate"`
 	DeletedUserLoginCount         int64       `edgedb:"deletedUserLoginCount"`
-	DeletedUserReferralId         string      `edgedb:"deletedUserReferralId"`
 }
 
 type deleterDataOnlyUserId struct {

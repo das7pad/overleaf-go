@@ -25,12 +25,11 @@ import (
 )
 
 type EmailDetails struct {
-	Id               edgedb.UUID                  `edgedb:"id"`
-	CreatedAt        time.Time                    `json:"createdAt" edgedb:"createdAt"`
-	ConfirmedAt      *time.Time                   `json:"confirmedAt" edgedb:"confirmedAt"`
-	ReconfirmedAt    *time.Time                   `json:"reconfirmedAt" edgedb:"reconfirmedAt"`
-	Email            sharedTypes.Email            `json:"email" edgedb:"email"`
-	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" edgedb:"reversedHostname"`
+	Id            edgedb.UUID       `edgedb:"id"`
+	CreatedAt     time.Time         `json:"createdAt" edgedb:"createdAt"`
+	ConfirmedAt   *time.Time        `json:"confirmedAt" edgedb:"confirmedAt"`
+	ReconfirmedAt *time.Time        `json:"reconfirmedAt" edgedb:"reconfirmedAt"`
+	Email         sharedTypes.Email `json:"email" edgedb:"email"`
 }
 
 type EmailDetailsWithDefaultFlag struct {

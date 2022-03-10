@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -42,22 +43,15 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 
 	// NOTE: Use a tx for not expiring the token for real until we action the
 	//        actual password change.
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		d, errResolve := m.oTTm.ResolveAndExpirePasswordResetToken(
-			sCtx, r.Token,
-		)
-		if errResolve != nil {
-			if errors.IsNotFoundError(errResolve) {
-				res.SetCustomFormMessage("token-expired", errResolve)
-			}
-			return errors.Tag(errResolve, "cannot get token data")
-		}
-		if err := m.um.GetUserByEmail(sCtx, d.Email, u); err != nil {
-			return errors.Tag(err, "cannot get user")
-		}
-		if u.Id.String() != d.HexUserId {
-			return &errors.UnprocessableEntityError{
-				Msg: "owner of email changed",
+	// TODO: extend edgedb.Client.QuerySingle to use Tx
+	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
+		{
+			err := m.oTTm.ResolveAndExpirePasswordResetToken(ctx, r.Token, u)
+			if err != nil {
+				if errors.IsNotFoundError(err) {
+					res.SetCustomFormMessage("token-expired", err)
+				}
+				return errors.Tag(err, "cannot get token data")
 			}
 		}
 		if err := r.Password.CheckForEmailMatch(u.Email); err != nil {
@@ -76,7 +70,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 			}
 		}
 		return m.changePassword(
-			sCtx,
+			ctx,
 			u,
 			r.IPAddress,
 			user.AuditLogOperationResetPassword,

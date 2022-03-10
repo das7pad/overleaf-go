@@ -31,12 +31,6 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 			EpochField: EpochField{
 				Epoch: 1,
 			},
-			IsAdminField: IsAdminField{
-				IsAdmin: false,
-			},
-			ReferralIdField: ReferralIdField{
-				ReferralId: "",
-			},
 			WithPublicInfo: WithPublicInfo{
 				EmailField: EmailField{
 					Email: email,
@@ -56,29 +50,13 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 		AuditLogField: AuditLogField{
 			AuditLog: make([]AuditLogEntry, 0),
 		},
-		EditorConfigField: EditorConfigField{
-			EditorConfig: EditorConfig{
-				AutoComplete:       true,
-				AutoPairDelimiters: true,
-				FontFamily:         editorFontFamilyLucida,
-				FontSize:           12,
-				LineHeight:         editorLineHightNormal,
-				Mode:               editorModeDefault,
-				OverallTheme:       editorOverallThemeNone,
-				PDFViewer:          editorPdfViewerPdfjs,
-				SyntaxValidation:   false,
-				SpellCheckLanguage: "en",
-				Theme:              "textmate",
-			},
-		},
 		EmailsField: EmailsField{
 			Emails: []EmailDetails{
 				{
 					// TODO: refactor into server side gen.
-					Id:               edgedb.UUID{},
-					CreatedAt:        now,
-					Email:            email,
-					ReversedHostname: email.ReversedHostname(),
+					Id:        edgedb.UUID{},
+					CreatedAt: now,
+					Email:     email,
 				},
 			},
 		},

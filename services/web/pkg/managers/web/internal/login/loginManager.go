@@ -19,6 +19,7 @@ package login
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -53,14 +54,15 @@ type Manager interface {
 	SettingsPage(ctx context.Context, request *types.SettingsPageRequest, response *types.SettingsPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
+		c:               c,
 		client:          client,
 		db:              db,
 		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
 		options:         options,
-		oTTm:            oneTimeToken.New(db),
+		oTTm:            oneTimeToken.New(c),
 		ps:              ps,
 		sm:              sm,
 		um:              um,
@@ -68,6 +70,7 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 }
 
 type manager struct {
+	c               *edgedb.Client
 	client          redis.UniversalClient
 	db              *mongo.Database
 	emailOptions    *types.EmailOptions

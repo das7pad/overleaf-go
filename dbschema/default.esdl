@@ -7,6 +7,11 @@ module default {
       default := datetime_of_transaction();
     }
     property confirmed_at -> datetime;
+    required link user -> User {
+      on target delete delete source;
+    }
+    required property preference -> int64;
+    constraint exclusive on ((.user, .preference));
   }
 
   type Features {
@@ -30,12 +35,13 @@ module default {
     required property editor_config -> json {
       default := to_json('{"autoComplete":true,"autoPairDelimiters":true,"fontFamily":"lucida","fontSize":12,"lineHeight":"normal","mode":"default","overallTheme":"","pdfViewer":"pdfjs","syntaxValidation":false,"spellCheckLanguage":"en","theme":"textmate"}');
     }
-    required link email -> Email {
-      constraint exclusive;
-    }
-    required multi link emails -> Email {
-      constraint exclusive;
-    }
+    link email := (
+      select Email
+      filter .user = User
+      order by .preference asc
+      limit 1
+    );
+    multi link emails := .<user[is Email];
     required property epoch -> int64 {
       default := 1;
     }
@@ -226,25 +232,19 @@ module default {
     required property token -> str;
   }
 
-  abstract type OneTimeToken {
+  type OneTimeToken {
     required property token -> str {
       constraint exclusive;
     }
-    required property created_at -> datetime;
+    required property created_at -> datetime {
+      default := datetime_of_transaction();
+    }
     required property expires_at -> datetime;
-    required property used_at -> datetime;
-  }
-
-  type EmailConfirmationToken extending OneTimeToken {
+    property used_at -> datetime;
     required link email -> Email {
       on target delete delete source;
     }
-  }
-
-  type PasswordResetToken extending OneTimeToken {
-    required link email -> Email {
-      on target delete delete source;
-    }
+    required property use -> str;
   }
 
   type Notification {

@@ -24,7 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -33,26 +32,11 @@ func (m *manager) ConfirmEmail(ctx context.Context, r *types.ConfirmEmailRequest
 	if err := r.Validate(); err != nil {
 		return err
 	}
-
-	// NOTE: Use a tx for not expiring the token for real until we action the
-	//        actual email confirmation.
-	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		d, err := m.oTTm.ResolveAndExpireEmailConfirmationToken(
-			ctx, r.Token,
-		)
-		if err != nil {
-			return errors.Tag(err, "cannot resolve token")
-		}
-		if err = m.um.ConfirmEmail(ctx, d.UserId, d.Email); err != nil {
-			if errors.IsNotFoundError(err) {
-				return &errors.UnprocessableEntityError{
-					Msg: "owner of email changed / email removed from account",
-				}
-			}
-			return errors.Tag(err, "cannot confirm email")
-		}
-		return nil
-	})
+	err := m.oTTm.ResolveAndExpireEmailConfirmationToken(ctx, r.Token)
+	if err != nil {
+		return errors.Tag(err, "cannot resolve token")
+	}
+	return nil
 }
 
 func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEmailConfirmationRequest) error {

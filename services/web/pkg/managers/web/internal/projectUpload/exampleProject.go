@@ -52,6 +52,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		ProjectName:         request.Name,
 		Owner:               request.Session.User.ToPublicUserInfo(),
 	}
+	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
 		p = project.NewProject(userId)
 		p.ImageName = m.options.DefaultImage

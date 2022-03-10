@@ -17,33 +17,9 @@
 package oneTimeToken
 
 import (
-	"time"
+	"github.com/edgedb/edgedb-go"
 )
 
-type UseField struct {
-	Use string `edgedb:"use"`
-}
-
-type TokenField struct {
-	Token OneTimeToken `edgedb:"token"`
-}
-
-type CreatedAtField struct {
-	CreatedAt time.Time `edgedb:"createdAt"`
-}
-
-type ExpiresAtField struct {
-	ExpiresAt time.Time `edgedb:"expiresAt"`
-}
-
-type UsedAtField struct {
-	UsedAt time.Time `edgedb:"usedAt"`
-}
-
-type EmailConfirmationDataField struct {
-	EmailConfirmationData EmailConfirmationData `edgedb:"data"`
-}
-
-type PasswordResetDataField struct {
-	PasswordResetData PasswordResetData `edgedb:"data"`
+type IdField struct {
+	Id edgedb.UUID `edgedb:"id"`
 }

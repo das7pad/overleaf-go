@@ -83,7 +83,6 @@ func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (str
 		LastName:       u.LastName,
 		Email:          u.Email,
 		Epoch:          u.Epoch,
-		ReferralId:     u.ReferralId,
 		IPAddress:      ip,
 		SessionCreated: time.Now().UTC(),
 	}

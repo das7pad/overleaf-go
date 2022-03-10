@@ -87,6 +87,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	parentCache := make(map[sharedTypes.DirName]*project.Folder)
 	t := p.RootFolder
 
+	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		eg, pCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
