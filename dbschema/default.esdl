@@ -7,18 +7,10 @@ module default {
       default := datetime_of_transaction();
     }
     property confirmed_at -> datetime;
-    required link user -> User {
-      on target delete delete source;
-    }
-    required property preference -> int64;
-    constraint exclusive on ((.user, .preference));
+    link user := .<emails[is User];
   }
 
   type Features {
-    required property name -> str {
-      constraint exclusive;
-    }
-    required property versioning -> bool;
     required property compile_group -> str;
     required property compile_timeout -> duration;
   }
@@ -35,35 +27,50 @@ module default {
     required property editor_config -> json {
       default := to_json('{"autoComplete":true,"autoPairDelimiters":true,"fontFamily":"lucida","fontSize":12,"lineHeight":"normal","mode":"default","overallTheme":"","pdfViewer":"pdfjs","syntaxValidation":false,"spellCheckLanguage":"en","theme":"textmate"}');
     }
-    link email := (
-      select Email
-      filter .user = User
-      order by .preference asc
-      limit 1
-    );
-    multi link emails := .<user[is Email];
+    required link email -> Email {
+      constraint exclusive;
+    }
+    required multi link emails -> Email {
+      constraint exclusive;
+    }
     required property epoch -> int64 {
       default := 1;
     }
     required link features -> Features;
-    property first_name -> str;
-    property last_name -> str;
+    required property first_name -> str;
+    required property last_name -> str;
     required property password_hash -> str;
     property last_logged_in -> datetime;
     property last_login_ip -> str;
     required property login_count -> int64 {
       default := 0;
     }
-    property must_reconfirm -> bool;
+    required property must_reconfirm -> bool {
+      default := false;
+    }
     required property signup_date -> datetime {
       default := datetime_of_transaction();
     }
     multi property learned_words -> str;
+
+    link projects_owned := .<owner[is Project];
+    link projects_ro := .<access_ro[is Project];
+    link projects_rw := .<access_rw[is Project];
+    link projects_token_rw := (
+      select Project
+      filter User in .token_access_rw and .public_access_level = 'tokenBased'
+    );
+    link projects_token_ro := (
+      select Project
+      filter User in .token_access_ro and .public_access_level = 'tokenBased'
+    );
   }
 
   type UserAuditLogEntry {
     required link initiator -> User;
-    required property timestamp -> datetime;
+    required property timestamp -> datetime {
+      default := datetime_of_transaction();
+    }
     required property operation -> str;
     required property ip_address -> str;
     property info -> json;
@@ -114,10 +121,10 @@ module default {
     }
     required property image_name -> str;
     property last_opened -> datetime;
-    property last_updated_at -> datetime {
+    required property last_updated_at -> datetime {
       default := datetime_of_transaction();
     }
-    link last_updated_by -> User {
+    required link last_updated_by -> User {
       on target delete allow;
     }
     required property name -> str;
@@ -189,7 +196,9 @@ module default {
   type Doc extending ContentElement {
     required property snapshot -> str;
     required property version -> int64;
-    property in_s3 -> bool;
+    required property in_s3 -> bool {
+      default := false;
+    }
   }
 
   type File extending ContentElement {
@@ -253,8 +262,8 @@ module default {
     required link user -> User {
       on target delete delete source;
     }
-    property template_key -> str;
-    property message_options -> json;
+    required property template_key -> str;
+    required property message_options -> json;
     constraint exclusive on ((.key, .user));
   }
 

@@ -18,6 +18,7 @@ package editor
 
 import (
 	"context"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -85,7 +87,8 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	c.ProjectId = projectId
 	c.UserId = userId
 	c.CompileGroup = ownerFeatures.CompileGroup
-	c.Timeout = ownerFeatures.CompileTimeout
+	c.Timeout = sharedTypes.ComputeTimeout(
+		time.Duration(ownerFeatures.CompileTimeout) * time.Microsecond)
 	c.EpochUser = userEpoch.Epoch
 	c.AuthorizationDetails = *authorizationDetails
 

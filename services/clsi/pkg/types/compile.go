@@ -18,6 +18,7 @@ package types
 
 import (
 	"strings"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 
@@ -238,7 +239,7 @@ func (c *CompileRequest) Preprocess() error {
 	}
 	if c.Options.Timeout < 1000 {
 		// timeout is likely in seconds.
-		c.Options.Timeout *= 1000_000_000
+		c.Options.Timeout *= sharedTypes.ComputeTimeout(time.Second)
 	}
 
 	rootResourcePath := sharedTypes.PathName(c.RootResourcePath)

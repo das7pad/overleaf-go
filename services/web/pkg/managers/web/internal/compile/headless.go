@@ -18,6 +18,7 @@ package compile
 
 import (
 	"context"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -59,7 +60,9 @@ func (m *manager) CompileHeadLess(ctx context.Context, request *types.CompilePro
 			CompileGroup: owner.Features.CompileGroup,
 			ProjectId:    request.ProjectId,
 			UserId:       request.UserId,
-			Timeout:      owner.Features.CompileTimeout,
+			Timeout: sharedTypes.ComputeTimeout(
+				time.Duration(
+					owner.Features.CompileTimeout) * time.Microsecond),
 		},
 		AutoCompile:                false,
 		CheckMode:                  clsiTypes.SilentCheck,

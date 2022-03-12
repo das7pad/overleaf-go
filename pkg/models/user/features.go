@@ -17,14 +17,16 @@
 package user
 
 import (
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators" edgedb:"collaborators"`
-	Versioning          bool                       `json:"versioning" edgedb:"versioning"`
-	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" edgedb:"compileTimeout"`
-	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" edgedb:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges" edgedb:"trackChanges"`
-	TrackChangesVisible bool                       `json:"trackChangesVisible"`
+	Collaborators       int                      `json:"collaborators"`
+	Versioning          bool                     `json:"versioning"`
+	CompileTimeout      edgedb.Duration          `json:"compileTimeout" edgedb:"compileTimeout"`
+	CompileGroup        sharedTypes.CompileGroup `json:"compileGroup" edgedb:"compileGroup"`
+	TrackChanges        bool                     `json:"trackChanges"`
+	TrackChangesVisible bool                     `json:"trackChangesVisible"`
 }

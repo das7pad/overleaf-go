@@ -25,12 +25,8 @@ import (
 )
 
 func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
-	now := time.Now().UTC()
 	return &ForCreation{
 		ForSession: ForSession{
-			EpochField: EpochField{
-				Epoch: 1,
-			},
 			WithPublicInfo: WithPublicInfo{
 				EmailField: EmailField{
 					Email: email,
@@ -38,46 +34,22 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 				FirstNameField: FirstNameField{
 					FirstName: "",
 				},
-				IdField: IdField{
-					// TODO: refactor into server side gen.
-					Id: edgedb.UUID{},
-				},
 				LastNameField: LastNameField{
 					LastName: "",
 				},
 			},
 		},
-		AuditLogField: AuditLogField{
-			AuditLog: make([]AuditLogEntry, 0),
-		},
-		EmailsField: EmailsField{
-			Emails: []EmailDetails{
-				{
-					// TODO: refactor into server side gen.
-					Id:        edgedb.UUID{},
-					CreatedAt: now,
-					Email:     email,
-				},
-			},
-		},
 		FeaturesField: FeaturesField{
 			Features: Features{
-				Collaborators:       -1,
-				Versioning:          true,
-				CompileTimeout:      180,
-				CompileGroup:        sharedTypes.StandardCompileGroup,
-				TrackChanges:        true,
-				TrackChangesVisible: true,
+				CompileTimeout: edgedb.Duration(
+					// Their Duration type is in on microsecond scale....... :(
+					180 * time.Second / time.Microsecond,
+				),
+				CompileGroup: sharedTypes.StandardCompileGroup,
 			},
 		},
 		HashedPasswordField: HashedPasswordField{
 			HashedPassword: hashedPW,
-		},
-		LoginCountField: LoginCountField{
-			LoginCount: 0,
-		},
-		SignUpDateField: SignUpDateField{
-			SignUpDate: now,
 		},
 	}
 }

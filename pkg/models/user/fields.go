@@ -65,7 +65,7 @@ type IdField struct {
 }
 
 type IsAdminField struct {
-	IsAdmin bool `json:"isAdmin" edgedb:"isAdmin"`
+	IsAdmin bool `json:"isAdmin"`
 }
 
 type HashedPasswordField struct {

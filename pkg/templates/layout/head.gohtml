@@ -147,7 +147,7 @@
         />
         <meta
           name="ol-user_id"
-          content="{{ .SessionUser.Id.Hex }}"
+          content="{{ .SessionUser.Id.String }}"
         />
       {{ end }}
       {{ range $key, $meta := .Meta }}

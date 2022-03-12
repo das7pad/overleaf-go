@@ -49,9 +49,10 @@ type Manager interface {
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client, db *mongo.Database) Manager {
 	return &manager{
-		c: db.Collection("users"),
+		c:   c,
+		col: db.Collection("users"),
 	}
 }
 
@@ -61,30 +62,75 @@ var (
 	}
 )
 
+func rewriteEdgedbError(err error) error {
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
+		return &errors.NotFoundError{}
+	}
+	return err
+}
+
 type manager struct {
-	c *mongo.Collection
+	c   *edgedb.Client
+	col *mongo.Collection
 }
 
 func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
-	if u.LastLoginIp != "" {
-		now := u.SignUpDate
-		u.LoginCount = 1
-		u.LastLoggedIn = &now
-		u.AuditLog = []AuditLogEntry{
-			{
-				InitiatorId: u.Id,
-				IpAddress:   u.LastLoginIp,
-				Operation:   AuditLogOperationLogin,
-				Timestamp:   now,
-			},
-		}
-	}
-	if _, err := m.c.InsertOne(ctx, u); err != nil {
-		if mongo.IsDuplicateKeyError(err) {
+	ids := make([]IdField, 3)
+	err := m.c.Query(ctx, `
+with
+	e := (insert Email {
+		email := <str>$6,
+	}),
+	u := (insert User {
+		email := e,
+		emails := { e },
+		features := (insert Features {
+			compile_group := <str>$4,
+			compile_timeout := <duration>$5,
+		}),
+		first_name := <str>$0,
+		last_name := <str>$1,
+		password_hash := <str>$2,
+		last_logged_in := (
+			<datetime>{} if <str>$3 = "" else {datetime_of_transaction()}
+		),
+		last_login_ip := <str>$3,
+		login_count := ({0} if <str>$3 = "" else {1}),
+	}),
+	auditLog := (
+		for entry in (<int64>{} if <str>$3 = "" else {1}) union (
+			update User
+			filter User = u
+			set {
+				audit_log += (
+					insert UserAuditLogEntry {
+						initiator := u,
+						operation := <str>$7,
+						ip_address := <str>$4,
+					}
+				)
+			}
+		)
+	)
+select {u,auditLog}
+`,
+		&ids,
+		u.FirstName,
+		u.LastName,
+		u.HashedPassword,
+		u.LastLoginIp,
+		u.Features.CompileGroup,
+		u.Features.CompileTimeout,
+		string(u.Email),
+		AuditLogOperationLogin,
+	)
+	if err != nil {
+		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
 			return ErrEmailAlreadyRegistered
 		}
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
+	u.Id = ids[0].Id
 	return nil
 }
 
@@ -109,7 +155,7 @@ func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, 
 			"email.email": u.Email,
 		})
 	}
-	_, err := m.c.UpdateOne(ctx, q, bson.M{
+	_, err := m.col.UpdateOne(ctx, q, bson.M{
 		"$set": set,
 		"$inc": EpochField{
 			Epoch: 1,
@@ -143,7 +189,7 @@ func (m *manager) UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, ed
 			EditorConfig: editorConfig,
 		},
 	}
-	_, err := m.c.UpdateOne(ctx, q, u)
+	_, err := m.col.UpdateOne(ctx, q, u)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -161,7 +207,7 @@ func (m *manager) Delete(ctx context.Context, userId edgedb.UUID, epoch int64) e
 			Epoch: epoch,
 		},
 	}
-	r, err := m.c.DeleteOne(ctx, q)
+	r, err := m.col.DeleteOne(ctx, q)
 	if err != nil {
 		return rewriteMongoError(err)
 	}
@@ -173,7 +219,7 @@ func (m *manager) Delete(ctx context.Context, userId edgedb.UUID, epoch int64) e
 
 func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error {
 	now := time.Now().UTC()
-	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": EpochField{Epoch: 1},
 		"$push": bson.M{
 			"auditLog": bson.M{
@@ -206,7 +252,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip 
 			Epoch: u.Epoch,
 		},
 	}
-	r, err := m.c.UpdateOne(ctx, q, bson.M{
+	r, err := m.col.UpdateOne(ctx, q, bson.M{
 		"$set": withEmailFields{
 			EmailField{
 				Email: newEmail,
@@ -259,7 +305,7 @@ const (
 )
 
 func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
-	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": &EpochField{Epoch: 1},
 	})
 	if err != nil {
@@ -269,7 +315,7 @@ func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
 }
 
 func (m *manager) SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error {
-	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$set": &BetaProgramField{BetaProgram: joined},
 	})
 	if err != nil {
@@ -279,7 +325,7 @@ func (m *manager) SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined
 }
 
 func (m *manager) SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error {
-	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$set": u,
 	})
 	if err != nil {
@@ -290,7 +336,7 @@ func (m *manager) SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNa
 
 func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error {
 	now := time.Now().UTC()
-	_, err := m.c.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
+	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
 		"$inc": LoginCountField{
 			LoginCount: 1,
 		},
@@ -333,7 +379,7 @@ func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []edgedb.U
 		return make([]WithPublicInfo, 0), nil
 	}
 	var users []WithPublicInfo
-	c, err := m.c.Find(
+	c, err := m.col.Find(
 		ctx,
 		bson.M{
 			"_id": bson.M{
@@ -437,11 +483,33 @@ func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interf
 }
 
 func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error {
-	return m.getUser(ctx, &EmailField{Email: email}, target)
+	var q string
+	switch target.(type) {
+	case *IdField:
+		q = `select User filter .email.email = <str>$0`
+	case *WithLoginInfo:
+		q = `
+select User {
+	email: { email },
+	epoch,
+	first_name,
+	id,
+	last_name,
+	must_reconfirm,
+	password_hash,
+}
+filter .email.email = <str>$0`
+	default:
+		return errors.New("missing query for target")
+	}
+	if err := m.c.QuerySingle(ctx, q, target, email); err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }
 
 func (m *manager) getUser(ctx context.Context, filter interface{}, target interface{}) error {
-	err := m.c.FindOne(
+	err := m.col.FindOne(
 		ctx,
 		filter,
 		options.FindOne().SetProjection(getProjection(target)),

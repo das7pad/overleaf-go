@@ -216,7 +216,8 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		c.CompileGroup = ownerFeatures.CompileGroup
 		c.EpochUser = u.Epoch
 		c.ProjectId = projectId
-		c.Timeout = ownerFeatures.CompileTimeout
+		c.Timeout = sharedTypes.ComputeTimeout(
+			time.Duration(ownerFeatures.CompileTimeout) * time.Microsecond)
 		c.UserId = userId
 		c.AuthorizationDetails = *authorizationDetails
 

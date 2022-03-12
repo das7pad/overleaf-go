@@ -135,7 +135,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	pm := project.New(c, db)
 	smm := systemMessage.New(c)
 	tm := tagModel.New(c)
-	um := user.New(db)
+	um := user.New(c, db)
 	bm := betaProgram.New(ps, um)
 	cm, err := compile.New(options, client, dum, dm, fm, pm, um)
 	if err != nil {

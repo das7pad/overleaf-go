@@ -17,17 +17,9 @@
 package edgedbOptions
 
 import (
-	"fmt"
-
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
 func Parse() string {
-	return utils.GetStringFromEnv(
-		"EDGEDB_DSN",
-		fmt.Sprintf(
-			"edgedb://%s/",
-			utils.GetStringFromEnv("EDGEDB_HOST", "localhost"),
-		),
-	)
+	return utils.GetStringFromEnv("EDGEDB_DSN", "edgedb")
 }
