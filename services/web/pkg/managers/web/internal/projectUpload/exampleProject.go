@@ -105,7 +105,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 			return errors.Tag(err, "cannot insert project")
 		}
 		if err := m.pm.CreateProjectTree(ctx, p); err != nil {
-			return errors.Tag(err, "cannot folders/docs")
+			return errors.Tag(err, "cannot create folders/docs")
 		}
 
 		eg, pCtx := errgroup.WithContext(ctx)

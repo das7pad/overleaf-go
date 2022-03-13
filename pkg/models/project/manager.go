@@ -18,6 +18,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -179,25 +180,26 @@ func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<
 }
 
 type docForInsertion struct {
-	Name     sharedTypes.Filename
-	Size     int64
-	Snapshot sharedTypes.Snapshot
+	Name     sharedTypes.Filename `json:"name"`
+	Size     int64                `json:"size"`
+	Snapshot sharedTypes.Snapshot `json:"snapshot"`
 }
 
 type fileForInsertion struct {
-	Name sharedTypes.Filename
-	Size int64
-	Hash sharedTypes.Hash
+	Name sharedTypes.Filename `json:"name"`
+	Size int64                `json:"size"`
+	Hash sharedTypes.Hash     `json:"hash"`
 }
 
 type folderForInsertion struct {
-	Id    edgedb.UUID
-	Docs  []docForInsertion
-	Files []fileForInsertion
+	Id    edgedb.UUID        `json:"id"`
+	Docs  []docForInsertion  `json:"docs"`
+	Files []fileForInsertion `json:"files"`
 }
 
 func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
-	err := m.c.QuerySingle(
+	ids := make([]edgedb.UUID, 2)
+	err := m.c.Query(
 		ctx,
 		`
 with
@@ -206,22 +208,26 @@ with
 	lng := (
 		<str>owner.editor_config['spellCheckLanguage']
 		if provided_lng = 'inherit' else provided_lng
-	)
-insert Project {
-	compiler := <str>$2,
-	image_name := <str>$3,
-	name := <str>$4,
-	last_updated_by := owner,
-	owner := owner,
-	spell_check_language := lng,
-}`,
-		&p.IdField,
+	),
+	p := (insert Project {
+		compiler := <str>$2,
+		image_name := <str>$3,
+		name := <str>$4,
+		last_updated_by := owner,
+		owner := owner,
+		spell_check_language := lng,
+	}),
+	rf := (insert RootFolder { project := p })
+select {p.id, rf.id}`,
+		&ids,
 		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.ImageName,
 		p.Name,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
+	p.Id = ids[0]
+	p.RootFolder.Id = ids[1]
 	return nil
 }
 
@@ -229,7 +235,7 @@ func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
 	// TODO: assert in tx
 	r := p.RootFolder
 	nFoldersWithContent := 0
-	nFoldersWithChildren := 1
+	nFoldersWithChildren := 0
 	{
 		// Collect tree stats for precise allocations
 		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
@@ -246,28 +252,22 @@ func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
 		}
 	}
 
-	{
-		err := m.c.QuerySingle(ctx, `
-insert RootFolder {
-	project := (select Project filter .id = <uuid>$0),
-}`,
-			&p.RootFolder.CommonTreeFields,
-			p.Id,
-		)
-		if err != nil {
-			err = rewriteEdgedbError(err)
-			return errors.Tag(err, "cannot create RootFolder")
-		}
-	}
-
-	{
+	if nFoldersWithChildren > 0 {
 		// Build tree of Folders
 		queue := make(chan *Folder, nFoldersWithChildren)
 		queue <- r
+		queueChanges := make(chan int, 10)
+		queueChanges <- +1
 
 		eg, pCtx := errgroup.WithContext(ctx)
 		for i := 0; i < 5; i++ {
 			eg.Go(func() error {
+				defer func() {
+					for range queue {
+						// flush the queue
+						queueChanges <- -1
+					}
+				}()
 				for folder := range queue {
 					names := make([]string, len(folder.Folders))
 					for j, f := range folder.Folders {
@@ -287,26 +287,36 @@ for name in array_unpack(<array<str>>$2) union (
 						p.Id, folder.Id, names,
 					)
 					if err != nil {
+						queueChanges <- -1
 						return rewriteEdgedbError(err)
 					}
 					for j, f := range folder.Folders {
 						f.Id = ids[j].Id
 						if len(f.Folders) > 0 {
 							queue <- f
+							queueChanges <- +1
 						}
 					}
+					queueChanges <- -1
 				}
 				return nil
 			})
 		}
 
-		err := eg.Wait()
-		// TODO: rework queue closing
-		close(queue)
-		for range queue {
-			// flush the queue
-		}
-		if err != nil {
+		eg.Go(func() error {
+			queueDepth := 0
+			for i := range queueChanges {
+				queueDepth += i
+				if queueDepth == 0 {
+					break
+				}
+			}
+			close(queue)
+			close(queueChanges)
+			return nil
+		})
+
+		if err := eg.Wait(); err != nil {
 			return err
 		}
 	}
@@ -345,8 +355,12 @@ for name in array_unpack(<array<str>>$2) union (
 
 	ids := make([]IdField, nItems)
 	{
+		blob, err := json.Marshal(folders)
+		if err != nil {
+			return errors.Tag(err, "serialize docs/files")
+		}
 		// Insert Docs and Files
-		err := m.c.Query(ctx, `
+		err = m.c.Query(ctx, `
 with
 	project := (select Project filter .id = <uuid>$0)
 for folder in json_array_unpack(<json>$1) union (
@@ -376,7 +390,7 @@ for folder in json_array_unpack(<json>$1) union (
 	)
 )`,
 			&ids,
-			p.Id, folders,
+			p.Id, blob,
 		)
 		if err != nil {
 			return rewriteEdgedbError(err)
@@ -414,9 +428,9 @@ update Project
 filter .id = <uuid>$0
 set {
 	name := <str>$1,
-	rootDoc := (
+	root_doc := (
 		select Doc
-		filter .id = <uuid>$3 and .project.id = <uuid>$0
+		filter .id = <uuid>$2 and .project.id = <uuid>$0
 	)
 }
 `,
@@ -792,7 +806,7 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId ed
 }
 
 type forGetProjectNames struct {
-	Projects []NameField
+	Projects []NameField `edgedb:"projects"`
 }
 
 func (m *manager) GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error) {
