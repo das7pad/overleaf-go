@@ -49,7 +49,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	var ownerFeatures user.Features
 	var userEpoch user.EpochField
 	eg, pCtx := errgroup.WithContext(ctx)
-	if p.OwnerRef == userId {
+	if p.Owner.Id == userId {
 		eg.Go(func() error {
 			u := &user.WithEpochAndFeatures{}
 			if err := m.um.GetUser(pCtx, userId, u); err != nil {
@@ -62,7 +62,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	} else {
 		eg.Go(func() error {
 			u := &user.FeaturesField{}
-			if err := m.um.GetUser(pCtx, p.OwnerRef, u); err != nil {
+			if err := m.um.GetUser(pCtx, p.Owner.Id, u); err != nil {
 				return errors.Tag(err, "cannot get owner features")
 			}
 			ownerFeatures = u.Features

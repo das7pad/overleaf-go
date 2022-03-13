@@ -35,12 +35,12 @@ type Manager interface {
 	TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId edgedb.UUID) error
 	GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error)
-	GetProjectMembers(ctx context.Context, readOnly, readAndWrite []edgedb.UUID) ([]AsProjectMember, error)
 	GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
 	GetUsersWithPublicInfo(ctx context.Context, users []edgedb.UUID) ([]WithPublicInfo, error)
 	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
+	ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error
 	SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error
@@ -435,42 +435,6 @@ func (m *manager) GetUsersForBackFillingNonStandardId(ctx context.Context, ids U
 	return users, nil
 }
 
-func (m *manager) GetProjectMembers(ctx context.Context, readOnly, readAndWrite []edgedb.UUID) ([]AsProjectMember, error) {
-	ids := make(UniqUserIds, len(readOnly)+len(readAndWrite))
-	for _, id := range readOnly {
-		ids[id] = true
-	}
-	for _, id := range readAndWrite {
-		ids[id] = true
-	}
-	users, err := m.GetUsersForBackFilling(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	members := make([]AsProjectMember, 0, len(users))
-	for _, id := range readOnly {
-		u, exists := users[id]
-		if !exists {
-			continue
-		}
-		members = append(members, AsProjectMember{
-			WithPublicInfo: u,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-		})
-	}
-	for _, id := range readAndWrite {
-		u, exists := users[id]
-		if !exists {
-			continue
-		}
-		members = append(members, AsProjectMember{
-			WithPublicInfo: u,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-		})
-	}
-	return members, nil
-}
-
 func rewriteMongoError(err error) error {
 	if err == mongo.ErrNoDocuments {
 		return &errors.NotFoundError{}
@@ -516,6 +480,53 @@ func (m *manager) getUser(ctx context.Context, filter interface{}, target interf
 	).Decode(target)
 	if err != nil {
 		return rewriteMongoError(err)
+	}
+	return nil
+}
+
+func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error {
+	err := m.c.QuerySingle(ctx, `
+select User {
+	email: { email },
+	emails: { email },
+	first_name,
+	id,
+	last_name,
+	projects: {
+		access_ro := ({User} if User in .access_ro else <User>{}),
+		access_rw := ({User} if User in .access_rw else <User>{}),
+		access_token_ro := ({User} if User in .access_token_ro else <User>{}),
+		access_token_rw := ({User} if User in .access_token_rw else <User>{}),
+		archived := (User in .archived_by),
+		epoch,
+		id,
+		last_updated_at,
+		last_updated_by: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+		},
+		name,
+		owner: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+		},
+		public_access_level,
+		trashed := (User in .trashed_by),
+	},
+	tags: {
+		id,
+		name,
+		projects,
+	},
+}
+filter .id = <uuid>$0
+`, u, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }

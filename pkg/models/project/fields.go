@@ -21,9 +21,26 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
+
+type AccessReadAndWriteField struct {
+	AccessReadAndWrite Refs `edgedb:"access_rw"`
+}
+
+type AccessReadOnlyField struct {
+	AccessReadOnly Refs `edgedb:"access_ro"`
+}
+
+type AccessTokenReadAndWriteField struct {
+	AccessTokenReadAndWrite Refs `edgedb:"access_token_rw"`
+}
+
+type AccessTokenReadOnlyField struct {
+	AccessTokenReadOnly Refs `edgedb:"access_token_ro"`
+}
 
 type ActiveField struct {
 	Active bool `edgedb:"active"`
@@ -33,8 +50,12 @@ type ArchivedByField struct {
 	ArchivedBy Refs `edgedb:"archived"`
 }
 
+type ArchivedField struct {
+	Archived bool `edgedb:"archived"`
+}
+
 type AuditLogField struct {
-	AuditLog []AuditLogEntry `edgedb:"auditLog"`
+	AuditLog []AuditLogEntry `edgedb:"audit_log"`
 }
 
 //goland:noinspection SpellCheckingInspection
@@ -55,19 +76,23 @@ type IdField struct {
 }
 
 type ImageNameField struct {
-	ImageName sharedTypes.ImageName `json:"imageName" edgedb:"imageName"`
+	ImageName sharedTypes.ImageName `json:"imageName" edgedb:"image_name"`
 }
 
 type LastOpenedField struct {
-	LastOpened time.Time `edgedb:"lastOpened"`
+	LastOpened time.Time `edgedb:"last_opened"`
 }
 
 type LastUpdatedAtField struct {
-	LastUpdatedAt time.Time `edgedb:"lastUpdated"`
+	LastUpdatedAt time.Time `edgedb:"last_updated_at"`
 }
 
 type LastUpdatedByField struct {
-	LastUpdatedBy edgedb.UUID `edgedb:"lastUpdatedBy"`
+	LastUpdatedBy user.WithPublicInfo `edgedb:"last_updated_by"`
+}
+
+type MembersField struct {
+	Members []user.AsProjectMember `edgedb:"members"`
 }
 
 type NameField struct {
@@ -75,12 +100,16 @@ type NameField struct {
 }
 
 type OwnerRefField struct {
-	OwnerRef edgedb.UUID `edgedb:"owner_ref" json:"owner_ref"`
+	OwnerRef edgedb.UUID `json:"owner_ref"`
+}
+
+type OwnerField struct {
+	Owner user.WithPublicInfo `edgedb:"owner" json:"owner"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
-	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" edgedb:"publicAccesLevel"`
+	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" edgedb:"public_access_level"`
 }
 
 type ReadOnlyRefsField struct {
@@ -96,7 +125,7 @@ type RootDocField struct {
 }
 
 type SpellCheckLanguageField struct {
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spellCheckLanguage"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spell_check_language"`
 }
 
 type TokenAccessReadAndWriteRefsField struct {
@@ -116,7 +145,11 @@ type TrackChangesStateField struct {
 }
 
 type TrashedByField struct {
-	TrashedBy Refs `edgedb:"trashed"`
+	TrashedBy Refs `edgedb:"trashed_by"`
+}
+
+type TrashedField struct {
+	Trashed bool `edgedb:"trashed"`
 }
 
 type RootFolderField struct {

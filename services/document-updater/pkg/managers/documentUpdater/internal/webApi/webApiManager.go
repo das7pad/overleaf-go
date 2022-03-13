@@ -34,7 +34,7 @@ type Manager interface {
 }
 
 func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager, error) {
-	dm, err := docstore.New(options.APIs.Docstore.Options, db)
+	dm, err := docstore.New(options.APIs.Docstore.Options, c, db)
 	if err != nil {
 		return nil, err
 	}

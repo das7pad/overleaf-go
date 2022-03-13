@@ -20,6 +20,7 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -61,15 +62,33 @@ func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
 	)
 }
 
-type Refs []edgedb.UUID
+type Refs []user.WithPublicInfo
 
 func (r Refs) Contains(userId edgedb.UUID) bool {
 	for _, ref := range r {
-		if userId == ref {
+		if userId == ref.Id {
 			return true
 		}
 	}
 	return false
+}
+
+func (p *WithInvitedMembers) GetProjectMembers() []user.AsProjectMember {
+	members := make(
+		[]user.AsProjectMember,
+		len(p.AccessReadOnly)+len(p.AccessReadAndWrite),
+	)
+	for i, u := range p.AccessReadOnly {
+		members[i].WithPublicInfo = u
+		members[i].PrivilegeLevel = sharedTypes.PrivilegeLevelReadOnly
+	}
+	offset := len(p.AccessReadOnly)
+	for i, u := range p.AccessReadAndWrite {
+		members[offset+i].WithPublicInfo = u
+		members[offset+i].PrivilegeLevel =
+			sharedTypes.PrivilegeLevelReadAndWrite
+	}
+	return members
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessToken) (*AuthorizationDetails, error) {
@@ -109,7 +128,7 @@ func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId edgedb.UUID
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId edgedb.UUID) (*AuthorizationDetails, error) {
-	if p.OwnerRef == userId {
+	if p.Owner.Id == userId {
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceOwner,
@@ -117,7 +136,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId edgedb.U
 			IsTokenMember:  false,
 		}, nil
 	}
-	if p.CollaboratorRefs.Contains(userId) {
+	if p.AccessReadAndWrite.Contains(userId) {
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceInvite,
@@ -125,7 +144,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId edgedb.U
 			IsTokenMember:  false,
 		}, nil
 	}
-	if p.ReadOnlyRefs.Contains(userId) {
+	if p.AccessReadOnly.Contains(userId) {
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceInvite,
@@ -134,7 +153,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId edgedb.U
 		}, nil
 	}
 	if p.PublicAccessLevel == TokenBasedAccess {
-		if p.TokenAccessReadAndWriteRefs.Contains(userId) {
+		if p.AccessTokenReadAndWrite.Contains(userId) {
 			return &AuthorizationDetails{
 				Epoch:          p.Epoch,
 				AccessSource:   AccessSourceToken,
@@ -142,7 +161,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId edgedb.U
 				IsTokenMember:  true,
 			}, nil
 		}
-		if p.TokenAccessReadOnlyRefs.Contains(userId) {
+		if p.AccessTokenReadOnly.Contains(userId) {
 			return &AuthorizationDetails{
 				Epoch:          p.Epoch,
 				AccessSource:   AccessSourceToken,

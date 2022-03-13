@@ -42,7 +42,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, request *types.CompilePro
 	}
 
 	owner := &user.FeaturesField{}
-	if err = m.um.GetUser(ctx, p.OwnerRef, owner); err != nil {
+	if err = m.um.GetUser(ctx, p.Owner.Id, owner); err != nil {
 		return errors.Tag(err, "cannot get owner features")
 	}
 

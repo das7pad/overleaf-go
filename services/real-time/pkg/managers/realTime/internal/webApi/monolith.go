@@ -56,7 +56,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	var deletedDocs []doc.Name
 	owner := &user.WithPublicInfoAndFeatures{}
-	members := make([]user.AsProjectMember, 0)
+	members := p.Members
 	invites := make([]*projectInvite.WithoutToken, 0)
 
 	eg, pCtx := errgroup.WithContext(ctx)
@@ -69,25 +69,12 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		return nil
 	})
 	eg.Go(func() error {
-		if err2 := m.um.GetUser(pCtx, p.OwnerRef, owner); err2 != nil {
+		if err2 := m.um.GetUser(pCtx, p.Owner.Id, owner); err2 != nil {
 			return errors.Tag(err2, "cannot get project owner")
 		}
 		return nil
 	})
 	if !authorizationDetails.IsRestrictedUser() {
-		eg.Go(func() error {
-			if n := len(p.CollaboratorRefs) + len(p.ReadOnlyRefs); n == 0 {
-				return nil
-			}
-			var err2 error
-			members, err2 = m.um.GetProjectMembers(
-				pCtx, p.ReadOnlyRefs, p.CollaboratorRefs,
-			)
-			if err2 != nil {
-				return errors.Tag(err2, "cannot get members")
-			}
-			return nil
-		})
 		eg.Go(func() error {
 			var err2 error
 			invites, err2 = m.pim.GetAllForProject(pCtx, request.ProjectId)
@@ -96,6 +83,8 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 			}
 			return nil
 		})
+	} else {
+		members = make([]user.AsProjectMember, 0)
 	}
 	if err = eg.Wait(); err != nil {
 		return nil, self, err
@@ -115,7 +104,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	// Hide owner details for restricted users
 	if authorizationDetails.IsRestrictedUser() {
 		owner.WithPublicInfo = user.WithPublicInfo{
-			IdField: user.IdField{Id: p.OwnerRef},
+			IdField: user.IdField{Id: p.Owner.Id},
 		}
 	}
 

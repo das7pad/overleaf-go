@@ -16,8 +16,30 @@
 
 package tag
 
+import (
+	"github.com/edgedb/edgedb-go"
+)
+
 type Full struct {
 	IdField       `edgedb:"inline"`
 	NameField     `edgedb:"inline"`
 	ProjectsField `edgedb:"inline"`
+	ProjectIdsField
+}
+
+type Tags []Full
+
+func (t Full) Finalize() Full {
+	t.ProjectIds = make([]edgedb.UUID, len(t.Projects))
+	for _, project := range t.Projects {
+		t.ProjectIds = append(t.ProjectIds, project.Id)
+	}
+	return t
+}
+
+func (ts Tags) Finalize() Tags {
+	for i, t := range ts {
+		ts[i] = t.Finalize()
+	}
+	return ts
 }

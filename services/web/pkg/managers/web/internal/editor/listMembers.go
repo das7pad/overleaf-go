@@ -20,18 +20,11 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) ListProjectMembers(ctx context.Context, request *types.ListProjectMembersRequest, response *types.ListProjectMembersResponse) error {
-	p := &project.WithInvitedMembers{}
-	if err := m.pm.GetProject(ctx, request.ProjectId, p); err != nil {
-		return errors.Tag(err, "cannot get project")
-	}
-	members, err := m.um.GetProjectMembers(
-		ctx, p.ReadOnlyRefs, p.CollaboratorRefs,
-	)
+	members, err := m.pm.GetProjectMembers(ctx, request.ProjectId)
 	if err != nil {
 		return errors.Tag(err, "cannot get users")
 	}

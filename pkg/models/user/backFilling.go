@@ -34,6 +34,6 @@ type WithPublicInfoAndNonStandardId struct {
 }
 
 type AsProjectMember struct {
-	*WithPublicInfo
+	WithPublicInfo
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
 }

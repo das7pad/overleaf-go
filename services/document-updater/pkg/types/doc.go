@@ -100,20 +100,19 @@ func (s *SetDocRequest) Validate() error {
 }
 
 type SetDocDetails struct {
+	// TODO: flatten
 	*doc.ForDocUpdate
-	LastUpdatedAt int64       `json:"lastUpdatedAt"`
-	LastUpdatedBy edgedb.UUID `json:"lastUpdatedBy"`
 }
 
 func (d *Doc) ToSetDocDetails() *SetDocDetails {
 	return &SetDocDetails{
 		ForDocUpdate: &doc.ForDocUpdate{
-			LinesField:   doc.LinesField{Lines: d.Snapshot.ToLines()},
-			RangesField:  doc.RangesField{Ranges: d.Ranges},
-			VersionField: doc.VersionField{Version: d.Version},
+			Snapshot:      d.Snapshot,
+			RangesField:   doc.RangesField{Ranges: d.Ranges},
+			VersionField:  doc.VersionField{Version: d.Version},
+			LastUpdatedAt: time.Unix(d.LastUpdatedCtx.At, 0),
+			LastUpdatedBy: d.LastUpdatedCtx.By,
 		},
-		LastUpdatedAt: d.LastUpdatedCtx.At,
-		LastUpdatedBy: d.LastUpdatedCtx.By,
 	}
 }
 

@@ -85,7 +85,7 @@ func (m *manager) EnsureExists(ctx context.Context, userId edgedb.UUID, name str
 		`
 with user := (select User filter .id = <uuid>$0)
 insert Tag { name := <str>$1, user := user }
-unless conflict on .name
+unless conflict on (.name, .user)
 else (select Tag { id, projects } filter .name = <str>$1 and .user = user)`,
 		t,
 		userId, name,
@@ -94,6 +94,7 @@ else (select Tag { id, projects } filter .name = <str>$1 and .user = user)`,
 		return nil, rewriteEdgedbError(err)
 	}
 	t.Name = name
+	t.ProjectIds = make([]edgedb.UUID, len(t.Projects))
 	return t, nil
 }
 

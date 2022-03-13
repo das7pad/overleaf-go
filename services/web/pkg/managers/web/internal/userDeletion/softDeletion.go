@@ -24,6 +24,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -32,6 +33,12 @@ import (
 )
 
 const parallelDeletion = 5
+
+type forProjectListing struct {
+	user.ProjectListViewCaller `edgedb:"inline"`
+	Tags                       []tag.Full                 `edgedb:"tags"`
+	Projects                   []*project.ListViewPrivate `edgedb:"projects"`
+}
 
 func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserRequest) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
@@ -53,9 +60,12 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	}
 
 	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		projects, errGetProjects := m.pm.ListProjects(ctx, userId)
-		if errGetProjects != nil {
-			return errors.Tag(errGetProjects, "cannot get projects")
+		projects := &forProjectListing{}
+		{
+			err := m.um.ListProjects(ctx, userId, projects)
+			if err != nil {
+				return errors.Tag(err, "cannot get projects")
+			}
 		}
 
 		queue := make(chan *project.ListViewPrivate, parallelDeletion)
@@ -71,7 +81,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 
 		eg.Go(func() error {
 			defer close(queue)
-			for _, p := range projects {
+			for _, p := range projects.Projects {
 				queue <- p
 			}
 			return nil
@@ -79,7 +89,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 		for i := 0; i < parallelDeletion; i++ {
 			eg.Go(func() error {
 				for p := range queue {
-					if p.OwnerRef == userId {
+					if p.Owner.Id == userId {
 						err := m.pDelM.DeleteProjectInTx(
 							ctx, pCtx, &types.DeleteProjectRequest{
 								Session:   request.Session,

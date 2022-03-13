@@ -123,7 +123,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	if err != nil {
 		return nil, err
 	}
-	dm, err := docstore.New(options.APIs.Docstore.Options, db)
+	dm, err := docstore.New(options.APIs.Docstore.Options, c, db)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		options, ps, c, client, db, editorEvents, pm, um, csm,
 	)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
-	pum := projectUpload.New(options, db, pm, um, dm, dum, fm)
+	pum := projectUpload.New(options, c, db, pm, um, dm, dum, fm)
 	hm := history.New(options, um)
 	OIOm := openInOverleaf.New(options, ps, proxy, pum)
 	lfm, err := linkedFile.New(options, pm, dum, fm, cm, ftm, proxy)

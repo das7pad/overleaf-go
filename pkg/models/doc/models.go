@@ -16,6 +16,14 @@
 
 package doc
 
+import (
+	"time"
+
+	"github.com/edgedb/edgedb-go"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type forInsertion struct {
 	IdField        `edgedb:"inline"`
 	LinesField     `edgedb:"inline"`
@@ -26,9 +34,11 @@ type forInsertion struct {
 }
 
 type ForDocUpdate struct {
-	LinesField   `edgedb:"inline"`
-	RangesField  `edgedb:"inline"`
-	VersionField `edgedb:"inline"`
+	Snapshot sharedTypes.Snapshot
+	VersionField
+	RangesField
+	LastUpdatedAt time.Time   `json:"lastUpdatedAt"`
+	LastUpdatedBy edgedb.UUID `json:"lastUpdatedBy"`
 }
 
 type ArchiveContents struct {

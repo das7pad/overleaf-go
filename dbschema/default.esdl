@@ -53,17 +53,25 @@ module default {
     }
     multi property learned_words -> str;
 
-    link projects_owned := .<owner[is Project];
-    link projects_ro := .<access_ro[is Project];
-    link projects_rw := .<access_rw[is Project];
-    link projects_token_rw := (
-      select Project
-      filter User in .token_access_rw and .public_access_level = 'tokenBased'
+    multi link projects := distinct (
+      .projects_owned
+      union .projects_ro
+      union .projects_rw
+      union .projects_token_ro
+      union .projects_token_rw
     );
-    link projects_token_ro := (
+    multi link projects_owned := .<owner[is Project];
+    multi link projects_ro := .<access_ro[is Project];
+    multi link projects_rw := .<access_rw[is Project];
+    multi link projects_token_rw := (
       select Project
-      filter User in .token_access_ro and .public_access_level = 'tokenBased'
+      filter User in .access_token_rw and .public_access_level = 'tokenBased'
     );
+    multi link projects_token_ro := (
+      select Project
+      filter User in .access_token_ro and .public_access_level = 'tokenBased'
+    );
+    multi link tags := .<user[is Tag];
   }
 
   type UserAuditLogEntry {
@@ -141,18 +149,20 @@ module default {
       on target delete allow;
     }
     required property spell_check_language -> str;
-    multi link token_access_rw -> User {
+    multi link access_token_rw -> User {
       on target delete allow;
     }
-    multi link token_access_ro -> User {
+    multi link access_token_ro -> User {
       on target delete allow;
     }
     link tokens -> Tokens {
       constraint exclusive;
     }
-    multi link trashed -> User {
+    multi link trashed_by -> User {
       on target delete allow;
     }
+
+    multi link members := distinct (.access_ro union .access_rw);
 
     link root_folder := .<project[is RootFolder];
     multi link any_folders := .<project[is FolderLike];

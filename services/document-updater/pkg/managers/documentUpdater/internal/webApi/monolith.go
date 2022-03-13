@@ -18,7 +18,6 @@ package webApi
 
 import (
 	"context"
-	"time"
 
 	"github.com/edgedb/edgedb-go"
 
@@ -69,16 +68,9 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UU
 }
 
 func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *types.SetDocDetails) error {
-	modified, err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ForDocUpdate)
+	_, err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ForDocUpdate)
 	if err != nil {
 		return errors.Tag(err, "cannot set doc in mongo")
-	}
-	if modified {
-		at := time.Unix(doc.LastUpdatedAt, 0)
-		err = m.pm.UpdateLastUpdated(ctx, projectId, at, doc.LastUpdatedBy)
-		if err != nil {
-			return errors.Tag(err, "cannot update project context")
-		}
 	}
 	return nil
 }

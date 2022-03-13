@@ -19,9 +19,6 @@ package projectList
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
@@ -63,18 +60,28 @@ type manager struct {
 	jwtLoggedInUser jwtHandler.JWTHandler
 }
 
+type forProjectList struct {
+	user.ProjectListViewCaller `edgedb:"inline"`
+	Tags                       tag.Tags                  `edgedb:"tags"`
+	Projects                   []project.ListViewPrivate `edgedb:"projects"`
+}
+
 func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
 
 	userId := request.Session.User.Id
-	projectsRaw, err := m.pm.ListProjects(ctx, userId)
-	if err != nil {
-		return errors.Tag(err, "cannot get projects")
+	u := forProjectList{}
+	{
+		err := m.um.ListProjects(ctx, userId, &u)
+		if err != nil {
+			return errors.Tag(err, "cannot get user with projects")
+		}
 	}
-	projects := make([]types.GetUserProjectsEntry, len(projectsRaw))
-	for i, p := range projectsRaw {
+
+	projects := make([]types.GetUserProjectsEntry, len(u.Projects))
+	for i, p := range u.Projects {
 		d, err2 := p.GetPrivilegeLevelAuthenticated(userId)
 		if err2 != nil {
 			return errors.New("listed project w/o access: " + p.Id.String())
@@ -94,83 +101,46 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		return err
 	}
 	userId := request.Session.User.Id
-	eg, pCtx := errgroup.WithContext(ctx)
-
-	u := &user.ProjectListViewCaller{}
-	eg.Go(func() error {
-		if err := m.um.GetUser(pCtx, userId, u); err != nil {
-			return errors.Tag(err, "cannot get user")
-		}
-		return nil
-	})
-
-	var projects []*templates.ProjectListProjectView
-	eg.Go(func() error {
-		projectsRaw, err := m.pm.ListProjects(pCtx, userId)
+	u := forProjectList{}
+	{
+		err := m.um.ListProjects(ctx, userId, &u)
 		if err != nil {
-			return errors.Tag(err, "cannot get projects")
+			return errors.Tag(err, "cannot get user with projects")
 		}
-		projects = make([]*templates.ProjectListProjectView, len(projectsRaw))
+	}
 
-		lookUpUserIds := make(user.UniqUserIds)
-		for i, p := range projectsRaw {
-			authorizationDetails, err2 :=
-				p.GetPrivilegeLevelAuthenticated(userId)
-			if err2 != nil {
-				return errors.New("listed project w/o access: " + p.Id.String())
-			}
-			isArchived := p.ArchivedBy.Contains(userId)
-			isTrashed := p.TrashedBy.Contains(userId)
-			projects[i] = &templates.ProjectListProjectView{
-				Id:                  p.Id,
-				Name:                p.Name,
-				LastUpdatedAt:       p.LastUpdatedAt,
-				LastUpdatedByUserId: p.LastUpdatedBy,
-				PublicAccessLevel:   p.PublicAccessLevel,
-				AccessLevel:         authorizationDetails.PrivilegeLevel,
-				AccessSource:        authorizationDetails.AccessSource,
-				Archived:            isArchived,
-				Trashed:             isTrashed && !isArchived,
-				OwnerRef:            p.OwnerRef,
-			}
-			if !authorizationDetails.IsRestrictedUser() {
-				lookUpUserIds[p.OwnerRef] = true
-				lookUpUserIds[p.LastUpdatedBy] = true
-			}
-		}
-		// Delete marker for missing LastUpdatedBy field.
-		delete(lookUpUserIds, edgedb.UUID{})
-		// Delete marker for caller, we process it later.
-		delete(lookUpUserIds, userId)
-
-		if len(lookUpUserIds) == 0 {
-			// Fast path: no collaborators.
-			return nil
-		}
-
-		users, err := m.um.GetUsersForBackFilling(pCtx, lookUpUserIds)
+	projects := make([]*templates.ProjectListProjectView, len(u.Projects))
+	for i, p := range u.Projects {
+		authorizationDetails, err :=
+			p.GetPrivilegeLevelAuthenticated(userId)
 		if err != nil {
-			return errors.Tag(err, "cannot get other user details")
+			return errors.New("listed project w/o access: " + p.Id.String())
 		}
-		for _, p := range projects {
-			p.LastUpdatedBy = users[p.LastUpdatedByUserId]
-			p.Owner = users[p.OwnerRef]
+		projects[i] = &templates.ProjectListProjectView{
+			Id:            p.Id,
+			Name:          p.Name,
+			LastUpdatedAt: p.LastUpdatedAt,
+			// TODO: check for overwrite
+			LastUpdatedBy:     &p.LastUpdatedBy,
+			PublicAccessLevel: p.PublicAccessLevel,
+			AccessLevel:       authorizationDetails.PrivilegeLevel,
+			AccessSource:      authorizationDetails.AccessSource,
+			Archived:          p.Archived,
+			Trashed:           p.Trashed,
+			OwnerRef:          p.Owner.Id,
+			// TODO: check for overwrite
+			Owner: &p.Owner,
 		}
-		return nil
-	})
-
-	var tags []tag.Full
-	eg.Go(func() error {
-		var err error
-		tags, err = m.tm.GetAll(pCtx, userId)
-		if err != nil {
-			return errors.Tag(err, "cannot get tags")
+		if authorizationDetails.IsRestrictedUser() {
+			if projects[i].LastUpdatedBy.Id != userId {
+				projects[i].LastUpdatedBy = nil
+			}
+			projects[i].Owner = nil
 		}
-		return nil
-	})
+	}
 
 	var jwtLoggedInUser string
-	eg.Go(func() error {
+	{
 		c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 		c.UserId = userId
 		b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
@@ -178,20 +148,6 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			return errors.Tag(err, "cannot get LoggedInUserJWT")
 		}
 		jwtLoggedInUser = b
-		return nil
-	})
-
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
-	for _, p := range projects {
-		if p.OwnerRef == userId {
-			p.Owner = &u.WithPublicInfo
-		}
-		if p.LastUpdatedByUserId == userId {
-			p.LastUpdatedBy = &u.WithPublicInfo
-		}
 	}
 
 	response.Data = &templates.ProjectListData{
@@ -203,7 +159,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			},
 		},
 		Projects:        projects,
-		Tags:            tags,
+		Tags:            u.Tags.Finalize(),
 		JWTLoggedInUser: jwtLoggedInUser,
 		UserEmails:      u.ToUserEmails(),
 	}

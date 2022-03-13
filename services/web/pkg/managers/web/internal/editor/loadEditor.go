@@ -150,12 +150,12 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	// Fan out 2 -- compute only for owned, unarchived projects
 	eg, pCtx = errgroup.WithContext(ctx)
 
-	if p.OwnerRef == userId {
+	if p.Owner.Id == userId {
 		ownerFeatures = &u.Features
 	} else {
 		eg.Go(func() error {
 			o := &user.FeaturesField{}
-			if err := m.um.GetUser(pCtx, p.OwnerRef, o); err != nil {
+			if err := m.um.GetUser(pCtx, p.Owner.Id, o); err != nil {
 				return errors.Tag(err, "cannot get project owner features")
 			}
 			ownerFeatures = &o.Features

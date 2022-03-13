@@ -21,6 +21,7 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -42,11 +43,10 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 		LastUpdatedAtField: LastUpdatedAtField{
 			LastUpdatedAt: time.Now().UTC(),
 		},
-		LastUpdatedByField: LastUpdatedByField{
-			LastUpdatedBy: ownerId,
-		},
-		OwnerRefField: OwnerRefField{
-			OwnerRef: ownerId,
+		OwnerField: OwnerField{
+			Owner: user.WithPublicInfo{
+				IdField: user.IdField{Id: ownerId},
+			},
 		},
 		PublicAccessLevelField: PublicAccessLevelField{
 			PublicAccessLevel: PrivateAccess,

@@ -105,12 +105,12 @@ type Manager interface {
 	) error
 }
 
-func New(options *types.Options, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	dm := doc.New(db)
+	dm := doc.New(c, db)
 
 	da, err := docArchive.New(options, dm)
 	if err != nil {
@@ -206,20 +206,6 @@ func (m *manager) GetAllDocContents(ctx context.Context, projectId edgedb.UUID) 
 	}
 }
 
-func validateDocLines(lines sharedTypes.Lines) error {
-	if lines == nil {
-		return &errors.ValidationError{Msg: "no doc lines provided"}
-	}
-	sum := 0
-	for _, line := range lines {
-		sum += len(line)
-	}
-	if sum > sharedTypes.MaxDocLength {
-		return &errors.BodyTooLargeError{}
-	}
-	return nil
-}
-
 func (m *manager) CreateEmptyDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
 	return m.dm.CreateDocWithContent(ctx, projectId, docId, nil)
 }
@@ -233,7 +219,7 @@ func (m *manager) CreateDocsWithContent(ctx context.Context, projectId edgedb.UU
 }
 
 func (m *manager) UpdateDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, update *doc.ForDocUpdate) (Modified, error) {
-	if err := validateDocLines(update.Lines); err != nil {
+	if err := update.Snapshot.Validate(); err != nil {
 		return false, err
 	}
 
@@ -241,7 +227,8 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId edgedb.UUID, docId ed
 		// error path, doc might not exist (in this project).
 		return false, err
 	} else {
-		if d.Lines.Equals(update.Lines) &&
+		// TODO: skip double conversion
+		if d.Lines.Equals(update.Snapshot.ToLines()) &&
 			d.Ranges.Equals(update.Ranges) &&
 			d.Version.Equals(update.Version) {
 			// fast path: Not modified.

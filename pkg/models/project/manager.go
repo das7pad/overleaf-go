@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -58,16 +59,15 @@ type Manager interface {
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error)
+	GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error)
 	GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 	PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*Tokens, error)
-	ListProjects(ctx context.Context, userId edgedb.UUID) ([]*ListViewPrivate, error)
 	GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error)
 	MarkAsActive(ctx context.Context, projectId edgedb.UUID) error
 	MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error
 	MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error
-	UpdateLastUpdated(ctx context.Context, projectId edgedb.UUID, at time.Time, by edgedb.UUID) error
 	SetCompiler(ctx context.Context, projectId edgedb.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId edgedb.UUID, imageName sharedTypes.ImageName) error
 	SetSpellCheckLanguage(ctx context.Context, projectId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
@@ -112,32 +112,8 @@ func removeArrayIndex(path MongoPath) MongoPath {
 	return path[0:strings.LastIndexByte(string(path), '.')]
 }
 
-func matchUsersProjects(userId edgedb.UUID) bson.M {
-	//goland:noinspection SpellCheckingInspection
-	return bson.M{
-		"$or": bson.A{
-			OwnerRefField{OwnerRef: userId},
-			bson.M{
-				"tokenAccessReadAndWrite_refs": userId,
-				"publicAccesLevel":             TokenBasedAccess,
-			},
-			bson.M{
-				"tokenAccessReadOnly_refs": userId,
-				"publicAccesLevel":         TokenBasedAccess,
-			},
-			bson.M{
-				"collaberator_refs": userId,
-			},
-			bson.M{
-				"readOnly_refs": userId,
-			},
-		},
-	}
-}
-
 const (
 	inactiveProjectBufferSize = 10
-	prefetchN                 = 200
 )
 
 type manager struct {
@@ -221,7 +197,6 @@ type folderForInsertion struct {
 }
 
 func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
-	ids := make([]IdField, 2)
 	err := m.c.QuerySingle(
 		ctx,
 		`
@@ -231,26 +206,22 @@ with
 	lng := (
 		<str>owner.editor_config['spellCheckLanguage']
 		if provided_lng = 'inherit' else provided_lng
-	),
-	p := (insert Project {
-		compiler := <str>$2,
-		image_name := <str>$3,
-		name := <str>$4,
-		last_updated_by := owner,
-		owner := owner,
-		spell_check_language := lng,
-	}),
-	rf := (insert RootFolder { project := p })
-select {p, rf}`,
-		&ids,
-		p.OwnerRef, p.SpellCheckLanguage, p.Compiler, p.ImageName,
+	)
+insert Project {
+	compiler := <str>$2,
+	image_name := <str>$3,
+	name := <str>$4,
+	last_updated_by := owner,
+	owner := owner,
+	spell_check_language := lng,
+}`,
+		&p.IdField,
+		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.ImageName,
 		p.Name,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
-	p.Id = ids[0].Id
-	p.RootFolder.Id = ids[1].Id
 	return nil
 }
 
@@ -272,6 +243,20 @@ func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
 		})
 		if err != nil {
 			return err
+		}
+	}
+
+	{
+		err := m.c.QuerySingle(ctx, `
+insert RootFolder {
+	project := (select Project filter .id = <uuid>$0),
+}`,
+			&p.RootFolder.CommonTreeFields,
+			p.Id,
+		)
+		if err != nil {
+			err = rewriteEdgedbError(err)
+			return errors.Tag(err, "cannot create RootFolder")
 		}
 	}
 
@@ -316,6 +301,7 @@ for name in array_unpack(<array<str>>$2) union (
 		}
 
 		err := eg.Wait()
+		// TODO: rework queue closing
 		close(queue)
 		for range queue {
 			// flush the queue
@@ -517,56 +503,44 @@ func (m *manager) SetTrackChangesState(ctx context.Context, projectId edgedb.UUI
 }
 
 func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error {
-	previousOwnerId := p.OwnerRef
-
-	// We need to add the previous owner and remove the new  owner from the
-	//  list of collaborators.
-	// Mongo does not allow multiple actions on a field in a single update
-	//  operation. We need to push and pull. Rewrite the array instead.
-	collaboratorRefs := make(Refs, 0, len(p.CollaboratorRefs))
-	for _, id := range p.CollaboratorRefs {
-		if id != newOwnerId {
-			collaboratorRefs = append(collaboratorRefs, id)
+	err := m.c.QuerySingle(ctx, `
+with
+	newOwner := (select User filter .id = <uuid>$1),
+	previousOwner := (select User filter .id = <uuid>$2),
+update Project
+filter
+	.id = <uuid>$0
+and .owner = previousOwner
+and (
+	newOwner in .access_ro or newOwner in .access_rw
+)
+set {
+	access_ro += previousOwner,
+	access_ro -= newOwner,
+	access_rw -= newOwner,
+	access_token_ro -= newOwner,
+	access_token_rw -= newOwner,
+	audit_log += (
+		insert ProjectAuditLogEntry {
+			initiator := previousOwner,
+			operation := 'transfer-ownership',
+			info := <json>{
+				newOwnerId := newOwner.id,
+				previousOwnerId := previousOwner.id,
+			}
 		}
+	),
+	epoch := Project.epoch + 1,
+	owner := newOwner,
+}
+`,
+		&IdField{},
+		p.Id, newOwnerId, p.Owner.Id,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
-	collaboratorRefs = append(collaboratorRefs, previousOwnerId)
-
-	//goland:noinspection SpellCheckingInspection
-	u := bson.M{
-		// Use the epoch as guard for concurrent write operations, this
-		//  includes revoking membership, which is required for the new owner.
-		"$inc": EpochField{Epoch: 1},
-
-		"$pull": bson.M{
-			"readOnly_refs":                newOwnerId,
-			"tokenAccessReadAndWrite_refs": newOwnerId,
-			"tokenAccessReadOnly_refs":     newOwnerId,
-		},
-
-		"$push": bson.M{
-			"auditLog": bson.M{
-				"$each": bson.A{
-					AuditLogEntry{
-						InitiatorId: previousOwnerId,
-						Operation:   "transfer-ownership",
-						Timestamp:   time.Now().UTC(),
-						Info: transferOwnershipAuditLogInfo{
-							PreviousOwnerId: previousOwnerId,
-							NewOwnerId:      newOwnerId,
-						},
-					},
-				},
-				"$slice": -MaxAuditLogEntries,
-			},
-		},
-
-		"$set": bson.M{
-			"owner_ref":         newOwnerId,
-			"collaberator_refs": collaboratorRefs,
-		},
-	}
-
-	return m.setWithEpochGuard(ctx, p.Id, p.Epoch, u)
+	return nil
 }
 
 func (m *manager) Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error {
@@ -817,61 +791,26 @@ func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId ed
 	return ErrEpochIsNotStable
 }
 
+type forGetProjectNames struct {
+	Projects []NameField
+}
+
 func (m *manager) GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error) {
-	q := matchUsersProjects(userId)
-	var projects []NameField
-	r, err := m.cP.Find(
-		ctx,
-		q,
-		options.Find().
-			SetProjection(getProjection(projects)).
-			SetBatchSize(prefetchN),
-	)
+	u := &forGetProjectNames{}
+	err := m.c.QuerySingle(ctx, `
+select User {
+	projects: { name },
+}
+filter .id = <uuid>$0
+`, u, userId)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return nil, rewriteEdgedbError(err)
 	}
-	if err = r.All(ctx, &projects); err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	names := make(Names, len(projects))
-	for i, project := range projects {
+	names := make(Names, len(u.Projects))
+	for i, project := range u.Projects {
 		names[i] = project.Name
 	}
 	return names, nil
-}
-
-func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID) ([]*ListViewPrivate, error) {
-	var projects []*ListViewPrivate
-	projection := getProjection(projects).CloneForWriting()
-
-	limitToUser := &bson.M{
-		"$elemMatch": bson.M{
-			"$eq": userId,
-		},
-	}
-	// These fields are used for an authorization check only, we do not
-	//  need to fetch all of them.
-	for s := range withMembersProjection {
-		projection[s] = limitToUser
-	}
-	projection["_id"] = true
-	projection["archived"] = limitToUser
-	projection["trashed"] = limitToUser
-
-	q := matchUsersProjects(userId)
-
-	r, err := m.cP.Find(
-		ctx,
-		q,
-		options.Find().SetProjection(projection).SetBatchSize(prefetchN),
-	)
-	if err != nil {
-		return projects, rewriteMongoError(err)
-	}
-	if err = r.All(ctx, &projects); err != nil {
-		return projects, rewriteMongoError(err)
-	}
-	return projects, nil
 }
 
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error) {
@@ -908,25 +847,6 @@ func (m *manager) set(ctx context.Context, projectId edgedb.UUID, update interfa
 		},
 		bson.M{
 			"$set": update,
-		},
-	)
-	return err
-}
-
-func (m *manager) UpdateLastUpdated(ctx context.Context, projectId edgedb.UUID, at time.Time, by edgedb.UUID) error {
-	v := WithLastUpdatedDetails{}
-	v.LastUpdatedAt = at
-	v.LastUpdatedBy = by
-	_, err := m.cP.UpdateOne(
-		ctx,
-		bson.M{
-			"_id": projectId,
-			"lastUpdated": bson.M{
-				"$gt": at,
-			},
-		},
-		bson.M{
-			"$set": v,
 		},
 	)
 	return err
@@ -1084,6 +1004,30 @@ func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.U
 		return nil, err
 	}
 	return p, nil
+}
+
+func (m *manager) GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error) {
+	var p WithInvitedMembers
+	err := m.c.QuerySingle(ctx, `
+	select Project {
+		access_ro: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+		},
+		access_rw: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+		},
+	}
+`, &p, projectId)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+	return p.GetProjectMembers(), nil
 }
 
 func (m *manager) GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error {

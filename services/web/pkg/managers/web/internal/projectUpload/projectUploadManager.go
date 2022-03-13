@@ -39,8 +39,9 @@ type Manager interface {
 	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error
 }
 
-func New(options *types.Options, db *mongo.Database, pm project.Manager, um user.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
+func New(options *types.Options, c *edgedb.Client, db *mongo.Database, pm project.Manager, um user.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
+		c:       c,
 		db:      db,
 		dm:      dm,
 		dum:     dum,

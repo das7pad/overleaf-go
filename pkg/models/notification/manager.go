@@ -55,7 +55,7 @@ func (m *manager) GetAllForUser(ctx context.Context, userId edgedb.UUID, notific
 		`
 select Notification
 filter .user.id = <uuid>$0 and .template_key != ''`,
-		&notifications,
+		notifications,
 		userId,
 	)
 	if err != nil {

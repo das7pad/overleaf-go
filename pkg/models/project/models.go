@@ -24,6 +24,7 @@ type JoinProjectViewPublic struct {
 	IdField                 `edgedb:"inline"`
 	CompilerField           `edgedb:"inline"`
 	ImageNameField          `edgedb:"inline"`
+	MembersField            `edgedb:"inline"`
 	NameField               `edgedb:"inline"`
 	RootDocIdField          `edgedb:"inline"`
 	SpellCheckLanguageField `edgedb:"inline"`
@@ -33,13 +34,13 @@ type JoinProjectViewPublic struct {
 }
 
 type ListViewPrivate struct {
-	ArchivedByField         `edgedb:"inline"`
+	ArchivedField           `edgedb:"inline"`
 	ForAuthorizationDetails `edgedb:"inline"`
 	IdField                 `edgedb:"inline"`
 	LastUpdatedAtField      `edgedb:"inline"`
 	LastUpdatedByField      `edgedb:"inline"`
 	NameField               `edgedb:"inline"`
-	TrashedByField          `edgedb:"inline"`
+	TrashedField            `edgedb:"inline"`
 }
 
 type LoadEditorViewPrivate struct {
@@ -59,13 +60,13 @@ type LoadEditorViewPublic struct {
 }
 
 type WithTokenMembers struct {
-	TokenAccessReadAndWriteRefsField `edgedb:"inline"`
-	TokenAccessReadOnlyRefsField     `edgedb:"inline"`
+	AccessTokenReadAndWriteField `edgedb:"inline"`
+	AccessTokenReadOnlyField     `edgedb:"inline"`
 }
 
 type WithInvitedMembers struct {
-	CollaboratorRefsField `edgedb:"inline"`
-	ReadOnlyRefsField     `edgedb:"inline"`
+	AccessReadAndWriteField `edgedb:"inline"`
+	AccessReadOnlyField     `edgedb:"inline"`
 }
 
 type WithMembers struct {
@@ -76,7 +77,7 @@ type WithMembers struct {
 type ForAuthorizationDetails struct {
 	WithMembers            `edgedb:"inline"`
 	EpochField             `edgedb:"inline"`
-	OwnerRefField          `edgedb:"inline"`
+	OwnerField             `edgedb:"inline"`
 	PublicAccessLevelField `edgedb:"inline"`
 	TokensField            `edgedb:"inline"`
 }
@@ -156,7 +157,7 @@ type ForCreation struct {
 	NameField               `edgedb:"inline"`
 	LastUpdatedAtField      `edgedb:"inline"`
 	LastUpdatedByField      `edgedb:"inline"`
-	OwnerRefField           `edgedb:"inline"`
+	OwnerField              `edgedb:"inline"`
 	PublicAccessLevelField  `edgedb:"inline"`
 	RootDocField            `edgedb:"inline"`
 	SpellCheckLanguageField `edgedb:"inline"`
