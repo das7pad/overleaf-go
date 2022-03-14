@@ -92,6 +92,7 @@ type SendReviewCommentRequest struct {
 
 type SetTrackChangesStateRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 
 	On          *bool                     `json:"on"`
 	OnFor       project.TrackChangesState `json:"on_for"`

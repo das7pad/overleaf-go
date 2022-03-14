@@ -1227,6 +1227,7 @@ func (h *httpController) setCompiler(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	err := h.wm.SetCompiler(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1238,6 +1239,7 @@ func (h *httpController) setImageName(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	err := h.wm.SetImageName(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1249,6 +1251,7 @@ func (h *httpController) setSpellCheckLanguage(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	err := h.wm.SetSpellCheckLanguage(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1271,6 +1274,7 @@ func (h *httpController) setPublicAccessLevel(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.Epoch = projectJWT.MustGet(c).Epoch
 	err := h.wm.SetPublicAccessLevel(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1862,6 +1866,7 @@ func (h *httpController) setTrackChangesState(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	err := h.wm.SetTrackChangesState(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

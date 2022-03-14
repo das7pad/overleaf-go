@@ -33,16 +33,19 @@ type UpdateEditorConfigRequest struct {
 
 type SetCompilerRequest struct {
 	ProjectId edgedb.UUID          `json:"-"`
+	UserId    edgedb.UUID          `json:"-"`
 	Compiler  sharedTypes.Compiler `json:"compiler"`
 }
 
 type SetImageNameRequest struct {
 	ProjectId edgedb.UUID           `json:"-"`
+	UserId    edgedb.UUID           `json:"-"`
 	ImageName sharedTypes.ImageName `json:"imageName"`
 }
 
 type SetSpellCheckLanguageRequest struct {
 	ProjectId          edgedb.UUID                      `json:"-"`
+	UserId             edgedb.UUID                      `json:"-"`
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
 }
 
@@ -53,6 +56,7 @@ type SetRootDocIdRequest struct {
 
 type SetPublicAccessLevelRequest struct {
 	ProjectId         edgedb.UUID               `json:"-"`
+	UserId            edgedb.UUID               `json:"-"`
 	Epoch             int64                     `json:"-"`
 	PublicAccessLevel project.PublicAccessLevel `json:"publicAccessLevel"`
 }

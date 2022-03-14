@@ -42,7 +42,9 @@ func (m *manager) SetCompiler(ctx context.Context, request *types.SetCompilerReq
 	if err := request.Compiler.Validate(); err != nil {
 		return err
 	}
-	err := m.pm.SetCompiler(ctx, request.ProjectId, request.Compiler)
+	err := m.pm.SetCompiler(
+		ctx, request.ProjectId, request.UserId, request.Compiler,
+	)
 	if err != nil {
 		return errors.Tag(err, "cannot update compiler")
 	}
@@ -60,7 +62,9 @@ func (m *manager) SetImageName(ctx context.Context, request *types.SetImageNameR
 	if err != nil {
 		return err
 	}
-	err = m.pm.SetImageName(ctx, request.ProjectId, request.ImageName)
+	err = m.pm.SetImageName(
+		ctx, request.ProjectId, request.UserId, request.ImageName,
+	)
 	if err != nil {
 		return errors.Tag(err, "cannot update compiler")
 	}
@@ -77,7 +81,7 @@ func (m *manager) SetSpellCheckLanguage(ctx context.Context, request *types.SetS
 		return err
 	}
 	err := m.pm.SetSpellCheckLanguage(
-		ctx, request.ProjectId, request.SpellCheckLanguage,
+		ctx, request.ProjectId, request.UserId, request.SpellCheckLanguage,
 	)
 	if err != nil {
 		return errors.Tag(err, "cannot update compiler")
@@ -154,7 +158,7 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, request *types.SetPu
 		}
 	}
 
-	err := m.pm.SetPublicAccessLevel(ctx, request.ProjectId, request.Epoch, request.PublicAccessLevel)
+	err := m.pm.SetPublicAccessLevel(ctx, request.ProjectId, request.UserId, request.PublicAccessLevel)
 	if err != nil {
 		return errors.Tag(err, "cannot update PublicAccessLevel")
 	}

@@ -100,7 +100,8 @@ func (m *manager) SetTrackChangesState(ctx context.Context, r *types.SetTrackCha
 		s = s.EnableFor(r.OnFor, r.OnForGuests)
 	}
 
-	if err := m.pm.SetTrackChangesState(ctx, r.ProjectId, s); err != nil {
+	err := m.pm.SetTrackChangesState(ctx, r.ProjectId, r.UserId, s)
+	if err != nil {
 		return errors.Tag(err, "cannot persist state")
 	}
 	go m.notifyEditor(r.ProjectId, "toggle-track-changes", s)

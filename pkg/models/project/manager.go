@@ -69,12 +69,12 @@ type Manager interface {
 	MarkAsActive(ctx context.Context, projectId edgedb.UUID) error
 	MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error
 	MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error
-	SetCompiler(ctx context.Context, projectId edgedb.UUID, compiler sharedTypes.Compiler) error
-	SetImageName(ctx context.Context, projectId edgedb.UUID, imageName sharedTypes.ImageName) error
-	SetSpellCheckLanguage(ctx context.Context, projectId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
+	SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error
+	SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error
+	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
 	SetRootDocId(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, rootDocId edgedb.UUID) error
-	SetPublicAccessLevel(ctx context.Context, projectId edgedb.UUID, epoch int64, level PublicAccessLevel) error
-	SetTrackChangesState(ctx context.Context, projectId edgedb.UUID, s TrackChangesState) error
+	SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, level PublicAccessLevel) error
+	SetTrackChangesState(ctx context.Context, projectId, userId edgedb.UUID, s TrackChangesState) error
 	ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
 	UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
 	TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
@@ -476,22 +476,61 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*T
 	return nil, errors.Tag(allErrors, "bad random source")
 }
 
-func (m *manager) SetCompiler(ctx context.Context, projectId edgedb.UUID, compiler sharedTypes.Compiler) error {
-	return m.set(ctx, projectId, CompilerField{
-		Compiler: compiler,
-	})
+func (m *manager) SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error {
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	update Project
+	filter .id = <uuid>$0
+	and (select User filter .id = <uuid>$1) in .min_access_rw
+	set {
+		compiler := <str>$2
+	}
+)`, ids, projectId, userId, string(compiler))
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
-func (m *manager) SetImageName(ctx context.Context, projectId edgedb.UUID, imageName sharedTypes.ImageName) error {
-	return m.set(ctx, projectId, ImageNameField{
-		ImageName: imageName,
-	})
+func (m *manager) SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error {
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	update Project
+	filter .id = <uuid>$0
+	and (select User filter .id = <uuid>$1) in .min_access_rw
+	set {
+		image_name := <str>$2
+	}
+)`, ids, projectId, userId, string(imageName))
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
-func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
-	return m.set(ctx, projectId, SpellCheckLanguageField{
-		SpellCheckLanguage: spellCheckLanguage,
-	})
+func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	update Project
+	filter .id = <uuid>$0
+	and (select User filter .id = <uuid>$1) in .min_access_rw
+	set {
+		spell_check_language := <str>$2
+	}
+)`, ids, projectId, userId, string(spellCheckLanguage))
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
 func (m *manager) SetRootDocId(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, rootDocId edgedb.UUID) error {
@@ -502,18 +541,45 @@ func (m *manager) SetRootDocId(ctx context.Context, projectId edgedb.UUID, versi
 	})
 }
 
-func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId edgedb.UUID, epoch int64, publicAccessLevel PublicAccessLevel) error {
-	return m.setWithEpochGuard(ctx, projectId, epoch, bson.M{
-		"$set": PublicAccessLevelField{
-			PublicAccessLevel: publicAccessLevel,
-		},
-	})
+func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, publicAccessLevel PublicAccessLevel) error {
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	update Project
+	filter .id = <uuid>$0 and .owner.id = <uuid>$1
+	set {
+		public_access_level := <str>$2
+	}
+)`, ids, projectId, userId, string(publicAccessLevel))
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
-func (m *manager) SetTrackChangesState(ctx context.Context, projectId edgedb.UUID, s TrackChangesState) error {
-	return m.set(ctx, projectId, &TrackChangesStateField{
-		TrackChangesState: s,
-	})
+func (m *manager) SetTrackChangesState(ctx context.Context, projectId, userId edgedb.UUID, s TrackChangesState) error {
+	blob, err := json.Marshal(s)
+	if err != nil {
+		return errors.Tag(err, "serialize TrackChangesState")
+	}
+	ids := make([]IdField, 0)
+	err = m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	update Project
+	filter .id = <uuid>$0
+	and (select User filter .id = <uuid>$1) in .min_access_rw
+	set {
+		track_changes_state := <json>$2
+	}
+)`, ids, projectId, userId, blob)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
 func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error {
@@ -557,18 +623,37 @@ set {
 	return nil
 }
 
+func checkAuthExistsGuard(ids []IdField) error {
+	switch len(ids) {
+	case 0:
+		return &errors.NotFoundError{}
+	case 1:
+		return &errors.NotAuthorizedError{}
+	default:
+		// 2
+		return nil
+	}
+}
+
 func (m *manager) Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error {
-	err := m.checkAccessAndUpdate(
-		ctx, projectId, userId, sharedTypes.PrivilegeLevelOwner, &bson.M{
-			"$set": NameField{
-				Name: name,
-			},
-		},
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	update Project
+	filter .id = <uuid>$0 and .owner.id = <uuid>$1
+	set {
+		name := <str>$2,
+	}
+)`,
+		&ids,
+		projectId, userId, string(name),
 	)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
-	return nil
+	return checkAuthExistsGuard(ids)
 }
 
 var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}
@@ -707,49 +792,81 @@ set { version := Project.version + 1 }`,
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
-	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
-			"$addToSet": bson.M{
-				"archived": userId,
-			},
-			"$pull": bson.M{
-				"trashed": userId,
-			},
-		},
-	)
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	with u := (select User filter .id = <uuid>$1)
+	update Project
+	filter .id = <uuid>$0 and u in .min_access_ro
+	set {
+		archived_by := distinct (Project.archived_by union {u}),
+		trashed_by -= u
+	}
+)`, ids, projectId, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
 func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
-	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
-			"$pull": bson.M{
-				"archived": userId,
-			},
-		},
-	)
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	with u := (select User filter .id = <uuid>$1)
+	update Project
+	filter .id = <uuid>$0 and u in .min_access_ro
+	set {
+		archived_by -= u
+	}
+)`, ids, projectId, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
 func (m *manager) TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
-	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
-			"$addToSet": bson.M{
-				"trashed": userId,
-			},
-			"$pull": bson.M{
-				"archived": userId,
-			},
-		},
-	)
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	with u := (select User filter .id = <uuid>$1)
+	update Project
+	filter .id = <uuid>$0 and u in .min_access_ro
+	set {
+		trashed_by := distinct (Project.trashed_by union {u}),
+		archived_by -= u
+	}
+)`, ids, projectId, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
 func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
-	return m.checkAccessAndUpdate(
-		ctx, projectId, userId, sharedTypes.PrivilegeLevelReadOnly, &bson.M{
-			"$pull": bson.M{
-				"trashed": userId,
-			},
-		},
-	)
+	ids := make([]IdField, 0)
+	err := m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	with u := (select User filter .id = <uuid>$1)
+	update Project
+	filter .id = <uuid>$0 and u in .min_access_ro
+	set {
+		trashed_by -= u
+	}
+)`, ids, projectId, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return checkAuthExistsGuard(ids)
 }
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
@@ -838,32 +955,29 @@ func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId
 }
 
 func (m *manager) BumpEpoch(ctx context.Context, projectId edgedb.UUID) error {
-	_, err := m.cP.UpdateOne(ctx, &IdField{Id: projectId}, &bson.M{
-		"$inc": &EpochField{Epoch: 1},
-	})
+	err := m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0
+set {
+	epoch := Project.epoch + 1,
+}
+`, &IdField{}, projectId)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }
 
 func (m *manager) GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error) {
 	p := &EpochField{}
-	err := m.GetProject(ctx, projectId, p)
+	err := m.c.QuerySingle(ctx, `
+update Project { epoch }
+filter .id = <uuid>$0
+`, p, projectId)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
 	return p.Epoch, err
-}
-
-func (m *manager) set(ctx context.Context, projectId edgedb.UUID, update interface{}) error {
-	_, err := m.cP.UpdateOne(
-		ctx,
-		IdField{
-			Id: projectId,
-		},
-		bson.M{
-			"$set": update,
-		},
-	)
-	return err
 }
 
 func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error) {
@@ -1117,15 +1231,45 @@ func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb
 }
 
 func (m *manager) MarkAsActive(ctx context.Context, projectId edgedb.UUID) error {
-	return m.set(ctx, projectId, &ActiveField{Active: true})
+	err := m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0
+set {
+	active := true,
+}
+`, &IdField{}, projectId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }
 
 func (m *manager) MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error {
-	return m.set(ctx, projectId, &ActiveField{Active: false})
+	err := m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0
+set {
+	active := false,
+}
+`, &IdField{}, projectId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }
 
 func (m *manager) MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error {
-	return m.set(ctx, projectId, &LastOpenedField{LastOpened: time.Now()})
+	err := m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0
+set {
+	last_opened := datetime_of_transaction(),
+}
+`, &IdField{}, projectId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }
 
 func (m *manager) RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {

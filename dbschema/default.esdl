@@ -136,6 +136,9 @@ module default {
       on target delete allow;
     }
     required property name -> str;
+    required property track_changes_state -> json {
+      default := to_json('{}');
+    }
     required link owner -> User {
       on target delete delete source;
     }
@@ -163,6 +166,12 @@ module default {
     }
 
     multi link members := distinct (.access_ro union .access_rw);
+    multi link min_access_ro := distinct (
+      {.owner} union .access_token_ro union .access_token_rw union .members
+    );
+    multi link min_access_rw := distinct (
+      {.owner} union .access_rw union .access_token_rw
+    );
 
     link root_folder := .<project[is RootFolder];
     multi link any_folders := .<project[is FolderLike];

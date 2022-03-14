@@ -141,7 +141,7 @@ type TokensField struct {
 }
 
 type TrackChangesStateField struct {
-	TrackChangesState TrackChangesState `json:"trackChangesState" edgedb:"track_changes"`
+	TrackChangesState TrackChangesState `json:"trackChangesState" edgedb:"track_changes_state"`
 }
 
 type TrashedByField struct {
