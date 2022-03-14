@@ -23,20 +23,25 @@ import (
 )
 
 type JoinProjectViewPrivate struct {
-	JoinProjectViewPublic   `edgedb:"inline"`
+	edgedb.Optional
 	ForAuthorizationDetails `edgedb:"inline"`
+	ForTree                 `edgedb:"inline"`
+	JoinProjectViewPublic   `edgedb:"inline"`
+	RootDocField            `edgedb:"inline"`
 }
 type JoinProjectViewPublic struct {
-	IdField                 `edgedb:"inline"`
 	CompilerField           `edgedb:"inline"`
+	DeletedDocsField        `edgedb:"inline"`
+	IdField                 `edgedb:"inline"`
 	ImageNameField          `edgedb:"inline"`
-	MembersField            `edgedb:"inline"`
+	InvitesField            `edgedb:"inline"`
 	NameField               `edgedb:"inline"`
-	RootDocIdField          `edgedb:"inline"`
 	SpellCheckLanguageField `edgedb:"inline"`
-	TrackChangesStateField  `edgedb:"inline"`
-	TreeField               `edgedb:"inline"`
-	VersionField            `edgedb:"inline"`
+}
+
+type JoinProjectDetails struct {
+	ProjectExists bool                   `edgedb:"project_exists"`
+	Project       JoinProjectViewPrivate `edgedb:"project"`
 }
 
 type ListViewPrivate struct {

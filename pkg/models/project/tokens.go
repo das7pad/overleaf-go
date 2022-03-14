@@ -22,6 +22,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -69,9 +71,10 @@ func (t AccessToken) ValidateReadOnly() error {
 }
 
 type Tokens struct {
-	ReadOnly           AccessToken `json:"readOnly" edgedb:"readOnly"`
-	ReadAndWrite       AccessToken `json:"readAndWrite" edgedb:"readAndWrite"`
-	ReadAndWritePrefix string      `json:"readAndWritePrefix" edgedb:"readAndWritePrefix"`
+	edgedb.Optional
+	ReadOnly           AccessToken `json:"readOnly" edgedb:"token_ro"`
+	ReadAndWrite       AccessToken `json:"readAndWrite" edgedb:"token_rw"`
+	ReadAndWritePrefix string      `json:"readAndWritePrefix" edgedb:"token_prefix_rw"`
 }
 
 //goland:noinspection SpellCheckingInspection

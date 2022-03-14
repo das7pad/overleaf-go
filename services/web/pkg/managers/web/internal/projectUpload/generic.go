@@ -144,9 +144,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					}
 					d := project.NewDoc(name)
 					if path == "main.tex" ||
-						(p.RootDoc == nil && path.Type().ValidForRootDoc()) {
+						(p.RootDoc.Id == (edgedb.UUID{}) &&
+							path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
-							p.RootDoc = d
+							p.RootDoc = project.RootDoc{Doc: *d}
 							if request.HasDefaultName && title != "" {
 								p.Name = title
 							}

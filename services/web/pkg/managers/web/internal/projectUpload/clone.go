@@ -94,7 +94,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 					Folder: *project.NewFolder(""),
 				}
 				t = &p.RootFolder
-				p.RootDoc = nil
+				p.RootDoc = project.RootDoc{}
 			}
 			p.ImageName = sp.ImageName
 			p.Compiler = sp.Compiler
@@ -183,7 +183,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 						contents.Lines.ToSnapshot(),
 					)
 					if isRootDocCandidate {
-						p.RootDoc = d
+						p.RootDoc = project.RootDoc{Doc: *d}
 					}
 				}
 				newDocs[i].Id = d.Id

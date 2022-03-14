@@ -23,7 +23,7 @@ type WithoutToken struct {
 	IdField             `edgedb:"inline"`
 	PrivilegeLevelField `edgedb:"inline"`
 	ProjectIdField      `edgedb:"inline"`
-	SendingUserIdField  `edgedb:"inline"`
+	SendingUserField    `edgedb:"inline"`
 }
 
 type WithToken struct {

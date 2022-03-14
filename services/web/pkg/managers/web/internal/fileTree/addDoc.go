@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -37,55 +35,13 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	parentFolderId := request.ParentFolderId
 	name := request.Name
 
-	var projectVersion sharedTypes.Version
-
 	doc := project.NewDoc(name)
-
-	err := m.txWithRetries(ctx, func(sCtx context.Context) error {
-		t, v, err := m.pm.GetProjectRootFolder(sCtx, projectId)
-		if err != nil {
-			return errors.Tag(err, "cannot get project")
-		}
-
-		var target *project.Folder
-		var mongoPath project.MongoPath
-		if parentFolderId == (edgedb.UUID{}) {
-			parentFolderId = t.Id
-		}
-		err = t.WalkFoldersMongo(func(_, f *project.Folder, fPath sharedTypes.DirName, mPath project.MongoPath) error {
-			if f.GetId() == parentFolderId {
-				target = f
-				mongoPath = mPath
-				return project.AbortWalk
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if target == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown parentFolderId")
-		}
-
-		if err = target.CheckIsUniqueName(name); err != nil {
-			return err
-		}
-
-		if err = m.dm.CreateEmptyDoc(sCtx, projectId, doc.Id); err != nil {
-			return errors.Tag(err, "cannot create empty doc")
-		}
-		err = m.pm.AddTreeElement(sCtx, projectId, v, mongoPath, doc)
-		if err != nil {
-			return errors.Tag(err, "cannot add element into tree")
-		}
-		projectVersion = v + 1
-		return nil
-	})
-
+	projectVersion, err := m.pm.CreateDoc(
+		ctx, request.ProjectId, request.UserId, request.ParentFolderId, doc,
+	)
 	if err != nil {
-		return err
+		return errors.Tag(err, "cannot create doc")
 	}
-
 	*response = *doc
 
 	// The new doc has been created.

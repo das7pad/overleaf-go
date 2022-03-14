@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -42,13 +41,6 @@ func New(c *edgedb.Client) Manager {
 
 func rewriteEdgedbError(err error) error {
 	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
-func rewriteMongoError(err error) error {
-	if err == mongo.ErrNoDocuments {
 		return &errors.NotFoundError{}
 	}
 	return err
@@ -106,7 +98,7 @@ insert OneTimeToken {
 				allErrors.Add(err)
 				continue
 			}
-			return "", rewriteMongoError(err)
+			return "", rewriteEdgedbError(err)
 		}
 		return token, nil
 	}

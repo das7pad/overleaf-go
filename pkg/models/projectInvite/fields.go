@@ -25,7 +25,7 @@ import (
 )
 
 type CreatedAtField struct {
-	CreatedAt time.Time `json:"createdAt" edgedb:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" edgedb:"created_at"`
 }
 
 type EmailField struct {
@@ -33,7 +33,7 @@ type EmailField struct {
 }
 
 type ExpiresAtField struct {
-	Expires time.Time `json:"expires" edgedb:"expires"`
+	Expires time.Time `json:"expires" edgedb:"expires_at"`
 }
 
 type IdField struct {
@@ -41,7 +41,7 @@ type IdField struct {
 }
 
 type PrivilegeLevelField struct {
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" edgedb:"privileges"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" edgedb:"privilege_level"`
 }
 
 type ProjectIdField struct {
@@ -49,7 +49,11 @@ type ProjectIdField struct {
 }
 
 type SendingUserIdField struct {
-	SendingUserId edgedb.UUID `json:"sendingUserId" edgedb:"sendingUserId"`
+	SendingUserId edgedb.UUID `json:"sendingUserId" edgedb:"id"`
+}
+
+type SendingUserField struct {
+	SendingUserIdField `edgedb:"sending_user"`
 }
 
 type TokenField struct {

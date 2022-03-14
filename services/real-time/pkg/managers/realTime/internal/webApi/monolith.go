@@ -19,10 +19,7 @@ package webApi
 import (
 	"context"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -42,51 +39,18 @@ const self = "self"
 
 func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error) {
 	userId := client.User.Id
-	p, err := m.pm.GetJoinProjectDetails(ctx, request.ProjectId, userId)
+	d, err := m.pm.GetJoinProjectDetails(
+		ctx, request.ProjectId, userId, request.AnonymousAccessToken,
+	)
 	if err != nil {
 		return nil, self, errors.Tag(err, "cannot get project")
 	}
+	p := &d.Project
 
 	authorizationDetails, err := p.GetPrivilegeLevel(
 		userId, request.AnonymousAccessToken,
 	)
 	if err != nil {
-		return nil, self, err
-	}
-
-	var deletedDocs []doc.Name
-	owner := &user.WithPublicInfoAndFeatures{}
-	members := p.Members
-	invites := make([]*projectInvite.WithoutToken, 0)
-
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err2 error
-		deletedDocs, err2 = m.dm.PeakDeletedDocNames(pCtx, request.ProjectId)
-		if err2 != nil {
-			return errors.Tag(err, "cannot get deleted doc names")
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		if err2 := m.um.GetUser(pCtx, p.Owner.Id, owner); err2 != nil {
-			return errors.Tag(err2, "cannot get project owner")
-		}
-		return nil
-	})
-	if !authorizationDetails.IsRestrictedUser() {
-		eg.Go(func() error {
-			var err2 error
-			invites, err2 = m.pim.GetAllForProject(pCtx, request.ProjectId)
-			if err2 != nil {
-				return errors.Tag(err2, "cannot get project invites")
-			}
-			return nil
-		})
-	} else {
-		members = make([]user.AsProjectMember, 0)
-	}
-	if err = eg.Wait(); err != nil {
 		return nil, self, err
 	}
 
@@ -101,11 +65,17 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		tokens = project.Tokens{ReadOnly: p.Tokens.ReadOnly}
 	}
 
-	// Hide owner details for restricted users
+	members := make([]user.AsProjectMember, 0)
+	owner := &d.Project.Owner
+
+	// Hide user details for restricted users
 	if authorizationDetails.IsRestrictedUser() {
+		d.Project.Invites = make([]projectInvite.WithoutToken, 0)
 		owner.WithPublicInfo = user.WithPublicInfo{
 			IdField: user.IdField{Id: p.Owner.Id},
 		}
+	} else {
+		members = p.GetProjectMembers()
 	}
 
 	// Populate fake feature flags
@@ -115,14 +85,18 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	owner.Features.Versioning = true
 
 	details := types.JoinProjectDetails{
-		DeletedDocs:            deletedDocs,
 		Features:               owner.Features,
 		JoinProjectViewPublic:  p.JoinProjectViewPublic,
 		Members:                members,
-		Owner:                  owner.WithPublicInfo,
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
-		Invites:                invites,
+		RootDocIdField: project.RootDocIdField{
+			RootDocId: p.RootDoc.Id,
+		},
+		VersionField: p.VersionField,
+		TreeField: project.TreeField{
+			RootFolder: []*project.Folder{p.GetRootFolder()},
+		},
 	}
 
 	return &types.JoinProjectWebApiResponse{

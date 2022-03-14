@@ -21,6 +21,7 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -67,6 +68,10 @@ type CompilerField struct {
 	Compiler sharedTypes.Compiler `json:"compiler" edgedb:"compiler"`
 }
 
+type DeletedDocsField struct {
+	DeletedDocs []CommonTreeFields `json:"deletedDocs" edgedb:"deleted_docs"`
+}
+
 type EpochField struct {
 	Epoch int64 `edgedb:"epoch"`
 }
@@ -79,6 +84,10 @@ type ImageNameField struct {
 	ImageName sharedTypes.ImageName `json:"imageName" edgedb:"image_name"`
 }
 
+type InvitesField struct {
+	Invites []projectInvite.WithoutToken `json:"invites" edgedb:"invites"`
+}
+
 type LastOpenedField struct {
 	LastOpened time.Time `edgedb:"last_opened"`
 }
@@ -89,10 +98,6 @@ type LastUpdatedAtField struct {
 
 type LastUpdatedByField struct {
 	LastUpdatedBy user.WithPublicInfo `edgedb:"last_updated_by"`
-}
-
-type MembersField struct {
-	Members []user.AsProjectMember `edgedb:"members"`
 }
 
 type NameField struct {
@@ -122,7 +127,8 @@ type RootDocForJumpField struct {
 }
 
 type RootDocField struct {
-	RootDoc *Doc `json:"root_doc" edgedb:"root_doc"`
+	edgedb.Optional
+	RootDoc RootDoc `json:"root_doc" edgedb:"root_doc"`
 }
 
 type SpellCheckLanguageField struct {
@@ -158,7 +164,7 @@ type RootFolderField struct {
 }
 
 type FoldersField struct {
-	Folders []*Folder `edgedb:"folders"`
+	Folders []*Folder `json:"-" edgedb:"folders"`
 }
 
 type DocsField struct {
@@ -171,10 +177,6 @@ type FilesField struct {
 
 type FoldersForJumpField struct {
 	Folders []*TreeElementForJump `edgedb:"folders"`
-}
-
-type AnyFoldersField struct {
-	AnyFolders []*Folder `edgedb:"any_folders"`
 }
 
 type TreeField struct {

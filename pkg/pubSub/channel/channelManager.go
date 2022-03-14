@@ -66,8 +66,7 @@ func (c BaseChannel) join(id edgedb.UUID) channel {
 }
 
 func (c BaseChannel) parseIdFromChannel(s string) (edgedb.UUID, error) {
-	// TODO: bump
-	if len(s) != len(c)+25 {
+	if len(s) != len(c)+36+1 {
 		return edgedb.UUID{}, errors.New("invalid channel format")
 	}
 	return edgedb.ParseUUID(s[len(c)+1:])

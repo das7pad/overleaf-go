@@ -25,6 +25,7 @@ import (
 
 type AddDocRequest struct {
 	ProjectId      edgedb.UUID          `json:"-"`
+	UserId         edgedb.UUID          `json:"-"`
 	Name           sharedTypes.Filename `json:"name"`
 	ParentFolderId edgedb.UUID          `json:"parent_folder_id"`
 }

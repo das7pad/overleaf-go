@@ -90,6 +90,11 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 	c.Name = name
 }
 
+type RootDoc struct {
+	edgedb.Optional
+	Doc `edgedb:"inline"`
+}
+
 type Doc struct {
 	CommonTreeFields `edgedb:"inline"`
 	Size             int64                `json:"size"`
@@ -133,6 +138,17 @@ type LinkedFileData struct {
 	URL                  string             `json:"url,omitempty" edgedb:"url"`
 }
 
+type TreeElementInProject struct {
+	edgedb.Optional
+	CommonTreeFields `edgedb:"inline"`
+	Project          IdField `edgedb:"project"`
+}
+
+type OptionalIdField struct {
+	edgedb.Optional
+	IdField `edgedb:"inline"`
+}
+
 type FileRef struct {
 	CommonTreeFields `edgedb:"inline"`
 
@@ -140,6 +156,12 @@ type FileRef struct {
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
 	Created        time.Time        `json:"created" edgedb:"created"`
 	Size           int64            `json:"size" edgedb:"size"`
+
+	// TODO: pointer
+	SourceElement        TreeElementInProject `json:"source_element,omitempty" edgedb:"source_element"`
+	SourceOutputFilePath edgedb.OptionalStr   `json:"source_path,omitempty" edgedb:"source_path"`
+	SourceProject        OptionalIdField      `json:"source_project,omitempty" edgedb:"source_project"`
+	URL                  edgedb.OptionalStr   `json:"url,omitempty" edgedb:"url"`
 }
 
 func (f *FileRef) FieldNameInFolder() MongoPath {
@@ -457,11 +479,9 @@ func (p *ForTree) GetRootFolder() *Folder {
 	}
 
 	for _, folder := range p.Folders {
-		folders := make([]*Folder, len(folder.Folders))
 		for i, f := range folder.Folders {
-			folders[i] = lookup[f.Id]
+			folder.Folders[i] = lookup[f.Id]
 		}
-		lookup[folder.Id].Folders = folders
 	}
 
 	for i, f := range p.RootFolder.Folders {

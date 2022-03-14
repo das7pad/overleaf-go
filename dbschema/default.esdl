@@ -177,9 +177,12 @@ module default {
       on target delete allow;
     }
 
-    multi link members := distinct (.access_ro union .access_rw);
+    multi link invites := .<project[is ProjectInvite];
+
     multi link min_access_ro := distinct (
-      {.owner} union .access_token_ro union .access_token_rw union .members
+      {.owner}
+      union .access_ro union .access_rw
+      union .access_token_ro union .access_token_rw
     );
     multi link min_access_rw := distinct (
       {.owner} union .access_rw union .access_token_rw
@@ -188,10 +191,18 @@ module default {
     link root_folder := (
       select .<project[is RootFolder] limit 1
     );
-    multi link any_folders := .<project[is FolderLike];
-    multi link folders := .<project[is Folder];
-    multi link docs := .<project[is Doc];
-    multi link files := .<project[is File];
+    multi link folders := (
+      select .<project[is Folder] filter not exists .deleted_at
+    );
+    multi link docs := (
+      select .<project[is Doc] filter not exists .deleted_at
+    );
+    multi link files := (
+      select .<project[is File] filter not exists .deleted_at
+    );
+    multi link deleted_docs := (
+      select .<project[is Doc] filter exists .deleted_at
+    );
   }
 
   abstract type TreeElement {
@@ -201,9 +212,15 @@ module default {
   }
 
   abstract type FolderLike extending TreeElement {
-      multi link folders := .<parent[is Folder];
-      multi link docs := .<parent[is Doc];
-      multi link files := .<parent[is File];
+      multi link folders := (
+        select .<parent[is Folder] filter not exists .deleted_at
+      );
+      multi link docs := (
+        select .<parent[is Doc] filter not exists .deleted_at
+      );
+      multi link files := (
+        select .<parent[is File] filter not exists .deleted_at
+      );
   }
 
   type RootFolder extending FolderLike {
@@ -272,6 +289,8 @@ module default {
       on target delete delete source;
     }
     required property token -> str;
+
+    constraint exclusive on ((.project, .token));
   }
 
   type OneTimeToken {

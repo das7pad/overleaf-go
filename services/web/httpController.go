@@ -928,6 +928,7 @@ func (h *httpController) addDocToProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	response := &types.AddDocResponse{}
 	err := h.wm.AddDocToProject(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)

@@ -53,7 +53,7 @@ type Manager interface {
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
-	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID) (*JoinProjectViewPrivate, error)
+	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
 	GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error
@@ -82,6 +82,7 @@ type Manager interface {
 	Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
 	RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error
+	CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error)
 }
 
 func New(c *edgedb.Client, db *mongo.Database) Manager {
@@ -206,7 +207,7 @@ with
 	owner := (select User { editor_config } filter .id = <uuid>$0),
 	provided_lng := <str>$1,
 	lng := (
-		<str>owner.editor_config['spellCheckLanguage']
+		owner.editor_config.spell_check_language
 		if provided_lng = 'inherit' else provided_lng
 	),
 	p := (insert Project {
@@ -419,10 +420,6 @@ for folder in json_array_unpack(<json>$1) union (
 }
 
 func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) error {
-	var rootDocId edgedb.UUID
-	if p.RootDoc != nil {
-		rootDocId = p.RootDoc.Id
-	}
 	err := m.c.QuerySingle(ctx, `
 update Project
 filter .id = <uuid>$0
@@ -435,7 +432,7 @@ set {
 }
 `,
 		&IdField{},
-		p.Id, p.Name, rootDocId,
+		p.Id, p.Name, p.RootDoc.Id,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)
@@ -1047,7 +1044,13 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
 	// TODO: make tx aware
-	var project ForTree
+	project := &ForTree{
+		RootFolderField: RootFolderField{
+			RootFolder: RootFolder{
+				Folder: *NewFolder(""),
+			},
+		},
+	}
 	err := m.c.QuerySingle(
 		ctx,
 		`
@@ -1055,6 +1058,7 @@ select
 	Project {
 		version,
 		root_folder: {
+			id,
 			folders,
 			docs: { id, name },
 			files: { id, name },
@@ -1077,15 +1081,135 @@ filter .id = <uuid>$0`,
 	return project.GetRootFolder(), project.Version, nil
 }
 
-func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID) (*JoinProjectViewPrivate, error) {
-	project := &JoinProjectViewPrivate{}
-	err := m.fetchWithMinimalAuthorizationDetails(
-		ctx, &IdField{Id: projectId}, userId, project,
-	)
-	if err != nil {
-		return nil, err
+func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
+	details := &JoinProjectDetails{
+		Project: JoinProjectViewPrivate{
+			ForTree: ForTree{
+				RootFolderField: RootFolderField{
+					RootFolder: RootFolder{
+						Folder: *NewFolder(""),
+					},
+				},
+			},
+		},
 	}
-	return project, nil
+	if userId != (edgedb.UUID{}) {
+		accessToken = "-"
+	}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$1),
+	p := (select Project filter .id = <uuid>$0),
+	pWithAuth := (
+		select Project
+		filter Project = p and (
+			u in .min_access_ro or (
+				.public_access_level = 'tokenBased'
+				and (.tokens.token_ro ?? '') = <str>$2
+			)
+		)
+	)
+select {
+	project_exists := (exists p),
+	project := (select pWithAuth {
+		access_ro: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+		},
+		access_rw: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+		},
+		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
+		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+		compiler,
+		deleted_docs: { id, name },
+		epoch,
+		folders: {
+			id,
+			docs: {
+				id,
+				name,
+			},
+			files: {
+				id,
+				name,
+				[is LinkedFileURL].url,
+				[is LinkedFileProjectFile].source_element: {
+					id,
+					name,
+					project,
+				},
+				[is LinkedFileProjectOutputFile].source_project,
+				[is LinkedFileProjectOutputFile].source_path,
+			},
+			folders,
+		},
+		id,
+		image_name,
+		invites: {
+			created_at,
+			email,
+			expires_at,
+			id,
+			privilege_level,
+			sending_user,
+		},
+		name,
+		owner: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+			features: {
+				compile_group,
+				compile_timeout,
+			},
+		},
+		public_access_level,
+		root_doc,
+		root_folder: {
+			id,
+			docs: {
+				id,
+				name,
+			},
+			files: {
+				id,
+				name,
+				[is LinkedFileURL].url,
+				[is LinkedFileProjectFile].source_element: {
+					id,
+					name,
+					project,
+				},
+				[is LinkedFileProjectOutputFile].source_project,
+				[is LinkedFileProjectOutputFile].source_path,
+			},
+			folders,
+		},
+		tokens: {
+			token_ro,
+			token_rw,
+		},
+		version,
+	}),
+}
+`, details, projectId, userId, accessToken)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+	if !details.ProjectExists {
+		return nil, &errors.NotFoundError{}
+	}
+	if details.Project.Id != projectId {
+		return nil, &errors.NotAuthorizedError{}
+	}
+	return details, nil
 }
 
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
@@ -1137,13 +1261,13 @@ select {
 		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
 		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
 		active,
+		compiler,
+		epoch,
 		folders: {
 			id,
 			name,
 			parent,
 		},
-		compiler,
-		epoch,
 		id,
 		image_name,
 		name,
@@ -1164,6 +1288,10 @@ select {
 			parent,
 		},
 		root_folder,
+		tokens: {
+			token_ro,
+			token_rw,
+		},
 		version,
 	}),
 }
@@ -1434,4 +1562,66 @@ func (m *manager) Restore(ctx context.Context, p *ForDeletion) error {
 		return rewriteMongoError(err)
 	}
 	return nil
+}
+
+type createDocResult struct {
+	ProjectExists bool                 `edgedb:"project_exists"`
+	AuthCheck     bool                 `edgedb:"auth_check"`
+	FolderExists  bool                 `edgedb:"folder_exists"`
+	DocId         edgedb.OptionalUUID  `edgedb:"doc_id"`
+	Version       edgedb.OptionalInt64 `edgedb:"version"`
+}
+
+func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error) {
+	result := createDocResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
+	d := (insert Doc {
+		name := <str>$3,
+		parent := f,
+		project := pWithAuth,
+		size := <int64>$4,
+		snapshot := <str>$5,
+		version := 0,
+	}),
+	pBumpedVersion := (
+		update Project
+		filter Project = d.project
+		set { version := Project.version + 1 }
+	)
+select {
+	project_exists := (exists p),
+	auth_check := (exists pWithAuth),
+	folder_exists := (exists f),
+	doc_id := d.id,
+	version := pBumpedVersion.version,
+}
+`,
+		&result,
+		projectId, userId, folderId,
+		d.Name, int64(len(d.Snapshot)), string(d.Snapshot),
+	)
+	if err != nil {
+		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+			return 0, ErrDuplicateNameInFolder
+		}
+		return 0, rewriteEdgedbError(err)
+	}
+	// TODO: read MissingRequiredError details instead of result fields
+	switch {
+	case !result.ProjectExists:
+		return 0, &errors.NotFoundError{}
+	case !result.AuthCheck:
+		return 0, &errors.NotAuthorizedError{}
+	case !result.FolderExists:
+		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
+	default:
+		d.Id, _ = result.DocId.Get()
+		v, _ := result.Version.Get()
+		return sharedTypes.Version(v), nil
+	}
 }
