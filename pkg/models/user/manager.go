@@ -82,6 +82,19 @@ with
 		email := <str>$6,
 	}),
 	u := (insert User {
+		editor_config := (insert EditorConfig {
+			auto_complete := true,
+			auto_pair_delimiters := true,
+			font_family := 'lucida',
+			font_size := 12,
+			line_height := 'normal',
+			mode := 'default',
+			overall_theme := '',
+			pdf_viewer := 'pdfjs',
+			syntax_validation := false,
+			spell_check_language := 'en',
+			theme := 'textmate',
+		}),
 		email := e,
 		emails := { e },
 		features := (insert Features {
@@ -369,9 +382,14 @@ func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string)
 }
 
 func (m *manager) GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error) {
-	p := &EpochField{}
-	err := m.GetUser(ctx, userId, p)
-	return p.Epoch, err
+	u := &EpochField{}
+	err := m.c.QuerySingle(ctx, `
+select User { epoch } filter .id = <uuid>$0
+`, u, userId)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
+	return u.Epoch, err
 }
 
 func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []edgedb.UUID) ([]WithPublicInfo, error) {

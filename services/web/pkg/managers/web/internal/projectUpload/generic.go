@@ -85,7 +85,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		}
 	}()
 	parentCache := make(map[sharedTypes.DirName]*project.Folder)
-	t := p.RootFolder
+	t := &p.RootFolder
 
 	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
@@ -188,7 +188,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				// This is a project with one top-level entry, a folder.
 				// Assume that this was single zipped-up folder.
 				// Skip one level of directories and clear the parent cache.
-				*t = *t.Folders[0]
+				p.RootFolder = project.RootFolder{
+					Folder: *t.Folders[0],
+				}
+				t = &p.RootFolder
 				parentCache = make(map[sharedTypes.DirName]*project.Folder)
 			}
 			return nil

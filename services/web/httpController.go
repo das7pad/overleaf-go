@@ -1263,6 +1263,7 @@ func (h *httpController) setRootDocId(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	err := h.wm.SetRootDocId(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

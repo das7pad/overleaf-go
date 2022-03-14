@@ -27,6 +27,45 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
+var ErrProjectTreeHasLoop = &errors.UnprocessableEntityError{
+	Msg: "project tree has loop",
+}
+
+type RootDocForJump struct {
+	edgedb.Optional
+	TreeElementForJump `edgedb:"inline"`
+}
+
+type RootFolder struct {
+	edgedb.Optional
+	Folder `edgedb:"inline"`
+}
+
+type TreeElementForJump struct {
+	IdField `edgedb:"inline"`
+	Parent  IdField              `edgedb:"parent"`
+	Name    sharedTypes.Filename `edgedb:"name"`
+}
+
+func (p *ForFolderPath) GetFolderPath(folderId edgedb.UUID) (sharedTypes.DirName, error) {
+	lookup := make(map[edgedb.UUID]*TreeElementForJump, len(p.Folders))
+	for _, folder := range p.Folders {
+		lookup[folder.Id] = folder
+	}
+	path := sharedTypes.DirName("")
+	for folderId != p.RootFolder.Id {
+		f, ok := lookup[folderId]
+		if !ok {
+			return "", ErrProjectTreeHasLoop
+		}
+		delete(lookup, folderId)
+
+		path = sharedTypes.DirName(f.Name) + "/" + path
+		folderId = f.Parent.Id
+	}
+	return path, nil
+}
+
 type TreeElement interface {
 	GetId() edgedb.UUID
 	GetName() sharedTypes.Filename
@@ -122,7 +161,7 @@ type Folder struct {
 	CommonTreeFields `edgedb:"inline"`
 
 	Docs     []*Doc     `json:"docs" edgedb:"docs"`
-	FileRefs []*FileRef `json:"fileRefs" edgedb:"fileRefs"`
+	FileRefs []*FileRef `json:"fileRefs" edgedb:"files"`
 	Folders  []*Folder  `json:"folders" edgedb:"folders"`
 }
 
@@ -347,6 +386,7 @@ func (t *Folder) walkDirsMongo(parent *Folder, fn DirWalkerMongo, parentPath sha
 func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) error {
 	if m == walkModeDoc || m == walkModeAny {
 		for _, doc := range t.Docs {
+			// TODO: fix pointer handling in edgedb codec decode
 			if err := fn(doc, parent.Join(doc.Name)); err != nil {
 				return err
 			}
@@ -411,12 +451,12 @@ func (p *TreeField) GetRootFolder() (*Folder, error) {
 }
 
 func (p *ForTree) GetRootFolder() *Folder {
-	lookup := make(map[edgedb.UUID]*Folder, len(p.AnyFolders))
-	for _, folder := range p.AnyFolders {
+	lookup := make(map[edgedb.UUID]*Folder, len(p.Folders))
+	for _, folder := range p.Folders {
 		lookup[folder.Id] = folder
 	}
 
-	for _, folder := range p.AnyFolders {
+	for _, folder := range p.Folders {
 		folders := make([]*Folder, len(folder.Folders))
 		for i, f := range folder.Folders {
 			folders[i] = lookup[f.Id]
@@ -424,5 +464,8 @@ func (p *ForTree) GetRootFolder() *Folder {
 		lookup[folder.Id].Folders = folders
 	}
 
-	return lookup[p.RootFolder.Id]
+	for i, f := range p.RootFolder.Folders {
+		p.RootFolder.Folders[i] = lookup[f.Id]
+	}
+	return &p.RootFolder.Folder
 }

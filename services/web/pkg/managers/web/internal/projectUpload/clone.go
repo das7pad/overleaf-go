@@ -50,7 +50,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 	p := project.NewProject(userId)
 	p.Name = request.Name
 	var parentCache map[sharedTypes.DirName]*project.Folder
-	var t *project.Folder
+	var t *project.RootFolder
 
 	errClone := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
 		sp := &project.ForClone{}
@@ -90,8 +90,10 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 				}
 				lastVersion = sp.Version
 				parentCache = make(map[sharedTypes.DirName]*project.Folder)
-				t = project.NewFolder("")
-				p.RootFolder = t
+				p.RootFolder = project.RootFolder{
+					Folder: *project.NewFolder(""),
+				}
+				t = &p.RootFolder
 				p.RootDoc = nil
 			}
 			p.ImageName = sp.ImageName
@@ -128,7 +130,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 			if err != nil {
 				return err
 			}
-			parentCache["."] = t
+			parentCache["."] = &t.Folder
 			return nil
 		})
 		if err := eg.Wait(); err != nil {

@@ -54,7 +54,7 @@ type Manager interface {
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID) (*JoinProjectViewPrivate, error)
-	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID) (*LoadEditorViewPrivate, error)
+	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
 	GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
@@ -72,7 +72,7 @@ type Manager interface {
 	SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error
 	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
-	SetRootDocId(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, rootDocId edgedb.UUID) error
+	SetRootDocId(ctx context.Context, projectId, userId, rooDocId edgedb.UUID) error
 	SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, level PublicAccessLevel) error
 	SetTrackChangesState(ctx context.Context, projectId, userId edgedb.UUID, s TrackChangesState) error
 	ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
@@ -255,7 +255,7 @@ func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
 	if nFoldersWithChildren > 0 {
 		// Build tree of Folders
 		queue := make(chan *Folder, nFoldersWithChildren)
-		queue <- r
+		queue <- &r.Folder
 		queueChanges := make(chan int, 10)
 		queueChanges <- +1
 
@@ -533,12 +533,54 @@ select (
 	return checkAuthExistsGuard(ids)
 }
 
-func (m *manager) SetRootDocId(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, rootDocId edgedb.UUID) error {
-	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
-		"$set": RootDocIdField{
-			RootDocId: rootDocId,
-		},
-	})
+func (m *manager) SetRootDocId(ctx context.Context, projectId, userId, rootDocId edgedb.UUID) error {
+	ids := make([]edgedb.UUID, 0)
+	err := m.c.Query(ctx, `
+with
+	p := (
+		select Project filter .id = <uuid>$0
+	),
+	d := (
+		select Doc filter .id = <uuid>$1 and .project = p
+	),
+	newRootDoc := (
+		select Doc
+		filter Doc = d and (
+		   .name LIKE '%.tex' or .name LIKE '%.rtex' or .name LIKE '%.ltex'
+		)
+	),
+	pUpdated := (
+		update Project
+		filter Project = newRootDoc.project
+		and (select User filter .id = <uuid>$2) in .min_access_rw
+		set {
+			root_doc := newRootDoc
+		}
+	)
+select {p.id,d.id,newRootDoc.id,pUpdated.id}`,
+		ids,
+		projectId, userId, rootDocId,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	switch len(ids) {
+	case 0:
+		return &errors.NotFoundError{}
+	case 1:
+		return &errors.UnprocessableEntityError{
+			Msg: "doc does not exist",
+		}
+	case 2:
+		return &errors.UnprocessableEntityError{
+			Msg: "doc does not have root doc extension (.tex, .rtex, .ltex)",
+		}
+	case 3:
+		return &errors.NotAuthorizedError{}
+	default:
+		// 4
+		return nil
+	}
 }
 
 func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, publicAccessLevel PublicAccessLevel) error {
@@ -971,8 +1013,7 @@ set {
 func (m *manager) GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error) {
 	p := &EpochField{}
 	err := m.c.QuerySingle(ctx, `
-update Project { epoch }
-filter .id = <uuid>$0
+select Project { epoch } filter .id = <uuid>$0
 `, p, projectId)
 	if err != nil {
 		return 0, rewriteEdgedbError(err)
@@ -1007,16 +1048,20 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
 	// TODO: make tx aware
 	var project ForTree
-	err := m.c.Query(
+	err := m.c.QuerySingle(
 		ctx,
 		`
 select
 	Project {
 		version,
-		root_folder,
-		any_folders: {
+		root_folder: {
+			folders,
+			docs: { id, name },
+			files: { id, name },
+		},
+		folders: {
 			id,
-			[is Folder].name,
+			name,
 			folders,
 			docs: { id, name },
 			files: { id, name },
@@ -1043,15 +1088,96 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId e
 	return project, nil
 }
 
-func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID) (*LoadEditorViewPrivate, error) {
-	project := &LoadEditorViewPrivate{}
-	err := m.fetchWithMinimalAuthorizationDetails(
-		ctx, &IdField{Id: projectId}, userId, project,
-	)
-	if err != nil {
-		return nil, err
+func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
+	details := &LoadEditorDetails{}
+	if userId != (edgedb.UUID{}) {
+		accessToken = "-"
 	}
-	return project, nil
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$1),
+	p := (select Project filter .id = <uuid>$0),
+	pWithAuth := (
+		update Project
+		filter Project = p and (
+			u in .min_access_ro or (
+				.public_access_level = 'tokenBased'
+				and (.tokens.token_ro ?? '') = <str>$2
+			)
+		)
+		set {
+			last_opened := datetime_of_transaction(),
+		}
+	)
+select {
+	user := (select u {
+		editor_config: {
+			auto_complete,
+			auto_pair_delimiters,
+			font_family,
+			font_size,
+			line_height,
+			mode,
+			overall_theme,
+			pdf_viewer,
+			syntax_validation,
+			spell_check_language,
+			theme := 'textmate',
+		},
+		email: { email },
+		epoch,
+		first_name,
+		id,
+		last_name,
+	}),
+	project_exists := (exists p),
+	project := (select pWithAuth {
+		access_ro := ({u} if u in .access_ro else <User>{}),
+		access_rw := ({u} if u in .access_rw else <User>{}),
+		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
+		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+		active,
+		folders: {
+			id,
+			name,
+			parent,
+		},
+		compiler,
+		epoch,
+		id,
+		image_name,
+		name,
+		owner: {
+			email: { email },
+			first_name,
+			id,
+			last_name,
+			features: {
+				compile_group,
+				compile_timeout,
+			},
+		},
+		public_access_level,
+		root_doc: {
+			id,
+			name,
+			parent,
+		},
+		root_folder,
+		version,
+	}),
+}
+`, details, projectId, userId, accessToken)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+	if !details.ProjectExists {
+		return nil, &errors.NotFoundError{}
+	}
+	if details.Project.Id != projectId {
+		return nil, &errors.NotAuthorizedError{}
+	}
+	return details, nil
 }
 
 func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q interface{}, userId edgedb.UUID, target interface{}) error {

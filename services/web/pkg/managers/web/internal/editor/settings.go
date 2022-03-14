@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -94,40 +93,15 @@ func (m *manager) SetSpellCheckLanguage(ctx context.Context, request *types.SetS
 	return nil
 }
 
-func (m *manager) SetRootDocId(ctx context.Context, request *types.SetRootDocIdRequest) error {
-	if request.RootDocId == (edgedb.UUID{}) {
+func (m *manager) SetRootDocId(ctx context.Context, r *types.SetRootDocIdRequest) error {
+	if r.RootDocId == (edgedb.UUID{}) {
 		return &errors.ValidationError{Msg: "missing rootDocId"}
 	}
-	t, v, err := m.pm.GetProjectRootFolder(ctx, request.ProjectId)
-	if err != nil {
-		return errors.Tag(err, "cannot get tree")
-	}
-
-	found := false
-	var path sharedTypes.PathName
-	err = t.WalkDocs(func(d project.TreeElement, p sharedTypes.PathName) error {
-		if d.GetId() == request.RootDocId {
-			found = true
-			path = p
-			return project.AbortWalk
-		}
-		return nil
-	})
-	if !found {
-		return &errors.ErrorDocNotFound{}
-	}
-
-	if !path.Type().ValidForRootDoc() {
-		return &errors.ValidationError{Msg: "invalid rootDoc extension"}
-	}
-
-	err = m.pm.SetRootDocId(ctx, request.ProjectId, v, request.RootDocId)
+	err := m.pm.SetRootDocId(ctx, r.ProjectId, r.UserId, r.RootDocId)
 	if err != nil {
 		return errors.Tag(err, "cannot update rootDoc")
 	}
-	go m.notifyEditor(
-		request.ProjectId, "rootDocUpdated", request.RootDocId,
-	)
+	go m.notifyEditor(r.ProjectId, "rootDocUpdated", r.RootDocId)
 	return nil
 }
 

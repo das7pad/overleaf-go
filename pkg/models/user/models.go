@@ -57,6 +57,7 @@ type WithPublicInfoAndFeatures struct {
 }
 
 type WithLoadEditorInfo struct {
+	edgedb.Optional
 	AlphaProgramField         `edgedb:"inline"`
 	BetaProgramField          `edgedb:"inline"`
 	EditorConfigField         `edgedb:"inline"`
@@ -74,7 +75,7 @@ type WithLoginInfo struct {
 func (l *WithLoginInfo) selectByEmail(ctx context.Context, c *edgedb.Client, email sharedTypes.Email) error {
 	return c.QuerySingle(ctx, `
 select User {
-	
+
 }
 filter .email.email = <str>$0
 `,

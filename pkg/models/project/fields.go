@@ -99,12 +99,8 @@ type NameField struct {
 	Name Name `json:"name" edgedb:"name"`
 }
 
-type OwnerRefField struct {
-	OwnerRef edgedb.UUID `json:"owner_ref"`
-}
-
 type OwnerField struct {
-	Owner user.WithPublicInfo `edgedb:"owner" json:"owner"`
+	Owner user.WithPublicInfoAndFeatures `edgedb:"owner" json:"owner"`
 }
 
 //goland:noinspection SpellCheckingInspection
@@ -117,7 +113,12 @@ type ReadOnlyRefsField struct {
 }
 
 type RootDocIdField struct {
-	RootDocId edgedb.UUID `json:"rootDoc_id" edgedb:"rootDoc_id"`
+	// Virtual field
+	RootDocId edgedb.UUID `json:"rootDoc_id"`
+}
+
+type RootDocForJumpField struct {
+	RootDoc RootDocForJump `edgedb:"root_doc"`
 }
 
 type RootDocField struct {
@@ -153,7 +154,7 @@ type TrashedField struct {
 }
 
 type RootFolderField struct {
-	RootFolder *Folder `edgedb:"root_folder"`
+	RootFolder RootFolder `edgedb:"root_folder"`
 }
 
 type FoldersField struct {
@@ -166,6 +167,10 @@ type DocsField struct {
 
 type FilesField struct {
 	Files []*FileRef `edgedb:"files"`
+}
+
+type FoldersForJumpField struct {
+	Folders []*TreeElementForJump `edgedb:"folders"`
 }
 
 type AnyFoldersField struct {

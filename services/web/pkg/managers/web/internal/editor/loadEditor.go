@@ -18,11 +18,9 @@ package editor
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
@@ -111,17 +109,22 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		AnonymousAccessToken: anonymousAccessToken,
 	}
 	var p *project.LoadEditorViewPrivate
-	u := &user.WithLoadEditorInfo{}
+	var u *user.WithLoadEditorInfo
 	var ownerFeatures *user.Features
 	var authorizationDetails *project.AuthorizationDetails
-
-	// Fan out 1 -- fetch primary mongo details
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err error
-		p, err = m.pm.GetLoadEditorDetails(pCtx, projectId, userId)
+	{
+		d, err := m.pm.GetLoadEditorDetails(
+			ctx, projectId, userId, anonymousAccessToken,
+		)
 		if err != nil {
-			return errors.Tag(err, "cannot get project details")
+			return errors.Tag(err, "cannot get project/user details")
+		}
+		p = &d.Project
+		ownerFeatures = &p.Owner.Features
+		if isAnonymous {
+			u = defaultUser
+		} else {
+			u = &d.User
 		}
 
 		authorizationDetails, err = p.GetPrivilegeLevel(
@@ -130,87 +133,43 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		if err != nil {
 			return err
 		}
-		return nil
-	})
-
-	if isAnonymous {
-		u = defaultUser
-	} else {
-		eg.Go(func() error {
-			if err := m.um.GetUser(pCtx, userId, u); err != nil {
-				return errors.Tag(err, "cannot get user details")
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
 	}
 
-	// Fan out 2 -- compute only for owned, unarchived projects
-	eg, pCtx = errgroup.WithContext(ctx)
-
-	if p.Owner.Id == userId {
-		ownerFeatures = &u.Features
-	} else {
-		eg.Go(func() error {
-			o := &user.FeaturesField{}
-			if err := m.um.GetUser(pCtx, p.Owner.Id, o); err != nil {
-				return errors.Tag(err, "cannot get project owner features")
-			}
-			ownerFeatures = &o.Features
-			return nil
-		})
+	if p.RootDoc.Id != (edgedb.UUID{}) {
+		dir, err := p.GetFolderPath(p.RootDoc.Parent.Id)
+		if err != nil {
+			return err
+		}
+		response.RootDocPath = clsiTypes.RootResourcePath(
+			dir.Join(p.RootDoc.Name),
+		)
+		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
 	}
 
-	eg.Go(func() error {
+	if !p.Active {
+		// TODO: move to gateway page?
+		if err := m.dm.UnArchiveProject(ctx, projectId); err != nil {
+			return errors.Tag(err, "cannot un-archive project")
+		}
+		if err := m.pm.MarkAsActive(ctx, projectId); err != nil {
+			return errors.Tag(err, "cannot mark project as active")
+		}
+	}
+
+	{
 		b, err := m.genWSBootstrap(projectId, &u.WithPublicInfo)
 		if err != nil {
 			return errors.Tag(err, "cannot get wsBootstrap")
 		}
 		response.WSBootstrap = templates.WSBootstrap(b)
-		return nil
-	})
-
-	if !p.Active {
-		eg.Go(func() error {
-			if err := m.dm.UnArchiveProject(pCtx, projectId); err != nil {
-				return errors.Tag(err, "cannot un-archive project")
-			}
-			if err := m.pm.MarkAsActive(pCtx, projectId); err != nil {
-				return errors.Tag(err, "cannot mark project as active")
-			}
-			return nil
-		})
 	}
-
-	go func() {
-		bCtx, done := context.WithTimeout(context.Background(), time.Second*10)
-		defer done()
-		if err := m.pm.MarkAsOpened(bCtx, projectId); err != nil {
-			log.Println(
-				errors.Tag(
-					err, "cannot mark project as opened: "+projectId.String(),
-				).Error(),
-			)
-		}
-	}()
-
 	if !isAnonymous {
-		eg.Go(func() error {
-			s, err := m.genJWTLoggedInUser(userId)
-			if err != nil {
-				return errors.Tag(err, "cannot get LoggedInUserJWT")
-			}
-			response.JWTLoggedInUser = s
-			return nil
-		})
+		s, err := m.genJWTLoggedInUser(userId)
+		if err != nil {
+			return errors.Tag(err, "cannot get LoggedInUserJWT")
+		}
+		response.JWTLoggedInUser = s
 	}
-
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
 	{
 		c := m.jwtProject.New().(*projectJWT.Claims)
 		c.CompileGroup = ownerFeatures.CompileGroup
@@ -226,21 +185,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 			return errors.Tag(err, "cannot get compile jwt")
 		}
 		response.JWTProject = s
-	}
-
-	t, err := p.GetRootFolder()
-	if err != nil {
-		return err
-	}
-	err = t.WalkDocs(func(e project.TreeElement, path sharedTypes.PathName) error {
-		if e.GetId() == p.RootDocId {
-			response.RootDocPath = clsiTypes.RootResourcePath(path)
-			return project.AbortWalk
-		}
-		return nil
-	})
-	if err != nil {
-		return err
 	}
 
 	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()

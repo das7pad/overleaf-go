@@ -25,8 +25,8 @@ import (
 type Features struct {
 	Collaborators       int                      `json:"collaborators"`
 	Versioning          bool                     `json:"versioning"`
-	CompileTimeout      edgedb.Duration          `json:"compileTimeout" edgedb:"compileTimeout"`
-	CompileGroup        sharedTypes.CompileGroup `json:"compileGroup" edgedb:"compileGroup"`
+	CompileTimeout      edgedb.Duration          `json:"compileTimeout" edgedb:"compile_timeout"`
+	CompileGroup        sharedTypes.CompileGroup `json:"compileGroup" edgedb:"compile_group"`
 	TrackChanges        bool                     `json:"trackChanges"`
 	TrackChangesVisible bool                     `json:"trackChangesVisible"`
 }

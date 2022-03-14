@@ -44,8 +44,10 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 			LastUpdatedAt: time.Now().UTC(),
 		},
 		OwnerField: OwnerField{
-			Owner: user.WithPublicInfo{
-				IdField: user.IdField{Id: ownerId},
+			Owner: user.WithPublicInfoAndFeatures{
+				WithPublicInfo: user.WithPublicInfo{
+					IdField: user.IdField{Id: ownerId},
+				},
 			},
 		},
 		PublicAccessLevelField: PublicAccessLevelField{
@@ -55,7 +57,9 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 			SpellCheckLanguage: "inherit",
 		},
 		RootFolderField: RootFolderField{
-			RootFolder: NewFolder(""),
+			RootFolder: RootFolder{
+				Folder: *NewFolder(""),
+			},
 		},
 		VersionField: VersionField{
 			Version: 1,

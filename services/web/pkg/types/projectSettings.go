@@ -51,6 +51,7 @@ type SetSpellCheckLanguageRequest struct {
 
 type SetRootDocIdRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 	RootDocId edgedb.UUID `json:"rootDocId"`
 }
 

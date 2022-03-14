@@ -25,6 +25,7 @@ import (
 
 var (
 	//goland:noinspection SpellCheckingInspection
+	// NOTE: When updating ValidRootDocExtensions, update project.Manager too.
 	ValidRootDocExtensions = []FileType{
 		"tex",
 		"rtex",

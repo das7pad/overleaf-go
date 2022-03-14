@@ -37,7 +37,7 @@ type BetaProgramField struct {
 }
 
 type EditorConfigField struct {
-	EditorConfig EditorConfig `json:"ace" edgedb:"ace"`
+	EditorConfig EditorConfig `json:"ace" edgedb:"editor_config"`
 }
 
 type EmailField struct {
@@ -73,11 +73,11 @@ type HashedPasswordField struct {
 }
 
 type LastLoggedInField struct {
-	LastLoggedIn *time.Time `edgedb:"lastLoggedIn"`
+	LastLoggedIn *time.Time `edgedb:"last_logged_in"`
 }
 
 type LastLoginIpField struct {
-	LastLoginIp string `edgedb:"lastLoginIp"`
+	LastLoginIp string `edgedb:"last_login_ip"`
 }
 
 type LastNameField struct {
@@ -85,7 +85,7 @@ type LastNameField struct {
 }
 
 type LoginCountField struct {
-	LoginCount int64 `edgedb:"loginCount"`
+	LoginCount int64 `edgedb:"login_count"`
 }
 
 type MustReconfirmField struct {
@@ -93,5 +93,5 @@ type MustReconfirmField struct {
 }
 
 type SignUpDateField struct {
-	SignUpDate time.Time `edgedb:"signUpDate"`
+	SignUpDate time.Time `edgedb:"signup_date"`
 }

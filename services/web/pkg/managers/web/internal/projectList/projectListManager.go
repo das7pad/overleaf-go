@@ -129,7 +129,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			Trashed:           p.Trashed,
 			OwnerRef:          p.Owner.Id,
 			// TODO: check for overwrite
-			Owner: &p.Owner,
+			Owner: &p.Owner.WithPublicInfo,
 		}
 		if authorizationDetails.IsRestrictedUser() {
 			if projects[i].LastUpdatedBy.Id != userId {

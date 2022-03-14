@@ -20,49 +20,41 @@ import (
 	"context"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) CompileHeadLess(ctx context.Context, request *types.CompileProjectHeadlessRequest, response *types.CompileProjectResponse) error {
-	p, err := m.pm.GetLoadEditorDetails(ctx, request.ProjectId, request.UserId)
+func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHeadlessRequest, response *types.CompileProjectResponse) error {
+	d, err := m.pm.GetLoadEditorDetails(ctx, r.ProjectId, r.UserId, "")
 	if err != nil {
 		return err
 	}
-	if _, err = p.GetPrivilegeLevelAuthenticated(request.UserId); err != nil {
+	p := &d.Project
+	if _, err = p.GetPrivilegeLevelAuthenticated(r.UserId); err != nil {
 		return err
-	}
-	t, err := p.GetRootFolder()
-	if err != nil {
-		return err
-	}
-
-	owner := &user.FeaturesField{}
-	if err = m.um.GetUser(ctx, p.Owner.Id, owner); err != nil {
-		return errors.Tag(err, "cannot get owner features")
 	}
 
 	var rootDocPath sharedTypes.PathName
-	_ = t.WalkDocs(func(e project.TreeElement, path sharedTypes.PathName) error {
-		if e.GetId() == p.RootDocId {
-			rootDocPath = path
-			return project.AbortWalk
+	if p.RootDoc.Id != (edgedb.UUID{}) {
+		dir, err2 := p.GetFolderPath(p.RootDoc.Parent.Id)
+		if err2 != nil {
+			return err2
 		}
-		return nil
-	})
+		rootDocPath = dir.Join(p.RootDoc.Name)
+		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
+	}
 
 	return m.Compile(ctx, &types.CompileProjectRequest{
 		SignedCompileProjectRequestOptions: types.SignedCompileProjectRequestOptions{
-			CompileGroup: owner.Features.CompileGroup,
-			ProjectId:    request.ProjectId,
-			UserId:       request.UserId,
+			CompileGroup: p.Owner.Features.CompileGroup,
+			ProjectId:    r.ProjectId,
+			UserId:       r.UserId,
 			Timeout: sharedTypes.ComputeTimeout(
 				time.Duration(
-					owner.Features.CompileTimeout) * time.Microsecond),
+					p.Owner.Features.CompileTimeout) * time.Microsecond),
 		},
 		AutoCompile:                false,
 		CheckMode:                  clsiTypes.SilentCheck,
@@ -70,7 +62,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, request *types.CompilePro
 		Draft:                      false,
 		ImageName:                  p.ImageName,
 		IncrementalCompilesEnabled: true,
-		RootDocId:                  p.RootDocId,
+		RootDocId:                  p.RootDoc.Id,
 		RootDocPath:                clsiTypes.RootResourcePath(rootDocPath),
 		SyncState:                  clsiTypes.SyncState(p.Version.String()),
 	}, response)

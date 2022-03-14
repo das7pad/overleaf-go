@@ -16,6 +16,12 @@
 
 package project
 
+import (
+	"github.com/edgedb/edgedb-go"
+
+	"github.com/das7pad/overleaf-go/pkg/models/user"
+)
+
 type JoinProjectViewPrivate struct {
 	JoinProjectViewPublic   `edgedb:"inline"`
 	ForAuthorizationDetails `edgedb:"inline"`
@@ -44,10 +50,18 @@ type ListViewPrivate struct {
 }
 
 type LoadEditorViewPrivate struct {
+	edgedb.Optional
 	LoadEditorViewPublic    `edgedb:"inline"`
 	ActiveField             `edgedb:"inline"`
 	ForAuthorizationDetails `edgedb:"inline"`
-	TreeField               `edgedb:"inline"`
+	ForFolderPath           `edgedb:"inline"`
+	RootDocForJumpField     `edgedb:"inline"`
+}
+
+type LoadEditorDetails struct {
+	ProjectExists bool                    `edgedb:"project_exists"`
+	Project       LoadEditorViewPrivate   `edgedb:"project"`
+	User          user.WithLoadEditorInfo `edgedb:"user"`
 }
 
 type LoadEditorViewPublic struct {
@@ -123,7 +137,12 @@ type WithTree struct {
 type ForTree struct {
 	VersionField    `edgedb:"inline"`
 	RootFolderField `edgedb:"inline"`
-	AnyFoldersField `edgedb:"inline"`
+	FoldersField    `edgedb:"inline"`
+}
+
+type ForFolderPath struct {
+	RootFolderField     `edgedb:"inline"`
+	FoldersForJumpField `edgedb:"inline"`
 }
 
 type WithTreeAndRootDoc struct {

@@ -15,6 +15,20 @@ module default {
     required property compile_timeout -> duration;
   }
 
+  type EditorConfig {
+    required property auto_complete -> bool;
+    required property auto_pair_delimiters -> bool;
+    required property font_family -> str;
+    required property font_size -> int64;
+    required property line_height -> str;
+    required property mode -> str;
+    required property overall_theme -> str;
+    required property pdf_viewer -> str;
+    required property syntax_validation -> bool;
+    required property spell_check_language -> str;
+    required property theme -> str;
+  }
+
   type User {
     multi link audit_log -> UserAuditLogEntry {
       on target delete allow;
@@ -24,9 +38,7 @@ module default {
       property connections -> int64;
       property last_touched -> datetime;
     }
-    required property editor_config -> json {
-      default := to_json('{"autoComplete":true,"autoPairDelimiters":true,"fontFamily":"lucida","fontSize":12,"lineHeight":"normal","mode":"default","overallTheme":"","pdfViewer":"pdfjs","syntaxValidation":false,"spellCheckLanguage":"en","theme":"textmate"}');
-    }
+    required link editor_config -> EditorConfig;
     required link email -> Email {
       constraint exclusive;
     }
@@ -173,7 +185,9 @@ module default {
       {.owner} union .access_rw union .access_token_rw
     );
 
-    link root_folder := .<project[is RootFolder];
+    link root_folder := (
+      select .<project[is RootFolder] limit 1
+    );
     multi link any_folders := .<project[is FolderLike];
     multi link folders := .<project[is Folder];
     multi link docs := .<project[is Doc];
