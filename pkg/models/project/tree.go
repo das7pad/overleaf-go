@@ -105,8 +105,8 @@ func (d *Doc) FieldNameInFolder() MongoPath {
 	return "docs"
 }
 
-func NewDoc(name sharedTypes.Filename) *Doc {
-	return &Doc{CommonTreeFields: CommonTreeFields{
+func NewDoc(name sharedTypes.Filename) Doc {
+	return Doc{CommonTreeFields: CommonTreeFields{
 		Name: name,
 	}}
 }
@@ -168,8 +168,8 @@ func (f *FileRef) FieldNameInFolder() MongoPath {
 	return "fileRefs"
 }
 
-func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) *FileRef {
-	return &FileRef{
+func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) FileRef {
+	return FileRef{
 		CommonTreeFields: CommonTreeFields{
 			Name: name,
 		},
@@ -182,9 +182,9 @@ func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) *F
 type Folder struct {
 	CommonTreeFields `edgedb:"inline"`
 
-	Docs     []*Doc     `json:"docs" edgedb:"docs"`
-	FileRefs []*FileRef `json:"fileRefs" edgedb:"files"`
-	Folders  []*Folder  `json:"folders" edgedb:"folders"`
+	Docs     []Doc     `json:"docs" edgedb:"docs"`
+	FileRefs []FileRef `json:"fileRefs" edgedb:"files"`
+	Folders  []Folder  `json:"folders" edgedb:"folders"`
 }
 
 func (t *Folder) FieldNameInFolder() MongoPath {
@@ -205,7 +205,7 @@ func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
 	if entry == nil {
 		folder := NewFolder(name)
 		parent.Folders = append(parent.Folders, folder)
-		return folder, nil
+		return &folder, nil
 	}
 	if folder, ok := entry.(*Folder); ok {
 		return folder, nil
@@ -244,14 +244,14 @@ func (t *Folder) CheckHasUniqueEntries() error {
 	return nil
 }
 
-func NewFolder(name sharedTypes.Filename) *Folder {
-	return &Folder{
+func NewFolder(name sharedTypes.Filename) Folder {
+	return Folder{
 		CommonTreeFields: CommonTreeFields{
 			Name: name,
 		},
-		Docs:     make([]*Doc, 0),
-		FileRefs: make([]*FileRef, 0),
-		Folders:  make([]*Folder, 0),
+		Docs:     make([]Doc, 0),
+		FileRefs: make([]FileRef, 0),
+		Folders:  make([]Folder, 0),
 	}
 }
 
@@ -290,19 +290,19 @@ func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) 
 	for i, doc := range t.Docs {
 		if doc.Name == needle {
 			p := MongoPath(".docs." + strconv.FormatInt(int64(i), 10))
-			return doc, p
+			return &doc, p
 		}
 	}
 	for i, file := range t.FileRefs {
 		if file.Name == needle {
 			p := MongoPath(".fileRefs." + strconv.FormatInt(int64(i), 10))
-			return file, p
+			return &file, p
 		}
 	}
 	for i, folder := range t.Folders {
 		if folder.Name == needle {
 			p := MongoPath(".folders." + strconv.FormatInt(int64(i), 10))
-			return folder, p
+			return &folder, p
 		}
 	}
 	return nil, ""
@@ -311,7 +311,7 @@ func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) 
 func (t *Folder) GetDoc(needle sharedTypes.Filename) *Doc {
 	for _, doc := range t.Docs {
 		if doc.Name == needle {
-			return doc
+			return &doc
 		}
 	}
 	return nil
@@ -320,7 +320,7 @@ func (t *Folder) GetDoc(needle sharedTypes.Filename) *Doc {
 func (t *Folder) GetFile(needle sharedTypes.Filename) *FileRef {
 	for _, file := range t.FileRefs {
 		if file.Name == needle {
-			return file
+			return &file
 		}
 	}
 	return nil
@@ -409,14 +409,14 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 	if m == walkModeDoc || m == walkModeAny {
 		for _, doc := range t.Docs {
 			// TODO: fix pointer handling in edgedb codec decode
-			if err := fn(doc, parent.Join(doc.Name)); err != nil {
+			if err := fn(&doc, parent.Join(doc.Name)); err != nil {
 				return err
 			}
 		}
 	}
 	if m == walkModeFiles || m == walkModeAny {
 		for _, fileRef := range t.FileRefs {
-			if err := fn(fileRef, parent.Join(fileRef.Name)); err != nil {
+			if err := fn(&fileRef, parent.Join(fileRef.Name)); err != nil {
 				return err
 			}
 		}
@@ -435,7 +435,7 @@ func (t *Folder) walkMongo(fn TreeWalkerMongo, parentPath sharedTypes.DirName, m
 		mp := mongoParent + ".docs."
 		for i, doc := range t.Docs {
 			s := MongoPath(strconv.FormatInt(int64(i), 10))
-			if err := fn(t, doc, parentPath.Join(doc.Name), mp+s); err != nil {
+			if err := fn(t, &doc, parentPath.Join(doc.Name), mp+s); err != nil {
 				return err
 			}
 		}
@@ -444,7 +444,7 @@ func (t *Folder) walkMongo(fn TreeWalkerMongo, parentPath sharedTypes.DirName, m
 		mp := mongoParent + ".fileRefs."
 		for i, fileRef := range t.FileRefs {
 			s := MongoPath(strconv.FormatInt(int64(i), 10))
-			if err := fn(t, fileRef, parentPath.Join(fileRef.Name), mp+s); err != nil {
+			if err := fn(t, &fileRef, parentPath.Join(fileRef.Name), mp+s); err != nil {
 				return err
 			}
 		}
@@ -475,17 +475,17 @@ func (p *TreeField) GetRootFolder() (*Folder, error) {
 func (p *ForTree) GetRootFolder() *Folder {
 	lookup := make(map[edgedb.UUID]*Folder, len(p.Folders))
 	for _, folder := range p.Folders {
-		lookup[folder.Id] = folder
+		lookup[folder.Id] = &folder
 	}
 
 	for _, folder := range p.Folders {
 		for i, f := range folder.Folders {
-			folder.Folders[i] = lookup[f.Id]
+			folder.Folders[i] = *lookup[f.Id]
 		}
 	}
 
 	for i, f := range p.RootFolder.Folders {
-		p.RootFolder.Folders[i] = lookup[f.Id]
+		p.RootFolder.Folders[i] = *lookup[f.Id]
 	}
 	return &p.RootFolder.Folder
 }

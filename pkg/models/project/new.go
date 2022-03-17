@@ -58,7 +58,7 @@ func NewProject(ownerId edgedb.UUID) *ForCreation {
 		},
 		RootFolderField: RootFolderField{
 			RootFolder: RootFolder{
-				Folder: *NewFolder(""),
+				Folder: NewFolder(""),
 			},
 		},
 		VersionField: VersionField{

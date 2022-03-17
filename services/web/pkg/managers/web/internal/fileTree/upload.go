@@ -135,7 +135,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			if err != nil {
 				return errors.Tag(err, "cannot create populated doc")
 			}
-			newElement = doc
+			newElement = &doc
 		} else if uploadedFileRef == nil {
 			// Upload once.
 			if hash == "" {
@@ -170,8 +170,8 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			if err != nil {
 				return errors.Tag(err, "cannot create new file")
 			}
-			newElement = fileRef
-			uploadedFileRef = fileRef
+			newElement = &fileRef
+			uploadedFileRef = &fileRef
 		}
 		err = m.pm.AddTreeElement(ctx, projectId, v, mongoPath, newElement)
 		if err != nil {

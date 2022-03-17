@@ -37,12 +37,12 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 
 	doc := project.NewDoc(name)
 	projectVersion, err := m.pm.CreateDoc(
-		ctx, request.ProjectId, request.UserId, request.ParentFolderId, doc,
+		ctx, request.ProjectId, request.UserId, request.ParentFolderId, &doc,
 	)
 	if err != nil {
 		return errors.Tag(err, "cannot create doc")
 	}
-	*response = *doc
+	*response = doc
 
 	// The new doc has been created.
 	// Failing the request and retrying now would result in duplicates.

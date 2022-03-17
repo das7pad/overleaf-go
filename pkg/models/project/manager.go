@@ -291,7 +291,8 @@ for name in array_unpack(<array<str>>$2) union (
 						queueChanges <- -1
 						return rewriteEdgedbError(err)
 					}
-					for j, f := range folder.Folders {
+					for j := range folder.Folders {
+						f := &folder.Folders[j]
 						f.Id = ids[j].Id
 						if len(f.Folders) > 0 {
 							queue <- f
@@ -335,15 +336,15 @@ for name in array_unpack(<array<str>>$2) union (
 					Docs:  make([]docForInsertion, len(f.Docs)),
 					Files: make([]fileForInsertion, len(f.FileRefs)),
 				}
-				for i, d := range f.Docs {
-					fi.Docs[i].Name = d.Name
-					fi.Docs[i].Size = d.Size
-					fi.Docs[i].Snapshot = d.Snapshot
+				for i := range f.Docs {
+					fi.Docs[i].Name = f.Docs[i].Name
+					fi.Docs[i].Size = f.Docs[i].Size
+					fi.Docs[i].Snapshot = f.Docs[i].Snapshot
 				}
-				for i, file := range f.FileRefs {
-					fi.Files[i].Name = file.Name
-					fi.Files[i].Size = file.Size
-					fi.Files[i].Hash = file.Hash
+				for i := range f.FileRefs {
+					fi.Files[i].Name = f.FileRefs[i].Name
+					fi.Files[i].Size = f.FileRefs[i].Size
+					fi.Files[i].Hash = f.FileRefs[i].Hash
 				}
 				folders = append(folders, &fi)
 			}
@@ -402,12 +403,12 @@ for folder in json_array_unpack(<json>$1) union (
 		// Back-fill ids
 		i := 0
 		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-			for _, doc := range f.Docs {
-				doc.Id = ids[i].Id
+			for j := range f.Docs {
+				f.Docs[j].Id = ids[i].Id
 				i++
 			}
-			for _, fileRef := range f.FileRefs {
-				fileRef.Id = ids[i].Id
+			for j := range f.FileRefs {
+				f.FileRefs[j].Id = ids[i].Id
 				i++
 			}
 			return nil
@@ -1047,7 +1048,7 @@ func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUI
 	project := &ForTree{
 		RootFolderField: RootFolderField{
 			RootFolder: RootFolder{
-				Folder: *NewFolder(""),
+				Folder: NewFolder(""),
 			},
 		},
 	}
@@ -1072,7 +1073,7 @@ select
 		},
 	}
 filter .id = <uuid>$0`,
-		&project,
+		project,
 		projectId,
 	)
 	if err != nil {
@@ -1087,7 +1088,7 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId e
 			ForTree: ForTree{
 				RootFolderField: RootFolderField{
 					RootFolder: RootFolder{
-						Folder: *NewFolder(""),
+						Folder: NewFolder(""),
 					},
 				},
 			},

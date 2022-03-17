@@ -91,7 +91,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 				lastVersion = sp.Version
 				parentCache = make(map[sharedTypes.DirName]*project.Folder)
 				p.RootFolder = project.RootFolder{
-					Folder: *project.NewFolder(""),
+					Folder: project.NewFolder(""),
 				}
 				t = &p.RootFolder
 				p.RootDoc = project.RootDoc{}
@@ -117,13 +117,13 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 
 				// Pre-Allocate memory
 				if n := len(src.Docs); cap(dst.Docs) < n {
-					dst.Docs = make([]*project.Doc, 0, n)
+					dst.Docs = make([]project.Doc, 0, n)
 				}
 				if n := len(src.FileRefs); cap(dst.FileRefs) < n {
-					dst.FileRefs = make([]*project.FileRef, 0, n)
+					dst.FileRefs = make([]project.FileRef, 0, n)
 				}
 				if n := len(src.Folders); cap(dst.Folders) < n {
-					dst.Folders = make([]*project.Folder, 0, n)
+					dst.Folders = make([]project.Folder, 0, n)
 				}
 				return nil
 			})
@@ -183,7 +183,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 						contents.Lines.ToSnapshot(),
 					)
 					if isRootDocCandidate {
-						p.RootDoc = project.RootDoc{Doc: *d}
+						p.RootDoc = project.RootDoc{Doc: d}
 					}
 				}
 				newDocs[i].Id = d.Id
@@ -218,7 +218,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 				copyFileQueue <- &copyFileQueueEntry{
 					parent: parent,
 					source: sourceFileRef,
-					target: fileRef,
+					target: &fileRef,
 				}
 				return nil
 			})
@@ -245,7 +245,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 		}
 		eg.Go(func() error {
 			for qe := range doneCopyingFileQueue {
-				qe.parent.FileRefs = append(qe.parent.FileRefs, qe.target)
+				qe.parent.FileRefs = append(qe.parent.FileRefs, *qe.target)
 			}
 			return nil
 		})

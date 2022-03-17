@@ -71,7 +71,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 			return err
 		}
 
-		err = m.pm.AddTreeElement(ctx, projectId, v, mongoPath, folder)
+		err = m.pm.AddTreeElement(ctx, projectId, v, mongoPath, &folder)
 		if err != nil {
 			if err == project.ErrVersionChanged {
 				lastErr = err
@@ -86,7 +86,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 		return lastErr
 	}
 
-	*response = *folder
+	*response = folder
 
 	// The new folder has been created.
 	// Failing the request and retrying now would result in duplicates.

@@ -164,7 +164,7 @@ type RootFolderField struct {
 }
 
 type FoldersField struct {
-	Folders []*Folder `json:"-" edgedb:"folders"`
+	Folders []Folder `json:"-" edgedb:"folders"`
 }
 
 type DocsField struct {

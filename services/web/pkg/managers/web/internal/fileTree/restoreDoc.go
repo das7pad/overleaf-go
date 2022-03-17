@@ -94,7 +94,7 @@ func (m *manager) RestoreDeletedDocInProject(ctx context.Context, request *types
 		if err != nil {
 			return errors.Tag(err, "cannot create doc")
 		}
-		err = m.pm.AddTreeElement(ctx, projectId, v, path, doc)
+		err = m.pm.AddTreeElement(ctx, projectId, v, path, &doc)
 		if err != nil {
 			return errors.Tag(err, "cannot add doc")
 		}

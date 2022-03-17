@@ -45,13 +45,13 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 	if errUnknownTemplate != nil {
 		return errUnknownTemplate
 	}
-
-	var p *project.ForCreation
 	viewData := &exampleProjects.ViewData{
 		ProjectCreationDate: time.Now().UTC(),
 		ProjectName:         request.Name,
 		Owner:               request.Session.User.ToPublicUserInfo(),
 	}
+
+	var p *project.ForCreation
 	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
 		p = project.NewProject(userId)
@@ -80,7 +80,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		for _, content := range docs {
 			d := project.NewDoc(content.Path.Filename())
 			if content.Path == "main.tex" {
-				p.RootDoc = project.RootDoc{Doc: *d}
+				p.RootDoc = project.RootDoc{Doc: d}
 			}
 			d.Snapshot = content.Snapshot
 			parent, err := t.CreateParents(content.Path.Dir())
@@ -98,7 +98,8 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 				file.Path.Filename(), file.Hash, file.Size,
 			)
 			parent.FileRefs = append(parent.FileRefs, fileRef)
-			fileLookup[file.Path] = fileRef
+			// TODO: this actually the wrong pointer! &parent.FileRefs[i]?
+			fileLookup[file.Path] = &fileRef
 		}
 
 		if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
