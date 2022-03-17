@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.17 go list -f '{{ join .Deps "\n" }}' \
+	$(BUILD_IN) golang:1.18 go list -f '{{ join .Deps "\n" }}' \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
 		go.mod \
@@ -60,8 +60,8 @@ check-not-changed:
 
 .PHONY: $(SERVICE)
 $(SERVICE):
-	$(BUILD_IN) golang:1.17 sh -c \
-		'go build && touch -m -d 2021-01-01T00:00Z $@'
+	$(BUILD_IN) golang:1.18 sh -c \
+		'go build -buildvcs=false && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true
