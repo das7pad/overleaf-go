@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -213,22 +212,24 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot flush docs to mongo")
 	}
-	docContents, err := m.dm.GetAllDocContents(ctx, request.ProjectId)
-	if err != nil {
-		return nil, "", errors.Tag(err, "cannot get docs from mongo")
-	}
-
-	folder, _, err := m.pm.GetProjectRootFolder(ctx, request.ProjectId)
+	folder, err := m.pm.GetProjectWithContent(ctx, request.ProjectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get folder from mongo")
 	}
-	files := make(clsiTypes.Resources, 0)
-	docs := make(map[edgedb.UUID]sharedTypes.PathName, 0)
+	rootDocPath := request.RootDocPath
+	resources := make(clsiTypes.Resources, 0, 10)
 
 	err = folder.Walk(func(e project.TreeElement, p sharedTypes.PathName) error {
 		switch entry := e.(type) {
 		case *project.Doc:
-			docs[entry.Id] = p
+			if entry.Id == request.RootDocId {
+				rootDocPath = clsiTypes.RootResourcePath(p)
+			}
+			s := entry.Snapshot
+			resources = append(resources, &clsiTypes.Resource{
+				Path:    p,
+				Content: &s,
+			})
 		case *project.FileRef:
 			t := clsiTypes.ModifiedAt(entry.Created.Unix())
 			url, err2 := m.fm.GetRedirectURLForGETOnProjectFile(
@@ -237,7 +238,7 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 			if err2 != nil {
 				return errors.Tag(err, "cannot sign file download")
 			}
-			files = append(files, &clsiTypes.Resource{
+			resources = append(resources, &clsiTypes.Resource{
 				Path:       p,
 				ModifiedAt: &t,
 				URL:        &sharedTypes.URL{URL: *url},
@@ -246,32 +247,8 @@ func (m *manager) fromMongo(ctx context.Context, request *types.CompileProjectRe
 		return nil
 	})
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot walk folder")
+		return nil, "", errors.Tag(err, "cannot collect resources")
 	}
-
-	rootDocPath := request.RootDocPath
-	resources := make(clsiTypes.Resources, len(docContents)+len(files))
-	copy(resources[len(docContents):], files)
-
-	for i, doc := range docContents {
-		p, exists := docs[doc.Id]
-		if !exists {
-			return nil, "", errors.Tag(
-				&errors.NotFoundError{}, "cannot find doc "+doc.Id.String(),
-			)
-		}
-
-		if doc.Id == request.RootDocId {
-			rootDocPath = clsiTypes.RootResourcePath(p)
-		}
-
-		s := doc.Lines.ToSnapshot()
-		resources[i] = &clsiTypes.Resource{
-			Path:    p,
-			Content: &s,
-		}
-	}
-
 	if rootDocPath == "" {
 		return nil, "", &errors.ValidationError{Msg: "rootDoc not found"}
 	}

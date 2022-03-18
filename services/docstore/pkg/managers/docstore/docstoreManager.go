@@ -222,21 +222,6 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId edgedb.UUID, docId ed
 	if err := update.Snapshot.Validate(); err != nil {
 		return false, err
 	}
-
-	if d, err := m.GetFullDoc(ctx, projectId, docId); err != nil {
-		// error path, doc might not exist (in this project).
-		return false, err
-	} else {
-		// TODO: skip double conversion
-		if d.Lines.Equals(update.Snapshot.ToLines()) &&
-			d.Ranges.Equals(update.Ranges) &&
-			d.Version.Equals(update.Version) {
-			// fast path: Not modified.
-			return false, nil
-		}
-		// slow path: update the doc
-	}
-
 	if err := m.dm.UpdateDoc(ctx, projectId, docId, update); err != nil {
 		return false, err
 	}

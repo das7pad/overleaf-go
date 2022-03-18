@@ -166,7 +166,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 							}
 						}
 					}
-					d.Snapshot = s
+					d.Snapshot = string(s)
 					d.Size = int64(len(s))
 					parent.Docs = append(parent.Docs, d)
 				} else {

@@ -107,22 +107,22 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId edgedb
 }
 
 func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId edgedb.UUID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {
-	flushed, err := m.dm.GetAllDocContents(ctx, projectId)
+	t, err := m.pm.GetProjectWithContent(ctx, projectId)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get docs from mongo")
 	}
-
-	docs := make(map[edgedb.UUID]sharedTypes.Snapshot, len(flushed))
-	for _, d := range flushed {
-		docs[d.Id] = d.Lines.ToSnapshot()
-	}
+	meta := make(types.LightProjectMetadata, len(recentlyEdited))
 	for _, d := range recentlyEdited {
-		docs[d.Id] = d.Snapshot
+		meta[d.Id.String()] = m.parseDoc(d.Snapshot)
 	}
-
-	meta := make(types.LightProjectMetadata, len(docs))
-	for id, snapshot := range docs {
-		meta[id.String()] = m.parseDoc(snapshot)
-	}
-	return meta, nil
+	err = t.WalkDocs(func(e project.TreeElement, path sharedTypes.PathName) error {
+		d := e.(*project.Doc)
+		id := d.Id.String()
+		// Skip parsing of the flushed state if the doc has been edited.
+		if _, exists := meta[id]; !exists {
+			meta[id] = m.parseDoc(d.Snapshot)
+		}
+		return nil
+	})
+	return meta, err
 }

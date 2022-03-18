@@ -251,7 +251,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	}
 
 	body := &types.JoinDocResponse{
-		Snapshot: r.Snapshot,
+		Snapshot: sharedTypes.Snapshot(r.Snapshot),
 		Version:  r.Version,
 		Updates:  r.Ops,
 		Ranges:   r.Ranges,

@@ -95,18 +95,15 @@ func (m *shard) run(ctx context.Context) {
 }
 
 func parseKey(key string) (projectId, docId edgedb.UUID, err error) {
-	// TODO: bump
-	if len(key) != 24+24+1 {
+	if len(key) != 36+36+1 {
 		err = &errors.ValidationError{Msg: "unexpected length"}
 		return
 	}
-	// TODO: bump
-	projectId, err = edgedb.ParseUUID(key[:24])
+	projectId, err = edgedb.ParseUUID(key[:36])
 	if err != nil {
 		return
 	}
-	// TODO: bump
-	docId, err = edgedb.ParseUUID(key[25:])
+	docId, err = edgedb.ParseUUID(key[36+1:])
 	return
 }
 

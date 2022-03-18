@@ -95,7 +95,11 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId edgedb.U
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		log.Printf(
+			"failed to fetch metadata for %s: %s",
+			projectId, err.Error(),
+		)
+		// fallback to flushed state.
 	}
 	projectVersionLive := recentlyEdited.LastUpdatedAt()
 	projectVersion := projectVersionFlushed

@@ -209,12 +209,12 @@ func (m *manager) HealthCheck(ctx context.Context) error {
 }
 
 func (m *manager) refreshHealthCheck(ctx context.Context) error {
-	content := sharedTypes.Snapshot(`
+	content := `
 \documentclass{article}
 \begin{document}
 Hello world
 \end{document}
-`)
+`
 	req := &types.CompileRequest{
 		Options: types.CompileOptions{
 			Check:        types.NoCheck,

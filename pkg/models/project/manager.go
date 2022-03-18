@@ -57,6 +57,7 @@ type Manager interface {
 	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
+	GetProjectWithContent(ctx context.Context, projectId edgedb.UUID) (*Folder, error)
 	GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
@@ -184,7 +185,7 @@ func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<
 type docForInsertion struct {
 	Name     sharedTypes.Filename `json:"name"`
 	Size     int64                `json:"size"`
-	Snapshot sharedTypes.Snapshot `json:"snapshot"`
+	Snapshot string               `json:"snapshot"`
 }
 
 type fileForInsertion struct {
@@ -285,7 +286,7 @@ with
 for name in array_unpack(<array<str>>$2) union (
 	insert Folder { project := project, parent := parent, name := <str>name }
 )`,
-						ids,
+						&ids,
 						p.Id, folder.Id, names,
 					)
 					if err != nil {
@@ -487,7 +488,7 @@ select (
 	set {
 		compiler := <str>$2
 	}
-)`, ids, projectId, userId, string(compiler))
+)`, &ids, projectId, userId, string(compiler))
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -506,7 +507,7 @@ select (
 	set {
 		image_name := <str>$2
 	}
-)`, ids, projectId, userId, string(imageName))
+)`, &ids, projectId, userId, string(imageName))
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -525,7 +526,7 @@ select (
 	set {
 		spell_check_language := <str>$2
 	}
-)`, ids, projectId, userId, string(spellCheckLanguage))
+)`, &ids, projectId, userId, string(spellCheckLanguage))
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -557,8 +558,8 @@ with
 		}
 	)
 select {p.id,d.id,newRootDoc.id,pUpdated.id}`,
-		ids,
-		projectId, userId, rootDocId,
+		&ids,
+		projectId, rootDocId, userId,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)
@@ -593,7 +594,7 @@ select (
 	set {
 		public_access_level := <str>$2
 	}
-)`, ids, projectId, userId, string(publicAccessLevel))
+)`, &ids, projectId, userId, string(publicAccessLevel))
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -616,7 +617,7 @@ select (
 	set {
 		track_changes_state := <json>$2
 	}
-)`, ids, projectId, userId, blob)
+)`, &ids, projectId, userId, blob)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -845,7 +846,7 @@ select (
 		archived_by := distinct (Project.archived_by union {u}),
 		trashed_by -= u
 	}
-)`, ids, projectId, userId)
+)`, &ids, projectId, userId)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -864,7 +865,7 @@ select (
 	set {
 		archived_by -= u
 	}
-)`, ids, projectId, userId)
+)`, &ids, projectId, userId)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -884,7 +885,7 @@ select (
 		trashed_by := distinct (Project.trashed_by union {u}),
 		archived_by -= u
 	}
-)`, ids, projectId, userId)
+)`, &ids, projectId, userId)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -903,7 +904,7 @@ select (
 	set {
 		trashed_by -= u
 	}
-)`, ids, projectId, userId)
+)`, &ids, projectId, userId)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
@@ -1065,7 +1066,8 @@ select Project { epoch } filter .id = <uuid>$0
 }
 
 func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error) {
-	f, _, err := m.GetProjectRootFolder(ctx, projectId)
+	// TODO: just get docId and tree
+	f, err := m.GetProjectWithContent(ctx, projectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get tree")
 	}
@@ -1083,7 +1085,7 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 		return nil, "", errors.Tag(err, "cannot walk project tree")
 	}
 	if doc == nil {
-		return nil, "", &errors.NotFoundError{}
+		return nil, "", &errors.ErrorDocNotFound{}
 	}
 	return doc, p, nil
 }
@@ -1125,6 +1127,37 @@ filter .id = <uuid>$0`,
 		return nil, 0, rewriteEdgedbError(err)
 	}
 	return project.GetRootFolder(), project.Version, nil
+}
+
+func (m *manager) GetProjectWithContent(ctx context.Context, projectId edgedb.UUID) (*Folder, error) {
+	project := &ForTree{}
+	err := m.c.QuerySingle(
+		ctx,
+		`
+select
+	Project {
+		root_folder: {
+			id,
+			folders,
+			docs: { id, name, snapshot },
+			files: { id, name, created_at },
+		},
+		folders: {
+			id,
+			name,
+			folders,
+			docs: { id, name, snapshot },
+			files: { id, name, created_at },
+		},
+	}
+filter .id = <uuid>$0`,
+		project,
+		projectId,
+	)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+	return project.GetRootFolder(), nil
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {

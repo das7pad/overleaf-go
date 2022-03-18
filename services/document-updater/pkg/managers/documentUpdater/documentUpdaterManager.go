@@ -134,7 +134,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, from
 		}
 		response.Ops = make([]sharedTypes.DocumentUpdate, 0)
 		response.PathName = doc.PathName
-		response.Snapshot = doc.Snapshot
+		response.Snapshot = string(doc.Snapshot)
 		response.Ranges = doc.Ranges
 		response.Version = doc.Version
 	} else {

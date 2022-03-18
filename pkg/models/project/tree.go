@@ -97,8 +97,8 @@ type RootDoc struct {
 
 type Doc struct {
 	CommonTreeFields `edgedb:"inline"`
-	Size             int64                `json:"size"`
-	Snapshot         sharedTypes.Snapshot `json:"snapshot"`
+	Size             int64  `json:"size" edgedb:"size"`
+	Snapshot         string `json:"snapshot" edgedb:"snapshot"`
 }
 
 func (d *Doc) FieldNameInFolder() MongoPath {
@@ -154,7 +154,7 @@ type FileRef struct {
 
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linkedFileData"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
-	Created        time.Time        `json:"created" edgedb:"created"`
+	Created        time.Time        `json:"created" edgedb:"created_at"`
 	Size           int64            `json:"size" edgedb:"size"`
 
 	// TODO: pointer

@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -30,7 +29,7 @@ var (
 	requirePackageRegex = regexp.MustCompile("\\\\RequirePackage(?:\\[[^]]{0,80}?])?{([^}]{1,80})}")
 )
 
-func (m *manager) parseDoc(snapshot sharedTypes.Snapshot) *types.LightDocProjectMetadata {
+func (m *manager) parseDoc(snapshot string) *types.LightDocProjectMetadata {
 	s := string(snapshot)
 	rawLabels := labelRegex.FindAllStringSubmatch(s, -1)
 	rawUsePackages := usePackageRegex.FindAllStringSubmatch(s, -1)

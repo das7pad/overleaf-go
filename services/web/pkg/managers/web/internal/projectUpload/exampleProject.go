@@ -82,7 +82,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 			if content.Path == "main.tex" {
 				p.RootDoc = project.RootDoc{Doc: d}
 			}
-			d.Snapshot = content.Snapshot
+			d.Snapshot = string(content.Snapshot)
 			parent, err := t.CreateParents(content.Path.Dir())
 			if err != nil {
 				return err

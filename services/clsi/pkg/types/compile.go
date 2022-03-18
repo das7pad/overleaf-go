@@ -134,10 +134,10 @@ func (m *ModifiedAt) String() string {
 // The Resource is either the inline doc Content,
 //  or a file with download URL and ModifiedAt timestamp.
 type Resource struct {
-	Path       sharedTypes.PathName  `json:"path"`
-	Content    *sharedTypes.Snapshot `json:"content,omitempty"`
-	ModifiedAt *ModifiedAt           `json:"modified,omitempty"`
-	URL        *sharedTypes.URL      `json:"url,omitempty"`
+	Path       sharedTypes.PathName `json:"path"`
+	Content    *string              `json:"content,omitempty"`
+	ModifiedAt *ModifiedAt          `json:"modified,omitempty"`
+	URL        *sharedTypes.URL     `json:"url,omitempty"`
 }
 
 func (r *Resource) IsDoc() bool {

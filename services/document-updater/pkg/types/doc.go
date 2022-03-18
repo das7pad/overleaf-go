@@ -41,7 +41,7 @@ type LastUpdatedCtx struct {
 }
 
 type FlushedDoc struct {
-	Lines    sharedTypes.Lines    `json:"lines"`
+	Snapshot string
 	PathName sharedTypes.PathName `json:"pathname"`
 	Ranges   sharedTypes.Ranges   `json:"ranges"`
 	Version  sharedTypes.Version  `json:"version"`
@@ -72,7 +72,7 @@ func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId edgedb.UUID) *Do
 	d.PathName = flushedDoc.PathName
 	d.ProjectId = projectId
 	d.Ranges = flushedDoc.Ranges
-	d.Snapshot = flushedDoc.Lines.ToSnapshot()
+	d.Snapshot = sharedTypes.Snapshot(flushedDoc.Snapshot)
 	d.Version = flushedDoc.Version
 	return d
 }
@@ -105,12 +105,16 @@ type SetDocDetails struct {
 }
 
 func (d *Doc) ToSetDocDetails() *SetDocDetails {
+	// TODO: switch unit of d.LastUpdatedCtx.At to ns
+	t := time.Unix(
+		d.LastUpdatedCtx.At/1000, d.LastUpdatedCtx.At%1000,
+	)
 	return &SetDocDetails{
 		ForDocUpdate: &doc.ForDocUpdate{
 			Snapshot:      d.Snapshot,
 			RangesField:   doc.RangesField{Ranges: d.Ranges},
 			VersionField:  doc.VersionField{Version: d.Version},
-			LastUpdatedAt: time.Unix(d.LastUpdatedCtx.At, 0),
+			LastUpdatedAt: t,
 			LastUpdatedBy: d.LastUpdatedCtx.By,
 		},
 	}
@@ -125,7 +129,7 @@ type DocContentLines struct {
 
 type DocContentSnapshot struct {
 	Id            edgedb.UUID          `json:"_id"`
-	Snapshot      sharedTypes.Snapshot `json:"snapshot"`
+	Snapshot      string               `json:"snapshot"`
 	PathName      sharedTypes.PathName `json:"pathname"`
 	Version       sharedTypes.Version  `json:"v"`
 	LastUpdatedAt int64                `json:"-"`
@@ -143,7 +147,7 @@ func (d *Doc) ToDocContentLines() *DocContentLines {
 func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 	return &DocContentSnapshot{
 		Id:            d.DocId,
-		Snapshot:      d.Snapshot,
+		Snapshot:      string(d.Snapshot),
 		PathName:      d.PathName,
 		Version:       d.Version,
 		LastUpdatedAt: d.LastUpdatedCtx.At,
