@@ -94,6 +94,7 @@ type WithMembers struct {
 }
 
 type ForAuthorizationDetails struct {
+	edgedb.Optional
 	WithMembers            `edgedb:"inline"`
 	EpochField             `edgedb:"inline"`
 	OwnerField             `edgedb:"inline"`

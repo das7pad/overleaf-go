@@ -50,6 +50,7 @@ type Manager interface {
 	MoveTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
 	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
+	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
@@ -992,6 +993,50 @@ func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId
 		return nil, errors.Tag(err, "cannot get project from mongo")
 	}
 	return p.GetPrivilegeLevel(userId, token)
+}
+
+type getForProjectJWTResult struct {
+	UserEpoch edgedb.OptionalInt64    `edgedb:"user_epoch"`
+	Project   ForAuthorizationDetails `edgedb:"project"`
+}
+
+func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error) {
+	r := getForProjectJWTResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1)
+select {
+	user_epoch := (select u { epoch }).epoch,
+	project := (select p {
+		access_ro := ({u} if u in .access_ro else <User>{}),
+		access_rw := ({u} if u in .access_rw else <User>{}),
+		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
+		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+		epoch,
+		owner: {
+			id,
+			features: {
+				compile_group,
+				compile_timeout,
+			},
+		},
+		public_access_level,
+		tokens: {
+			token_ro,
+			token_rw,
+		},
+	})
+}
+`, &r, projectId, userId)
+	if err != nil {
+		return nil, 0, rewriteEdgedbError(err)
+	}
+	if r.Project.Owner.Id == (edgedb.UUID{}) {
+		return nil, 0, &errors.NotFoundError{}
+	}
+	userEpoch, _ := r.UserEpoch.Get()
+	return &r.Project, userEpoch, nil
 }
 
 func (m *manager) BumpEpoch(ctx context.Context, projectId edgedb.UUID) error {
