@@ -386,14 +386,14 @@ func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string)
 }
 
 func (m *manager) GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error) {
-	u := &EpochField{}
+	var epoch int64
 	err := m.c.QuerySingle(ctx, `
-select User { epoch } filter .id = <uuid>$0
-`, u, userId)
+select (select User { epoch } filter .id = <uuid>$0).epoch
+`, &epoch, userId)
 	if err != nil {
 		return 0, rewriteEdgedbError(err)
 	}
-	return u.Epoch, err
+	return epoch, err
 }
 
 func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []edgedb.UUID) ([]WithPublicInfo, error) {
