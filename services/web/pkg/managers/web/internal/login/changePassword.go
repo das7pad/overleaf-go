@@ -26,7 +26,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -78,10 +77,6 @@ func (m *manager) changePassword(ctx context.Context, u *user.ForPasswordChange,
 		return err
 	}
 	hashedPassword, err := HashPassword(password, m.options.BcryptCost)
-	if err != nil {
-		return err
-	}
-	err = projectJWT.ClearUserField(ctx, m.client, u.Id)
 	if err != nil {
 		return err
 	}

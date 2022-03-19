@@ -22,7 +22,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -73,10 +72,6 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId edgedb.
 		}
 		if err := m.tm.RemoveProjectForUser(ctx, userId, projectId); err != nil {
 			return errors.Tag(err, "cannot remove project from tags")
-		}
-		err := projectJWT.ClearProjectField(ctx, m.client, projectId)
-		if err != nil {
-			return err
 		}
 		return nil
 	})

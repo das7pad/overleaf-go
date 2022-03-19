@@ -142,7 +142,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		return nil, err
 	}
 	projectJWTHandler := projectJWT.New(
-		options.JWT.Compile, pm.GetEpoch, um.GetEpoch, client,
+		options.JWT.Compile, pm.ValidateProjectJWTEpochs,
 	)
 	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
 	em := editor.New(

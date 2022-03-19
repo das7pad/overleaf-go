@@ -506,7 +506,7 @@ func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, t
 	var q string
 	switch target.(type) {
 	case *IdField:
-		q = "select User filter .email.email = <str>$0"
+		q = "select User filter .email.email = <str>$0 limit 1"
 	case *WithLoginInfo:
 		q = `
 select User {
@@ -518,7 +518,8 @@ select User {
 	must_reconfirm,
 	password_hash,
 }
-filter .email.email = <str>$0`
+filter .email.email = <str>$0
+limit 1`
 	default:
 		return errors.New("missing query for target")
 	}

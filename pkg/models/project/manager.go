@@ -51,6 +51,7 @@ type Manager interface {
 	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
+	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
 	GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
@@ -99,6 +100,9 @@ func New(c *edgedb.Client, db *mongo.Database) Manager {
 }
 
 func rewriteEdgedbError(err error) error {
+	if err == nil {
+		return nil
+	}
 	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
 		return &errors.NotFoundError{}
 	}
@@ -988,10 +992,26 @@ filter .id = <uuid>$0
 
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
-	q := &IdField{Id: projectId}
-	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$1)
+select Project {
+	access_ro := ({u} if u in .access_ro else <User>{}),
+	access_rw := ({u} if u in .access_rw else <User>{}),
+	access_token_ro := ({u} if u in .access_token_ro else <User>{}),
+	access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+	epoch,
+	owner,
+	public_access_level,
+	tokens: {
+		token_ro,
+		token_rw,
+	},
+}
+filter .id = <uuid>$0
+`, p, projectId, userId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get project from mongo")
+		return nil, rewriteEdgedbError(err)
 	}
 	return p.GetPrivilegeLevel(userId, token)
 }
@@ -1038,6 +1058,40 @@ select {
 	}
 	userEpoch, _ := r.UserEpoch.Get()
 	return &r.Project, userEpoch, nil
+}
+
+func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error {
+	if userId == (edgedb.UUID{}) {
+		ok := false
+		err := m.c.QuerySingle(ctx, `
+select { exists (select Project filter .id = <uuid>$0 and .epoch = <int64>$1) }
+`, &ok, projectId, projectEpoch)
+		if err != nil {
+			return rewriteEdgedbError(err)
+		}
+		if !ok {
+			return &errors.UnauthorizedError{Reason: "epoch mismatch: project"}
+		}
+		return nil
+	}
+
+	ok := make([]bool, 2, 2)
+	err := m.c.Query(ctx, `
+select {
+	exists (select Project filter .id = <uuid>$0 and .epoch = <int64>$1),
+	exists (select User filter .id = <uuid>$2 and .epoch = <int64>$3),
+}
+`, &ok, projectId, projectEpoch, userId, userEpoch)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	if !ok[0] {
+		return &errors.UnauthorizedError{Reason: "epoch mismatch: project"}
+	}
+	if !ok[1] {
+		return &errors.UnauthorizedError{Reason: "epoch mismatch: user"}
+	}
+	return nil
 }
 
 func (m *manager) BumpEpoch(ctx context.Context, projectId edgedb.UUID) error {

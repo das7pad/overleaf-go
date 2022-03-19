@@ -23,7 +23,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -84,10 +83,6 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 			}
 		}
 
-		err = projectJWT.ClearProjectField(ctx, m.client, projectId)
-		if err != nil {
-			return err
-		}
 		err = m.pm.TransferOwnership(ctx, p, newOwnerId)
 		if err != nil {
 			if errors.GetCause(err) == project.ErrEpochIsNotStable {

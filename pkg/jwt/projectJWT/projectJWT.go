@@ -20,11 +20,9 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/jwt/epochJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -33,20 +31,17 @@ import (
 )
 
 type Claims struct {
+	validateProjectJWTEpochs
+
 	expiringJWT.Claims
 	project.AuthorizationDetails
 	types.SignedCompileProjectRequestOptions
 	EpochUser int64 `json:"eu"`
-
-	fetchProjectEpoch epochJWT.FetchEpochFromMongo
-	fetchUserEpoch    epochJWT.FetchEpochFromMongo
-	client            redis.UniversalClient
 }
 
-const (
-	userIdField    = "userId"
-	projectIdField = "projectId"
+type validateProjectJWTEpochs func(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
 
+const (
 	jwtField = "projectJWT.Claims"
 )
 
@@ -69,32 +64,14 @@ func (c *Claims) Valid() error {
 }
 
 func (c *Claims) CheckEpochItems(ctx context.Context) error {
-	projectItem := &epochJWT.JWTEpochItem{
-		Field:             projectIdField,
-		Id:                c.ProjectId,
-		UserProvidedEpoch: c.AuthorizationDetails.Epoch,
-		Fetch:             c.fetchProjectEpoch,
-	}
-	var items epochJWT.JWTEpochItems
-	if c.UserId == (edgedb.UUID{}) {
-		items = epochJWT.JWTEpochItems{projectItem}
-	} else {
-		items = epochJWT.JWTEpochItems{
-			projectItem,
-			{
-				Field:             userIdField,
-				Id:                c.UserId,
-				UserProvidedEpoch: c.EpochUser,
-				Fetch:             c.fetchUserEpoch,
-			},
-		}
-	}
-	return items.Check(ctx, c.client)
+	return c.validateProjectJWTEpochs(
+		ctx, c.ProjectId, c.UserId, c.Epoch, c.EpochUser,
+	)
 }
 
 func (c *Claims) PostProcess(target *httpUtils.Context) error {
-	p := target.Param(projectIdField)
-	if p == "" || p != c.ProjectId.String() {
+	projectIdInPath := target.Param("projectId")
+	if projectIdInPath == "" || projectIdInPath != c.ProjectId.String() {
 		return ErrMismatchingProjectId
 	}
 
@@ -106,38 +83,14 @@ func (c *Claims) PostProcess(target *httpUtils.Context) error {
 	return nil
 }
 
-func ClearProjectField(ctx context.Context, client redis.UniversalClient, projectId edgedb.UUID) error {
-	i := &epochJWT.JWTEpochItem{
-		Field: projectIdField,
-		Id:    projectId,
-	}
-	if err := i.Delete(ctx, client); err != nil {
-		return errors.Tag(err, "cannot clear project epoch")
-	}
-	return nil
-}
-
-func ClearUserField(ctx context.Context, client redis.UniversalClient, userId edgedb.UUID) error {
-	i := &epochJWT.JWTEpochItem{
-		Field: userIdField,
-		Id:    userId,
-	}
-	if err := i.Delete(ctx, client); err != nil {
-		return errors.Tag(err, "cannot clear user epoch")
-	}
-	return nil
-}
-
 func MustGet(c *httpUtils.Context) *Claims {
 	return c.Value(jwtField).(*Claims)
 }
 
-func New(options jwtOptions.JWTOptions, fetchProjectEpoch, fetchUserEpoch epochJWT.FetchEpochFromMongo, client redis.UniversalClient) jwtHandler.JWTHandler {
+func New(options jwtOptions.JWTOptions, validate validateProjectJWTEpochs) jwtHandler.JWTHandler {
 	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
 		return &Claims{
-			fetchProjectEpoch: fetchProjectEpoch,
-			fetchUserEpoch:    fetchUserEpoch,
-			client:            client,
+			validateProjectJWTEpochs: validate,
 		}
 	})
 }

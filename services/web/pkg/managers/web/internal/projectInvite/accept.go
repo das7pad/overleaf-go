@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/mongoTx"
@@ -75,13 +74,6 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			//  any stale notifications.
 			if err = m.nm.RemoveByKeyOnly(ctx, getKey(pi.Id)); err != nil {
 				return errors.Tag(err, "cannot delete invite notification")
-			}
-
-			if grantAccess {
-				err = projectJWT.ClearProjectField(ctx, m.client, projectId)
-				if err != nil {
-					return err
-				}
 			}
 			return nil
 		})

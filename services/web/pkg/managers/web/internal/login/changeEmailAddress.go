@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -49,11 +48,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 	}
 
 	{
-		err := projectJWT.ClearUserField(ctx, m.client, userId)
-		if err != nil {
-			return err
-		}
-		err = m.um.ChangeEmailAddress(ctx, u, r.IPAddress, newEmail)
+		err := m.um.ChangeEmailAddress(ctx, u, r.IPAddress, newEmail)
 		if err != nil {
 			return errors.Tag(err, "cannot change email")
 		}

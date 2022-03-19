@@ -23,7 +23,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -31,11 +30,7 @@ import (
 )
 
 func (m *manager) bumpEpoch(ctx context.Context, userId edgedb.UUID) error {
-	err := projectJWT.ClearUserField(ctx, m.client, userId)
-	if err != nil {
-		return err
-	}
-	if err = m.um.BumpEpoch(ctx, userId); err != nil {
+	if err := m.um.BumpEpoch(ctx, userId); err != nil {
 		return errors.Tag(err, "cannot bump user epoch in mongo")
 	}
 	return nil
@@ -100,10 +95,6 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	info := &clearSessionsAuditLogInfo{Sessions: d.Sessions}
 
 	// Add audit log entry and bump user epoch.
-	err = projectJWT.ClearUserField(ctx, m.client, userId)
-	if err != nil {
-		return err
-	}
 	err = m.um.TrackClearSessions(ctx, userId, request.IPAddress, info)
 	if err != nil {
 		return errors.Tag(err, "cannot track session clearing in mongo")

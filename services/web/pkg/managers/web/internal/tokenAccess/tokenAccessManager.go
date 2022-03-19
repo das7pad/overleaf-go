@@ -23,7 +23,6 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -82,10 +81,6 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 		projectId := r.ProjectId
 		if request.Session.IsLoggedIn() {
 			if r.ShouldGrantHigherAccess() {
-				err = projectJWT.ClearProjectField(ctx, m.client, projectId)
-				if err != nil {
-					return err
-				}
 				err = granter(ctx, projectId, r.Epoch, userId)
 				if err != nil {
 					if errors.GetCause(err) == project.ErrEpochIsNotStable {

@@ -24,13 +24,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/cmd/internal/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -44,16 +42,12 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func setIsAdmin(ctx context.Context, c *mongo.Collection, client redis.UniversalClient, sm session.Manager, email sharedTypes.Email, isAdmin bool) error {
+func setIsAdmin(ctx context.Context, c *mongo.Collection, sm session.Manager, email sharedTypes.Email, isAdmin bool) error {
 	u := &user.IdField{}
 	q := user.EmailField{Email: email}
 	log.Println("looking for user")
 	if err := c.FindOne(ctx, q).Decode(u); err != nil {
 		return rewriteMongoError(err)
-	}
-	log.Println("clearing JWT state")
-	if err := projectJWT.ClearUserField(ctx, client, u.Id); err != nil {
-		return errors.Tag(err, "cannot cleanup JWT state, please retry")
 	}
 	log.Println("clearing sessions")
 	if err := sm.DestroyAllForUser(ctx, u.Id); err != nil {
@@ -81,14 +75,14 @@ func setIsAdmin(ctx context.Context, c *mongo.Collection, client redis.Universal
 	return nil
 }
 
-func promoteToAdmin(ctx context.Context, c *mongo.Collection, client redis.UniversalClient, sm session.Manager, email sharedTypes.Email) error {
+func promoteToAdmin(ctx context.Context, c *mongo.Collection, sm session.Manager, email sharedTypes.Email) error {
 	log.Printf("promoting %q to admin role", email)
-	return setIsAdmin(ctx, c, client, sm, email, true)
+	return setIsAdmin(ctx, c, sm, email, true)
 }
 
-func demoteFromAdmin(ctx context.Context, c *mongo.Collection, client redis.UniversalClient, sm session.Manager, email sharedTypes.Email) error {
+func demoteFromAdmin(ctx context.Context, c *mongo.Collection, sm session.Manager, email sharedTypes.Email) error {
 	log.Printf("demoting %q from admin role", email)
-	return setIsAdmin(ctx, c, client, sm, email, false)
+	return setIsAdmin(ctx, c, sm, email, false)
 }
 
 func main() {
@@ -126,9 +120,9 @@ func main() {
 	defer done()
 	var err error
 	if *promote {
-		err = promoteToAdmin(ctx, c, rClient, sm, email)
+		err = promoteToAdmin(ctx, c, sm, email)
 	} else {
-		err = demoteFromAdmin(ctx, c, rClient, sm, email)
+		err = demoteFromAdmin(ctx, c, sm, email)
 	}
 	if err != nil {
 		if errors.IsNotFoundError(err) {
