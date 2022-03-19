@@ -94,9 +94,18 @@ insert OneTimeToken {
 			time.Now().UTC().Add(expiresIn), token, use, email, userId,
 		)
 		if err != nil {
-			if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
-				allErrors.Add(err)
-				continue
+			if e, ok := err.(edgedb.Error); ok {
+				if e.Category(edgedb.ConstraintViolationError) {
+					// Duplicate .token
+					allErrors.Add(err)
+					continue
+				}
+				if e.Category(edgedb.MissingRequiredError) {
+					// Missing .email
+					return "", &errors.UnprocessableEntityError{
+						Msg: "account does not hold given email",
+					}
+				}
 			}
 			return "", rewriteEdgedbError(err)
 		}

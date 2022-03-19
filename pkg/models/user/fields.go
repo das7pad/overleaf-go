@@ -33,7 +33,7 @@ type AuditLogField struct {
 }
 
 type BetaProgramField struct {
-	BetaProgram bool `json:"betaProgram" edgedb:"betaProgram"`
+	BetaProgram bool `json:"betaProgram" edgedb:"beta_program"`
 }
 
 type EditorConfigField struct {

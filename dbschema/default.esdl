@@ -33,6 +33,9 @@ module default {
     multi link audit_log -> UserAuditLogEntry {
       on target delete allow;
     }
+    required property beta_program -> bool {
+      default := false;
+    }
     multi link contacts -> User {
       on target delete delete source;
       property connections -> int64;

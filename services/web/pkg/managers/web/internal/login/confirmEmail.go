@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -48,24 +47,6 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 		return err
 	}
 	userId := r.Session.User.Id
-
-	u := &user.EmailsField{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
-		return errors.Tag(err, "cannot get users emails")
-	}
-
-	found := false
-	for _, e := range u.Emails {
-		if e.Email == r.Email {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return &errors.UnprocessableEntityError{
-			Msg: "account does not hold given email",
-		}
-	}
 
 	token, err := m.oTTm.NewForEmailConfirmation(ctx, userId, r.Email)
 	if err != nil {

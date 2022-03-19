@@ -63,6 +63,9 @@ var (
 )
 
 func rewriteEdgedbError(err error) error {
+	if err == nil {
+		return nil
+	}
 	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
 		return &errors.NotFoundError{}
 	}
@@ -318,33 +321,34 @@ const (
 )
 
 func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
-	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
-		"$inc": &EpochField{Epoch: 1},
-	})
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0
+set {
+	epoch := User.epoch + 1,
+}
+`, &IdField{}, userId))
 }
 
 func (m *manager) SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error {
-	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
-		"$set": &BetaProgramField{BetaProgram: joined},
-	})
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0
+set {
+	beta_program := <bool>$1,
+}
+`, &IdField{}, userId, joined))
 }
 
 func (m *manager) SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error {
-	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
-		"$set": u,
-	})
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0
+set {
+	first_name := <str>$1,
+	last_name := <str>$2,
+}
+`, &IdField{}, userId, u.FirstName, u.LastName))
 }
 
 func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error {
@@ -461,14 +465,48 @@ func rewriteMongoError(err error) error {
 }
 
 func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error {
-	return m.getUser(ctx, &IdField{Id: userId}, target)
+	var q string
+	switch target.(type) {
+	case *BetaProgramField:
+		q = `
+select User { beta_program }
+filter .id = <uuid>$0`
+	case *WithPublicInfoAndNonStandardId, WithPublicInfo:
+		q = `
+select User { email: { email }, id, first_name, last_name }
+filter .id = <uuid>$0`
+	case *ForActivateUserPage:
+		q = `
+select User { email: { email }, login_count }
+filter .id = <uuid>$0`
+	case *ForEmailChange:
+		q = `
+select User { email: { email }, epoch, id }
+filter .id = <uuid>$0`
+	case *ForPasswordChange:
+		q = `
+select User {
+	email: { email }, epoch, id, first_name, last_name, password_hash
+}
+filter .id = <uuid>$0`
+	case *ForSettingsPage:
+		q = `
+select User { beta_program, email: { email }, id, first_name, last_name }
+filter .id = <uuid>$0`
+	default:
+		return errors.New("missing query for target")
+	}
+	if err := m.c.QuerySingle(ctx, q, target, userId); err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }
 
 func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error {
 	var q string
 	switch target.(type) {
 	case *IdField:
-		q = `select User filter .email.email = <str>$0`
+		q = "select User filter .email.email = <str>$0"
 	case *WithLoginInfo:
 		q = `
 select User {
