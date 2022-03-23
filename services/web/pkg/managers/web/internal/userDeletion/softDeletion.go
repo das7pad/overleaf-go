@@ -35,7 +35,7 @@ import (
 const parallelDeletion = 5
 
 type forProjectListing struct {
-	user.ProjectListViewCaller `edgedb:"inline"`
+	user.ProjectListViewCaller `edgedb:"$inline"`
 	Tags                       []tag.Full                 `edgedb:"tags"`
 	Projects                   []*project.ListViewPrivate `edgedb:"projects"`
 }

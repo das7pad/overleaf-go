@@ -33,16 +33,16 @@ var ErrProjectTreeHasLoop = &errors.UnprocessableEntityError{
 
 type RootDocForJump struct {
 	edgedb.Optional
-	TreeElementForJump `edgedb:"inline"`
+	TreeElementForJump `edgedb:"$inline"`
 }
 
 type RootFolder struct {
 	edgedb.Optional
-	Folder `edgedb:"inline"`
+	Folder `edgedb:"$inline"`
 }
 
 type TreeElementForJump struct {
-	IdField `edgedb:"inline"`
+	IdField `edgedb:"$inline"`
 	Parent  IdField              `edgedb:"parent"`
 	Name    sharedTypes.Filename `edgedb:"name"`
 }
@@ -50,7 +50,8 @@ type TreeElementForJump struct {
 func (p *ForFolderPath) GetFolderPath(folderId edgedb.UUID) (sharedTypes.DirName, error) {
 	lookup := make(map[edgedb.UUID]*TreeElementForJump, len(p.Folders))
 	for _, folder := range p.Folders {
-		lookup[folder.Id] = folder
+		// TODO: check for overwrite
+		lookup[folder.Id] = &folder
 	}
 	path := sharedTypes.DirName("")
 	for folderId != p.RootFolder.Id {
@@ -92,11 +93,11 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 
 type RootDoc struct {
 	edgedb.Optional
-	Doc `edgedb:"inline"`
+	Doc `edgedb:"$inline"`
 }
 
 type Doc struct {
-	CommonTreeFields `edgedb:"inline"`
+	CommonTreeFields `edgedb:"$inline"`
 	Size             int64  `json:"size" edgedb:"size"`
 	Snapshot         string `json:"snapshot" edgedb:"snapshot"`
 }
@@ -140,17 +141,17 @@ type LinkedFileData struct {
 
 type TreeElementInProject struct {
 	edgedb.Optional
-	CommonTreeFields `edgedb:"inline"`
+	CommonTreeFields `edgedb:"$inline"`
 	Project          IdField `edgedb:"project"`
 }
 
 type OptionalIdField struct {
 	edgedb.Optional
-	IdField `edgedb:"inline"`
+	IdField `edgedb:"$inline"`
 }
 
 type FileRef struct {
-	CommonTreeFields `edgedb:"inline"`
+	CommonTreeFields `edgedb:"$inline"`
 
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linkedFileData"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
@@ -180,7 +181,7 @@ func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) Fi
 }
 
 type Folder struct {
-	CommonTreeFields `edgedb:"inline"`
+	CommonTreeFields `edgedb:"$inline"`
 
 	Docs     []Doc     `json:"docs" edgedb:"docs"`
 	FileRefs []FileRef `json:"fileRefs" edgedb:"files"`

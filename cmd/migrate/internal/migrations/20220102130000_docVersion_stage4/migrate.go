@@ -37,8 +37,8 @@ const (
 )
 
 type docIdAndVersion struct {
-	doc.IdField      `edgedb:"inline"`
-	doc.VersionField `edgedb:"inline"`
+	doc.IdField      `edgedb:"$inline"`
+	doc.VersionField `edgedb:"$inline"`
 }
 
 func Migrate(ctx context.Context, db *mongo.Database) error {

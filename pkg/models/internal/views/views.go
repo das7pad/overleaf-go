@@ -56,7 +56,7 @@ func collectFieldsFrom(v reflect.Type, view View) {
 		if !exists {
 			continue
 		}
-		if bsonTag == "inline" {
+		if bsonTag == "$inline" {
 			collectFieldsFrom(element.Type, view)
 		} else {
 			name := strings.Split(bsonTag, ",")[0]

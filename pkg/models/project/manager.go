@@ -1474,13 +1474,16 @@ func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q in
 }
 
 func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error {
-	err := m.cP.FindOne(
-		ctx,
-		IdField{Id: projectId},
-		options.FindOne().SetProjection(getProjection(target)),
-	).Decode(target)
-	if err != nil {
-		return rewriteMongoError(err)
+	var q string
+	switch target.(type) {
+	case *LastUpdatedAtField:
+		q = `select Project { last_updated_at } filter .id = <uuid>$0`
+	// TODO: add more cases
+	default:
+		return errors.New("missing query for target")
+	}
+	if err := m.c.QuerySingle(ctx, q, target, projectId); err != nil {
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }

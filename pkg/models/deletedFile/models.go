@@ -21,7 +21,7 @@ import (
 )
 
 type Full struct {
-	project.FileRef `edgedb:"inline"`
-	DeletedAtField  `edgedb:"inline"`
-	ProjectIdField  `edgedb:"inline"`
+	project.FileRef `edgedb:"$inline"`
+	DeletedAtField  `edgedb:"$inline"`
+	ProjectIdField  `edgedb:"$inline"`
 }

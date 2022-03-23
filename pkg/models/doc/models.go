@@ -25,12 +25,12 @@ import (
 )
 
 type forInsertion struct {
-	IdField        `edgedb:"inline"`
-	LinesField     `edgedb:"inline"`
-	ProjectIdField `edgedb:"inline"`
-	RangesField    `edgedb:"inline"`
-	VersionField   `edgedb:"inline"`
-	RevisionField  `edgedb:"inline"`
+	IdField        `edgedb:"$inline"`
+	LinesField     `edgedb:"$inline"`
+	ProjectIdField `edgedb:"$inline"`
+	RangesField    `edgedb:"$inline"`
+	VersionField   `edgedb:"$inline"`
+	RevisionField  `edgedb:"$inline"`
 }
 
 type ForDocUpdate struct {
@@ -42,69 +42,69 @@ type ForDocUpdate struct {
 }
 
 type ArchiveContents struct {
-	LinesField  `edgedb:"inline"`
-	RangesField `edgedb:"inline"`
+	LinesField  `edgedb:"$inline"`
+	RangesField `edgedb:"$inline"`
 }
 
 type ArchiveContext struct {
-	ArchiveContents `edgedb:"inline"`
-	RevisionField   `edgedb:"inline"`
+	ArchiveContents `edgedb:"$inline"`
+	RevisionField   `edgedb:"$inline"`
 
 	// Fetch InS3Field as well.
-	InS3Field `edgedb:"inline"`
+	InS3Field `edgedb:"$inline"`
 }
 
 type Contents struct {
-	IdField       `edgedb:"inline"`
-	LinesField    `edgedb:"inline"`
-	RevisionField `edgedb:"inline"`
+	IdField       `edgedb:"$inline"`
+	LinesField    `edgedb:"$inline"`
+	RevisionField `edgedb:"$inline"`
 
 	// Fetch InS3Field as well.
-	InS3Field `edgedb:"inline"`
+	InS3Field `edgedb:"$inline"`
 }
 
 type ContentsCollection []*Contents
 
 type ContentsWithFullContext struct {
-	IdField       `edgedb:"inline"`
-	DeletedField  `edgedb:"inline"`
-	LinesField    `edgedb:"inline"`
-	RangesField   `edgedb:"inline"`
-	RevisionField `edgedb:"inline"`
+	IdField       `edgedb:"$inline"`
+	DeletedField  `edgedb:"$inline"`
+	LinesField    `edgedb:"$inline"`
+	RangesField   `edgedb:"$inline"`
+	RevisionField `edgedb:"$inline"`
 
 	// Fetch InS3Field as well.
-	InS3Field `edgedb:"inline"`
+	InS3Field `edgedb:"$inline"`
 
-	VersionField `edgedb:"inline"`
+	VersionField `edgedb:"$inline"`
 }
 
 type Lines struct {
-	IdField    `edgedb:"inline"`
-	LinesField `edgedb:"inline"`
+	IdField    `edgedb:"$inline"`
+	LinesField `edgedb:"$inline"`
 
 	// Fetch InS3Field as well.
-	InS3Field `edgedb:"inline"`
+	InS3Field `edgedb:"$inline"`
 }
 
 type Meta struct {
-	NameField      `edgedb:"inline"`
-	DeletedField   `edgedb:"inline"`
-	DeletedAtField `edgedb:"inline"`
+	NameField      `edgedb:"$inline"`
+	DeletedField   `edgedb:"$inline"`
+	DeletedAtField `edgedb:"$inline"`
 }
 
 type Name struct {
-	IdField   `edgedb:"inline"`
-	NameField `edgedb:"inline"`
+	IdField   `edgedb:"$inline"`
+	NameField `edgedb:"$inline"`
 }
 
 type NameCollection []Name
 
 type Ranges struct {
-	IdField     `edgedb:"inline"`
-	RangesField `edgedb:"inline"`
+	IdField     `edgedb:"$inline"`
+	RangesField `edgedb:"$inline"`
 
 	// Fetch InS3Field as well, but hide it from the frontend.
-	InS3Field `json:"-" edgedb:"inline"`
+	InS3Field `json:"-" edgedb:"$inline"`
 }
 
 type RangesCollection []Ranges

@@ -176,7 +176,7 @@ type FilesField struct {
 }
 
 type FoldersForJumpField struct {
-	Folders []*TreeElementForJump `edgedb:"folders"`
+	Folders []TreeElementForJump `edgedb:"folders"`
 }
 
 type TreeField struct {

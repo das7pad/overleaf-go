@@ -21,9 +21,9 @@ import (
 )
 
 type Full struct {
-	IdField       `edgedb:"inline"`
-	NameField     `edgedb:"inline"`
-	ProjectsField `edgedb:"inline"`
+	IdField       `edgedb:"$inline"`
+	NameField     `edgedb:"$inline"`
+	ProjectsField `edgedb:"$inline"`
 	ProjectIdsField
 }
 

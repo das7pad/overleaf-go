@@ -31,6 +31,6 @@ type DocIdField struct {
 }
 
 type Full struct {
-	DocIdField   `edgedb:"inline"`
-	VersionField `edgedb:"inline"`
+	DocIdField   `edgedb:"$inline"`
+	VersionField `edgedb:"$inline"`
 }

@@ -17,6 +17,6 @@
 package deletedProject
 
 type Full struct {
-	DeleterDataField `edgedb:"inline"`
-	ProjectField     `edgedb:"inline"`
+	DeleterDataField `edgedb:"$inline"`
+	ProjectField     `edgedb:"$inline"`
 }

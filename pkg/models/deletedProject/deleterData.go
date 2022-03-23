@@ -29,7 +29,7 @@ type DeleterDataDeletedProjectIdField struct {
 }
 
 type DeleterData struct {
-	DeleterDataDeletedProjectIdField      `edgedb:"inline"`
+	DeleterDataDeletedProjectIdField      `edgedb:"$inline"`
 	DeletedAt                             time.Time           `edgedb:"deletedAt"`
 	DeleterId                             edgedb.UUID         `edgedb:"deleterId"`
 	DeleterIpAddress                      string              `edgedb:"deleterIpAddress"`
@@ -44,7 +44,7 @@ type DeleterData struct {
 }
 
 type deleterDataOnlyProjectId struct {
-	DeleterDataDeletedProjectIdField `edgedb:"inline"`
+	DeleterDataDeletedProjectIdField `edgedb:"$inline"`
 }
 
 type forListing struct {

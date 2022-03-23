@@ -26,50 +26,50 @@ import (
 
 type withEmailFields struct {
 	EmailField  `edgedb:"email"`
-	EmailsField `edgedb:"inline"`
+	EmailsField `edgedb:"$inline"`
 }
 
 type withLastLoginInfo struct {
-	LastLoggedInField `edgedb:"inline"`
-	LastLoginIpField  `edgedb:"inline"`
+	LastLoggedInField `edgedb:"$inline"`
+	LastLoginIpField  `edgedb:"$inline"`
 }
 
 type withIdAndEpoch struct {
-	IdField    `edgedb:"inline"`
-	EpochField `edgedb:"inline"`
+	IdField    `edgedb:"$inline"`
+	EpochField `edgedb:"$inline"`
 }
 
 type ProjectListViewCaller struct {
-	WithPublicInfo `edgedb:"inline"`
-	EmailsField    `edgedb:"inline"`
+	WithPublicInfo `edgedb:"$inline"`
+	EmailsField    `edgedb:"$inline"`
 }
 
 type WithPublicInfo struct {
 	EmailField     `edgedb:"email"`
-	FirstNameField `edgedb:"inline"`
-	IdField        `edgedb:"inline"`
-	LastNameField  `edgedb:"inline"`
+	FirstNameField `edgedb:"$inline"`
+	IdField        `edgedb:"$inline"`
+	LastNameField  `edgedb:"$inline"`
 }
 
 type WithPublicInfoAndFeatures struct {
-	FeaturesField  `edgedb:"inline"`
-	WithPublicInfo `edgedb:"inline"`
+	FeaturesField  `edgedb:"$inline"`
+	WithPublicInfo `edgedb:"$inline"`
 }
 
 type WithLoadEditorInfo struct {
 	edgedb.Optional
-	AlphaProgramField         `edgedb:"inline"`
-	BetaProgramField          `edgedb:"inline"`
-	EditorConfigField         `edgedb:"inline"`
-	EpochField                `edgedb:"inline"`
-	IsAdminField              `edgedb:"inline"`
-	WithPublicInfoAndFeatures `edgedb:"inline"`
+	AlphaProgramField         `edgedb:"$inline"`
+	BetaProgramField          `edgedb:"$inline"`
+	EditorConfigField         `edgedb:"$inline"`
+	EpochField                `edgedb:"$inline"`
+	IsAdminField              `edgedb:"$inline"`
+	WithPublicInfoAndFeatures `edgedb:"$inline"`
 }
 
 type WithLoginInfo struct {
-	ForSession          `edgedb:"inline"`
-	HashedPasswordField `edgedb:"inline"`
-	MustReconfirmField  `edgedb:"inline"`
+	ForSession          `edgedb:"$inline"`
+	HashedPasswordField `edgedb:"$inline"`
+	MustReconfirmField  `edgedb:"$inline"`
 }
 
 func (l *WithLoginInfo) selectByEmail(ctx context.Context, c *edgedb.Client, email sharedTypes.Email) error {
@@ -84,73 +84,73 @@ filter .email.email = <str>$0
 }
 
 type ForSession struct {
-	EpochField     `edgedb:"inline"`
-	IsAdminField   `edgedb:"inline"`
-	WithPublicInfo `edgedb:"inline"`
+	EpochField     `edgedb:"$inline"`
+	IsAdminField   `edgedb:"$inline"`
+	WithPublicInfo `edgedb:"$inline"`
 }
 
 type WithEpochAndFeatures struct {
-	EpochField    `edgedb:"inline"`
-	FeaturesField `edgedb:"inline"`
+	EpochField    `edgedb:"$inline"`
+	FeaturesField `edgedb:"$inline"`
 }
 
 type ForCreation struct {
-	ForSession          `edgedb:"inline"`
-	AuditLogField       `edgedb:"inline"`
-	EditorConfigField   `edgedb:"inline"`
-	EmailsField         `edgedb:"inline"`
-	FeaturesField       `edgedb:"inline"`
-	HashedPasswordField `edgedb:"inline"`
-	LastLoggedInField   `edgedb:"inline"`
-	LastLoginIpField    `edgedb:"inline"`
-	LoginCountField     `edgedb:"inline"`
-	SignUpDateField     `edgedb:"inline"`
+	ForSession          `edgedb:"$inline"`
+	AuditLogField       `edgedb:"$inline"`
+	EditorConfigField   `edgedb:"$inline"`
+	EmailsField         `edgedb:"$inline"`
+	FeaturesField       `edgedb:"$inline"`
+	HashedPasswordField `edgedb:"$inline"`
+	LastLoggedInField   `edgedb:"$inline"`
+	LastLoginIpField    `edgedb:"$inline"`
+	LoginCountField     `edgedb:"$inline"`
+	SignUpDateField     `edgedb:"$inline"`
 }
 
 type ForDeletion struct {
-	AlphaProgramField   `edgedb:"inline"`
-	AuditLogField       `edgedb:"inline"`
-	BetaProgramField    `edgedb:"inline"`
-	EditorConfigField   `edgedb:"inline"`
+	AlphaProgramField   `edgedb:"$inline"`
+	AuditLogField       `edgedb:"$inline"`
+	BetaProgramField    `edgedb:"$inline"`
+	EditorConfigField   `edgedb:"$inline"`
 	EmailField          `edgedb:"email"`
-	EmailsField         `edgedb:"inline"`
-	EpochField          `edgedb:"inline"`
-	FeaturesField       `edgedb:"inline"`
-	FirstNameField      `edgedb:"inline"`
-	HashedPasswordField `edgedb:"inline"`
-	IdField             `edgedb:"inline"`
-	IsAdminField        `edgedb:"inline"`
-	LastLoggedInField   `edgedb:"inline"`
-	LastLoginIpField    `edgedb:"inline"`
-	LastNameField       `edgedb:"inline"`
-	LoginCountField     `edgedb:"inline"`
-	MustReconfirmField  `edgedb:"inline"`
-	SignUpDateField     `edgedb:"inline"`
+	EmailsField         `edgedb:"$inline"`
+	EpochField          `edgedb:"$inline"`
+	FeaturesField       `edgedb:"$inline"`
+	FirstNameField      `edgedb:"$inline"`
+	HashedPasswordField `edgedb:"$inline"`
+	IdField             `edgedb:"$inline"`
+	IsAdminField        `edgedb:"$inline"`
+	LastLoggedInField   `edgedb:"$inline"`
+	LastLoginIpField    `edgedb:"$inline"`
+	LastNameField       `edgedb:"$inline"`
+	LoginCountField     `edgedb:"$inline"`
+	MustReconfirmField  `edgedb:"$inline"`
+	SignUpDateField     `edgedb:"$inline"`
 }
 
 type ForEmailChange struct {
 	EmailField `edgedb:"email"`
-	EpochField `edgedb:"inline"`
-	IdField    `edgedb:"inline"`
+	EpochField `edgedb:"$inline"`
+	IdField    `edgedb:"$inline"`
 }
 
 type ForPasswordChange struct {
-	WithPublicInfo      `edgedb:"inline"`
-	EpochField          `edgedb:"inline"`
-	HashedPasswordField `edgedb:"inline"`
+	WithPublicInfo      `edgedb:"$inline"`
+	EpochField          `edgedb:"$inline"`
+	HashedPasswordField `edgedb:"$inline"`
 }
 
 type WithNames struct {
-	FirstNameField `edgedb:"inline"`
-	LastNameField  `edgedb:"inline"`
+	FirstNameField `edgedb:"$inline"`
+	LastNameField  `edgedb:"$inline"`
 }
 
 type ForSettingsPage struct {
-	WithPublicInfo   `edgedb:"inline"`
-	BetaProgramField `edgedb:"inline"`
+	WithPublicInfo   `edgedb:"$inline"`
+	BetaProgramField `edgedb:"$inline"`
 }
 
 type ForActivateUserPage struct {
 	EmailField      `edgedb:"email"`
-	LoginCountField `edgedb:"inline"`
+	LoginCountField `edgedb:"$inline"`
 }

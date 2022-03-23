@@ -61,7 +61,7 @@ type manager struct {
 }
 
 type forProjectList struct {
-	user.ProjectListViewCaller `edgedb:"inline"`
+	user.ProjectListViewCaller `edgedb:"$inline"`
 	Tags                       tag.Tags                  `edgedb:"tags"`
 	Projects                   []project.ListViewPrivate `edgedb:"projects"`
 }

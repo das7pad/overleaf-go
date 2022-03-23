@@ -36,7 +36,7 @@ const (
 )
 
 type withMisspelledSignUpDate struct {
-	user.IdField `edgedb:"inline"`
+	user.IdField `edgedb:"$inline"`
 	SignUpDate   time.Time `edgedb:"SignUpDate"`
 }
 

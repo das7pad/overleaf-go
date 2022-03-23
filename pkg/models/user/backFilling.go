@@ -29,7 +29,7 @@ type UsersForBackFilling map[edgedb.UUID]*WithPublicInfo
 type UsersForBackFillingNonStandardId map[edgedb.UUID]*WithPublicInfoAndNonStandardId
 
 type WithPublicInfoAndNonStandardId struct {
-	WithPublicInfo `edgedb:"inline"`
+	WithPublicInfo `edgedb:"$inline"`
 	IdNoUnderscore edgedb.UUID `json:"id"`
 }
 

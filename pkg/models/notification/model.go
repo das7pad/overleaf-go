@@ -17,20 +17,10 @@
 package notification
 
 type Notification struct {
-	IdField          `edgedb:"inline"`
-	KeyField         `edgedb:"inline"`
-	UserIdField      `edgedb:"inline"`
-	ExpiresField     `edgedb:"inline"`
-	TemplateKeyField `edgedb:"inline"`
-	MessageOptsField `edgedb:"inline"`
-}
-
-type userIdAndId struct {
-	IdField     `edgedb:"inline"`
-	UserIdField `edgedb:"inline"`
-}
-
-type userIdAndKey struct {
-	KeyField    `edgedb:"inline"`
-	UserIdField `edgedb:"inline"`
+	IdField          `edgedb:"$inline"`
+	KeyField         `edgedb:"$inline"`
+	UserIdField      `edgedb:"$inline"`
+	ExpiresField     `edgedb:"$inline"`
+	TemplateKeyField `edgedb:"$inline"`
+	MessageOptsField `edgedb:"$inline"`
 }

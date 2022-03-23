@@ -21,6 +21,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -28,6 +31,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 )
+
+func init() {
+	go func() {
+		log.Println(http.ListenAndServe(":12345", nil))
+	}()
+}
 
 func (m *manager) smokeTestRedis(ctx context.Context) error {
 	rawRand := make([]byte, 4)
@@ -91,5 +100,10 @@ func (m *manager) getPendingOrStartApiSmokeTest() pendingOperation.PendingOperat
 }
 
 func (m *manager) SmokeTestAPI(ctx context.Context) error {
-	return m.getPendingOrStartApiSmokeTest().Wait(ctx)
+	// for i := 0; i < 1000000; i++ {
+	if err := m.smokeTestMongo(ctx); err != nil {
+		return err
+	}
+	// }
+	return nil
 }

@@ -23,7 +23,7 @@ import (
 )
 
 type Change struct {
-	RangeEntryBase `edgedb:"inline"`
+	RangeEntryBase `edgedb:"$inline"`
 	Op             ChangeOp `json:"op" edgedb:"op"`
 }
 
@@ -71,7 +71,7 @@ func (o ChangeOp) Equals(other ChangeOp) bool {
 }
 
 type Comment struct {
-	RangeEntryBase `edgedb:"inline"`
+	RangeEntryBase `edgedb:"$inline"`
 	Op             CommentOp `json:"op" edgedb:"op"`
 }
 
