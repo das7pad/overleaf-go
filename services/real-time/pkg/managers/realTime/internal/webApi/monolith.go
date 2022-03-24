@@ -90,6 +90,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		Members:                members,
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
+		Owner:                  owner.WithPublicInfo,
 		RootDocIdField: project.RootDocIdField{
 			RootDocId: p.RootDoc.Id,
 		},

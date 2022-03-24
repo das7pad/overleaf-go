@@ -83,7 +83,7 @@ func (m *manager) newToken(ctx context.Context, userId edgedb.UUID, email shared
 insert OneTimeToken {
 	expires_at := <datetime>$0,
 	token := <str>$1,
-	use := <str>$2
+	use := <str>$2,
 	email := (
 		select Email
 		filter .email = <str>$3 and .user.id = <uuid>$4

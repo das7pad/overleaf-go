@@ -119,7 +119,9 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, request *types.SetPu
 	}
 
 	if request.PublicAccessLevel == project.TokenBasedAccess {
-		tokens, err := m.pm.PopulateTokens(ctx, request.ProjectId)
+		tokens, err := m.pm.PopulateTokens(
+			ctx, request.ProjectId, request.UserId,
+		)
 		if err != nil {
 			return errors.Tag(err, "cannot populate tokens")
 		}

@@ -67,7 +67,7 @@ type Manager interface {
 	GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
-	PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*Tokens, error)
+	PopulateTokens(ctx context.Context, projectId, userId edgedb.UUID) (*Tokens, error)
 	GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error)
 	MarkAsActive(ctx context.Context, projectId edgedb.UUID) error
 	MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error
@@ -447,7 +447,7 @@ set {
 	return nil
 }
 
-func (m *manager) PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*Tokens, error) {
+func (m *manager) PopulateTokens(ctx context.Context, projectId, userId edgedb.UUID) (*Tokens, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		tokens, err := generateTokens()
@@ -455,26 +455,45 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId edgedb.UUID) (*T
 			allErrors.Add(err)
 			continue
 		}
-		q := bson.M{
-			"_id": projectId,
-			"tokens.readAndWritePrefix": bson.M{
-				"$exists": false,
-			},
-		}
-		u := bson.M{
-			"$set": TokensField{Tokens: *tokens},
-		}
-		r, err := m.cP.UpdateOne(ctx, q, u)
+		ids := make([]IdField, 0, 3)
+		err = m.c.Query(ctx, `
+select (
+	select Project filter .id = <uuid>$0
+) union (
+	select Project filter .id = <uuid>$0 and .owner.id = <uuid>$1
+) union (
+	update Project
+	filter
+		.id = <uuid>$0
+	and .owner.id = <uuid>$1
+	and (.tokens.token_ro ?? '') = ''
+	set {
+		tokens := (insert Tokens {
+			token_ro := <str>$2,
+			token_rw := <str>$3,
+			token_prefix_rw := <str>$4,
+		}),
+	}
+)
+`,
+			&ids,
+			projectId, userId,
+			tokens.ReadOnly, tokens.ReadAndWrite, tokens.ReadAndWritePrefix,
+		)
 		if err != nil {
-			if mongo.IsDuplicateKeyError(err) {
+			if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
 				allErrors.Add(err)
 				continue
 			}
-			return nil, rewriteMongoError(err)
+			return nil, rewriteEdgedbError(err)
 		}
-		if r.MatchedCount == 1 {
+		if err = checkAuthExistsGuard(ids); err != nil {
+			return nil, err
+		}
+		if len(ids) == 3 {
 			return tokens, nil
 		}
+		// tokens are already populated
 		return nil, nil
 	}
 	return nil, errors.Tag(allErrors, "bad random source")
@@ -1350,6 +1369,7 @@ func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId ed
 	if userId != (edgedb.UUID{}) {
 		accessToken = "-"
 	}
+	// TODO: handle missing user
 	err := m.c.QuerySingle(ctx, `
 with
 	u := (select User filter .id = <uuid>$1),
@@ -1492,26 +1512,14 @@ func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, user
 	if err := token.ValidateReadAndWrite(); err != nil {
 		return nil, err
 	}
-	q := &bson.M{
-		"$and": bson.A{
-			PublicAccessLevelField{PublicAccessLevel: TokenBasedAccess},
-			bson.M{"tokens.readAndWritePrefix": token[0:10]},
-		},
-	}
-	return m.getProjectByToken(ctx, q, userId, token)
+	return m.getProjectByToken(ctx, userId, token)
 }
 
 func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
 	if err := token.ValidateReadOnly(); err != nil {
 		return nil, err
 	}
-	q := &bson.M{
-		"$and": bson.A{
-			PublicAccessLevelField{PublicAccessLevel: TokenBasedAccess},
-			bson.M{"tokens.readOnly": token},
-		},
-	}
-	return m.getProjectByToken(ctx, q, userId, token)
+	return m.getProjectByToken(ctx, userId, token)
 }
 
 func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error) {
@@ -1578,11 +1586,40 @@ func (m *manager) GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, 
 	return m.setWithEpochGuard(ctx, projectId, epoch, u)
 }
 
-func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) getProjectByToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
 	p := &forTokenAccessCheck{}
-	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
+	var tokenPrefixRW, tokenRO AccessToken
+	if len(token) == lenReadOnly {
+		tokenRO = token
+	} else {
+		tokenPrefixRW = token[:lenReadAndWritePrefix]
+	}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$0)
+select Project {
+	access_ro := ({u} if u in .access_ro else <User>{}),
+	access_rw := ({u} if u in .access_rw else <User>{}),
+	access_token_ro := ({u} if u in .access_token_ro else <User>{}),
+	access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+	epoch,
+	id,
+	owner,
+	public_access_level,
+	tokens: {
+		token_ro,
+		token_rw,
+	},
+}
+filter
+	.public_access_level = 'tokenBased'
+	and (
+		.tokens.token_prefix_rw = <str>$1 or .tokens.token_ro = <str>$2
+	)
+limit 1
+`, p, userId, tokenPrefixRW, tokenRO)
 	if err != nil {
-		return nil, rewriteMongoError(err)
+		return nil, rewriteEdgedbError(err)
 	}
 	freshAccess, err := p.GetPrivilegeLevelAnonymous(token)
 	if err != nil {
@@ -1601,23 +1638,33 @@ func (m *manager) getProjectByToken(ctx context.Context, q interface{}, userId e
 }
 
 func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
-	u := &bson.M{
-		"$inc": EpochField{Epoch: 1},
-		"$addToSet": &bson.M{
-			"tokenAccessReadAndWrite_refs": userId,
-		},
+	err := rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0 and .epoch = <int64>$1
+set {
+	access_token_rw += (select User filter .id = <uuid>$2),
+	epoch := Project.epoch + 1,
+}
+`, &IdField{}, projectId, epoch, userId))
+	if err != nil && errors.IsNotFoundError(err) {
+		return ErrEpochIsNotStable
 	}
-	return m.setWithEpochGuard(ctx, projectId, epoch, u)
+	return err
 }
 
 func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
-	u := &bson.M{
-		"$inc": EpochField{Epoch: 1},
-		"$addToSet": &bson.M{
-			"tokenAccessReadOnly_refs": userId,
-		},
+	err := rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0 and .epoch = <int64>$1
+set {
+	access_token_ro += (select User filter .id = <uuid>$2),
+	epoch := Project.epoch + 1,
+}
+`, &IdField{}, projectId, epoch, userId))
+	if err != nil && errors.IsNotFoundError(err) {
+		return ErrEpochIsNotStable
 	}
-	return m.setWithEpochGuard(ctx, projectId, epoch, u)
+	return err
 }
 
 func (m *manager) MarkAsActive(ctx context.Context, projectId edgedb.UUID) error {

@@ -76,7 +76,7 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 				response.RedirectTo = "/restricted"
 				return nil
 			}
-			return err
+			return errors.Tag(err, "cannot get project")
 		}
 		projectId := r.ProjectId
 		if request.Session.IsLoggedIn() {

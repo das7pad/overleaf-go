@@ -127,7 +127,6 @@ type RootDocForJumpField struct {
 }
 
 type RootDocField struct {
-	edgedb.Optional
 	RootDoc RootDoc `json:"root_doc" edgedb:"root_doc"`
 }
 

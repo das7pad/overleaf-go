@@ -27,7 +27,7 @@ import (
 )
 
 func (m *manager) createUser(ctx context.Context, emailAddress sharedTypes.Email, pw types.UserPassword, ip string) (*user.ForCreation, error) {
-	if m.um.GetUserByEmail(ctx, emailAddress, &user.EpochField{}) == nil {
+	if m.um.GetUserByEmail(ctx, emailAddress, &user.IdField{}) == nil {
 		// PERF: skip expensive bcrypt hashing.
 		return nil, user.ErrEmailAlreadyRegistered
 	}
