@@ -24,7 +24,6 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -43,7 +42,7 @@ type Manager interface {
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
 	Delete(ctx context.Context, p *ForDeletion) error
 	Restore(ctx context.Context, p *ForDeletion) error
-	GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error)
+	ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error
 	AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
@@ -121,7 +120,7 @@ func removeArrayIndex(path MongoPath) MongoPath {
 }
 
 const (
-	inactiveProjectBufferSize = 10
+	inactiveProjectsBatchSize = int64(100)
 )
 
 type manager struct {
@@ -130,60 +129,35 @@ type manager struct {
 	cSlow *mongo.Collection
 }
 
-func (m *manager) GetInactiveProjects(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error) {
+func (m *manager) ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error {
 	cutOff := time.Now().UTC().Add(-age)
-
-	q := bson.M{
-		"lastOpened": bson.M{
-			// Take care of never opened projects, with a negative match.
-			"$not": bson.M{
-				"$gt": cutOff,
-			},
-		},
-		"_id": bson.M{
-			// Look at projects created before the cutOff only.
-			"$lt": primitive.NewObjectIDFromTimestamp(cutOff),
-		},
-		"active": true,
-	}
-	p := &IdField{}
-	projection := getProjection(p)
-
-	r, errFind := m.cSlow.Find(
-		ctx, q, options.Find().
-			SetBatchSize(inactiveProjectBufferSize).
-			SetProjection(projection),
-	)
-	if errFind != nil {
-		return nil, rewriteMongoError(errFind)
-	}
-	queue := make(chan edgedb.UUID, inactiveProjectBufferSize)
-
-	// Peek once into the batch, then ignore any errors during background
-	//  streaming.
-	if !r.Next(ctx) {
-		close(queue)
-		if err := r.Err(); err != nil {
-			return nil, err
+	ids := make([]edgedb.UUID, 0, inactiveProjectsBatchSize)
+	for {
+		ids = ids[:0]
+		err := m.c.Query(ctx, `
+select (
+	select Project
+	filter .active = true and .last_opened <= <datetime>$0
+	order by .last_opened
+	limit <int64>$1
+).id
+`, &ids, cutOff, inactiveProjectsBatchSize)
+		if err != nil {
+			return rewriteEdgedbError(err)
 		}
-		return queue, nil
-	}
-	if err := r.Decode(p); err != nil {
-		close(queue)
-		return nil, err
-	}
-
-	go func() {
-		defer close(queue)
-		queue <- p.Id
-		for r.Next(ctx) {
-			if err := r.Decode(p); err != nil {
-				return
+		if len(ids) == 0 {
+			return nil
+		}
+		ok := true
+		for _, projectId := range ids {
+			if !fn(projectId) {
+				ok = false
 			}
-			queue <- p.Id
 		}
-	}()
-	return queue, nil
+		if !ok {
+			return nil
+		}
+	}
 }
 
 type docForInsertion struct {

@@ -302,8 +302,8 @@ func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
 		log.Println("hard deletion of users failed: " + err.Error())
 		ok = false
 	}
-	if err := m.ArchiveOldProjects(ctx, dryRun); err != nil {
-		log.Println("hard deletion of users failed: " + err.Error())
+	if err := m.ArchiveInactiveProjects(ctx, dryRun); err != nil {
+		log.Println("archiving of inactive projects failed: " + err.Error())
 		ok = false
 	}
 	return ok

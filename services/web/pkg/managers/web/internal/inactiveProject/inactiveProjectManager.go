@@ -31,7 +31,7 @@ import (
 )
 
 type Manager interface {
-	ArchiveOldProjects(ctx context.Context, dryRun bool) error
+	ArchiveInactiveProjects(ctx context.Context, dryRun bool) error
 }
 
 func New(options *types.Options, pm project.Manager, dm docstore.Manager) Manager {
@@ -48,18 +48,13 @@ type manager struct {
 	pm  project.Manager
 }
 
-func (m *manager) ArchiveOldProjects(ctx context.Context, dryRun bool) error {
-	queue, errQueue := m.pm.GetInactiveProjects(ctx, m.age)
-	if errQueue != nil {
-		return errors.Tag(errQueue, "cannot get head of inactive projects")
-	}
-
-	// NOTE: Docstore archives docs in parallel, process projects in sequence.
+func (m *manager) ArchiveInactiveProjects(ctx context.Context, dryRun bool) error {
 	nFailed := 0
-	for projectId := range queue {
+	// NOTE: Docstore archives docs in parallel, process projects in sequence.
+	err := m.pm.ProcessInactiveProjects(ctx, m.age, func(projectId edgedb.UUID) bool {
 		if dryRun {
-			log.Println("dry-run archiving inactive project " + projectId.String())
-			continue
+			log.Printf("dry-run archiving inactive project %s", projectId)
+			return false
 		}
 		if err := m.ArchiveProject(ctx, projectId); err != nil {
 			err = errors.Tag(
@@ -68,13 +63,17 @@ func (m *manager) ArchiveOldProjects(ctx context.Context, dryRun bool) error {
 			log.Println(err.Error())
 			nFailed += 1
 		}
+		return nFailed == 0
+	})
+	if err != nil {
+		err = errors.Tag(err, "query projects")
 	}
 	if nFailed != 0 {
-		return errors.New(fmt.Sprintf(
+		err = errors.Merge(err, errors.New(fmt.Sprintf(
 			"archiving failed for %d projects", nFailed,
-		))
+		)))
 	}
-	return nil
+	return err
 }
 
 func (m *manager) ArchiveProject(ctx context.Context, projectId edgedb.UUID) error {
