@@ -34,6 +34,7 @@ type AddDocResponse = project.Doc
 
 type AddFolderRequest struct {
 	ProjectId      edgedb.UUID          `json:"-"`
+	UserId         edgedb.UUID          `edgedb:"-"`
 	Name           sharedTypes.Filename `json:"name"`
 	ParentFolderId edgedb.UUID          `json:"parent_folder_id"`
 }

@@ -27,7 +27,6 @@ import (
 )
 
 type moveResult struct {
-	oldFsPath      sharedTypes.DirEntry
 	newFsPath      sharedTypes.DirEntry
 	projectVersion sharedTypes.Version
 	element        project.TreeElement
@@ -74,7 +73,6 @@ func (m *manager) move(ctx context.Context, projectId, targetId edgedb.UUID, sou
 					parent = f
 					r.element = element
 					source = element
-					r.oldFsPath = path
 					fromMongoPath = mPath
 					return project.AbortWalk
 				}
@@ -89,7 +87,6 @@ func (m *manager) move(ctx context.Context, projectId, targetId edgedb.UUID, sou
 					parent = p
 					r.element = f
 					source = f
-					r.oldFsPath = path
 					fromMongoPath = mPath
 
 					targetIsChild := false

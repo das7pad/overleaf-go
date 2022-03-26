@@ -37,7 +37,6 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 	if err != nil {
 		return ignoreAlreadyMovedErr(err)
 	}
-	oldFsPath := r.oldFsPath.(sharedTypes.PathName)
 	newFsPath := r.newFsPath.(sharedTypes.PathName)
 
 	// The doc has been moved.
@@ -51,7 +50,6 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
 					doc.Id,
-					oldFsPath,
 					newFsPath,
 				).ToGeneric(),
 			},

@@ -942,6 +942,7 @@ func (h *httpController) addFolderToProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	response := &types.AddFolderResponse{}
 	err := h.wm.AddFolderToProject(c.Request.Context(), request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)

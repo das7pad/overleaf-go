@@ -38,7 +38,6 @@ func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFo
 		return ignoreAlreadyMovedErr(err)
 	}
 	folder = r.element.(*project.Folder)
-	oldFsPath := r.oldFsPath.(sharedTypes.DirName)
 	newFsPath := r.newFsPath.(sharedTypes.DirName)
 
 	// The folder has been moved.
@@ -54,7 +53,6 @@ func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFo
 					updates,
 					documentUpdaterTypes.NewRenameDocUpdate(
 						e.GetId(),
-						oldFsPath.JoinPath(p),
 						newFsPath.JoinPath(p),
 					).ToGeneric(),
 				)

@@ -41,7 +41,6 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 		return ignoreAlreadyRenamedErr(err)
 	}
 	folder = r.element.(*project.Folder)
-	oldFsPath := r.oldFsPath.(sharedTypes.DirName)
 	newFsPath := r.newFsPath.(sharedTypes.DirName)
 
 	// The folder has been renamed.
@@ -57,7 +56,6 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 					updates,
 					documentUpdaterTypes.NewRenameDocUpdate(
 						e.GetId(),
-						oldFsPath.JoinPath(p),
 						newFsPath.JoinPath(p),
 					).ToGeneric(),
 				)

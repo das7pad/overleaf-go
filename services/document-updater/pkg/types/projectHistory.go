@@ -24,42 +24,9 @@ import (
 )
 
 type coreProjectUpdate struct {
-	Id       edgedb.UUID          `json:"id"`
-	PathName sharedTypes.PathName `json:"pathname"`
-	Version  string               `json:"version"`
-	Type     string               `json:"type"`
-}
-
-type AddDocUpdate struct {
-	coreProjectUpdate
-}
-
-func (a *AddDocUpdate) Validate() error {
-	if a.PathName == "" {
-		return &errors.ValidationError{Msg: "missing path"}
-	}
-	return nil
-}
-
-func (a *AddDocUpdate) ToGeneric() *GenericProjectUpdate {
-	return &GenericProjectUpdate{
-		coreProjectUpdate: a.coreProjectUpdate,
-	}
-}
-
-type AddFileUpdate struct {
-	coreProjectUpdate
-	URL string `json:"url"`
-}
-
-func (a *AddFileUpdate) Validate() error {
-	if a.PathName == "" {
-		return &errors.ValidationError{Msg: "missing path"}
-	}
-	if a.URL == "" {
-		return &errors.ValidationError{Msg: "missing url"}
-	}
-	return nil
+	Id      edgedb.UUID `json:"id"`
+	Version string      `json:"version"`
+	Type    string      `json:"type"`
 }
 
 type RenameDocUpdate struct {
@@ -68,8 +35,8 @@ type RenameDocUpdate struct {
 }
 
 func (r *RenameDocUpdate) Validate() error {
-	if r.PathName == "" {
-		return &errors.ValidationError{Msg: "missing old path"}
+	if r.NewPathName == "" {
+		return &errors.ValidationError{Msg: "missing new path"}
 	}
 	return nil
 }
@@ -81,33 +48,13 @@ func (r *RenameDocUpdate) ToGeneric() *GenericProjectUpdate {
 	}
 }
 
-func NewRenameDocUpdate(id edgedb.UUID, oldPath, newPath sharedTypes.PathName) *RenameDocUpdate {
+func NewRenameDocUpdate(id edgedb.UUID, newPath sharedTypes.PathName) *RenameDocUpdate {
 	return &RenameDocUpdate{
 		coreProjectUpdate: coreProjectUpdate{
-			Id:       id,
-			PathName: oldPath,
-			Type:     "rename-doc",
+			Id:   id,
+			Type: "rename-doc",
 		},
 		NewPathName: newPath,
-	}
-}
-
-type RenameFileUpdate struct {
-	coreProjectUpdate
-	NewPathName sharedTypes.PathName `json:"newPathname"`
-}
-
-func (r *RenameFileUpdate) Validate() error {
-	if r.PathName == "" {
-		return &errors.ValidationError{Msg: "missing old path"}
-	}
-	return nil
-}
-
-func (r *RenameFileUpdate) ToGeneric() *GenericProjectUpdate {
-	return &GenericProjectUpdate{
-		coreProjectUpdate: r.coreProjectUpdate,
-		NewPathName:       r.NewPathName,
 	}
 }
 
@@ -117,28 +64,8 @@ type GenericProjectUpdate struct {
 	URL         string               `json:"url"`
 }
 
-func (g *GenericProjectUpdate) AddDocUpdate() *AddDocUpdate {
-	return &AddDocUpdate{
-		coreProjectUpdate: g.coreProjectUpdate,
-	}
-}
-
-func (g *GenericProjectUpdate) AddFileUpdate() *AddFileUpdate {
-	return &AddFileUpdate{
-		coreProjectUpdate: g.coreProjectUpdate,
-		URL:               g.URL,
-	}
-}
-
 func (g *GenericProjectUpdate) RenameDocUpdate() *RenameDocUpdate {
 	return &RenameDocUpdate{
-		coreProjectUpdate: g.coreProjectUpdate,
-		NewPathName:       g.NewPathName,
-	}
-}
-
-func (g *GenericProjectUpdate) RenameFileUpdate() *RenameFileUpdate {
-	return &RenameFileUpdate{
 		coreProjectUpdate: g.coreProjectUpdate,
 		NewPathName:       g.NewPathName,
 	}
@@ -158,20 +85,8 @@ func (p *ProcessProjectUpdatesRequest) Validate() error {
 	}
 	for _, update := range p.Updates {
 		switch update.Type {
-		case "add-doc":
-			if err := update.AddDocUpdate().Validate(); err != nil {
-				return err
-			}
-		case "add-file":
-			if err := update.AddFileUpdate().Validate(); err != nil {
-				return err
-			}
 		case "rename-doc":
 			if err := update.RenameDocUpdate().Validate(); err != nil {
-				return err
-			}
-		case "rename-file":
-			if err := update.RenameFileUpdate().Validate(); err != nil {
 				return err
 			}
 		default:

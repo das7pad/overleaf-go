@@ -41,7 +41,6 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		return ignoreAlreadyRenamedErr(err)
 	}
 	doc = r.element.(*project.Doc)
-	oldFsPath := r.oldFsPath.(sharedTypes.PathName)
 	newFsPath := r.newFsPath.(sharedTypes.PathName)
 
 	// The doc has been renamed.
@@ -55,7 +54,6 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
 					doc.GetId(),
-					oldFsPath,
 					newFsPath,
 				).ToGeneric(),
 			},

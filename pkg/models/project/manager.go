@@ -43,10 +43,12 @@ type Manager interface {
 	Delete(ctx context.Context, p *ForDeletion) error
 	Restore(ctx context.Context, p *ForDeletion) error
 	ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error
+	AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error)
 	AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	MoveTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
+	RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, error)
 	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
@@ -697,6 +699,51 @@ select (
 
 var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}
 
+type addTreeElementResult struct {
+	ProjectExists  bool                `edgedb:"project_exists"`
+	ProjectVersion sharedTypes.Version `edgedb:"project_version"`
+	ElementId      edgedb.UUID         `edgedb:"element_id"`
+}
+
+func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error) {
+	r := addTreeElementResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
+	newFolder := (
+		insert Folder {
+			project := pWithAuth,
+			parent := f,
+			name := <str>$3,
+		}
+	),
+	pBumpedVersion := (
+		update Project
+		filter Project = newFolder.project
+		set { version := Project.version + 1 }
+	)
+select {
+	project_exists := exists p,
+	project_version := pBumpedVersion.version ?? 0,
+	element_id := newFolder.id,
+}
+`, &r, projectId, userId, parent, f.Name)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
+	// TODO: convert missing property error into 422
+	if !r.ProjectExists {
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	}
+	f.Id = r.ElementId
+	return r.ProjectVersion, nil
+}
+
 func (m *manager) AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
 	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
 		"$push": bson.M{
@@ -775,59 +822,47 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId edgedb.UUID, 
 	})
 }
 
-func (m *manager) RenameTreeElement1(ctx context.Context, projectId edgedb.UUID, element TreeElement) (sharedTypes.Version, error) {
-	var version sharedTypes.Version
-	// TODO: extend edgedb.Client.QuerySingle to use Tx
-	err := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
-		{
-			err := tx.QuerySingle(
-				ctx,
-				`
-update VisibleTreeElement
-filter .id = <uuid>$0 and .project.id = <uuid>$1
-set { name := <str>$2 }`,
-				&IdField{},
-				element.GetId(), projectId, element.GetName(),
-			)
-			if err != nil {
-				// tx error or element does not exist
-				return rewriteEdgedbError(err)
-			}
-		}
-		// TODO: get version in either case, potentially in query above
-		// TODO: explore multi parent link for targeted tree query
-		if f, ok := element.(*Folder); ok {
-			r, v, err := m.GetProjectRootFolder(ctx, projectId)
-			if err != nil {
-				return rewriteEdgedbError(err)
-			}
-			version = v
-			_ = r.WalkFolders(func(folder *Folder, path sharedTypes.DirName) error {
-				if folder.Id == f.Id {
-					*f = *folder
-					return AbortWalk
-				}
-				return nil
-			})
-		}
-		err := tx.QuerySingle(
-			ctx,
-			`
-update Project
-filter .id = <uuid>$0
-set { version := Project.version + 1 }`,
-			&IdField{},
-			projectId,
-		)
-		if err != nil {
-			return rewriteEdgedbError(err)
-		}
-		return err
-	})
+type renameTreeElementRequest struct {
+	ProjectExists  bool                `edgedb:"project_exists"`
+	HasWriteAccess bool                `edgedb:"has_write_access"`
+	ElementExists  bool                `edgedb:"element_exists"`
+	ProjectVersion sharedTypes.Version `edgedb:"project_version"`
+}
+
+func (m *manager) RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, error) {
+	r := renameTreeElementRequest{}
+	// TODO: fetch new path
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	d := (select Doc filter .id = <uuid>$2 and .project = pWithAuth),
+	updatedDoc := (update d set { name := <str>$3 }),
+	pBumpedVersion := (
+		update updatedDoc.project set { version := pWithAuth.version + 1 }
+	)
+select {
+	project_exists := exists p,
+	has_write_access := exists pWithAuth,
+	element_exists := exists d,
+	project_version := pBumpedVersion.version ?? 0,
+}
+`, &r, projectId, userId, d.Id, d.Name)
 	if err != nil {
 		return 0, rewriteEdgedbError(err)
 	}
-	return version, nil
+	switch {
+	case !r.ProjectExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.HasWriteAccess:
+		return 0, &errors.NotAuthorizedError{}
+	case !r.ElementExists:
+		return 0, &errors.UnprocessableEntityError{Msg: "doc does not exist"}
+	}
+	return r.ProjectVersion, nil
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
@@ -1237,6 +1272,7 @@ select {
 				[is LinkedFileProjectOutputFile].source_path,
 			},
 			folders,
+			name,
 		},
 		id,
 		image_name,
