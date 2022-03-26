@@ -36,6 +36,10 @@ type BetaProgramField struct {
 	BetaProgram bool `json:"betaProgram" edgedb:"beta_program"`
 }
 
+type ContactsField struct {
+	Contacts []Contact `edgedb:"contacts"`
+}
+
 type EditorConfigField struct {
 	EditorConfig EditorConfig `json:"ace" edgedb:"editor_config"`
 }

@@ -26,10 +26,10 @@ type GetUserContactsRequest struct {
 }
 
 type UserContact struct {
-	*user.WithPublicInfoAndNonStandardId
+	user.WithPublicInfoAndNonStandardId
 	Type string `json:"type"`
 }
 
 type GetUserContactsResponse struct {
-	Contacts []*UserContact `json:"contacts"`
+	Contacts []UserContact `json:"contacts"`
 }

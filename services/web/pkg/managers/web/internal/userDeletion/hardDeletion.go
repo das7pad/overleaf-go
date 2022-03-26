@@ -69,17 +69,6 @@ func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error
 }
 
 func (m *manager) HardDeleteUser(ctx context.Context, userId edgedb.UUID) error {
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		if err := m.cm.DeleteForUser(pCtx, userId); err != nil {
-			return errors.Tag(err, "cannot delete tags")
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
 	if err := m.delUM.Expire(ctx, userId); err != nil {
 		return errors.Tag(err, "cannot expire deleted user")
 	}

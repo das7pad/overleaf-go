@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -40,6 +41,8 @@ type Manager interface {
 	GetUsersWithPublicInfo(ctx context.Context, users []edgedb.UUID) ([]WithPublicInfo, error)
 	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
+	GetContacts(ctx context.Context, userId edgedb.UUID) ([]Contact, error)
+	AddContact(ctx context.Context, userId, contactId edgedb.UUID) error
 	ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error
 	SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, config EditorConfig) error
@@ -582,6 +585,81 @@ select User {
 }
 filter .id = <uuid>$0
 `, u, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
+}
+
+func (m *manager) GetContacts(ctx context.Context, userId edgedb.UUID) ([]Contact, error) {
+	u := ContactsField{}
+	err := m.c.QuerySingle(ctx, `
+select User {
+	contacts: {
+		@connections,
+		@last_touched,
+		email: { email },
+		id,
+		first_name,
+		last_name,
+	},
+}
+filter .id = <uuid>$0
+`, &u, userId)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+
+	sort.Slice(u.Contacts, func(i, j int) bool {
+		return u.Contacts[i].IsPreferredOver(u.Contacts[j])
+	})
+
+	if len(u.Contacts) > 50 {
+		u.Contacts = u.Contacts[:50]
+	}
+	for i := 0; i < len(u.Contacts); i++ {
+		u.Contacts[i].IdNoUnderscore = u.Contacts[i].Id
+	}
+	return u.Contacts, nil
+}
+
+func (m *manager) AddContact(ctx context.Context, userId, contactId edgedb.UUID) error {
+	var r bool
+	err := m.c.QuerySingle(ctx, `
+with
+	existing := (
+		select User.contacts@connections
+		filter User.id = <uuid>$0 and User.contacts.id = <uuid>$1
+		limit 1
+	),
+select exists (
+	select (
+		update User
+		filter .id = <uuid>$0
+		set {
+			contacts += (
+				select detached User {
+					@connections := (existing ?? 0) + 1,
+					@last_touched := datetime_of_transaction(),
+				}
+				filter .id = <uuid>$1
+			)
+		}
+	) union (
+		update User
+		filter .id = <uuid>$1
+		set {
+			contacts += (
+				select detached User {
+					@connections := (existing ?? 0) + 1,
+					@last_touched := datetime_of_transaction(),
+				}
+				filter .id = <uuid>$0
+			)
+		}
+	)
+)
+`, &r, userId, contactId)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}

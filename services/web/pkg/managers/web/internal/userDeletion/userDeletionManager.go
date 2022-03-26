@@ -21,7 +21,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/deletedUser"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -34,9 +33,8 @@ type Manager interface {
 	HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error
 }
 
-func New(db *mongo.Database, pm project.Manager, um user.Manager, cm contact.Manager, pDelM projectDeletion.Manager) Manager {
+func New(db *mongo.Database, pm project.Manager, um user.Manager, pDelM projectDeletion.Manager) Manager {
 	return &manager{
-		cm:    cm,
 		db:    db,
 		delUM: deletedUser.New(db),
 		pm:    pm,
@@ -46,7 +44,6 @@ func New(db *mongo.Database, pm project.Manager, um user.Manager, cm contact.Man
 }
 
 type manager struct {
-	cm    contact.Manager
 	db    *mongo.Database
 	delUM deletedUser.Manager
 	pm    project.Manager

@@ -28,7 +28,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
-	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	tagModel "github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -116,7 +115,6 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
 	chatM := chat.New(db)
-	csm := contact.New(db)
 	dum, err := documentUpdater.New(
 		options.APIs.DocumentUpdater.Options, c, client, db,
 	)
@@ -150,7 +148,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		client, db,
 		editorEvents,
 		pm, tm, um,
-		chatM, csm, dm, fm,
+		chatM, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(options, ps, c, client, db, um, loggedInUserJWTHandler, sm)
@@ -159,7 +157,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(ps, client, pm)
 	pim := projectInvite.New(
-		options, ps, c, client, db, editorEvents, pm, um, csm,
+		options, ps, c, client, db, editorEvents, pm, um,
 	)
 	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, c, db, pm, um, dm, dum, fm)
@@ -171,7 +169,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	}
 	pdm := projectDownload.New(pm, dm, dum, fm)
 	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
-	uDelM := userDeletion.New(db, pm, um, csm, pDelM)
+	uDelM := userDeletion.New(db, pm, um, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
 	ucm := userCreation.New(options, ps, c, db, um, lm)
 	rm := review.New(pm, um, chatM, dm, dum, editorEvents)

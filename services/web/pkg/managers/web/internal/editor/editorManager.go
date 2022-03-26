@@ -27,7 +27,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
-	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -62,7 +61,7 @@ type Manager interface {
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, csm contact.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, cm chat.Manager, dm docstore.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
 	publicImageNames := make([]templates.AllowedImageName, 0)
 	for _, allowedImageName := range options.AllowedImageNames {
 		if !allowedImageName.AdminOnly {
@@ -72,7 +71,6 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 	return &manager{
 		client:           client,
 		cm:               cm,
-		csm:              csm,
 		db:               db,
 		dm:               dm,
 		editorEvents:     editorEvents,
@@ -92,7 +90,6 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 type manager struct {
 	client           redis.UniversalClient
 	cm               chat.Manager
-	csm              contact.Manager
 	db               *mongo.Database
 	dm               docstore.Manager
 	editorEvents     channel.Writer

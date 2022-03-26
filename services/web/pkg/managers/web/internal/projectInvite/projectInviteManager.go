@@ -30,7 +30,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/contact"
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -50,10 +49,9 @@ type Manager interface {
 	ViewProjectInvite(ctx context.Context, request *types.ViewProjectInvitePageRequest, response *types.ViewProjectInvitePageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager, cm contact.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
 	return &manager{
 		client:       client,
-		cm:           cm,
 		db:           db,
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),
@@ -68,7 +66,6 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 
 type manager struct {
 	client       redis.UniversalClient
-	cm           contact.Manager
 	db           *mongo.Database
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions

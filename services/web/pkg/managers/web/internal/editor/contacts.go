@@ -19,10 +19,7 @@ package editor
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -30,30 +27,15 @@ func (m *manager) GetUserContacts(ctx context.Context, request *types.GetUserCon
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	userId := request.Session.User.Id
-	sortedIds := make([]edgedb.UUID, 0)
-	err := m.csm.GetForUser(ctx, userId, &sortedIds)
-	if err != nil {
-		return errors.Tag(err, "cannot get contacts")
-	}
-	userIds := make(user.UniqUserIds, len(sortedIds))
-	for _, id := range sortedIds {
-		userIds[id] = true
-	}
-	users, err := m.um.GetUsersForBackFillingNonStandardId(ctx, userIds)
+	users, err := m.um.GetContacts(ctx, request.Session.User.Id)
 	if err != nil {
 		return errors.Tag(err, "cannot get users")
 	}
-	userContacts := make([]*types.UserContact, 0, len(users))
-	for _, id := range sortedIds {
-		usr, exists := users[id]
-		if !exists {
-			continue
-		}
-		userContacts = append(userContacts, &types.UserContact{
-			WithPublicInfoAndNonStandardId: usr,
-			Type:                           "user",
-		})
+	userContacts := make([]types.UserContact, len(users))
+	for i, user := range users {
+		userContacts[i].WithPublicInfoAndNonStandardId =
+			user.WithPublicInfoAndNonStandardId
+		userContacts[i].Type = "user"
 	}
 	response.Contacts = userContacts
 	return nil

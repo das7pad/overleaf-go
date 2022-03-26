@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,30 +14,31 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package contact
+package user
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/edgedb/edgedb-go"
 )
 
-type contactDetails struct {
-	Connections int64              `edgedb:"n"`
-	LastTouched primitive.DateTime `edgedb:"ts"`
+type Contact struct {
+	WithPublicInfoAndNonStandardId `edgedb:"$inline"`
+	Connections                    edgedb.OptionalInt64    `edgedb:"connections"`
+	LastTouched                    edgedb.OptionalDateTime `edgedb:"last_touched"`
 }
 
-type contact struct {
-	UserId string
-	contactDetails
-}
-
-func (a *contact) IsPreferredOver(b *contact) bool {
-	if a.Connections > b.Connections {
+func (a Contact) IsPreferredOver(b Contact) bool {
+	aConnections, _ := a.Connections.Get()
+	bConnections, _ := b.Connections.Get()
+	if aConnections > bConnections {
 		return true
-	} else if a.Connections < b.Connections {
+	} else if aConnections < bConnections {
 		return false
-	} else if a.LastTouched > b.LastTouched {
+	}
+	aLastTouched, _ := a.LastTouched.Get()
+	bLastTouched, _ := b.LastTouched.Get()
+	if aLastTouched.After(bLastTouched) {
 		return true
-	} else if a.LastTouched < b.LastTouched {
+	} else if aLastTouched.Before(bLastTouched) {
 		return false
 	} else {
 		return false
