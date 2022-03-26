@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -66,17 +65,8 @@ func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.Re
 }
 
 func (m *manager) removeMemberFromProject(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
-	err := mongoTx.For(m.db, ctx, func(ctx context.Context) error {
-		if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
-			return errors.Tag(err, "cannot remove user from project")
-		}
-		if err := m.tm.RemoveProjectForUser(ctx, userId, projectId); err != nil {
-			return errors.Tag(err, "cannot remove project from tags")
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+	if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
+		return errors.Tag(err, "cannot remove user from project")
 	}
 	go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
 		Members: true,

@@ -910,20 +910,6 @@ select (
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
-func (m *manager) setWithEpochGuard(ctx context.Context, projectId edgedb.UUID, epoch int64, u interface{}) error {
-	q := withIdAndEpoch{}
-	q.Id = projectId
-	q.Epoch = epoch
-	r, err := m.cP.UpdateOne(ctx, q, u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.MatchedCount != 1 {
-		return ErrEpochIsNotStable
-	}
-	return nil
-}
-
 func (m *manager) setWithVersionGuard(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, u interface{}) error {
 	q := &withIdAndVersion{}
 	q.Id = projectId
@@ -936,29 +922,6 @@ func (m *manager) setWithVersionGuard(ctx context.Context, projectId edgedb.UUID
 		return ErrVersionChanged
 	}
 	return nil
-}
-
-func (m *manager) checkAccessAndUpdate(ctx context.Context, projectId, userId edgedb.UUID, minLevel sharedTypes.PrivilegeLevel, u interface{}) error {
-	for i := 0; i < 10; i++ {
-		p := &ForAuthorizationDetails{}
-		qId := &IdField{Id: projectId}
-		err := m.fetchWithMinimalAuthorizationDetails(ctx, qId, userId, p)
-		if err != nil {
-			return err
-		}
-		if err = p.CheckPrivilegeLevelIsAtLest(userId, minLevel); err != nil {
-			return err
-		}
-		err = m.setWithEpochGuard(ctx, projectId, p.Epoch, u)
-		if err != nil {
-			if err == ErrEpochIsNotStable {
-				continue
-			}
-			return err
-		}
-		return nil
-	}
-	return ErrEpochIsNotStable
 }
 
 type forGetProjectNames struct {
@@ -1524,20 +1487,21 @@ func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.U
 func (m *manager) GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error) {
 	var p WithInvitedMembers
 	err := m.c.QuerySingle(ctx, `
-	select Project {
-		access_ro: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-		},
-		access_rw: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-		},
-	}
+select Project {
+	access_ro: {
+		email: { email },
+		first_name,
+		id,
+		last_name,
+	},
+	access_rw: {
+		email: { email },
+		first_name,
+		id,
+		last_name,
+	},
+}
+filter .id = <uuid>$0
 `, &p, projectId)
 	if err != nil {
 		return nil, rewriteEdgedbError(err)
@@ -1546,33 +1510,49 @@ func (m *manager) GetProjectMembers(ctx context.Context, projectId edgedb.UUID) 
 }
 
 func (m *manager) GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error {
-	u := bson.M{
-		// Use the epoch as guard for concurrent write operations, this
-		//  includes revoking of invitations.
-		"$inc": EpochField{Epoch: 1},
-	}
+	var q string
 	switch level {
 	case sharedTypes.PrivilegeLevelReadAndWrite:
-		//goland:noinspection SpellCheckingInspection
-		u["$addToSet"] = bson.M{
-			"collaberator_refs": userId,
-		}
-		u["$pull"] = bson.M{
-			"readOnly_refs": userId,
-		}
+		q = `
+with
+	u := (select User filter .id = <uuid>$0)
+update Project
+filter
+	.id = <uuid>$1
+and .epoch = <int64>$2
+set {
+	epoch := Project.epoch + 1,
+	access_rw := distinct (Project.access_rw union {u}),
+	access_ro -= u,
+}
+`
 	case sharedTypes.PrivilegeLevelReadOnly:
-		u["$addToSet"] = bson.M{
-			"readOnly_refs": userId,
-		}
-		//goland:noinspection SpellCheckingInspection
-		u["$pull"] = bson.M{
-			"collaberator_refs": userId,
-		}
+		q = `
+with
+	u := (select User filter .id = <uuid>$0)
+update Project
+filter
+	.id = <uuid>$1
+and .epoch = <int64>$2
+set {
+	epoch := Project.epoch + 1,
+	access_ro := distinct (Project.access_rw union {u}),
+	access_rw -= u,
+}
+`
 	default:
 		return errors.New("invalid member access level: " + string(level))
 	}
 
-	return m.setWithEpochGuard(ctx, projectId, epoch, u)
+	err := m.c.QuerySingle(ctx, q, &IdField{}, userId, projectId, epoch)
+	if err != nil {
+		err = rewriteEdgedbError(err)
+		if errors.IsNotFoundError(err) {
+			return ErrEpochIsNotStable
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *manager) getProjectByToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
@@ -1699,17 +1679,41 @@ set {
 }
 
 func (m *manager) RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
-	u := bson.M{
-		"$inc": EpochField{Epoch: 1},
+	var r []bool
+	err := m.c.Query(ctx, `
+with
+	u := (select User filter .id = <uuid>$0),
+	p := (
+		update Project
+		filter
+			.id = <uuid>$1
+		and .epoch = <int64>$2
+		set {
+			epoch := Project.epoch + 1,
+			access_ro -= u,
+			access_rw -= u,
+			access_token_ro -= u,
+			access_token_rw -= u,
+			archived_by -= u,
+			trashed_by -= u,
+		}
+	),
+	tags := (
+		update Tag
+		filter .user = u
+		set {
+			projects -= p
+		}
+	)
+select { exists p, exists tags }
+`, &r, userId, projectId, epoch)
+	if err != nil {
+		return rewriteEdgedbError(err)
 	}
-
-	pull := bson.M{}
-	for s := range forMemberRemovalFields {
-		pull[s] = userId
+	if len(r) == 0 || !r[0] {
+		return ErrEpochIsNotStable
 	}
-	u["$pull"] = pull
-
-	return m.setWithEpochGuard(ctx, projectId, epoch, u)
+	return nil
 }
 
 func (m *manager) Delete(ctx context.Context, p *ForDeletion) error {
@@ -1775,7 +1779,7 @@ select {
 `,
 		&result,
 		projectId, userId, folderId,
-		d.Name, int64(len(d.Snapshot)), string(d.Snapshot),
+		d.Name, int64(len(d.Snapshot)), d.Snapshot,
 	)
 	if err != nil {
 		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {

@@ -318,6 +318,7 @@ func (h *httpController) GetRouter(
 		rInvite.POST("/resend", h.resendProjectInvite)
 
 		r.POST("/transfer-ownership", h.transferProjectOwnership)
+
 		rUser := r.Group("/users/{userId}")
 		rUser.Use(httpUtils.ValidateAndSetId("userId"))
 		rUser.DELETE("", h.removeMemberFromProject)

@@ -28,9 +28,7 @@ type Manager interface {
 	AddProject(ctx context.Context, userId, tagId, projectId edgedb.UUID) error
 	Delete(ctx context.Context, userId, tagId edgedb.UUID) error
 	EnsureExists(ctx context.Context, userId edgedb.UUID, name string) (*Full, error)
-	GetAll(ctx context.Context, userId edgedb.UUID) ([]Full, error)
 	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error
-	RemoveProjectForUser(ctx context.Context, userId, projectId edgedb.UUID) error
 	Rename(ctx context.Context, userId, tagId edgedb.UUID, newName string) error
 }
 
@@ -98,20 +96,6 @@ else (select Tag { id, projects } filter .name = <str>$1 and .user = user)`,
 	return t, nil
 }
 
-func (m *manager) GetAll(ctx context.Context, userId edgedb.UUID) ([]Full, error) {
-	tags := make([]Full, 0)
-	err := m.c.Query(
-		ctx,
-		"select Tag { id, name, projects } filter .user.id = <uuid>$0",
-		&tags,
-		userId,
-	)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
-	}
-	return tags, nil
-}
-
 func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
@@ -121,22 +105,6 @@ filter .id = <uuid>$0 and .user.id = <uuid>$1
 set { projects -= (select Project filter .id = <uuid>$2 ) }`,
 		&IdField{},
 		tagId, userId, projectId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func (m *manager) RemoveProjectForUser(ctx context.Context, userId, projectId edgedb.UUID) error {
-	err := m.c.Query(
-		ctx,
-		`
-update Tag
-filter .user.id = <uuid>$0
-set { projects -= (select Project filter .id = <uuid>$1) }`,
-		&[]IdField{},
-		userId, projectId,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)
