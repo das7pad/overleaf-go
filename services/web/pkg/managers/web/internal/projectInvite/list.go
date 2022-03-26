@@ -19,14 +19,15 @@ package projectInvite
 import (
 	"context"
 
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error {
-	invites, err := m.pim.GetAllForProject(ctx, request.ProjectId)
+	response.Invites = make([]projectInvite.ForListing, 0)
+	err := m.pim.GetAllForProject(ctx, request.ProjectId, &response.Invites)
 	if err != nil {
 		return err
 	}
-	response.Invites = invites
 	return nil
 }

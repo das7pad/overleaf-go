@@ -20,8 +20,6 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -29,96 +27,190 @@ import (
 type Manager interface {
 	Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error
 	Create(ctx context.Context, pi *WithToken) error
-	GetById(ctx context.Context, projectId, inviteId edgedb.UUID, target interface{}) error
+	GetById(ctx context.Context, projectId, inviteId edgedb.UUID, pi *WithToken) error
 	GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, target interface{}) error
-	GetAllForProject(ctx context.Context, projectId edgedb.UUID) ([]*WithoutToken, error)
+	GetAllForProject(ctx context.Context, projectId edgedb.UUID, invites *[]ForListing) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		c: db.Collection("projectInvites"),
+		c: c,
 	}
 }
 
-func rewriteMongoError(err error) error {
-	if err == mongo.ErrNoDocuments {
+func rewriteEdgedbError(err error) error {
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
 		return &errors.NotFoundError{}
 	}
 	return err
 }
 
-const (
-	prefetchN = 100
-)
-
 type manager struct {
-	c *mongo.Collection
+	c *edgedb.Client
 }
 
 func (m *manager) Create(ctx context.Context, pi *WithToken) error {
-	_, err := m.c.InsertOne(ctx, pi)
-	if err != nil {
-		return rewriteMongoError(err)
+	allErrors := &errors.MergedError{}
+	for i := 0; i < 10; i++ {
+		{
+			token, err := generateNewToken()
+			if err != nil {
+				allErrors.Add(err)
+				continue
+			}
+			pi.Token = token
+		}
+
+		var r bool
+		err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .email.email = <str>$0 limit 1),
+	p := (
+		select Project
+		filter .id = <uuid>$3 and .owner.id = <uuid>$4
+	),
+	pi := (insert ProjectInvite {
+		email := <str>$0,
+		expires_at := <datetime>$1,
+		privilege_level := <str>$2,
+		project := p,
+		sending_user := (select User filter .id = <uuid>$4),
+		token := <str>$5,
+	})
+select exists (
+	for entry in (<int64>{} if exists u else {1}) union (
+		insert Notification {
+			key := 'project-invite-' ++ <str>pi.id,
+			expires_at := <datetime>$1,
+			user := u,
+			template_key := 'notification_project_invite',
+			message_options := <json>{
+				userName := <str>$6,
+				projectName := p.name,
+				projectId := <str>p.id,
+				token := <str>$5,
+			},
+		}
+	)
+)
+`,
+			&r,
+			pi.Email,
+			pi.Expires,
+			pi.PrivilegeLevel,
+			pi.ProjectId,
+			pi.SendingUser.Id,
+			pi.Token,
+			pi.SendingUser.DisplayName(),
+		)
+		if err != nil {
+			if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+				// Duplicate .token
+				allErrors.Add(err)
+				continue
+			}
+			return rewriteEdgedbError(err)
+		}
+		return nil
 	}
-	return nil
+	return allErrors.Finalize()
 }
 
 func (m *manager) Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error {
-	q := projectIdAndInviteId{}
-	q.Id = inviteId
-	q.ProjectId = projectId
-	r, err := m.c.DeleteOne(ctx, q)
+	var r bool
+	err := m.c.QuerySingle(ctx, `
+with
+	pi := (
+		delete ProjectInvite
+		filter
+			.id = <uuid>$0
+		and .project.id = <uuid>$1
+		and .expires_at > datetime_of_transaction()
+	),
+	p := (
+		update Project
+		filter .id = pi.project.id
+		set {
+			epoch := Project.epoch + 1
+		}
+	),
+	n := (
+		update Notification
+		filter .key = 'project-invite-' ++ <str>pi.id
+		set {
+			template_key := '',
+		}
+	)
+select exists {pi, p, n}
+`, &r, inviteId, projectId)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
-	if r.DeletedCount != 1 {
+	if !r {
 		return &errors.NotFoundError{}
 	}
 	return nil
 }
 
-func (m *manager) GetById(ctx context.Context, projectId, inviteId edgedb.UUID, target interface{}) error {
-	q := projectIdAndInviteId{}
-	q.ProjectId = projectId
-	q.Id = inviteId
-
-	return m.get(ctx, q, target)
+func (m *manager) GetById(ctx context.Context, projectId, inviteId edgedb.UUID, pi *WithToken) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+select ProjectInvite {
+	created_at,
+	email,
+	expires_at,
+	id,
+	privilege_level,
+	project,
+	sending_user,
+	token,
+}
+filter
+	.id = <uuid>$0
+and	.project.id = <uuid>$1
+and .expires_at > datetime_of_transaction()
+limit 1
+`, pi, inviteId, projectId))
 }
 
-func (m *manager) GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, target interface{}) error {
-	q := projectIdAndToken{}
-	q.ProjectId = projectId
-	q.Token = token
-
-	return m.get(ctx, q, target)
+func (m *manager) GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, pi interface{}) error {
+	var q string
+	switch pi.(type) {
+	case *IdField:
+		q = `
+select ProjectInvite
+filter
+	.project.id = <uuid>$0
+and .token = <str>$1
+and .expires_at > datetime_of_transaction()
+limit 1
+`
+	case *WithoutToken:
+		q = `
+select ProjectInvite {
+	created_at,
+	email,
+	expires_at,
+	id,
+	privilege_level,
+	project,
+	sending_user,
+}
+filter
+	.project.id = <uuid>$0
+and .token = <str>$1
+and .expires_at > datetime_of_transaction()
+limit 1
+`
+	}
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, q, pi, projectId, token))
 }
 
-func (m *manager) get(ctx context.Context, q interface{}, target interface{}) error {
-	err := m.c.FindOne(
-		ctx, q, options.FindOne().SetProjection(getProjection(target)),
-	).Decode(target)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+func (m *manager) GetAllForProject(ctx context.Context, projectId edgedb.UUID, invites *[]ForListing) error {
+	return rewriteEdgedbError(m.c.Query(ctx, `
+select (select Project filter .id = <uuid>$0).invites {
+	email,
+	id,
+	privilege_level,
 }
-
-func (m *manager) GetAllForProject(ctx context.Context, projectId edgedb.UUID) ([]*WithoutToken, error) {
-	q := ProjectIdField{ProjectId: projectId}
-
-	invites := make([]*WithoutToken, 0)
-	r, err := m.c.Find(
-		ctx,
-		q,
-		options.Find().
-			SetProjection(getProjection(invites)).
-			SetBatchSize(prefetchN),
-	)
-	if err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	if err = r.All(ctx, &invites); err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	return invites, nil
+`, invites, projectId))
 }

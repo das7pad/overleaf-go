@@ -49,10 +49,11 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			return errors.Tag(err, "cannot get invite")
 		}
 		level := pi.PrivilegeLevel
-		invitingUserId := pi.SendingUserId
+		invitingUserId := pi.SendingUser.Id
 		grantAccess :=
 			!(d.PrivilegeLevel.IsAtLeast(level) && d.IsTokenMember == false)
 
+		// TODO: merge into a single query
 		err = mongoTx.For(m.db, ctx, func(ctx context.Context) error {
 			if grantAccess {
 				err = m.pm.GrantMemberAccess(
@@ -64,16 +65,11 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			}
 
 			// The contact hints are transparent to the user and OK to fail.
+			// TODO: consider merging into m.pim.Delete
 			_ = m.um.AddContact(ctx, invitingUserId, userId)
 
 			if err = m.pim.Delete(ctx, projectId, pi.Id); err != nil {
 				return errors.Tag(err, "cannot delete invite")
-			}
-
-			// While not critical, the UI should rather error out than retain
-			//  any stale notifications.
-			if err = m.nm.RemoveByKeyOnly(ctx, getKey(pi.Id)); err != nil {
-				return errors.Tag(err, "cannot delete invite notification")
 			}
 			return nil
 		})

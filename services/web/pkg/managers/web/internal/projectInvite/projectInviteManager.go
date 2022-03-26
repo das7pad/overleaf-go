@@ -57,7 +57,7 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 		emailOptions: options.EmailOptions(),
 		nm:           notification.New(c),
 		options:      options,
-		pim:          projectInvite.New(db),
+		pim:          projectInvite.New(c),
 		pm:           pm,
 		ps:           ps,
 		um:           um,
@@ -110,11 +110,17 @@ func (m *manager) createNotification(ctx context.Context, d *projectInviteDetail
 	n.Key = getKey(d.invite.Id)
 	n.TemplateKey = "notification_project_invite"
 	n.UserId = d.user.Id
-	n.MessageOptions = map[string]interface{}{
-		"userName":    d.sender.DisplayName(),
-		"projectName": d.project.Name,
-		"projectId":   d.invite.ProjectId.String(),
-		"token":       d.invite.Token,
+	{
+		blob, err := json.Marshal(map[string]interface{}{
+			"userName":    d.sender.DisplayName(),
+			"projectName": d.project.Name,
+			"projectId":   d.invite.ProjectId.String(),
+			"token":       d.invite.Token,
+		})
+		if err != nil {
+			return errors.Tag(err, "cannot serialize notification options")
+		}
+		n.MessageOptions = blob
 	}
 	if err := m.nm.Add(ctx, n); err != nil {
 		return errors.Tag(err, "cannot create invite notification")

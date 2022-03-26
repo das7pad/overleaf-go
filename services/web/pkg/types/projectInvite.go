@@ -76,7 +76,7 @@ type ListProjectInvitesRequest struct {
 }
 
 type ListProjectInvitesResponse struct {
-	Invites []*projectInvite.WithoutToken `json:"invites"`
+	Invites []projectInvite.ForListing `json:"invites"`
 }
 
 type ViewProjectInvitePageRequest struct {

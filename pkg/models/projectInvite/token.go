@@ -17,6 +17,9 @@
 package projectInvite
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -27,4 +30,12 @@ func (t Token) Validate() error {
 		return &errors.ValidationError{Msg: "token too short"}
 	}
 	return nil
+}
+
+func generateNewToken() (Token, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", errors.Tag(err, "cannot generate new token")
+	}
+	return Token(hex.EncodeToString(b)), nil
 }

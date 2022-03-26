@@ -474,7 +474,7 @@ func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interf
 		q = `
 select User { beta_program }
 filter .id = <uuid>$0`
-	case *WithPublicInfoAndNonStandardId, WithPublicInfo:
+	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
 		q = `
 select User { email: { email }, id, first_name, last_name }
 filter .id = <uuid>$0`
@@ -521,6 +521,11 @@ select User {
 	must_reconfirm,
 	password_hash,
 }
+filter .email.email = <str>$0
+limit 1`
+	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
+		q = `
+select User { email: { email }, id, first_name, last_name }
 filter .email.email = <str>$0
 limit 1`
 	default:

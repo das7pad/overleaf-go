@@ -90,7 +90,7 @@ func (m *manager) getDetails(ctx context.Context, pi *projectInvite.WithToken) (
 	})
 
 	eg.Go(func() error {
-		if err := m.um.GetUser(pCtx, pi.SendingUserId, s); err != nil {
+		if err := m.um.GetUser(pCtx, pi.SendingUser.Id, s); err != nil {
 			return errors.Tag(err, "cannot get sender details")
 		}
 		return nil

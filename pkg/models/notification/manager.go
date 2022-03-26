@@ -92,7 +92,7 @@ else (
 	}
 )`,
 		&IdField{},
-		n.UserId, n.Key, n.Expires, n.TemplateKey, n.MessageOptions,
+		n.UserId, n.Key, n.Expires, n.TemplateKey, []byte(n.MessageOptions),
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)

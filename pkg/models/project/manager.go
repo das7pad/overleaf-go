@@ -1472,6 +1472,21 @@ func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, target 
 	switch target.(type) {
 	case *LastUpdatedAtField:
 		q = `select Project { last_updated_at } filter .id = <uuid>$0`
+	case *ForProjectInvite:
+		q = `
+select Project {
+	access_ro,
+	access_rw,
+	access_token_ro,
+	access_token_rw,
+	epoch,
+	id,
+	name,
+	owner,
+	public_access_level,
+}
+filter .id = <uuid>$0
+`
 	// TODO: add more cases
 	default:
 		return errors.New("missing query for target")

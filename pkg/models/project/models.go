@@ -89,8 +89,8 @@ type WithInvitedMembers struct {
 }
 
 type WithMembers struct {
-	WithTokenMembers   `edgedb:"$inline"`
 	WithInvitedMembers `edgedb:"$inline"`
+	WithTokenMembers   `edgedb:"$inline"`
 }
 
 type ForAuthorizationDetails struct {

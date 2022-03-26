@@ -21,6 +21,7 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -44,16 +45,12 @@ type PrivilegeLevelField struct {
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" edgedb:"privilege_level"`
 }
 
-type ProjectIdField struct {
-	ProjectId edgedb.UUID `json:"projectId" edgedb:"projectId"`
-}
-
-type SendingUserIdField struct {
-	SendingUserId edgedb.UUID `json:"sendingUserId" edgedb:"id"`
+type ProjectField struct {
+	ProjectId edgedb.UUID `json:"-" edgedb:"id"`
 }
 
 type SendingUserField struct {
-	SendingUserIdField `edgedb:"sending_user"`
+	SendingUser user.WithPublicInfo `json:"-" edgedb:"sending_user"`
 }
 
 type TokenField struct {

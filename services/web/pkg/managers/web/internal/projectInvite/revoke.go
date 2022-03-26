@@ -19,32 +19,16 @@ package projectInvite
 import (
 	"context"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) RevokeProjectInvite(ctx context.Context, request *types.RevokeProjectInviteRequest) error {
-	projectId := request.ProjectId
-	inviteId := request.InviteId
-
-	err := mongoTx.For(m.db, ctx, func(ctx context.Context) error {
-		if err := m.pm.BumpEpoch(ctx, projectId); err != nil {
-			return errors.Tag(err, "cannot bump epoch")
-		}
-		if err := m.pim.Delete(ctx, projectId, inviteId); err != nil {
-			return errors.Tag(err, "cannot delete invite")
-		}
-		if err := m.nm.RemoveByKeyOnly(ctx, getKey(inviteId)); err != nil {
-			return errors.Tag(err, "cannot delete invite notification")
-		}
-		return nil
-	})
+	err := m.pim.Delete(ctx, request.ProjectId, request.InviteId)
 	if err != nil {
 		return err
 	}
 
-	go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutChanges(request.ProjectId, &refreshMembershipDetails{
 		Invites: true,
 	})
 	return nil

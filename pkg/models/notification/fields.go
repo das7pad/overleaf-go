@@ -17,6 +17,7 @@
 package notification
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -43,5 +44,5 @@ type TemplateKeyField struct {
 }
 
 type MessageOptsField struct {
-	MessageOptions map[string]interface{} `json:"messageOpts,omitempty" edgedb:"messageOpts"`
+	MessageOptions json.RawMessage `json:"messageOpts,omitempty" edgedb:"messageOpts"`
 }

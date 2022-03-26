@@ -38,7 +38,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager,
 	if err != nil {
 		return nil, err
 	}
-	pim := projectInvite.New(db)
+	pim := projectInvite.New(c)
 	pm := project.New(c, db)
 	um := user.New(c, db)
 	return &monolithManager{
