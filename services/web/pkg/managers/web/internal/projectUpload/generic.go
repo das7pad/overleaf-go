@@ -93,7 +93,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	t := &p.RootFolder
 	var rootDoc *project.Doc
 
-	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		eg, pCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
@@ -153,11 +152,11 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						return errors.Tag(err, "cannot close file")
 					}
 					d := project.NewDoc(name)
+					dIsRootDoc := false
 					if path == "main.tex" ||
 						(rootDoc == nil && path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
-							// TODO: &d is the wrong pointer! &parent.Docs[i]
-							rootDoc = &d
+							dIsRootDoc = true
 							if request.HasDefaultName && title != "" {
 								p.Name = title
 							}
@@ -169,6 +168,9 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					d.Snapshot = string(s)
 					d.Size = int64(len(s))
 					parent.Docs = append(parent.Docs, d)
+					if dIsRootDoc {
+						rootDoc = &parent.Docs[len(parent.Docs)-1]
+					}
 				} else {
 					if consumedFile {
 						if f, err = seekToStart(file, f); err != nil {

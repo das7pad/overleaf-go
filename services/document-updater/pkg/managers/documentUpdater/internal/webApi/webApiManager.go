@@ -22,6 +22,7 @@ import (
 	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 
@@ -30,7 +31,7 @@ import (
 
 type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.FlushedDoc, error)
-	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *types.SetDocDetails) error
+	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *doc.ForDocUpdate) error
 }
 
 func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager, error) {

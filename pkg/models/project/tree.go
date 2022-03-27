@@ -48,10 +48,9 @@ type TreeElementForJump struct {
 }
 
 func (p *ForFolderPath) GetFolderPath(folderId edgedb.UUID) (sharedTypes.DirName, error) {
-	lookup := make(map[edgedb.UUID]*TreeElementForJump, len(p.Folders))
+	lookup := make(map[edgedb.UUID]TreeElementForJump, len(p.Folders))
 	for _, folder := range p.Folders {
-		// TODO: check for overwrite
-		lookup[folder.Id] = &folder
+		lookup[folder.Id] = folder
 	}
 	path := sharedTypes.DirName("")
 	for folderId != p.RootFolder.Id {
@@ -98,8 +97,9 @@ type RootDoc struct {
 
 type Doc struct {
 	CommonTreeFields `edgedb:"$inline"`
-	Size             int64  `json:"size" edgedb:"size"`
-	Snapshot         string `json:"snapshot" edgedb:"snapshot"`
+	Size             int64               `json:"size" edgedb:"size"`
+	Snapshot         string              `json:"snapshot" edgedb:"snapshot"`
+	Version          sharedTypes.Version `json:"version" edgedb:"version"`
 }
 
 func (d *Doc) FieldNameInFolder() MongoPath {
@@ -409,7 +409,6 @@ func (t *Folder) walkDirsMongo(parent *Folder, fn DirWalkerMongo, parentPath sha
 func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) error {
 	if m == walkModeDoc || m == walkModeAny {
 		for _, doc := range t.Docs {
-			// TODO: fix pointer handling in edgedb codec decode
 			if err := fn(&doc, parent.Join(doc.Name)); err != nil {
 				return err
 			}
@@ -474,6 +473,10 @@ func (p *TreeField) GetRootFolder() (*Folder, error) {
 }
 
 func (p *ForTree) GetRootFolder() *Folder {
+	if p.rootFolderResolved {
+		return &p.RootFolder.Folder
+	}
+
 	lookup := make(map[edgedb.UUID]Folder, len(p.Folders))
 	for _, folder := range p.Folders {
 		lookup[folder.Id] = folder
@@ -488,5 +491,8 @@ func (p *ForTree) GetRootFolder() *Folder {
 	for i, f := range p.RootFolder.Folders {
 		p.RootFolder.Folders[i] = lookup[f.Id]
 	}
+
+	p.rootFolderResolved = true
+	p.Folders = nil
 	return &p.RootFolder.Folder
 }

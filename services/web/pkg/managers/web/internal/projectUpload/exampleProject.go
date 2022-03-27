@@ -52,7 +52,6 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 	}
 
 	var p *project.ForCreation
-	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
 		p = project.NewProject(userId)
 		p.ImageName = m.options.DefaultImage
@@ -98,8 +97,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 				file.Path.Filename(), file.Hash, file.Size,
 			)
 			parent.FileRefs = append(parent.FileRefs, fileRef)
-			// TODO: this actually the wrong pointer! &parent.FileRefs[i]?
-			fileLookup[file.Path] = &fileRef
+			fileLookup[file.Path] = &parent.FileRefs[len(parent.FileRefs)-1]
 		}
 
 		if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {

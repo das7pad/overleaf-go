@@ -22,6 +22,7 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 
@@ -47,17 +48,15 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UU
 		// The doc could have been deleted in the meantime.
 		return nil, &errors.ErrorDocNotFound{}
 	}
-	doc := &types.FlushedDoc{
+	return &types.FlushedDoc{
 		Snapshot: d.Snapshot,
 		PathName: p,
-		// TODO: fetch version
-		Version: 0,
-	}
-	return doc, nil
+		Version:  d.Version,
+	}, nil
 }
 
-func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *types.SetDocDetails) error {
-	_, err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ForDocUpdate)
+func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, d *doc.ForDocUpdate) error {
+	_, err := m.dm.UpdateDoc(ctx, projectId, docId, d)
 	if err != nil {
 		return errors.Tag(err, "cannot set doc in mongo")
 	}

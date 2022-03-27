@@ -43,13 +43,13 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 
 	var u *user.ForCreation
 	var t oneTimeToken.OneTimeToken
-	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		var err error
 		u, err = m.createUser(ctx, r.Email, r.Password, r.IPAddress)
 		if err != nil {
 			return err
 		}
+		// TODO: merge into createUser
 		t, err = m.oTTm.NewForEmailConfirmation(ctx, u.Id, r.Email)
 		if err != nil {
 			return err

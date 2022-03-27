@@ -99,24 +99,17 @@ func (s *SetDocRequest) Validate() error {
 	return nil
 }
 
-type SetDocDetails struct {
-	// TODO: flatten
-	*doc.ForDocUpdate
-}
-
-func (d *Doc) ToSetDocDetails() *SetDocDetails {
+func (d *Doc) ToSetDocDetails() *doc.ForDocUpdate {
 	// TODO: switch unit of d.LastUpdatedCtx.At to ns
 	t := time.Unix(
 		d.LastUpdatedCtx.At/1000, d.LastUpdatedCtx.At%1000,
 	)
-	return &SetDocDetails{
-		ForDocUpdate: &doc.ForDocUpdate{
-			Snapshot:      d.Snapshot,
-			RangesField:   doc.RangesField{Ranges: d.Ranges},
-			VersionField:  doc.VersionField{Version: d.Version},
-			LastUpdatedAt: t,
-			LastUpdatedBy: d.LastUpdatedCtx.By,
-		},
+	return &doc.ForDocUpdate{
+		Snapshot:      d.Snapshot,
+		RangesField:   doc.RangesField{Ranges: d.Ranges},
+		VersionField:  doc.VersionField{Version: d.Version},
+		LastUpdatedAt: t,
+		LastUpdatedBy: d.LastUpdatedCtx.By,
 	}
 }
 

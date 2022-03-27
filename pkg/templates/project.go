@@ -67,14 +67,14 @@ type ProjectListProjectView struct {
 	Name                project.Name               `json:"name"`
 	LastUpdatedAt       time.Time                  `json:"lastUpdated"`
 	LastUpdatedByUserId edgedb.UUID                `json:"-"`
-	LastUpdatedBy       *user.WithPublicInfo       `json:"lastUpdatedBy"`
+	LastUpdatedBy       user.WithPublicInfo        `json:"lastUpdatedBy"`
 	PublicAccessLevel   project.PublicAccessLevel  `json:"publicAccessLevel"`
 	AccessLevel         sharedTypes.PrivilegeLevel `json:"accessLevel"`
 	AccessSource        project.AccessSource       `json:"source"`
 	Archived            bool                       `json:"archived"`
 	Trashed             bool                       `json:"trashed"`
 	OwnerRef            edgedb.UUID                `json:"owner_ref"`
-	Owner               *user.WithPublicInfo       `json:"owner"`
+	Owner               user.WithPublicInfo        `json:"owner"`
 }
 
 type ProjectListData struct {

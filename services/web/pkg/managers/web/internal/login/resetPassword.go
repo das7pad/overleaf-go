@@ -43,7 +43,6 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 
 	// NOTE: Use a tx for not expiring the token for real until we action the
 	//        actual password change.
-	// TODO: extend edgedb.Client.QuerySingle to use Tx
 	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		{
 			err := m.oTTm.ResolveAndExpirePasswordResetToken(ctx, r.Token, u)

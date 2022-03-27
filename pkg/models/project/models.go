@@ -107,11 +107,6 @@ type forTokenAccessCheck struct {
 	ForAuthorizationDetails `edgedb:"$inline"`
 }
 
-type withIdAndEpoch struct {
-	IdField    `edgedb:"$inline"`
-	EpochField `edgedb:"$inline"`
-}
-
 type withIdAndVersion struct {
 	IdField      `edgedb:"$inline"`
 	VersionField `edgedb:"$inline"`
@@ -141,9 +136,15 @@ type WithTree struct {
 }
 
 type ForTree struct {
-	VersionField    `edgedb:"$inline"`
-	RootFolderField `edgedb:"$inline"`
-	FoldersField    `edgedb:"$inline"`
+	VersionField       `edgedb:"$inline"`
+	RootFolderField    `edgedb:"$inline"`
+	FoldersField       `edgedb:"$inline"`
+	rootFolderResolved bool
+}
+
+type ForZip struct {
+	NameField `edgedb:"$inline"`
+	ForTree   `edgedb:"$inline"`
 }
 
 type ForFolderPath struct {

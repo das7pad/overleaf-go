@@ -117,25 +117,27 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			return errors.New("listed project w/o access: " + p.Id.String())
 		}
 		projects[i] = &templates.ProjectListProjectView{
-			Id:            p.Id,
-			Name:          p.Name,
-			LastUpdatedAt: p.LastUpdatedAt,
-			// TODO: check for overwrite
-			LastUpdatedBy:     &p.LastUpdatedBy,
+			Id:                p.Id,
+			Name:              p.Name,
+			LastUpdatedAt:     p.LastUpdatedAt,
+			LastUpdatedBy:     p.LastUpdatedBy,
 			PublicAccessLevel: p.PublicAccessLevel,
 			AccessLevel:       authorizationDetails.PrivilegeLevel,
 			AccessSource:      authorizationDetails.AccessSource,
 			Archived:          p.Archived,
 			Trashed:           p.Trashed,
 			OwnerRef:          p.Owner.Id,
-			// TODO: check for overwrite
-			Owner: &p.Owner.WithPublicInfo,
+			Owner:             p.Owner.WithPublicInfo,
 		}
 		if authorizationDetails.IsRestrictedUser() {
 			if projects[i].LastUpdatedBy.Id != userId {
-				projects[i].LastUpdatedBy = nil
+				projects[i].LastUpdatedBy = user.WithPublicInfo{
+					IdField: projects[i].LastUpdatedBy.IdField,
+				}
 			}
-			projects[i].Owner = nil
+			projects[i].Owner = user.WithPublicInfo{
+				IdField: p.Owner.IdField,
+			}
 		}
 	}
 

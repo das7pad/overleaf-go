@@ -55,67 +55,65 @@ func (m *manager) CreateProjectZIP(ctx context.Context, request *types.CreatePro
 
 type bufferGetter func(filename sharedTypes.Filename) (io.Writer, error)
 
+func (m *manager) getProjectForZip(ctx context.Context, projectId, userId edgedb.UUID, token project.AccessToken) (*project.ForZip, error) {
+	for i := 0; i < 10; i++ {
+		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
+		if err != nil {
+			return nil, errors.Tag(err, "cannot check auth")
+		}
+
+		if err = m.dum.FlushProject(ctx, projectId); err != nil {
+			return nil, errors.Tag(err, "cannot flush project")
+		}
+
+		p, err := m.pm.GetForZip(ctx, projectId, d.Epoch)
+		if err != nil {
+			if err == project.ErrEpochIsNotStable {
+				continue
+			}
+			return nil, errors.Tag(err, "cannot get project")
+		}
+		return p, nil
+	}
+	return nil, project.ErrEpochIsNotStable
+}
+
 func (m *manager) createProjectZIP(ctx context.Context, request *types.CreateProjectZIPRequest, getBuffer bufferGetter) error {
 	userId := request.Session.User.Id
 	projectId := request.ProjectId
-	p, err := m.pm.GetTreeAndAuth(ctx, projectId, userId)
-	if err != nil {
-		return errors.Tag(err, "cannot get project")
-	}
-	_, err = p.GetPrivilegeLevel(
-		userId, request.Session.GetAnonTokenAccess(projectId),
-	)
-	if err != nil {
-		return err
-	}
-	t, err := p.GetRootFolder()
-	if err != nil {
-		return err
+	token := request.Session.GetAnonTokenAccess(projectId)
+	p, errGetProject := m.getProjectForZip(ctx, projectId, userId, token)
+	if errGetProject != nil {
+		return errGetProject
 	}
 
-	if err = m.dum.FlushProject(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot flush project")
+	buffer, errBuff := getBuffer(sharedTypes.Filename(string(p.Name) + ".zip"))
+	if errBuff != nil {
+		return errors.Tag(errBuff, "cannot get buffer")
 	}
-	docs, err := m.dm.GetAllDocContents(ctx, projectId)
-	if err != nil {
-		return errors.Tag(err, "cannot get docs")
-	}
-
-	docsById := make(map[edgedb.UUID][]byte, len(docs))
-	for i, d := range docs {
-		docsById[d.Id] = []byte(string(d.Lines.ToSnapshot()))
-		docs[i] = nil
-	}
-
-	buffer, err := getBuffer(sharedTypes.Filename(string(p.Name) + ".zip"))
-	if err != nil {
-		return errors.Tag(err, "cannot get buffer")
-	}
-
 	f := zip.NewWriter(buffer)
-	err = t.WalkFolders(func(_ *project.Folder, path sharedTypes.DirName) error {
-		if _, err = f.Create(path.String() + "/"); err != nil {
-			return errors.Tag(err, "create folder: "+path.String())
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	err = t.Walk(func(e project.TreeElement, path sharedTypes.PathName) error {
-		w, errCreate := f.Create(path.String())
-		if errCreate != nil {
-			return errors.Tag(errCreate, "create element: "+path.String())
-		}
-		switch e.(type) {
-		case *project.Doc:
-			b, exists := docsById[e.GetId()]
-			if !exists {
-				return &errors.InvalidStateError{
-					Msg: "missing doc: " + e.GetId().String(),
-				}
+
+	t := p.GetRootFolder()
+	{
+		err := t.WalkFolders(func(_ *project.Folder, path sharedTypes.DirName) error {
+			if _, err := f.Create(path.String() + "/"); err != nil {
+				return errors.Tag(err, "create folder: "+path.String())
 			}
-			_, err = w.Write(b)
+			return nil
+		})
+		if err != nil {
+			_ = f.Close()
+			return err
+		}
+	}
+	err := t.Walk(func(e project.TreeElement, path sharedTypes.PathName) error {
+		w, err := f.Create(path.String())
+		if err != nil {
+			return errors.Tag(err, "create element: "+path.String())
+		}
+		switch el := e.(type) {
+		case *project.Doc:
+			_, err = w.Write([]byte(el.Snapshot))
 		case *project.FileRef:
 			var reader io.ReadCloser
 			_, reader, err = m.fm.GetReadStreamForProjectFile(
@@ -135,11 +133,12 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 		}
 		return nil
 	})
+	errClose := f.Close()
 	if err != nil {
 		return err
 	}
-	if err = f.Close(); err != nil {
-		err = errors.Tag(err, "cannot close zip")
+	if errClose != nil {
+		return errors.Tag(errClose, "cannot close zip")
 	}
 	return nil
 }

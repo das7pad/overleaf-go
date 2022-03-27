@@ -52,6 +52,7 @@ type Manager interface {
 	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
+	GetForZip(ctx context.Context, projectId edgedb.UUID, epoch int64) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
@@ -215,7 +216,6 @@ select {p.id, rf.id}`,
 }
 
 func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
-	// TODO: assert in tx
 	r := p.RootFolder
 	nFoldersWithContent := 0
 	nFoldersWithChildren := 0
@@ -1136,7 +1136,6 @@ func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) 
 }
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
-	// TODO: make tx aware
 	project := &ForTree{
 		RootFolderField: RootFolderField{
 			RootFolder: RootFolder{
@@ -1184,14 +1183,14 @@ select
 		root_folder: {
 			id,
 			folders,
-			docs: { id, name, snapshot },
+			docs: { id, name, snapshot, version },
 			files: { id, name, created_at },
 		},
 		folders: {
 			id,
 			name,
 			folders,
-			docs: { id, name, snapshot },
+			docs: { id, name, snapshot, version },
 			files: { id, name, created_at },
 		},
 	}
@@ -1203,6 +1202,42 @@ filter .id = <uuid>$0`,
 		return nil, rewriteEdgedbError(err)
 	}
 	return project.GetRootFolder(), nil
+}
+
+func (m *manager) GetForZip(ctx context.Context, projectId edgedb.UUID, epoch int64) (*ForZip, error) {
+	p := &ForZip{}
+	err := m.c.QuerySingle(
+		ctx,
+		`
+select Project {
+	folders: {
+		id,
+		name,
+		folders,
+		docs: { id, name, snapshot },
+		files: { id, name },
+	},
+	name,
+	root_folder: {
+		id,
+		folders,
+		docs: { id, name, snapshot },
+		files: { id, name },
+	},
+}
+filter .id = <uuid>$0 and .epoch = <int64>$1
+`,
+		p,
+		projectId, epoch,
+	)
+	if err != nil {
+		err = rewriteEdgedbError(err)
+		if errors.IsNotFoundError(err) {
+			return nil, ErrEpochIsNotStable
+		}
+		return nil, err
+	}
+	return p, nil
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {

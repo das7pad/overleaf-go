@@ -33,26 +33,30 @@ func (m *manager) CreateMultiProjectZIP(ctx context.Context, request *types.Crea
 		return err
 	}
 
-	buffer, errCreateBuffer := os.CreateTemp("", "zip-download")
-	if errCreateBuffer != nil {
-		return errors.Tag(errCreateBuffer, "cannot create buffer")
+	buffer, err := os.CreateTemp("", "zip-download")
+	if err != nil {
+		return errors.Tag(err, "cannot create buffer")
 	}
 	response.FSPath = buffer.Name()
 	f := zip.NewWriter(buffer)
 
 	for _, projectId := range request.ProjectIds {
-		err := m.createProjectZIP(ctx, &types.CreateProjectZIPRequest{
+		err = m.createProjectZIP(ctx, &types.CreateProjectZIPRequest{
 			Session:   request.Session,
 			ProjectId: projectId,
 		}, func(filename sharedTypes.Filename) (io.Writer, error) {
 			return f.Create(string(filename))
 		})
 		if err != nil {
-			return errors.Tag(err, "project: "+projectId.String())
+			err = errors.Tag(err, "project: "+projectId.String())
+			break
 		}
 	}
 	errCloseZIP := f.Close()
 	errCloseBuffer := buffer.Close()
+	if err != nil {
+		return err
+	}
 	if errCloseZIP != nil {
 		return errors.Tag(errCloseZIP, "cannot close zip")
 	}
