@@ -122,10 +122,6 @@ type RootDocIdField struct {
 	RootDocId edgedb.UUID `json:"rootDoc_id"`
 }
 
-type RootDocForJumpField struct {
-	RootDoc RootDocForJump `edgedb:"root_doc"`
-}
-
 type RootDocField struct {
 	RootDoc RootDoc `json:"root_doc" edgedb:"root_doc"`
 }
@@ -172,10 +168,6 @@ type DocsField struct {
 
 type FilesField struct {
 	Files []*FileRef `edgedb:"files"`
-}
-
-type FoldersForJumpField struct {
-	Folders []TreeElementForJump `edgedb:"folders"`
 }
 
 type TreeField struct {

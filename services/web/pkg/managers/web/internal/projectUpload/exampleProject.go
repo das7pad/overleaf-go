@@ -79,7 +79,11 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		for _, content := range docs {
 			d := project.NewDoc(content.Path.Filename())
 			if content.Path == "main.tex" {
-				p.RootDoc = project.RootDoc{Doc: d}
+				p.RootDoc = project.RootDoc{
+					DocWithParent: project.DocWithParent{
+						Doc: d,
+					},
+				}
 			}
 			d.Snapshot = string(content.Snapshot)
 			parent, err := t.CreateParents(content.Path.Dir())

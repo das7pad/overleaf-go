@@ -59,8 +59,7 @@ type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic    `edgedb:"$inline"`
 	ActiveField             `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
-	ForFolderPath           `edgedb:"$inline"`
-	RootDocForJumpField     `edgedb:"$inline"`
+	RootDocField            `edgedb:"$inline"`
 }
 
 type LoadEditorDetails struct {
@@ -145,11 +144,6 @@ type ForTree struct {
 type ForZip struct {
 	NameField `edgedb:"$inline"`
 	ForTree   `edgedb:"$inline"`
-}
-
-type ForFolderPath struct {
-	RootFolderField     `edgedb:"$inline"`
-	FoldersForJumpField `edgedb:"$inline"`
 }
 
 type WithTreeAndRootDoc struct {

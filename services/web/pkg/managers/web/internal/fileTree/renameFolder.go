@@ -18,7 +18,6 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -32,16 +31,15 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 		return err
 	}
 	projectId := request.ProjectId
+	userId := request.UserId
 	folder := &project.Folder{}
 	folder.Id = request.FolderId
 	folder.Name = request.Name
 
-	r, err := m.rename(ctx, projectId, folder)
+	projectVersion, err := m.pm.RenameFolder(ctx, projectId, userId, folder)
 	if err != nil {
-		return ignoreAlreadyRenamedErr(err)
+		return err
 	}
-	folder = r.element.(*project.Folder)
-	newFsPath := r.newFsPath.(sharedTypes.DirName)
 
 	// The folder has been renamed.
 	// Failing the request and retrying now would result in duplicate updates.
@@ -55,8 +53,7 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 				updates = append(
 					updates,
 					documentUpdaterTypes.NewRenameDocUpdate(
-						e.GetId(),
-						newFsPath.JoinPath(p),
+						e.GetId(), p,
 					).ToGeneric(),
 				)
 				return nil
@@ -64,7 +61,7 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 		)
 		if err2 == nil && len(updates) > 0 {
 			p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-				ProjectVersion: r.projectVersion,
+				ProjectVersion: projectVersion,
 				Updates:        updates,
 			}
 			_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
@@ -72,15 +69,11 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{folder.Id, folder.Name, r.projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveEntityRename",
-				Payload: b,
-			})
-		}
+		//goland:noinspection SpellCheckingInspection
+		m.notifyEditor(
+			projectId, "reciveEntityRename",
+			folder.Id, folder.Name, projectVersion,
+		)
 	}
 	return nil
 }

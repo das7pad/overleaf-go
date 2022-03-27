@@ -35,18 +35,9 @@ type monolithManager struct {
 }
 
 func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.FlushedDoc, error) {
-	d, p, err := m.pm.GetDocMeta(ctx, projectId, docId)
+	d, p, err := m.pm.GetDoc(ctx, projectId, docId)
 	if err != nil {
-		if errors.IsDocNotFoundError(err) {
-			// 403 when requesting doc from other project.
-			return nil, &errors.NotAuthorizedError{}
-		}
-		return nil, errors.Tag(err, "cannot get doc path")
-	}
-	if false {
-		// TODO: fetch deleted_at timestamp
-		// The doc could have been deleted in the meantime.
-		return nil, &errors.ErrorDocNotFound{}
+		return nil, errors.Tag(err, "cannot get doc")
 	}
 	return &types.FlushedDoc{
 		Snapshot: d.Snapshot,

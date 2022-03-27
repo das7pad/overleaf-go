@@ -183,7 +183,11 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 						contents.Lines.ToSnapshot(),
 					)
 					if isRootDocCandidate {
-						p.RootDoc = project.RootDoc{Doc: d}
+						p.RootDoc = project.RootDoc{
+							DocWithParent: project.DocWithParent{
+								Doc: d,
+							},
+						}
 					}
 				}
 				newDocs[i].Id = d.Id

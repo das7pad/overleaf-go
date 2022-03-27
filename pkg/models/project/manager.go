@@ -48,7 +48,8 @@ type Manager interface {
 	DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	MoveTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
-	RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, error)
+	RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error)
+	RenameFolder(ctx context.Context, projectId, userId edgedb.UUID, f *Folder) (sharedTypes.Version, error)
 	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
@@ -56,7 +57,7 @@ type Manager interface {
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
-	GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
+	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
@@ -264,7 +265,14 @@ with
 	project := (select Project filter .id = <uuid>$0),
 	parent := (select FolderLike filter .id = <uuid>$1)
 for name in array_unpack(<array<str>>$2) union (
-	insert Folder { project := project, parent := parent, name := <str>name }
+	insert Folder {
+		project := project,
+		parent := parent,
+		name := <str>name,
+		path := (
+			(parent.path ++ '/') if parent.path != '' else ''
+		) ++ <str>name,
+	}
 )`,
 						&ids,
 						p.Id, folder.Id, names,
@@ -718,6 +726,7 @@ with
 			project := pWithAuth,
 			parent := f,
 			name := <str>$3,
+			path := ((f.path ++ '/') if f.path != '' else '') ++ <str>$3
 		}
 	),
 	pBumpedVersion := (
@@ -822,16 +831,16 @@ func (m *manager) RenameTreeElement(ctx context.Context, projectId edgedb.UUID, 
 	})
 }
 
-type renameTreeElementRequest struct {
+type renameTreeElementResult struct {
 	ProjectExists  bool                `edgedb:"project_exists"`
 	HasWriteAccess bool                `edgedb:"has_write_access"`
 	ElementExists  bool                `edgedb:"element_exists"`
+	ParentPath     sharedTypes.DirName `edgedb:"parent_path"`
 	ProjectVersion sharedTypes.Version `edgedb:"project_version"`
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, error) {
-	r := renameTreeElementRequest{}
-	// TODO: fetch new path
+func (m *manager) RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error) {
+	r := renameTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
 	p := (select Project filter .id = <uuid>$0),
@@ -846,9 +855,71 @@ select {
 	project_exists := exists p,
 	has_write_access := exists pWithAuth,
 	element_exists := exists d,
+	parent_path := updatedFolder.parent.path ?? '',
 	project_version := pBumpedVersion.version ?? 0,
 }
 `, &r, projectId, userId, d.Id, d.Name)
+	if err != nil {
+		return 0, "", rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return 0, "", &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.HasWriteAccess:
+		return 0, "", &errors.NotAuthorizedError{}
+	case !r.ElementExists:
+		return 0, "", &errors.UnprocessableEntityError{Msg: "doc does not exist"}
+	}
+	return r.ProjectVersion, r.ParentPath, nil
+}
+
+type renameFolderResult struct {
+	renameTreeElementResult `edgedb:"$inline"`
+	UpdatedFolders          []Folder `edgedb:"updated_folders"`
+}
+
+func (m *manager) RenameFolder(ctx context.Context, projectId, userId edgedb.UUID, f *Folder) (sharedTypes.Version, error) {
+	r := renameFolderResult{}
+	// TODO: I'm hitting a dead-end/server error here. I've opened a ticket:
+	//       https://github.com/edgedb/edgedb/issues/3681
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (select Folder filter .id = <uuid>$2 and .project = pWithAuth),
+	updatedFolders := (update Folder
+		filter
+			.project = pWithAuth
+		and (.path = f.path or .path like (f.path ++ '/%'))
+		set {
+			name := (<str>$3 if (Folder = f) else Folder.name),
+			path := (
+				f.path[:-len(f.name)]
+				++ <str>$3
+				++ Folder.path[len(f.path):]
+			)
+		}
+	),
+	pBumpedVersion := (
+		update f.project set { version := f.project.version + 1 }
+	)
+select {
+	project_exists := exists p,
+	has_write_access := exists pWithAuth,
+	element_exists := exists f,
+	parent_path := f.parent.path ?? '',
+	updated_folders := updatedFolders {
+		id,
+		name,
+		folders,
+		docs: { id, name },
+	},
+	project_version := pBumpedVersion.version ?? 0,
+}
+`, &r, projectId, userId, f.Id, f.Name)
 	if err != nil {
 		return 0, rewriteEdgedbError(err)
 	}
@@ -860,8 +931,18 @@ select {
 	case !r.HasWriteAccess:
 		return 0, &errors.NotAuthorizedError{}
 	case !r.ElementExists:
-		return 0, &errors.UnprocessableEntityError{Msg: "doc does not exist"}
+		return 0, &errors.UnprocessableEntityError{Msg: "folder does not exist"}
 	}
+	p := ForTree{}
+	p.Folders = r.UpdatedFolders
+	for _, folder := range p.Folders {
+		if folder.Id == f.Id {
+			p.RootFolder.Folder = folder
+			break
+		}
+	}
+	*f = *p.GetRootFolder()
+	f.Path = r.ParentPath.JoinDir(f.Name)
 	return r.ProjectVersion, nil
 }
 
@@ -1110,29 +1191,30 @@ select Project { epoch } filter .id = <uuid>$0
 	return p.Epoch, err
 }
 
-func (m *manager) GetDocMeta(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error) {
-	// TODO: just get docId and tree
-	f, err := m.GetProjectWithContent(ctx, projectId)
+func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, sharedTypes.PathName, error) {
+	d := &DocWithParent{}
+	err := m.c.QuerySingle(ctx, `
+select Doc {
+	id,
+	name,
+	parent: { path },
+	size,
+	snapshot,
+	version,
+}
+filter
+	.id = <uuid>$0
+and not exists .deleted_at
+and .project.id = <uuid>$1
+`, d, docId, projectId)
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot get tree")
-	}
-	var doc *Doc
-	var p sharedTypes.PathName
-	err = f.WalkDocs(func(element TreeElement, path sharedTypes.PathName) error {
-		if element.GetId() == docId {
-			doc = element.(*Doc)
-			p = path
-			return AbortWalk
+		err = rewriteEdgedbError(err)
+		if errors.IsNotFoundError(err) {
+			return nil, "", &errors.ErrorDocNotFound{}
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, "", errors.Tag(err, "cannot walk project tree")
+		return nil, "", err
 	}
-	if doc == nil {
-		return nil, "", &errors.ErrorDocNotFound{}
-	}
-	return doc, p, nil
+	return &d.Doc, d.GetPath(), nil
 }
 
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
@@ -1424,11 +1506,6 @@ select {
 		active,
 		compiler,
 		epoch,
-		folders: {
-			id,
-			name,
-			parent,
-		},
 		id,
 		image_name,
 		name,
@@ -1446,9 +1523,8 @@ select {
 		root_doc: {
 			id,
 			name,
-			parent,
+			parent: { path },
 		},
-		root_folder,
 		tokens: {
 			token_ro,
 			token_rw,

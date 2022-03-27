@@ -76,24 +76,28 @@ type MoveFolderRequest struct {
 
 type RenameDocRequest struct {
 	ProjectId edgedb.UUID          `json:"-"`
+	UserId    edgedb.UUID          `json:"-"`
 	DocId     edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RenameFileRequest struct {
 	ProjectId edgedb.UUID          `json:"-"`
+	UserId    edgedb.UUID          `json:"-"`
 	FileId    edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RenameFolderRequest struct {
 	ProjectId edgedb.UUID          `json:"-"`
+	UserId    edgedb.UUID          `json:"-"`
 	FolderId  edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocRequest struct {
 	ProjectId edgedb.UUID          `json:"-"`
+	UserId    edgedb.UUID          `json:"-"`
 	DocId     edgedb.UUID          `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }

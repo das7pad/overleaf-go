@@ -27,43 +27,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-var ErrProjectTreeHasLoop = &errors.UnprocessableEntityError{
-	Msg: "project tree has loop",
-}
-
-type RootDocForJump struct {
-	edgedb.Optional
-	TreeElementForJump `edgedb:"$inline"`
-}
-
 type RootFolder struct {
 	edgedb.Optional
 	Folder `edgedb:"$inline"`
-}
-
-type TreeElementForJump struct {
-	IdField `edgedb:"$inline"`
-	Parent  IdField              `edgedb:"parent"`
-	Name    sharedTypes.Filename `edgedb:"name"`
-}
-
-func (p *ForFolderPath) GetFolderPath(folderId edgedb.UUID) (sharedTypes.DirName, error) {
-	lookup := make(map[edgedb.UUID]TreeElementForJump, len(p.Folders))
-	for _, folder := range p.Folders {
-		lookup[folder.Id] = folder
-	}
-	path := sharedTypes.DirName("")
-	for folderId != p.RootFolder.Id {
-		f, ok := lookup[folderId]
-		if !ok {
-			return "", ErrProjectTreeHasLoop
-		}
-		delete(lookup, folderId)
-
-		path = sharedTypes.DirName(f.Name) + "/" + path
-		folderId = f.Parent.Id
-	}
-	return path, nil
 }
 
 type TreeElement interface {
@@ -92,7 +58,16 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 
 type RootDoc struct {
 	edgedb.Optional
-	Doc `edgedb:"$inline"`
+	DocWithParent `edgedb:"$inline"`
+}
+
+type DocWithParent struct {
+	Doc    `edgedb:"$inline"`
+	Parent Folder `edgedb:"parent"`
+}
+
+func (d *DocWithParent) GetPath() sharedTypes.PathName {
+	return d.Parent.Path.Join(d.Name)
 }
 
 type Doc struct {
@@ -182,6 +157,7 @@ func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) Fi
 
 type Folder struct {
 	CommonTreeFields `edgedb:"$inline"`
+	Path             sharedTypes.DirName `edgedb:"path"`
 
 	Docs     []Doc     `json:"docs" edgedb:"docs"`
 	FileRefs []FileRef `json:"fileRefs" edgedb:"files"`
@@ -205,6 +181,7 @@ func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
 	entry, _ := parent.GetEntry(name)
 	if entry == nil {
 		folder := NewFolder(name)
+		folder.Path = parent.Path.JoinDir(name)
 		parent.Folders = append(parent.Folders, folder)
 		return &folder, nil
 	}
@@ -328,31 +305,31 @@ func (t *Folder) GetFile(needle sharedTypes.Filename) *FileRef {
 }
 
 func (t *Folder) Walk(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, "", walkModeAny))
+	return ignoreAbort(t.walk(fn, t.Path, walkModeAny))
 }
 
 func (t *Folder) WalkDocs(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, "", walkModeDoc))
+	return ignoreAbort(t.walk(fn, t.Path, walkModeDoc))
 }
 
 func (t *Folder) WalkDocsMongo(fn TreeWalkerMongo) error {
-	return ignoreAbort(t.walkMongo(fn, "", baseMongoPath, walkModeDoc))
+	return ignoreAbort(t.walkMongo(fn, t.Path, baseMongoPath, walkModeDoc))
 }
 
 func (t *Folder) WalkFiles(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, "", walkModeFiles))
+	return ignoreAbort(t.walk(fn, t.Path, walkModeFiles))
 }
 
 func (t *Folder) WalkFilesMongo(fn TreeWalkerMongo) error {
-	return ignoreAbort(t.walkMongo(fn, "", baseMongoPath, walkModeFiles))
+	return ignoreAbort(t.walkMongo(fn, t.Path, baseMongoPath, walkModeFiles))
 }
 
 func (t *Folder) WalkFolders(fn DirWalker) error {
-	return ignoreAbort(t.walkDirs(fn, ""))
+	return ignoreAbort(t.walkDirs(fn, t.Path))
 }
 
 func (t *Folder) WalkFoldersMongo(fn DirWalkerMongo) error {
-	return ignoreAbort(t.walkDirsMongo(nil, fn, "", baseMongoPath))
+	return ignoreAbort(t.walkDirsMongo(nil, fn, t.Path, baseMongoPath))
 }
 
 type walkMode int

@@ -39,11 +39,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 
 	var rootDocPath sharedTypes.PathName
 	if p.RootDoc.Id != (edgedb.UUID{}) {
-		dir, err2 := p.GetFolderPath(p.RootDoc.Parent.Id)
-		if err2 != nil {
-			return err2
-		}
-		rootDocPath = dir.Join(p.RootDoc.Name)
+		rootDocPath = p.RootDoc.GetPath()
 		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
 	}
 

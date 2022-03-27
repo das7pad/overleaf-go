@@ -18,11 +18,9 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -32,16 +30,16 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		return err
 	}
 	projectId := request.ProjectId
-	doc := &project.Doc{}
-	doc.Id = request.DocId
-	doc.Name = request.Name
+	d := &project.Doc{}
+	d.Id = request.DocId
+	d.Name = request.Name
 
-	r, err := m.rename(ctx, projectId, doc)
+	projectVersion, parentPath, err := m.pm.RenameDoc(
+		ctx, projectId, request.UserId, d,
+	)
 	if err != nil {
-		return ignoreAlreadyRenamedErr(err)
+		return err
 	}
-	doc = r.element.(*project.Doc)
-	newFsPath := r.newFsPath.(sharedTypes.PathName)
 
 	// The doc has been renamed.
 	// Failing the request and retrying now would result in duplicate updates.
@@ -50,11 +48,11 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	{
 		// Notify document-updater
 		n := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: r.projectVersion,
+			ProjectVersion: projectVersion,
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
-					doc.GetId(),
-					newFsPath,
+					d.GetId(),
+					parentPath.Join(d.Name),
 				).ToGeneric(),
 			},
 		}
@@ -62,15 +60,11 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{doc.Id, doc.Name, r.projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveEntityRename",
-				Payload: b,
-			})
-		}
+		//goland:noinspection SpellCheckingInspection
+		m.notifyEditor(
+			projectId, "reciveEntityRename",
+			d.Id, d.Name, projectVersion,
+		)
 	}
 	return nil
 }

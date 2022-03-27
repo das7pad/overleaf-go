@@ -68,13 +68,6 @@ module default {
     }
     multi property learned_words -> str;
 
-    multi link projects := distinct (
-      .projects_owned
-      union .projects_ro
-      union .projects_rw
-      union .projects_token_ro
-      union .projects_token_rw
-    );
     multi link projects_owned := .<owner[is Project];
     multi link projects_ro := .<access_ro[is Project];
     multi link projects_rw := .<access_rw[is Project];
@@ -85,6 +78,13 @@ module default {
     multi link projects_token_ro := (
       select Project
       filter User in .access_token_ro and .public_access_level = 'tokenBased'
+    );
+    multi link projects := distinct (
+      .projects_owned
+      union .projects_ro
+      union .projects_rw
+      union .projects_token_ro
+      union .projects_token_rw
     );
     multi link tags := .<user[is Tag];
   }
@@ -215,15 +215,16 @@ module default {
   }
 
   abstract type FolderLike extending TreeElement {
-      multi link folders := (
-        select .<parent[is Folder] filter not exists .deleted_at
-      );
-      multi link docs := (
-        select .<parent[is Doc] filter not exists .deleted_at
-      );
-      multi link files := (
-        select .<parent[is File] filter not exists .deleted_at
-      );
+    required property path -> str;
+    multi link folders := (
+      select .<parent[is Folder] filter not exists .deleted_at
+    );
+    multi link docs := (
+      select .<parent[is Doc] filter not exists .deleted_at
+    );
+    multi link files := (
+      select .<parent[is File] filter not exists .deleted_at
+    );
   }
 
   type RootFolder extending FolderLike {

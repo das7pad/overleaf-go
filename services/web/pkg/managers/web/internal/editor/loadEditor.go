@@ -136,12 +136,8 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 
 	if p.RootDoc.Id != (edgedb.UUID{}) {
-		dir, err := p.GetFolderPath(p.RootDoc.Parent.Id)
-		if err != nil {
-			return err
-		}
 		response.RootDocPath = clsiTypes.RootResourcePath(
-			dir.Join(p.RootDoc.Name),
+			p.RootDoc.GetPath(),
 		)
 		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
 	}

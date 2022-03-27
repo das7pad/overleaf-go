@@ -1048,6 +1048,7 @@ func (h *httpController) renameDocInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.RenameDocInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1060,6 +1061,7 @@ func (h *httpController) renameFileInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.RenameFileInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1072,6 +1074,7 @@ func (h *httpController) renameFolderInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.RenameFolderInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1084,6 +1087,7 @@ func (h *httpController) restoreDeletedDocInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.DocId = httpUtils.GetId(c, "docId")
 	response := &types.RestoreDeletedDocResponse{}
 	err := h.wm.RestoreDeletedDocInProject(c.Request.Context(), request, response)
