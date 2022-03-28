@@ -17,7 +17,6 @@
 package httpUtils
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -58,8 +57,6 @@ func CORS(options CORSOptions) MiddlewareFunc {
 			h := c.Writer.Header()
 			h.Set("Access-Control-Max-Age", maxAge)
 			h.Set("Vary", "Origin")
-			fmt.Println(c.Request.Header)
-			fmt.Println(origin, options.AllowOrigins, c.Request.Host)
 			if !options.originValid(origin) {
 				c.Writer.WriteHeader(http.StatusForbidden)
 				return
