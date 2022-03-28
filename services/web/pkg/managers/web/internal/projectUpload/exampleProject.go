@@ -55,7 +55,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, tx *edgedb.Tx) error {
 		p = project.NewProject(userId)
 		p.ImageName = m.options.DefaultImage
-		t := p.RootFolder
+		t := &p.RootFolder
 		makeUniqName := pendingOperation.TrackOperationWithCancel(
 			ctx,
 			func(ctx context.Context) error {
@@ -78,13 +78,6 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		)
 		for _, content := range docs {
 			d := project.NewDoc(content.Path.Filename())
-			if content.Path == "main.tex" {
-				p.RootDoc = project.RootDoc{
-					DocWithParent: project.DocWithParent{
-						Doc: d,
-					},
-				}
-			}
 			d.Snapshot = string(content.Snapshot)
 			parent, err := t.CreateParents(content.Path.Dir())
 			if err != nil {
@@ -134,10 +127,13 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 			if err := makeUniqName.Wait(pCtx); err != nil {
 				return err
 			}
-			err := m.pm.FinalizeProjectCreation(
-				pCtx,
-				p,
-			)
+			for _, doc := range t.Docs {
+				if doc.Name == "main.tex" {
+					p.RootDoc.Id = doc.Id
+					break
+				}
+			}
+			err := m.pm.FinalizeProjectCreation(pCtx, p)
 			if err != nil {
 				return errors.Tag(err, "cannot finalize project creation")
 			}

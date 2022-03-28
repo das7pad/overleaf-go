@@ -49,8 +49,8 @@ type Manager interface {
 	DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	MoveTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, from, to MongoPath, element TreeElement) error
 	RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error)
+	RenameFile(ctx context.Context, projectId, userId edgedb.UUID, f *FileRef) (sharedTypes.Version, error)
 	RenameFolder(ctx context.Context, projectId, userId edgedb.UUID, f *Folder) (sharedTypes.Version, error)
-	RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error
 	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
 	GetForZip(ctx context.Context, projectId edgedb.UUID, epoch int64) (*ForZip, error)
@@ -106,6 +106,7 @@ func rewriteEdgedbError(err error) error {
 	if err == nil {
 		return nil
 	}
+	// TODO: handle conflicting path -> edgedb.ConstraintViolationError
 	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
 		return &errors.NotFoundError{}
 	}
@@ -202,7 +203,7 @@ with
 		owner := owner,
 		spell_check_language := lng,
 	}),
-	rf := (insert RootFolder { project := p })
+	rf := (insert RootFolder { project := p, path := '' })
 select {p.id, rf.id}`,
 		&ids,
 		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.ImageName,
@@ -822,15 +823,6 @@ func (m *manager) MoveTreeElement(ctx context.Context, projectId edgedb.UUID, ve
 	return nil
 }
 
-func (m *manager) RenameTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, name sharedTypes.Filename) error {
-	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
-		"$set": bson.M{
-			string(mongoPath) + ".name": name,
-		},
-		"$inc": VersionField{Version: 1},
-	})
-}
-
 type renameTreeElementResult struct {
 	ProjectExists  bool                `edgedb:"project_exists"`
 	HasWriteAccess bool                `edgedb:"has_write_access"`
@@ -873,6 +865,41 @@ select {
 		return 0, "", &errors.UnprocessableEntityError{Msg: "doc does not exist"}
 	}
 	return r.ProjectVersion, r.ParentPath, nil
+}
+
+func (m *manager) RenameFile(ctx context.Context, projectId, userId edgedb.UUID, f *FileRef) (sharedTypes.Version, error) {
+	r := renameTreeElementResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (select File filter .id = <uuid>$2 and .project = pWithAuth),
+	updatedFile := (update f set { name := <str>$3 }),
+	pBumpedVersion := (
+		update updatedFile.project set { version := pWithAuth.version + 1 }
+	)
+select {
+	project_exists := exists p,
+	has_write_access := exists pWithAuth,
+	element_exists := exists f,
+	project_version := pBumpedVersion.version ?? 0,
+}
+`, &r, projectId, userId, f.Id, f.Name)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.HasWriteAccess:
+		return 0, &errors.NotAuthorizedError{}
+	case !r.ElementExists:
+		return 0, &errors.UnprocessableEntityError{Msg: "file does not exist"}
+	}
+	return r.ProjectVersion, nil
 }
 
 type renameFolderResult struct {

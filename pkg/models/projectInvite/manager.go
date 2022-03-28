@@ -78,7 +78,7 @@ with
 		token := <str>$5,
 	})
 select exists (
-	for entry in (<int64>{} if exists u else {1}) union (
+	for entry in ({1} if exists u else <int64>{}) union (
 		insert Notification {
 			key := 'project-invite-' ++ <str>pi.id,
 			expires_at := <datetime>$1,

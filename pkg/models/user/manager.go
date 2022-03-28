@@ -117,7 +117,7 @@ with
 		login_count := ({0} if <str>$3 = "" else {1}),
 	}),
 	auditLog := (
-		for entry in (<int64>{} if <str>$3 = "" else {1}) union (
+		for entry in ({1} if <str>$3 != "" else <int64>{}) union (
 			update User
 			filter User = u
 			set {
@@ -154,49 +154,41 @@ select {u,auditLog}
 }
 
 func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, operation string, newHashedPassword string) error {
-	now := time.Now().UTC()
-	q := &withIdAndEpoch{
-		IdField: IdField{
-			Id: u.Id,
-		},
-		EpochField: EpochField{
-			Epoch: u.Epoch,
-		},
-	}
-	set := bson.M{
-		"hashedPassword": newHashedPassword,
-	}
-	var filters bson.A
-	if operation == AuditLogOperationResetPassword {
-		set["emails.$[email].confirmedAt"] = now
-		set["emails.$[email].reconfirmedAt"] = now
-		filters = append(filters, bson.M{
-			"email.email": u.Email,
-		})
-	}
-	_, err := m.col.UpdateOne(ctx, q, bson.M{
-		"$set": set,
-		"$inc": EpochField{
-			Epoch: 1,
-		},
-		"$push": bson.M{
-			"auditLog": bson.M{
-				"$each": bson.A{
-					AuditLogEntry{
-						InitiatorId: u.Id,
-						IpAddress:   ip,
-						Operation:   operation,
-						Timestamp:   now,
-					},
-				},
-				"$slice": -MaxAuditLogEntries,
-			},
-		},
-	}, options.Update().SetArrayFilters(options.ArrayFilters{
-		Filters: filters,
-	}))
+	r := make([]edgedb.UUID, 0)
+	err := m.c.Query(ctx, `
+with u := (select User filter .id = <uuid>$0 and .epoch = <int64>$1)
+select (
+	select (
+		update User
+		filter User = u
+		set {
+			epoch := User.epoch + 1,
+			password_hash := <str>$2,
+			audit_log += (
+				insert UserAuditLogEntry {
+					initiator := u,
+					ip_address := <str>$3,
+					operation := <str>$4,
+				}
+			)
+		}
+	).id
+) union (
+	for entry in ({1} if <str>$4 = 'reset-password' else <int64>{}) union (
+		select (
+			update u.email
+			set {
+				confirmed_at := datetime_of_transaction(),
+			}
+		).id
+	)
+)
+`, &r, u.Id, u.Epoch, newHashedPassword, ip, operation)
 	if err != nil {
 		return rewriteMongoError(err)
+	}
+	if len(r) == 0 {
+		return &errors.NotFoundError{}
 	}
 	return nil
 }
@@ -355,35 +347,25 @@ set {
 }
 
 func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error {
-	now := time.Now().UTC()
-	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
-		"$inc": LoginCountField{
-			LoginCount: 1,
-		},
-		"$set": withLastLoginInfo{
-			LastLoggedInField: LastLoggedInField{
-				LastLoggedIn: &now,
-			},
-			LastLoginIpField: LastLoginIpField{
-				LastLoginIp: ip,
-			},
-		},
-		"$push": bson.M{
-			"auditLog": bson.M{
-				"$each": bson.A{
-					AuditLogEntry{
-						InitiatorId: userId,
-						IpAddress:   ip,
-						Operation:   AuditLogOperationLogin,
-						Timestamp:   now,
-					},
-				},
-				"$slice": -MaxAuditLogEntries,
-			},
-		},
-	})
+	err := m.c.QuerySingle(ctx, `
+with u := (select User filter .id = <uuid>$0)
+update User
+filter User = u
+set {
+	login_count := User.login_count + 1,
+	last_logged_in := datetime_of_transaction(),
+	last_login_ip := <str>$1,
+	audit_log += (
+		insert UserAuditLogEntry {
+			initiator := u,
+			operation := 'login',
+			ip_address := <str>$1,
+		}
+	)
+}
+`, &IdField{}, userId, ip)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
 	return nil
 }

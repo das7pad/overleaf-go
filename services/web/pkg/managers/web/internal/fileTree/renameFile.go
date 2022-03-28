@@ -18,11 +18,8 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -35,27 +32,17 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 	fileRef.Id = request.FileId
 	fileRef.Name = request.Name
 
-	r, err := m.rename(ctx, projectId, fileRef)
+	projectVersion, err := m.pm.RenameFile(
+		ctx, projectId, request.UserId, fileRef,
+	)
 	if err != nil {
-		return ignoreAlreadyRenamedErr(err)
+		return err
 	}
-	fileRef = r.element.(*project.FileRef)
 
-	// The file has been renamed.
-	// Failing the request and retrying now would result in duplicate updates.
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-	{
-		// Notify real-time
-		payload := []interface{}{fileRef.Id, fileRef.Name, r.projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveEntityRename",
-				Payload: b,
-			})
-		}
-	}
+	//goland:noinspection SpellCheckingInspection
+	m.notifyEditor(
+		projectId, "reciveEntityRename",
+		fileRef.Id, fileRef.Name, projectVersion,
+	)
 	return nil
 }

@@ -157,7 +157,7 @@ func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) Fi
 
 type Folder struct {
 	CommonTreeFields `edgedb:"$inline"`
-	Path             sharedTypes.DirName `edgedb:"path"`
+	Path             sharedTypes.DirName `json:"-" edgedb:"path"`
 
 	Docs     []Doc     `json:"docs" edgedb:"docs"`
 	FileRefs []FileRef `json:"fileRefs" edgedb:"files"`
@@ -183,7 +183,7 @@ func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
 		folder := NewFolder(name)
 		folder.Path = parent.Path.JoinDir(name)
 		parent.Folders = append(parent.Folders, folder)
-		return &folder, nil
+		return &parent.Folders[len(parent.Folders)-1], nil
 	}
 	if folder, ok := entry.(*Folder); ok {
 		return folder, nil
@@ -268,37 +268,37 @@ func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) 
 	for i, doc := range t.Docs {
 		if doc.Name == needle {
 			p := MongoPath(".docs." + strconv.FormatInt(int64(i), 10))
-			return &doc, p
+			return &t.Docs[i], p
 		}
 	}
 	for i, file := range t.FileRefs {
 		if file.Name == needle {
 			p := MongoPath(".fileRefs." + strconv.FormatInt(int64(i), 10))
-			return &file, p
+			return &t.FileRefs[i], p
 		}
 	}
 	for i, folder := range t.Folders {
 		if folder.Name == needle {
 			p := MongoPath(".folders." + strconv.FormatInt(int64(i), 10))
-			return &folder, p
+			return &t.Folders[i], p
 		}
 	}
 	return nil, ""
 }
 
 func (t *Folder) GetDoc(needle sharedTypes.Filename) *Doc {
-	for _, doc := range t.Docs {
+	for i, doc := range t.Docs {
 		if doc.Name == needle {
-			return &doc
+			return &t.Docs[i]
 		}
 	}
 	return nil
 }
 
 func (t *Folder) GetFile(needle sharedTypes.Filename) *FileRef {
-	for _, file := range t.FileRefs {
+	for i, file := range t.FileRefs {
 		if file.Name == needle {
-			return &file
+			return &t.FileRefs[i]
 		}
 	}
 	return nil
@@ -359,9 +359,9 @@ func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 	if err := fn(t, parent); err != nil {
 		return err
 	}
-	for _, folder := range t.Folders {
+	for i, folder := range t.Folders {
 		branch := parent.JoinDir(folder.Name)
-		if err := folder.walkDirs(fn, branch); err != nil {
+		if err := t.Folders[i].walkDirs(fn, branch); err != nil {
 			return err
 		}
 	}
@@ -385,22 +385,23 @@ func (t *Folder) walkDirsMongo(parent *Folder, fn DirWalkerMongo, parentPath sha
 
 func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) error {
 	if m == walkModeDoc || m == walkModeAny {
-		for _, doc := range t.Docs {
-			if err := fn(&doc, parent.Join(doc.Name)); err != nil {
+		for i, doc := range t.Docs {
+			if err := fn(&t.Docs[i], parent.Join(doc.Name)); err != nil {
 				return err
 			}
 		}
 	}
 	if m == walkModeFiles || m == walkModeAny {
-		for _, fileRef := range t.FileRefs {
-			if err := fn(&fileRef, parent.Join(fileRef.Name)); err != nil {
+		for i, fileRef := range t.FileRefs {
+			err := fn(&t.FileRefs[i], parent.Join(fileRef.Name))
+			if err != nil {
 				return err
 			}
 		}
 	}
-	for _, folder := range t.Folders {
+	for i, folder := range t.Folders {
 		branch := parent.JoinDir(folder.Name)
-		if err := folder.walk(fn, branch, m); err != nil {
+		if err := t.Folders[i].walk(fn, branch, m); err != nil {
 			return err
 		}
 	}
