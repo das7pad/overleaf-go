@@ -72,8 +72,16 @@ type DeletedDocsField struct {
 	DeletedDocs []CommonTreeFields `json:"deletedDocs" edgedb:"deleted_docs"`
 }
 
+type DocsWithParentField struct {
+	Docs []DocWithParent `edgedb:"docs"`
+}
+
 type EpochField struct {
 	Epoch int64 `edgedb:"epoch"`
+}
+
+type FilesWithParentField struct {
+	Files []FileRefWithParent `edgedb:"files"`
 }
 
 type IdField struct {

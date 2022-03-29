@@ -129,6 +129,11 @@ type ForProjectOwnershipTransfer struct {
 	ForAuthorizationDetails `edgedb:"$inline"`
 }
 
+type ForProjectEntries struct {
+	DocsWithParentField  `edgedb:"$inline"`
+	FilesWithParentField `edgedb:"$inline"`
+}
+
 type WithTree struct {
 	TreeField    `edgedb:"$inline"`
 	VersionField `edgedb:"$inline"`

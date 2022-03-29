@@ -65,6 +65,7 @@ type Manager interface {
 	GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
+	GetEntries(ctx context.Context, projectId, userId edgedb.UUID) (*ForProjectEntries, error)
 	GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error)
 	GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error)
 	GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error
@@ -270,9 +271,7 @@ for name in array_unpack(<array<str>>$2) union (
 		project := project,
 		parent := parent,
 		name := <str>name,
-		path := (
-			(parent.path ++ '/') if parent.path != '' else ''
-		) ++ <str>name,
+		path := parent.path_for_join ++ <str>name,
 	}
 )`,
 						&ids,
@@ -727,7 +726,7 @@ with
 			project := pWithAuth,
 			parent := f,
 			name := <str>$3,
-			path := ((f.path ++ '/') if f.path != '' else '') ++ <str>$3
+			path := f.path_for_join ++ <str>$3
 		}
 	),
 	pBumpedVersion := (
@@ -920,7 +919,7 @@ with
 	updatedFolders := (update Folder
 		filter
 			.project = pWithAuth
-		and (.path = f.path or .path like (f.path ++ '/%'))
+		and .path_for_join like (f.path ++ '/%')
 		set {
 			name := (<str>$3 if (Folder = f) else Folder.name),
 			path := (
@@ -1646,6 +1645,23 @@ func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId e
 		return nil, err
 	}
 	return m.getProjectByToken(ctx, userId, token)
+}
+
+func (m *manager) GetEntries(ctx context.Context, projectId, userId edgedb.UUID) (*ForProjectEntries, error) {
+	p := &ForProjectEntries{}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$1)
+select Project {
+	docs: { name, parent: { path } },
+	files: { name, parent: { path } },
+}
+filter .id = <uuid>$0 and u in .min_access_ro
+`, p, projectId, userId)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+	return p, nil
 }
 
 func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error) {

@@ -20,8 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -31,36 +29,20 @@ func (m *manager) GetProjectEntities(ctx context.Context, request *types.GetProj
 	}
 
 	userId := request.Session.User.Id
-	p, err := m.pm.GetTreeAndAuth(ctx, request.ProjectId, userId)
+	p, err := m.pm.GetEntries(ctx, request.ProjectId, userId)
 	if err != nil {
 		return errors.Tag(err, "cannot get project")
 	}
-	if _, err = p.GetPrivilegeLevelAuthenticated(userId); err != nil {
-		return err
-	}
 
-	f, err := p.GetRootFolder()
-	if err != nil {
-		return err
+	nDocs := len(p.Docs)
+	entities := make([]types.GetProjectEntitiesEntry, nDocs+len(p.Files))
+	for i, doc := range p.Docs {
+		entities[i].Path = string("/" + doc.GetPath())
+		entities[i].Type = "doc"
 	}
-	entities := make([]types.GetProjectEntitiesEntry, 0)
-	err = f.Walk(func(e project.TreeElement, path sharedTypes.PathName) error {
-		switch e.(type) {
-		case *project.Doc:
-			entities = append(entities, types.GetProjectEntitiesEntry{
-				Path: "/" + path,
-				Type: "doc",
-			})
-		case *project.FileRef:
-			entities = append(entities, types.GetProjectEntitiesEntry{
-				Path: "/" + path,
-				Type: "file",
-			})
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+	for i, file := range p.Files {
+		entities[nDocs+i].Path = string("/" + file.GetPath())
+		entities[nDocs+i].Type = "file"
 	}
 	response.Entities = entities
 	return nil

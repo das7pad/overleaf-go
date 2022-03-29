@@ -20,7 +20,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/session"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetProjectEntitiesRequest struct {
@@ -29,8 +28,8 @@ type GetProjectEntitiesRequest struct {
 }
 
 type GetProjectEntitiesEntry struct {
-	Path sharedTypes.PathName `json:"path"`
-	Type string               `json:"type"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 type GetProjectEntitiesResponse struct {

@@ -125,6 +125,15 @@ type OptionalIdField struct {
 	IdField `edgedb:"$inline"`
 }
 
+type FileRefWithParent struct {
+	FileRef `edgedb:"$inline"`
+	Parent  Folder `edgedb:"parent"`
+}
+
+func (d *FileRefWithParent) GetPath() sharedTypes.PathName {
+	return d.Parent.Path.Join(d.Name)
+}
+
 type FileRef struct {
 	CommonTreeFields `edgedb:"$inline"`
 

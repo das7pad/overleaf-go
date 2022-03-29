@@ -216,6 +216,10 @@ module default {
 
   abstract type FolderLike extending TreeElement {
     required property path -> str;
+    property path_for_join := (
+      '' if .path = '' else (.path ++ '/')
+    );
+
     multi link folders := (
       select .<parent[is Folder] filter not exists .deleted_at
     );
