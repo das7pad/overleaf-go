@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -229,28 +230,26 @@ func (m *manager) Delete(ctx context.Context, userId edgedb.UUID, epoch int64) e
 }
 
 func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error {
-	now := time.Now().UTC()
-	_, err := m.col.UpdateOne(ctx, &IdField{Id: userId}, &bson.M{
-		"$inc": EpochField{Epoch: 1},
-		"$push": bson.M{
-			"auditLog": bson.M{
-				"$each": bson.A{
-					AuditLogEntry{
-						Info:        info,
-						InitiatorId: userId,
-						IpAddress:   ip,
-						Operation:   AuditLogOperationClearSessions,
-						Timestamp:   now,
-					},
-				},
-				"$slice": -MaxAuditLogEntries,
-			},
-		},
-	})
+	blob, err := json.Marshal(info)
 	if err != nil {
-		return rewriteMongoError(err)
+		return errors.Tag(err, "cannot serialize audit log info")
 	}
-	return nil
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+with u := (select User filter .id = <uuid>$0)
+update User
+filter User = u
+set {
+	epoch := User.epoch + 1,
+	audit_log += (
+		insert UserAuditLogEntry {
+			initiator := u,
+			operation := 'clear-sessions',
+			ip_address := <str>$1,
+			info := <json>$2,
+		}
+	)
+}
+`, &IdField{}, userId, ip, blob))
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
