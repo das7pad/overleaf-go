@@ -191,6 +191,7 @@ module default {
       {.owner} union .access_rw union .access_token_rw
     );
 
+    link chat := (select .<project[is ChatRoom] limit 1);
     link root_folder := (
       select .<project[is RootFolder] limit 1
     );

@@ -24,25 +24,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type Manager interface {
-	CreateMessage(
-		ctx context.Context,
-		roomId, userId edgedb.UUID,
-		content string,
-		timestamp float64,
-	) (*types.Message, error)
-
-	GetMessages(
-		ctx context.Context,
-		roomId edgedb.UUID,
-		limit int64,
-		before sharedTypes.Timestamp,
-	) ([]*types.Message, error)
-
 	FindAllMessagesInRooms(
 		ctx context.Context,
 		roomIds []edgedb.UUID,
@@ -82,29 +67,6 @@ type manager struct {
 	messagesCollection *mongo.Collection
 }
 
-func (m *manager) CreateMessage(
-	ctx context.Context,
-	roomId, userId edgedb.UUID,
-	content string,
-	timestamp float64,
-) (*types.Message, error) {
-	message := types.Message{
-		Content:   content,
-		RoomId:    roomId,
-		UserId:    userId,
-		Timestamp: timestamp,
-	}
-	result, err := m.messagesCollection.InsertOne(
-		ctx,
-		message,
-	)
-	if err != nil {
-		return nil, err
-	}
-	message.Id = result.InsertedID.(edgedb.UUID)
-	return &message, nil
-}
-
 func readAllMessages(ctx context.Context, c *mongo.Cursor) ([]*types.Message, error) {
 	out := make([]*types.Message, 0)
 	err := c.All(ctx, &out)
@@ -112,39 +74,6 @@ func readAllMessages(ctx context.Context, c *mongo.Cursor) ([]*types.Message, er
 		return nil, err
 	}
 	return out, nil
-}
-
-func (m *manager) GetMessages(
-	ctx context.Context,
-	roomId edgedb.UUID,
-	limit int64,
-	before sharedTypes.Timestamp,
-) ([]*types.Message, error) {
-	query := bson.M{
-		"room_id": roomId,
-	}
-	if before != 0 {
-		query = bson.M{
-			"room_id": roomId,
-			"timestamp": bson.M{
-				"$lt": int64(before),
-			},
-		}
-	}
-	c, err := m.messagesCollection.Find(
-		ctx,
-		query,
-		options.Find().
-			SetSort(bson.M{
-				"timestamp": -1,
-			}).
-			SetLimit(limit).
-			SetBatchSize(int32(limit)),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return readAllMessages(ctx, c)
 }
 
 func (m *manager) FindAllMessagesInRooms(

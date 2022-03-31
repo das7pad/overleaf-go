@@ -70,6 +70,11 @@ func (t *Timestamp) ParseIfSet(s string) error {
 	return nil
 }
 
+func (t Timestamp) ToTime() time.Time {
+	ms := int64(t)
+	return time.Unix(ms/1000, ms%1000*int64(time.Millisecond))
+}
+
 type DocumentUpdateMeta struct {
 	Type             string           `json:"type,omitempty"`
 	Source           PublicId         `json:"source"`

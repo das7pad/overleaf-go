@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	chatTypes "github.com/das7pad/overleaf-go/services/chat/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -66,28 +67,6 @@ func (m *manager) GetReviewThreads(ctx context.Context, r *types.GetReviewThread
 	if err != nil {
 		return errors.Tag(err, "cannot get threads")
 	}
-
-	uniqUserIds := make(user.UniqUserIds, 1)
-	for _, t := range threads {
-		if t.Resolved != nil && *t.Resolved && t.ResolvedByUserId != nil {
-			uniqUserIds[*t.ResolvedByUserId] = true
-		}
-		for _, msg := range t.Messages {
-			uniqUserIds[msg.UserId] = true
-		}
-	}
-	users, err := m.um.GetUsersForBackFillingNonStandardId(ctx, uniqUserIds)
-	if err != nil {
-		return errors.Tag(err, "cannot get users")
-	}
-	for _, t := range threads {
-		if t.Resolved != nil && *t.Resolved && t.ResolvedByUserId != nil {
-			t.ResolvedByUser = users[*t.ResolvedByUserId]
-		}
-		for _, msg := range t.Messages {
-			msg.User = users[msg.UserId]
-		}
-	}
 	*response = threads
 	return nil
 }
@@ -116,15 +95,12 @@ func (m *manager) ResolveReviewThread(ctx context.Context, r *types.ResolveRevie
 }
 
 func (m *manager) SendReviewComment(ctx context.Context, r *types.SendReviewCommentRequest) error {
-	msg, err := m.cm.SendThreadMessage(
-		ctx, r.ProjectId, r.ThreadId, r.Content, r.UserId,
-	)
+	msg := &chatTypes.Message{}
+	msg.Content = r.Content
+	msg.User.Id = r.UserId
+	err := m.cm.SendThreadMessage(ctx, r.ProjectId, r.ThreadId, msg)
 	if err != nil {
 		return errors.Tag(err, "cannot create message")
-	}
-	msg.User = &user.WithPublicInfoAndNonStandardId{}
-	if err = m.um.GetUser(ctx, r.UserId, msg.User); err != nil {
-		return errors.Tag(err, "cannot get user")
 	}
 	msg.User.IdNoUnderscore = r.UserId
 

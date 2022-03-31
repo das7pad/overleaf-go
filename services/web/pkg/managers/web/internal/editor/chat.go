@@ -20,59 +20,32 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
+	chatTypes "github.com/das7pad/overleaf-go/services/chat/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 const chatPageSize = 50
 
 func (m *manager) GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error {
-	rawMessages, err := m.cm.GetGlobalMessages(ctx, request.ProjectId, chatPageSize, request.Before)
-	if err != nil {
-		return errors.Tag(err, "cannot get messages")
+	err := m.cm.GetGlobalMessages(
+		ctx, request.ProjectId, chatPageSize, request.Before, response,
+	)
+	res := *response
+	for i, msg := range res {
+		res[i].User.IdNoUnderscore = msg.User.Id
 	}
-	usersUniq := make(user.UniqUserIds, len(rawMessages))
-	for _, message := range rawMessages {
-		usersUniq[message.UserId] = true
-	}
-	messages := make([]*types.ChatMessage, len(rawMessages))
-	for i, message := range rawMessages {
-		messages[i] = &types.ChatMessage{Message: message}
-	}
-	if len(usersUniq) != 0 {
-		users, err2 := m.um.GetUsersForBackFillingNonStandardId(ctx, usersUniq)
-		if err2 != nil {
-			return errors.Tag(err2, "cannot get user details")
-		}
-		for _, message := range messages {
-			message.User = users[message.UserId]
-		}
-	}
-	*response = messages
-	return nil
+	return err
 }
 
 func (m *manager) SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error {
-	rawMessage, err := m.cm.SendGlobalMessage(ctx, request.ProjectId, request.Content, request.UserId)
-	if err != nil {
+	msg := &chatTypes.Message{}
+	msg.Content = request.Content
+	msg.User.Id = request.UserId
+	if err := m.cm.SendGlobalMessage(ctx, request.ProjectId, msg); err != nil {
 		return errors.Tag(err, "cannot persist message")
 	}
+	msg.User.IdNoUnderscore = msg.User.Id
 
-	// NOTE: Silently bail out when the broadcast fails.
-	//       The message has been persisted and re-sending would result in
-	//        duplicate messages in the DB.
-	u := &user.WithPublicInfoAndNonStandardId{}
-	if err = m.um.GetUser(ctx, request.UserId, u); err != nil {
-		return nil
-	}
-	u.IdNoUnderscore = u.Id
-
-	message := types.ChatMessage{
-		Message: rawMessage,
-		User:    u,
-	}
-	go m.notifyEditor(
-		request.ProjectId, "new-chat-message", message,
-	)
+	go m.notifyEditor(request.ProjectId, "new-chat-message", msg)
 	return nil
 }

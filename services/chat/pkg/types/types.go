@@ -25,13 +25,12 @@ import (
 )
 
 type Message struct {
-	Id        edgedb.UUID                          `json:"id" edgedb:"id"`
-	Content   string                               `json:"content" edgedb:"content"`
-	Timestamp float64                              `json:"timestamp" edgedb:"timestamp"`
-	UserId    edgedb.UUID                          `json:"user_id" edgedb:"user_id"`
-	User      *user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"-"`
-	EditedAt  float64                              `json:"edited_at,omitempty" edgedb:"edited_at"`
-	RoomId    edgedb.UUID                          `json:"room_id,omitempty" edgedb:"room_id"`
+	Id        edgedb.UUID                         `json:"id" edgedb:"id"`
+	Content   string                              `json:"content" edgedb:"content"`
+	Timestamp time.Time                           `json:"timestamp" edgedb:"created_at"`
+	User      user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"user"`
+	EditedAt  edgedb.OptionalDateTime             `json:"edited_at,omitempty" edgedb:"edited_at"`
+	RoomId    edgedb.UUID                         `json:"room_id,omitempty" edgedb:"room_id"`
 }
 
 type Thread struct {

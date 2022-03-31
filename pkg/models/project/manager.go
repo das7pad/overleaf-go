@@ -204,8 +204,9 @@ with
 		owner := owner,
 		spell_check_language := lng,
 	}),
-	rf := (insert RootFolder { project := p, path := '' })
-select {p.id, rf.id}`,
+	rf := (insert RootFolder { project := p, path := '' }),
+	cr := (insert ChatRoom { project := p }),
+select {p.id, rf.id, cr.id}`,
 		&ids,
 		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.ImageName,
 		p.Name,
@@ -908,8 +909,6 @@ type renameFolderResult struct {
 
 func (m *manager) RenameFolder(ctx context.Context, projectId, userId edgedb.UUID, f *Folder) (sharedTypes.Version, error) {
 	r := renameFolderResult{}
-	// TODO: I'm hitting a dead-end/server error here. I've opened a ticket:
-	//       https://github.com/edgedb/edgedb/issues/3681
 	err := m.c.QuerySingle(ctx, `
 with
 	p := (select Project filter .id = <uuid>$0),

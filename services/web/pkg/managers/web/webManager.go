@@ -114,7 +114,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	sm := session.New(options.SessionCookie, client)
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
-	chatM := chat.New(db)
+	chatM := chat.New(c, db)
 	dum, err := documentUpdater.New(
 		options.APIs.DocumentUpdater.Options, c, client, db,
 	)

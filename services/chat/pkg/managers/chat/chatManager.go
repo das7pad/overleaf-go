@@ -36,21 +36,20 @@ type Manager interface {
 		projectId edgedb.UUID,
 		limit int64,
 		before sharedTypes.Timestamp,
-	) ([]*types.Message, error)
+		target *[]types.Message,
+	) error
 
 	SendGlobalMessage(
 		ctx context.Context,
 		projectId edgedb.UUID,
-		content string,
-		userId edgedb.UUID,
-	) (*types.Message, error)
+		msg *types.Message,
+	) error
 
 	SendThreadMessage(
 		ctx context.Context,
 		projectId, threadId edgedb.UUID,
-		content string,
-		userId edgedb.UUID,
-	) (*types.Message, error)
+		msg *types.Message,
+	) error
 
 	GetAllThreads(
 		ctx context.Context,
@@ -86,14 +85,26 @@ type Manager interface {
 	DeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(db *mongo.Database) Manager {
+func New(c *edgedb.Client, db *mongo.Database) Manager {
 	return &manager{
+		c:  c,
 		mm: message.New(db),
 		tm: thread.NewThreadManager(db),
 	}
 }
 
+func rewriteEdgedbError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
+		return &errors.NotFoundError{}
+	}
+	return err
+}
+
 type manager struct {
+	c  *edgedb.Client
 	mm message.Manager
 	tm thread.Manager
 }
@@ -130,39 +141,71 @@ func (m *manager) GetGlobalMessages(
 	projectId edgedb.UUID,
 	limit int64,
 	before sharedTypes.Timestamp,
-) ([]*types.Message, error) {
-	room, err := m.tm.FindOrCreateThread(
-		ctx,
-		projectId,
-		nil,
-	)
-	if err != nil {
-		return nil, err
+	target *[]types.Message,
+) error {
+	var t time.Time
+	if before == 0 {
+		t = time.Now()
+	} else {
+		t = before.ToTime()
 	}
-	return m.mm.GetMessages(
-		ctx,
-		room.Id,
-		limit,
-		before,
-	)
+	return rewriteEdgedbError(m.c.Query(ctx, `
+select (select Project filter .id = <uuid>$0).chat.messages {
+	id,
+	content,
+	created_at,
+	user: { email: { email }, id, first_name, last_name },
+}
+filter .created_at < <datetime>$1
+order by .created_at desc
+limit <int64>$2
+`, target, projectId, t, limit))
 }
 
 func (m *manager) SendGlobalMessage(
 	ctx context.Context,
 	projectId edgedb.UUID,
-	content string,
-	userId edgedb.UUID,
-) (*types.Message, error) {
-	return m.sendMessage(ctx, projectId, nil, content, userId)
+	msg *types.Message,
+) error {
+	if err := checkContent(msg.Content); err != nil {
+		return err
+	}
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+select (insert Message {
+	room := (select Project filter .id = <uuid>$0).chat,
+	user := (select User filter .id = <uuid>$1),
+	content := <str>$2,
+}) {
+	id,
+	content,
+	created_at,
+	user: { email: { email }, id, first_name, last_name },
+}
+`, msg, projectId, msg.User.Id, msg.Content))
 }
 
 func (m *manager) SendThreadMessage(
 	ctx context.Context,
 	projectId, threadId edgedb.UUID,
-	content string,
-	userId edgedb.UUID,
-) (*types.Message, error) {
-	return m.sendMessage(ctx, projectId, &threadId, content, userId)
+	msg *types.Message,
+) error {
+	if err := checkContent(msg.Content); err != nil {
+		return err
+	}
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+select (insert Message {
+	room := (
+		select ReviewThread filter .id = <uuid>$0 and .project.id = <uuid>$1
+	),
+	user := (select User filter .id = <uuid>$2),
+	content := <str>$3,
+}) {
+	id,
+	content,
+	created_at,
+	user: { email: { email }, id, first_name, last_name },
+}
+`, msg, threadId, projectId, msg.User.Id, msg.Content))
 }
 
 var (
@@ -173,40 +216,14 @@ var (
 	}
 )
 
-func (m *manager) sendMessage(
-	ctx context.Context,
-	projectId edgedb.UUID,
-	threadId *edgedb.UUID,
-	content string,
-	userId edgedb.UUID,
-) (*types.Message, error) {
+func checkContent(content string) error {
 	if content == "" {
-		return nil, NoContentProvided
+		return NoContentProvided
 	}
 	if len(content) > MaxMessageLength {
-		return nil, ContentTooLong
+		return ContentTooLong
 	}
-	room, err := m.tm.FindOrCreateThread(
-		ctx,
-		projectId,
-		threadId,
-	)
-	if err != nil {
-		return nil, err
-	}
-	msg, err := m.mm.CreateMessage(
-		ctx,
-		room.Id,
-		userId,
-		content,
-		nowMS(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	// sync with NodeJS implementation and shadow actual room_id
-	msg.RoomId = projectId
-	return msg, err
+	return nil
 }
 
 func groupMessagesByThreads(rooms []thread.Room, messages []*types.Message) types.Threads {
