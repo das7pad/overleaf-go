@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,20 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package chat
+package message
 
 import (
 	"context"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/message"
-	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat/internal/thread"
-	"github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type Manager interface {
@@ -36,25 +32,26 @@ type Manager interface {
 		projectId edgedb.UUID,
 		limit int64,
 		before sharedTypes.Timestamp,
-		target *[]types.Message,
+		target *[]Message,
 	) error
 
 	SendGlobalMessage(
 		ctx context.Context,
 		projectId edgedb.UUID,
-		msg *types.Message,
+		msg *Message,
 	) error
 
 	SendThreadMessage(
 		ctx context.Context,
 		projectId, threadId edgedb.UUID,
-		msg *types.Message,
+		msg *Message,
 	) error
 
 	GetAllThreads(
 		ctx context.Context,
 		projectId edgedb.UUID,
-	) (types.Threads, error)
+		threads *Threads,
+	) error
 
 	ResolveThread(
 		ctx context.Context,
@@ -81,15 +78,11 @@ type Manager interface {
 		ctx context.Context,
 		projectId, threadId, messageId edgedb.UUID,
 	) error
-
-	DeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(c *edgedb.Client, db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		c:  c,
-		mm: message.New(db),
-		tm: thread.NewThreadManager(db),
+		c: c,
 	}
 }
 
@@ -104,36 +97,7 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c  *edgedb.Client
-	mm message.Manager
-	tm thread.Manager
-}
-
-func (m *manager) DeleteProject(ctx context.Context, projectId edgedb.UUID) error {
-	chatThread, err := m.tm.FindOrCreateThread(ctx, projectId, nil)
-	if err != nil {
-		return errors.Tag(err, "cannot get chat thread")
-	}
-	threads, err := m.tm.FindAllThreadRooms(ctx, projectId)
-	if err != nil {
-		return errors.Tag(err, "cannot get review threads")
-	}
-	roomIds := make([]edgedb.UUID, len(threads)+1)
-	for i, room := range threads {
-		roomIds[i] = room.Id
-	}
-	roomIds[len(roomIds)-1] = chatThread.Id
-	if err = m.mm.DeleteProjectMessages(ctx, roomIds); err != nil {
-		return errors.Tag(err, "cannot delete messages")
-	}
-	if err = m.tm.DeleteProjectThreads(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot delete threads")
-	}
-	return nil
-}
-
-func nowMS() float64 {
-	return float64(time.Now().UnixNano() / 1e6)
+	c *edgedb.Client
 }
 
 func (m *manager) GetGlobalMessages(
@@ -141,7 +105,7 @@ func (m *manager) GetGlobalMessages(
 	projectId edgedb.UUID,
 	limit int64,
 	before sharedTypes.Timestamp,
-	target *[]types.Message,
+	messages *[]Message,
 ) error {
 	var t time.Time
 	if before == 0 {
@@ -159,13 +123,13 @@ select (select Project filter .id = <uuid>$0).chat.messages {
 filter .created_at < <datetime>$1
 order by .created_at desc
 limit <int64>$2
-`, target, projectId, t, limit))
+`, messages, projectId, t, limit))
 }
 
 func (m *manager) SendGlobalMessage(
 	ctx context.Context,
 	projectId edgedb.UUID,
-	msg *types.Message,
+	msg *Message,
 ) error {
 	if err := checkContent(msg.Content); err != nil {
 		return err
@@ -187,7 +151,7 @@ select (insert Message {
 func (m *manager) SendThreadMessage(
 	ctx context.Context,
 	projectId, threadId edgedb.UUID,
-	msg *types.Message,
+	msg *Message,
 ) error {
 	if err := checkContent(msg.Content); err != nil {
 		return err
@@ -226,76 +190,80 @@ func checkContent(content string) error {
 	return nil
 }
 
-func groupMessagesByThreads(rooms []thread.Room, messages []*types.Message) types.Threads {
-	roomById := map[edgedb.UUID]thread.Room{}
-	for _, room := range rooms {
-		roomById[room.Id] = room
-	}
-	threads := make(types.Threads, len(rooms))
-	for _, msg := range messages {
-		room, exists := roomById[msg.RoomId]
-		if !exists {
-			continue
-		}
-		t, exists := threads[room.ThreadId.String()]
-		if !exists {
-			t = &types.Thread{
-				Messages: make([]*types.Message, 0),
-			}
-			resolved := room.Resolved != nil
-			if resolved {
-				t.Resolved = &resolved
-				t.ResolvedAt = &room.Resolved.At
-				t.ResolvedByUserId = &room.Resolved.ByUserId
-			}
-		}
-		t.Messages = append(t.Messages, msg)
-		threads[room.ThreadId.String()] = t
-	}
-	return threads
-}
+type threadsFlat []Thread
 
 func (m *manager) GetAllThreads(
 	ctx context.Context,
 	projectId edgedb.UUID,
-) (types.Threads, error) {
-	rooms, err := m.tm.FindAllThreadRooms(ctx, projectId)
+	threads *Threads,
+) error {
+	tf := make(threadsFlat, 0)
+	err := m.c.Query(ctx, `
+select ReviewThread {
+	messages: {
+		content,
+		created_at,
+		edited_at,
+		user: { email: { email }, id, first_name, last_name },
+	},
+	resolved_at,
+	resolved_by: { email: { email }, id, first_name, last_name },
+}
+filter .project.id = <uuid>$0
+`, &tf, projectId)
 	if err != nil {
-		return nil, err
+		return rewriteEdgedbError(err)
 	}
 
-	roomIds := make([]edgedb.UUID, len(rooms))
-	for i, room := range rooms {
-		roomIds[i] = room.Id
+	out := make(Threads, len(tf))
+	for i := 0; i < len(tf); i++ {
+		_, tf[i].Resolved = tf[i].ResolvedAt.Get()
+		tf[i].ResolvedByUser.IdNoUnderscore = tf[i].ResolvedByUser.Id
+		for j := 0; j < len(tf[i].Messages); j++ {
+			tf[i].Messages[j].User.IdNoUnderscore = tf[i].Messages[j].User.Id
+		}
+		out[tf[i].Id.String()] = tf[i]
 	}
-	messages, err := m.mm.FindAllMessagesInRooms(ctx, roomIds)
-
-	return groupMessagesByThreads(rooms, messages), nil
+	*threads = out
+	return nil
 }
 
 func (m *manager) ResolveThread(
 	ctx context.Context,
 	projectId, threadId, userId edgedb.UUID,
 ) error {
-	return m.tm.ResolveThread(ctx, projectId, threadId, userId)
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update ReviewThread
+filter filter .id = <uuid>$0 and .project.id = <uuid>$1
+set {
+	resolved_at := datetime_of_transaction(),
+	resolved_by := (select User filter .id = <uuid>$2),
+}
+`, &IdField{}, threadId, projectId, userId))
 }
 
 func (m *manager) ReopenThread(
 	ctx context.Context,
 	projectId, threadId edgedb.UUID,
 ) error {
-	return m.tm.ReopenThread(ctx, projectId, threadId)
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update ReviewThread
+filter filter .id = <uuid>$0 and .project.id = <uuid>$1
+set {
+	resolved_at := {},
+	resolved_by := {},
+}
+`, &IdField{}, threadId, projectId))
 }
 
 func (m *manager) DeleteThread(
 	ctx context.Context,
 	projectId, threadId edgedb.UUID,
 ) error {
-	roomId, err := m.tm.DeleteThread(ctx, projectId, threadId)
-	if err != nil {
-		return err
-	}
-	return m.mm.DeleteAllMessagesInRoom(ctx, *roomId)
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+delete ReviewThread
+filter filter .id = <uuid>$0 and .project.id = <uuid>$1
+`, &IdField{}, threadId, projectId))
 }
 
 func (m *manager) EditMessage(
@@ -303,38 +271,32 @@ func (m *manager) EditMessage(
 	projectId, threadId, messageId edgedb.UUID,
 	content string,
 ) error {
-	room, err := m.tm.FindOrCreateThread(
-		ctx,
-		projectId,
-		&threadId,
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update Message
+filter
+	.id = <uuid>$0
+and
+	.room = (
+		select ReviewThread filter .id = <uuid>$1 and .project.id = <uuid>$2
 	)
-	if err != nil {
-		return err
-	}
-	return m.mm.UpdateMessage(
-		ctx,
-		room.Id,
-		messageId,
-		content,
-		nowMS(),
-	)
+set {
+	content := <str>$3,
+	edited_at := datetime_of_transaction();
+}
+`, &IdField{}, messageId, threadId, projectId, content))
 }
 
 func (m *manager) DeleteMessage(
 	ctx context.Context,
 	projectId, threadId, messageId edgedb.UUID,
 ) error {
-	room, err := m.tm.FindOrCreateThread(
-		ctx,
-		projectId,
-		&threadId,
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+delete Message
+filter
+	.id = <uuid>$0
+and
+	.room = (
+		select ReviewThread filter .id = <uuid>$1 and .project.id = <uuid>$2
 	)
-	if err != nil {
-		return err
-	}
-	return m.mm.DeleteMessage(
-		ctx,
-		room.Id,
-		messageId,
-	)
+`, &IdField{}, messageId, threadId, projectId))
 }

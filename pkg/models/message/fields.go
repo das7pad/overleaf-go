@@ -17,33 +17,9 @@
 package message
 
 import (
-	"time"
-
 	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type IdField struct {
-	Id edgedb.UUID `edgedb:"id" json:"id"`
-}
-
-type ContentField struct {
-	Content string `edgedb:"content" json:"content"`
-}
-
-type CreatedAtField struct {
-	CreatedAt time.Time `edgedb:"created_at" json:"timestamp"`
-}
-
-type UserField struct {
-	User user.WithPublicInfo `edgedb:"user"`
-}
-
-type EditedAtField struct {
-	EditedAt edgedb.OptionalDateTime `edgedb:"edited_at" json:"edited_at"`
-}
-
-type RoomIdField struct {
-	RoomId edgedb.UUID `edgedb:"room_id"`
+	Id edgedb.UUID `edgedb:"id"`
 }

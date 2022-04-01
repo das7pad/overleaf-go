@@ -637,9 +637,9 @@ func (h *httpController) getProjectMessages(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = projectJWT.MustGet(c).ProjectId
-	response := &types.GetProjectChatMessagesResponse{}
-	err := h.wm.GetProjectMessages(c.Request.Context(), request, response)
-	httpUtils.Respond(c, http.StatusOK, response, err)
+	resp := make(types.GetProjectChatMessagesResponse, 0)
+	err := h.wm.GetProjectMessages(c.Request.Context(), request, &resp)
+	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) sendProjectMessage(c *httpUtils.Context) {
@@ -1821,8 +1821,8 @@ func (h *httpController) getReviewThreads(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.GetReviewThreadsRequest{}
 	request.ProjectId = o.ProjectId
-	res := &types.GetReviewThreadsResponse{}
-	err := h.wm.GetReviewThreads(c.Request.Context(), request, res)
+	res := make(types.GetReviewThreadsResponse, 0)
+	err := h.wm.GetReviewThreads(c.Request.Context(), request, &res)
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 

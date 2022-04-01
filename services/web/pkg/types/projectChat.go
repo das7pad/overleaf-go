@@ -22,8 +22,8 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	chatTypes "github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type GetProjectChatMessagesRequest struct {
@@ -38,7 +38,7 @@ func (r *GetProjectChatMessagesRequest) FromQuery(q url.Values) error {
 	return nil
 }
 
-type GetProjectChatMessagesResponse = []chatTypes.Message
+type GetProjectChatMessagesResponse = []message.Message
 
 type SendProjectChatMessageRequest struct {
 	ProjectId edgedb.UUID `json:"-"`

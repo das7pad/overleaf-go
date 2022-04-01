@@ -20,8 +20,8 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	chatTypes "github.com/das7pad/overleaf-go/services/chat/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -63,11 +63,9 @@ func (m *manager) EditReviewComment(ctx context.Context, r *types.EditReviewComm
 }
 
 func (m *manager) GetReviewThreads(ctx context.Context, r *types.GetReviewThreadsRequest, response *types.GetReviewThreadsResponse) error {
-	threads, err := m.cm.GetAllThreads(ctx, r.ProjectId)
-	if err != nil {
+	if err := m.cm.GetAllThreads(ctx, r.ProjectId, response); err != nil {
 		return errors.Tag(err, "cannot get threads")
 	}
-	*response = threads
 	return nil
 }
 
@@ -95,7 +93,7 @@ func (m *manager) ResolveReviewThread(ctx context.Context, r *types.ResolveRevie
 }
 
 func (m *manager) SendReviewComment(ctx context.Context, r *types.SendReviewCommentRequest) error {
-	msg := &chatTypes.Message{}
+	msg := &message.Message{}
 	msg.Content = r.Content
 	msg.User.Id = r.UserId
 	err := m.cm.SendThreadMessage(ctx, r.ProjectId, r.ThreadId, msg)

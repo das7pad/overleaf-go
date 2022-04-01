@@ -20,14 +20,14 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	chatTypes "github.com/das7pad/overleaf-go/services/chat/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 const chatPageSize = 50
 
 func (m *manager) GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error {
-	err := m.cm.GetGlobalMessages(
+	err := m.mm.GetGlobalMessages(
 		ctx, request.ProjectId, chatPageSize, request.Before, response,
 	)
 	res := *response
@@ -38,10 +38,10 @@ func (m *manager) GetProjectMessages(ctx context.Context, request *types.GetProj
 }
 
 func (m *manager) SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error {
-	msg := &chatTypes.Message{}
+	msg := &message.Message{}
 	msg.Content = request.Content
 	msg.User.Id = request.UserId
-	if err := m.cm.SendGlobalMessage(ctx, request.ProjectId, msg); err != nil {
+	if err := m.mm.SendGlobalMessage(ctx, request.ProjectId, msg); err != nil {
 		return errors.Tag(err, "cannot persist message")
 	}
 	msg.User.IdNoUnderscore = msg.User.Id

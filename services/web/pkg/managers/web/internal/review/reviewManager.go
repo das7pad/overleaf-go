@@ -23,11 +23,11 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 
+	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -47,7 +47,7 @@ type Manager interface {
 	SetTrackChangesState(ctx context.Context, r *types.SetTrackChangesStateRequest) error
 }
 
-func New(pm project.Manager, um user.Manager, cm chat.Manager, dm docstore.Manager, dum documentUpdater.Manager, editorEvents channel.Writer) Manager {
+func New(pm project.Manager, um user.Manager, cm message.Manager, dm docstore.Manager, dum documentUpdater.Manager, editorEvents channel.Writer) Manager {
 	return &manager{
 		cm:           cm,
 		dm:           dm,
@@ -59,7 +59,7 @@ func New(pm project.Manager, um user.Manager, cm chat.Manager, dm docstore.Manag
 }
 
 type manager struct {
-	cm           chat.Manager
+	cm           message.Manager
 	dm           docstore.Manager
 	dum          documentUpdater.Manager
 	editorEvents channel.Writer

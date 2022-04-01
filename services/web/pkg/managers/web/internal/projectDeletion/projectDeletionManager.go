@@ -24,8 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/deletedFile"
 	"github.com/das7pad/overleaf-go/pkg/models/deletedProject"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/tag"
-	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
@@ -39,9 +37,8 @@ type Manager interface {
 	HardDeleteExpiredProjects(ctx context.Context, dryRun bool) error
 }
 
-func New(db *mongo.Database, pm project.Manager, tm tag.Manager, cm chat.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
+func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
-		cm:  cm,
 		db:  db,
 		dfm: deletedFile.New(db),
 		dpm: deletedProject.New(db),
@@ -49,12 +46,10 @@ func New(db *mongo.Database, pm project.Manager, tm tag.Manager, cm chat.Manager
 		dum: dum,
 		fm:  fm,
 		pm:  pm,
-		tm:  tm,
 	}
 }
 
 type manager struct {
-	cm  chat.Manager
 	db  *mongo.Database
 	dfm deletedFile.Manager
 	dpm deletedProject.Manager
@@ -62,5 +57,4 @@ type manager struct {
 	dum documentUpdater.Manager
 	fm  filestore.Manager
 	pm  project.Manager
-	tm  tag.Manager
 }

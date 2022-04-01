@@ -21,9 +21,9 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
+	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	chatTypes "github.com/das7pad/overleaf-go/services/chat/pkg/types"
 )
 
 type AcceptReviewChangesRequest struct {
@@ -63,7 +63,7 @@ type GetReviewThreadsRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
 }
 
-type GetReviewThreadsResponse = chatTypes.Threads
+type GetReviewThreadsResponse = message.Threads
 
 type GetReviewUsersRequest struct {
 	ProjectId edgedb.UUID `json:"-"`

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package types
+package message
 
 import (
 	"time"
@@ -30,15 +30,14 @@ type Message struct {
 	Timestamp time.Time                           `json:"timestamp" edgedb:"created_at"`
 	User      user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"user"`
 	EditedAt  edgedb.OptionalDateTime             `json:"edited_at,omitempty" edgedb:"edited_at"`
-	RoomId    edgedb.UUID                         `json:"room_id,omitempty" edgedb:"room_id"`
 }
 
 type Thread struct {
-	Resolved         *bool                                `json:"resolved,omitempty"`
-	ResolvedAt       *time.Time                           `json:"resolved_at,omitempty"`
-	ResolvedByUserId *edgedb.UUID                         `json:"resolved_by_user_id,omitempty"`
-	ResolvedByUser   *user.WithPublicInfoAndNonStandardId `json:"resolved_by_user,omitempty"`
-	Messages         []*Message                           `json:"messages"`
+	Id             edgedb.UUID                         `json:"-" edgedb:"id"`
+	Resolved       bool                                `json:"resolved,omitempty"`
+	ResolvedAt     edgedb.OptionalDateTime             `json:"resolved_at,omitempty"`
+	ResolvedByUser user.WithPublicInfoAndNonStandardId `json:"resolved_by,omitempty"`
+	Messages       []Message                           `json:"messages"`
 }
 
-type Threads map[string]*Thread
+type Threads map[string]Thread

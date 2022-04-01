@@ -28,13 +28,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
+	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	tagModel "github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	"github.com/das7pad/overleaf-go/services/chat/pkg/managers/chat"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
@@ -114,7 +114,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	sm := session.New(options.SessionCookie, client)
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
-	chatM := chat.New(c, db)
+	mm := message.New(c)
 	dum, err := documentUpdater.New(
 		options.APIs.DocumentUpdater.Options, c, client, db,
 	)
@@ -148,7 +148,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		client, db,
 		editorEvents,
 		pm, tm, um,
-		chatM, dm, fm,
+		mm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(options, ps, c, client, db, um, loggedInUserJWTHandler, sm)
@@ -168,11 +168,11 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		return nil, err
 	}
 	pdm := projectDownload.New(pm, dm, dum, fm)
-	pDelM := projectDeletion.New(db, pm, tm, chatM, dm, dum, fm)
+	pDelM := projectDeletion.New(db, pm, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
 	ucm := userCreation.New(options, ps, c, db, um, lm)
-	rm := review.New(pm, um, chatM, dm, dum, editorEvents)
+	rm := review.New(pm, um, mm, dm, dum, editorEvents)
 	am := admin.New(ps, c)
 	learnM, err := learn.New(options, ps, proxy)
 	if err != nil {
