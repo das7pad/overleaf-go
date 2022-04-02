@@ -105,13 +105,6 @@ type Manager interface {
 	UpdateDoc(ctx context.Context, projectId, docId edgedb.UUID, update *ForDocUpdate) error
 	RestoreArchivedContent(ctx context.Context, projectId, docId edgedb.UUID, contents *ArchiveContents) error
 
-	PatchDocMeta(
-		ctx context.Context,
-		projectId edgedb.UUID,
-		docId edgedb.UUID,
-		docMeta Meta,
-	) error
-
 	MarkDocAsArchived(
 		ctx context.Context,
 		projectId edgedb.UUID,
@@ -456,17 +449,6 @@ func (m *manager) RestoreArchivedContent(ctx context.Context, projectId, docId e
 		return rewriteMongoError(err)
 	}
 	return nil
-}
-
-func (m *manager) PatchDocMeta(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, meta Meta) error {
-	_, err := m.col.UpdateOne(
-		ctx,
-		docFilter(projectId, docId),
-		bson.M{
-			"$set": meta,
-		},
-	)
-	return err
 }
 
 func (m *manager) MarkDocAsArchived(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, revision sharedTypes.Revision) error {

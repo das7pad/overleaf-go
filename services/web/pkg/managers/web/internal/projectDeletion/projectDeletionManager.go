@@ -21,7 +21,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/models/deletedFile"
 	"github.com/das7pad/overleaf-go/pkg/models/deletedProject"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
@@ -40,7 +39,6 @@ type Manager interface {
 func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
 		db:  db,
-		dfm: deletedFile.New(db),
 		dpm: deletedProject.New(db),
 		dm:  dm,
 		dum: dum,
@@ -51,7 +49,6 @@ func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum docume
 
 type manager struct {
 	db  *mongo.Database
-	dfm deletedFile.Manager
 	dpm deletedProject.Manager
 	dm  docstore.Manager
 	dum documentUpdater.Manager

@@ -76,13 +76,6 @@ type Manager interface {
 		update *doc.ForDocUpdate,
 	) (Modified, error)
 
-	PatchDoc(
-		ctx context.Context,
-		projectId edgedb.UUID,
-		docId edgedb.UUID,
-		meta doc.Meta,
-	) error
-
 	ArchiveProject(
 		ctx context.Context,
 		projectId edgedb.UUID,
@@ -226,23 +219,6 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId edgedb.UUID, docId ed
 		return false, err
 	}
 	return true, nil
-}
-
-func (m *manager) PatchDoc(ctx context.Context, projectId edgedb.UUID, docId edgedb.UUID, meta doc.Meta) error {
-	if meta.Deleted {
-		if meta.Name == "" {
-			return &errors.ValidationError{Msg: "missing name when deleting"}
-		}
-		if meta.DeletedAt.IsZero() {
-			return &errors.ValidationError{
-				Msg: "missing deletedAt when deleting",
-			}
-		}
-	}
-	if err := m.dm.CheckDocExists(ctx, projectId, docId); err != nil {
-		return err
-	}
-	return m.dm.PatchDocMeta(ctx, projectId, docId, meta)
 }
 
 func (m *manager) ArchiveProject(ctx context.Context, projectId edgedb.UUID) error {

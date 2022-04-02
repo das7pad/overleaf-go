@@ -196,16 +196,16 @@ module default {
       select .<project[is RootFolder] limit 1
     );
     multi link folders := (
-      select .<project[is Folder] filter not exists .deleted_at
+      select .<project[is Folder] filter not .deleted
     );
     multi link docs := (
-      select .<project[is Doc] filter not exists .deleted_at
+      select .<project[is Doc] filter not .deleted
     );
     multi link files := (
-      select .<project[is File] filter not exists .deleted_at
+      select .<project[is File] filter not .deleted
     );
     multi link deleted_docs := (
-      select .<project[is Doc] filter exists .deleted_at
+      select .<project[is Doc] filter .deleted
     );
   }
 
@@ -222,13 +222,13 @@ module default {
     );
 
     multi link folders := (
-      select .<parent[is Folder] filter not exists .deleted_at
+      select .<parent[is Folder] filter not .deleted
     );
     multi link docs := (
-      select .<parent[is Doc] filter not exists .deleted_at
+      select .<parent[is Doc] filter not .deleted
     );
     multi link files := (
-      select .<parent[is File] filter not exists .deleted_at
+      select .<parent[is File] filter not .deleted
     );
   }
 
@@ -241,8 +241,11 @@ module default {
       on target delete delete source;
     }
     required property name -> str;
-    property deleted_at -> datetime;
-    constraint exclusive on ((.project, .parent, .name));
+    property deleted := .deleted_at != <datetime>'1970-01-01T00:00:00.000000Z';
+    required property deleted_at -> datetime {
+      default := <datetime>'1970-01-01T00:00:00.000000Z';
+    }
+    constraint exclusive on ((.project, .parent, .name, .deleted_at));
   }
 
   type Folder extending VisibleTreeElement, FolderLike {

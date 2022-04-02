@@ -89,7 +89,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		}
 
 		// Delete any conflicting entries -- or update in-place and bail-out.
-		if entry, mp := parentFolder.GetEntry(request.FileName); entry != nil {
+		if entry := parentFolder.GetEntry(request.FileName); entry != nil {
 			switch e := entry.(type) {
 			case *project.Doc:
 				if isDoc {
@@ -98,28 +98,22 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 					return nil
 				} else {
 					deletedElement = entry
-					err = m.deleteDocFromProject(
-						ctx, projectId, v, p.RootDocId, mongoPath+mp, e,
-					)
+					v, err = m.pm.DeleteDoc(ctx, projectId, userId, e.Id)
 					if err != nil {
 						return errors.Tag(
 							err, "cannot delete doc for overwriting",
 						)
 					}
-					v++
 					// upload as new file
 				}
 			case *project.FileRef:
 				deletedElement = entry
-				err = m.deleteFileFromProject(
-					ctx, projectId, v, mongoPath+mp, e,
-				)
+				v, err = m.pm.DeleteFile(ctx, projectId, userId, e.Id)
 				if err != nil {
 					return errors.Tag(
 						err, "cannot delete file for overwriting",
 					)
 				}
-				v++
 				// upload as new doc/file
 			case *project.Folder:
 				return &errors.InvalidStateError{

@@ -19,7 +19,6 @@ package project
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -44,8 +43,9 @@ type Manager interface {
 	ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error
 	AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error)
 	AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
-	DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
-	DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
+	DeleteDoc(ctx context.Context, projectId, userId, docId edgedb.UUID) (sharedTypes.Version, error)
+	DeleteFile(ctx context.Context, projectId, userId, fileId edgedb.UUID) (sharedTypes.Version, error)
+	DeleteFolder(ctx context.Context, projectId, userId, folderId edgedb.UUID) (sharedTypes.Version, error)
 	MoveDoc(ctx context.Context, projectId, userId, folderId, docId edgedb.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
 	MoveFile(ctx context.Context, projectId, userId, folderId, fileId edgedb.UUID) (sharedTypes.Version, error)
 	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId edgedb.UUID) (sharedTypes.Version, []Doc, error)
@@ -120,10 +120,6 @@ func rewriteMongoError(err error) error {
 		return &errors.NotFoundError{}
 	}
 	return err
-}
-
-func removeArrayIndex(path MongoPath) MongoPath {
-	return path[0:strings.LastIndexByte(string(path), '.')]
 }
 
 const (
@@ -764,30 +760,174 @@ func (m *manager) AddTreeElement(ctx context.Context, projectId edgedb.UUID, ver
 	})
 }
 
-func (m *manager) DeleteTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
-	return m.deleteTreeElementAndMaybeRootDoc(ctx, projectId, version, mongoPath, element, false)
+type deletedTreeElementResult struct {
+	ProjectExists  bool                `edgedb:"project_exists"`
+	HasWriteAccess bool                `edgedb:"has_write_access"`
+	ElementExists  bool                `edgedb:"element_exists"`
+	ProjectVersion sharedTypes.Version `edgedb:"project_version"`
 }
 
-func (m *manager) DeleteTreeElementAndRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
-	return m.deleteTreeElementAndMaybeRootDoc(ctx, projectId, version, mongoPath, element, true)
+func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId edgedb.UUID) (sharedTypes.Version, error) {
+	r := deletedTreeElementResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	d := (
+		select Doc
+		filter
+			.id = <uuid>$2
+		and .project = pWithAuth
+		and not .deleted
+	),
+	deletedDoc := (update d set {
+		deleted_at := datetime_of_transaction(),
+	}),
+	pBumpedVersion := (update deletedDoc.project set {
+		version := deletedDoc.project.version + 1,
+		root_doc := (
+			<Doc>{}
+			if (deletedDoc.project.root_doc = d) else
+			deletedDoc.project.root_doc
+		),
+	})
+select {
+	project_exists := exists p,
+	has_write_access := exists pWithAuth,
+	element_exists := exists d,
+	project_version := pBumpedVersion.version ?? 0,
 }
-
-func (m *manager) deleteTreeElementAndMaybeRootDoc(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement, unsetRootDoc bool) error {
-	u := bson.M{
-		"$pull": bson.M{
-			string(removeArrayIndex(mongoPath)): CommonTreeFields{
-				Id:   element.GetId(),
-				Name: element.GetName(),
-			},
-		},
-		"$inc": VersionField{Version: 1},
+`, &r, projectId, userId, docId)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
 	}
-	if unsetRootDoc {
-		u["$unset"] = bson.M{
-			"rootDoc_id": true,
+	switch {
+	case !r.ProjectExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.HasWriteAccess:
+		return 0, &errors.NotAuthorizedError{}
+	case !r.ElementExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "doc does not exist",
 		}
 	}
-	return m.setWithVersionGuard(ctx, projectId, version, u)
+	return r.ProjectVersion, nil
+}
+
+func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId edgedb.UUID) (sharedTypes.Version, error) {
+	r := deletedTreeElementResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (
+		select File
+		filter
+			.id = <uuid>$2
+		and .project = pWithAuth
+		and not .deleted
+	),
+	deletedFile := (update f set {
+		deleted_at := datetime_of_transaction(),
+	}),
+	pBumpedVersion := (update deletedFile.project set {
+		version := deletedFile.project.version + 1,
+	})
+select {
+	project_exists := exists p,
+	has_write_access := exists pWithAuth,
+	element_exists := exists f,
+	project_version := pBumpedVersion.version ?? 0,
+}
+`, &r, projectId, userId, fileId)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.HasWriteAccess:
+		return 0, &errors.NotAuthorizedError{}
+	case !r.ElementExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "doc does not exist",
+		}
+	}
+	return r.ProjectVersion, nil
+}
+
+type deletedFolderResult struct {
+	deletedTreeElementResult `edgedb:"$inline"`
+	DeletedChildren          bool `edgedb:"deleted_children"`
+}
+
+func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId edgedb.UUID) (sharedTypes.Version, error) {
+	r := deletedFolderResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (
+		select Folder
+		filter
+			.id = <uuid>$2
+		and .project = pWithAuth
+		and not .deleted
+	),
+	deletedFolder := (update f set {
+		deleted_at := datetime_of_transaction(),
+	}),
+	deletionPrefix := deletedFolder.path ++ '/%',
+	deletedItems := (
+		update VisibleTreeElement
+		filter
+			.project = pWithAuth
+		and not .deleted
+		and .parent.path_for_join like deletionPrefix
+		set {
+			deleted_at := datetime_of_transaction(),
+		}
+	),
+	pBumpedVersion := (update deletedFolder.project set {
+		version := deletedFolder.project.version + 1,
+		root_doc := (
+			<Doc>{} if (
+				deletedFolder.project.root_doc.resolved_path
+				like deletionPrefix
+			) else deletedFolder.project.root_doc
+		)
+	})
+select {
+	project_exists := exists p,
+	has_write_access := exists pWithAuth,
+	element_exists := exists f,
+	deleted_children := exists deletedItems,
+	project_version := pBumpedVersion.version ?? 0,
+}
+`, &r, projectId, userId, folderId)
+	if err != nil {
+		return 0, rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.HasWriteAccess:
+		return 0, &errors.NotAuthorizedError{}
+	case !r.ElementExists:
+		return 0, &errors.UnprocessableEntityError{
+			Msg: "doc does not exist",
+		}
+	}
+	return r.ProjectVersion, nil
 }
 
 type moveTreeElementResult struct {
@@ -1351,7 +1491,7 @@ select Doc {
 }
 filter
 	.id = <uuid>$0
-and not exists .deleted_at
+and not .deleted
 and .project.id = <uuid>$1
 `, d, docId, projectId)
 	if err != nil {

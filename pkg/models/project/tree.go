@@ -171,7 +171,7 @@ func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	entry, _ := parent.GetEntry(name)
+	entry := parent.GetEntry(name)
 	if entry == nil {
 		folder := NewFolder(name)
 		folder.Path = parent.Path.JoinDir(name)
@@ -245,38 +245,27 @@ const (
 	baseMongoPath MongoPath = "rootFolder.0"
 )
 
-func (t *Folder) CheckIsUniqueName(needle sharedTypes.Filename) error {
-	if t.HasEntry(needle) {
-		return ErrDuplicateNameInFolder
-	}
-	return nil
-}
-
 func (t *Folder) HasEntry(needle sharedTypes.Filename) bool {
-	entry, _ := t.GetEntry(needle)
-	return entry != nil
+	return t.GetEntry(needle) != nil
 }
 
-func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) {
+func (t *Folder) GetEntry(needle sharedTypes.Filename) TreeElement {
 	for i, doc := range t.Docs {
 		if doc.Name == needle {
-			p := MongoPath(".docs." + strconv.FormatInt(int64(i), 10))
-			return &t.Docs[i], p
+			return &t.Docs[i]
 		}
 	}
 	for i, file := range t.FileRefs {
 		if file.Name == needle {
-			p := MongoPath(".fileRefs." + strconv.FormatInt(int64(i), 10))
-			return &t.FileRefs[i], p
+			return &t.FileRefs[i]
 		}
 	}
 	for i, folder := range t.Folders {
 		if folder.Name == needle {
-			p := MongoPath(".folders." + strconv.FormatInt(int64(i), 10))
-			return &t.Folders[i], p
+			return &t.Folders[i]
 		}
 	}
-	return nil, ""
+	return nil
 }
 
 func (t *Folder) GetDoc(needle sharedTypes.Filename) *Doc {
@@ -303,10 +292,6 @@ func (t *Folder) Walk(fn TreeWalker) error {
 
 func (t *Folder) WalkDocs(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, t.Path, walkModeDoc))
-}
-
-func (t *Folder) WalkDocsMongo(fn TreeWalkerMongo) error {
-	return ignoreAbort(t.walkMongo(fn, t.Path, baseMongoPath, walkModeDoc))
 }
 
 func (t *Folder) WalkFiles(fn TreeWalker) error {

@@ -18,82 +18,27 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
-	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) deleteFileFromProject(ctx context.Context, projectId edgedb.UUID, v sharedTypes.Version, mongoPath project.MongoPath, fileRef *project.FileRef) error {
-	if err := m.dfm.Create(ctx, projectId, fileRef); err != nil {
-		return errors.Tag(err, "cannot create deletedFiles entry")
-	}
-	err := m.pm.DeleteTreeElement(ctx, projectId, v, mongoPath, fileRef)
-	if err != nil {
-		return errors.Tag(err, "cannot remove element from tree")
-	}
-	return nil
-}
-
 func (m *manager) DeleteFileFromProject(ctx context.Context, request *types.DeleteFileRequest) error {
 	projectId := request.ProjectId
+	userId := request.UserId
 	fileId := request.FileId
 
-	var projectVersion sharedTypes.Version
-
-	err := m.txWithRetries(ctx, func(sCtx context.Context) error {
-		t, v, err := m.pm.GetProjectRootFolder(sCtx, projectId)
-		if err != nil {
-			return errors.Tag(err, "cannot get project")
-		}
-
-		var fileRef *project.FileRef
-		var mongoPath project.MongoPath
-		err = t.WalkFilesMongo(func(_ *project.Folder, f project.TreeElement, fsPath sharedTypes.PathName, mPath project.MongoPath) error {
-			if f.GetId() == fileId {
-				fileRef = f.(*project.FileRef)
-				mongoPath = mPath
-				return project.AbortWalk
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if fileRef == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown fileId")
-		}
-		err = m.deleteFileFromProject(ctx, projectId, v, mongoPath, fileRef)
-		if err != nil {
-			return err
-		}
-		projectVersion = v + 1
-		return nil
-	})
+	projectVersion, err := m.pm.DeleteFile(ctx, projectId, userId, fileId)
 	if err != nil {
 		return err
 	}
 
-	// The file has been deleted.
-	// Failing the request and retrying now would result in a 404.
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
 	{
 		// Notify real-time
 		source := "editor"
-		payload := []interface{}{fileId, source, projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "removeEntity",
-				Payload: b,
-			})
-		}
+		m.notifyEditor(
+			projectId, "removeEntity",
+			fileId, source, projectVersion,
+		)
 	}
 	return nil
 }

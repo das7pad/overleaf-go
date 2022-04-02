@@ -24,7 +24,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/models/deletedFile"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -55,7 +54,6 @@ type Manager interface {
 func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
 	return &manager{
 		db:              db,
-		dfm:             deletedFile.New(db),
 		dm:              dm,
 		dum:             dum,
 		editorEvents:    editorEvents,
@@ -67,7 +65,6 @@ func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum docume
 
 type manager struct {
 	db              *mongo.Database
-	dfm             deletedFile.Manager
 	dm              docstore.Manager
 	dum             documentUpdater.Manager
 	editorEvents    channel.Writer

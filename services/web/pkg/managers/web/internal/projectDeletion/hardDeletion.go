@@ -85,12 +85,6 @@ func (m *manager) HardDeleteProject(ctx context.Context, projectId edgedb.UUID) 
 		}
 		return nil
 	})
-	eg.Go(func() error {
-		if err := m.dfm.DeleteBulk(pCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot destroy files")
-		}
-		return nil
-	})
 	// TODO: Consider hard-deleting tracked-changes data (NodeJS did not).
 	if err := eg.Wait(); err != nil {
 		return err
