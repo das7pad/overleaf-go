@@ -976,6 +976,7 @@ func (h *httpController) deleteDocFromProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.DeleteDocFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -988,6 +989,7 @@ func (h *httpController) deleteFileFromProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.DeleteFileFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1000,6 +1002,7 @@ func (h *httpController) deleteFolderFromProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.DeleteFolderFromProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1012,6 +1015,7 @@ func (h *httpController) moveDocInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.MoveDocInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1024,6 +1028,7 @@ func (h *httpController) moveFileInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.MoveFileInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1036,6 +1041,7 @@ func (h *httpController) moveFolderInProject(c *httpUtils.Context) {
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.UserId = o.UserId
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.MoveFolderInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)

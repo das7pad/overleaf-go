@@ -18,26 +18,24 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRequest) error {
 	projectId := request.ProjectId
+	userId := request.UserId
 	targetFolderId := request.TargetFolderId
-	doc := &project.Doc{}
-	doc.Id = request.DocId
+	docId := request.DocId
 
-	r, err := m.move(ctx, projectId, targetFolderId, doc)
+	projectVersion, newFsPath, err := m.pm.MoveDoc(
+		ctx, projectId, userId, targetFolderId, docId,
+	)
 	if err != nil {
-		return ignoreAlreadyMovedErr(err)
+		return err
 	}
-	newFsPath := r.newFsPath.(sharedTypes.PathName)
 
 	// The doc has been moved.
 	// Failing the request and retrying now would result in duplicate updates.
@@ -46,10 +44,10 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 	{
 		// Notify document-updater
 		n := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: r.projectVersion,
+			ProjectVersion: projectVersion,
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
-					doc.Id,
+					docId,
 					newFsPath,
 				).ToGeneric(),
 			},
@@ -58,15 +56,11 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{doc.Id, targetFolderId, r.projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveEntityMove",
-				Payload: b,
-			})
-		}
+		//goland:noinspection SpellCheckingInspection
+		m.notifyEditor(
+			projectId, "reciveEntityMove",
+			docId, targetFolderId, projectVersion,
+		)
 	}
 	return nil
 }

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -36,7 +35,9 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	folder.Id = request.FolderId
 	folder.Name = request.Name
 
-	projectVersion, err := m.pm.RenameFolder(ctx, projectId, userId, folder)
+	projectVersion, docs, err := m.pm.RenameFolder(
+		ctx, projectId, userId, folder,
+	)
 	if err != nil {
 		return err
 	}
@@ -45,27 +46,22 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	// Failing the request and retrying now would result in duplicate updates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	{
+	if len(docs) > 0 {
 		// Notify document-updater
-		updates := make([]*documentUpdaterTypes.GenericProjectUpdate, 0)
-		err2 := folder.WalkDocs(
-			func(e project.TreeElement, p sharedTypes.PathName) error {
-				updates = append(
-					updates,
-					documentUpdaterTypes.NewRenameDocUpdate(
-						e.GetId(), p,
-					).ToGeneric(),
-				)
-				return nil
-			},
+		updates := make(
+			[]*documentUpdaterTypes.GenericProjectUpdate, len(docs),
 		)
-		if err2 == nil && len(updates) > 0 {
-			p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-				ProjectVersion: projectVersion,
-				Updates:        updates,
-			}
-			_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
+		for i, doc := range docs {
+			updates[i] = documentUpdaterTypes.NewRenameDocUpdate(
+				doc.Id,
+				doc.Path,
+			).ToGeneric()
 		}
+		p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
+			ProjectVersion: projectVersion,
+			Updates:        updates,
+		}
+		_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
 	}
 	{
 		// Notify real-time

@@ -250,6 +250,7 @@ module default {
 
   abstract type ContentElement extending VisibleTreeElement {
     required property size -> int64;
+    property resolved_path := .parent.path_for_join ++ .name;
   }
 
   type Doc extending ContentElement {

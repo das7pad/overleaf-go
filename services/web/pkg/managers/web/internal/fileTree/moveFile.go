@@ -18,40 +18,30 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) MoveFileInProject(ctx context.Context, request *types.MoveFileRequest) error {
 	projectId := request.ProjectId
+	userId := request.UserId
 	targetFolderId := request.TargetFolderId
-	fileRef := &project.FileRef{}
-	fileRef.Id = request.FileId
+	fileId := request.FileId
 
-	r, err := m.move(ctx, projectId, targetFolderId, fileRef)
+	projectVersion, err := m.pm.MoveFile(
+		ctx, projectId, userId, targetFolderId, fileId,
+	)
 	if err != nil {
-		return ignoreAlreadyMovedErr(err)
+		return err
 	}
 
-	// The file has been moved.
-	// Failing the request and retrying now would result in duplicate updates.
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
 	{
 		// Notify real-time
-		payload := []interface{}{fileRef.Id, targetFolderId, r.projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveEntityMove",
-				Payload: b,
-			})
-		}
+		//goland:noinspection SpellCheckingInspection
+		m.notifyEditor(
+			projectId, "reciveEntityMove",
+			fileId, targetFolderId, projectVersion,
+		)
 	}
 	return nil
 }

@@ -43,33 +43,39 @@ type AddFolderResponse = project.Folder
 
 type DeleteDocRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 	DocId     edgedb.UUID `json:"-"`
 }
 
 type DeleteFileRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 	FileId    edgedb.UUID `json:"-"`
 }
 
 type DeleteFolderRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 	FolderId  edgedb.UUID `json:"-"`
 }
 
 type MoveDocRequest struct {
 	ProjectId      edgedb.UUID `json:"-"`
+	UserId         edgedb.UUID `json:"-"`
 	DocId          edgedb.UUID `json:"-"`
 	TargetFolderId edgedb.UUID `json:"folder_id"`
 }
 
 type MoveFileRequest struct {
 	ProjectId      edgedb.UUID `json:"-"`
+	UserId         edgedb.UUID `json:"-"`
 	FileId         edgedb.UUID `json:"-"`
 	TargetFolderId edgedb.UUID `json:"folder_id"`
 }
 
 type MoveFolderRequest struct {
 	ProjectId      edgedb.UUID `json:"-"`
+	UserId         edgedb.UUID `json:"-"`
 	FolderId       edgedb.UUID `json:"-"`
 	TargetFolderId edgedb.UUID `json:"folder_id"`
 }

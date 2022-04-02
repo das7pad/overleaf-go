@@ -58,23 +58,15 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 
 type RootDoc struct {
 	edgedb.Optional
-	DocWithParent `edgedb:"$inline"`
-}
-
-type DocWithParent struct {
-	Doc    `edgedb:"$inline"`
-	Parent Folder `edgedb:"parent"`
-}
-
-func (d *DocWithParent) GetPath() sharedTypes.PathName {
-	return d.Parent.Path.Join(d.Name)
+	Doc `edgedb:"$inline"`
 }
 
 type Doc struct {
 	CommonTreeFields `edgedb:"$inline"`
-	Size             int64               `json:"size" edgedb:"size"`
-	Snapshot         string              `json:"snapshot" edgedb:"snapshot"`
-	Version          sharedTypes.Version `json:"version" edgedb:"version"`
+	Path             sharedTypes.PathName `edgedb:"resolved_path"`
+	Size             int64                `json:"size" edgedb:"size"`
+	Snapshot         string               `json:"snapshot" edgedb:"snapshot"`
+	Version          sharedTypes.Version  `json:"version" edgedb:"version"`
 }
 
 func (d *Doc) FieldNameInFolder() MongoPath {
@@ -125,17 +117,9 @@ type OptionalIdField struct {
 	IdField `edgedb:"$inline"`
 }
 
-type FileRefWithParent struct {
-	FileRef `edgedb:"$inline"`
-	Parent  Folder `edgedb:"parent"`
-}
-
-func (d *FileRefWithParent) GetPath() sharedTypes.PathName {
-	return d.Parent.Path.Join(d.Name)
-}
-
 type FileRef struct {
 	CommonTreeFields `edgedb:"$inline"`
+	Path             sharedTypes.PathName `edgedb:"resolved_path"`
 
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linkedFileData"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`

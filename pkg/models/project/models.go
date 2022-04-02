@@ -130,8 +130,8 @@ type ForProjectOwnershipTransfer struct {
 }
 
 type ForProjectEntries struct {
-	DocsWithParentField  `edgedb:"$inline"`
-	FilesWithParentField `edgedb:"$inline"`
+	DocsField  `edgedb:"$inline"`
+	FilesField `edgedb:"$inline"`
 }
 
 type WithTree struct {

@@ -18,66 +18,53 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFolderRequest) error {
 	projectId := request.ProjectId
+	userId := request.UserId
 	targetFolderId := request.TargetFolderId
-	folder := &project.Folder{}
-	folder.Id = request.FolderId
+	folderId := request.FolderId
 
-	r, err := m.move(ctx, projectId, targetFolderId, folder)
+	projectVersion, docs, err := m.pm.MoveFolder(
+		ctx, projectId, userId, targetFolderId, folderId,
+	)
 	if err != nil {
-		return ignoreAlreadyMovedErr(err)
+		return err
 	}
-	folder = r.element.(*project.Folder)
-	newFsPath := r.newFsPath.(sharedTypes.DirName)
 
 	// The folder has been moved.
 	// Failing the request and retrying now would result in duplicate updates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	{
+	if len(docs) > 0 {
 		// Notify document-updater
-		updates := make([]*documentUpdaterTypes.GenericProjectUpdate, 0)
-		err2 := folder.WalkDocs(
-			func(e project.TreeElement, p sharedTypes.PathName) error {
-				updates = append(
-					updates,
-					documentUpdaterTypes.NewRenameDocUpdate(
-						e.GetId(),
-						newFsPath.JoinPath(p),
-					).ToGeneric(),
-				)
-				return nil
-			},
+		updates := make(
+			[]*documentUpdaterTypes.GenericProjectUpdate, len(docs),
 		)
-		if err2 == nil && len(updates) > 0 {
-			p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-				ProjectVersion: r.projectVersion,
-				Updates:        updates,
-			}
-			_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
+		for i, doc := range docs {
+			updates[i] = documentUpdaterTypes.NewRenameDocUpdate(
+				doc.Id,
+				doc.Path,
+			).ToGeneric()
 		}
+		p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
+			ProjectVersion: projectVersion,
+			Updates:        updates,
+		}
+		_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
 	}
 	{
 		// Notify real-time
-		payload := []interface{}{folder.Id, targetFolderId, r.projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveEntityMove",
-				Payload: b,
-			})
-		}
+		//goland:noinspection SpellCheckingInspection
+		m.notifyEditor(
+			projectId, "reciveEntityMove",
+			folderId, targetFolderId, projectVersion,
+		)
 	}
 	return nil
 }

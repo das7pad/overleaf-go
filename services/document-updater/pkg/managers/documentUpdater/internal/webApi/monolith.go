@@ -35,13 +35,13 @@ type monolithManager struct {
 }
 
 func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.FlushedDoc, error) {
-	d, p, err := m.pm.GetDoc(ctx, projectId, docId)
+	d, err := m.pm.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get doc")
 	}
 	return &types.FlushedDoc{
 		Snapshot: d.Snapshot,
-		PathName: p,
+		PathName: d.Path,
 		Version:  d.Version,
 	}, nil
 }

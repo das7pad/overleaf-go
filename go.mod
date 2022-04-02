@@ -19,7 +19,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
-replace github.com/edgedb/edgedb-go v0.9.2 => github.com/das7pad/edgedb-go v0.9.3-0.20220323233149-c953612a76e8
+replace github.com/edgedb/edgedb-go v0.9.2 => github.com/das7pad/edgedb-go v0.9.3-0.20220402113745-b8873c816a1a
 
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect
