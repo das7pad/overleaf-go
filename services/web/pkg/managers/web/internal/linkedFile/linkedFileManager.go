@@ -82,46 +82,34 @@ func (m *manager) CreateLinkedFile(ctx context.Context, request *types.CreateLin
 }
 
 func (m *manager) RefreshLinkedFile(ctx context.Context, request *types.RefreshLinkedFileRequest) error {
-	t, _, err := m.pm.GetProjectRootFolder(ctx, request.ProjectId)
+	fileRef, err := m.pm.GetFile(
+		ctx, request.ProjectId, request.UserId, "", request.FileId,
+	)
 	if err != nil {
 		return err
 	}
-
-	var parentFolder *project.Folder
-	var fileRef *project.FileRef
-	err = t.WalkFilesMongo(func(folder *project.Folder, e project.TreeElement, path sharedTypes.PathName, mongoPath project.MongoPath) error {
-		if e.GetId() == request.FileId {
-			parentFolder = folder
-			fileRef = e.(*project.FileRef)
-			return project.AbortWalk
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if fileRef == nil {
-		return &errors.NotFoundError{}
-	}
-
-	if fileRef.LinkedFileData == nil {
+	if fileRef.LinkedFileData.Missing() {
 		return &errors.UnprocessableEntityError{Msg: "file is not linked"}
 	}
 
 	// The NodeJS implementation stored these as absolute paths.
 	if fileRef.LinkedFileData.SourceEntityPath != "" {
-		fileRef.LinkedFileData.SourceEntityPath = strings.TrimPrefix(
-			fileRef.LinkedFileData.SourceEntityPath, "/",
+		fileRef.LinkedFileData.SourceEntityPath = sharedTypes.PathName(
+			strings.TrimPrefix(
+				fileRef.LinkedFileData.SourceEntityPath.String(), "/",
+			),
 		)
 	}
 	if fileRef.LinkedFileData.SourceOutputFilePath != "" {
-		fileRef.LinkedFileData.SourceOutputFilePath = strings.TrimPrefix(
-			fileRef.LinkedFileData.SourceOutputFilePath, "/",
+		fileRef.LinkedFileData.SourceOutputFilePath = sharedTypes.PathName(
+			strings.TrimPrefix(
+				fileRef.LinkedFileData.SourceOutputFilePath.String(), "/",
+			),
 		)
 	}
 
-	request.File = fileRef
-	request.ParentFolderId = parentFolder.Id
+	request.File = fileRef.FileRef
+	request.ParentFolderId = fileRef.Parent.Id
 
 	switch fileRef.LinkedFileData.Provider {
 	case project.LinkedFileProviderURL:

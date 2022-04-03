@@ -59,6 +59,9 @@ type Manager interface {
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
 	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, error)
+	GetFile(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken, fileId edgedb.UUID) (*FileWithParent, error)
+	GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId edgedb.UUID, name sharedTypes.Filename) (edgedb.UUID, bool, error)
+	GetElementByPath(ctx context.Context, projectId, userId edgedb.UUID, path sharedTypes.PathName) (edgedb.UUID, bool, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
@@ -76,7 +79,6 @@ type Manager interface {
 	GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error)
 	MarkAsActive(ctx context.Context, projectId edgedb.UUID) error
 	MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error
-	MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error
 	SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error
 	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
@@ -91,6 +93,7 @@ type Manager interface {
 	RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error
 	CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error)
+	CreateFile(ctx context.Context, projectId, userId, folderId edgedb.UUID, f *FileRef) (sharedTypes.Version, error)
 }
 
 func New(c *edgedb.Client, db *mongo.Database) Manager {
@@ -1504,6 +1507,141 @@ and .project.id = <uuid>$1
 	return d, nil
 }
 
+func (m *manager) GetFile(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken, fileId edgedb.UUID) (*FileWithParent, error) {
+	f := &FileWithParent{}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$2),
+	p := (select Project filter .id = <uuid>$1),
+	pWithAuth := (
+		select {
+			(select p filter u in .min_access_ro),
+			(
+				select p
+				filter
+					.public_access_level = 'tokenBased'
+				and (.tokens.token_ro ?? '') = <str>$3
+			),
+		}
+		limit 1
+	)
+select File {
+	id,
+	linked_file_data: {
+		provider,
+		source_project_id,
+		source_entity_path,
+		source_output_file_path,
+		url,
+	},
+	name,
+	parent,
+	size,
+}
+filter
+	.id = <uuid>$0
+and not .deleted
+and .project = pWithAuth
+`, f, fileId, projectId, userId, accessToken)
+	if err != nil {
+		return nil, rewriteEdgedbError(err)
+	}
+	return f, nil
+}
+
+type getDocOrFileResult struct {
+	ProjectExists bool                `edgedb:"project_exists"`
+	AuthCheck     bool                `edgedb:"auth_check"`
+	ParentExists  bool                `edgedb:"parent_exists"`
+	IsDoc         bool                `edgedb:"is_doc"`
+	IsFolder      bool                `edgedb:"is_folder"`
+	ElementId     edgedb.OptionalUUID `edgedb:"element_id"`
+}
+
+func (m *manager) GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId edgedb.UUID, name sharedTypes.Filename) (edgedb.UUID, bool, error) {
+	r := getDocOrFileResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
+	e := (
+		select VisibleTreeElement
+		filter .parent = f and .name = <str>$3 and not .deleted
+		limit 1
+	),
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	parent_exists := exists f,
+	is_doc := e is Doc ?? false,
+	is_folder := e is Folder ?? false,
+	element_id := e.id,
+}
+`, &r, projectId, userId, folderId, name)
+	if err != nil {
+		return edgedb.UUID{}, false, rewriteEdgedbError(err)
+	}
+	id, _ := r.ElementId.Get()
+	switch {
+	case !r.ProjectExists:
+		return edgedb.UUID{}, false, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.AuthCheck:
+		return edgedb.UUID{}, false, &errors.NotAuthorizedError{}
+	case !r.ParentExists:
+		return edgedb.UUID{}, false, &errors.UnprocessableEntityError{
+			Msg: "parent folder does not exist",
+		}
+	case r.IsFolder:
+		return edgedb.UUID{}, false, &errors.UnprocessableEntityError{
+			Msg: "element is a folder",
+		}
+	}
+	return id, r.IsDoc, nil
+}
+
+func (m *manager) GetElementByPath(ctx context.Context, projectId, userId edgedb.UUID, path sharedTypes.PathName) (edgedb.UUID, bool, error) {
+	r := getDocOrFileResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_ro),
+	e := (
+		select ContentElement
+		filter
+			.project = pWithAuth
+ 		and not .deleted
+		and .resolved_path = <str>$2
+		limit 1
+	),
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	is_doc := e is Doc ?? false,
+	element_id := e.id,
+}
+`, &r, projectId, userId, path)
+	if err != nil {
+		return edgedb.UUID{}, false, rewriteEdgedbError(err)
+	}
+	id, exists := r.ElementId.Get()
+	switch {
+	case !r.ProjectExists:
+		return edgedb.UUID{}, false, &errors.UnprocessableEntityError{
+			Msg: "project does not exist",
+		}
+	case !r.AuthCheck:
+		return edgedb.UUID{}, false, &errors.NotAuthorizedError{}
+	case !exists:
+		return edgedb.UUID{}, false, &errors.NotFoundError{}
+	}
+	return id, r.IsDoc, nil
+}
+
 func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
 	project := &ForTree{
 		RootFolderField: RootFolderField{
@@ -1629,13 +1767,16 @@ with
 	u := (select User filter .id = <uuid>$1),
 	p := (select Project filter .id = <uuid>$0),
 	pWithAuth := (
-		select Project
-		filter Project = p and (
-			u in .min_access_ro or (
-				.public_access_level = 'tokenBased'
+		select {
+			(select p filter u in .min_access_ro),
+			(
+				select p
+				filter
+					.public_access_level = 'tokenBased'
 				and (.tokens.token_ro ?? '') = <str>$2
-			)
-		)
+			),
+		}
+		limit 1
 	)
 select {
 	project_exists := (exists p),
@@ -1664,16 +1805,17 @@ select {
 				name,
 			},
 			files: {
+				created_at,
 				id,
-				name,
-				[is LinkedFileURL].url,
-				[is LinkedFileProjectFile].source_element: {
-					id,
-					name,
-					project,
+				linked_file_data: {
+					provider,
+					source_project_id,
+					source_entity_path,
+					source_output_file_path,
+					url,
 				},
-				[is LinkedFileProjectOutputFile].source_project,
-				[is LinkedFileProjectOutputFile].source_path,
+				name,
+				size,
 			},
 			folders,
 			name,
@@ -1708,16 +1850,17 @@ select {
 				name,
 			},
 			files: {
+				created_at,
 				id,
-				name,
-				[is LinkedFileURL].url,
-				[is LinkedFileProjectFile].source_element: {
-					id,
-					name,
-					project,
+				linked_file_data: {
+					provider,
+					source_project_id,
+					source_entity_path,
+					source_output_file_path,
+					url,
 				},
-				[is LinkedFileProjectOutputFile].source_project,
-				[is LinkedFileProjectOutputFile].source_path,
+				name,
+				size,
 			},
 			folders,
 		},
@@ -1746,23 +1889,25 @@ func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId ed
 	if userId != (edgedb.UUID{}) {
 		accessToken = "-"
 	}
-	// TODO: handle missing user
 	err := m.c.QuerySingle(ctx, `
 with
 	u := (select User filter .id = <uuid>$1),
 	p := (select Project filter .id = <uuid>$0),
 	pWithAuth := (
-		update Project
-		filter Project = p and (
-			u in .min_access_ro or (
-				.public_access_level = 'tokenBased'
+		select {
+			(select p filter u in .min_access_ro),
+			(
+				select p
+				filter
+					.public_access_level = 'tokenBased'
 				and (.tokens.token_ro ?? '') = <str>$2
-			)
-		)
-		set {
-			last_opened := datetime_of_transaction(),
+			),
 		}
-	)
+		limit 1
+	),
+	pBumpedLastOpened := (update pWithAuth set {
+		last_opened := datetime_of_transaction(),
+	})
 select {
 	user := (select u {
 		editor_config: {
@@ -1785,7 +1930,7 @@ select {
 		last_name,
 	}),
 	project_exists := (exists p),
-	project := (select pWithAuth {
+	project := (select pBumpedLastOpened {
 		access_ro := ({u} if u in .access_ro else <User>{}),
 		access_rw := ({u} if u in .access_rw else <User>{}),
 		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
@@ -2114,20 +2259,6 @@ set {
 	return nil
 }
 
-func (m *manager) MarkAsOpened(ctx context.Context, projectId edgedb.UUID) error {
-	err := m.c.QuerySingle(ctx, `
-update Project
-filter .id = <uuid>$0
-set {
-	last_opened := datetime_of_transaction(),
-}
-`, &IdField{}, projectId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
 func (m *manager) RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
 	var r []bool
 	err := m.c.Query(ctx, `
@@ -2190,25 +2321,42 @@ func (m *manager) Restore(ctx context.Context, p *ForDeletion) error {
 	return nil
 }
 
-type createDocResult struct {
+type createTreeElementResult struct {
 	ProjectExists bool                 `edgedb:"project_exists"`
 	AuthCheck     bool                 `edgedb:"auth_check"`
 	FolderExists  bool                 `edgedb:"folder_exists"`
-	DocId         edgedb.OptionalUUID  `edgedb:"doc_id"`
+	ElementId     edgedb.OptionalUUID  `edgedb:"element_id"`
 	Version       edgedb.OptionalInt64 `edgedb:"version"`
 }
 
 func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error) {
-	result := createDocResult{}
+	result := createTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
 	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
-	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
+	parent := (
+		select {
+			(
+				select Folder
+				filter
+					.id = <uuid>$2
+				and .project = pWithAuth
+				and not .deleted
+			),
+			(
+				select RootFolder
+				filter
+					.id = <uuid>$2
+				and .project = pWithAuth
+			),
+		}
+		limit 1
+	),
 	d := (insert Doc {
 		name := <str>$3,
-		parent := f,
+		parent := parent,
 		project := pWithAuth,
 		size := <int64>$4,
 		snapshot := <str>$5,
@@ -2222,8 +2370,8 @@ with
 select {
 	project_exists := (exists p),
 	auth_check := (exists pWithAuth),
-	folder_exists := (exists f),
-	doc_id := d.id,
+	folder_exists := (exists parent),
+	element_id := d.id,
 	version := pBumpedVersion.version,
 }
 `,
@@ -2246,7 +2394,88 @@ select {
 	case !result.FolderExists:
 		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
 	default:
-		d.Id, _ = result.DocId.Get()
+		d.Id, _ = result.ElementId.Get()
+		v, _ := result.Version.Get()
+		return sharedTypes.Version(v), nil
+	}
+}
+
+func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId edgedb.UUID, f *FileRef) (sharedTypes.Version, error) {
+	result := createTreeElementResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$1),
+	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	parent := (
+		select {
+			(
+				select Folder
+				filter
+					.id = <uuid>$2
+				and .project = pWithAuth
+				and not .deleted
+			),
+			(
+				select RootFolder
+				filter
+					.id = <uuid>$2
+				and .project = pWithAuth
+			),
+		}
+		limit 1
+	),
+	f := (insert File {
+		name := <str>$3,
+		parent := parent,
+		project := pWithAuth,
+		size := <int64>$4,
+		hash := <str>$5,
+		linked_file_data := (
+			for entry in ({1} if <str>$6 != "" else <int64>{}) union (
+				insert LinkedFileData {
+					provider := <str>$6,
+					source_project_id := <str>$7,
+					source_entity_path := <str>$8,
+					source_output_file_path := <str>$9,
+					url := <str>$10,
+				}
+			)
+		),
+	}),
+	pBumpedVersion := (
+		update f.project set { version := f.project.version + 1 }
+	)
+select {
+	project_exists := (exists p),
+	auth_check := (exists pWithAuth),
+	folder_exists := (exists parent),
+	element_id := f.id,
+	version := pBumpedVersion.version,
+}
+`,
+		&result,
+		projectId, userId, folderId,
+		f.Name, f.Size, f.Hash, f.LinkedFileData.Provider,
+		f.LinkedFileData.SourceProjectId, f.LinkedFileData.SourceEntityPath,
+		f.LinkedFileData.SourceOutputFilePath, f.LinkedFileData.URL,
+	)
+	if err != nil {
+		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+			return 0, ErrDuplicateNameInFolder
+		}
+		return 0, rewriteEdgedbError(err)
+	}
+	// TODO: read MissingRequiredError details instead of result fields
+	switch {
+	case !result.ProjectExists:
+		return 0, &errors.NotFoundError{}
+	case !result.AuthCheck:
+		return 0, &errors.NotAuthorizedError{}
+	case !result.FolderExists:
+		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
+	default:
+		f.Id, _ = result.ElementId.Get()
 		v, _ := result.Version.Get()
 		return sharedTypes.Version(v), nil
 	}

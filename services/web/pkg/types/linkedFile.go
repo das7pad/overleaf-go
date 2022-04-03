@@ -48,8 +48,8 @@ type RefreshLinkedFileRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
 	FileId    edgedb.UUID `json:"-"`
 
-	ParentFolderId edgedb.UUID      `json:"-"`
-	File           *project.FileRef `json:"-"`
+	ParentFolderId edgedb.UUID     `json:"-"`
+	File           project.FileRef `json:"-"`
 }
 
 func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
@@ -63,8 +63,8 @@ func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
 	return &project.LinkedFileData{
 		Provider:             r.Provider,
 		SourceProjectId:      sourceProjectId,
-		SourceEntityPath:     r.Parameter.SourceEntityPath.String(),
-		SourceOutputFilePath: r.Parameter.SourceOutputFilePath.String(),
+		SourceEntityPath:     r.Parameter.SourceEntityPath,
+		SourceOutputFilePath: r.Parameter.SourceOutputFilePath,
 		URL:                  uri,
 	}
 }

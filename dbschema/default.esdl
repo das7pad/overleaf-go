@@ -264,28 +264,20 @@ module default {
     }
   }
 
+  type LinkedFileData {
+    required property provider -> str;
+    required property source_project_id -> str;
+    required property source_entity_path -> str;
+    required property source_output_file_path -> str;
+    required property url -> str;
+  }
+
   type File extending ContentElement {
     required property created_at -> datetime {
       default := datetime_of_transaction();
     }
     required property hash -> str;
-  }
-
-  type LinkedFileURL extending File {
-    required property url -> str;
-  }
-
-  type LinkedFileProjectFile extending File {
-    link source_element -> ContentElement {
-      on target delete allow;
-    }
-  }
-
-  type LinkedFileProjectOutputFile extending File {
-    link source_project -> Project {
-      on target delete allow;
-    }
-    required property source_path -> str;
+    link linked_file_data -> LinkedFileData;
   }
 
   type ProjectInvite {

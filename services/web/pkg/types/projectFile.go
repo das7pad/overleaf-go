@@ -32,7 +32,8 @@ type GetProjectFileSizeRequest struct {
 }
 
 type GetProjectFileSizeResponse struct {
-	Size int64 `json:"-"`
+	Filename sharedTypes.Filename `json:"-"`
+	Size     int64                `json:"-"`
 }
 
 type GetProjectFileRequest struct {

@@ -51,8 +51,9 @@ type Manager interface {
 	UploadFile(ctx context.Context, request *types.UploadFileRequest) error
 }
 
-func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
+func New(c *edgedb.Client, db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
 	return &manager{
+		c:               c,
 		db:              db,
 		dm:              dm,
 		dum:             dum,
@@ -64,6 +65,7 @@ func New(db *mongo.Database, pm project.Manager, dm docstore.Manager, dum docume
 }
 
 type manager struct {
+	c               *edgedb.Client
 	db              *mongo.Database
 	dm              docstore.Manager
 	dum             documentUpdater.Manager

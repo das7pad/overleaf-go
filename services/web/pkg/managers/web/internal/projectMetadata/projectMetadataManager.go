@@ -19,6 +19,7 @@ package projectMetadata
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
@@ -34,7 +35,7 @@ import (
 )
 
 type Manager interface {
-	BroadcastMetadataForDoc(ctx context.Context, projectId, docId edgedb.UUID) error
+	BroadcastMetadataForDoc(projectId, docId edgedb.UUID) error
 	GetMetadataForProject(ctx context.Context, projectId edgedb.UUID) (*types.ProjectMetadataResponse, error)
 	GetMetadataForDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
 }
@@ -69,8 +70,10 @@ func (m *manager) GetMetadataForProject(ctx context.Context, projectId edgedb.UU
 	return &types.ProjectMetadataResponse{ProjectMetadata: p}, nil
 }
 
-func (m *manager) BroadcastMetadataForDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) BroadcastMetadataForDoc(projectId, docId edgedb.UUID) error {
 	r := &types.ProjectDocMetadataRequest{Broadcast: true}
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
 	_, err := m.GetMetadataForDoc(ctx, projectId, docId, r)
 	return err
 }

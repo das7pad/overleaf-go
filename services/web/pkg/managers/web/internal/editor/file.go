@@ -20,9 +20,7 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -31,36 +29,16 @@ func (m *manager) GetProjectFile(ctx context.Context, request *types.GetProjectF
 	fileId := request.FileId
 	userId := request.Session.User.Id
 	token := request.Session.GetAnonTokenAccess(projectId)
-	p, err := m.pm.GetTreeAndAuth(ctx, projectId, userId)
+	f, err := m.pm.GetFile(ctx, projectId, userId, token, fileId)
 	if err != nil {
 		return errors.Tag(err, "cannot get file tree")
 	}
-	if _, err = p.GetPrivilegeLevel(userId, token); err != nil {
-		return err
-	}
-	t, err := p.GetRootFolder()
-	if err != nil {
-		return err
-	}
-
-	var name sharedTypes.Filename
-	err = t.WalkFiles(func(e project.TreeElement, path sharedTypes.PathName) error {
-		if e.GetId() == fileId {
-			name = e.GetName()
-			return project.AbortWalk
-		}
-		return nil
-	})
-	if name == "" {
-		return &errors.NotFoundError{}
-	}
-
 	o := objectStorage.GetOptions{}
 	s, r, err := m.fm.GetReadStreamForProjectFile(ctx, projectId, fileId, o)
 	if err != nil {
 		return errors.Tag(err, "cannot get filestream")
 	}
-	response.Filename = name
+	response.Filename = f.Name
 	response.Reader = r
 	response.Size = s
 	return nil
@@ -71,15 +49,11 @@ func (m *manager) GetProjectFileSize(ctx context.Context, request *types.GetProj
 	fileId := request.FileId
 	userId := request.Session.User.Id
 	token := request.Session.GetAnonTokenAccess(projectId)
-	_, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
+	f, err := m.pm.GetFile(ctx, projectId, userId, token, fileId)
 	if err != nil {
-		return err
+		return errors.Tag(err, "cannot get file tree")
 	}
-
-	s, err := m.fm.GetSizeOfProjectFile(ctx, projectId, fileId)
-	if err != nil {
-		return errors.Tag(err, "cannot get file size")
-	}
-	response.Size = s
+	response.Filename = f.Name
+	response.Size = f.Size
 	return nil
 }

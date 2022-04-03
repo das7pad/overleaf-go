@@ -870,7 +870,18 @@ func (h *httpController) unTrashProject(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-const contentTypeOctetStream = "application/octet-stream"
+func prepareFileResponse(
+	c *httpUtils.Context, filename sharedTypes.Filename, size int64,
+) {
+	httpUtils.EndTotalTimer(c)
+	cd := fmt.Sprintf("attachment; filename=%q", filename)
+	c.Writer.Header().Set("Content-Disposition", cd)
+	c.Writer.Header().Set("Content-Type", "application/octet-stream")
+	c.Writer.Header().Set(
+		"Content-Length", strconv.FormatInt(size, 10),
+	)
+	c.Writer.WriteHeader(http.StatusOK)
+}
 
 func (h *httpController) getProjectFile(c *httpUtils.Context) {
 	s, err := h.wm.GetOrCreateSession(c)
@@ -889,14 +900,7 @@ func (h *httpController) getProjectFile(c *httpUtils.Context) {
 		httpUtils.Respond(c, http.StatusOK, nil, err)
 		return
 	}
-	httpUtils.EndTotalTimer(c)
-	cd := fmt.Sprintf("attachment; filename=%q", response.Filename)
-	c.Writer.Header().Set("Content-Disposition", cd)
-	c.Writer.Header().Set("Content-Type", contentTypeOctetStream)
-	c.Writer.Header().Set(
-		"Content-Length", strconv.FormatInt(response.Size, 10),
-	)
-	c.Writer.WriteHeader(http.StatusOK)
+	prepareFileResponse(c, response.Filename, response.Size)
 	_, _ = io.Copy(c.Writer, response.Reader)
 	_ = response.Reader.Close()
 }
@@ -914,12 +918,11 @@ func (h *httpController) getProjectFileSize(c *httpUtils.Context) {
 	}
 	response := &types.GetProjectFileSizeResponse{}
 	err = h.wm.GetProjectFileSize(c.Request.Context(), request, response)
-	if err == nil {
-		c.Writer.Header().Set(
-			"Content-Length", strconv.FormatInt(response.Size, 10),
-		)
+	if err != nil {
+		httpUtils.Respond(c, http.StatusOK, nil, err)
+		return
 	}
-	httpUtils.Respond(c, http.StatusOK, nil, err)
+	prepareFileResponse(c, response.Filename, response.Size)
 }
 
 func (h *httpController) addDocToProject(c *httpUtils.Context) {

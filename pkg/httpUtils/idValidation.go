@@ -55,7 +55,7 @@ func ValidateAndSetIdZeroOK(name string) MiddlewareFunc {
 		handleRegularId := ValidateAndSetId(name)(next)
 		return func(c *Context) {
 			raw := c.Param(name)
-			if raw == "000000000000000000000000" {
+			if raw == "00000000-0000-0000-0000-000000000000" {
 				c.AddValue(name, edgedb.UUID{})
 				next(c)
 			} else {

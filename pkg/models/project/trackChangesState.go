@@ -24,8 +24,8 @@ import (
 
 //goland:noinspection SpellCheckingInspection
 const (
-	anonymousUserId = "000000000000000000000000"
-	globalUserId    = "ffffffffffffffffffffffff"
+	anonymousUserId = "00000000-0000-0000-0000-000000000000"
+	globalUserId    = "ffffffff-ffff-ffff-ffff-ffffffffffff"
 )
 
 type TrackChangesState map[string]bool

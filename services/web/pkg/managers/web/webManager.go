@@ -159,7 +159,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	pim := projectInvite.New(
 		options, ps, c, client, db, editorEvents, pm, um,
 	)
-	ftm := fileTree.New(db, pm, dm, dum, fm, editorEvents, pmm)
+	ftm := fileTree.New(c, db, pm, dm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, c, db, pm, um, dm, dum, fm)
 	hm := history.New(options, um)
 	OIOm := openInOverleaf.New(options, ps, proxy, pum)

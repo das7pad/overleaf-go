@@ -24,7 +24,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -33,31 +32,11 @@ import (
 func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLinkedFileRequest) error {
 	sourceProjectId := request.Parameter.SourceProjectId
 	userId := request.UserId
-	p, err := m.pm.GetTreeAndAuth(ctx, sourceProjectId, userId)
+	elementId, isDoc, err := m.pm.GetElementByPath(
+		ctx, sourceProjectId, userId, request.Parameter.SourceEntityPath,
+	)
 	if err != nil {
 		return err
-	}
-	if _, err = p.GetPrivilegeLevelAuthenticated(userId); err != nil {
-		return err
-	}
-	t, err := p.GetRootFolder()
-	if err != nil {
-		return err
-	}
-
-	var e project.TreeElement
-	err = t.Walk(func(element project.TreeElement, path sharedTypes.PathName) error {
-		if path == request.Parameter.SourceEntityPath {
-			e = element
-			return project.AbortWalk
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if e == nil {
-		return &errors.NotFoundError{}
 	}
 
 	f, err := os.CreateTemp("", "linked-file")
@@ -70,20 +49,19 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 	}()
 
 	var size int64
-	switch e.(type) {
-	case *project.Doc:
-		d, err2 := m.dum.GetDoc(ctx, sourceProjectId, e.GetId(), -1)
+	if isDoc {
+		d, err2 := m.dum.GetDoc(ctx, sourceProjectId, elementId, -1)
 		if err2 != nil {
 			return errors.Tag(err2, "cannot get doc")
 		}
-		n, err2 := f.WriteString(string(d.Snapshot))
+		n, err2 := f.WriteString(d.Snapshot)
 		if err2 != nil {
 			return errors.Tag(err2, "cannot buffer doc")
 		}
 		size = int64(n)
-	case *project.FileRef:
+	} else {
 		_, reader, err2 := m.fm.GetReadStreamForProjectFile(
-			ctx, sourceProjectId, e.GetId(), objectStorage.GetOptions{},
+			ctx, sourceProjectId, elementId, objectStorage.GetOptions{},
 		)
 		if err2 != nil {
 			return errors.Tag(err2, "cannot get file")

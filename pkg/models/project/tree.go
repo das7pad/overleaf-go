@@ -99,11 +99,12 @@ func (p LinkedFileProvider) Validate() error {
 }
 
 type LinkedFileData struct {
-	Provider             LinkedFileProvider `json:"provider" edgedb:"provider"`
-	SourceProjectId      string             `json:"source_project_id,omitempty" edgedb:"source_project_id"`
-	SourceEntityPath     string             `json:"source_entity_path,omitempty" edgedb:"source_entity_path"`
-	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" edgedb:"source_output_file_path"`
-	URL                  string             `json:"url,omitempty" edgedb:"url"`
+	edgedb.Optional
+	Provider             LinkedFileProvider   `json:"provider" edgedb:"provider"`
+	SourceProjectId      string               `json:"source_project_id,omitempty" edgedb:"source_project_id"`
+	SourceEntityPath     sharedTypes.PathName `json:"source_entity_path,omitempty" edgedb:"source_entity_path"`
+	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path,omitempty" edgedb:"source_output_file_path"`
+	URL                  string               `json:"url,omitempty" edgedb:"url"`
 }
 
 type TreeElementInProject struct {
@@ -112,25 +113,19 @@ type TreeElementInProject struct {
 	Project          IdField `edgedb:"project"`
 }
 
-type OptionalIdField struct {
-	edgedb.Optional
-	IdField `edgedb:"$inline"`
+type FileWithParent struct {
+	FileRef `edgedb:"$inline"`
+	Parent  IdField `edgedb:"parent"`
 }
 
 type FileRef struct {
 	CommonTreeFields `edgedb:"$inline"`
 	Path             sharedTypes.PathName `edgedb:"resolved_path"`
 
-	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linkedFileData"`
+	LinkedFileData LinkedFileData   `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
 	Created        time.Time        `json:"created" edgedb:"created_at"`
 	Size           int64            `json:"size" edgedb:"size"`
-
-	// TODO: pointer
-	SourceElement        TreeElementInProject `json:"source_element,omitempty" edgedb:"source_element"`
-	SourceOutputFilePath edgedb.OptionalStr   `json:"source_path,omitempty" edgedb:"source_path"`
-	SourceProject        OptionalIdField      `json:"source_project,omitempty" edgedb:"source_project"`
-	URL                  edgedb.OptionalStr   `json:"url,omitempty" edgedb:"url"`
 }
 
 func (f *FileRef) FieldNameInFolder() MongoPath {

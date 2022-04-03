@@ -21,8 +21,11 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"io"
+	"log"
 	"strconv"
 	"time"
+
+	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -32,92 +35,102 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+func (m *manager) cleanupFileUploadIfStarted(projectId, fileId edgedb.UUID) {
+	if fileId == (edgedb.UUID{}) {
+		return
+	}
+	bCtx, done := context.WithTimeout(
+		context.Background(), 10*time.Second,
+	)
+	defer done()
+	if err := m.fm.DeleteProjectFile(bCtx, projectId, fileId); err != nil {
+		log.Printf(
+			"file upload cleanup failed: %s/%s: %s",
+			projectId, fileId, err.Error(),
+		)
+	}
+}
+
 func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	parentFolderId := request.ParentFolderId
+	folderId := request.ParentFolderId
 	projectId := request.ProjectId
 	userId := request.UserId
 	source := "upload"
 
-	var s sharedTypes.Snapshot
 	var isDoc bool
+	var s sharedTypes.Snapshot
 	if request.LinkedFileData != nil {
 		isDoc = false
 	} else {
 		var err error
-		s, isDoc, _, err = IsTextFile(
+		var consumedFile bool
+		s, isDoc, consumedFile, err = IsTextFile(
 			request.FileName, request.Size, request.File,
 		)
 		if err != nil {
 			return err
 		}
+		if consumedFile && !isDoc {
+			if err = request.SeekFileToStart(); err != nil {
+				return err
+			}
+		}
+	}
+	var hash sharedTypes.Hash
+	if !isDoc {
+		var err error
+		if hash, err = HashFile(request.File, request.Size); err != nil {
+			return err
+		}
 	}
 
-	var v sharedTypes.Version
-	var hash sharedTypes.Hash
-	var upsertDoc *project.Doc
+	var existingId edgedb.UUID
+	var existingIsDoc bool
 	var uploadedFileRef *project.FileRef
-	var deletedElement, newElement project.TreeElement
-
-	err := m.txWithRetries(ctx, func(ctx context.Context) error {
-		p := &project.WithTreeAndRootDoc{}
-		if err := m.pm.GetProject(ctx, projectId, p); err != nil {
-			return errors.Tag(err, "cannot get project")
+	var uploadedDoc *project.Doc
+	var upsertDoc bool
+	var v sharedTypes.Version
+	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
+		if uploadedFileRef != nil {
+			m.cleanupFileUploadIfStarted(projectId, uploadedFileRef.Id)
+			uploadedFileRef = nil
 		}
-		v = p.Version
-		t, err := p.GetRootFolder()
+		var err error
+		existingId, existingIsDoc, err = m.pm.GetElementHintForOverwrite(
+			ctx, projectId, userId, folderId, request.FileName,
+		)
 		if err != nil {
 			return err
 		}
-		var parentFolder *project.Folder
-		var mongoPath project.MongoPath
-		err = t.WalkFoldersMongo(func(_, f *project.Folder, d sharedTypes.DirName, mPath project.MongoPath) error {
-			if f.Id == parentFolderId {
-				mongoPath = mPath
-				parentFolder = f
-				return project.AbortWalk
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if parentFolder == nil {
-			return errors.Tag(&errors.NotFoundError{}, "unknown folder_id")
-		}
 
-		// Delete any conflicting entries -- or update in-place and bail-out.
-		if entry := parentFolder.GetEntry(request.FileName); entry != nil {
-			switch e := entry.(type) {
-			case *project.Doc:
+		if existingId != (edgedb.UUID{}) {
+			if existingIsDoc {
 				if isDoc {
-					upsertDoc = e
-					// all done in mongo at this point, bail-out.
+					// This a text file upload on a doc.
+					// Just upsert the content outside the tx.
+					upsertDoc = true
 					return nil
-				} else {
-					deletedElement = entry
-					v, err = m.pm.DeleteDoc(ctx, projectId, userId, e.Id)
-					if err != nil {
-						return errors.Tag(
-							err, "cannot delete doc for overwriting",
-						)
-					}
-					// upload as new file
 				}
-			case *project.FileRef:
-				deletedElement = entry
-				v, err = m.pm.DeleteFile(ctx, projectId, userId, e.Id)
+				// This is a binary file overwriting a doc.
+				// Delete the doc, then create the file.
+				// TODO: Consider merging this into a single _complex_ query?
+				_, err = m.pm.DeleteDoc(ctx, projectId, userId, existingId)
+				if err != nil {
+					return errors.Tag(
+						err, "cannot delete doc for overwriting",
+					)
+				}
+			} else {
+				// This a binary file overwriting another.
+				// Files are immutable. Delete this one, then create a new one.
+				v, err = m.pm.DeleteFile(ctx, projectId, userId, existingId)
 				if err != nil {
 					return errors.Tag(
 						err, "cannot delete file for overwriting",
 					)
-				}
-				// upload as new doc/file
-			case *project.Folder:
-				return &errors.InvalidStateError{
-					Msg: "cannot overwrite folder",
 				}
 			}
 		}
@@ -125,68 +138,53 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		// Create the new element.
 		if isDoc {
 			doc := project.NewDoc(request.FileName)
-			err = m.dm.CreateDocWithContent(ctx, projectId, doc.Id, s)
+			doc.Snapshot = string(s)
+			v, err = m.pm.CreateDoc(ctx, projectId, userId, folderId, &doc)
 			if err != nil {
 				return errors.Tag(err, "cannot create populated doc")
 			}
-			newElement = &doc
-		} else if uploadedFileRef == nil {
-			// Upload once.
-			if hash == "" {
-				// Hash once.
-				if err = request.SeekFileToStart(); err != nil {
-					return err
-				}
-				hash, err = HashFile(request.File, request.Size)
-				if err != nil {
-					return err
-				}
-			}
-			fileRef := project.NewFileRef(
+			uploadedDoc = &doc
+		} else {
+			file := project.NewFileRef(
 				request.FileName,
 				hash,
 				request.Size,
 			)
-			fileRef.LinkedFileData = request.LinkedFileData
-			err = request.SeekFileToStart()
+			if request.LinkedFileData != nil {
+				file.LinkedFileData = *request.LinkedFileData
+			}
+			if err = request.SeekFileToStart(); err != nil {
+				return err
+			}
+			v, err = m.pm.CreateFile(ctx, projectId, userId, folderId, &file)
 			if err != nil {
 				return err
 			}
+			uploadedFileRef = &file
 			err = m.fm.SendStreamForProjectFile(
 				ctx,
 				projectId,
-				fileRef.Id,
+				file.Id,
 				request.File,
 				objectStorage.SendOptions{
 					ContentSize: request.Size,
 				},
 			)
 			if err != nil {
-				return errors.Tag(err, "cannot create new file")
+				return errors.Tag(err, "cannot upload new file")
 			}
-			newElement = &fileRef
-			uploadedFileRef = &fileRef
 		}
-		err = m.pm.AddTreeElement(ctx, projectId, v, mongoPath, newElement)
-		if err != nil {
-			return errors.Tag(err, "cannot add element into tree")
-		}
-		v++
 		return nil
 	})
 	if err != nil {
 		if uploadedFileRef != nil {
-			cCtx, done := context.WithTimeout(
-				context.Background(), 10*time.Second,
-			)
-			defer done()
-			_ = m.fm.DeleteProjectFile(cCtx, projectId, uploadedFileRef.Id)
+			m.cleanupFileUploadIfStarted(projectId, uploadedFileRef.Id)
 		}
 		return err
 	}
-	if upsertDoc != nil {
+	if upsertDoc {
 		err = m.dum.SetDoc(
-			ctx, projectId, upsertDoc.Id, &documentUpdaterTypes.SetDocRequest{
+			ctx, projectId, existingId, &documentUpdaterTypes.SetDocRequest{
 				Snapshot: s,
 				Source:   source,
 				UserId:   userId,
@@ -196,38 +194,34 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		if err != nil {
 			return errors.Tag(err, "cannot upsert doc")
 		}
+		_ = m.projectMetadata.BroadcastMetadataForDoc(projectId, existingId)
+		return nil
 	}
 
 	// Any dangling elements have been deleted and new ones created.
 	// Failing the request and retrying now would result in duplicates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	if deletedElement != nil {
-		if doc, ok := deletedElement.(*project.Doc); ok {
-			m.cleanupDocDeletion(ctx, projectId, doc.Id)
+	if existingId != (edgedb.UUID{}) {
+		if existingIsDoc {
+			m.cleanupDocDeletion(ctx, projectId, existingId)
 		}
 		m.notifyEditor(
 			projectId, "removeEntity",
-			deletedElement.GetId(), source, v,
+			existingId, source, v,
 		)
 	}
-	if f, ok := newElement.(*project.FileRef); ok {
+	if f := uploadedFileRef; f != nil {
 		//goland:noinspection SpellCheckingInspection
 		m.notifyEditor(
 			projectId, "reciveNewFile",
-			parentFolderId, newElement, source, f.LinkedFileData, userId, v,
+			folderId, f, source, f.LinkedFileData, userId, v,
 		)
-	}
-	if _, ok := newElement.(*project.Doc); ok {
+	} else {
 		//goland:noinspection SpellCheckingInspection
 		m.notifyEditor(
 			projectId, "reciveNewDoc",
-			parentFolderId, newElement, v,
-		)
-	}
-	if upsertDoc != nil {
-		_ = m.projectMetadata.BroadcastMetadataForDoc(
-			ctx, projectId, upsertDoc.Id,
+			folderId, uploadedDoc, v,
 		)
 	}
 	return nil
