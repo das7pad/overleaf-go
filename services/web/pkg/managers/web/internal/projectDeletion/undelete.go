@@ -20,8 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/deletedProject"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -32,33 +30,18 @@ func (m *manager) UnDeleteProject(ctx context.Context, request *types.UnDeletePr
 	userId := request.Session.User.Id
 	projectId := request.ProjectId
 
-	return mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
-		dp := &deletedProject.Full{}
-		if err := m.dpm.Get(sCtx, projectId, dp); err != nil {
-			return errors.Tag(err, "cannot get deleted project")
-		}
-		if dp.DeleterData.DeletedProjectOwnerId != userId {
-			return &errors.NotAuthorizedError{}
-		}
-		if dp.Project == nil {
-			return &errors.InvalidStateError{Msg: "already hard-deleted"}
-		}
+	name, err := m.pm.GetDeletedProjectsName(ctx, projectId, userId)
+	if err != nil {
+		return err
+	}
+	names, err := m.pm.GetProjectNames(ctx, userId)
+	if err != nil {
+		return errors.Tag(err, "cannot get other project names")
+	}
+	name = names.MakeUnique(name)
 
-		names, err := m.pm.GetProjectNames(sCtx, userId)
-		if err != nil {
-			return errors.Tag(err, "cannot get other project names")
-		}
-
-		p := dp.Project
-		p.Name = names.MakeUnique(p.Name)
-
-		if err = m.pm.Restore(sCtx, p); err != nil {
-			return errors.Tag(err, "cannot restore project")
-		}
-
-		if err = m.dpm.Delete(sCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot delete deleted project")
-		}
-		return nil
-	})
+	if err = m.pm.Restore(ctx, projectId, userId, name); err != nil {
+		return errors.Tag(err, "cannot restore project")
+	}
+	return nil
 }

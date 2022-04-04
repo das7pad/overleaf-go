@@ -27,14 +27,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 )
 
 type Manager interface {
-	Create(ctx context.Context, deletion *project.ForDeletion, userId edgedb.UUID, ipAddress string) error
-	Delete(ctx context.Context, projectId edgedb.UUID) error
 	Expire(ctx context.Context, projectId edgedb.UUID) error
-	Get(ctx context.Context, projectId edgedb.UUID, dp *Full) error
 	GetExpired(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error)
 }
 
@@ -61,49 +57,6 @@ func rewriteMongoError(err error) error {
 	return err
 }
 
-func (m *manager) Create(ctx context.Context, p *project.ForDeletion, userId edgedb.UUID, ipAddress string) error {
-	entry := &Full{
-		ProjectField: ProjectField{Project: p},
-		DeleterDataField: DeleterDataField{
-			DeleterData: DeleterData{
-				DeleterDataDeletedProjectIdField: DeleterDataDeletedProjectIdField{
-					DeletedProjectId: p.Id,
-				},
-				DeletedAt:                             time.Now().UTC(),
-				DeleterId:                             userId,
-				DeleterIpAddress:                      ipAddress,
-				DeletedProjectOwnerId:                 p.Owner.Id,
-				DeletedProjectCollaboratorIds:         p.AccessReadAndWrite,
-				DeletedProjectReadOnlyIds:             p.AccessReadOnly,
-				DeletedProjectReadWriteTokenAccessIds: p.AccessTokenReadAndWrite,
-				DeletedProjectReadOnlyTokenAccessIds:  p.AccessTokenReadOnly,
-				DeletedProjectReadWriteToken:          p.Tokens.ReadAndWrite,
-				DeletedProjectReadOnlyToken:           p.Tokens.ReadOnly,
-				DeletedProjectLastUpdatedAt:           p.LastUpdatedAt,
-			},
-		},
-	}
-	_, err := m.c.InsertOne(ctx, entry)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
-}
-
-func (m *manager) Delete(ctx context.Context, projectId edgedb.UUID) error {
-	q := bson.M{
-		"deleterData.deletedProjectId": projectId,
-	}
-	r, err := m.c.DeleteOne(ctx, q)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.DeletedCount != 1 {
-		return &errors.NotFoundError{}
-	}
-	return nil
-}
-
 func (m *manager) Expire(ctx context.Context, projectId edgedb.UUID) error {
 	q := bson.M{
 		"deleterData.deletedProjectId": projectId,
@@ -116,16 +69,6 @@ func (m *manager) Expire(ctx context.Context, projectId edgedb.UUID) error {
 	}
 	_, err := m.c.UpdateOne(ctx, q, u)
 	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
-}
-
-func (m *manager) Get(ctx context.Context, projectId edgedb.UUID, dp *Full) error {
-	q := bson.M{
-		"deleterData.deletedProjectId": projectId,
-	}
-	if err := m.c.FindOne(ctx, q).Decode(dp); err != nil {
 		return rewriteMongoError(err)
 	}
 	return nil

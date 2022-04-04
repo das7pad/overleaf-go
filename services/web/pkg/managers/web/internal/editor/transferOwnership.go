@@ -40,85 +40,39 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 		}
 	}
 
-	for i := 0; i < 10; i++ {
-		p := &project.ForProjectOwnershipTransfer{}
-		if err := m.pm.GetProject(ctx, projectId, p); err != nil {
-			return errors.Tag(err, "cannot get project")
-		}
-
-		{
-			err := p.CheckPrivilegeLevelIsAtLest(
-				previousOwnerId, sharedTypes.PrivilegeLevelOwner,
-			)
-			if err != nil {
-				return err
-			}
-		}
-		{
-			d, err := p.GetPrivilegeLevelAuthenticated(newOwnerId)
-			if err != nil {
-				return errUserIsNotAMember
-			}
-			if d.IsTokenMember {
-				return errUserIsNotAMember
-			}
-		}
-
-		users, err := m.um.GetUsersForBackFilling(
-			ctx, user.UniqUserIds{previousOwnerId: true, newOwnerId: true},
-		)
-		if err != nil {
-			return errors.Tag(err, "cannot get user details")
-		}
-		previousOwner, exists := users[previousOwnerId]
-		if !exists {
-			return &errors.InvalidStateError{
-				Msg: "current user has been deleted",
-			}
-		}
-		newOwner, exists := users[newOwnerId]
-		if !exists {
-			return &errors.InvalidStateError{
-				Msg: "new owner has been deleted",
-			}
-		}
-
-		err = m.pm.TransferOwnership(ctx, p, newOwnerId)
-		if err != nil {
-			if errors.GetCause(err) == project.ErrEpochIsNotStable {
-				continue
-			}
-			return errors.Tag(err, "cannot transfer ownership")
-		}
-
-		go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
-			Members: true,
-			Owner:   true,
-		})
-
-		projectURL := m.options.SiteURL.WithPath("/project/" + p.Id.String())
-		details := &transferOwnershipEmailDetails{
-			previousOwner: previousOwner,
-			newOwner:      newOwner,
-			project:       p,
-			projectURL:    projectURL,
-			emailOptions:  m.options.EmailOptions(),
-		}
-		previousOwnerErr := m.ownershipTransferConfirmationPreviousOwner(
-			ctx, details,
-		)
-		newOwnerErr := m.ownershipTransferConfirmationNewOwner(
-			ctx, details,
-		)
-		return errors.Merge(previousOwnerErr, newOwnerErr)
+	previousOwner, newOwner, name, err := m.pm.TransferOwnership(
+		ctx, projectId, previousOwnerId, newOwnerId,
+	)
+	if err != nil {
+		return errors.Tag(err, "cannot transfer ownership")
 	}
-	return project.ErrEpochIsNotStable
+
+	go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
+		Members: true,
+		Owner:   true,
+	})
+
+	projectURL := m.options.SiteURL.WithPath("/project/" + projectId.String())
+	details := &transferOwnershipEmailDetails{
+		previousOwner: previousOwner,
+		newOwner:      newOwner,
+		projectName:   name,
+		projectURL:    projectURL,
+		emailOptions:  m.options.EmailOptions(),
+	}
+	previousOwnerErr := m.ownershipTransferConfirmationPreviousOwner(
+		ctx, details,
+	)
+	newOwnerErr := m.ownershipTransferConfirmationNewOwner(
+		ctx, details,
+	)
+	return errors.Merge(previousOwnerErr, newOwnerErr)
 }
 
 type transferOwnershipEmailDetails struct {
 	previousOwner *user.WithPublicInfo
 	newOwner      *user.WithPublicInfo
-	project       *project.ForProjectOwnershipTransfer
+	projectName   project.Name
 	projectURL    *sharedTypes.URL
 	emailOptions  *types.EmailOptions
 }
@@ -138,7 +92,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d *
 	msg := fmt.Sprintf(
 		"%s has made you the owner of %s. You can now manage its sharing settings.",
 		spamSafeUser(d.previousOwner, "A collaborator"),
-		spamSafe.GetSafeProjectName(d.project.Name, "a project"),
+		spamSafe.GetSafeProjectName(d.projectName, "a project"),
 	)
 
 	e := email.Email{
@@ -147,7 +101,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d *
 			Message:       email.Message{msg},
 			Title: fmt.Sprintf(
 				"%s - Owner change",
-				spamSafe.GetSafeProjectName(d.project.Name, "A project"),
+				spamSafe.GetSafeProjectName(d.projectName, "A project"),
 			),
 			CTAText: "View project",
 			CTAURL:  d.projectURL,
@@ -170,11 +124,11 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 	msg1 := fmt.Sprintf(
 		"As per your request, we have made %s the owner of %s.",
 		spamSafeUser(d.newOwner, "a collaborator"),
-		spamSafe.GetSafeProjectName(d.project.Name, "your project"),
+		spamSafe.GetSafeProjectName(d.projectName, "your project"),
 	)
 	msg2 := fmt.Sprintf(
 		"If you haven't asked to change the owner of %s, please get in touch with us via %s.",
-		spamSafe.GetSafeProjectName(d.project.Name, "your project"),
+		spamSafe.GetSafeProjectName(d.projectName, "your project"),
 		m.options.AdminEmail,
 	)
 
@@ -184,7 +138,7 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 			Message:       email.Message{msg1, msg2},
 			Title: fmt.Sprintf(
 				"%s - Owner change",
-				spamSafe.GetSafeProjectName(d.project.Name, "A project"),
+				spamSafe.GetSafeProjectName(d.projectName, "A project"),
 			),
 			CTAURL:  d.projectURL,
 			CTAText: "View project",

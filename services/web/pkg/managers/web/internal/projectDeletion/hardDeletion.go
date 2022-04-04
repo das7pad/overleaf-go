@@ -90,6 +90,7 @@ func (m *manager) HardDeleteProject(ctx context.Context, projectId edgedb.UUID) 
 		return err
 	}
 
+	// TODO: do extensive cleanup of outbound links, then do cascading delete
 	if err := m.dpm.Expire(ctx, projectId); err != nil {
 		return errors.Tag(err, "cannot expire deleted project")
 	}

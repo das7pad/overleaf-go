@@ -78,7 +78,7 @@ func (d *projectInviteDetails) ValidateForCreation() error {
 
 func (m *manager) getDetails(ctx context.Context, pi *projectInvite.WithToken) (*projectInviteDetails, error) {
 	p := &project.ForProjectInvite{}
-	s := &user.WithPublicInfo{}
+	s := &pi.SendingUser
 	u := &user.WithPublicInfo{}
 
 	eg, pCtx := errgroup.WithContext(ctx)

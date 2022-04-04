@@ -36,13 +36,13 @@ type UserIdField struct {
 }
 
 type ExpiresField struct {
-	Expires time.Time `json:"expires,omitempty" edgedb:"expires"`
+	Expires time.Time `json:"expires,omitempty" edgedb:"expires_at"`
 }
 
 type TemplateKeyField struct {
-	TemplateKey string `json:"templateKey,omitempty" edgedb:"templateKey"`
+	TemplateKey string `json:"templateKey,omitempty" edgedb:"template_key"`
 }
 
 type MessageOptsField struct {
-	MessageOptions json.RawMessage `json:"messageOpts,omitempty" edgedb:"messageOpts"`
+	MessageOptions json.RawMessage `json:"messageOpts,omitempty" edgedb:"message_options"`
 }

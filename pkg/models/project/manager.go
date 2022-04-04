@@ -22,10 +22,6 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -38,14 +34,15 @@ type Manager interface {
 	PrepareProjectCreation(ctx context.Context, p *ForCreation) error
 	CreateProjectTree(ctx context.Context, creation *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
-	Delete(ctx context.Context, p *ForDeletion) error
-	Restore(ctx context.Context, p *ForDeletion) error
+	SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error
+	GetDeletedProjectsName(ctx context.Context, projectId, userId edgedb.UUID) (Name, error)
+	Restore(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
 	ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error
 	AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error)
-	AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error
 	DeleteDoc(ctx context.Context, projectId, userId, docId edgedb.UUID) (sharedTypes.Version, error)
 	DeleteFile(ctx context.Context, projectId, userId, fileId edgedb.UUID) (sharedTypes.Version, error)
 	DeleteFolder(ctx context.Context, projectId, userId, folderId edgedb.UUID) (sharedTypes.Version, error)
+	RestoreDoc(ctx context.Context, projectId, userId, docId edgedb.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error)
 	MoveDoc(ctx context.Context, projectId, userId, folderId, docId edgedb.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
 	MoveFile(ctx context.Context, projectId, userId, folderId, fileId edgedb.UUID) (sharedTypes.Version, error)
 	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId edgedb.UUID) (sharedTypes.Version, []Doc, error)
@@ -70,7 +67,6 @@ type Manager interface {
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetEntries(ctx context.Context, projectId, userId edgedb.UUID) (*ForProjectEntries, error)
-	GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error)
 	GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error)
 	GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
@@ -82,7 +78,7 @@ type Manager interface {
 	SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error
 	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
-	SetRootDocId(ctx context.Context, projectId, userId, rooDocId edgedb.UUID) error
+	SetRootDoc(ctx context.Context, projectId, userId, rooDocId edgedb.UUID) error
 	SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, level PublicAccessLevel) error
 	SetTrackChangesState(ctx context.Context, projectId, userId edgedb.UUID, s TrackChangesState) error
 	ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
@@ -91,19 +87,15 @@ type Manager interface {
 	UnTrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
 	Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
 	RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
-	TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error
+	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId edgedb.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
 	CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error)
 	CreateFile(ctx context.Context, projectId, userId, folderId edgedb.UUID, f *FileRef) (sharedTypes.Version, error)
 }
 
-func New(c *edgedb.Client, db *mongo.Database) Manager {
-	cSlow := db.Collection("projects", options.Collection().
-		SetReadPreference(readpref.SecondaryPreferred()),
-	)
+func New(c *edgedb.Client) Manager {
+	// TODO: handle deleted projects
 	return &manager{
-		c:     c,
-		cP:    db.Collection("projects"),
-		cSlow: cSlow,
+		c: c,
 	}
 }
 
@@ -118,21 +110,12 @@ func rewriteEdgedbError(err error) error {
 	return err
 }
 
-func rewriteMongoError(err error) error {
-	if err == mongo.ErrNoDocuments {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
 const (
 	inactiveProjectsBatchSize = int64(100)
 )
 
 type manager struct {
-	c     *edgedb.Client
-	cP    *mongo.Collection
-	cSlow *mongo.Collection
+	c *edgedb.Client
 }
 
 func (m *manager) ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error {
@@ -541,52 +524,58 @@ select (
 	return checkAuthExistsGuard(ids)
 }
 
-func (m *manager) SetRootDocId(ctx context.Context, projectId, userId, rootDocId edgedb.UUID) error {
-	ids := make([]edgedb.UUID, 0)
+type setRootDocResult struct {
+	ProjectExists   bool `edgedb:"project_exists"`
+	AuthCheck       bool `edgedb:"auth_check"`
+	DocExists       bool `edgedb:"doc_exists"`
+	RootDocEligible bool `edgedb:"root_doc_eligible"`
+	ProjectUpdated  bool `edgedb:"project_updated"`
+}
+
+func (m *manager) SetRootDoc(ctx context.Context, projectId, userId, rootDocId edgedb.UUID) error {
+	r := setRootDocResult{}
 	err := m.c.Query(ctx, `
 with
-	p := (
-		select Project filter .id = <uuid>$0
-	),
+	p := (select Project filter .id = <uuid>$0),
+	u := (select User filter .id = <uuid>$2),
+	pWithAuth := (select p filter u in .min_access_rw),
 	d := (
-		select Doc filter .id = <uuid>$1 and .project = p
+		select Doc
+		filter .id = <uuid>$1 and not .deleted and .project = pWithAuth
 	),
 	newRootDoc := (
-		select Doc
-		filter Doc = d and (
+		select d
+		filter (
 		   .name LIKE '%.tex' or .name LIKE '%.rtex' or .name LIKE '%.ltex'
 		)
 	),
-	pUpdated := (
-		update Project
-		filter Project = newRootDoc.project
-		and (select User filter .id = <uuid>$2) in .min_access_rw
-		set {
-			root_doc := newRootDoc
-		}
-	)
-select {p.id,d.id,newRootDoc.id,pUpdated.id}`,
-		&ids,
-		projectId, rootDocId, userId,
-	)
+	pUpdated := (update newRootDoc.project set { root_doc := newRootDoc })
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	doc_exists := exists d,
+	root_doc_eligible := exists newRootDoc,
+	project_updated := exists pUpdated,
+}
+`, &r, projectId, rootDocId, userId)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}
-	switch len(ids) {
-	case 0:
+	switch {
+	case !r.ProjectExists:
 		return &errors.NotFoundError{}
-	case 1:
+	case !r.AuthCheck:
+		return &errors.NotAuthorizedError{}
+	case !r.DocExists:
 		return &errors.UnprocessableEntityError{
 			Msg: "doc does not exist",
 		}
-	case 2:
+	case !r.RootDocEligible:
 		return &errors.UnprocessableEntityError{
 			Msg: "doc does not have root doc extension (.tex, .rtex, .ltex)",
 		}
-	case 3:
-		return &errors.NotAuthorizedError{}
 	default:
-		// 4
+		// project updated
 		return nil
 	}
 }
@@ -632,45 +621,89 @@ select (
 	return checkAuthExistsGuard(ids)
 }
 
-func (m *manager) TransferOwnership(ctx context.Context, p *ForProjectOwnershipTransfer, newOwnerId edgedb.UUID) error {
+type transferOwnershipResult struct {
+	ProjectExists bool `edgedb:"project_exists"`
+	AuthCheck     bool `edgedb:"auth_check"`
+	MemberCheck   bool `edgedb:"member_check"`
+	ProjectName   Name `edgedb:"project_name"`
+	NewOwner      struct {
+		edgedb.Optional
+		user.WithPublicInfo `edgedb:"$inline"`
+	} `edgedb:"new_owner"`
+	PreviousOwner struct {
+		edgedb.Optional
+		user.WithPublicInfo `edgedb:"$inline"`
+	} `edgedb:"previous_owner"`
+}
+
+func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId edgedb.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error) {
+	r := transferOwnershipResult{}
 	err := m.c.QuerySingle(ctx, `
 with
-	newOwner := (select User filter .id = <uuid>$1),
-	previousOwner := (select User filter .id = <uuid>$2),
-update Project
-filter
-	.id = <uuid>$0
-and .owner = previousOwner
-and (
-	newOwner in .access_ro or newOwner in .access_rw
-)
-set {
-	access_ro += previousOwner,
-	access_ro -= newOwner,
-	access_rw -= newOwner,
-	access_token_ro -= newOwner,
-	access_token_rw -= newOwner,
-	audit_log += (
-		insert ProjectAuditLogEntry {
-			initiator := previousOwner,
-			operation := 'transfer-ownership',
-			info := <json>{
-				newOwnerId := newOwner.id,
-				previousOwnerId := previousOwner.id,
-			}
+	previousOwner := (select User filter .id = <uuid>$1),
+	newOwner := (select User filter .id = <uuid>$2),
+	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
+	pWithAuth := (select p filter .owner = previousOwner),
+	pWithMemberCheck := (
+		select {
+			(select pWithAuth filter newOwner in .access_ro),
+			(select pWithAuth filter newOwner in .access_rw),
 		}
+		limit 1
 	),
-	epoch := Project.epoch + 1,
-	owner := newOwner,
-}
-`,
-		&IdField{},
-		p.Id, newOwnerId, p.Owner.Id,
+	pUpdated := (
+		update pWithMemberCheck
+		set {
+			access_rw := distinct {
+				previousOwner,
+				(select pWithMemberCheck.access_rw filter .id != <uuid>$2)
+			},
+			access_ro -= newOwner,
+			access_token_ro -= newOwner,
+			access_token_rw -= newOwner,
+			audit_log += (
+				insert ProjectAuditLogEntry {
+					initiator := previousOwner,
+					operation := 'transfer-ownership',
+					info := <json>{
+						newOwnerId := newOwner.id,
+						previousOwnerId := previousOwner.id,
+					}
+				}
+			),
+			epoch := pWithMemberCheck.epoch + 1,
+			owner := newOwner,
+		}
 	)
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	member_check := exists pWithMemberCheck,
+	project_name := pUpdated.name ?? "",
+	new_owner := newOwner {
+		email: { email }, id, first_name, last_name,
+	},
+	previous_owner := previousOwner {
+		email: { email }, id, first_name, last_name,
+	},
+}
+`, &r, projectId, previousOwnerId, newOwnerId)
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return nil, nil, "", rewriteEdgedbError(err)
 	}
-	return nil
+	switch {
+	case !r.ProjectExists:
+		return nil, nil, "", &errors.NotFoundError{}
+	case !r.AuthCheck:
+		return nil, nil, "", &errors.NotAuthorizedError{}
+	case !r.MemberCheck:
+		return nil, nil, "", &errors.InvalidStateError{
+			Msg: "new owner is not an invited user",
+		}
+	}
+	previousOwner := &r.PreviousOwner.WithPublicInfo
+	newOwner := &r.NewOwner.WithPublicInfo
+	return previousOwner, newOwner, r.ProjectName, nil
 }
 
 func checkAuthExistsGuard(ids []IdField) error {
@@ -706,8 +739,6 @@ select (
 	return checkAuthExistsGuard(ids)
 }
 
-var ErrVersionChanged = &errors.InvalidStateError{Msg: "project version changed"}
-
 type addTreeElementResult struct {
 	ProjectExists  bool                `edgedb:"project_exists"`
 	ProjectVersion sharedTypes.Version `edgedb:"project_version"`
@@ -720,7 +751,7 @@ func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent edged
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
 	newFolder := (
 		insert Folder {
@@ -731,9 +762,12 @@ with
 		}
 	),
 	pBumpedVersion := (
-		update Project
-		filter Project = newFolder.project
-		set { version := Project.version + 1 }
+		update newFolder.project
+		set {
+			version := newFolder.project.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := exists p,
@@ -754,15 +788,6 @@ select {
 	return r.ProjectVersion, nil
 }
 
-func (m *manager) AddTreeElement(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, mongoPath MongoPath, element TreeElement) error {
-	return m.setWithVersionGuard(ctx, projectId, version, bson.M{
-		"$push": bson.M{
-			string(mongoPath + "." + element.FieldNameInFolder()): element,
-		},
-		"$inc": VersionField{Version: 1},
-	})
-}
-
 type deletedTreeElementResult struct {
 	ProjectExists  bool                `edgedb:"project_exists"`
 	HasWriteAccess bool                `edgedb:"has_write_access"`
@@ -776,7 +801,7 @@ func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId edgedb
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	d := (
 		select Doc
 		filter
@@ -794,6 +819,8 @@ with
 			if (deletedDoc.project.root_doc = d) else
 			deletedDoc.project.root_doc
 		),
+		last_updated_at := datetime_of_transaction(),
+		last_updated_by := u,
 	})
 select {
 	project_exists := exists p,
@@ -826,7 +853,7 @@ func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId edge
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (
 		select File
 		filter
@@ -839,6 +866,8 @@ with
 	}),
 	pBumpedVersion := (update deletedFile.project set {
 		version := deletedFile.project.version + 1,
+		last_updated_at := datetime_of_transaction(),
+		last_updated_by := u,
 	})
 select {
 	project_exists := exists p,
@@ -876,7 +905,7 @@ func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId 
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (
 		select Folder
 		filter
@@ -905,7 +934,9 @@ with
 				deletedFolder.project.root_doc.resolved_path
 				like deletionPrefix
 			) else deletedFolder.project.root_doc
-		)
+		),
+		last_updated_at := datetime_of_transaction(),
+		last_updated_by := u,
 	})
 select {
 	project_exists := exists p,
@@ -947,7 +978,7 @@ func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docI
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	d := (select Doc filter .id = <uuid>$3 and .project = pWithAuth),
 	updatedDoc := (update d set {
 		parent := (
@@ -957,6 +988,8 @@ with
 	}),
 	pBumpedVersion := (update updatedDoc.project set {
 		version := updatedDoc.project.version + 1,
+		last_updated_at := datetime_of_transaction(),
+		last_updated_by := u,
 	})
 select {
 	project_exists := exists p,
@@ -990,7 +1023,7 @@ func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fil
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (select File filter .id = <uuid>$3 and .project = pWithAuth),
 	updatedFile := (update f set {
 		parent := (
@@ -1000,6 +1033,8 @@ with
 	}),
 	pBumpedVersion := (update updatedFile.project set {
 		version := updatedFile.project.version + 1,
+		last_updated_at := datetime_of_transaction(),
+		last_updated_by := u,
 	})
 select {
 	project_exists := exists p,
@@ -1039,7 +1074,7 @@ func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolde
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (select Folder filter .id = <uuid>$3 and .project = pWithAuth),
 	oldPath := f.path,
 	target := (
@@ -1063,7 +1098,11 @@ with
 	),
 	pBumpedVersion := (
 		update targetWithLoopCheck.project
-		set { version := targetWithLoopCheck.project.version + 1 }
+		set {
+			version := targetWithLoopCheck.project.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := exists p,
@@ -1115,11 +1154,16 @@ func (m *manager) RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, 
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	d := (select Doc filter .id = <uuid>$2 and .project = pWithAuth),
 	updatedDoc := (update d set { name := <str>$3 }),
 	pBumpedVersion := (
-		update updatedDoc.project set { version := pWithAuth.version + 1 }
+		update updatedDoc.project
+		set {
+			version := pWithAuth.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := exists p,
@@ -1151,11 +1195,16 @@ func (m *manager) RenameFile(ctx context.Context, projectId, userId edgedb.UUID,
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (select File filter .id = <uuid>$2 and .project = pWithAuth),
 	updatedFile := (update f set { name := <str>$3 }),
 	pBumpedVersion := (
-		update updatedFile.project set { version := pWithAuth.version + 1 }
+		update updatedFile.project
+		set {
+			version := pWithAuth.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := exists p,
@@ -1191,7 +1240,7 @@ func (m *manager) RenameFolder(ctx context.Context, projectId, userId edgedb.UUI
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (select Folder filter .id = <uuid>$2 and .project = pWithAuth),
 	updatedFolders := (update Folder
 		filter
@@ -1207,7 +1256,12 @@ with
 		}
 	),
 	pBumpedVersion := (
-		update f.project set { version := f.project.version + 1 }
+		update f.project
+		set {
+			version := f.project.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := exists p,
@@ -1315,20 +1369,6 @@ select (
 }
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
-
-func (m *manager) setWithVersionGuard(ctx context.Context, projectId edgedb.UUID, version sharedTypes.Version, u interface{}) error {
-	q := &withIdAndVersion{}
-	q.Id = projectId
-	q.Version = version
-	r, err := m.cP.UpdateOne(ctx, q, u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.MatchedCount != 1 {
-		return ErrVersionChanged
-	}
-	return nil
-}
 
 type forGetProjectNames struct {
 	Projects []NameField `edgedb:"projects"`
@@ -1507,6 +1547,73 @@ and .project.id = <uuid>$1
 	return d, nil
 }
 
+type restoreDocResult struct {
+	ProjectExists bool `edgedb:"project_exists"`
+	AuthCheck     bool `edgedb:"auth_check"`
+	DocExists     bool `edgedb:"doc_exists"`
+	DocDeleted    bool `edgedb:"doc_deleted"`
+	Doc           struct {
+		edgedb.Optional
+		DocWithParent `edgedb:"$inline"`
+	} `edgedb:"doc"`
+	ProjectVersion sharedTypes.Version `edgedb:"project_version"`
+}
+
+func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId edgedb.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error) {
+	r := restoreDocResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$1),
+	p := (select Project filter .id = <uuid>$0),
+	pWithAuth := (select p filter u in .min_access_rw),
+	d := (select Doc filter .id = <uuid>$2 and .project = pWithAuth),
+	dWithDeletedCheck := (select d filter .deleted),
+	dRestored := (
+		update dWithDeletedCheck
+		set {
+			name := <str>$3,
+			deleted_at := <datetime>'1970-01-01T00:00:00.000000Z',
+		}
+	),
+	pBumped := (
+		update dRestored.project
+		set {
+			version := dRestored.project.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
+	)
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	doc_exists := exists d,
+	doc_deleted := exists dWithDeletedCheck,
+	doc := dRestored {
+		id,
+		name,
+		parent,
+	},
+	project_version := pBumped.version,
+`, &r, projectId, userId, docId, name)
+	if err != nil {
+		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+			return nil, 0, ErrDuplicateNameInFolder
+		}
+		return nil, 0, rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return nil, 0, &errors.NotFoundError{}
+	case !r.AuthCheck:
+		return nil, 0, &errors.NotAuthorizedError{}
+	case !r.DocExists:
+		return nil, 0, &errors.ErrorDocNotFound{}
+	case !r.DocDeleted:
+		return nil, 0, &errors.UnprocessableEntityError{Msg: "doc not deleted"}
+	}
+	return &r.Doc.DocWithParent, r.ProjectVersion, nil
+}
+
 func (m *manager) GetFile(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken, fileId edgedb.UUID) (*FileWithParent, error) {
 	f := &FileWithParent{}
 	err := m.c.QuerySingle(ctx, `
@@ -1564,7 +1671,7 @@ func (m *manager) GetElementHintForOverwrite(ctx context.Context, projectId, use
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
 	e := (
 		select VisibleTreeElement
@@ -1609,7 +1716,7 @@ func (m *manager) GetElementByPath(ctx context.Context, projectId, userId edgedb
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_ro),
+	pWithAuth := (select p filter u in .min_access_ro),
 	e := (
 		select ContentElement
 		filter
@@ -1976,38 +2083,6 @@ select {
 	return details, nil
 }
 
-func (m *manager) fetchWithMinimalAuthorizationDetails(ctx context.Context, q interface{}, userId edgedb.UUID, target interface{}) error {
-	projection := getProjection(target).CloneForWriting()
-	if userId == (edgedb.UUID{}) {
-		for s := range withMembersProjection {
-			delete(projection, s)
-		}
-	} else {
-		limitToUser := &bson.M{
-			"$elemMatch": bson.M{
-				"$eq": userId,
-			},
-		}
-		getId := projection["_id"]
-		// These fields are used for an authorization check only, we do not
-		//  need to fetch all of them.
-		for s := range withTokenMembersProjection {
-			projection[s] = limitToUser
-		}
-		projection["_id"] = getId
-	}
-
-	err := m.cP.FindOne(
-		ctx,
-		q,
-		options.FindOne().SetProjection(projection),
-	).Decode(target)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
-}
-
 func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error {
 	var q string
 	switch target.(type) {
@@ -2065,16 +2140,6 @@ filter .id = <uuid>$0 and u in .min_access_ro
 `, p, projectId, userId)
 	if err != nil {
 		return nil, rewriteEdgedbError(err)
-	}
-	return p, nil
-}
-
-func (m *manager) GetTreeAndAuth(ctx context.Context, projectId, userId edgedb.UUID) (*WithTreeAndAuth, error) {
-	p := &WithTreeAndAuth{}
-	q := &IdField{Id: projectId}
-	err := m.fetchWithMinimalAuthorizationDetails(ctx, q, userId, p)
-	if err != nil {
-		return nil, err
 	}
 	return p, nil
 }
@@ -2297,28 +2362,130 @@ select { exists p, exists tags }
 	return nil
 }
 
-func (m *manager) Delete(ctx context.Context, p *ForDeletion) error {
-	q := &withIdAndEpochAndVersion{
-		IdField:      p.IdField,
-		EpochField:   p.EpochField,
-		VersionField: p.VersionField,
-	}
-	r, err := m.cP.DeleteOne(ctx, q)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.DeletedCount != 1 {
-		return ErrVersionChanged
-	}
-	return nil
+type softDeleteResult struct {
+	ProjectExists        bool `edgedb:"project_exists"`
+	AuthCheck            bool `edgedb:"auth_check"`
+	ProjectNotDeletedYet bool `edgedb:"project_not_deleted_yet"`
+	ProjectSoftDeleted   bool `edgedb:"project_soft_deleted"`
 }
 
-func (m *manager) Restore(ctx context.Context, p *ForDeletion) error {
-	_, err := m.cP.InsertOne(ctx, p)
+func (m *manager) SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error {
+	r := softDeleteResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$0),
+	p := (select Project filter .id = <uuid>$1),
+	pWithAuth := (select p filter .owner = u),
+	pNotDeletedYet := (select pWithAuth filter not exists .deleted_at),
+	pDeleted := (
+		update pNotDeletedYet
+		set {
+			audit_log += (
+				insert ProjectAuditLogEntry {
+					initiator := u,
+					operation := 'soft-delete',
+					info := <json>{
+						ipAddress := <str>$2,
+					}
+				}
+			),
+			deleted_at := datetime_of_transaction(),
+			epoch := Project.epoch + 1,
+		}
+	)
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	project_not_deleted_yet := exists pNotDeletedYet,
+	project_soft_deleted := exists pDeleted,
+}
+`,
+		&r,
+		projectId, userId, ipAddress,
+	)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
-	return nil
+	switch {
+	case !r.ProjectExists:
+		return &errors.NotFoundError{}
+	case !r.AuthCheck:
+		return &errors.NotAuthorizedError{}
+	case !r.ProjectNotDeletedYet:
+		return &errors.UnprocessableEntityError{
+			Msg: "project already soft deleted",
+		}
+	default:
+		// project soft deleted
+		return nil
+	}
+}
+
+func (m *manager) GetDeletedProjectsName(ctx context.Context, projectId, userId edgedb.UUID) (Name, error) {
+	var name Name
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$1),
+	p := (select Project filter .id = <uuid>$0),
+	pWithAuth := (select p filter .owner = u),
+	pDeleted := (select pWithAuth filter exists .deleted_at)
+select pDeleted.name
+`, &name, projectId, userId)
+	if err != nil {
+		return "", rewriteEdgedbError(err)
+	}
+	return name, nil
+}
+
+type restoreResult struct {
+	ProjectExists       bool `edgedb:"project_exists"`
+	AuthCheck           bool `edgedb:"auth_check"`
+	ProjectStillDeleted bool `edgedb:"project_still_deleted"`
+	ProjectRestored     bool `edgedb:"project_restored"`
+}
+
+func (m *manager) Restore(ctx context.Context, projectId, userId edgedb.UUID, name Name) error {
+	r := restoreResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$0),
+	p := (select Project filter .id = <uuid>$1),
+	pWithAuth := (select p filter .owner = u),
+	pStillDeleted := (select pWithAuth filter exists .deleted_at),
+	pRestored := (
+		update pStillDeleted
+		set {
+			deleted_at := <datetime>{},
+			epoch := Project.epoch + 1,
+			name := <str>$2,
+		}
+	)
+select {
+	project_exists := exists p,
+	auth_check := exists pWithAuth,
+	project_still_deleted := exists pStillDeleted,
+	project_updated := exists pRestored,
+}
+`,
+		&r,
+		projectId, userId, name,
+	)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return &errors.NotFoundError{}
+	case !r.AuthCheck:
+		return &errors.NotAuthorizedError{}
+	case !r.ProjectStillDeleted:
+		return &errors.UnprocessableEntityError{
+			Msg: "project not deleted",
+		}
+	default:
+		// project restored
+		return nil
+	}
 }
 
 type createTreeElementResult struct {
@@ -2335,7 +2502,7 @@ func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId edg
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	parent := (
 		select {
 			(
@@ -2363,9 +2530,12 @@ with
 		version := 0,
 	}),
 	pBumpedVersion := (
-		update Project
-		filter Project = d.project
-		set { version := Project.version + 1 }
+		update d.project
+		set {
+			version := d.project.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := (exists p),
@@ -2406,7 +2576,7 @@ func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId ed
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select Project filter Project = p and u in .min_access_rw),
+	pWithAuth := (select p filter u in .min_access_rw),
 	parent := (
 		select {
 			(
@@ -2444,7 +2614,12 @@ with
 		),
 	}),
 	pBumpedVersion := (
-		update f.project set { version := f.project.version + 1 }
+		update f.project
+		set {
+			version := f.project.version + 1,
+			last_updated_at := datetime_of_transaction(),
+			last_updated_by := u,
+		}
 	)
 select {
 	project_exists := (exists p),

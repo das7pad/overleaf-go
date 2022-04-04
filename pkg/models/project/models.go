@@ -106,24 +106,7 @@ type forTokenAccessCheck struct {
 	ForAuthorizationDetails `edgedb:"$inline"`
 }
 
-type withIdAndVersion struct {
-	IdField      `edgedb:"$inline"`
-	VersionField `edgedb:"$inline"`
-}
-
-type withIdAndEpochAndVersion struct {
-	IdField      `edgedb:"$inline"`
-	EpochField   `edgedb:"$inline"`
-	VersionField `edgedb:"$inline"`
-}
-
 type ForProjectInvite struct {
-	IdField                 `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
-	ForAuthorizationDetails `edgedb:"$inline"`
-}
-
-type ForProjectOwnershipTransfer struct {
 	IdField                 `edgedb:"$inline"`
 	NameField               `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
@@ -132,11 +115,6 @@ type ForProjectOwnershipTransfer struct {
 type ForProjectEntries struct {
 	DocsField  `edgedb:"$inline"`
 	FilesField `edgedb:"$inline"`
-}
-
-type WithTree struct {
-	TreeField    `edgedb:"$inline"`
-	VersionField `edgedb:"$inline"`
 }
 
 type ForTree struct {
@@ -149,28 +127,6 @@ type ForTree struct {
 type ForZip struct {
 	NameField `edgedb:"$inline"`
 	ForTree   `edgedb:"$inline"`
-}
-
-type WithTreeAndRootDoc struct {
-	RootDocIdField `edgedb:"$inline"`
-	WithTree       `edgedb:"$inline"`
-}
-
-type WithTreeAndAuth struct {
-	ForAuthorizationDetails `edgedb:"$inline"`
-	WithTree                `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
-}
-
-type WithLastUpdatedDetails struct {
-	LastUpdatedAtField `edgedb:"$inline"`
-	LastUpdatedByField `edgedb:"$inline"`
-}
-
-type forMemberRemoval struct {
-	WithMembers     `edgedb:"$inline"`
-	ArchivedByField `edgedb:"$inline"`
-	TrashedByField  `edgedb:"$inline"`
 }
 
 type ForCreation struct {
@@ -197,26 +153,6 @@ type ForClone struct {
 	NameField               `edgedb:"$inline"`
 	RootDocIdField          `edgedb:"$inline"`
 	SpellCheckLanguageField `edgedb:"$inline"`
-	TreeField               `edgedb:"$inline"`
-	VersionField            `edgedb:"$inline"`
-}
-
-type ForDeletion struct {
-	IdField                 `edgedb:"$inline"`
-	ForAuthorizationDetails `edgedb:"$inline"`
-	ActiveField             `edgedb:"$inline"`
-	ArchivedByField         `edgedb:"$inline"`
-	AuditLogField           `edgedb:"$inline"`
-	CompilerField           `edgedb:"$inline"`
-	ImageNameField          `edgedb:"$inline"`
-	LastOpenedField         `edgedb:"$inline"`
-	LastUpdatedAtField      `edgedb:"$inline"`
-	LastUpdatedByField      `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
-	RootDocIdField          `edgedb:"$inline"`
-	SpellCheckLanguageField `edgedb:"$inline"`
-	TrackChangesStateField  `edgedb:"$inline"`
-	TrashedByField          `edgedb:"$inline"`
 	TreeField               `edgedb:"$inline"`
 	VersionField            `edgedb:"$inline"`
 }

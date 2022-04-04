@@ -51,7 +51,7 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 			ProjectVersion: projectVersion,
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
-					d.GetId(),
+					d.Id,
 					parentPath.Join(d.Name),
 				).ToGeneric(),
 			},

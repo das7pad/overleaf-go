@@ -39,6 +39,6 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager,
 	if err != nil {
 		return nil, err
 	}
-	pm := project.New(c, db)
+	pm := project.New(c)
 	return &monolithManager{dm: dm, pm: pm}, nil
 }

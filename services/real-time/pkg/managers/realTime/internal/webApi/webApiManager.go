@@ -39,7 +39,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager,
 		return nil, err
 	}
 	pim := projectInvite.New(c)
-	pm := project.New(c, db)
+	pm := project.New(c)
 	um := user.New(c, db)
 	return &monolithManager{
 		dm:  dm,

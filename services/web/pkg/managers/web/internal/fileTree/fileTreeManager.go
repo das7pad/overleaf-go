@@ -22,12 +22,10 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
@@ -51,11 +49,9 @@ type Manager interface {
 	UploadFile(ctx context.Context, request *types.UploadFileRequest) error
 }
 
-func New(c *edgedb.Client, db *mongo.Database, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
+func New(c *edgedb.Client, pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
 	return &manager{
 		c:               c,
-		db:              db,
-		dm:              dm,
 		dum:             dum,
 		editorEvents:    editorEvents,
 		fm:              fm,
@@ -66,8 +62,6 @@ func New(c *edgedb.Client, db *mongo.Database, pm project.Manager, dm docstore.M
 
 type manager struct {
 	c               *edgedb.Client
-	db              *mongo.Database
-	dm              docstore.Manager
 	dum             documentUpdater.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager

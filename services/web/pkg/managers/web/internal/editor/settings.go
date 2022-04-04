@@ -97,7 +97,7 @@ func (m *manager) SetRootDocId(ctx context.Context, r *types.SetRootDocIdRequest
 	if r.RootDocId == (edgedb.UUID{}) {
 		return &errors.ValidationError{Msg: "missing rootDocId"}
 	}
-	err := m.pm.SetRootDocId(ctx, r.ProjectId, r.UserId, r.RootDocId)
+	err := m.pm.SetRootDoc(ctx, r.ProjectId, r.UserId, r.RootDocId)
 	if err != nil {
 		return errors.Tag(err, "cannot update rootDoc")
 	}

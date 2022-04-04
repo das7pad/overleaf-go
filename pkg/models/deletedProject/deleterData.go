@@ -17,30 +17,11 @@
 package deletedProject
 
 import (
-	"time"
-
 	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 )
 
 type DeleterDataDeletedProjectIdField struct {
 	DeletedProjectId edgedb.UUID `edgedb:"deletedProjectId"`
-}
-
-type DeleterData struct {
-	DeleterDataDeletedProjectIdField      `edgedb:"$inline"`
-	DeletedAt                             time.Time           `edgedb:"deletedAt"`
-	DeleterId                             edgedb.UUID         `edgedb:"deleterId"`
-	DeleterIpAddress                      string              `edgedb:"deleterIpAddress"`
-	DeletedProjectOwnerId                 edgedb.UUID         `edgedb:"DeletedProjectOwnerId"`
-	DeletedProjectCollaboratorIds         project.Refs        `edgedb:"deletedProjectCollaboratorIds"`
-	DeletedProjectReadOnlyIds             project.Refs        `edgedb:"deletedProjectReadOnlyIds"`
-	DeletedProjectReadWriteTokenAccessIds project.Refs        `edgedb:"deletedProjectReadWriteTokenAccessIds"`
-	DeletedProjectReadOnlyTokenAccessIds  project.Refs        `edgedb:"deletedProjectReadOnlyTokenAccessIds"`
-	DeletedProjectReadWriteToken          project.AccessToken `edgedb:"deletedProjectReadWriteToken"`
-	DeletedProjectReadOnlyToken           project.AccessToken `edgedb:"deletedProjectReadOnlyToken"`
-	DeletedProjectLastUpdatedAt           time.Time           `edgedb:"deletedProjectLastUpdatedAt"`
 }
 
 type deleterDataOnlyProjectId struct {

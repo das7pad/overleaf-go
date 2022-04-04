@@ -117,10 +117,10 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 		case *project.FileRef:
 			var reader io.ReadCloser
 			_, reader, err = m.fm.GetReadStreamForProjectFile(
-				ctx, projectId, e.GetId(), objectStorage.GetOptions{},
+				ctx, projectId, el.Id, objectStorage.GetOptions{},
 			)
 			if err != nil {
-				return errors.Tag(err, "get file: "+e.GetId().String())
+				return errors.Tag(err, "get file: "+el.Id.String())
 			}
 			_, err = io.Copy(w, reader)
 			errClose := reader.Close()

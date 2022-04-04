@@ -130,7 +130,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		return nil, err
 	}
 	nm := notifications.New(c)
-	pm := project.New(c, db)
+	pm := project.New(c)
 	smm := systemMessage.New(c)
 	tm := tagModel.New(c)
 	um := user.New(c, db)
@@ -145,9 +145,9 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
 	em := editor.New(
 		options, ps,
-		client, db,
+		client,
 		editorEvents,
-		pm, tm, um,
+		pm, um,
 		mm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
@@ -159,7 +159,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	pim := projectInvite.New(
 		options, ps, c, client, db, editorEvents, pm, um,
 	)
-	ftm := fileTree.New(c, db, pm, dm, dum, fm, editorEvents, pmm)
+	ftm := fileTree.New(c, pm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, c, db, pm, um, dm, dum, fm)
 	hm := history.New(options, um)
 	OIOm := openInOverleaf.New(options, ps, proxy, pum)

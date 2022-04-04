@@ -106,9 +106,6 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 					dst.Docs = dst.Docs[:0]
 					return nil
 				}
-				if err := src.CheckHasUniqueEntries(); err != nil {
-					return err
-				}
 				dst, err := t.CreateParents(dir)
 				if err != nil {
 					return err

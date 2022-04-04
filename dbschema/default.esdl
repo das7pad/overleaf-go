@@ -123,6 +123,7 @@ module default {
   }
 
   type Project {
+    property deleted_at -> datetime;
     required property active -> bool {
       default := true;
     }
