@@ -52,6 +52,10 @@ func (f *projectFile) Open() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewBuffer([]byte(string(f.s.Snapshot)))), nil
 }
 
+func (f *projectFile) PreComputedHash() sharedTypes.Hash {
+	return ""
+}
+
 const parallelDownloads = 5
 
 func (m *manager) createFromSnippets(ctx context.Context, request *types.OpenInOverleafRequest, response *types.CreateProjectResponse) error {

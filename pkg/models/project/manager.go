@@ -203,7 +203,7 @@ select {p.id, rf.id, cr.id}`,
 }
 
 func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
-	r := p.RootFolder
+	r := &p.RootFolder
 	nFoldersWithContent := 0
 	nFoldersWithChildren := 0
 	{

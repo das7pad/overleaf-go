@@ -17,6 +17,7 @@
 package exampleProjects
 
 import (
+	"bytes"
 	"embed"
 	"io/fs"
 	"strings"
@@ -77,7 +78,8 @@ func init() {
 						blob: blob,
 						size: int64(len(blob)),
 					}
-					hash, err := fileTree.HashFile(f.reader(), f.size)
+					r := bytes.NewReader(blob)
+					hash, err := fileTree.HashFile(r, f.size)
 					if errRead != nil {
 						panic(errors.Tag(err, "hash: "+pathInFS))
 					}

@@ -23,12 +23,35 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type textFile struct {
 	path     sharedTypes.PathName
 	template *template.Template
 	size     int64
+}
+
+type renderedTextFile struct {
+	path sharedTypes.PathName
+	blob []byte
+	size int64
+}
+
+func (f *renderedTextFile) Open() (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(f.blob)), nil
+}
+
+func (f *renderedTextFile) Size() int64 {
+	return f.size
+}
+
+func (f *renderedTextFile) Path() sharedTypes.PathName {
+	return f.path
+}
+
+func (f *renderedTextFile) PreComputedHash() sharedTypes.Hash {
+	return ""
 }
 
 type binaryFile struct {
@@ -38,8 +61,20 @@ type binaryFile struct {
 	size int64
 }
 
-func (f *binaryFile) reader() io.Reader {
-	return bytes.NewReader(f.blob)
+func (f *binaryFile) Open() (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(f.blob)), nil
+}
+
+func (f *binaryFile) Size() int64 {
+	return f.size
+}
+
+func (f *binaryFile) Path() sharedTypes.PathName {
+	return f.path
+}
+
+func (f *binaryFile) PreComputedHash() sharedTypes.Hash {
+	return f.hash
 }
 
 type projectContent struct {
@@ -47,24 +82,24 @@ type projectContent struct {
 	binaryFiles []*binaryFile
 }
 
-func (p *projectContent) Render(data *ViewData) ([]Doc, []File, error) {
-	docs := make([]Doc, len(p.textFiles))
+func (p *projectContent) Render(data *ViewData) ([]types.CreateProjectFile, error) {
+	nDocs := len(p.textFiles)
+	files := make([]types.CreateProjectFile, nDocs+len(p.binaryFiles))
 	for i, doc := range p.textFiles {
-		b := bytes.NewBuffer(make([]byte, 0, doc.size))
+		b := bytes.NewBuffer(make([]byte, 0, doc.size+2048))
 		if err := doc.template.Execute(b, data); err != nil {
-			return nil, nil, errors.Tag(err, doc.path.String())
+			return nil, errors.Tag(err, doc.path.String())
 		}
-		docs[i].Path = doc.path
-		docs[i].Snapshot = sharedTypes.Snapshot(b.String())
+		files[i] = &renderedTextFile{
+			path: doc.path,
+			blob: b.Bytes(),
+			size: int64(b.Len()),
+		}
 	}
-	files := make([]File, len(p.binaryFiles))
 	for i, file := range p.binaryFiles {
-		files[i].Hash = file.hash
-		files[i].Path = file.path
-		files[i].Size = file.size
-		files[i].Reader = file.reader()
+		files[nDocs+i] = file
 	}
-	return docs, files, nil
+	return files, nil
 }
 
 var projects = make(map[string]*projectContent, 0)

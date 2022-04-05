@@ -53,11 +53,6 @@ func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, 
 	return newF, nil
 }
 
-type uploadContext struct {
-	fileRef *project.FileRef
-	reader  io.ReadCloser
-}
-
 func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjectRequest, response *types.CreateProjectResponse) error {
 	if err := request.Validate(); err != nil {
 		return err
@@ -83,17 +78,21 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	)
 	defer getProjectNames.Cancel()
 
-	preparedUpload := make(map[sharedTypes.PathName]uploadContext)
+	openReader := make(map[sharedTypes.PathName]io.ReadCloser)
 	defer func() {
-		for _, q := range preparedUpload {
-			_ = q.reader.Close()
+		for _, q := range openReader {
+			_ = q.Close()
 		}
 	}()
-	parentCache := make(map[sharedTypes.DirName]*project.Folder)
 	t := &p.RootFolder
-	var rootDoc *project.Doc
+	var rootDocPath sharedTypes.PathName
 
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
+		if p.Id != (edgedb.UUID{}) {
+			if err := m.purgeFilestoreData(p.Id); err != nil {
+				return err
+			}
+		}
 		eg, pCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
@@ -112,25 +111,18 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				path := file.Path()
 				dir := path.Dir()
 				name := path.Filename()
-				parent, exists := parentCache[dir]
-				if !exists {
-					var err error
-					if parent, err = t.CreateParents(dir); err != nil {
-						return err
-					}
-					parentCache[dir] = parent
+				parent, errConflict := t.CreateParents(dir)
+				if errConflict != nil {
+					return errConflict
 				}
 				if fileRef := parent.GetFile(name); fileRef != nil {
-					if _, exists = preparedUpload[path]; !exists {
-						// The previous upload failed, retry.
+					if _, exists := openReader[path]; !exists {
+						// The previous tx iteration started an upload, retry.
 						f, err := file.Open()
 						if err != nil {
 							return errors.Tag(err, "cannot open file")
 						}
-						preparedUpload[path] = uploadContext{
-							fileRef: fileRef,
-							reader:  f,
-						}
+						openReader[path] = f
 					}
 					continue
 				}
@@ -152,11 +144,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						return errors.Tag(err, "cannot close file")
 					}
 					d := project.NewDoc(name)
-					dIsRootDoc := false
 					if path == "main.tex" ||
-						(rootDoc == nil && path.Type().ValidForRootDoc()) {
+						(rootDocPath == "" && path.Type().ValidForRootDoc()) {
 						if isRootDoc, title := scanContent(s); isRootDoc {
-							dIsRootDoc = true
+							rootDocPath = path
 							if request.HasDefaultName && title != "" {
 								p.Name = title
 							}
@@ -168,9 +159,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					d.Snapshot = string(s)
 					d.Size = int64(len(s))
 					parent.Docs = append(parent.Docs, d)
-					if dIsRootDoc {
-						rootDoc = &parent.Docs[len(parent.Docs)-1]
-					}
 				} else {
 					if consumedFile {
 						if f, err = seekToStart(file, f); err != nil {
@@ -179,33 +167,21 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						}
 					}
 					var hash sharedTypes.Hash
-					hash, err = fileTree.HashFile(f, size)
-					if err != nil {
-						_ = f.Close()
-						return err
-					}
-					if f, err = seekToStart(file, f); err != nil {
-						_ = f.Close()
-						return err
+					if hash = file.PreComputedHash(); hash == "" {
+						hash, err = fileTree.HashFile(f, size)
+						if err != nil {
+							_ = f.Close()
+							return err
+						}
+						if f, err = seekToStart(file, f); err != nil {
+							_ = f.Close()
+							return err
+						}
 					}
 					fileRef := project.NewFileRef(name, hash, size)
-					preparedUpload[path] = uploadContext{
-						fileRef: &fileRef,
-						reader:  f,
-					}
 					parent.FileRefs = append(parent.FileRefs, fileRef)
+					openReader[path] = f
 				}
-			}
-
-			if len(t.Docs)+len(t.FileRefs) == 0 && len(t.Folders) == 1 {
-				// This is a project with one top-level entry, a folder.
-				// Assume that this was single zipped-up folder.
-				// Skip one level of directories and clear the parent cache.
-				p.RootFolder = project.RootFolder{
-					Folder: t.Folders[0],
-				}
-				t = &p.RootFolder
-				parentCache = make(map[sharedTypes.DirName]*project.Folder)
 			}
 			return nil
 		})
@@ -216,8 +192,9 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		if err := m.pm.CreateProjectTree(ctx, p); err != nil {
 			return err
 		}
-		if rootDoc != nil {
-			p.RootDoc.Doc = *rootDoc
+		if rootDocPath != "" {
+			parent, _ := t.CreateParents(rootDocPath.Dir())
+			p.RootDoc.Doc.Id = parent.GetDoc(rootDocPath.Filename()).Id
 		}
 
 		eg, pCtx = errgroup.WithContext(ctx)
@@ -226,10 +203,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		for i := 0; i < parallelUploads; i++ {
 			uploadEg.Go(func() error {
 				for path := range uploadQueue {
-					fc := preparedUpload[path]
-					delete(preparedUpload, path)
-					f := fc.reader
-					fileRef := fc.fileRef
+					f := openReader[path]
+					delete(openReader, path)
+					parent, _ := t.CreateParents(path.Dir())
+					fileRef := parent.GetFile(path.Filename())
 					err := m.fm.SendStreamForProjectFile(
 						uploadCtx,
 						p.Id,
@@ -265,9 +242,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			return err
 		})
 		eg.Go(func() error {
-			for path := range preparedUpload {
+			for path := range openReader {
 				uploadQueue <- path
 			}
+			close(uploadQueue)
 			return nil
 		})
 		eg.Go(func() error {

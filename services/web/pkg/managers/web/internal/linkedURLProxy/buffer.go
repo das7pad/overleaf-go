@@ -41,6 +41,10 @@ func (b *bufferedFile) Path() sharedTypes.PathName {
 	return b.path
 }
 
+func (b *bufferedFile) PreComputedHash() sharedTypes.Hash {
+	return ""
+}
+
 func (b *bufferedFile) Open() (io.ReadCloser, error) {
 	if f := b.tempFile; f != nil {
 		// Give ownership on tempFile to caller.

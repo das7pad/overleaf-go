@@ -17,23 +17,8 @@
 package exampleProjects
 
 import (
-	"io"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
-
-type Doc struct {
-	Path     sharedTypes.PathName
-	Snapshot sharedTypes.Snapshot
-}
-
-type File struct {
-	Path   sharedTypes.PathName
-	Reader io.Reader
-	Size   int64
-	Hash   sharedTypes.Hash
-}
 
 func Get(name string) (*projectContent, error) {
 	p, exists := projects[name]

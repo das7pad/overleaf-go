@@ -83,6 +83,7 @@ type CreateProjectFile interface {
 	Size() int64
 	Path() sharedTypes.PathName
 	Open() (io.ReadCloser, error)
+	PreComputedHash() sharedTypes.Hash
 }
 
 type CreateProjectRequest struct {

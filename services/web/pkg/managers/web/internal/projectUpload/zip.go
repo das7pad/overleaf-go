@@ -20,6 +20,7 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -36,6 +37,10 @@ func (z *zipFile) Size() int64 {
 
 func (z *zipFile) Path() sharedTypes.PathName {
 	return sharedTypes.PathName(z.Name)
+}
+
+func (z *zipFile) PreComputedHash() sharedTypes.Hash {
+	return ""
 }
 
 func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error {
@@ -58,6 +63,8 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	}
 
 	files := make([]types.CreateProjectFile, 0, len(r.File))
+	topDir := ""
+	topDirSet := false
 	for _, file := range r.File {
 		mode := file.Mode()
 		if mode.IsDir() {
@@ -69,6 +76,21 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 			}
 		}
 		files = append(files, &zipFile{File: file})
+		if !topDirSet {
+			if idx := strings.IndexByte(file.Name, '/'); idx != -1 {
+				topDir = file.Name[:idx+1]
+			}
+			topDirSet = true
+		}
+		if topDir != "" && !strings.HasPrefix(file.Name, topDir) {
+			topDir = ""
+		}
+	}
+	if prefix := len(topDir); prefix != 0 {
+		for _, file := range files {
+			f := file.(*zipFile)
+			f.Name = f.Name[prefix:]
+		}
 	}
 
 	return m.CreateProject(ctx, &types.CreateProjectRequest{
