@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -41,6 +42,10 @@ func (z *zipFile) Path() sharedTypes.PathName {
 
 func (z *zipFile) PreComputedHash() sharedTypes.Hash {
 	return ""
+}
+
+func (z *zipFile) SourceElement() project.TreeElement {
+	return nil
 }
 
 func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error {
@@ -94,10 +99,11 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	}
 
 	return m.CreateProject(ctx, &types.CreateProjectRequest{
-		AddHeader:      request.AddHeader,
-		Files:          files,
-		HasDefaultName: request.HasDefaultName,
-		Name:           request.Name,
-		UserId:         request.Session.User.Id,
+		AddHeader:          request.AddHeader,
+		Files:              files,
+		HasDefaultName:     request.HasDefaultName,
+		Name:               request.Name,
+		SpellCheckLanguage: "inherit",
+		UserId:             request.Session.User.Id,
 	}, response)
 }

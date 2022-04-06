@@ -170,10 +170,6 @@ type FilesField struct {
 	Files []FileRef `edgedb:"files"`
 }
 
-type TreeField struct {
-	RootFolder []*Folder `json:"rootFolder" edgedb:"rootFolder"`
-}
-
 type VersionField struct {
 	Version sharedTypes.Version `json:"version" edgedb:"version"`
 }

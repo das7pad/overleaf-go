@@ -19,10 +19,11 @@ package projectInvite
 import (
 	"context"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -54,7 +55,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 			!(d.PrivilegeLevel.IsAtLeast(level) && d.IsTokenMember == false)
 
 		// TODO: merge into a single query
-		err = mongoTx.For(m.db, ctx, func(ctx context.Context) error {
+		err = m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 			if grantAccess {
 				err = m.pm.GrantMemberAccess(
 					ctx, projectId, epoch, userId, level,

@@ -20,8 +20,6 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
@@ -54,11 +52,9 @@ type Manager interface {
 	SettingsPage(ctx context.Context, request *types.SettingsPageRequest, response *types.SettingsPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
 		c:               c,
-		client:          client,
-		db:              db,
 		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
 		options:         options,
@@ -71,8 +67,6 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 
 type manager struct {
 	c               *edgedb.Client
-	client          redis.UniversalClient
-	db              *mongo.Database
 	emailOptions    *types.EmailOptions
 	jwtLoggedInUser jwtHandler.JWTHandler
 	options         *types.Options

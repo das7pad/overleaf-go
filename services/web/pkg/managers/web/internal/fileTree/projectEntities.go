@@ -37,11 +37,11 @@ func (m *manager) GetProjectEntities(ctx context.Context, request *types.GetProj
 	nDocs := len(p.Docs)
 	entities := make([]types.GetProjectEntitiesEntry, nDocs+len(p.Files))
 	for i, doc := range p.Docs {
-		entities[i].Path = string("/" + doc.Path)
+		entities[i].Path = string("/" + doc.ResolvedPath)
 		entities[i].Type = "doc"
 	}
 	for i, file := range p.Files {
-		entities[nDocs+i].Path = string("/" + file.Path)
+		entities[nDocs+i].Path = string("/" + file.ResolvedPath)
 		entities[nDocs+i].Type = "file"
 	}
 	response.Entities = entities

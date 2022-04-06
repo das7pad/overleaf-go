@@ -54,7 +54,7 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 		for i, doc := range docs {
 			updates[i] = documentUpdaterTypes.NewRenameDocUpdate(
 				doc.Id,
-				doc.Path,
+				doc.ResolvedPath,
 			).ToGeneric()
 		}
 		p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{

@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -35,18 +34,16 @@ type Manager interface {
 	TokenAccessPage(ctx context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error
 }
 
-func New(ps *templates.PublicSettings, client redis.UniversalClient, pm project.Manager) Manager {
+func New(ps *templates.PublicSettings, pm project.Manager) Manager {
 	return &manager{
-		client: client,
-		pm:     pm,
-		ps:     ps,
+		pm: pm,
+		ps: ps,
 	}
 }
 
 type manager struct {
-	client redis.UniversalClient
-	pm     project.Manager
-	ps     *templates.PublicSettings
+	pm project.Manager
+	ps *templates.PublicSettings
 }
 
 func (m *manager) GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {

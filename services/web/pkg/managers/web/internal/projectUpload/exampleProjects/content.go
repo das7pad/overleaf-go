@@ -22,6 +22,7 @@ import (
 	"text/template"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -54,6 +55,10 @@ func (f *renderedTextFile) PreComputedHash() sharedTypes.Hash {
 	return ""
 }
 
+func (f *renderedTextFile) SourceElement() project.TreeElement {
+	return nil
+}
+
 type binaryFile struct {
 	path sharedTypes.PathName
 	blob []byte
@@ -75,6 +80,10 @@ func (f *binaryFile) Path() sharedTypes.PathName {
 
 func (f *binaryFile) PreComputedHash() sharedTypes.Hash {
 	return f.hash
+}
+
+func (f *binaryFile) SourceElement() project.TreeElement {
+	return nil
 }
 
 type projectContent struct {

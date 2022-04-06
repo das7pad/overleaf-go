@@ -20,7 +20,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
@@ -30,8 +29,4 @@ type CloneProjectRequest struct {
 	Name      project.Name     `json:"projectName"`
 }
 
-type CloneProjectResponse struct {
-	ProjectId *edgedb.UUID         `json:"project_id,omitempty"`
-	Name      project.Name         `json:"name,omitempty"`
-	Owner     *user.WithPublicInfo `json:"owner,omitempty"`
-}
+type CloneProjectResponse = CreateProjectResponse

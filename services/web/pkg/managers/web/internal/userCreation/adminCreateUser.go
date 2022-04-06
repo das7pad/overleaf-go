@@ -22,10 +22,11 @@ import (
 	"encoding/hex"
 	"net/url"
 
+	"github.com/edgedb/edgedb-go"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -54,14 +55,12 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 
 	var u *user.ForCreation
 	var t oneTimeToken.OneTimeToken
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		var err error
-		u, err = m.createUser(sCtx, r.Email, pw, "")
-		if err != nil {
+		if u, err = m.createUser(ctx, r.Email, pw, ""); err != nil {
 			return err
 		}
-		t, err = m.oTTm.NewForPasswordSet(sCtx, u.Id, r.Email)
-		if err != nil {
+		if t, err = m.oTTm.NewForPasswordSet(ctx, u.Id, r.Email); err != nil {
 			return err
 		}
 		return nil

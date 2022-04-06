@@ -48,8 +48,9 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		return errors.Tag(err, "cannot render template")
 	}
 	return m.CreateProject(ctx, &types.CreateProjectRequest{
-		Files:  files,
-		Name:   request.Name,
-		UserId: request.Session.User.Id,
+		Files:              files,
+		Name:               request.Name,
+		SpellCheckLanguage: "inherit",
+		UserId:             request.Session.User.Id,
 	}, response)
 }

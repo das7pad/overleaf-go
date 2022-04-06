@@ -17,7 +17,6 @@
 package project
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -56,7 +55,7 @@ type DocWithParent struct {
 
 type Doc struct {
 	CommonTreeFields `edgedb:"$inline"`
-	Path             sharedTypes.PathName `edgedb:"resolved_path"`
+	ResolvedPath     sharedTypes.PathName `edgedb:"resolved_path"`
 	Size             int64                `json:"size" edgedb:"size"`
 	Snapshot         string               `json:"snapshot" edgedb:"snapshot"`
 	Version          sharedTypes.Version  `json:"version" edgedb:"version"`
@@ -103,7 +102,7 @@ type FileWithParent struct {
 
 type FileRef struct {
 	CommonTreeFields `edgedb:"$inline"`
-	Path             sharedTypes.PathName `edgedb:"resolved_path"`
+	ResolvedPath     sharedTypes.PathName `edgedb:"resolved_path"`
 
 	LinkedFileData LinkedFileData   `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
@@ -159,9 +158,9 @@ func NewFolder(name sharedTypes.Filename) Folder {
 		CommonTreeFields: CommonTreeFields{
 			Name: name,
 		},
-		Docs:     make([]Doc, 0),
-		FileRefs: make([]FileRef, 0),
-		Folders:  make([]Folder, 0),
+		Docs:     make([]Doc, 0, 10),
+		FileRefs: make([]FileRef, 0, 10),
+		Folders:  make([]Folder, 0, 10),
 	}
 }
 
@@ -292,18 +291,6 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 		}
 	}
 	return nil
-}
-
-func (p *TreeField) GetRootFolder() (*Folder, error) {
-	if len(p.RootFolder) != 1 {
-		return nil, &errors.ValidationError{
-			Msg: fmt.Sprintf(
-				"expected rootFolder to have 1 entry, got %d",
-				len(p.RootFolder),
-			),
-		}
-	}
-	return p.RootFolder[0], nil
 }
 
 func (p *ForTree) GetRootFolder() *Folder {

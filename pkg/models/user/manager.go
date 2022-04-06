@@ -518,18 +518,6 @@ limit 1`
 	return nil
 }
 
-func (m *manager) getUser(ctx context.Context, filter interface{}, target interface{}) error {
-	err := m.col.FindOne(
-		ctx,
-		filter,
-		options.FindOne().SetProjection(getProjection(target)),
-	).Decode(target)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
-}
-
 func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error {
 	err := m.c.QuerySingle(ctx, `
 select User {

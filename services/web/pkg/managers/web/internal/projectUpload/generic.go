@@ -36,6 +36,11 @@ const (
 	parallelUploads = 5
 )
 
+type uploadQueueEntry struct {
+	reader       io.ReadCloser
+	sourceFileId edgedb.UUID
+}
+
 func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
 	if seeker, ok := f.(io.Seeker); ok {
 		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
@@ -58,11 +63,15 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		return err
 	}
 	p := project.NewProject(request.UserId)
-	p.Name = request.Name
-	p.ImageName = m.options.DefaultImage
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
 	}
+	p.ImageName = m.options.DefaultImage
+	if request.ImageName == "" {
+		p.ImageName = request.ImageName
+	}
+	p.Name = request.Name
+	p.SpellCheckLanguage = request.SpellCheckLanguage
 
 	var existingProjectNames project.Names
 	getProjectNames := pendingOperation.TrackOperationWithCancel(
@@ -78,14 +87,16 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	)
 	defer getProjectNames.Cancel()
 
-	openReader := make(map[sharedTypes.PathName]io.ReadCloser)
+	openReader := make(map[sharedTypes.PathName]uploadQueueEntry)
 	defer func() {
 		for _, q := range openReader {
-			_ = q.Close()
+			if f := q.reader; f != nil {
+				_ = f.Close()
+			}
 		}
 	}()
 	t := &p.RootFolder
-	var rootDocPath sharedTypes.PathName
+	rootDocPath := request.RootDocPath
 
 	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		if p.Id != (edgedb.UUID{}) {
@@ -122,11 +133,23 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						if err != nil {
 							return errors.Tag(err, "cannot open file")
 						}
-						openReader[path] = f
+						openReader[path] = uploadQueueEntry{reader: f}
 					}
 					continue
 				}
 				if d := parent.GetDoc(name); d != nil {
+					continue
+				}
+				if e := file.SourceElement(); e != nil {
+					switch el := e.(type) {
+					case project.Doc:
+						parent.Docs = append(parent.Docs, el)
+					case project.FileRef:
+						parent.FileRefs = append(parent.FileRefs, el)
+						openReader[path] = uploadQueueEntry{
+							sourceFileId: el.Id,
+						}
+					}
 					continue
 				}
 				size := file.Size()
@@ -180,7 +203,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					}
 					fileRef := project.NewFileRef(name, hash, size)
 					parent.FileRefs = append(parent.FileRefs, fileRef)
-					openReader[path] = f
+					openReader[path] = uploadQueueEntry{reader: f}
 				}
 			}
 			return nil
@@ -203,20 +226,33 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		for i := 0; i < parallelUploads; i++ {
 			uploadEg.Go(func() error {
 				for path := range uploadQueue {
-					f := openReader[path]
-					delete(openReader, path)
+					e := openReader[path]
 					parent, _ := t.CreateParents(path.Dir())
 					fileRef := parent.GetFile(path.Filename())
+					if e.reader == nil {
+						err := m.fm.CopyProjectFile(
+							uploadCtx,
+							request.SourceProjectId,
+							e.sourceFileId,
+							p.Id,
+							fileRef.Id,
+						)
+						if err != nil {
+							return errors.Tag(err, "cannot copy file")
+						}
+						continue
+					}
+					delete(openReader, path)
 					err := m.fm.SendStreamForProjectFile(
 						uploadCtx,
 						p.Id,
 						fileRef.Id,
-						f,
+						e.reader,
 						objectStorage.SendOptions{
 							ContentSize: fileRef.Size,
 						},
 					)
-					errClose := f.Close()
+					errClose := e.reader.Close()
 					if err != nil {
 						return errors.Tag(err, "cannot upload file")
 					}

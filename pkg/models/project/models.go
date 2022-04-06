@@ -150,9 +150,8 @@ type ForClone struct {
 	ForAuthorizationDetails `edgedb:"$inline"`
 	CompilerField           `edgedb:"$inline"`
 	ImageNameField          `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
-	RootDocIdField          `edgedb:"$inline"`
+	RootDocField            `edgedb:"$inline"`
 	SpellCheckLanguageField `edgedb:"$inline"`
-	TreeField               `edgedb:"$inline"`
-	VersionField            `edgedb:"$inline"`
+	DocsField               `edgedb:"$inline"`
+	FilesField              `edgedb:"$inline"`
 }

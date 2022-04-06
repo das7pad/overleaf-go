@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types/internal/conflictChecker"
 )
 
@@ -84,15 +85,20 @@ type CreateProjectFile interface {
 	Path() sharedTypes.PathName
 	Open() (io.ReadCloser, error)
 	PreComputedHash() sharedTypes.Hash
+	SourceElement() project.TreeElement
 }
 
 type CreateProjectRequest struct {
-	AddHeader      AddHeaderFn
-	Compiler       sharedTypes.Compiler
-	Files          []CreateProjectFile
-	HasDefaultName bool
-	Name           project.Name
-	UserId         edgedb.UUID
+	AddHeader          AddHeaderFn
+	Compiler           sharedTypes.Compiler
+	Files              []CreateProjectFile
+	HasDefaultName     bool
+	ImageName          sharedTypes.ImageName
+	Name               project.Name
+	RootDocPath        sharedTypes.PathName
+	SourceProjectId    edgedb.UUID
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage
+	UserId             edgedb.UUID
 }
 
 func (r *CreateProjectRequest) Validate() error {

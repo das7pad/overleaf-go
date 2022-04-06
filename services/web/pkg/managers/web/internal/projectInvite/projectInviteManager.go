@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
@@ -49,10 +47,9 @@ type Manager interface {
 	ViewProjectInvite(ctx context.Context, request *types.ViewProjectInvitePageRequest, response *types.ViewProjectInvitePageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
 	return &manager{
-		client:       client,
-		db:           db,
+		c:            c,
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),
 		nm:           notification.New(c),
@@ -65,8 +62,7 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 }
 
 type manager struct {
-	client       redis.UniversalClient
-	db           *mongo.Database
+	c            *edgedb.Client
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions
 	nm           notification.Manager

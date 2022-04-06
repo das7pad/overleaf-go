@@ -156,9 +156,10 @@ type docForInsertion struct {
 }
 
 type fileForInsertion struct {
-	Name sharedTypes.Filename `json:"name"`
-	Size int64                `json:"size"`
-	Hash sharedTypes.Hash     `json:"hash"`
+	Name           sharedTypes.Filename `json:"name"`
+	Size           int64                `json:"size"`
+	Hash           sharedTypes.Hash     `json:"hash"`
+	LinkedFileData []LinkedFileData     `json:"linked_file_data"`
 }
 
 type folderForInsertion struct {
@@ -319,6 +320,13 @@ for name in array_unpack(<array<str>>$2) union (
 					fi.Files[i].Name = f.FileRefs[i].Name
 					fi.Files[i].Size = f.FileRefs[i].Size
 					fi.Files[i].Hash = f.FileRefs[i].Hash
+					if f.FileRefs[i].LinkedFileData.Provider != "" {
+						fi.Files[i].LinkedFileData = []LinkedFileData{
+							f.FileRefs[i].LinkedFileData,
+						}
+					} else {
+						fi.Files[i].LinkedFileData = make([]LinkedFileData, 0)
+					}
 				}
 				folders = append(folders, &fi)
 			}
@@ -361,6 +369,20 @@ for folder in json_array_unpack(<json>$1) union (
 				name := <str>file['name'],
 				size := <int64>file['size'],
 				hash := <str>file['hash'],
+				linked_file_data := assert_single((
+					for entry in json_array_unpack(file['linked_file_data']) union (
+						insert LinkedFileData {
+							provider := <str>entry['provider'],
+							source_project_id := <str>json_get(
+								entry, 'source_project_id') ?? '',
+							source_entity_path := <str>json_get(
+								entry, 'source_entity_path') ?? '',
+							source_output_file_path := <str>json_get(
+								entry, 'source_output_file_path') ?? '',
+							url := <str>json_get(entry, 'url') ?? '',
+						}
+					)
+				)),
 	  		}
 		)
 	)
@@ -534,7 +556,7 @@ type setRootDocResult struct {
 
 func (m *manager) SetRootDoc(ctx context.Context, projectId, userId, rootDocId edgedb.UUID) error {
 	r := setRootDocResult{}
-	err := m.c.Query(ctx, `
+	err := m.c.QuerySingle(ctx, `
 with
 	p := (select Project filter .id = <uuid>$0),
 	u := (select User filter .id = <uuid>$2),
@@ -549,7 +571,7 @@ with
 		   .name LIKE '%.tex' or .name LIKE '%.rtex' or .name LIKE '%.ltex'
 		)
 	),
-	pUpdated := (update newRootDoc.project set { root_doc := newRootDoc })
+	pUpdated := (update newRootDoc.project set { root_doc := d })
 select {
 	project_exists := exists p,
 	auth_check := exists pWithAuth,
@@ -1971,6 +1993,7 @@ select {
 			},
 			folders,
 		},
+		spell_check_language,
 		tokens: {
 			token_ro,
 			token_rw,
@@ -2100,6 +2123,41 @@ select Project {
 	name,
 	owner,
 	public_access_level,
+}
+filter .id = <uuid>$0
+`
+	case *ForClone:
+		q = `
+select Project {
+	access_ro,
+	access_rw,
+	access_token_ro,
+	access_token_rw,
+	compiler,
+	docs: {
+		name,
+		resolved_path,
+		snapshot,
+	},
+	files: {
+		hash,
+		id,
+		linked_file_data: {
+			provider,
+			source_project_id,
+			source_entity_path,
+			source_output_file_path,
+			url,
+		},
+		name,
+		resolved_path,
+		size,
+	},
+	image_name,
+	owner,
+	public_access_level,
+	root_doc: { resolved_path },
+	spell_check_language,
 }
 filter .id = <uuid>$0
 `

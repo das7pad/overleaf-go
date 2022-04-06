@@ -151,13 +151,13 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		mm, dm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
-	lm := login.New(options, ps, c, client, db, um, loggedInUserJWTHandler, sm)
+	lm := login.New(options, ps, c, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(ps, editorEvents, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
 	tagM := tag.New(tm)
-	tam := tokenAccess.New(ps, client, pm)
+	tam := tokenAccess.New(ps, pm)
 	pim := projectInvite.New(
-		options, ps, c, client, db, editorEvents, pm, um,
+		options, ps, c, editorEvents, pm, um,
 	)
 	ftm := fileTree.New(c, pm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, c, db, pm, um, dm, dum, fm)
@@ -171,7 +171,7 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	pDelM := projectDeletion.New(db, pm, dm, dum, fm)
 	uDelM := userDeletion.New(db, pm, um, pDelM)
 	ipm := inactiveProject.New(options, pm, dm)
-	ucm := userCreation.New(options, ps, c, db, um, lm)
+	ucm := userCreation.New(options, ps, c, um, lm)
 	rm := review.New(pm, um, mm, dm, dum, editorEvents)
 	am := admin.New(ps, c)
 	learnM, err := learn.New(options, ps, proxy)

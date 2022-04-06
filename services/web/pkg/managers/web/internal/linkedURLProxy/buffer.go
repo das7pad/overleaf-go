@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -43,6 +44,10 @@ func (b *bufferedFile) Path() sharedTypes.PathName {
 
 func (b *bufferedFile) PreComputedHash() sharedTypes.Hash {
 	return ""
+}
+
+func (b *bufferedFile) SourceElement() project.TreeElement {
+	return nil
 }
 
 func (b *bufferedFile) Open() (io.ReadCloser, error) {

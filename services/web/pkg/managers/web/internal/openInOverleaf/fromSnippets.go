@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -54,6 +55,10 @@ func (f *projectFile) Open() (io.ReadCloser, error) {
 
 func (f *projectFile) PreComputedHash() sharedTypes.Hash {
 	return ""
+}
+
+func (f *projectFile) SourceElement() project.TreeElement {
+	return nil
 }
 
 const parallelDownloads = 5
@@ -125,11 +130,12 @@ func (m *manager) createFromSnippets(ctx context.Context, request *types.OpenInO
 	}
 
 	return m.pum.CreateProject(ctx, &types.CreateProjectRequest{
-		AddHeader:      m.addHeader,
-		Compiler:       request.Compiler,
-		Files:          files,
-		HasDefaultName: request.HasDefaultName,
-		Name:           request.ProjectName,
-		UserId:         request.Session.User.Id,
+		AddHeader:          m.addHeader,
+		Compiler:           request.Compiler,
+		Files:              files,
+		HasDefaultName:     request.HasDefaultName,
+		Name:               request.ProjectName,
+		SpellCheckLanguage: "inherit",
+		UserId:             request.Session.User.Id,
 	}, response)
 }

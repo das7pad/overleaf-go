@@ -41,7 +41,7 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UU
 	}
 	return &types.FlushedDoc{
 		Snapshot: d.Snapshot,
-		PathName: d.Path,
+		PathName: d.ResolvedPath,
 		Version:  d.Version,
 	}, nil
 }
