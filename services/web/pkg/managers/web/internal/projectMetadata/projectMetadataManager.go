@@ -28,7 +28,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -40,12 +39,11 @@ type Manager interface {
 	GetMetadataForDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
 }
 
-func New(client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager) Manager {
+func New(client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, dum documentUpdater.Manager) Manager {
 	return &manager{
 		client: client,
 		c:      editorEvents,
 		pm:     pm,
-		dm:     dm,
 		dum:    dum,
 	}
 }
@@ -54,7 +52,6 @@ type manager struct {
 	client redis.UniversalClient
 	c      channel.Writer
 	pm     project.Manager
-	dm     docstore.Manager
 	dum    documentUpdater.Manager
 }
 

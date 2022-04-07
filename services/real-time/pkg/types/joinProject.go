@@ -47,7 +47,7 @@ type JoinProjectDetails struct {
 	project.RootDocIdField
 	project.TokensField
 	project.VersionField
-	RootFolder []*project.Folder      `edgedb:"root_folder"`
+	RootFolder []*project.Folder      `json:"rootFolder"`
 	Features   user.Features          `json:"features"`
 	Members    []user.AsProjectMember `json:"members"`
 	Owner      user.WithPublicInfo    `json:"owner"`

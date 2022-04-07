@@ -18,7 +18,6 @@ package projectDeletion
 
 import (
 	"context"
-	"log"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -53,12 +52,6 @@ func (m *manager) DeleteProjectInTx(ctx, sCtx context.Context, request *types.De
 	}
 	if err := m.dum.FlushAndDeleteProject(ctx, projectId); err != nil {
 		return errors.Tag(err, "cannot flush project")
-	}
-	if err := m.dm.ArchiveProject(ctx, projectId); err != nil {
-		// NOTE: Archiving the docs here is an optimization.
-		//       They will get deleted from both mongo/s3 on hard deletion.
-		err = errors.Tag(err, "cannot archive project")
-		log.Printf("%s: %s", projectId.String(), err)
 	}
 
 	if err := m.pm.SoftDelete(sCtx, projectId, userId, ipAddress); err != nil {

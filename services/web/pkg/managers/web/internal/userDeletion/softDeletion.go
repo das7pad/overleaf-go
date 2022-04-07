@@ -20,13 +20,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -36,8 +36,8 @@ const parallelDeletion = 5
 
 type forProjectListing struct {
 	user.ProjectListViewCaller `edgedb:"$inline"`
-	Tags                       []tag.Full                 `edgedb:"tags"`
-	Projects                   []*project.ListViewPrivate `edgedb:"projects"`
+	Tags                       []tag.Full                `edgedb:"tags"`
+	Projects                   []project.ListViewPrivate `edgedb:"projects"`
 }
 
 func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserRequest) error {
@@ -47,19 +47,19 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	userId := request.Session.User.Id
 	ipAddress := request.IPAddress
 
-	u := &user.ForDeletion{}
+	u := &user.HashedPasswordField{}
 	if err := m.um.GetUser(ctx, userId, u); err != nil {
 		if errors.IsNotFoundError(err) {
 			m.destroySessionInBackground(request.Session)
 		}
 		return errors.Tag(err, "cannot get user")
 	}
-	errPW := login.CheckPassword(&u.HashedPasswordField, request.Password)
+	errPW := login.CheckPassword(u, request.Password)
 	if errPW != nil {
 		return errPW
 	}
 
-	err := mongoTx.For(m.db, ctx, func(sCtx context.Context) error {
+	err := m.c.Tx(ctx, func(sCtx context.Context, _ *edgedb.Tx) error {
 		projects := &forProjectListing{}
 		{
 			err := m.um.ListProjects(ctx, userId, projects)
@@ -68,7 +68,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 			}
 		}
 
-		queue := make(chan *project.ListViewPrivate, parallelDeletion)
+		queue := make(chan project.ListViewPrivate, parallelDeletion)
 		eg, pCtx := errgroup.WithContext(sCtx)
 		go func() {
 			<-pCtx.Done()
@@ -90,6 +90,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 			eg.Go(func() error {
 				for p := range queue {
 					if p.Owner.Id == userId {
+						// TODO: soft delete in bulk
 						err := m.pDelM.DeleteProjectInTx(
 							ctx, pCtx, &types.DeleteProjectRequest{
 								Session:   request.Session,
@@ -131,18 +132,11 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 			}
 			return nil
 		})
-
-		eg.Go(func() error {
-			if err := m.delUM.Create(pCtx, u, userId, ipAddress); err != nil {
-				return errors.Tag(err, "cannot create deleted user")
-			}
-			return nil
-		})
 		if err := eg.Wait(); err != nil {
 			return err
 		}
 
-		if err := m.um.Delete(sCtx, userId, u.Epoch); err != nil {
+		if err := m.um.SoftDelete(sCtx, userId, ipAddress); err != nil {
 			return errors.Tag(err, "cannot delete user")
 		}
 		return nil

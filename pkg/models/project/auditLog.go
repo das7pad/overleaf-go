@@ -22,16 +22,9 @@ import (
 	"github.com/edgedb/edgedb-go"
 )
 
-const MaxAuditLogEntries = 200
-
 type AuditLogEntry struct {
 	Info        interface{} `edgedb:"info"`
 	InitiatorId edgedb.UUID `edgedb:"initiatorId"`
 	Operation   string      `edgedb:"operation"`
 	Timestamp   time.Time   `edgedb:"timestamp"`
-}
-
-type transferOwnershipAuditLogInfo struct {
-	PreviousOwnerId edgedb.UUID `edgedb:"previousOwnerId"`
-	NewOwnerId      edgedb.UUID `edgedb:"newOwnerId"`
 }

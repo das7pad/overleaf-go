@@ -32,10 +32,10 @@ type DocUpdateBounds struct {
 }
 
 type DocUpdateMeta struct {
-	UserIds []edgedb.UUID                          `json:"user_ids,omitempty"`
-	Users   []*user.WithPublicInfoAndNonStandardId `json:"users,omitempty"`
-	StartTs sharedTypes.Timestamp                  `json:"start_ts"`
-	EndTs   sharedTypes.Timestamp                  `json:"end_ts"`
+	UserIds []edgedb.UUID                         `json:"user_ids,omitempty"`
+	Users   []user.WithPublicInfoAndNonStandardId `json:"users,omitempty"`
+	StartTs sharedTypes.Timestamp                 `json:"start_ts"`
+	EndTs   sharedTypes.Timestamp                 `json:"end_ts"`
 }
 
 type Update struct {

@@ -24,13 +24,11 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
-
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type monolithManager struct {
-	dm docstore.Manager
+	dm doc.Manager
 	pm project.Manager
 }
 
@@ -47,7 +45,7 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UU
 }
 
 func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, d *doc.ForDocUpdate) error {
-	_, err := m.dm.UpdateDoc(ctx, projectId, docId, d)
+	err := m.dm.UpdateDoc(ctx, projectId, docId, d)
 	if err != nil {
 		return errors.Tag(err, "cannot set doc in mongo")
 	}

@@ -48,19 +48,3 @@ type ErrorDocNotFound struct {
 func (e ErrorDocNotFound) Error() string {
 	return "doc not found"
 }
-
-type ErrorDocArchived struct {
-}
-
-func (e ErrorDocArchived) Error() string {
-	return "doc is archived"
-}
-
-func IsDocArchivedError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, isArchivedErr := err.(*ErrorDocArchived)
-	return isArchivedErr
-}

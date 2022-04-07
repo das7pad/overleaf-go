@@ -111,10 +111,10 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 	}
 	for _, entry := range res.Updates {
 		entry.Meta.Users = make(
-			[]*user.WithPublicInfoAndNonStandardId, 0, len(entry.Meta.UserIds),
+			[]user.WithPublicInfoAndNonStandardId, 0, len(entry.Meta.UserIds),
 		)
 		for _, id := range entry.Meta.UserIds {
-			if usr := users[id]; usr != nil {
+			if usr, ok := users[id]; ok {
 				entry.Meta.Users = append(entry.Meta.Users, usr)
 			}
 		}
@@ -149,7 +149,8 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 			continue
 		}
 		if entry.Meta.UserId != nil {
-			entry.Meta.User = users[*entry.Meta.UserId]
+			usr := users[*entry.Meta.UserId]
+			entry.Meta.User = &usr
 			entry.Meta.UserId = nil
 		}
 	}

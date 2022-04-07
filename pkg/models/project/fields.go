@@ -43,10 +43,6 @@ type AccessTokenReadOnlyField struct {
 	AccessTokenReadOnly Refs `edgedb:"access_token_ro"`
 }
 
-type ActiveField struct {
-	Active bool `edgedb:"active"`
-}
-
 type ArchivedByField struct {
 	ArchivedBy Refs `edgedb:"archived"`
 }

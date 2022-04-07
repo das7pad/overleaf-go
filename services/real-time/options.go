@@ -18,11 +18,9 @@ package main
 
 import (
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -31,8 +29,6 @@ import (
 type realTimeOptions struct {
 	address      string
 	jwtOptions   jwtOptions.JWTOptions
-	mongoOptions *options.ClientOptions
-	dbName       string
 	redisOptions *redis.UniversalOptions
 	options      *types.Options
 }
@@ -42,7 +38,6 @@ func getOptions() *realTimeOptions {
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(3026)
 	o.jwtOptions = jwtOptions.Parse("JWT_REAL_TIME_VERIFY_SECRET")
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 	return o
 }

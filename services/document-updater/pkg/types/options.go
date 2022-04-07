@@ -19,7 +19,6 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 )
 
 type Options struct {
@@ -27,9 +26,6 @@ type Options struct {
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
 
 	APIs struct {
-		Docstore struct {
-			Options *docstoreTypes.Options `json:"options"`
-		} `json:"docstore"`
 		TrackChanges struct {
 			URL sharedTypes.URL `json:"url"`
 		} `json:"track_changes"`
@@ -50,9 +46,6 @@ func (o *Options) Validate() error {
 
 	if err := o.APIs.TrackChanges.URL.Validate(); err != nil {
 		return errors.Tag(err, "track_changes.url is invalid")
-	}
-	if err := o.APIs.Docstore.Options.Validate(); err != nil {
-		return errors.Tag(err, "docstore.options is invalid")
 	}
 	return nil
 }

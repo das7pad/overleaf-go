@@ -28,6 +28,7 @@ const (
 	AuditLogOperationLogin              = "login"
 	AuditLogOperationResetPassword      = "reset-password"
 	AuditLogOperationUpdatePassword     = "update-password"
+	AuditLogOperationSoftDeletion       = "soft-deletion"
 )
 
 type AuditLogEntry struct {

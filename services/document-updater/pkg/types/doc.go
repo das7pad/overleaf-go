@@ -106,8 +106,7 @@ func (d *Doc) ToSetDocDetails() *doc.ForDocUpdate {
 	)
 	return &doc.ForDocUpdate{
 		Snapshot:      d.Snapshot,
-		RangesField:   doc.RangesField{Ranges: d.Ranges},
-		VersionField:  doc.VersionField{Version: d.Version},
+		Version:       d.Version,
 		LastUpdatedAt: t,
 		LastUpdatedBy: d.LastUpdatedCtx.By,
 	}

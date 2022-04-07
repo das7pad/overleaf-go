@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,11 +14,21 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package migrations
+package edgedbTx
 
 import (
-	_ "github.com/das7pad/overleaf-go/cmd/migrate/internal/migrations/20220102130000_docVersion_stage2"
-	_ "github.com/das7pad/overleaf-go/cmd/migrate/internal/migrations/20220102130000_docVersion_stage4"
-	_ "github.com/das7pad/overleaf-go/cmd/migrate/internal/migrations/20220126233000_users_signUpDate_typo"
-	_ "github.com/das7pad/overleaf-go/cmd/migrate/internal/migrations/20220129191000_epoch_init"
+	"context"
+
+	"github.com/edgedb/edgedb-go"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
+
+var errInTx = errors.New("operation not available: in tx")
+
+func CheckNotInTx(ctx context.Context) error {
+	if _, ok := edgedb.TxFromContext(ctx); ok {
+		return errInTx
+	}
+	return nil
+}

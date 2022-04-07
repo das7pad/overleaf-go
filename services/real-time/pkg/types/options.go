@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
@@ -33,9 +32,6 @@ type Options struct {
 	} `json:"graceful_shutdown"`
 
 	APIs struct {
-		Docstore struct {
-			Options *docstoreTypes.Options `json:"options"`
-		} `json:"docstore"`
 		DocumentUpdater struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
 		} `json:"document_updater"`
@@ -57,9 +53,6 @@ func (o *Options) Validate() error {
 
 	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
 		return errors.Tag(err, "apis.document_updater.options is invalid")
-	}
-	if err := o.APIs.Docstore.Options.Validate(); err != nil {
-		return errors.Tag(err, "apis.docstore.options is invalid")
 	}
 	return nil
 }

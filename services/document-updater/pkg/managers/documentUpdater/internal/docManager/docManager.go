@@ -23,7 +23,6 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -60,7 +59,7 @@ type Manager interface {
 	QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 	rl, err := redisLocker.New(client)
 	if err != nil {
 		return nil, err
@@ -70,7 +69,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 	if err != nil {
 		return nil, err
 	}
-	web, err := webApi.New(options, c, db)
+	web, err := webApi.New(c)
 	if err != nil {
 		return nil, err
 	}

@@ -30,6 +30,7 @@ module default {
   }
 
   type User {
+    property deleted_at -> datetime;
     multi link audit_log -> UserAuditLogEntry {
       on target delete allow;
     }
@@ -124,9 +125,6 @@ module default {
 
   type Project {
     property deleted_at -> datetime;
-    required property active -> bool {
-      default := true;
-    }
     required property version -> int64 {
       default := 1;
     }
@@ -183,6 +181,7 @@ module default {
 
     multi link invites := .<project[is ProjectInvite];
 
+    // TODO: filter out deleted users
     multi link min_access_ro := distinct (
       {.owner}
       union .access_ro union .access_rw
@@ -260,9 +259,6 @@ module default {
   type Doc extending ContentElement {
     required property snapshot -> str;
     required property version -> int64;
-    required property in_s3 -> bool {
-      default := false;
-    }
   }
 
   type LinkedFileData {

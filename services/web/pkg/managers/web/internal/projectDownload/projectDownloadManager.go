@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -31,9 +30,8 @@ type Manager interface {
 	CreateProjectZIP(ctx context.Context, request *types.CreateProjectZIPRequest, response *types.CreateProjectZIPResponse) error
 }
 
-func New(pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
+func New(pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
-		dm:  dm,
 		dum: dum,
 		fm:  fm,
 		pm:  pm,
@@ -41,7 +39,6 @@ func New(pm project.Manager, dm docstore.Manager, dum documentUpdater.Manager, f
 }
 
 type manager struct {
-	dm  docstore.Manager
 	dum documentUpdater.Manager
 	fm  filestore.Manager
 	pm  project.Manager

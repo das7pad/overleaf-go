@@ -20,19 +20,14 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
-
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type documentUpdaterOptions struct {
 	address      string
-	mongoOptions *options.ClientOptions
-	dbName       string
 	redisOptions *redis.UniversalOptions
 	options      *types.Options
 }
@@ -41,7 +36,6 @@ func getOptions() *documentUpdaterOptions {
 	o := &documentUpdaterOptions{}
 	utils.ParseJSONFromEnv("OPTIONS", &o.options)
 	o.address = listenAddress.Parse(3003)
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 	return o
 }

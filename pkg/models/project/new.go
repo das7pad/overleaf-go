@@ -31,9 +31,6 @@ const (
 
 func NewProject(ownerId edgedb.UUID) *ForCreation {
 	return &ForCreation{
-		ActiveField: ActiveField{
-			Active: true,
-		},
 		CompilerField: CompilerField{
 			Compiler: DefaultCompiler,
 		},

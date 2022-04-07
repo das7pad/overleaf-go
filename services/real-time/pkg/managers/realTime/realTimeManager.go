@@ -24,7 +24,6 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -46,7 +45,7 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(ctx context.Context, options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
@@ -60,11 +59,11 @@ func New(ctx context.Context, options *types.Options, c *edgedb.Client, client r
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	w, err := webApi.New(options, c, db)
+	w, err := webApi.New(c)
 	if err != nil {
 		return nil, err
 	}
-	d, err := documentUpdater.New(options, c, client, db)
+	d, err := documentUpdater.New(options, c, client)
 	if err != nil {
 		return nil, err
 	}

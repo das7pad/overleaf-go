@@ -43,7 +43,7 @@ func (m *manager) emailSecurityAlert(ctx context.Context, u *user.WithPublicInfo
 		Content: &email.NoCTAContent{
 			PublicOptions: m.emailOptions.Public,
 			Message:       email.Message{msg1, msg2, msg3},
-			Title:         strings.Title(string(action[0])) + action[1:],
+			Title:         strings.ToTitle(string(action[0])) + action[1:],
 			HelpLinks: []email.HelpLink{
 				{
 					Before: "We also encourage you to read our ",

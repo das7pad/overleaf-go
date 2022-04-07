@@ -34,7 +34,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	docstoreTypes "github.com/das7pad/overleaf-go/services/docstore/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
@@ -87,9 +86,6 @@ type Options struct {
 				TTL        time.Duration `json:"ttl"`
 			} `json:"persistence"`
 		} `json:"clsi"`
-		Docstore struct {
-			Options *docstoreTypes.Options `json:"options"`
-		} `json:"docstore"`
 		DocumentUpdater struct {
 			Options *documentUpdaterTypes.Options `json:"options"`
 		} `json:"document_updater"`
@@ -207,9 +203,6 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "apis.clsi.persistence.ttl must be greater than zero",
 		}
-	}
-	if err := o.APIs.Docstore.Options.Validate(); err != nil {
-		return errors.Tag(err, "apis.docstore.options is invalid")
 	}
 	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
 		return errors.Tag(err, "apis.document_updater.options is invalid")

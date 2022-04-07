@@ -31,7 +31,7 @@ type LearnPageRequest struct {
 	Session         *session.Session `form:"-"`
 	Section         string           `form:"-"`
 	Page            string           `form:"-"`
-	HasQuestionmark bool             `form:"-"`
+	HasQuestionMark bool             `form:"-"`
 }
 
 func (r *LearnPageRequest) Preprocess() {
@@ -56,7 +56,7 @@ func (r *LearnPageRequest) Preprocess() {
 			r.Section = "latex"
 		}
 	}
-	if r.HasQuestionmark && r.Page != "" && !strings.HasSuffix(r.Page, "?") {
+	if r.HasQuestionMark && r.Page != "" && !strings.HasSuffix(r.Page, "?") {
 		r.Page += "?"
 	}
 }

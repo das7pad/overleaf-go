@@ -20,12 +20,8 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -33,18 +29,9 @@ type Manager interface {
 	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error)
 }
 
-func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager, error) {
-	dm, err := docstore.New(options.APIs.Docstore.Options, c, db)
-	if err != nil {
-		return nil, err
-	}
-	pim := projectInvite.New(c)
+func New(c *edgedb.Client) (Manager, error) {
 	pm := project.New(c)
-	um := user.New(c, db)
 	return &monolithManager{
-		dm:  dm,
-		pim: pim,
-		pm:  pm,
-		um:  um,
+		pm: pm,
 	}, nil
 }

@@ -24,15 +24,11 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type monolithManager struct {
-	dm  docstore.Manager
-	pim projectInvite.Manager
-	pm  project.Manager
-	um  user.Manager
+	pm project.Manager
 }
 
 const self = "self"

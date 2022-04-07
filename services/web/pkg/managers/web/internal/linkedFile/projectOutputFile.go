@@ -23,7 +23,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -81,7 +80,7 @@ func (m *manager) refreshProjectOutputFile(ctx context.Context, r *types.Refresh
 		return &errors.UnprocessableEntityError{Msg: "compile request failed"}
 	}
 
-	path := sharedTypes.PathName(r.File.LinkedFileData.SourceOutputFilePath)
+	path := r.File.LinkedFileData.SourceOutputFilePath
 	var buildId clsiTypes.BuildId
 	for _, f := range res.OutputFiles {
 		if f.Path == path {

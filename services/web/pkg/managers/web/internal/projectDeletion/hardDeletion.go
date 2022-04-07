@@ -74,12 +74,6 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool) er
 func (m *manager) HardDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if err := m.dm.DestroyProject(pCtx, projectId); err != nil {
-			return errors.Tag(err, "cannot destroy docs")
-		}
-		return nil
-	})
-	eg.Go(func() error {
 		if err := m.fm.DeleteProject(pCtx, projectId); err != nil {
 			return errors.Tag(err, "cannot destroy files")
 		}

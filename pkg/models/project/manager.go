@@ -19,7 +19,6 @@ package project
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
@@ -37,7 +36,6 @@ type Manager interface {
 	SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error
 	GetDeletedProjectsName(ctx context.Context, projectId, userId edgedb.UUID) (Name, error)
 	Restore(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
-	ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error
 	AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error)
 	DeleteDoc(ctx context.Context, projectId, userId, docId edgedb.UUID) (sharedTypes.Version, error)
 	DeleteFile(ctx context.Context, projectId, userId, fileId edgedb.UUID) (sharedTypes.Version, error)
@@ -73,8 +71,6 @@ type Manager interface {
 	GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
 	PopulateTokens(ctx context.Context, projectId, userId edgedb.UUID) (*Tokens, error)
 	GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error)
-	MarkAsActive(ctx context.Context, projectId edgedb.UUID) error
-	MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error
 	SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error
 	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
@@ -110,43 +106,8 @@ func rewriteEdgedbError(err error) error {
 	return err
 }
 
-const (
-	inactiveProjectsBatchSize = int64(100)
-)
-
 type manager struct {
 	c *edgedb.Client
-}
-
-func (m *manager) ProcessInactiveProjects(ctx context.Context, age time.Duration, fn func(projectId edgedb.UUID) bool) error {
-	cutOff := time.Now().UTC().Add(-age)
-	ids := make([]edgedb.UUID, 0, inactiveProjectsBatchSize)
-	for {
-		ids = ids[:0]
-		err := m.c.Query(ctx, `
-select (
-	select Project
-	filter .active = true and .last_opened <= <datetime>$0
-	order by .last_opened
-	limit <int64>$1
-).id
-`, &ids, cutOff, inactiveProjectsBatchSize)
-		if err != nil {
-			return rewriteEdgedbError(err)
-		}
-		if len(ids) == 0 {
-			return nil
-		}
-		ok := true
-		for _, projectId := range ids {
-			if !fn(projectId) {
-				ok = false
-			}
-		}
-		if !ok {
-			return nil
-		}
-	}
 }
 
 type docForInsertion struct {
@@ -2051,7 +2012,7 @@ select {
 			pdf_viewer,
 			syntax_validation,
 			spell_check_language,
-			theme := 'textmate',
+			theme,
 		},
 		email: { email },
 		epoch,
@@ -2065,7 +2026,6 @@ select {
 		access_rw := ({u} if u in .access_rw else <User>{}),
 		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
 		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
-		active,
 		compiler,
 		epoch,
 		id,
@@ -2354,34 +2314,6 @@ set {
 	return err
 }
 
-func (m *manager) MarkAsActive(ctx context.Context, projectId edgedb.UUID) error {
-	err := m.c.QuerySingle(ctx, `
-update Project
-filter .id = <uuid>$0
-set {
-	active := true,
-}
-`, &IdField{}, projectId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func (m *manager) MarkAsInActive(ctx context.Context, projectId edgedb.UUID) error {
-	err := m.c.QuerySingle(ctx, `
-update Project
-filter .id = <uuid>$0
-set {
-	active := false,
-}
-`, &IdField{}, projectId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
 func (m *manager) RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
 	var r []bool
 	err := m.c.Query(ctx, `
@@ -2441,14 +2373,14 @@ with
 			audit_log += (
 				insert ProjectAuditLogEntry {
 					initiator := u,
-					operation := 'soft-delete',
+					operation := 'soft-deletion',
 					info := <json>{
 						ipAddress := <str>$2,
 					}
 				}
 			),
 			deleted_at := datetime_of_transaction(),
-			epoch := Project.epoch + 1,
+			epoch := pNotDeletedYet.epoch + 1,
 		}
 	)
 select {
@@ -2459,7 +2391,7 @@ select {
 }
 `,
 		&r,
-		projectId, userId, ipAddress,
+		userId, projectId, ipAddress,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)
@@ -2514,7 +2446,7 @@ with
 		update pStillDeleted
 		set {
 			deleted_at := <datetime>{},
-			epoch := Project.epoch + 1,
+			epoch := pStillDeleted.epoch + 1,
 			name := <str>$2,
 		}
 	)
@@ -2526,7 +2458,7 @@ select {
 }
 `,
 		&r,
-		projectId, userId, name,
+		userId, projectId, name,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)

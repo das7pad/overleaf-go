@@ -24,21 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type withEmailFields struct {
-	EmailField  `edgedb:"email"`
-	EmailsField `edgedb:"$inline"`
-}
-
-type withLastLoginInfo struct {
-	LastLoggedInField `edgedb:"$inline"`
-	LastLoginIpField  `edgedb:"$inline"`
-}
-
-type withIdAndEpoch struct {
-	IdField    `edgedb:"$inline"`
-	EpochField `edgedb:"$inline"`
-}
-
 type ProjectListViewCaller struct {
 	WithPublicInfo `edgedb:"$inline"`
 	EmailsField    `edgedb:"$inline"`

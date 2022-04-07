@@ -53,7 +53,7 @@ type EmailsField struct {
 }
 
 type EpochField struct {
-	Epoch int64 `edgedb:"epoch"`
+	Epoch int64 `json:"epoch" edgedb:"epoch"`
 }
 
 type FeaturesField struct {

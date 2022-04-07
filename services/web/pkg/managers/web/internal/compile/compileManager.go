@@ -30,7 +30,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -71,13 +70,12 @@ type Manager interface {
 	) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, dm docstore.Manager, fm filestore.Manager, pm project.Manager, um user.Manager) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, fm filestore.Manager, pm project.Manager, um user.Manager) (Manager, error) {
 	return &manager{
 		baseURL: options.APIs.Clsi.URL.String(),
 		options: options,
 		client:  client,
 		dum:     dum,
-		dm:      dm,
 		fm:      fm,
 		pm:      pm,
 		pool:    &http.Client{},
@@ -90,7 +88,6 @@ type manager struct {
 	options *types.Options
 	client  redis.UniversalClient
 	dum     documentUpdater.Manager
-	dm      docstore.Manager
 	fm      filestore.Manager
 	pm      project.Manager
 	pool    *http.Client

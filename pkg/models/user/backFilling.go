@@ -26,7 +26,7 @@ type UniqUserIds map[edgedb.UUID]bool
 
 type UsersForBackFilling map[edgedb.UUID]*WithPublicInfo
 
-type UsersForBackFillingNonStandardId map[edgedb.UUID]*WithPublicInfoAndNonStandardId
+type UsersForBackFillingNonStandardId map[edgedb.UUID]WithPublicInfoAndNonStandardId
 
 type WithPublicInfoAndNonStandardId struct {
 	WithPublicInfo `edgedb:"$inline"`

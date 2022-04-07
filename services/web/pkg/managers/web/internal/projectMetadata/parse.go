@@ -30,7 +30,7 @@ var (
 )
 
 func (m *manager) parseDoc(snapshot string) *types.LightDocProjectMetadata {
-	s := string(snapshot)
+	s := snapshot
 	rawLabels := labelRegex.FindAllStringSubmatch(s, -1)
 	rawUsePackages := usePackageRegex.FindAllStringSubmatch(s, -1)
 	rawRequirePackages := requirePackageRegex.FindAllStringSubmatch(s, -1)

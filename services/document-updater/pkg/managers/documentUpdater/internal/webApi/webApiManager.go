@@ -20,11 +20,9 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
@@ -34,11 +32,8 @@ type Manager interface {
 	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, doc *doc.ForDocUpdate) error
 }
 
-func New(options *types.Options, c *edgedb.Client, db *mongo.Database) (Manager, error) {
-	dm, err := docstore.New(options.APIs.Docstore.Options, c, db)
-	if err != nil {
-		return nil, err
-	}
+func New(c *edgedb.Client) (Manager, error) {
+	dm := doc.New(c)
 	pm := project.New(c)
 	return &monolithManager{dm: dm, pm: pm}, nil
 }

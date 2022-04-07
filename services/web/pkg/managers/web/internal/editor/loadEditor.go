@@ -142,16 +142,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
 	}
 
-	if !p.Active {
-		// TODO: move to gateway page?
-		if err := m.dm.UnArchiveProject(ctx, projectId); err != nil {
-			return errors.Tag(err, "cannot un-archive project")
-		}
-		if err := m.pm.MarkAsActive(ctx, projectId); err != nil {
-			return errors.Tag(err, "cannot mark project as active")
-		}
-	}
-
 	{
 		b, err := m.genWSBootstrap(projectId, &u.WithPublicInfo)
 		if err != nil {

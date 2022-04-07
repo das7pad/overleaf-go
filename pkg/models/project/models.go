@@ -57,7 +57,6 @@ type ListViewPrivate struct {
 type LoadEditorViewPrivate struct {
 	edgedb.Optional
 	LoadEditorViewPublic    `edgedb:"$inline"`
-	ActiveField             `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
 	RootDocField            `edgedb:"$inline"`
 }
@@ -130,7 +129,6 @@ type ForZip struct {
 }
 
 type ForCreation struct {
-	ActiveField             `edgedb:"$inline"`
 	CompilerField           `edgedb:"$inline"`
 	EpochField              `edgedb:"$inline"`
 	IdField                 `edgedb:"$inline"`

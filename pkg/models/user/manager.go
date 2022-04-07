@@ -20,12 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
-	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -33,14 +29,12 @@ import (
 
 type Manager interface {
 	CreateUser(ctx context.Context, u *ForCreation) error
-	Delete(ctx context.Context, userId edgedb.UUID, epoch int64) error
+	SoftDelete(ctx context.Context, userId edgedb.UUID, ip string) error
 	TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId edgedb.UUID) error
 	GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error)
 	GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
-	GetUsersWithPublicInfo(ctx context.Context, users []edgedb.UUID) ([]WithPublicInfo, error)
-	GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error)
 	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
 	GetContacts(ctx context.Context, userId edgedb.UUID) ([]Contact, error)
 	AddContact(ctx context.Context, userId, contactId edgedb.UUID) error
@@ -53,10 +47,9 @@ type Manager interface {
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
 }
 
-func New(c *edgedb.Client, db *mongo.Database) Manager {
+func New(c *edgedb.Client) Manager {
 	return &manager{
-		c:   c,
-		col: db.Collection("users"),
+		c: c,
 	}
 }
 
@@ -77,8 +70,7 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c   *edgedb.Client
-	col *mongo.Collection
+	c *edgedb.Client
 }
 
 func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
@@ -186,7 +178,7 @@ select (
 )
 `, &r, u.Id, u.Epoch, newHashedPassword, ip, operation)
 	if err != nil {
-		return rewriteMongoError(err)
+		return rewriteEdgedbError(err)
 	}
 	if len(r) == 0 {
 		return &errors.NotFoundError{}
@@ -194,39 +186,49 @@ select (
 	return nil
 }
 
-func (m *manager) UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, editorConfig EditorConfig) error {
-	q := &IdField{Id: userId}
-	u := bson.M{
-		"$set": &EditorConfigField{
-			EditorConfig: editorConfig,
-		},
-	}
-	_, err := m.col.UpdateOne(ctx, q, u)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+func (m *manager) UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, e EditorConfig) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update (select User filter .id = <uuid>$0).editor_config
+set {
+	auto_complete := <bool>$1,
+	auto_pair_delimiters := <bool>$2,
+	font_family := <str>$3,
+	font_size := <int64>$4,
+	line_height := <str>$5,
+	mode := <str>$6,
+	overall_theme := <str>$7,
+	pdf_viewer := <str>$8,
+	syntax_validation := <bool>$9,
+	spell_check_language := <str>$10,
+	theme := <str>$11,
+}
+`,
+		&IdField{},
+		userId,
+		e.AutoComplete, e.AutoPairDelimiters, e.FontFamily, e.FontSize,
+		e.LineHeight, e.Mode, e.OverallTheme, e.PDFViewer, e.SyntaxValidation,
+		e.SpellCheckLanguage, e.Theme,
+	))
 }
 
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
-func (m *manager) Delete(ctx context.Context, userId edgedb.UUID, epoch int64) error {
-	q := &withIdAndEpoch{
-		IdField: IdField{
-			Id: userId,
-		},
-		EpochField: EpochField{
-			Epoch: epoch,
-		},
-	}
-	r, err := m.col.DeleteOne(ctx, q)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	if r.DeletedCount != 1 {
-		return ErrEpochChanged
-	}
-	return nil
+func (m *manager) SoftDelete(ctx context.Context, userId edgedb.UUID, ip string) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0 and not exists .deleted_at
+set {
+	audit_log += (
+		insert UserAuditLogEntry {
+			initiator := (select detached User filter .id = <uuid>$0),
+			ip_address := <str>$1,
+			operation := <str>$2,
+		}
+	),
+	deleted_at := datetime_of_transaction(),
+	epoch := User.epoch + 1,
+}
+`, &IdField{}, userId, ip, AuditLogOperationSoftDeletion))
 }
 
 func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error {
@@ -243,75 +245,69 @@ set {
 	audit_log += (
 		insert UserAuditLogEntry {
 			initiator := u,
-			operation := 'clear-sessions',
+			operation := <str>$3,
 			ip_address := <str>$1,
 			info := <json>$2,
 		}
 	)
 }
-`, &IdField{}, userId, ip, blob))
+`, &IdField{}, userId, ip, blob, AuditLogOperationClearSessions))
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
-	now := time.Now().UTC()
-	q := &withIdAndEpoch{
-		IdField: IdField{
-			Id: u.Id,
-		},
-		EpochField: EpochField{
-			Epoch: u.Epoch,
-		},
-	}
-	r, err := m.col.UpdateOne(ctx, q, bson.M{
-		"$set": withEmailFields{
-			EmailField{
-				Email: newEmail,
-			},
-			EmailsField{
-				Emails: []EmailDetails{
-					{
-						// TODO: refactor into server side gen.
-						Id:        edgedb.UUID{},
-						CreatedAt: now,
-						Email:     newEmail,
-					},
-				},
-			},
-		},
-		"$inc": EpochField{Epoch: 1},
-		"$push": bson.M{
-			"auditLog": bson.M{
-				"$each": bson.A{
-					AuditLogEntry{
-						Info: bson.M{
-							"oldPrimaryEmail": u.Email,
-							"newPrimaryEmail": newEmail,
-						},
-						InitiatorId: u.Id,
-						IpAddress:   ip,
-						Operation:   AuditLogOperationChangePrimaryEmail,
-						Timestamp:   now,
-					},
-				},
-				"$slice": -MaxAuditLogEntries,
-			},
-		},
-	})
+	// TODO: rework
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (
+		select User
+		filter .id = <uuid>$0 and .epoch = <int64>$1
+	),
+	oldPrimaryEmail := u.email,
+	newPrimaryEmail := (insert Email {
+		email := <str>$2,
+	}),
+	uChanged := (
+		update u
+		set {
+			audit_log += (
+				insert UserAuditLogEntry {
+					initiator := (select User filter .id = <uuid>$0),
+					operation := <str>$4,
+					ip_address := <str>$3,
+					info := <json>{
+						oldPrimaryEmail := oldPrimaryEmail.email,
+						newPrimaryEmail := newPrimaryEmail.email,
+					}
+				}
+			),
+			email := newPrimaryEmail,
+			emails := { newPrimaryEmail },
+		}
+	),
+	oldPrimaryEmailDeleted := (
+		delete oldPrimaryEmail
+		filter .user != uChanged
+	),
+select {oldPrimaryEmailDeleted}
+`,
+		&IdField{},
+		u.Id, u.Epoch, newEmail, ip, AuditLogOperationChangePrimaryEmail,
+	)
 	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
+		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
 			return ErrEmailAlreadyRegistered
 		}
-		return rewriteMongoError(err)
-	}
-	if r.ModifiedCount != 1 {
-		return ErrEpochChanged
+		err = rewriteEdgedbError(err)
+		if errors.IsNotFoundError(err) {
+			return ErrEpochChanged
+		}
+		return err
 	}
 	return nil
 }
 
 const (
 	AnonymousUserEpoch = 1
-	MaxAuditLogEntries = 200
 )
 
 func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
@@ -380,72 +376,30 @@ select (select User { epoch } filter .id = <uuid>$0).epoch
 	return epoch, err
 }
 
-func (m *manager) GetUsersWithPublicInfo(ctx context.Context, userIds []edgedb.UUID) ([]WithPublicInfo, error) {
-	if len(userIds) == 0 {
-		return make([]WithPublicInfo, 0), nil
-	}
-	var users []WithPublicInfo
-	c, err := m.col.Find(
-		ctx,
-		bson.M{
-			"_id": bson.M{
-				"$in": userIds,
-			},
-		},
-		options.Find().
-			SetProjection(getProjection(users)).
-			SetBatchSize(int32(len(userIds))),
-	)
-	if err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	if err = c.All(ctx, &users); err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	return users, nil
-}
-
-func (m *manager) GetUsersForBackFilling(ctx context.Context, ids UniqUserIds) (UsersForBackFilling, error) {
-	flatIds := make([]edgedb.UUID, 0, len(ids))
-	for id := range ids {
-		flatIds = append(flatIds, id)
-	}
-	flatUsers, err := m.GetUsersWithPublicInfo(ctx, flatIds)
-	if err != nil {
-		return nil, err
-	}
-	users := make(UsersForBackFilling, len(flatUsers))
-	for i := range flatUsers {
-		usr := flatUsers[i]
-		users[usr.Id] = &usr
-	}
-	return users, nil
-}
-
 func (m *manager) GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error) {
+	if len(ids) == 0 {
+		return make(UsersForBackFillingNonStandardId, 0), nil
+	}
 	flatIds := make([]edgedb.UUID, 0, len(ids))
 	for id := range ids {
 		flatIds = append(flatIds, id)
 	}
-	flatUsers, err := m.GetUsersWithPublicInfo(ctx, flatIds)
+	flatUsers := make([]WithPublicInfoAndNonStandardId, 0, len(flatIds))
+	err := m.c.Query(ctx, `
+select User {
+	email: { email }, id, first_name, last_name,
+}
+filter .id in array_unpack(<array<uuid>>$0)
+`, &flatUsers, flatIds)
 	if err != nil {
-		return nil, err
+		return nil, rewriteEdgedbError(err)
 	}
 	users := make(UsersForBackFillingNonStandardId, len(flatUsers))
 	for _, usr := range flatUsers {
-		users[usr.Id] = &WithPublicInfoAndNonStandardId{
-			WithPublicInfo: usr,
-			IdNoUnderscore: usr.Id,
-		}
+		usr.IdNoUnderscore = usr.Id
+		users[usr.Id] = usr
 	}
 	return users, nil
-}
-
-func rewriteMongoError(err error) error {
-	if err == mongo.ErrNoDocuments {
-		return &errors.NotFoundError{}
-	}
-	return err
 }
 
 func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error {
@@ -454,6 +408,10 @@ func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interf
 	case *BetaProgramField:
 		q = `
 select User { beta_program }
+filter .id = <uuid>$0`
+	case *HashedPasswordField:
+		q = `
+select User { password_hash }
 filter .id = <uuid>$0`
 	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
 		q = `

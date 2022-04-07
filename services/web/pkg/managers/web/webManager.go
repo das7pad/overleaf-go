@@ -35,7 +35,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	"github.com/das7pad/overleaf-go/services/docstore/pkg/managers/docstore"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/admin"
@@ -45,7 +44,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/healthCheck"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/history"
-	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/inactiveProject"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/learn"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedFile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
@@ -58,7 +56,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectUpload"
-	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/review"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/spelling"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tag"
@@ -81,7 +78,6 @@ type Manager interface {
 	fileTreeManager
 	healthCheckManager
 	historyManager
-	inactiveProjectManager
 	learnManager
 	linkedFileManager
 	loginManager
@@ -93,7 +89,6 @@ type Manager interface {
 	projectListManager
 	projectMetadataManager
 	projectUploadManager
-	reviewManager
 	sessionManager
 	spellingManager
 	systemMessageManager
@@ -116,12 +111,8 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	editorEvents := channel.NewWriter(client, "editor-events")
 	mm := message.New(c)
 	dum, err := documentUpdater.New(
-		options.APIs.DocumentUpdater.Options, c, client, db,
+		options.APIs.DocumentUpdater.Options, c, client,
 	)
-	if err != nil {
-		return nil, err
-	}
-	dm, err := docstore.New(options.APIs.Docstore.Options, c, db)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +124,9 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 	pm := project.New(c)
 	smm := systemMessage.New(c)
 	tm := tagModel.New(c)
-	um := user.New(c, db)
+	um := user.New(c)
 	bm := betaProgram.New(ps, um)
-	cm, err := compile.New(options, client, dum, dm, fm, pm, um)
+	cm, err := compile.New(options, client, dum, fm, pm, um)
 	if err != nil {
 		return nil, err
 	}
@@ -148,31 +139,29 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		client,
 		editorEvents,
 		pm, um,
-		mm, dm, fm,
+		mm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
 	)
 	lm := login.New(options, ps, c, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(ps, editorEvents, pm, tm, um, loggedInUserJWTHandler)
-	pmm := projectMetadata.New(client, editorEvents, pm, dm, dum)
+	pmm := projectMetadata.New(client, editorEvents, pm, dum)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(ps, pm)
 	pim := projectInvite.New(
 		options, ps, c, editorEvents, pm, um,
 	)
 	ftm := fileTree.New(c, pm, dum, fm, editorEvents, pmm)
-	pum := projectUpload.New(options, c, db, pm, um, dm, dum, fm)
+	pum := projectUpload.New(options, c, pm, um, dum, fm)
 	hm := history.New(options, um)
 	OIOm := openInOverleaf.New(options, ps, proxy, pum)
 	lfm, err := linkedFile.New(options, pm, dum, fm, cm, ftm, proxy)
 	if err != nil {
 		return nil, err
 	}
-	pdm := projectDownload.New(pm, dm, dum, fm)
-	pDelM := projectDeletion.New(db, pm, dm, dum, fm)
-	uDelM := userDeletion.New(db, pm, um, pDelM)
-	ipm := inactiveProject.New(options, pm, dm)
+	pdm := projectDownload.New(pm, dum, fm)
+	pDelM := projectDeletion.New(db, pm, dum, fm)
+	uDelM := userDeletion.New(c, db, pm, um, pDelM)
 	ucm := userCreation.New(options, ps, c, um, lm)
-	rm := review.New(pm, um, mm, dm, dum, editorEvents)
 	am := admin.New(ps, c)
 	learnM, err := learn.New(options, ps, proxy)
 	if err != nil {
@@ -191,7 +180,6 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		fileTreeManager:        ftm,
 		healthCheckManager:     hcm,
 		historyManager:         hm,
-		inactiveProjectManager: ipm,
 		learnManager:           learnM,
 		linkedFileManager:      lfm,
 		loggedInUserJWTHandler: loggedInUserJWTHandler,
@@ -206,7 +194,6 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		projectMetadataManager: pmm,
 		projectUploadManager:   pum,
 		ps:                     ps,
-		reviewManager:          rm,
 		sessionManager:         sm,
 		spellingManager:        spm,
 		systemMessageManager:   smm,
@@ -224,7 +211,6 @@ type editorManager = editor.Manager
 type fileTreeManager = fileTree.Manager
 type healthCheckManager = healthCheck.Manager
 type historyManager = history.Manager
-type inactiveProjectManager = inactiveProject.Manager
 type learnManager = learn.Manager
 type linkedFileManager = linkedFile.Manager
 type loginManager = login.Manager
@@ -236,7 +222,6 @@ type projectInviteManager = projectInvite.Manager
 type projectListManager = projectList.Manager
 type projectMetadataManager = projectMetadata.Manager
 type projectUploadManager = projectUpload.Manager
-type reviewManager = review.Manager
 type sessionManager = session.Manager
 type spellingManager = spelling.Manager
 type systemMessageManager = systemMessage.Manager
@@ -253,7 +238,6 @@ type manager struct {
 	fileTreeManager
 	healthCheckManager
 	historyManager
-	inactiveProjectManager
 	learnManager
 	linkedFileManager
 	loginManager
@@ -265,7 +249,6 @@ type manager struct {
 	projectListManager
 	projectMetadataManager
 	projectUploadManager
-	reviewManager
 	sessionManager
 	spellingManager
 	systemMessageManager
@@ -298,10 +281,6 @@ func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
 	}
 	if err := m.HardDeleteExpiredUsers(ctx, dryRun); err != nil {
 		log.Println("hard deletion of users failed: " + err.Error())
-		ok = false
-	}
-	if err := m.ArchiveInactiveProjects(ctx, dryRun); err != nil {
-		log.Println("archiving of inactive projects failed: " + err.Error())
 		ok = false
 	}
 	return ok

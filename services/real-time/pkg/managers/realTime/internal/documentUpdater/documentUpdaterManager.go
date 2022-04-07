@@ -21,7 +21,6 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -35,11 +34,10 @@ type Manager interface {
 	FlushProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 	return documentUpdater.New(
 		options.APIs.DocumentUpdater.Options,
 		c,
 		client,
-		db,
 	)
 }

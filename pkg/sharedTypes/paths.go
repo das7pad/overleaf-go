@@ -23,9 +23,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+// NOTE: When updating ValidRootDocExtensions, update project.Manager too.
+//goland:noinspection SpellCheckingInspection
 var (
-	//goland:noinspection SpellCheckingInspection
-	// NOTE: When updating ValidRootDocExtensions, update project.Manager too.
 	ValidRootDocExtensions = []FileType{
 		"tex",
 		"rtex",

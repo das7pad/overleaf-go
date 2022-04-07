@@ -27,11 +27,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type Manager interface {
-	Create(ctx context.Context, deletion *user.ForDeletion, userId edgedb.UUID, ipAddress string) error
 	Expire(ctx context.Context, projectId edgedb.UUID) error
 	GetExpired(ctx context.Context, age time.Duration) (<-chan edgedb.UUID, error)
 }
@@ -57,30 +55,6 @@ func rewriteMongoError(err error) error {
 		return &errors.NotFoundError{}
 	}
 	return err
-}
-
-func (m *manager) Create(ctx context.Context, u *user.ForDeletion, userId edgedb.UUID, ipAddress string) error {
-	entry := &Full{
-		UserField: UserField{User: u},
-		DeleterDataField: DeleterDataField{
-			DeleterData: DeleterData{
-				DeleterDataDeletedUserIdField: DeleterDataDeletedUserIdField{
-					DeletedUserId: u.Id,
-				},
-				DeletedAt:               time.Now().UTC(),
-				DeleterId:               userId,
-				DeleterIpAddress:        ipAddress,
-				DeletedUserLastLoggedIn: u.LastLoggedIn,
-				DeletedUserSignUpDate:   u.SignUpDate,
-				DeletedUserLoginCount:   u.LoginCount,
-			},
-		},
-	}
-	_, err := m.c.InsertOne(ctx, entry)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
 }
 
 func (m *manager) Expire(ctx context.Context, userId edgedb.UUID) error {

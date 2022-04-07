@@ -47,7 +47,7 @@ var (
 )
 
 func (m *manager) InjectDraftMode(rootDoc *types.Resource) error {
-	blob := string(*rootDoc.Content)
+	blob := *rootDoc.Content
 	if strings.Contains(blob, draftModePresent) {
 		return nil
 	}

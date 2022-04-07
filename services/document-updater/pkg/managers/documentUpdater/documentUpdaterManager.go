@@ -21,9 +21,8 @@ import (
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/mongoTx"
+	"github.com/das7pad/overleaf-go/pkg/edgedbTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
@@ -55,12 +54,12 @@ type Manager interface {
 	ProcessProjectUpdates(ctx context.Context, projectId edgedb.UUID, request *types.ProcessProjectUpdatesRequest) error
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, db *mongo.Database) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	dm, err := docManager.New(options, c, client, db)
+	dm, err := docManager.New(options, c, client)
 	if err != nil {
 		return nil, err
 	}
@@ -112,14 +111,14 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId, docId edgedb.UU
 }
 
 func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.AcceptReviewChanges(ctx, projectId, docId, changeIds)
 }
 
 func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.DeleteReviewThread(ctx, projectId, docId, threadId)
@@ -152,7 +151,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, from
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId edgedb.UUID) ([]*types.DocContentLines, error) {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return nil, err
 	}
 	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
@@ -167,7 +166,7 @@ func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectI
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error) {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return nil, err
 	}
 	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
@@ -182,35 +181,35 @@ func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, proje
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 
 func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushDocIfLoaded(ctx, projectId, docId)
 }
 
 func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushAndDeleteDoc(ctx, projectId, docId)
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushProject(ctx, projectId)
 }
 
 func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
-	if err := mongoTx.CheckNotInTx(ctx); err != nil {
+	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushAndDeleteProject(ctx, projectId)

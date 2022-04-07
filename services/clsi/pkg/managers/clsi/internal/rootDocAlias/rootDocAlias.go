@@ -53,7 +53,7 @@ func (m *manager) AddAliasDocIfNeeded(request *types.CompileRequest) {
 			return
 		}
 	}
-	blob := string(*request.RootDoc.Content)
+	blob := *request.RootDoc.Content
 	if !strings.Contains(blob, usesTikzExternalize) &&
 		!strings.Contains(blob, usesPsTool) {
 		return
