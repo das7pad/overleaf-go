@@ -19,10 +19,10 @@ package web
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
@@ -98,7 +98,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client redis.UniversalClient, localURL string) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, localURL string) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
@@ -159,8 +159,8 @@ func New(options *types.Options, c *edgedb.Client, db *mongo.Database, client re
 		return nil, err
 	}
 	pdm := projectDownload.New(pm, dum, fm)
-	pDelM := projectDeletion.New(db, pm, dum, fm)
-	uDelM := userDeletion.New(c, db, pm, um, pDelM)
+	pDelM := projectDeletion.New(pm, dum, fm)
+	uDelM := userDeletion.New(c, pm, um, pDelM)
 	ucm := userCreation.New(options, ps, c, um, lm)
 	am := admin.New(ps, c)
 	learnM, err := learn.New(options, ps, proxy)
@@ -274,12 +274,13 @@ func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {
 }
 
 func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
+	start := time.Now().UTC()
 	ok := true
-	if err := m.HardDeleteExpiredProjects(ctx, dryRun); err != nil {
+	if err := m.HardDeleteExpiredProjects(ctx, dryRun, start); err != nil {
 		log.Println("hard deletion of projects failed: " + err.Error())
 		ok = false
 	}
-	if err := m.HardDeleteExpiredUsers(ctx, dryRun); err != nil {
+	if err := m.HardDeleteExpiredUsers(ctx, dryRun, start); err != nil {
 		log.Println("hard deletion of users failed: " + err.Error())
 		ok = false
 	}

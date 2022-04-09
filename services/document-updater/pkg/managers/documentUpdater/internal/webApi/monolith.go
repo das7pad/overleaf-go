@@ -47,7 +47,7 @@ func (m *monolithManager) GetDoc(ctx context.Context, projectId, docId edgedb.UU
 func (m *monolithManager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, d *doc.ForDocUpdate) error {
 	err := m.dm.UpdateDoc(ctx, projectId, docId, d)
 	if err != nil {
-		return errors.Tag(err, "cannot set doc in mongo")
+		return errors.Tag(err, "cannot set doc in edgedb")
 	}
 	return nil
 }

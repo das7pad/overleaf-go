@@ -20,9 +20,6 @@ import (
 	"context"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Manager interface {
@@ -41,42 +38,24 @@ type manager struct {
 	c *edgedb.Client
 }
 
-func rewriteMongoError(err error) error {
-	if err == mongo.ErrNoDocuments {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
 func (m *manager) Create(ctx context.Context, content string) error {
-	err := m.c.QuerySingle(
+	return m.c.QuerySingle(
 		ctx,
 		"insert SystemMessage{ content := <str>$0 }",
 		&IdField{},
 		content,
 	)
-	if err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
 }
 
 func (m *manager) DeleteAll(ctx context.Context) error {
-	if err := m.c.Execute(ctx, "delete SystemMessage"); err != nil {
-		return rewriteMongoError(err)
-	}
-	return nil
+	return m.c.Execute(ctx, "delete SystemMessage")
 }
 
 func (m *manager) GetAll(ctx context.Context) ([]Full, error) {
 	messages := make([]Full, 0)
-	err := m.c.Query(
+	return messages, m.c.Query(
 		ctx,
 		"select SystemMessage{ id, content }",
 		&messages,
 	)
-	if err != nil {
-		return nil, rewriteMongoError(err)
-	}
-	return messages, nil
 }

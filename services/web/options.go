@@ -19,12 +19,9 @@ package main
 import (
 	"github.com/go-redis/redis/v8"
 
-	"go.mongodb.org/mongo-driver/mongo/options"
-
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/mongoOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -33,8 +30,6 @@ import (
 type webOptions struct {
 	address      string
 	corsOptions  httpUtils.CORSOptions
-	mongoOptions *options.ClientOptions
-	dbName       string
 	redisOptions *redis.UniversalOptions
 	options      *types.Options
 
@@ -48,7 +43,6 @@ func getOptions() *webOptions {
 	o.options.FillFromEnv()
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
-	o.mongoOptions, o.dbName = mongoOptions.Parse()
 	o.redisOptions = redisOptions.Parse()
 
 	o.dryRunCron = utils.GetBoolFromEnv("DRY_RUN_CRON")

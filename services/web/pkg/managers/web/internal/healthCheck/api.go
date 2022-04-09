@@ -59,7 +59,7 @@ func (m *manager) smokeTestRedis(ctx context.Context) error {
 	return nil
 }
 
-func (m *manager) smokeTestMongo(ctx context.Context) error {
+func (m *manager) smokeTestEdgedb(ctx context.Context) error {
 	if _, err := m.um.GetEpoch(ctx, m.smokeTestUserId); err != nil {
 		return err
 	}
@@ -77,8 +77,8 @@ func (m *manager) smokeTestAPI() error {
 		return nil
 	})
 	eg.Go(func() error {
-		if err := m.smokeTestMongo(pCtx); err != nil {
-			return errors.Tag(err, "mongo check failed")
+		if err := m.smokeTestEdgedb(pCtx); err != nil {
+			return errors.Tag(err, "edgedb check failed")
 		}
 		return nil
 	})
@@ -101,7 +101,7 @@ func (m *manager) getPendingOrStartApiSmokeTest() pendingOperation.PendingOperat
 
 func (m *manager) SmokeTestAPI(ctx context.Context) error {
 	// for i := 0; i < 1000000; i++ {
-	if err := m.smokeTestMongo(ctx); err != nil {
+	if err := m.smokeTestEdgedb(ctx); err != nil {
 		return err
 	}
 	// }

@@ -18,24 +18,19 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/edgedbOptions"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 )
-
-func waitForDb(ctx context.Context, client *mongo.Client) error {
-	return client.Ping(ctx, readpref.Primary())
-}
 
 func waitForRedis(
 	ctx context.Context,
@@ -51,19 +46,9 @@ func waitForRedis(
 func main() {
 	o := getOptions()
 	ctx := context.Background()
-	client, err := mongo.Connect(ctx, o.mongoOptions)
-	if err != nil {
-		panic(err)
-	}
-	err = waitForDb(ctx, client)
-	if err != nil {
-		panic(err)
-	}
-	db := client.Database(o.dbName)
 
 	redisClient := redis.NewUniversalClient(o.redisOptions)
-	err = waitForRedis(ctx, redisClient)
-	if err != nil {
+	if err := waitForRedis(ctx, redisClient); err != nil {
 		panic(err)
 	}
 
@@ -76,10 +61,16 @@ func main() {
 		panic(errors.Tag(err, "cannot talk to edgedb"))
 	}
 
-	wm, err := web.New(o.options, c, db, redisClient, "http://"+o.address)
+	wm, err := web.New(o.options, c, redisClient, "http://"+o.address)
 	if err != nil {
 		panic(err)
 	}
+
+	go func() {
+		if !wm.Cron(ctx, false) {
+			log.Println("cron failed")
+		}
+	}()
 
 	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "cron" {
 		if !wm.Cron(ctx, o.dryRunCron) {

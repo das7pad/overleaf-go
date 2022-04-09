@@ -45,13 +45,13 @@ type JoinProjectDetails struct {
 }
 
 type ListViewPrivate struct {
-	ArchivedField           `edgedb:"$inline"`
+	ArchivedByField         `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
 	IdField                 `edgedb:"$inline"`
 	LastUpdatedAtField      `edgedb:"$inline"`
 	LastUpdatedByField      `edgedb:"$inline"`
 	NameField               `edgedb:"$inline"`
-	TrashedField            `edgedb:"$inline"`
+	TrashedByField          `edgedb:"$inline"`
 }
 
 type LoadEditorViewPrivate struct {

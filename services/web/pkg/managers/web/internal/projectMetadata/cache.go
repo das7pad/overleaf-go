@@ -78,7 +78,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId edgedb.U
 	eg.Go(func() error {
 		p := &project.LastUpdatedAtField{}
 		if err := m.pm.GetProject(pCtx, projectId, p); err != nil {
-			return errors.Tag(err, "cannot get project from mongo")
+			return errors.Tag(err, "cannot get project from edgedb")
 		}
 		projectVersionFlushed = p.LastUpdatedAt
 		return nil

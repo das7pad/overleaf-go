@@ -62,7 +62,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	err := m.c.Tx(ctx, func(sCtx context.Context, _ *edgedb.Tx) error {
 		projects := &forProjectListing{}
 		{
-			err := m.um.ListProjects(ctx, userId, projects)
+			err := m.um.ListProjects(sCtx, userId, projects)
 			if err != nil {
 				return errors.Tag(err, "cannot get projects")
 			}

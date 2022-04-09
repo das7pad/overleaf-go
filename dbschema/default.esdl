@@ -31,14 +31,12 @@ module default {
 
   type User {
     property deleted_at -> datetime;
-    multi link audit_log -> UserAuditLogEntry {
-      on target delete allow;
-    }
+    multi link audit_log := .<user[is UserAuditLogEntry];
     required property beta_program -> bool {
       default := false;
     }
     multi link contacts -> User {
-      on target delete delete source;
+      on target delete allow;
       property connections -> int64;
       property last_touched -> datetime;
     }
@@ -91,7 +89,12 @@ module default {
   }
 
   type UserAuditLogEntry {
-    required link initiator -> User;
+    required link user -> User {
+      on target delete delete source;
+    }
+    link initiator -> User {
+      on target delete allow;
+    }
     required property timestamp -> datetime {
       default := datetime_of_transaction();
     }
@@ -101,7 +104,12 @@ module default {
   }
 
   type ProjectAuditLogEntry {
-    required link initiator -> User;
+    required link project -> Project {
+      on target delete delete source;
+    }
+    link initiator -> User {
+      on target delete allow;
+    }
     required property timestamp -> datetime {
       default := datetime_of_transaction();
     }
@@ -128,9 +136,7 @@ module default {
     required property version -> int64 {
       default := 1;
     }
-    multi link audit_log -> ProjectAuditLogEntry {
-      on target delete allow;
-    }
+    multi link audit_log := .<project[is ProjectAuditLogEntry];
     multi link archived_by -> User {
       on target delete allow;
     }
@@ -153,18 +159,14 @@ module default {
     required property track_changes_state -> json {
       default := to_json('{}');
     }
-    required link owner -> User {
-      on target delete delete source;
-    }
+    required link owner -> User;
     required property public_access_level -> str {
       default := 'private';
     }
     multi link access_ro -> User {
       on target delete allow;
     }
-    link root_doc -> Doc {
-      on target delete allow;
-    }
+    link root_doc -> Doc;
     required property spell_check_language -> str;
     multi link access_token_rw -> User {
       on target delete allow;
@@ -181,7 +183,6 @@ module default {
 
     multi link invites := .<project[is ProjectInvite];
 
-    // TODO: filter out deleted users
     multi link min_access_ro := distinct (
       {.owner}
       union .access_ro union .access_rw
@@ -207,6 +208,8 @@ module default {
     multi link deleted_docs := (
       select .<project[is Doc] filter .deleted
     );
+
+    multi link all_files := .<project[is File];
   }
 
   abstract type TreeElement {
@@ -267,6 +270,10 @@ module default {
     required property source_entity_path -> str;
     required property source_output_file_path -> str;
     required property url -> str;
+
+    required link file -> File {
+      on target delete delete source;
+    }
   }
 
   type File extending ContentElement {
@@ -274,7 +281,9 @@ module default {
       default := datetime_of_transaction();
     }
     required property hash -> str;
-    link linked_file_data -> LinkedFileData;
+    link linked_file_data := (
+      select .<file[is LinkedFileData] limit 1
+    );
   }
 
   type ProjectInvite {
@@ -321,6 +330,12 @@ module default {
     constraint exclusive on ((.key, .user));
   }
 
+  type ProjectInviteNotification extending Notification {
+    required link project_invite -> ProjectInvite {
+      on target delete delete source;
+    }
+  }
+
   type Tag {
     required link user -> User {
       on target delete delete source;
@@ -345,11 +360,6 @@ module default {
 
   type ChatRoom extending Room {
     constraint exclusive on ((.project));
-  }
-
-  type ReviewThread extending Room {
-    property resolved_at -> datetime;
-    link resolved_by -> User;
   }
 
   type Message {

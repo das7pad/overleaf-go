@@ -124,8 +124,8 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			PublicAccessLevel: p.PublicAccessLevel,
 			AccessLevel:       authorizationDetails.PrivilegeLevel,
 			AccessSource:      authorizationDetails.AccessSource,
-			Archived:          p.Archived,
-			Trashed:           p.Trashed,
+			Archived:          p.ArchivedBy.Contains(userId),
+			Trashed:           p.TrashedBy.Contains(userId),
 			OwnerRef:          p.Owner.Id,
 			Owner:             p.Owner.WithPublicInfo,
 		}

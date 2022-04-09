@@ -79,7 +79,8 @@ with
 	})
 select exists (
 	for entry in ({1} if exists u else <int64>{}) union (
-		insert Notification {
+		insert ProjectInviteNotification {
+			project_invite := pi,
 			key := 'project-invite-' ++ <str>pi.id,
 			expires_at := <datetime>$1,
 			user := u,
@@ -134,14 +135,7 @@ with
 			epoch := Project.epoch + 1
 		}
 	),
-	n := (
-		update Notification
-		filter .key = 'project-invite-' ++ <str>pi.id
-		set {
-			template_key := '',
-		}
-	)
-select exists {pi, p, n}
+select exists {pi, p}
 `, &r, inviteId, projectId)
 	if err != nil {
 		return rewriteEdgedbError(err)

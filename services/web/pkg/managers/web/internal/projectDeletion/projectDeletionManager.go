@@ -18,10 +18,8 @@ package projectDeletion
 
 import (
 	"context"
+	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
-
-	"github.com/das7pad/overleaf-go/pkg/models/deletedProject"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
@@ -32,12 +30,11 @@ type Manager interface {
 	DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error
 	UnDeleteProject(ctx context.Context, request *types.UnDeleteProjectRequest) error
 	DeleteProjectInTx(ctx, sCtx context.Context, request *types.DeleteProjectRequest) error
-	HardDeleteExpiredProjects(ctx context.Context, dryRun bool) error
+	HardDeleteExpiredProjects(ctx context.Context, dryRun bool, start time.Time) error
 }
 
-func New(db *mongo.Database, pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
+func New(pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
-		dpm: deletedProject.New(db),
 		dum: dum,
 		fm:  fm,
 		pm:  pm,
@@ -45,7 +42,6 @@ func New(db *mongo.Database, pm project.Manager, dum documentUpdater.Manager, fm
 }
 
 type manager struct {
-	dpm deletedProject.Manager
 	dum documentUpdater.Manager
 	fm  filestore.Manager
 	pm  project.Manager

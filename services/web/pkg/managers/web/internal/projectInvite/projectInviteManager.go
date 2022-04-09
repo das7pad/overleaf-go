@@ -96,7 +96,7 @@ func (m *manager) notifyEditorAboutChanges(projectId edgedb.UUID, r *refreshMemb
 	}
 }
 
-func (m *manager) createNotification(ctx context.Context, d *projectInviteDetails) error {
+func (m *manager) resendNotification(ctx context.Context, d *projectInviteDetails) error {
 	if !d.IsUserRegistered() {
 		return nil
 	}
@@ -118,7 +118,7 @@ func (m *manager) createNotification(ctx context.Context, d *projectInviteDetail
 		}
 		n.MessageOptions = blob
 	}
-	if err := m.nm.Add(ctx, n); err != nil {
+	if err := m.nm.Resend(ctx, n); err != nil {
 		return errors.Tag(err, "cannot create invite notification")
 	}
 	return nil

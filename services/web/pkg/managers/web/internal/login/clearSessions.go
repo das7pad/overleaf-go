@@ -31,7 +31,7 @@ import (
 
 func (m *manager) bumpEpoch(ctx context.Context, userId edgedb.UUID) error {
 	if err := m.um.BumpEpoch(ctx, userId); err != nil {
-		return errors.Tag(err, "cannot bump user epoch in mongo")
+		return errors.Tag(err, "cannot bump user epoch in edgedb")
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	// Add audit log entry and bump user epoch.
 	err = m.um.TrackClearSessions(ctx, userId, request.IPAddress, info)
 	if err != nil {
-		return errors.Tag(err, "cannot track session clearing in mongo")
+		return errors.Tag(err, "cannot track session clearing in edgedb")
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {

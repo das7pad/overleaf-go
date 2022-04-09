@@ -38,7 +38,7 @@ func (m *manager) ResendProjectInvite(ctx context.Context, request *types.Resend
 		return err
 	}
 
-	if err = m.createNotification(ctx, d); err != nil {
+	if err = m.resendNotification(ctx, d); err != nil {
 		return errors.Tag(err, "cannot create notification")
 	}
 

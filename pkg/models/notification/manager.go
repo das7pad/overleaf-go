@@ -26,10 +26,8 @@ import (
 
 type Manager interface {
 	GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error
-	Add(ctx context.Context, notification Notification) error
+	Resend(ctx context.Context, notification Notification) error
 	RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error
-	RemoveByKey(ctx context.Context, userId edgedb.UUID, notificationKey string) error
-	RemoveByKeyOnly(ctx context.Context, notificationKey string) error
 }
 
 func New(c *edgedb.Client) Manager {
@@ -69,7 +67,7 @@ filter .user.id = <uuid>$0 and .template_key != ''`,
 	return nil
 }
 
-func (m *manager) Add(ctx context.Context, n Notification) error {
+func (m *manager) Resend(ctx context.Context, n Notification) error {
 	if n.Key == "" {
 		return &errors.ValidationError{
 			Msg: "cannot add notification: missing key",
@@ -78,23 +76,13 @@ func (m *manager) Add(ctx context.Context, n Notification) error {
 	err := m.c.QuerySingle(
 		ctx,
 		`
-with user := (select User filter .id = <uuid>$0)
-insert Notification {
-	user := user,
-	key := <str>$1,
+update Notification
+filter .key = <str>$1 and .user.id = <uuid>$0
+set {
 	expires_at := <datetime>$2,
 	template_key := <str>$3,
 	message_options := <json>$4,
 }
-unless conflict on (.key, .user)
-else (
-	update Notification
-	filter .key = <str>$1 and .user = user
-	set {
-		expires_at := <datetime>$2,
-		template_key := <str>$3,
-		message_options := <json>$4,
-	}
 )`,
 		&IdField{},
 		n.UserId, n.Key, n.Expires, n.TemplateKey, []byte(n.MessageOptions),
@@ -115,52 +103,6 @@ set { template_key := {}, message_options := {} }
 `,
 		&IdField{},
 		notificationId, userId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func (m *manager) RemoveByKey(ctx context.Context, userId edgedb.UUID, notificationKey string) error {
-	if notificationKey == "" {
-		return &errors.ValidationError{
-			Msg: "cannot remove notification by key: missing notificationKey",
-		}
-	}
-
-	err := m.c.QuerySingle(
-		ctx,
-		`
-update Notification
-filter .key = <str>$0 and .user.id = <uuid>$1
-set { template_key := {}, message_options := {} }
-`,
-		&IdField{},
-		notificationKey, userId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func (m *manager) RemoveByKeyOnly(ctx context.Context, notificationKey string) error {
-	if notificationKey == "" {
-		return &errors.ValidationError{
-			Msg: "cannot remove notification by key only: missing notificationKey",
-		}
-	}
-
-	err := m.c.QuerySingle(
-		ctx,
-		`
-update Notification
-filter .key = <str>$0
-set { template_key := {}, message_options := {} }
-`,
-		&IdField{},
-		notificationKey,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)

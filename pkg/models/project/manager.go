@@ -19,6 +19,7 @@ package project
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
@@ -34,6 +35,8 @@ type Manager interface {
 	CreateProjectTree(ctx context.Context, creation *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
 	SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error
+	HardDelete(ctx context.Context, projectId edgedb.UUID) error
+	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId edgedb.UUID) bool) error
 	GetDeletedProjectsName(ctx context.Context, projectId, userId edgedb.UUID) (Name, error)
 	Restore(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
 	AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error)
@@ -324,30 +327,40 @@ for folder in json_array_unpack(<json>$1) union (
 		)
 	) union (
 		for file in json_array_unpack(folder['files']) union (
-			insert File {
-				project := project,
-				parent := f,
-				name := <str>file['name'],
-				size := <int64>file['size'],
-				hash := <str>file['hash'],
-				linked_file_data := assert_single((
+			with
+				inserted := (
+					insert File {
+						project := project,
+						parent := f,
+						name := <str>file['name'],
+						size := <int64>file['size'],
+						hash := <str>file['hash'],
+					}
+				)
+			select (
+				inserted union (
 					for entry in json_array_unpack(file['linked_file_data']) union (
-						insert LinkedFileData {
-							provider := <str>entry['provider'],
-							source_project_id := <str>json_get(
-								entry, 'source_project_id') ?? '',
-							source_entity_path := <str>json_get(
-								entry, 'source_entity_path') ?? '',
-							source_output_file_path := <str>json_get(
-								entry, 'source_output_file_path') ?? '',
-							url := <str>json_get(entry, 'url') ?? '',
-						}
+						select (
+							insert LinkedFileData {
+								provider := <str>entry['provider'],
+								source_project_id := <str>json_get(
+									entry, 'source_project_id') ?? '',
+								source_entity_path := <str>json_get(
+									entry, 'source_entity_path') ?? '',
+								source_output_file_path := <str>json_get(
+									entry, 'source_output_file_path') ?? '',
+								url := <str>json_get(entry, 'url') ?? '',
+
+								file := inserted
+							}
+						).file
 					)
-				)),
-	  		}
+				)
+			) limit 1
 		)
 	)
-)`,
+)
+`,
 			&ids,
 			p.Id, blob,
 		)
@@ -617,6 +630,7 @@ type transferOwnershipResult struct {
 		edgedb.Optional
 		user.WithPublicInfo `edgedb:"$inline"`
 	} `edgedb:"previous_owner"`
+	AuditLogEntry bool `edgedb:"audit_log_entry"`
 }
 
 func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId edgedb.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error) {
@@ -644,18 +658,19 @@ with
 			access_ro -= newOwner,
 			access_token_ro -= newOwner,
 			access_token_rw -= newOwner,
-			audit_log += (
-				insert ProjectAuditLogEntry {
-					initiator := previousOwner,
-					operation := 'transfer-ownership',
-					info := <json>{
-						newOwnerId := newOwner.id,
-						previousOwnerId := previousOwner.id,
-					}
-				}
-			),
 			epoch := pWithMemberCheck.epoch + 1,
 			owner := newOwner,
+		}
+	),
+	auditLogEntry := (
+		insert ProjectAuditLogEntry {
+			project := pUpdated,
+			initiator := previousOwner,
+			operation := 'transfer-ownership',
+			info := <json>{
+				newOwnerId := newOwner.id,
+				previousOwnerId := previousOwner.id,
+			}
 		}
 	)
 select {
@@ -669,6 +684,7 @@ select {
 	previous_owner := previousOwner {
 		email: { email }, id, first_name, last_name,
 	},
+	audit_log_entry := exists auditLogEntry,
 }
 `, &r, projectId, previousOwnerId, newOwnerId)
 	if err != nil {
@@ -1381,10 +1397,10 @@ func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId
 with
 	u := (select User filter .id = <uuid>$1)
 select Project {
-	access_ro := ({u} if u in .access_ro else <User>{}),
-	access_rw := ({u} if u in .access_rw else <User>{}),
-	access_token_ro := ({u} if u in .access_token_ro else <User>{}),
-	access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+	access_ro: { id } filter User = u,
+	access_rw: { id } filter User = u,
+	access_token_ro: { id } filter User = u,
+	access_token_rw: { id } filter User = u,
 	epoch,
 	owner,
 	public_access_level,
@@ -1415,10 +1431,10 @@ with
 select {
 	user_epoch := (select u { epoch }).epoch,
 	project := (select p {
-		access_ro := ({u} if u in .access_ro else <User>{}),
-		access_rw := ({u} if u in .access_rw else <User>{}),
-		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
-		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+		access_ro: { id } filter User = u,
+		access_rw: { id } filter User = u,
+		access_token_ro: { id } filter User = u,
+		access_token_rw: { id } filter User = u,
 		epoch,
 		owner: {
 			id,
@@ -1883,8 +1899,8 @@ select {
 			id,
 			last_name,
 		},
-		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
-		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+		access_token_ro: { id } filter User = u,
+		access_token_rw: { id } filter User = u,
 		compiler,
 		deleted_docs: { id, name },
 		epoch,
@@ -2022,10 +2038,10 @@ select {
 	}),
 	project_exists := (exists p),
 	project := (select pBumpedLastOpened {
-		access_ro := ({u} if u in .access_ro else <User>{}),
-		access_rw := ({u} if u in .access_rw else <User>{}),
-		access_token_ro := ({u} if u in .access_token_ro else <User>{}),
-		access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+		access_ro: { id } filter User = u,
+		access_rw: { id } filter User = u,
+		access_token_ro: { id } filter User = u,
+		access_token_rw: { id } filter User = u,
 		compiler,
 		epoch,
 		id,
@@ -2245,10 +2261,10 @@ func (m *manager) getProjectByToken(ctx context.Context, userId edgedb.UUID, tok
 with
 	u := (select User filter .id = <uuid>$0)
 select Project {
-	access_ro := ({u} if u in .access_ro else <User>{}),
-	access_rw := ({u} if u in .access_rw else <User>{}),
-	access_token_ro := ({u} if u in .access_token_ro else <User>{}),
-	access_token_rw := ({u} if u in .access_token_rw else <User>{}),
+	access_ro: { id } filter User = u,
+	access_rw: { id } filter User = u,
+	access_token_ro: { id } filter User = u,
+	access_token_rw: { id } filter User = u,
 	epoch,
 	id,
 	owner,
@@ -2357,6 +2373,7 @@ type softDeleteResult struct {
 	AuthCheck            bool `edgedb:"auth_check"`
 	ProjectNotDeletedYet bool `edgedb:"project_not_deleted_yet"`
 	ProjectSoftDeleted   bool `edgedb:"project_soft_deleted"`
+	AuditLogEntry        bool `edgedb:"audit_log_entry"`
 }
 
 func (m *manager) SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error {
@@ -2370,17 +2387,18 @@ with
 	pDeleted := (
 		update pNotDeletedYet
 		set {
-			audit_log += (
-				insert ProjectAuditLogEntry {
-					initiator := u,
-					operation := 'soft-deletion',
-					info := <json>{
-						ipAddress := <str>$2,
-					}
-				}
-			),
 			deleted_at := datetime_of_transaction(),
 			epoch := pNotDeletedYet.epoch + 1,
+		}
+	),
+	auditLogEntry := (
+		insert ProjectAuditLogEntry {
+			project := pDeleted,
+			initiator := u,
+			operation := 'soft-deletion',
+			info := <json>{
+				ipAddress := <str>$2,
+			}
 		}
 	)
 select {
@@ -2388,6 +2406,7 @@ select {
 	auth_check := exists pWithAuth,
 	project_not_deleted_yet := exists pNotDeletedYet,
 	project_soft_deleted := exists pDeleted,
+	audit_log_entry := exists auditLogEntry,
 }
 `,
 		&r,
@@ -2408,6 +2427,67 @@ select {
 	default:
 		// project soft deleted
 		return nil
+	}
+}
+
+type hardDeleteResult struct {
+	ProjectExists      bool `edgedb:"project_exists"`
+	ProjectSoftDeleted bool `edgedb:"project_soft_deleted"`
+	Deleted            bool `edgedb:"deleted"`
+}
+
+func (m *manager) HardDelete(ctx context.Context, projectId edgedb.UUID) error {
+	r := hardDeleteResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	p := (select Project filter .id = <uuid>$0),
+	pSoftDeleted := (select p filter exists .deleted_at),
+	pDeleted := (delete pSoftDeleted),
+select {
+	project_exists := exists p,
+	project_soft_deleted := exists pSoftDeleted,
+	deleted := exists pDeleted,
+}
+`, &r, projectId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.ProjectExists:
+		return &errors.UnprocessableEntityError{Msg: "project missing"}
+	case !r.ProjectSoftDeleted:
+		return &errors.UnprocessableEntityError{Msg: "project not soft deleted"}
+	}
+	return nil
+}
+
+func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId edgedb.UUID) bool) error {
+	ids := make([]edgedb.UUID, 0, 100)
+	for {
+		ids = ids[:0]
+		err := m.c.Query(ctx, `
+select (
+	select Project
+	filter .deleted_at <= <datetime>$0
+	order by .deleted_at
+	limit 100
+).id
+`, &ids, cutOff)
+		if err != nil {
+			return rewriteEdgedbError(err)
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		ok := true
+		for _, projectId := range ids {
+			if !fn(projectId) {
+				ok = false
+			}
+		}
+		if !ok {
+			return nil
+		}
 	}
 }
 
@@ -2483,6 +2563,7 @@ type createTreeElementResult struct {
 	AuthCheck     bool                 `edgedb:"auth_check"`
 	FolderExists  bool                 `edgedb:"folder_exists"`
 	ElementId     edgedb.OptionalUUID  `edgedb:"element_id"`
+	Linked        bool                 `edgedb:"linked"`
 	Version       edgedb.OptionalInt64 `edgedb:"version"`
 }
 
@@ -2591,18 +2672,19 @@ with
 		project := pWithAuth,
 		size := <int64>$4,
 		hash := <str>$5,
-		linked_file_data := (
-			for entry in ({1} if <str>$6 != "" else <int64>{}) union (
-				insert LinkedFileData {
-					provider := <str>$6,
-					source_project_id := <str>$7,
-					source_entity_path := <str>$8,
-					source_output_file_path := <str>$9,
-					url := <str>$10,
-				}
-			)
-		),
 	}),
+	linkedFileData := (
+		for entry in ({1} if <str>$6 != "" else <int64>{}) union (
+			insert LinkedFileData {
+				provider := <str>$6,
+				source_project_id := <str>$7,
+				source_entity_path := <str>$8,
+				source_output_file_path := <str>$9,
+				url := <str>$10,
+				file := f,
+			}
+		)
+	),
 	pBumpedVersion := (
 		update f.project
 		set {
@@ -2616,6 +2698,7 @@ select {
 	auth_check := (exists pWithAuth),
 	folder_exists := (exists parent),
 	element_id := f.id,
+	linked := exists linkedFileData,
 	version := pBumpedVersion.version,
 }
 `,

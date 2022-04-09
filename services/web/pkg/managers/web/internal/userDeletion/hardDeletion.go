@@ -18,59 +18,47 @@ package userDeletion
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 const (
-	parallelHardDeletion = 5
-	expireUsersAfter     = 90 * 24 * time.Hour
+	expireUsersAfter = 90 * 24 * time.Hour
 )
 
-func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error {
-	eg, pCtx := errgroup.WithContext(ctx)
-	// Pass the pCtx to stop fetching ids as soon as any consumer failed.
-	queue, errGet := m.delUM.GetExpired(pCtx, expireUsersAfter)
-	if errGet != nil {
-		_ = eg.Wait()
-		return errGet
-	}
-	defer func() {
-		for range queue {
-			// make sure we flush the queue
-		}
-	}()
-	for i := 0; i < parallelHardDeletion; i++ {
-		eg.Go(func() error {
-			for userId := range queue {
-				if dryRun {
-					log.Println("dry-run hard deleting user " + userId.String())
-					continue
-				}
-				// Use the original ctx in order to ignore imminent failure
-				//  of another consumer.
-				if err := m.HardDeleteUser(ctx, userId); err != nil {
-					err = errors.Tag(
-						err, "hard deletion failed for user "+userId.String(),
-					)
-					log.Println(err.Error())
-					return err
-				}
+func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool, start time.Time) error {
+	nFailed := 0
+	err := m.um.ProcessSoftDeleted(
+		ctx,
+		start.Add(-expireUsersAfter),
+		func(userId edgedb.UUID) bool {
+			if dryRun {
+				log.Println("dry-run hard deleting user " + userId.String())
+				return false
 			}
-			return nil
-		})
+			if err := m.um.HardDelete(ctx, userId); err != nil {
+				err = errors.Tag(
+					err, "hard deletion failed for user "+userId.String(),
+				)
+				log.Println(err.Error())
+				nFailed++
+				return false
+			}
+			return nFailed == 0
+		},
+	)
+	if err != nil {
+		err = errors.Tag(err, "query users")
 	}
-	return eg.Wait()
-}
-
-func (m *manager) HardDeleteUser(ctx context.Context, userId edgedb.UUID) error {
-	if err := m.delUM.Expire(ctx, userId); err != nil {
-		return errors.Tag(err, "cannot expire deleted user")
+	if nFailed != 0 {
+		err = errors.Merge(err, errors.New(fmt.Sprintf(
+			"archiving failed for %d users", nFailed,
+		)))
 	}
-	return nil
+	return err
 }

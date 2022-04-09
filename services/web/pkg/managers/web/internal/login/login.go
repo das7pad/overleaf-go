@@ -38,7 +38,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 		if errors.IsNotFoundError(err) {
 			res.SetCustomFormMessage("user-not-found", err)
 		}
-		return errors.Tag(err, "cannot get user from mongo")
+		return errors.Tag(err, "cannot get user from edgedb")
 	}
 	if err := CheckPassword(&u.HashedPasswordField, r.Password); err != nil {
 		if errors.IsNotAuthorizedError(err) {

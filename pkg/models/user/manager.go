@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 
@@ -30,6 +31,8 @@ import (
 type Manager interface {
 	CreateUser(ctx context.Context, u *ForCreation) error
 	SoftDelete(ctx context.Context, userId edgedb.UUID, ip string) error
+	HardDelete(ctx context.Context, userId edgedb.UUID) error
+	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId edgedb.UUID) bool) error
 	TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId edgedb.UUID) error
 	GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error)
@@ -111,16 +114,11 @@ with
 	}),
 	auditLog := (
 		for entry in ({1} if <str>$3 != "" else <int64>{}) union (
-			update User
-			filter User = u
-			set {
-				audit_log += (
-					insert UserAuditLogEntry {
-						initiator := u,
-						operation := <str>$7,
-						ip_address := <str>$4,
-					}
-				)
+			insert UserAuditLogEntry {
+				user := u,
+				initiator := u,
+				operation := <str>$7,
+				ip_address := <str>$4,
 			}
 		)
 	)
@@ -152,18 +150,19 @@ func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, 
 with u := (select User filter .id = <uuid>$0 and .epoch = <int64>$1)
 select (
 	select (
-		update User
-		filter User = u
+		update u
 		set {
 			epoch := User.epoch + 1,
 			password_hash := <str>$2,
-			audit_log += (
-				insert UserAuditLogEntry {
-					initiator := u,
-					ip_address := <str>$3,
-					operation := <str>$4,
-				}
-			)
+		}
+	).id
+) union (
+	select (
+		insert UserAuditLogEntry {
+			user := u,
+			initiator := u,
+			ip_address := <str>$3,
+			operation := <str>$4,
 		}
 	).id
 ) union (
@@ -215,20 +214,104 @@ var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
 func (m *manager) SoftDelete(ctx context.Context, userId edgedb.UUID, ip string) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set {
-	audit_log += (
-		insert UserAuditLogEntry {
-			initiator := (select detached User filter .id = <uuid>$0),
-			ip_address := <str>$1,
-			operation := <str>$2,
+with
+	u := (
+		update User
+		filter .id = <uuid>$0 and not exists .deleted_at
+		set {
+			deleted_at := datetime_of_transaction(),
+			epoch := User.epoch + 1,
 		}
-	),
-	deleted_at := datetime_of_transaction(),
-	epoch := User.epoch + 1,
+	)
+insert UserAuditLogEntry {
+	user := u,
+	initiator := u,
+	ip_address := <str>$1,
+	operation := <str>$2,
 }
 `, &IdField{}, userId, ip, AuditLogOperationSoftDeletion))
+}
+
+type hardDeleteResult struct {
+	UserExists            bool   `edgedb:"user_exists"`
+	UserSoftDeleted       bool   `edgedb:"user_soft_deleted"`
+	UserNotJoinedProjects bool   `edgedb:"user_not_joined_projects"`
+	Deletions             []bool `edgedb:"deletions"`
+}
+
+func (m *manager) HardDelete(ctx context.Context, userId edgedb.UUID) error {
+	r := hardDeleteResult{}
+	err := m.c.QuerySingle(ctx, `
+with
+	u := (select User filter .id = <uuid>$0),
+	uSoftDeleted := (select u filter exists .deleted_at),
+	uNotJoinedProjects := (select uSoftDeleted filter not exists .projects),
+	editorConfigCleanup := (delete uNotJoinedProjects.editor_config),
+	featureCleanup := (delete uNotJoinedProjects.features),
+	secondaryEmailCleanup := (
+		delete uNotJoinedProjects.emails
+		filter Email != u.email
+	),
+	primaryEmail := u.email,
+	uDeleted := (delete uNotJoinedProjects),
+	primaryEmailCleanup := (
+		delete primaryEmail filter exists uDeleted
+	),
+select {
+	user_exists := exists u,
+	user_soft_deleted := exists uSoftDeleted,
+	user_not_joined_projects := exists uNotJoinedProjects,
+	deletions := {
+		exists editorConfigCleanup,
+		exists secondaryEmailCleanup,
+		exists primaryEmailCleanup,
+		exists featureCleanup,
+		exists uDeleted,
+	},
+}
+`, &r, userId)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	switch {
+	case !r.UserExists:
+		return &errors.UnprocessableEntityError{Msg: "user missing"}
+	case !r.UserSoftDeleted:
+		return &errors.UnprocessableEntityError{Msg: "user not soft deleted"}
+	case !r.UserNotJoinedProjects:
+		return &errors.UnprocessableEntityError{Msg: "user joined projects"}
+	}
+	return nil
+}
+
+func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId edgedb.UUID) bool) error {
+	ids := make([]edgedb.UUID, 0, 100)
+	for {
+		ids = ids[:0]
+		err := m.c.Query(ctx, `
+select (
+	select User
+	filter .deleted_at <= <datetime>$0
+	order by .deleted_at
+	limit 100
+).id
+`, &ids, cutOff)
+		if err != nil {
+			return rewriteEdgedbError(err)
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		ok := true
+		for _, userId := range ids {
+			if !fn(userId) {
+				ok = false
+			}
+		}
+		if !ok {
+			return nil
+		}
+	}
 }
 
 func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error {
@@ -237,19 +320,20 @@ func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip
 		return errors.Tag(err, "cannot serialize audit log info")
 	}
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-with u := (select User filter .id = <uuid>$0)
-update User
-filter User = u
-set {
-	epoch := User.epoch + 1,
-	audit_log += (
-		insert UserAuditLogEntry {
-			initiator := u,
-			operation := <str>$3,
-			ip_address := <str>$1,
-			info := <json>$2,
+with
+	u := (
+		updater User
+		filter .id = <uuid>$0
+		set {
+			epoch := User.epoch + 1,
 		}
 	)
+insert UserAuditLogEntry {
+	user := u,
+	initiator := u,
+	operation := <str>$3,
+	ip_address := <str>$1,
+	info := <json>$2,
 }
 `, &IdField{}, userId, ip, blob, AuditLogOperationClearSessions))
 }
@@ -269,17 +353,6 @@ with
 	uChanged := (
 		update u
 		set {
-			audit_log += (
-				insert UserAuditLogEntry {
-					initiator := (select User filter .id = <uuid>$0),
-					operation := <str>$4,
-					ip_address := <str>$3,
-					info := <json>{
-						oldPrimaryEmail := oldPrimaryEmail.email,
-						newPrimaryEmail := newPrimaryEmail.email,
-					}
-				}
-			),
 			email := newPrimaryEmail,
 			emails := { newPrimaryEmail },
 		}
@@ -288,6 +361,17 @@ with
 		delete oldPrimaryEmail
 		filter .user != uChanged
 	),
+	auditLog := (
+		insert UserAuditLogEntry {
+			initiator := (select User filter .id = <uuid>$0),
+			operation := <str>$4,
+			ip_address := <str>$3,
+			info := <json>{
+				oldPrimaryEmail := oldPrimaryEmail.email,
+				newPrimaryEmail := newPrimaryEmail.email,
+			}
+		}
+	)
 select {oldPrimaryEmailDeleted}
 `,
 		&IdField{},
@@ -343,20 +427,21 @@ set {
 
 func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error {
 	err := m.c.QuerySingle(ctx, `
-with u := (select User filter .id = <uuid>$0)
-update User
-filter User = u
-set {
-	login_count := User.login_count + 1,
-	last_logged_in := datetime_of_transaction(),
-	last_login_ip := <str>$1,
-	audit_log += (
-		insert UserAuditLogEntry {
-			initiator := u,
-			operation := 'login',
-			ip_address := <str>$1,
+with
+	u := (
+		update User
+		filter .id = <uuid>$0
+		set {
+			login_count := User.login_count + 1,
+			last_logged_in := datetime_of_transaction(),
+			last_login_ip := <str>$1,
 		}
 	)
+insert UserAuditLogEntry {
+	user := u,
+	initiator := u,
+	operation := 'login',
+	ip_address := <str>$1,
 }
 `, &IdField{}, userId, ip)
 	if err != nil {
@@ -478,18 +563,19 @@ limit 1`
 
 func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error {
 	err := m.c.QuerySingle(ctx, `
-select User {
+with u := (select User filter .id = <uuid>$0)
+select u {
 	email: { email },
 	emails: { email },
 	first_name,
 	id,
 	last_name,
 	projects: {
-		access_ro := ({User} if User in .access_ro else <User>{}),
-		access_rw := ({User} if User in .access_rw else <User>{}),
-		access_token_ro := ({User} if User in .access_token_ro else <User>{}),
-		access_token_rw := ({User} if User in .access_token_rw else <User>{}),
-		archived := (User in .archived_by),
+		access_ro: { id } filter User = u,
+		access_rw: { id } filter User = u,
+		access_token_ro: { id } filter User = u,
+		access_token_rw: { id } filter User = u,
+		archived_by: { id } filter User = u,
 		epoch,
 		id,
 		last_updated_at,
@@ -507,7 +593,7 @@ select User {
 			last_name,
 		},
 		public_access_level,
-		trashed := (User in .trashed_by),
+		trashed_by: { id } filter User = u,
 	},
 	tags: {
 		id,
@@ -515,7 +601,6 @@ select User {
 		projects,
 	},
 }
-filter .id = <uuid>$0
 `, u, userId)
 	if err != nil {
 		return rewriteEdgedbError(err)

@@ -44,11 +44,7 @@ type AccessTokenReadOnlyField struct {
 }
 
 type ArchivedByField struct {
-	ArchivedBy Refs `edgedb:"archived"`
-}
-
-type ArchivedField struct {
-	Archived bool `edgedb:"archived"`
+	ArchivedBy Refs `edgedb:"archived_by"`
 }
 
 type AuditLogField struct {
@@ -144,10 +140,6 @@ type TrackChangesStateField struct {
 
 type TrashedByField struct {
 	TrashedBy Refs `edgedb:"trashed_by"`
-}
-
-type TrashedField struct {
-	Trashed bool `edgedb:"trashed"`
 }
 
 type RootFolderField struct {

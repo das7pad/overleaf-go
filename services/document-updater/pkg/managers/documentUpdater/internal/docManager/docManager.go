@@ -226,7 +226,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId edgedb.UUID) (*ty
 	}
 	flushedDoc, err := m.webApi.GetDoc(ctx, projectId, docId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get doc from mongo")
+		return nil, errors.Tag(err, "cannot get doc from edgedb")
 	}
 	doc = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
 	if err = m.rm.PutDocInMemory(ctx, projectId, docId, doc); err != nil {

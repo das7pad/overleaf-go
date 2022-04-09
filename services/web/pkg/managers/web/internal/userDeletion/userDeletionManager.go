@@ -18,11 +18,10 @@ package userDeletion
 
 import (
 	"context"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
-	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/das7pad/overleaf-go/pkg/models/deletedUser"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectDeletion"
@@ -31,13 +30,12 @@ import (
 
 type Manager interface {
 	DeleteUser(ctx context.Context, request *types.DeleteUserRequest) error
-	HardDeleteExpiredUsers(ctx context.Context, dryRun bool) error
+	HardDeleteExpiredUsers(ctx context.Context, dryRun bool, start time.Time) error
 }
 
-func New(c *edgedb.Client, db *mongo.Database, pm project.Manager, um user.Manager, pDelM projectDeletion.Manager) Manager {
+func New(c *edgedb.Client, pm project.Manager, um user.Manager, pDelM projectDeletion.Manager) Manager {
 	return &manager{
 		c:     c,
-		delUM: deletedUser.New(db),
 		pm:    pm,
 		um:    um,
 		pDelM: pDelM,
@@ -46,7 +44,6 @@ func New(c *edgedb.Client, db *mongo.Database, pm project.Manager, um user.Manag
 
 type manager struct {
 	c     *edgedb.Client
-	delUM deletedUser.Manager
 	pm    project.Manager
 	um    user.Manager
 	pDelM projectDeletion.Manager

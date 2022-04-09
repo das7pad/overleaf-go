@@ -67,7 +67,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		p.Compiler = request.Compiler
 	}
 	p.ImageName = m.options.DefaultImage
-	if request.ImageName == "" {
+	if request.ImageName != "" {
 		p.ImageName = request.ImageName
 	}
 	p.Name = request.Name
