@@ -118,7 +118,7 @@ with
 				user := u,
 				initiator := u,
 				operation := <str>$7,
-				ip_address := <str>$4,
+				ip_address := <str>$3,
 			}
 		)
 	)
@@ -339,13 +339,12 @@ insert UserAuditLogEntry {
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
-	// TODO: rework
-	err := m.c.QuerySingle(ctx, `
+	err := m.c.Query(ctx, `
 with
-	u := (
+	u := assert_exists((
 		select User
 		filter .id = <uuid>$0 and .epoch = <int64>$1
-	),
+	)),
 	oldPrimaryEmail := u.email,
 	newPrimaryEmail := (insert Email {
 		email := <str>$2,
@@ -359,22 +358,23 @@ with
 	),
 	oldPrimaryEmailDeleted := (
 		delete oldPrimaryEmail
-		filter .user != uChanged
+		filter exists uChanged
 	),
 	auditLog := (
 		insert UserAuditLogEntry {
-			initiator := (select User filter .id = <uuid>$0),
-			operation := <str>$4,
+			user := u,
+			initiator := u,
 			ip_address := <str>$3,
+			operation := <str>$4,
 			info := <json>{
 				oldPrimaryEmail := oldPrimaryEmail.email,
 				newPrimaryEmail := newPrimaryEmail.email,
 			}
 		}
 	)
-select {oldPrimaryEmailDeleted}
+select {exists oldPrimaryEmailDeleted, exists auditLog}
 `,
-		&IdField{},
+		&[]bool{},
 		u.Id, u.Epoch, newEmail, ip, AuditLogOperationChangePrimaryEmail,
 	)
 	if err != nil {

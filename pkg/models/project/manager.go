@@ -2137,7 +2137,6 @@ select Project {
 }
 filter .id = <uuid>$0
 `
-	// TODO: add more cases
 	default:
 		return errors.New("missing query for target")
 	}
