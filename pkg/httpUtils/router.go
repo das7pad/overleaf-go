@@ -47,9 +47,13 @@ func (c *Context) AddValue(key interface{}, v interface{}) {
 // ClientIP returns the last IP of the last X-Forwarded-For header on the
 //  request, if any, else it returns the requests .RemoteAddr.
 func (c *Context) ClientIP() string {
-	ip := c.Request.RemoteAddr
+	ip := ""
 	for _, s := range c.Request.Header.Values("X-Forwarded-For") {
 		ip = strings.TrimSpace(s[strings.LastIndexByte(s, ',')+1:])
+	}
+	if ip == "" {
+		addr := c.Request.RemoteAddr
+		ip = addr[:strings.LastIndexByte(addr, ':')]
 	}
 	return ip
 }
