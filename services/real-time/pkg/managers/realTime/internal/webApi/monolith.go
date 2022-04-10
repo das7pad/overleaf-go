@@ -76,8 +76,8 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	// Populate fake feature flags
 	owner.Features.Collaborators = -1
-	owner.Features.TrackChangesVisible = true
-	owner.Features.TrackChanges = true
+	owner.Features.TrackChangesVisible = false
+	owner.Features.TrackChanges = false
 	owner.Features.Versioning = true
 
 	details := types.JoinProjectDetails{

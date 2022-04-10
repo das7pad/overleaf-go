@@ -26,7 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func (m *manager) sendWelcomeEmail(ctx context.Context, to sharedTypes.Email, confirmEmailURL *sharedTypes.URL) error {
+func (m *manager) sendWelcomeEmail(to sharedTypes.Email, confirmEmailURL *sharedTypes.URL) error {
 	withEmailHint := "."
 	if spamSafe.IsSafeEmail(to) {
 		withEmailHint = fmt.Sprintf(" with the email address '%s'.", to)
@@ -68,7 +68,7 @@ func (m *manager) sendWelcomeEmail(ctx context.Context, to sharedTypes.Email, co
 			Address: to,
 		},
 	}
-	if err := e.Send(ctx, m.emailOptions.Send); err != nil {
+	if err := e.Send(context.Background(), m.emailOptions.Send); err != nil {
 		return errors.Tag(err, "cannot send welcome email")
 	}
 	return nil

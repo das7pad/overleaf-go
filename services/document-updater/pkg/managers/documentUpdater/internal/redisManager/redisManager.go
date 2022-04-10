@@ -98,11 +98,6 @@ type Manager interface {
 		projectId edgedb.UUID,
 	) ([]edgedb.UUID, error)
 
-	GetDocTimestamps(
-		ctx context.Context,
-		docIds []edgedb.UUID,
-	) ([]int64, error)
-
 	QueueFlushAndDeleteProject(
 		ctx context.Context,
 		projectId edgedb.UUID,
@@ -465,39 +460,6 @@ func (m *manager) GetDocIdsInProject(ctx context.Context, projectId edgedb.UUID)
 		docIds[i] = id
 	}
 	return docIds, nil
-}
-
-func (m *manager) GetDocTimestamps(ctx context.Context, docIds []edgedb.UUID) ([]int64, error) {
-	if len(docIds) == 0 {
-		return nil, nil
-	}
-	commands := make([]*redis.StringCmd, len(docIds))
-	// Note: The docs may be hosted on multiple shards. Pipelined is per shard.
-	_, err := m.rClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		for idx, id := range docIds {
-			commands[idx] = p.Get(ctx, getLastUpdatedCtxKey(id))
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Tag(err, "cannot get timestamp from redis")
-	}
-	timestamps := make([]int64, len(commands))
-	for i, cmd := range commands {
-		raw := cmd.Val()
-		if raw == "" {
-			timestamps[i] = 0
-		} else {
-			var lastUpdatedCtx types.LastUpdatedCtx
-			err2 := json.Unmarshal([]byte(raw), &lastUpdatedCtx)
-			if err2 != nil {
-				timestamps[i] = 0
-			} else {
-				timestamps[i] = lastUpdatedCtx.At
-			}
-		}
-	}
-	return timestamps, nil
 }
 
 const SmoothingOffset = int64(time.Second)

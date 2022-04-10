@@ -88,9 +88,6 @@ func (d *DocumentUpdateMeta) Validate() error {
 	if err := d.Source.Validate(); err != nil {
 		return err
 	}
-	if err := d.Timestamp.Validate(); err != nil {
-		return err
-	}
 	if err := d.TrackChangesSeed.Validate(); err != nil {
 		return err
 	}

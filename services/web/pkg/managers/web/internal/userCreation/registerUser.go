@@ -65,7 +65,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 	}
 
 	go func() {
-		errEmail := m.sendWelcomeEmail(ctx, r.Email, m.options.SiteURL.
+		errEmail := m.sendWelcomeEmail(r.Email, m.options.SiteURL.
 			WithPath("/user/emails/confirm").
 			WithQuery(url.Values{
 				"token": {string(t)},

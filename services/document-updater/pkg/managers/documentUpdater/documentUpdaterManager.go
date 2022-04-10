@@ -31,13 +31,11 @@ import (
 
 type Manager interface {
 	StartBackgroundTasks(ctx context.Context)
-	AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error
 	CheckDocExists(
 		ctx context.Context,
 		projectId edgedb.UUID,
 		docId edgedb.UUID,
 	) error
-	DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error
 	GetDoc(
 		ctx context.Context,
 		projectId edgedb.UUID,
@@ -110,20 +108,6 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId, docId edgedb.UU
 	return err
 }
 
-func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
-	return m.dm.AcceptReviewChanges(ctx, projectId, docId, changeIds)
-}
-
-func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
-	return m.dm.DeleteReviewThread(ctx, projectId, docId, threadId)
-}
-
 func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
 	response := &types.GetDocResponse{}
 	if fromVersion == -1 {
@@ -134,7 +118,6 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, from
 		response.Ops = make([]sharedTypes.DocumentUpdate, 0)
 		response.PathName = doc.PathName
 		response.Snapshot = string(doc.Snapshot)
-		response.Ranges = doc.Ranges
 		response.Version = doc.Version
 	} else {
 		doc, updates, err := m.dm.GetDocAndRecentUpdates(
@@ -144,7 +127,6 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, from
 			return nil, err
 		}
 		response.Ops = updates
-		response.Ranges = doc.Ranges
 		response.Version = doc.Version
 	}
 	return response, nil

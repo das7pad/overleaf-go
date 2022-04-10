@@ -136,10 +136,10 @@ outer:
 
 		doc.Snapshot = s
 		doc.Version++
-		now := time.Now().UnixNano() / int64(time.Millisecond)
+		now := time.Now()
 		doc.LastUpdatedCtx.At = now
 		doc.LastUpdatedCtx.By = update.Meta.UserId
-		update.Meta.Timestamp = sharedTypes.Timestamp(now)
+		update.Meta.Timestamp = sharedTypes.Timestamp(now.UnixMilli())
 		processed = append(processed, update)
 		transformUpdatesCache = append(transformUpdatesCache, update)
 	}

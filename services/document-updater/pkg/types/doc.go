@@ -27,33 +27,22 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
-
-const megabytes = 1024 * 1024
-const MaxRangesSize = 3 * megabytes
 
 type UnFlushedTime int64
 
 type LastUpdatedCtx struct {
-	At int64       `json:"at"`
+	At time.Time   `json:"at"`
 	By edgedb.UUID `json:"by,omitempty"`
 }
 
-type FlushedDoc struct {
-	Snapshot string
-	PathName sharedTypes.PathName `json:"pathname"`
-	Ranges   sharedTypes.Ranges   `json:"ranges"`
-	Version  sharedTypes.Version  `json:"version"`
-}
-
 type DocCore struct {
-	Snapshot   sharedTypes.Snapshot `json:"snapshot"`
-	Hash       sharedTypes.Hash     `json:"hash"`
-	JsonRanges json.RawMessage      `json:"json_ranges"`
-	Ranges     sharedTypes.Ranges   `json:"-"`
-	ProjectId  edgedb.UUID          `json:"project_id"`
-	PathName   sharedTypes.PathName `json:"path_name"`
+	Snapshot  sharedTypes.Snapshot `json:"snapshot"`
+	Hash      sharedTypes.Hash     `json:"hash"`
+	ProjectId edgedb.UUID          `json:"project_id"`
+	PathName  sharedTypes.PathName `json:"path_name"`
 }
 
 type Doc struct {
@@ -65,13 +54,12 @@ type Doc struct {
 	JustLoadedIntoRedis bool
 }
 
-func DocFromFlushedDoc(flushedDoc *FlushedDoc, projectId, docId edgedb.UUID) *Doc {
+func DocFromFlushedDoc(flushedDoc *project.Doc, projectId, docId edgedb.UUID) *Doc {
 	d := &Doc{}
 	d.DocId = docId
 	d.JustLoadedIntoRedis = true
-	d.PathName = flushedDoc.PathName
+	d.PathName = flushedDoc.ResolvedPath
 	d.ProjectId = projectId
-	d.Ranges = flushedDoc.Ranges
 	d.Snapshot = sharedTypes.Snapshot(flushedDoc.Snapshot)
 	d.Version = flushedDoc.Version
 	return d
@@ -100,14 +88,10 @@ func (s *SetDocRequest) Validate() error {
 }
 
 func (d *Doc) ToSetDocDetails() *doc.ForDocUpdate {
-	// TODO: switch unit of d.LastUpdatedCtx.At to ns
-	t := time.Unix(
-		d.LastUpdatedCtx.At/1000, d.LastUpdatedCtx.At%1000,
-	)
 	return &doc.ForDocUpdate{
 		Snapshot:      d.Snapshot,
 		Version:       d.Version,
-		LastUpdatedAt: t,
+		LastUpdatedAt: d.LastUpdatedCtx.At,
 		LastUpdatedBy: d.LastUpdatedCtx.By,
 	}
 }
@@ -124,7 +108,7 @@ type DocContentSnapshot struct {
 	Snapshot      string               `json:"snapshot"`
 	PathName      sharedTypes.PathName `json:"pathname"`
 	Version       sharedTypes.Version  `json:"v"`
-	LastUpdatedAt int64                `json:"-"`
+	LastUpdatedAt time.Time            `json:"-"`
 }
 
 func (d *Doc) ToDocContentLines() *DocContentLines {
@@ -146,69 +130,21 @@ func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 	}
 }
 
-func (d *Doc) DeleteReviewThread(threadId edgedb.UUID) bool {
-	n := len(d.Ranges.Comments)
-	if n == 0 {
-		return false
-	}
-	idx := -1
-	for i := 0; i < n; i++ {
-		if d.Ranges.Comments[i].Id == threadId {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return false
-	}
-	d.Ranges.Comments[idx] = d.Ranges.Comments[n-1]
-	d.Ranges.Comments = d.Ranges.Comments[:n-1]
-	return true
-}
-
-func (d *Doc) AcceptReviewChanges(changeIds []edgedb.UUID) bool {
-	n := len(d.Ranges.Changes)
-	if n == 0 {
-		return false
-	}
-	lookup := make(map[edgedb.UUID]struct{})
-	for _, id := range changeIds {
-		lookup[id] = struct{}{}
-	}
-	newSize := n - len(changeIds)
-	if newSize < 0 {
-		newSize = 0
-	}
-	out := make(sharedTypes.Changes, 0, newSize)
-	foundAny := false
-	for _, change := range d.Ranges.Changes {
-		if _, exists := lookup[change.Id]; exists {
-			foundAny = true
-			continue
-		}
-		out = append(out, change)
-	}
-	if foundAny {
-		d.Ranges.Changes = out
-	}
-	return foundAny
-}
-
 type DocContentSnapshots []*DocContentSnapshot
 
 var unixEpochStart = time.Unix(0, 0)
 
-func (l *DocContentSnapshots) LastUpdatedAt() time.Time {
+func (l DocContentSnapshots) LastUpdatedAt() time.Time {
 	if l == nil {
 		return unixEpochStart
 	}
-	max := int64(0)
-	for _, snapshot := range *l {
-		if snapshot.LastUpdatedAt > max {
+	max := time.Time{}
+	for _, snapshot := range l {
+		if snapshot.LastUpdatedAt.After(max) {
 			max = snapshot.LastUpdatedAt
 		}
 	}
-	return time.Unix(0, max*int64(time.Millisecond))
+	return max
 }
 
 func deserializeDocCoreV0(core *DocCore, blob []byte) error {
@@ -233,7 +169,7 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 	}
 	core.Snapshot = lines.ToSnapshot()
 
-	core.JsonRanges = parts[2]
+	// parts[2] are Ranges
 
 	core.ProjectId, err = edgedb.ParseUUID(string(parts[3]))
 	if err != nil {
@@ -264,23 +200,10 @@ func (core *DocCore) DoUnmarshalJSON(bytes []byte) error {
 			return err
 		}
 	}
-	if err := json.Unmarshal(core.JsonRanges, &core.Ranges); err != nil {
-		return errors.Tag(err, "cannot deserialize ranges")
-	}
 	return nil
 }
 
 func (core *DocCore) DoMarshalJSON() ([]byte, error) {
-	ranges, err := json.Marshal(core.Ranges)
-	if err != nil {
-		return nil, err
-	}
-	if len(ranges) > MaxRangesSize {
-		return nil, errors.New("ranges are too large")
-	}
-	core.JsonRanges = ranges
-
 	core.Hash = core.Snapshot.Hash()
-
 	return json.Marshal(core)
 }

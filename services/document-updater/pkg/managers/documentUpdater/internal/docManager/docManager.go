@@ -26,6 +26,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/doc"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
@@ -33,15 +35,11 @@ import (
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/redisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/trackChanges"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/updateManager"
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/webApi"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/sharejs/types/text"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type Manager interface {
-	AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error
-	DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error
-
 	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edgedb.UUID) ([]*types.Doc, error)
@@ -69,84 +67,30 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient)
 	if err != nil {
 		return nil, err
 	}
-	web, err := webApi.New(c)
-	if err != nil {
-		return nil, err
-	}
 	tc, err := trackChanges.New(options, client)
 	if err != nil {
 		return nil, err
 	}
 	u := updateManager.New(rm, rtRm)
 	return &manager{
-		rl:     rl,
-		rm:     rm,
-		rtRm:   rtRm,
-		tc:     tc,
-		u:      u,
-		webApi: web,
+		rl:   rl,
+		rm:   rm,
+		rtRm: rtRm,
+		tc:   tc,
+		u:    u,
+		dm:   doc.New(c),
+		pm:   project.New(c),
 	}, nil
 }
 
 type manager struct {
-	rl     redisLocker.Locker
-	rm     redisManager.Manager
-	rtRm   realTimeRedisManager.Manager
-	tc     trackChanges.Manager
-	u      updateManager.Manager
-	webApi webApi.Manager
-}
-
-func (m *manager) AcceptReviewChanges(ctx context.Context, projectId, docId edgedb.UUID, changeIds []edgedb.UUID) error {
-	if len(changeIds) == 0 {
-		return &errors.ValidationError{Msg: "missing change_ids"}
-	}
-	return m.operateOnRanges(ctx, projectId, docId, func(doc *types.Doc) (bool, error) {
-		return doc.AcceptReviewChanges(changeIds), nil
-	})
-}
-
-func (m *manager) DeleteReviewThread(ctx context.Context, projectId, docId, threadId edgedb.UUID) error {
-	return m.operateOnRanges(ctx, projectId, docId, func(doc *types.Doc) (bool, error) {
-		return doc.DeleteReviewThread(threadId), nil
-	})
-}
-
-func (m *manager) operateOnRanges(ctx context.Context, projectId, docId edgedb.UUID, fn func(doc *types.Doc) (bool, error)) error {
-	for {
-		var err error
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-			var doc *types.Doc
-			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
-			if err != nil {
-				return
-			}
-			var persist bool
-			if persist, err = fn(doc); !persist || err != nil {
-				return
-			}
-			if doc.UnFlushedTime == 0 {
-				doc.UnFlushedTime = types.UnFlushedTime(time.Now().Unix())
-			}
-			err = m.rm.PutDocInMemory(ctx, projectId, docId, doc)
-			if err != nil {
-				return
-			}
-			err = m.doFlushAndMaybeDelete(
-				ctx, projectId, docId, doc, doc.JustLoadedIntoRedis,
-			)
-		})
-		if err == errPartialFlush {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if lockErr != nil {
-			return lockErr
-		}
-		return nil
-	}
+	rl   redisLocker.Locker
+	rm   redisManager.Manager
+	rtRm realTimeRedisManager.Manager
+	tc   trackChanges.Manager
+	u    updateManager.Manager
+	dm   doc.Manager
+	pm   project.Manager
 }
 
 func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, update *types.RenameDocUpdate) error {
@@ -162,12 +106,12 @@ func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, update *
 				return
 			}
 
-			var doc *types.Doc
-			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			var d *types.Doc
+			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
-			err = m.rm.RenameDoc(ctx, projectId, docId, doc, update)
+			err = m.rm.RenameDoc(ctx, projectId, docId, d, update)
 		})
 		if err == errPartialFlush {
 			continue
@@ -183,29 +127,29 @@ func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, update *
 }
 
 func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
-	doc, err := m.GetDoc(ctx, projectId, docId)
+	d, err := m.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, nil, err
 	}
 	updates, err :=
-		m.rm.GetPreviousDocUpdates(ctx, docId, fromVersion, doc.Version)
+		m.rm.GetPreviousDocUpdates(ctx, docId, fromVersion, d.Version)
 	if err != nil {
 		return nil, nil, err
 	}
-	return doc, updates, nil
+	return d, updates, nil
 }
 
 func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
-	doc, err := m.rm.GetDoc(ctx, projectId, docId)
+	d, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
-		return doc, nil
+		return d, nil
 	}
 	if !errors.IsNotFoundError(err) {
 		return nil, err
 	}
 	err = nil
 	lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-		doc, err = m.getDoc(ctx, projectId, docId)
+		d, err = m.getDoc(ctx, projectId, docId)
 	})
 	if err != nil {
 		return nil, err
@@ -213,26 +157,26 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*ty
 	if lockErr != nil {
 		return nil, lockErr
 	}
-	return doc, nil
+	return d, nil
 }
 
 func (m *manager) getDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
-	doc, err := m.rm.GetDoc(ctx, projectId, docId)
+	d, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
-		return doc, nil
+		return d, nil
 	}
 	if !errors.IsNotFoundError(err) {
 		return nil, errors.Tag(err, "cannot get doc from redis")
 	}
-	flushedDoc, err := m.webApi.GetDoc(ctx, projectId, docId)
+	flushedDoc, err := m.pm.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get doc from edgedb")
 	}
-	doc = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
-	if err = m.rm.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
+	d = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
+	if err = m.rm.PutDocInMemory(ctx, projectId, docId, d); err != nil {
 		return nil, errors.Tag(err, "cannot put doc in memory")
 	}
-	return doc, nil
+	return d, nil
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error {
@@ -242,8 +186,8 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 	for {
 		var err error
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-			var doc *types.Doc
-			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			var d *types.Doc
+			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
@@ -253,7 +197,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 				return
 			}
 
-			op := text.Diff(doc.Snapshot, request.GetSnapshot())
+			op := text.Diff(d.Snapshot, request.GetSnapshot())
 
 			if err = ctx.Err(); err != nil {
 				// Processing timed out.
@@ -269,7 +213,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 
 				now := time.Now()
 				updates := []sharedTypes.DocumentUpdate{{
-					Version: doc.Version,
+					Version: d.Version,
 					DocId:   docId,
 					Hash:    request.GetSnapshot().Hash(),
 					Op:      op,
@@ -281,9 +225,9 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 					},
 				}}
 
-				initialVersion := doc.Version
+				initialVersion := d.Version
 				updates, _, err = m.u.ProcessUpdates(
-					ctx, docId, doc, updates, nil,
+					ctx, docId, d, updates, nil,
 				)
 				if err != nil {
 					return
@@ -292,7 +236,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 				err = m.persistProcessedUpdates(
 					ctx,
 					projectId, docId,
-					doc, initialVersion,
+					d, initialVersion,
 					updates, nil,
 				)
 				if err != nil {
@@ -300,9 +244,9 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 				}
 			}
 
-			deleteFromRedis := doc.JustLoadedIntoRedis
+			deleteFromRedis := d.JustLoadedIntoRedis
 			err = m.doFlushAndMaybeDelete(
-				ctx, projectId, docId, doc, deleteFromRedis,
+				ctx, projectId, docId, d, deleteFromRedis,
 			)
 			if err != nil {
 				return
@@ -352,22 +296,22 @@ const (
 )
 
 func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
-	var doc *types.Doc
+	var d *types.Doc
 	var err error
 
 	for {
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
-			if doc.UnFlushedTime != 0 {
+			if d.UnFlushedTime != 0 {
 				maxAge := types.UnFlushedTime(
 					time.Now().Add(-maxUnFlushedAge).Unix(),
 				)
-				if doc.UnFlushedTime < maxAge {
+				if d.UnFlushedTime < maxAge {
 					err = m.doFlushAndMaybeDelete(
-						ctx, projectId, docId, doc, false,
+						ctx, projectId, docId, d, false,
 					)
 				}
 			}
@@ -382,7 +326,7 @@ func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId
 		if lockErr != nil {
 			return nil, lockErr
 		}
-		return doc, nil
+		return d, nil
 	}
 }
 
@@ -397,7 +341,7 @@ var (
 )
 
 func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
-	doc, err := m.getDoc(ctx, projectId, docId)
+	d, err := m.getDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +349,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edg
 		// Processing timed out.
 		return nil, err
 	}
-	initialVersion := doc.Version
+	initialVersion := d.Version
 	now := time.Now()
 	softDeadline := now.Add(maxBudgetProcessOutstandingUpdates)
 	if hardDeadline, hasDeadline := ctx.Deadline(); hasDeadline {
@@ -429,7 +373,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edg
 		}
 		processed, transformUpdatesCache, updateErr =
 			m.u.ProcessOutstandingUpdates(
-				ctx, docId, doc, transformUpdatesCache,
+				ctx, docId, d, transformUpdatesCache,
 			)
 
 		if err = ctx.Err(); err != nil {
@@ -437,13 +381,13 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edg
 			return nil, err
 		}
 		if len(processed) == 0 && updateErr == nil {
-			return doc, nil
+			return d, nil
 		}
 
 		err = m.persistProcessedUpdates(
 			ctx,
 			projectId, docId,
-			doc, initialVersion,
+			d, initialVersion,
 			processed, updateErr,
 		)
 		if err != nil {
@@ -564,13 +508,13 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId e
 				}
 				return
 			}
-			var doc *types.Doc
-			doc, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			var d *types.Doc
+			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
 				return
 			}
 			err = m.doFlushAndMaybeDelete(
-				ctx, projectId, docId, doc, delete,
+				ctx, projectId, docId, d, delete,
 			)
 			if err != nil {
 				return
@@ -595,11 +539,11 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId ed
 		m.tc.FlushDocInBackground(projectId, docId)
 	}
 	if doc.UnFlushedTime != 0 {
-		err := m.webApi.SetDoc(
+		err := m.dm.UpdateDoc(
 			ctx, projectId, docId, doc.ToSetDocDetails(),
 		)
 		if err != nil {
-			return err
+			return errors.Tag(err, "cannot persist doc in edgedb")
 		}
 	}
 	if deleteFromRedis {
@@ -658,9 +602,9 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId edgedb.
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edgedb.UUID) ([]*types.Doc, error) {
-	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
-	if err != nil {
-		return nil, err
+	docIds, errGetDocIds := m.rm.GetDocIdsInProject(ctx, projectId)
+	if errGetDocIds != nil {
+		return nil, errGetDocIds
 	}
 
 	docs := make([]*types.Doc, len(docIds))
@@ -669,13 +613,13 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edg
 		i := j
 		docId := id
 		eg.Go(func() error {
-			doc, err := m.processUpdatesForDocAndFlushOld(
+			d, err := m.processUpdatesForDocAndFlushOld(
 				pCtx, projectId, docId,
 			)
 			if err != nil {
 				return errors.Tag(err, projectId.String()+"/"+docId.String())
 			}
-			docs[i] = doc
+			docs[i] = d
 			return nil
 		})
 	}
