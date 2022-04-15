@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,7 +27,8 @@ type Options struct {
 
 	APIs struct {
 		TrackChanges struct {
-			URL sharedTypes.URL `json:"url"`
+			URL      sharedTypes.URL `json:"url"`
+			Monolith bool            `json:"monolith"`
 		} `json:"track_changes"`
 	} `json:"apis"`
 }

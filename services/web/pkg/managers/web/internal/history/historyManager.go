@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,10 +26,12 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
+	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -39,14 +41,17 @@ type Manager interface {
 	RestoreDocVersion(ctx context.Context, request *types.RestoreDocVersionRequest) error
 }
 
-func New(options *types.Options, um user.Manager) Manager {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, um user.Manager) (Manager, error) {
+	if options.APIs.TrackChanges.Monolith {
+		return trackChanges.New(c, client)
+	}
 	return &manager{
 		base: options.APIs.TrackChanges.URL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		um: um,
-	}
+	}, nil
 }
 
 const (

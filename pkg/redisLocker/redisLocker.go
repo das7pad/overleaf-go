@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -39,7 +39,7 @@ type Locker interface {
 	TryRunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error
 }
 
-func New(client redis.UniversalClient) (Locker, error) {
+func New(client redis.UniversalClient, namespace string) (Locker, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get hostname")
@@ -53,10 +53,11 @@ func New(client redis.UniversalClient) (Locker, error) {
 	return &locker{
 		client: client,
 
-		counter:  0,
-		hostname: hostname,
-		pid:      os.Getpid(),
-		rnd:      rnd,
+		counter:   0,
+		hostname:  hostname,
+		pid:       os.Getpid(),
+		rnd:       rnd,
+		namespace: namespace,
 	}, nil
 }
 
@@ -65,10 +66,11 @@ var ErrLocked = errors.New("locked")
 type locker struct {
 	client redis.UniversalClient
 
-	counter  int64
-	hostname string
-	pid      int
-	rnd      string
+	counter   int64
+	hostname  string
+	pid       int
+	rnd       string
+	namespace string
 }
 
 const (
@@ -96,10 +98,6 @@ func (l *locker) getUniqueValue() string {
 	)
 }
 
-func getBlockingKey(docId edgedb.UUID) string {
-	return "Blocking:{" + docId.String() + "}"
-}
-
 func (l *locker) RunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error {
 	return l.runWithLock(ctx, docId, runner, true)
 }
@@ -109,7 +107,7 @@ func (l *locker) TryRunWithLock(ctx context.Context, docId edgedb.UUID, runner R
 }
 
 func (l *locker) runWithLock(ctx context.Context, docId edgedb.UUID, runner Runner, poll bool) error {
-	key := getBlockingKey(docId)
+	key := fmt.Sprintf("%s:{%s}", l.namespace, docId.String())
 	lockValue := l.getUniqueValue()
 
 	acquireLockDeadline := time.Now().Add(MaxLockWaitTime)

@@ -367,10 +367,26 @@ module default {
     required property created_at -> datetime {
       default := datetime_of_transaction();
     }
-    required link user -> User;
+    link user -> User {
+      on target delete allow;
+    }
     required link room -> Room {
       on target delete delete source;
     }
     property edited_at -> datetime;
+  }
+
+  type DocHistory {
+    required link doc -> Doc {
+      on target delete delete source;
+    }
+    link user -> User {
+      on target delete allow;
+    }
+    required property version -> int64;
+    required property op -> json;
+    required property has_big_delete -> bool;
+    required property start_at -> datetime;
+    required property end_at -> datetime;
   }
 }

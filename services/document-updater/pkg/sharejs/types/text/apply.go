@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,7 +24,7 @@ import (
 func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snapshot, error) {
 	for _, op := range ops {
 		if op.IsInsertion() {
-			snapshot = injectInPlace(snapshot, op.Position, op.Insertion)
+			snapshot = InjectInPlace(snapshot, op.Position, op.Insertion)
 		} else if op.IsDeletion() {
 			start := op.Position
 			end := op.Position + len(op.Deletion)

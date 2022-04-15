@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,10 +28,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/redisLocker"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
-	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/redisLocker"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/redisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/trackChanges"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/updateManager"
@@ -58,7 +58,7 @@ type Manager interface {
 }
 
 func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
-	rl, err := redisLocker.New(client)
+	rl, err := redisLocker.New(client, "Blocking")
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient)
 	if err != nil {
 		return nil, err
 	}
-	tc, err := trackChanges.New(options, client)
+	tc, err := trackChanges.New(options, c, client)
 	if err != nil {
 		return nil, err
 	}
@@ -205,12 +205,6 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 			}
 
 			if len(op) > 0 {
-				if request.Undoing {
-					for i := range op {
-						op[i].Undo = true
-					}
-				}
-
 				now := time.Now()
 				updates := []sharedTypes.DocumentUpdate{{
 					Version: d.Version,

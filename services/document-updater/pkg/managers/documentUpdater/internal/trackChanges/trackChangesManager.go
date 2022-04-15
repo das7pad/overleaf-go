@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,6 +26,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges/flush"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/historyRedisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -36,7 +37,10 @@ type Manager interface {
 	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId edgedb.UUID, nUpdates, queueDepth int64) error
 }
 
-func New(options *types.Options, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+	if options.APIs.TrackChanges.Monolith {
+		return flush.New(c, client)
+	}
 	return &manager{
 		hrm:     historyRedisManager.New(client),
 		baseURL: options.APIs.TrackChanges.URL.String(),

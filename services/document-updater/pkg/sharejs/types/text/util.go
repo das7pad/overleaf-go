@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,7 +28,7 @@ func inject(s1 []rune, position int, s2 []rune) []rune {
 	return s
 }
 
-func injectInPlace(s1 []rune, position int, s2 []rune) []rune {
+func InjectInPlace(s1 []rune, position int, s2 []rune) []rune {
 	newLen := len(s1) + len(s2)
 	var s []rune
 	if cap(s1) >= newLen {

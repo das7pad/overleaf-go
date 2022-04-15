@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,13 +36,20 @@ type WithPublicInfo struct {
 	LastNameField  `edgedb:"$inline"`
 }
 
+func (u *WithPublicInfo) SetMissing(_ bool) {
+	// We can detect the missing state by checking for an all zero id.
+}
+
+func (u *WithPublicInfo) Missing() bool {
+	return u.Id == (edgedb.UUID{})
+}
+
 type WithPublicInfoAndFeatures struct {
 	FeaturesField  `edgedb:"$inline"`
 	WithPublicInfo `edgedb:"$inline"`
 }
 
 type WithLoadEditorInfo struct {
-	edgedb.Optional
 	AlphaProgramField         `edgedb:"$inline"`
 	BetaProgramField          `edgedb:"$inline"`
 	EditorConfigField         `edgedb:"$inline"`

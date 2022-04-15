@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -618,19 +618,13 @@ select (
 }
 
 type transferOwnershipResult struct {
-	ProjectExists bool `edgedb:"project_exists"`
-	AuthCheck     bool `edgedb:"auth_check"`
-	MemberCheck   bool `edgedb:"member_check"`
-	ProjectName   Name `edgedb:"project_name"`
-	NewOwner      struct {
-		edgedb.Optional
-		user.WithPublicInfo `edgedb:"$inline"`
-	} `edgedb:"new_owner"`
-	PreviousOwner struct {
-		edgedb.Optional
-		user.WithPublicInfo `edgedb:"$inline"`
-	} `edgedb:"previous_owner"`
-	AuditLogEntry bool `edgedb:"audit_log_entry"`
+	ProjectExists bool                `edgedb:"project_exists"`
+	AuthCheck     bool                `edgedb:"auth_check"`
+	MemberCheck   bool                `edgedb:"member_check"`
+	ProjectName   Name                `edgedb:"project_name"`
+	NewOwner      user.WithPublicInfo `edgedb:"new_owner"`
+	PreviousOwner user.WithPublicInfo `edgedb:"previous_owner"`
+	AuditLogEntry bool                `edgedb:"audit_log_entry"`
 }
 
 func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId edgedb.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error) {
@@ -700,8 +694,8 @@ select {
 			Msg: "new owner is not an invited user",
 		}
 	}
-	previousOwner := &r.PreviousOwner.WithPublicInfo
-	newOwner := &r.NewOwner.WithPublicInfo
+	previousOwner := &r.PreviousOwner
+	newOwner := &r.NewOwner
 	return previousOwner, newOwner, r.ProjectName, nil
 }
 

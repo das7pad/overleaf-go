@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -95,12 +95,10 @@ func (d *DocumentUpdateMeta) Validate() error {
 }
 
 type Component struct {
-	Comment   Snippet      `json:"c,omitempty"`
-	Deletion  Snippet      `json:"d,omitempty"`
-	Insertion Snippet      `json:"i,omitempty"`
-	Position  int          `json:"p"`
-	Thread    *edgedb.UUID `json:"t,omitempty"`
-	Undo      bool         `json:"undo,omitempty"`
+	Comment   Snippet `json:"c,omitempty"`
+	Deletion  Snippet `json:"d,omitempty"`
+	Insertion Snippet `json:"i,omitempty"`
+	Position  int     `json:"p"`
 }
 
 func (o *Component) IsComment() bool {
@@ -117,9 +115,7 @@ func (o *Component) Validate() error {
 		return &errors.ValidationError{Msg: "position is negative"}
 	}
 	if o.IsComment() {
-		if o.Thread == nil || *o.Thread == (edgedb.UUID{}) {
-			return &errors.ValidationError{Msg: "comment op is missing thread"}
-		}
+		// TODO: delete comment code
 		return nil
 	} else if o.IsDeletion() {
 		return nil
