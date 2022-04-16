@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,6 +25,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/edgedbOptions"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 )
@@ -69,10 +70,9 @@ func main() {
 	)
 	dum.StartBackgroundTasks(backgroundTaskCtx)
 
-	handler := newHttpController(dum)
 	server := http.Server{
 		Addr:    o.address,
-		Handler: handler.GetRouter(),
+		Handler: httpUtils.NewRouter(&httpUtils.RouterOptions{}),
 	}
 	err = server.ListenAndServe()
 	shutdownBackgroundTasks()

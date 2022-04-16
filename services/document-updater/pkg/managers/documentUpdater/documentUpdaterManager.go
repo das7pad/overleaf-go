@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,9 +42,7 @@ type Manager interface {
 		docId edgedb.UUID,
 		fromVersion sharedTypes.Version,
 	) (*types.GetDocResponse, error)
-	GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId edgedb.UUID) ([]*types.DocContentLines, error)
 	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error)
-	FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error
 	FlushProject(ctx context.Context, projectId edgedb.UUID) error
 	FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
@@ -57,7 +55,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient)
 		return nil, err
 	}
 
-	dm, err := docManager.New(options, c, client)
+	dm, err := docManager.New(c, client)
 	if err != nil {
 		return nil, err
 	}
@@ -132,21 +130,6 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, from
 	return response, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldLines(ctx context.Context, projectId edgedb.UUID) ([]*types.DocContentLines, error) {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return nil, err
-	}
-	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
-	if err != nil {
-		return nil, err
-	}
-	docContentsLines := make([]*types.DocContentLines, len(docs))
-	for i, doc := range docs {
-		docContentsLines[i] = doc.ToDocContentLines()
-	}
-	return docContentsLines, nil
-}
-
 func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error) {
 	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return nil, err
@@ -167,13 +150,6 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 		return err
 	}
 	return m.dm.SetDoc(ctx, projectId, docId, request)
-}
-
-func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
-	return m.dm.FlushDocIfLoaded(ctx, projectId, docId)
 }
 
 func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error {

@@ -17,27 +17,26 @@
 package docHistory
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
 
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type DocHistory struct {
-	Doc          IdField             `edgedb:"doc"`
-	User         user.WithPublicInfo `edgedb:"user"`
-	Version      sharedTypes.Version `edgedb:"version"`
-	StartAt      time.Time           `edgedb:"start_at"`
-	EndAt        time.Time           `edgedb:"end_at"`
-	HasBigDelete bool                `edgedb:"has_big_delete"`
-	Op           OpWrapper           `edgedb:"op"`
+	User    OptionalIdField     `edgedb:"user"`
+	Version sharedTypes.Version `edgedb:"version"`
+	StartAt time.Time           `edgedb:"start_at"`
+	EndAt   time.Time           `edgedb:"end_at"`
+	Op      sharedTypes.Op      `edgedb:"-"`
+	OpForDB json.RawMessage     `edgedb:"op"`
 }
 
 type ProjectUpdate struct {
 	Doc          IdField             `edgedb:"doc"`
-	User         IdField             `edgedb:"user"`
+	User         OptionalIdField     `edgedb:"user"`
 	Version      sharedTypes.Version `edgedb:"version"`
 	HasBigDelete bool                `edgedb:"has_big_delete"`
 	StartAt      time.Time           `edgedb:"start_at"`
@@ -51,5 +50,5 @@ type ForInsert struct {
 	StartAt      time.Time           `json:"start_at"`
 	EndAt        time.Time           `json:"end_at"`
 	Op           sharedTypes.Op      `json:"-"`
-	OpForDB      []byte              `json:"op"`
+	OpForDB      json.RawMessage     `json:"op"`
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,15 +27,14 @@ import (
 )
 
 type DiffMeta struct {
-	UserId *edgedb.UUID                         `json:"user_id,omitempty"`
-	User   *user.WithPublicInfoAndNonStandardId `json:"user,omitempty"`
+	User user.WithPublicInfoAndNonStandardId `json:"user,omitempty"`
 
 	StartTs sharedTypes.Timestamp `json:"start_ts"`
 	EndTs   sharedTypes.Timestamp `json:"end_ts"`
 }
 
 type DiffEntry struct {
-	Meta *DiffMeta `json:"meta,omitempty"`
+	Meta DiffMeta `json:"meta,omitempty"`
 
 	Deletion  sharedTypes.Snippet `json:"d,omitempty"`
 	Insertion sharedTypes.Snippet `json:"i,omitempty"`
@@ -49,6 +48,13 @@ type GetDocDiffRequest struct {
 
 	From sharedTypes.Version `form:"from" json:"from"`
 	To   sharedTypes.Version `form:"to" json:"to"`
+}
+
+func (r *GetDocDiffRequest) Validate() error {
+	if r.To < r.From {
+		return &errors.ValidationError{Msg: "from/to flipped"}
+	}
+	return nil
 }
 
 func (r *GetDocDiffRequest) FromQuery(q url.Values) error {

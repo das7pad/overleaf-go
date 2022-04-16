@@ -95,10 +95,6 @@ type Options struct {
 		LinkedURLProxy struct {
 			Chain []sharedTypes.URL `json:"chain"`
 		} `json:"linked_url_proxy"`
-		TrackChanges struct {
-			URL      sharedTypes.URL `json:"url"`
-			Monolith bool            `json:"monolith"`
-		} `json:"track_changes"`
 	} `json:"apis"`
 
 	JWT struct {
@@ -212,9 +208,6 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "api.linked_url_proxy.chain is too short",
 		}
-	}
-	if err := o.APIs.TrackChanges.URL.Validate(); err != nil {
-		return errors.Tag(err, "apis.track_changes.url is invalid")
 	}
 
 	if err := o.JWT.Compile.Validate(); err != nil {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -146,7 +146,7 @@ func transformComponent(op sharedTypes.Op, c, otherC sharedTypes.Component, side
 		cLen := len(c.Comment)
 		if c.Position < otherC.Position && otherC.Position < c.Position+cLen {
 			offset := otherC.Position - c.Position
-			c.Comment = inject(c.Comment, offset, otherC.Insertion)
+			c.Comment = Inject(c.Comment, offset, otherC.Insertion)
 			return appendOp(op, c), nil
 		}
 		c.Position = transformPosition(c.Position, otherC, true)

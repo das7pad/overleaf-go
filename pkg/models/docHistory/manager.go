@@ -32,8 +32,8 @@ import (
 type Manager interface {
 	InsertBulk(ctx context.Context, projectId, docId edgedb.UUID, dh []ForInsert) error
 	GetLastVersion(ctx context.Context, projectId, docId edgedb.UUID) (sharedTypes.Version, error)
-	GetForDoc(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version, h *[]DocHistory) error
-	GetForProject(ctx context.Context, projectId edgedb.UUID, before time.Time, r *GetForProjectResult) error
+	GetForDoc(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version, r *GetForDocResult) error
+	GetForProject(ctx context.Context, projectId edgedb.UUID, before time.Time, limit int64, r *GetForProjectResult) error
 }
 
 func New(c *edgedb.Client) Manager {
@@ -56,7 +56,8 @@ type manager struct {
 
 func (m *manager) InsertBulk(ctx context.Context, projectId, docId edgedb.UUID, dh []ForInsert) error {
 	for i := 0; i < len(dh); i++ {
-		blob, err := json.Marshal(dh[i].Op)
+		op := dh[i].Op
+		blob, err := json.Marshal(op)
 		if err != nil {
 			return errors.Tag(
 				err,
@@ -64,6 +65,12 @@ func (m *manager) InsertBulk(ctx context.Context, projectId, docId edgedb.UUID, 
 			)
 		}
 		dh[i].OpForDB = blob
+		for _, component := range op {
+			if len(component.Deletion) > 16 {
+				dh[i].HasBigDelete = true
+				break
+			}
+		}
 	}
 	blob, err := json.Marshal(dh)
 	if err != nil {
@@ -90,8 +97,8 @@ with
 select {exists inserted}
 `,
 		&ok,
-		projectId,
 		docId,
+		projectId,
 		blob,
 	)
 }
@@ -99,42 +106,77 @@ select {exists inserted}
 func (m *manager) GetLastVersion(ctx context.Context, projectId, docId edgedb.UUID) (sharedTypes.Version, error) {
 	var v sharedTypes.Version
 	err := m.c.QuerySingle(ctx, `
-select DocHistory.version
-filter .doc.id = <uuid>$0 and .doc.project.id = <uuid>$1
-order by .version desc
-limit 1
-`, &v, projectId, docId)
+with
+	d := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),
+	last := (
+		select DocHistory
+		filter .doc = d
+		order by .version desc
+		limit 1
+	)
+select {last.version}
+`, &v, docId, projectId)
 	if err != nil {
 		err = rewriteEdgedbError(err)
 		if errors.IsNotFoundError(err) {
-			return 0, nil
+			return -1, nil
 		}
 		return 0, err
 	}
 	return v, nil
 }
 
-func (m *manager) GetForDoc(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version, h *[]DocHistory) error {
-	return m.c.Query(ctx, `
-with
-	doc := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),
-select DocHistory {
-	version,
-	start_at,
-	end_at,
-	op,
+type GetForDocResult struct {
+	History []DocHistory     `edgedb:"history"`
+	Users   user.BulkFetched `edgedb:"users"`
 }
-filter
-	.doc = doc
-and .version > <int64>$2
-and .version < <int64>$3
+
+func (m *manager) GetForDoc(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version, r *GetForDocResult) error {
+	err := m.c.QuerySingle(ctx, `
+with
+	d := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),
+	h := (
+		select DocHistory
+		filter
+			.doc = d
+		and .version >= <int64>$2
+		and .version <= <int64>$3
+		order by .version asc
+	),
+	users := (select distinct(h.user))
+select {
+	history := h {
+		version,
+		start_at,
+		end_at,
+		op,
+		user,
+	},
+	users := users { id, email: { email }, first_name, last_name },
+}
 `,
-		h,
+		r,
 		docId,
 		projectId,
 		from,
 		to,
 	)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	for i := 0; i < len(r.History); i++ {
+		err = json.Unmarshal(r.History[i].OpForDB, &r.History[i].Op)
+		if err != nil {
+			return errors.Tag(
+				err,
+				fmt.Sprintf(
+					"cannot deserialize op v=%d", r.History[i].Version,
+				),
+			)
+		}
+		r.History[i].OpForDB = nil
+	}
+	return nil
 }
 
 type GetForProjectResult struct {
@@ -142,8 +184,8 @@ type GetForProjectResult struct {
 	Users   user.BulkFetched `edgedb:"users"`
 }
 
-func (m *manager) GetForProject(ctx context.Context, projectId edgedb.UUID, before time.Time, r *GetForProjectResult) error {
-	return m.c.Query(ctx, `
+func (m *manager) GetForProject(ctx context.Context, projectId edgedb.UUID, before time.Time, limit int64, r *GetForProjectResult) error {
+	return m.c.QuerySingle(ctx, `
 with
 	hIn := (
 		select DocHistory
@@ -154,7 +196,7 @@ with
 		limit <int64>$2
 	),
 	hEnd := (
-		select hIn.end_at
+		select hIn
 		order by .end_at asc
 		limit 1
 	),
@@ -163,7 +205,7 @@ with
 		filter
 			.doc.project.id = <uuid>$0
 		and .end_at < <datetime>$1
-		and .end_at >= hEnd
+		and .end_at >= hEnd.end_at
 		order by .end_at desc
 	),
 	users := (select distinct(h.user))
@@ -173,6 +215,8 @@ select {
 		start_at,
 		end_at,
 		has_big_delete,
+		user,
+		doc,
 	},
 	users := users { id, email: { email }, first_name, last_name },
 }
@@ -180,6 +224,6 @@ select {
 		r,
 		projectId,
 		before,
-		cap(r.History),
+		limit,
 	)
 }

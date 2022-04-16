@@ -238,11 +238,7 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId edgedb.UU
 				// noop: insert + delete or delete + insert of the same text
 				tail.EndAt = t
 				tail.Version = update.Version
-				tail.Op[0] = sharedTypes.Component{
-					Position: firstC.Position,
-					// TODO: test display
-					Insertion: make(sharedTypes.Snippet, 0),
-				}
+				tail.Op[0] = sharedTypes.Component{Position: firstC.Position}
 				continue
 			} else if firstC.IsInsertion() &&
 				secondC.IsDeletion() &&

@@ -50,14 +50,13 @@ type Manager interface {
 
 	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId edgedb.UUID) error
 
-	FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error
 	FlushProject(ctx context.Context, projectId edgedb.UUID) error
 	FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
 	QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 	rl, err := redisLocker.New(client, "Blocking")
 	if err != nil {
 		return nil, err
@@ -67,7 +66,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient)
 	if err != nil {
 		return nil, err
 	}
-	tc, err := trackChanges.New(options, c, client)
+	tc, err := trackChanges.New(c, client)
 	if err != nil {
 		return nil, err
 	}

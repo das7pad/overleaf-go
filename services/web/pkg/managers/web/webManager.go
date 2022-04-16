@@ -152,7 +152,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 	)
 	ftm := fileTree.New(c, pm, dum, fm, editorEvents, pmm)
 	pum := projectUpload.New(options, c, pm, um, dum, fm)
-	hm, err := history.New(options, c, client, um)
+	hm, err := history.New(c, client, dum)
 	if err != nil {
 		return nil, err
 	}

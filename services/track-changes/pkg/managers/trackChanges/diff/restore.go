@@ -14,31 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package docHistory
+package diff
 
 import (
-	"encoding/json"
+	"context"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
+	"github.com/das7pad/overleaf-go/services/track-changes/pkg/types"
 )
 
-type OpWrapper struct {
-	sharedTypes.Op
-}
+func (m *manager) RestoreDocVersion(ctx context.Context, r *types.RestoreDocVersionRequest) error {
+	projectId := r.ProjectId
+	docId := r.DocId
 
-func (w *OpWrapper) HasBigDelete() bool {
-	for _, component := range w.Op {
-		if len(component.Deletion) > 16 {
-			return true
-		}
+	s, _, err := m.getDocFrom(ctx, projectId, docId, r.FromV, -1)
+	if err != nil {
+		return errors.Tag(err, "cannot get old doc version")
 	}
-	return false
-}
 
-func (w *OpWrapper) UnmarshalJSON(bytes []byte) error {
-	return json.Unmarshal(bytes, &w.Op)
-}
-
-func (w *OpWrapper) MarshalJSON() ([]byte, error) {
-	return json.Marshal(w.Op)
+	err = m.dum.SetDoc(ctx, projectId, docId, &documentUpdaterTypes.SetDocRequest{
+		Snapshot: s,
+		Source:   "restore",
+		UserId:   r.UserId,
+	})
+	if err != nil {
+		return errors.Tag(err, "cannot persist restored doc version")
+	}
+	return nil
 }

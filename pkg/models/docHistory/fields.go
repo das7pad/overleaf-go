@@ -23,3 +23,11 @@ import (
 type IdField struct {
 	Id edgedb.UUID `edgedb:"id"`
 }
+
+type OptionalIdField struct {
+	Id edgedb.UUID `edgedb:"id"`
+}
+
+func (f OptionalIdField) SetMissing(_ bool) {
+	// We can detect the missing state by checking for an all zero id.
+}

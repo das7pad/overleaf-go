@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -69,8 +69,6 @@ func (m *manager) HardDeleteProject(ctx context.Context, projectId edgedb.UUID) 
 	if err := m.fm.DeleteProject(ctx, projectId); err != nil {
 		return errors.Tag(err, "cannot destroy files")
 	}
-	// TODO: Consider hard-deleting tracked-changes data (NodeJS did not).
-
 	if err := m.pm.HardDelete(ctx, projectId); err != nil {
 		return errors.Tag(err, "cannot expire deleted project")
 	}

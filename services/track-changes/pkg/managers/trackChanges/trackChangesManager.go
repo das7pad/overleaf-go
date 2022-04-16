@@ -17,50 +17,43 @@
 package trackChanges
 
 import (
-	"context"
-
 	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges/diff"
 	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges/flush"
 	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges/updates"
-	"github.com/das7pad/overleaf-go/services/track-changes/pkg/types"
 )
 
 type Manager interface {
+	diffManager
 	flushManager
 	updatesManager
-	GetDocDiff(ctx context.Context, request *types.GetDocDiffRequest, response *types.GetDocDiffResponse) error
-	RestoreDocVersion(ctx context.Context, request *types.RestoreDocVersionRequest) error
 }
 
-func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(c *edgedb.Client, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
 	fm, err := flush.New(c, client)
 	if err != nil {
 		return nil, err
 	}
-	um := updates.New(docHistory.New(c), fm)
+	dhm := docHistory.New(c)
+	dfm := diff.New(dhm, fm, dum)
+	um := updates.New(dhm, fm)
 	return &manager{
+		diffManager:    dfm,
 		flushManager:   fm,
 		updatesManager: um,
 	}, nil
 }
 
+type diffManager = diff.Manager
 type flushManager = flush.Manager
 type updatesManager = updates.Manager
 
 type manager struct {
+	diffManager
 	flushManager
 	updatesManager
-}
-
-func (m *manager) GetDocDiff(ctx context.Context, request *types.GetDocDiffRequest, response *types.GetDocDiffResponse) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (m *manager) RestoreDocVersion(ctx context.Context, request *types.RestoreDocVersionRequest) error {
-	// TODO implement me
-	panic("implement me")
 }

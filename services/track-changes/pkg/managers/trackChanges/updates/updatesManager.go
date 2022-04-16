@@ -40,7 +40,7 @@ func New(dhm docHistory.Manager, fm flush.Manager) Manager {
 }
 
 const (
-	fetchAtMostNUpdates   = 30
+	fetchAtLeastNUpdates  = 30
 	returnAtLeastNUpdates = 15
 
 	mergeWindow = sharedTypes.Timestamp(5 * time.Minute / time.Millisecond)
@@ -56,32 +56,36 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 		return errors.Tag(err, "flush project")
 	}
 
-	before := time.UnixMilli(int64(r.Before))
+	var before time.Time
+	if r.Before > 0 {
+		before = time.UnixMilli(int64(r.Before))
+	} else {
+		before = time.Now().UTC()
+	}
 	batch := docHistory.GetForProjectResult{
-		History: make([]docHistory.ProjectUpdate, 0, fetchAtMostNUpdates),
-		Users:   make([]user.WithPublicInfo, 0, fetchAtMostNUpdates),
+		History: make([]docHistory.ProjectUpdate, 0, fetchAtLeastNUpdates),
+		Users:   make([]user.WithPublicInfo, 0, fetchAtLeastNUpdates),
 	}
 	var lastRawUpdateHasBigDelete bool
 	var lastUpdateEndAt sharedTypes.Timestamp
 	for len(res.Updates) < returnAtLeastNUpdates {
-		{
-			err := m.dhm.GetForProject(ctx, r.ProjectId, before, &batch)
-			if err != nil {
-				return errors.Tag(err, "cannot get next batch of history")
+		batch.History = batch.History[:0]
+		batch.Users = batch.Users[:0]
+		err := m.dhm.GetForProject(
+			ctx, r.ProjectId, before, fetchAtLeastNUpdates, &batch,
+		)
+		if err != nil {
+			return errors.Tag(err, "cannot get next batch of history")
+		}
+		if len(batch.History) == 0 {
+			if res.Updates == nil {
+				res.Updates = make([]types.Update, 0)
 			}
-		}
-		h := batch.History
-		if len(batch.History) == fetchAtMostNUpdates {
-			before = h[fetchAtMostNUpdates-1].EndAt
-			res.NextBeforeTimestamp = sharedTypes.Timestamp(before.UnixMilli())
-		} else {
 			res.NextBeforeTimestamp = 0
-		}
-		if len(h) == 0 {
 			return nil
 		}
 
-		for _, update := range h {
+		for _, update := range batch.History {
 			docId := update.Doc.Id.String()
 			startAt := sharedTypes.Timestamp(update.StartAt.UnixMilli())
 			endAt := sharedTypes.Timestamp(update.EndAt.UnixMilli())
@@ -138,6 +142,13 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 			lastRawUpdateHasBigDelete = update.HasBigDelete
 			lastUpdateEndAt = lastUpdate.Meta.EndTs
 		}
+
+		if len(batch.History) < fetchAtLeastNUpdates {
+			res.NextBeforeTimestamp = 0
+			return nil
+		}
+		before = batch.History[fetchAtLeastNUpdates-1].EndAt
+		res.NextBeforeTimestamp = sharedTypes.Timestamp(before.UnixMilli())
 	}
 	return nil
 }

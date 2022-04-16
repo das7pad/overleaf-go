@@ -18,19 +18,11 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Options struct {
 	WorkersPerShard              int `json:"workers_per_shard"`
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
-
-	APIs struct {
-		TrackChanges struct {
-			URL      sharedTypes.URL `json:"url"`
-			Monolith bool            `json:"monolith"`
-		} `json:"track_changes"`
-	} `json:"apis"`
 }
 
 func (o *Options) Validate() error {
@@ -43,10 +35,6 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "workers_per_shard must be greater than 0",
 		}
-	}
-
-	if err := o.APIs.TrackChanges.URL.Validate(); err != nil {
-		return errors.Tag(err, "track_changes.url is invalid")
 	}
 	return nil
 }

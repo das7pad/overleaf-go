@@ -20,7 +20,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func inject(s1 []rune, position int, s2 []rune) []rune {
+func Inject(s1 []rune, position int, s2 []rune) []rune {
 	s := make([]rune, len(s1)+len(s2))
 	copy(s, s1[:position])
 	copy(s[position:], s2)
@@ -51,14 +51,14 @@ func appendOp(op sharedTypes.Op, c sharedTypes.Component) sharedTypes.Op {
 	lastC := op[lastPos]
 	if c.IsInsertion() {
 		if lastC.IsInsertion() && overlapsByN(lastC, c, len(c.Insertion)) {
-			op[lastPos].Insertion = inject(
+			op[lastPos].Insertion = Inject(
 				lastC.Insertion, c.Position-lastC.Position, c.Insertion,
 			)
 			return op
 		}
 	} else if c.IsDeletion() {
 		if lastC.IsDeletion() && overlapsByN(c, lastC, len(c.Deletion)) {
-			op[lastPos].Deletion = inject(
+			op[lastPos].Deletion = Inject(
 				c.Deletion, lastC.Position-c.Position, lastC.Deletion,
 			)
 			op[lastPos].Position = c.Position
