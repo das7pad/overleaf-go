@@ -36,6 +36,7 @@ BUILD_IN = \
 		--volume $(ROOT):$(ROOT_DOCKER) \
 		--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
 		--workdir $(PWD_DOCKER) \
+		--env GOFLAGS='-buildvcs=false' \
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u)
 
@@ -60,7 +61,7 @@ check-not-changed:
 
 .PHONY: $(BINS)
 $(BINS):
-	$(BUILD_IN) golang:1.18-alpine3.14 sh -c 'go build -buildvcs=false ./cmd/$@'
+	$(BUILD_IN) golang:1.18-alpine3.14 sh -c 'go build ./cmd/$@'
 
 bin.tar: $(BINS)
 	tar  --sort=name --mtime=2021-01-01T00:00Z -C ../ -f $@ -c $(BINS)
