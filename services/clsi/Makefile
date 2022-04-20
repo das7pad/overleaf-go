@@ -36,6 +36,7 @@ BUILD_IN = \
 		--volume $(ROOT):$(ROOT_DOCKER) \
 		--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
 		--workdir $(PWD_DOCKER) \
+		--env GOFLAGS='-buildvcs=false' \
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u)
 
@@ -60,13 +61,13 @@ check-not-changed:
 .PHONY: $(SERVICE)
 $(SERVICE):
 	$(BUILD_IN) golang:1.18-alpine3.14 sh -c \
-		'go build -buildvcs=false && touch -m -d 2021-01-01-00:00:00 $@'
+		'go build && touch -m -d 2021-01-01-00:00:00 $@'
 
 # Build the execAgent in ubuntu/debian. The texlive image will use debian.
 .PHONY: execAgent
 execAgent:
 	$(BUILD_IN) golang:1.18 sh -c \
-		'go build -buildvcs=false cmd/execAgent/execAgent.go && touch -m -d 2021-01-01T00:00Z $@'
+		'go build cmd/execAgent/execAgent.go && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/build/production: execAgent
 docker/build/production: $(SERVICE)

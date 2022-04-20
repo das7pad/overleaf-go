@@ -37,6 +37,7 @@ BUILD_IN = \
 		--volume $(ROOT):$(ROOT_DOCKER) \
 		--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
 		--workdir $(PWD_DOCKER) \
+		--env GOFLAGS='-buildvcs=false' \
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u)
 
@@ -61,7 +62,7 @@ check-not-changed:
 .PHONY: $(SERVICE)
 $(SERVICE):
 	$(BUILD_IN) golang:1.18 sh -c \
-		'go build -buildvcs=false && touch -m -d 2021-01-01T00:00Z $@'
+		'go build && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true
