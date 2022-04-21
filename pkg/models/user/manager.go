@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -566,7 +566,7 @@ func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID, u interf
 with u := (select User filter .id = <uuid>$0)
 select u {
 	email: { email },
-	emails: { email },
+	emails: { email, confirmed_at },
 	first_name,
 	id,
 	last_name,

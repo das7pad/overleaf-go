@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,19 +17,14 @@
 package user
 
 import (
-	"time"
-
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type EmailDetails struct {
-	Id            edgedb.UUID       `edgedb:"id"`
-	CreatedAt     time.Time         `json:"createdAt" edgedb:"createdAt"`
-	ConfirmedAt   *time.Time        `json:"confirmedAt" edgedb:"confirmedAt"`
-	ReconfirmedAt *time.Time        `json:"reconfirmedAt" edgedb:"reconfirmedAt"`
-	Email         sharedTypes.Email `json:"email" edgedb:"email"`
+	ConfirmedAt edgedb.OptionalDateTime `json:"confirmedAt" edgedb:"confirmed_at"`
+	Email       sharedTypes.Email       `json:"email" edgedb:"email"`
 }
 
 type EmailDetailsWithDefaultFlag struct {

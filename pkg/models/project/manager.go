@@ -79,7 +79,6 @@ type Manager interface {
 	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
 	SetRootDoc(ctx context.Context, projectId, userId, rooDocId edgedb.UUID) error
 	SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, level PublicAccessLevel) error
-	SetTrackChangesState(ctx context.Context, projectId, userId edgedb.UUID, s TrackChangesState) error
 	ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
 	UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
 	TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
@@ -588,29 +587,6 @@ select (
 		public_access_level := <str>$2
 	}
 )`, &ids, projectId, userId, string(publicAccessLevel))
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return checkAuthExistsGuard(ids)
-}
-
-func (m *manager) SetTrackChangesState(ctx context.Context, projectId, userId edgedb.UUID, s TrackChangesState) error {
-	blob, err := json.Marshal(s)
-	if err != nil {
-		return errors.Tag(err, "serialize TrackChangesState")
-	}
-	ids := make([]IdField, 0)
-	err = m.c.Query(ctx, `
-select (
-	select Project filter .id = <uuid>$0
-) union (
-	update Project
-	filter .id = <uuid>$0
-	and (select User filter .id = <uuid>$1) in .min_access_rw
-	set {
-		track_changes_state := <json>$2
-	}
-)`, &ids, projectId, userId, blob)
 	if err != nil {
 		return rewriteEdgedbError(err)
 	}

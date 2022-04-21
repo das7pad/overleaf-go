@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,9 +21,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -31,12 +28,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 )
-
-func init() {
-	go func() {
-		log.Println(http.ListenAndServe(":12345", nil))
-	}()
-}
 
 func (m *manager) smokeTestRedis(ctx context.Context) error {
 	rawRand := make([]byte, 4)
@@ -100,10 +91,5 @@ func (m *manager) getPendingOrStartApiSmokeTest() pendingOperation.PendingOperat
 }
 
 func (m *manager) SmokeTestAPI(ctx context.Context) error {
-	// for i := 0; i < 1000000; i++ {
-	if err := m.smokeTestEdgedb(ctx); err != nil {
-		return err
-	}
-	// }
-	return nil
+	return m.getPendingOrStartApiSmokeTest().Wait(ctx)
 }
