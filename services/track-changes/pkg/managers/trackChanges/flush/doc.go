@@ -258,6 +258,7 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId edgedb.UU
 				firstC.Position == secondC.Position {
 				// merge the (partial) overlap
 				diff := text.Diff(firstC.Deletion, secondC.Insertion)
+				dhSingle = dhSingle[:len(dhSingle)-1]
 				for _, component := range diff {
 					component.Position += firstC.Position
 					dhSingle = append(dhSingle, docHistory.ForInsert{

@@ -156,9 +156,6 @@ module default {
       on target delete allow;
     }
     required property name -> str;
-    required property track_changes_state -> json {
-      default := to_json('{}');
-    }
     required link owner -> User;
     required property public_access_level -> str {
       default := 'private';

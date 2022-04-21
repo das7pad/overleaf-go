@@ -56,16 +56,7 @@ type manager struct {
 
 func (m *manager) InsertBulk(ctx context.Context, projectId, docId edgedb.UUID, dh []ForInsert) error {
 	for i := 0; i < len(dh); i++ {
-		op := dh[i].Op
-		blob, err := json.Marshal(op)
-		if err != nil {
-			return errors.Tag(
-				err,
-				fmt.Sprintf("cannot serialize op for update %d", i),
-			)
-		}
-		dh[i].OpForDB = blob
-		for _, component := range op {
+		for _, component := range dh[i].Op {
 			if len(component.Deletion) > 16 {
 				dh[i].HasBigDelete = true
 				break

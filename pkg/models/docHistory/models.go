@@ -49,6 +49,5 @@ type ForInsert struct {
 	HasBigDelete bool                `json:"has_big_delete"`
 	StartAt      time.Time           `json:"start_at"`
 	EndAt        time.Time           `json:"end_at"`
-	Op           sharedTypes.Op      `json:"-"`
-	OpForDB      json.RawMessage     `json:"op"`
+	Op           sharedTypes.Op      `json:"op"`
 }

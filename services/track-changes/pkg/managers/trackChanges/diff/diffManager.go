@@ -77,11 +77,16 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, docId edgedb.UUID, 
 	dropFrom := len(dh.History)
 
 	// rewind the doc
+	rev := make(sharedTypes.Op, 10)
 	for i := len(dh.History) - 1; i >= 0; i-- {
 		op := dh.History[i].Op
 		n := len(op)
-		rev := make(sharedTypes.Op, n)
-		for j := 0; j < n/2+n%2; j++ {
+		if n > cap(rev) {
+			rev = make(sharedTypes.Op, n)
+		} else {
+			rev = rev[:n]
+		}
+		for j := 0; j <= n/2+n%2; j++ {
 			rev[n-1-j].Position = op[j].Position
 			rev[n-1-j].Deletion, rev[n-1-j].Insertion =
 				op[j].Insertion, op[j].Deletion
