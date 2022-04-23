@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 )
 
@@ -51,7 +52,8 @@ func (m *manager) smokeTestRedis(ctx context.Context) error {
 }
 
 func (m *manager) smokeTestEdgedb(ctx context.Context) error {
-	if _, err := m.um.GetEpoch(ctx, m.smokeTestUserId); err != nil {
+	u := &user.BetaProgramField{}
+	if err := m.um.GetUser(ctx, m.smokeTestUserId, u); err != nil {
 		return err
 	}
 	return nil

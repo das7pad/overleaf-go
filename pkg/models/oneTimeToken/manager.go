@@ -86,7 +86,10 @@ insert OneTimeToken {
 	use := <str>$2,
 	email := (
 		select Email
-		filter .email = <str>$3 and .user.id = <uuid>$4
+		filter
+			.email = <str>$3
+		and .user.id = <uuid>$4
+		and not exists .user.deleted_at
 	)
 }
 `,
@@ -124,6 +127,7 @@ with
 			and .token = <str>$1
 			and not exists .used_at
 			and .expires_at > datetime_of_transaction()
+			and not exists .email.user.deleted_at
 		set {
 			used_at := datetime_of_transaction()
 		}
@@ -150,11 +154,12 @@ with
 			and .token = <str>$1
 			and not exists .used_at
 			and .expires_at > datetime_of_transaction()
+			and not exists .email.user.deleted_at
 		set {
 			used_at := datetime_of_transaction()
 		}
 	)
-select User {
+select t.email.user {
 	email: { email },
 	epoch,
 	first_name,
@@ -162,7 +167,6 @@ select User {
 	last_name,
 	password_hash,
 }
-filter User = t.email.user
 `,
 		u,
 		passwordResetUse, token,

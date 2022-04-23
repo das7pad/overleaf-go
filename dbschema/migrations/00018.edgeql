@@ -14,16 +14,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-CREATE MIGRATION m1biug55fjsoaklcygrfkrzhbdlqbiwzkfla3zaqgze7fdwtdmdrma
-    ONTO m1a52hgslfusbriuesm7z4tywewupzyij3cinkjhd6owe73aawofdq
+CREATE MIGRATION m1u7rbk4b6ut3ss5gerobllof4tjncc5urlavii22jyalgbn64xzfq
+    ONTO m136fnnl3qohsejabjq7z75h7bmsn3a6wxlk4crcvtw5vgmjyhg4nq
 {
-  ALTER TYPE default::File {
-      ALTER LINK linked_file_data {
-          USING (SELECT
-              .<file[IS default::LinkedFileData]
-          LIMIT
-              1
-          );
+  ALTER TYPE default::Project {
+      ALTER LINK last_updated_by {
+          RESET OPTIONALITY;
       };
   };
 };

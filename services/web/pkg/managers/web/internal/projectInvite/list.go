@@ -25,7 +25,9 @@ import (
 
 func (m *manager) ListProjectInvites(ctx context.Context, request *types.ListProjectInvitesRequest, response *types.ListProjectInvitesResponse) error {
 	response.Invites = make([]projectInvite.ForListing, 0)
-	err := m.pim.GetAllForProject(ctx, request.ProjectId, &response.Invites)
+	err := m.pim.GetAllForProject(
+		ctx, request.ProjectId, request.UserId, &response.Invites,
+	)
 	if err != nil {
 		return err
 	}

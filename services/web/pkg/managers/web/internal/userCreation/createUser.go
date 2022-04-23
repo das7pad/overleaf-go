@@ -27,9 +27,12 @@ import (
 )
 
 func (m *manager) createUser(ctx context.Context, emailAddress sharedTypes.Email, pw types.UserPassword, ip string) (*user.ForCreation, error) {
-	if m.um.GetUserByEmail(ctx, emailAddress, &user.IdField{}) == nil {
-		// PERF: skip expensive bcrypt hashing.
-		return nil, user.ErrEmailAlreadyRegistered
+	if err := m.um.CheckEmailAlreadyRegistered(ctx, emailAddress); err != nil {
+		if err == user.ErrEmailAlreadyRegistered {
+			// PERF: skip expensive bcrypt hashing.
+			return nil, err
+		}
+		// go the long way and potentially fail again on insert.
 	}
 
 	hashedPw, err := login.HashPassword(pw, m.options.BcryptCost)

@@ -73,6 +73,7 @@ type RevokeProjectInviteRequest struct {
 
 type ListProjectInvitesRequest struct {
 	ProjectId edgedb.UUID `json:"-"`
+	UserId    edgedb.UUID `json:"-"`
 }
 
 type ListProjectInvitesResponse struct {

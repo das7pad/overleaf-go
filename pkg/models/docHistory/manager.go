@@ -134,7 +134,7 @@ with
 		and .version <= <int64>$3
 		order by .version asc
 	),
-	users := (select distinct(h.user))
+	users := (select distinct(h.user) filter not exists .deleted_at)
 select {
 	history := h {
 		version,
@@ -199,7 +199,7 @@ with
 		and .end_at >= hEnd.end_at
 		order by .end_at desc
 	),
-	users := (select distinct(h.user))
+	users := (select distinct(h.user) filter not exists .deleted_at)
 select {
 	history := h {
 		version,

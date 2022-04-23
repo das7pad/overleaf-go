@@ -1146,6 +1146,7 @@ func (h *httpController) listProjectInvites(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ListProjectInvitesRequest{
 		ProjectId: o.ProjectId,
+		UserId:    o.UserId,
 	}
 	response := &types.ListProjectInvitesResponse{}
 	err := h.wm.ListProjectInvites(c.Request.Context(), request, response)

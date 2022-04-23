@@ -35,10 +35,9 @@ type Manager interface {
 	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId edgedb.UUID) bool) error
 	TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error
 	BumpEpoch(ctx context.Context, userId edgedb.UUID) error
-	GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error)
+	CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error
 	GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
-	GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error)
 	GetContacts(ctx context.Context, userId edgedb.UUID) ([]Contact, error)
 	AddContact(ctx context.Context, userId, contactId edgedb.UUID) error
 	ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error
@@ -187,7 +186,8 @@ select (
 
 func (m *manager) UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, e EditorConfig) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update (select User filter .id = <uuid>$0).editor_config
+with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
+update u.editor_config
 set {
 	auto_complete := <bool>$1,
 	auto_pair_delimiters := <bool>$2,
@@ -323,7 +323,7 @@ func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip
 with
 	u := (
 		updater User
-		filter .id = <uuid>$0
+		filter .id = <uuid>$0 and not exists .deleted_at
 		set {
 			epoch := User.epoch + 1,
 		}
@@ -397,7 +397,7 @@ const (
 func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 update User
-filter .id = <uuid>$0
+filter .id = <uuid>$0 and not exists .deleted_at
 set {
 	epoch := User.epoch + 1,
 }
@@ -407,7 +407,7 @@ set {
 func (m *manager) SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 update User
-filter .id = <uuid>$0
+filter .id = <uuid>$0 and not exists .deleted_at
 set {
 	beta_program := <bool>$1,
 }
@@ -417,7 +417,7 @@ set {
 func (m *manager) SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 update User
-filter .id = <uuid>$0
+filter .id = <uuid>$0 and not exists .deleted_at
 set {
 	first_name := <str>$1,
 	last_name := <str>$2,
@@ -430,7 +430,7 @@ func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string)
 with
 	u := (
 		update User
-		filter .id = <uuid>$0
+		filter .id = <uuid>$0 and not exists .deleted_at
 		set {
 			login_count := User.login_count + 1,
 			last_logged_in := datetime_of_transaction(),
@@ -450,76 +450,39 @@ insert UserAuditLogEntry {
 	return nil
 }
 
-func (m *manager) GetEpoch(ctx context.Context, userId edgedb.UUID) (int64, error) {
-	var epoch int64
-	err := m.c.QuerySingle(ctx, `
-select (select User { epoch } filter .id = <uuid>$0).epoch
-`, &epoch, userId)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return epoch, err
-}
-
-func (m *manager) GetUsersForBackFillingNonStandardId(ctx context.Context, ids UniqUserIds) (UsersForBackFillingNonStandardId, error) {
-	if len(ids) == 0 {
-		return make(UsersForBackFillingNonStandardId, 0), nil
-	}
-	flatIds := make([]edgedb.UUID, 0, len(ids))
-	for id := range ids {
-		flatIds = append(flatIds, id)
-	}
-	flatUsers := make([]WithPublicInfoAndNonStandardId, 0, len(flatIds))
-	err := m.c.Query(ctx, `
-select User {
-	email: { email }, id, first_name, last_name,
-}
-filter .id in array_unpack(<array<uuid>>$0)
-`, &flatUsers, flatIds)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
-	}
-	users := make(UsersForBackFillingNonStandardId, len(flatUsers))
-	for _, usr := range flatUsers {
-		usr.IdNoUnderscore = usr.Id
-		users[usr.Id] = usr
-	}
-	return users, nil
-}
-
 func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error {
 	var q string
 	switch target.(type) {
 	case *BetaProgramField:
 		q = `
 select User { beta_program }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *HashedPasswordField:
 		q = `
 select User { password_hash }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
 		q = `
 select User { email: { email }, id, first_name, last_name }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *ForActivateUserPage:
 		q = `
 select User { email: { email }, login_count }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *ForEmailChange:
 		q = `
 select User { email: { email }, epoch, id }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *ForPasswordChange:
 		q = `
 select User {
 	email: { email }, epoch, id, first_name, last_name, password_hash
 }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *ForSettingsPage:
 		q = `
 select User { beta_program, email: { email }, id, first_name, last_name }
-filter .id = <uuid>$0`
+filter .id = <uuid>$0 and not exists .deleted_at`
 	default:
 		return errors.New("missing query for target")
 	}
@@ -529,11 +492,23 @@ filter .id = <uuid>$0`
 	return nil
 }
 
+func (m *manager) CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error {
+	exists := false
+	err := m.c.QuerySingle(ctx, `
+select exists (select User filter .email.email = <str>$0)
+`, &exists, email)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	if exists {
+		return ErrEmailAlreadyRegistered
+	}
+	return nil
+}
+
 func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error {
 	var q string
 	switch target.(type) {
-	case *IdField:
-		q = "select User filter .email.email = <str>$0 limit 1"
 	case *WithLoginInfo:
 		q = `
 select User {
@@ -545,12 +520,12 @@ select User {
 	must_reconfirm,
 	password_hash,
 }
-filter .email.email = <str>$0
+filter .email.email = <str>$0 and not exists .deleted_at
 limit 1`
 	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
 		q = `
 select User { email: { email }, id, first_name, last_name }
-filter .email.email = <str>$0
+filter .email.email = <str>$0 and not exists .deleted_at
 limit 1`
 	default:
 		return errors.New("missing query for target")
@@ -563,7 +538,7 @@ limit 1`
 
 func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error {
 	err := m.c.QuerySingle(ctx, `
-with u := (select User filter .id = <uuid>$0)
+with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
 select u {
 	email: { email },
 	emails: { email, confirmed_at },
@@ -621,7 +596,7 @@ select User {
 		last_name,
 	},
 }
-filter .id = <uuid>$0
+filter .id = <uuid>$0 and not exists .deleted_at
 `, &u, userId)
 	if err != nil {
 		return nil, rewriteEdgedbError(err)
@@ -652,26 +627,26 @@ with
 select exists (
 	select (
 		update User
-		filter .id = <uuid>$0
+		filter .id = <uuid>$0 and not exists .deleted_at
 		set {
 			contacts += (
 				select detached User {
 					@connections := (existing ?? 0) + 1,
 					@last_touched := datetime_of_transaction(),
 				}
-				filter .id = <uuid>$1
+				filter .id = <uuid>$1 and not exists .deleted_at
 			)
 		}
 	) union (
 		update User
-		filter .id = <uuid>$1
+		filter .id = <uuid>$1 and not exists .deleted_at
 		set {
 			contacts += (
 				select detached User {
 					@connections := (existing ?? 0) + 1,
 					@last_touched := datetime_of_transaction(),
 				}
-				filter .id = <uuid>$0
+				filter .id = <uuid>$0 and not exists .deleted_at
 			)
 		}
 	)

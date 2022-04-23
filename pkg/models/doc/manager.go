@@ -55,16 +55,15 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId edgedb.UUID, u
 with
 	d := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),
 	p := (
-		update Project
-		filter Project = d.project and .last_updated_at < <datetime>$2
+		update d.project
+		filter .last_updated_at < <datetime>$2
 		set {
 			last_updated_at := <datetime>$2,
 			last_updated_by := (select User filter .id = <uuid>$3),
 		}
 	),
 	updatedDoc := (
-		update Doc
-		filter Doc = d
+		update d
 		set {
 			snapshot := <str>$4,
 			version := <int64>$5,

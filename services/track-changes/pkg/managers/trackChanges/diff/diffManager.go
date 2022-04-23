@@ -86,7 +86,7 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, docId edgedb.UUID, 
 		} else {
 			rev = rev[:n]
 		}
-		for j := 0; j <= n/2+n%2; j++ {
+		for j := 0; j <= n/2+n%2 && j < n; j++ {
 			rev[n-1-j].Position = op[j].Position
 			rev[n-1-j].Deletion, rev[n-1-j].Insertion =
 				op[j].Insertion, op[j].Deletion

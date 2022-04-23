@@ -61,7 +61,7 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 		}
 	}
 	{
-		pi := &projectInvite.IdField{}
+		pi := &projectInvite.WithoutToken{}
 		if err := m.pim.GetByToken(ctx, projectId, r.Token, pi); err == nil {
 			// Happy path
 		} else if errors.IsNotFoundError(err) {

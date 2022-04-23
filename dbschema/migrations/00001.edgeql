@@ -1,3 +1,19 @@
+# Golang port of Overleaf
+# Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 CREATE MIGRATION m1bv5sb33s2wzs233ixyniobpzuda2oc5gn3s6prg2kalw5ry7pj5a
     ONTO initial
 {
@@ -78,7 +94,7 @@ CREATE MIGRATION m1bv5sb33s2wzs233ixyniobpzuda2oc5gn3s6prg2kalw5ry7pj5a
   };
   ALTER TYPE default::Project {
       CREATE LINK chat := (SELECT
-          .<project[IS default::ChatRoom] 
+          .<project[IS default::ChatRoom]
       LIMIT
           1
       );
@@ -344,7 +360,7 @@ CREATE MIGRATION m1bv5sb33s2wzs233ixyniobpzuda2oc5gn3s6prg2kalw5ry7pj5a
           ON TARGET DELETE  ALLOW;
       };
       CREATE LINK root_folder := (SELECT
-          .<project[IS default::RootFolder] 
+          .<project[IS default::RootFolder]
       LIMIT
           1
       );

@@ -81,6 +81,7 @@ func (m *manager) getDetails(ctx context.Context, pi *projectInvite.WithToken) (
 	s := &pi.SendingUser
 	u := &user.WithPublicInfo{}
 
+	// TODO: merge into single query?
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		if err := m.pm.GetProject(pCtx, pi.ProjectId, p); err != nil {

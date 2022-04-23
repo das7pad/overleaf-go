@@ -17,11 +17,7 @@
 package user
 
 import (
-	"context"
-
 	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ProjectListViewCaller struct {
@@ -62,17 +58,6 @@ type WithLoginInfo struct {
 	ForSession          `edgedb:"$inline"`
 	HashedPasswordField `edgedb:"$inline"`
 	MustReconfirmField  `edgedb:"$inline"`
-}
-
-func (l *WithLoginInfo) selectByEmail(ctx context.Context, c *edgedb.Client, email sharedTypes.Email) error {
-	return c.QuerySingle(ctx, `
-select User {
-
-}
-filter .email.email = <str>$0
-`,
-		l,
-		email)
 }
 
 type ForSession struct {

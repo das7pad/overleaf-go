@@ -51,9 +51,13 @@ func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId edged
 	err := m.c.QuerySingle(
 		ctx,
 		`
+with
+	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
+	p := (select Project filter .id = <uuid>$2 and not exists .deleted_at),
+	pWithAuth := (select p filter u in .min_access_ro)
 update Tag
-filter .id = <uuid>$0 and .user.id = <uuid>$1
-set { projects += (select Project filter .id = <uuid>$2) }`,
+filter .id = <uuid>$0 and .user = u
+set { projects += pWithAuth }`,
 		&IdField{},
 		tagId, userId, projectId,
 	)
@@ -66,7 +70,10 @@ set { projects += (select Project filter .id = <uuid>$2) }`,
 func (m *manager) Delete(ctx context.Context, userId, tagId edgedb.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
-		"delete Tag filter .id = <uuid>$0 and .user.id = <uuid>$1",
+		`
+with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
+delete Tag
+filter .id = <uuid>$0 and .user = u`,
 		&IdField{},
 		tagId, userId,
 	)
@@ -81,10 +88,10 @@ func (m *manager) EnsureExists(ctx context.Context, userId edgedb.UUID, name str
 	err := m.c.QuerySingle(
 		ctx,
 		`
-with user := (select User filter .id = <uuid>$0)
-insert Tag { name := <str>$1, user := user }
+with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
+insert Tag { name := <str>$1, user := u }
 unless conflict on (.name, .user)
-else (select Tag { id, projects } filter .name = <str>$1 and .user = user)`,
+else (select Tag { id, projects } filter .name = <str>$1 and .user = u)`,
 		t,
 		userId, name,
 	)
@@ -100,9 +107,10 @@ func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, proje
 	err := m.c.QuerySingle(
 		ctx,
 		`
+with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
 update Tag
-filter .id = <uuid>$0 and .user.id = <uuid>$1
-set { projects -= (select Project filter .id = <uuid>$2 ) }`,
+filter .id = <uuid>$0 and .user = u
+set { projects -= (select Project filter .id = <uuid>$2) }`,
 		&IdField{},
 		tagId, userId, projectId,
 	)
@@ -116,8 +124,9 @@ func (m *manager) Rename(ctx context.Context, userId, tagId edgedb.UUID, newName
 	err := m.c.QuerySingle(
 		ctx,
 		`
+with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
 update Tag
-filter .id = <uuid>$0 and .user.id = <uuid>$1
+filter .id = <uuid>$0 and .user = u
 set { name := <str>$2 }`,
 		&IdField{},
 		tagId, userId, newName,

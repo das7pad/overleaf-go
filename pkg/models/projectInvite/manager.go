@@ -28,8 +28,8 @@ type Manager interface {
 	Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error
 	Create(ctx context.Context, pi *WithToken) error
 	GetById(ctx context.Context, projectId, inviteId edgedb.UUID, pi *WithToken) error
-	GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, target interface{}) error
-	GetAllForProject(ctx context.Context, projectId edgedb.UUID, invites *[]ForListing) error
+	GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, pi *WithoutToken) error
+	GetAllForProject(ctx context.Context, projectId, userId edgedb.UUID, invites *[]ForListing) error
 }
 
 func New(c *edgedb.Client) Manager {
@@ -64,10 +64,15 @@ func (m *manager) Create(ctx context.Context, pi *WithToken) error {
 		var r bool
 		err := m.c.QuerySingle(ctx, `
 with
-	u := (select User filter .email.email = <str>$0 limit 1),
+	u := (
+		select User
+		filter .email.email = <str>$0 and not exists .deleted_at
+		limit 1
+	),
+	owner := (select User filter .id = <uuid>$4 and not exists .deleted_at),
 	p := (
 		select Project
-		filter .id = <uuid>$3 and .owner.id = <uuid>$4
+		filter .id = <uuid>$3 and .owner = owner and not exists .deleted_at
 	),
 	pi := (insert ProjectInvite {
 		email := <str>$0,
@@ -126,6 +131,7 @@ with
 		filter
 			.id = <uuid>$0
 		and .project.id = <uuid>$1
+ 		and not exists .project.deleted_at
 		and .expires_at > datetime_of_transaction()
 	),
 	p := (
@@ -161,25 +167,14 @@ select ProjectInvite {
 filter
 	.id = <uuid>$0
 and	.project.id = <uuid>$1
+and not exists .project.deleted_at
 and .expires_at > datetime_of_transaction()
 limit 1
 `, pi, inviteId, projectId))
 }
 
-func (m *manager) GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, pi interface{}) error {
-	var q string
-	switch pi.(type) {
-	case *IdField:
-		q = `
-select ProjectInvite
-filter
-	.project.id = <uuid>$0
-and .token = <str>$1
-and .expires_at > datetime_of_transaction()
-limit 1
-`
-	case *WithoutToken:
-		q = `
+func (m *manager) GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, pi *WithoutToken) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 select ProjectInvite {
 	created_at,
 	email,
@@ -190,21 +185,24 @@ select ProjectInvite {
 	sending_user,
 }
 filter
-	.project.id = <uuid>$0
-and .token = <str>$1
+	.token = <str>$1
 and .expires_at > datetime_of_transaction()
+and .project.id = <uuid>$0
+and not exists .project.deleted_at
 limit 1
-`
-	}
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, q, pi, projectId, token))
+`, pi, projectId, token))
 }
 
-func (m *manager) GetAllForProject(ctx context.Context, projectId edgedb.UUID, invites *[]ForListing) error {
+func (m *manager) GetAllForProject(ctx context.Context, projectId, userId edgedb.UUID, invites *[]ForListing) error {
 	return rewriteEdgedbError(m.c.Query(ctx, `
-select (select Project filter .id = <uuid>$0).invites {
+with
+	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
+	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
+	pWithAuth := (select p filter .owner = u),
+select pWithAuth.invites {
 	email,
 	id,
 	privilege_level,
 }
-`, invites, projectId))
+`, invites, projectId, userId))
 }

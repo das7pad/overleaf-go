@@ -80,7 +80,9 @@ select (select Project filter .id = <uuid>$0).chat.messages {
 	id,
 	content,
 	created_at,
-	user: { email: { email }, id, first_name, last_name },
+	user: {
+		email: { email }, id, first_name, last_name
+	} filter not exists .deleted_at,
 }
 filter .created_at < <datetime>$1
 order by .created_at desc
