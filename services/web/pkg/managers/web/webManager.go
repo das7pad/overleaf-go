@@ -174,7 +174,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 	if err != nil {
 		return nil, err
 	}
-	spm := spelling.New(c)
+	spm := spelling.New(um)
 	return &manager{
 		adminManager:           am,
 		betaProgramManager:     bm,

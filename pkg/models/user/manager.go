@@ -47,6 +47,9 @@ type Manager interface {
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
 	SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
+	DeleteDictionary(ctx context.Context, userId edgedb.UUID) error
+	LearnWord(ctx context.Context, userId edgedb.UUID, word string) error
+	UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error
 }
 
 func New(c *edgedb.Client) Manager {
@@ -461,6 +464,10 @@ filter .id = <uuid>$0 and not exists .deleted_at`
 		q = `
 select User { password_hash }
 filter .id = <uuid>$0 and not exists .deleted_at`
+	case *LearnedWordsField:
+		q = `
+select User { learned_words }
+filter .id = <uuid>$0 and not exists .deleted_at`
 	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
 		q = `
 select User { email: { email }, id, first_name, last_name }
@@ -656,4 +663,28 @@ select exists (
 		return rewriteEdgedbError(err)
 	}
 	return nil
+}
+
+func (m manager) DeleteDictionary(ctx context.Context, userId edgedb.UUID) error {
+	return m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0 and not exists .deleted_at
+set { learned_words := {} }
+`, &IdField{}, userId)
+}
+
+func (m manager) LearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0 and not exists .deleted_at
+set { learned_words := distinct (User.learned_words union {<str>$1}) }
+`, &IdField{}, userId, word))
+}
+
+func (m manager) UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update User
+filter .id = <uuid>$0 and not exists .deleted_at
+set { learned_words -= <str>$1 }
+`, &IdField{}, userId, word))
 }

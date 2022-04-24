@@ -66,11 +66,6 @@ type ForSession struct {
 	WithPublicInfo `edgedb:"$inline"`
 }
 
-type WithEpochAndFeatures struct {
-	EpochField    `edgedb:"$inline"`
-	FeaturesField `edgedb:"$inline"`
-}
-
 type ForCreation struct {
 	ForSession          `edgedb:"$inline"`
 	AuditLogField       `edgedb:"$inline"`
@@ -81,27 +76,6 @@ type ForCreation struct {
 	LastLoggedInField   `edgedb:"$inline"`
 	LastLoginIpField    `edgedb:"$inline"`
 	LoginCountField     `edgedb:"$inline"`
-	SignUpDateField     `edgedb:"$inline"`
-}
-
-type ForDeletion struct {
-	AlphaProgramField   `edgedb:"$inline"`
-	AuditLogField       `edgedb:"$inline"`
-	BetaProgramField    `edgedb:"$inline"`
-	EditorConfigField   `edgedb:"$inline"`
-	EmailField          `edgedb:"email"`
-	EmailsField         `edgedb:"$inline"`
-	EpochField          `edgedb:"$inline"`
-	FeaturesField       `edgedb:"$inline"`
-	FirstNameField      `edgedb:"$inline"`
-	HashedPasswordField `edgedb:"$inline"`
-	IdField             `edgedb:"$inline"`
-	IsAdminField        `edgedb:"$inline"`
-	LastLoggedInField   `edgedb:"$inline"`
-	LastLoginIpField    `edgedb:"$inline"`
-	LastNameField       `edgedb:"$inline"`
-	LoginCountField     `edgedb:"$inline"`
-	MustReconfirmField  `edgedb:"$inline"`
 	SignUpDateField     `edgedb:"$inline"`
 }
 

@@ -19,9 +19,7 @@ package spelling
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/models/learnedWords"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -30,25 +28,23 @@ type Manager interface {
 	LearnWord(ctx context.Context, request *types.LearnWordRequest) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		lm: learnedWords.New(c),
-	}
+func New(um user.Manager) Manager {
+	return &manager{um: um}
 }
 
 type manager struct {
-	lm learnedWords.Manager
+	um user.Manager
 }
 
 func (m *manager) GetDictionary(ctx context.Context, request *types.GetDictionaryRequest, response *types.GetDictionaryResponse) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	words, err := m.lm.GetDictionary(ctx, request.Session.User.Id)
-	if err != nil {
+	u := user.LearnedWordsField{}
+	if err := m.um.GetUser(ctx, request.Session.User.Id, &u); err != nil {
 		return err
 	}
-	response.Words = words
+	response.Words = u.LearnedWords
 	return nil
 }
 
@@ -59,5 +55,5 @@ func (m *manager) LearnWord(ctx context.Context, request *types.LearnWordRequest
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	return m.lm.LearnWord(ctx, request.Session.User.Id, request.Word)
+	return m.um.LearnWord(ctx, request.Session.User.Id, request.Word)
 }

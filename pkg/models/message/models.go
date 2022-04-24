@@ -31,13 +31,3 @@ type Message struct {
 	User      user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"user"`
 	EditedAt  edgedb.OptionalDateTime             `json:"edited_at,omitempty" edgedb:"edited_at"`
 }
-
-type Thread struct {
-	Id             edgedb.UUID                         `json:"-" edgedb:"id"`
-	Resolved       bool                                `json:"resolved,omitempty"`
-	ResolvedAt     edgedb.OptionalDateTime             `json:"resolved_at,omitempty"`
-	ResolvedByUser user.WithPublicInfoAndNonStandardId `json:"resolved_by,omitempty"`
-	Messages       []Message                           `json:"messages"`
-}
-
-type Threads map[string]Thread

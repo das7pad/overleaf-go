@@ -88,6 +88,10 @@ type LastNameField struct {
 	LastName string `json:"last_name" edgedb:"last_name"`
 }
 
+type LearnedWordsField struct {
+	LearnedWords []string `edgedb:"learned_words"`
+}
+
 type LoginCountField struct {
 	LoginCount int64 `edgedb:"login_count"`
 }

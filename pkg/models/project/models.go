@@ -29,6 +29,7 @@ type JoinProjectViewPrivate struct {
 	JoinProjectViewPublic   `edgedb:"$inline"`
 	RootDocField            `edgedb:"$inline"`
 }
+
 type JoinProjectViewPublic struct {
 	CompilerField           `edgedb:"$inline"`
 	DeletedDocsField        `edgedb:"$inline"`
