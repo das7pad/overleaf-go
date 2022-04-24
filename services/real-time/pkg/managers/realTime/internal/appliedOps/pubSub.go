@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -93,7 +93,6 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 		latency.End()
 		update.Meta.IngestionTime = nil
 	}
-	isComment := update.Op.HasComment()
 	source := update.Meta.Source
 	blob, err := json.Marshal(&update)
 	resp := types.RPCResponse{
@@ -117,9 +116,6 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 		}
 		if update.Dup {
 			// Only send an ack to the sender.
-			continue
-		}
-		if isComment && !client.HasCapability(types.CanSeeComments) {
 			continue
 		}
 		client.EnsureQueueMessage(bulkMessage)

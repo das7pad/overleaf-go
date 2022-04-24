@@ -137,15 +137,6 @@ func (o Op) HasEdit() bool {
 	return false
 }
 
-func (o Op) HasComment() bool {
-	for _, op := range o {
-		if op.IsComment() {
-			return true
-		}
-	}
-	return false
-}
-
 func (o Op) Validate() error {
 	if len(o) == 0 {
 		return &errors.ValidationError{Msg: "missing ops"}

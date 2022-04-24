@@ -23,7 +23,6 @@ import (
 type GetDocResponse struct {
 	Ops      []sharedTypes.DocumentUpdate `json:"ops"`
 	PathName sharedTypes.PathName         `json:"pathname"`
-	Ranges   sharedTypes.Ranges           `json:"ranges"`
 	Snapshot string                       `json:"snapshot"`
 	Version  sharedTypes.Version          `json:"version"`
 }

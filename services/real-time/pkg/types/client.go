@@ -41,7 +41,6 @@ const (
 	CanAddComment             = CapabilityComponent(2)
 	CanEditContent            = CapabilityComponent(3)
 	CanSeeOtherClients        = CapabilityComponent(5)
-	CanSeeComments            = CapabilityComponent(7)
 	CanSeeNonRestrictedEvents = CapabilityComponent(11)
 	CanSeeAllEditorEvents     = CapabilityComponent(13)
 )
@@ -172,7 +171,6 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 			CanAddComment *
 				CanEditContent *
 				CanSeeOtherClients *
-				CanSeeComments *
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
@@ -180,7 +178,6 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 		c.capabilities = Capabilities(
 			CanAddComment *
 				CanSeeOtherClients *
-				CanSeeComments *
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
@@ -189,7 +186,6 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 	}
 	if isRestrictedUser {
 		c.capabilities = c.capabilities.TakeAway(CanSeeOtherClients)
-		c.capabilities = c.capabilities.TakeAway(CanSeeComments)
 		c.capabilities = c.capabilities.TakeAway(CanSeeAllEditorEvents)
 	}
 }
@@ -264,14 +260,6 @@ func (c *Client) CanDo(action Action, docId edgedb.UUID) error {
 		}
 		return nil
 
-	case AddComment:
-		if err := c.requireJoinedProjectAndDoc(); err != nil {
-			return err
-		}
-		if err := c.capabilities.CheckIncludes(CanAddComment); err != nil {
-			return err
-		}
-		return nil
 	case GetConnectedUsers:
 		if err := c.requireJoinedProject(); err != nil {
 			return err

@@ -35,7 +35,6 @@ const (
 	GetConnectedUsers = Action("clientTracking.getConnectedUsers")
 	UpdatePosition    = Action("clientTracking.updatePosition")
 	ApplyUpdate       = Action("applyUpdate")
-	AddComment        = Action("addComment")
 	Ping              = Action("ping")
 )
 

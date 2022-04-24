@@ -31,5 +31,4 @@ type JoinDocResponse struct {
 	Snapshot sharedTypes.Snapshot         `json:"snapshot"`
 	Version  sharedTypes.Version          `json:"version"`
 	Updates  []sharedTypes.DocumentUpdate `json:"updates"`
-	Ranges   sharedTypes.Ranges           `json:"ranges"`
 }

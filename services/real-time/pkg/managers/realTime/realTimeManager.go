@@ -245,15 +245,11 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 			err, "documentUpdater.GetDoc failed for "+args.DocId.String(),
 		)
 	}
-	if !rpc.Client.HasCapability(types.CanSeeComments) {
-		r.Ranges.Comments = sharedTypes.Comments{}
-	}
 
 	body := &types.JoinDocResponse{
 		Snapshot: sharedTypes.Snapshot(r.Snapshot),
 		Version:  r.Version,
 		Updates:  r.Ops,
-		Ranges:   r.Ranges,
 	}
 	blob, err := json.Marshal(body)
 	if err != nil {
@@ -285,7 +281,7 @@ const (
 	maxUpdateSize = 7*1024*1024 + 64*1024
 )
 
-func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*sharedTypes.DocumentUpdate, error) {
+func (m *manager) applyUpdate(rpc *types.RPC) error {
 	if len(rpc.Request.Body) > maxUpdateSize {
 		// Accept the update RPC at first, keep going on error.
 		_ = rpc.Client.QueueResponse(&types.RPCResponse{
@@ -302,11 +298,11 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*sharedTypes.Doc
 		rpc.Response.Name = "otUpdateError"
 
 		rpc.Response.FatalError = true
-		return nil, codedError
+		return codedError
 	}
 	var args sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
-		return nil, &errors.ValidationError{Msg: "bad request: " + err.Error()}
+		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
 	// Hard code document and user identifier.
 	args.DocId = rpc.Request.DocId
@@ -319,28 +315,11 @@ func (m *manager) preProcessApplyUpdateRequest(rpc *types.RPC) (*sharedTypes.Doc
 	args.Meta.IngestionTime = &now
 
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return &args, nil
+	return m.appliedOps.QueueUpdate(rpc, &args)
 }
 
-func (m *manager) applyUpdate(rpc *types.RPC) error {
-	args, err := m.preProcessApplyUpdateRequest(rpc)
-	if err != nil {
-		return err
-	}
-	return m.appliedOps.QueueUpdate(rpc, args)
-}
-func (m *manager) addComment(rpc *types.RPC) error {
-	args, err := m.preProcessApplyUpdateRequest(rpc)
-	if err != nil {
-		return err
-	}
-	if args.Op.HasEdit() {
-		return &errors.NotAuthorizedError{}
-	}
-	return m.appliedOps.QueueUpdate(rpc, args)
-}
 func (m *manager) getConnectedUsers(rpc *types.RPC) error {
 	clients, err := m.clientTracking.GetConnectedClients(rpc, rpc.Client)
 	if err != nil {
@@ -354,6 +333,7 @@ func (m *manager) getConnectedUsers(rpc *types.RPC) error {
 	rpc.Response.Body = blob
 	return nil
 }
+
 func (m *manager) updatePosition(rpc *types.RPC) error {
 	var args types.ClientPosition
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
@@ -390,6 +370,7 @@ func (m *manager) updatePosition(rpc *types.RPC) error {
 	}
 	return nil
 }
+
 func (m *manager) Disconnect(client *types.Client) error {
 	var errAppliedOps, errEditorEvents, errClientTracking error
 	docId := client.DocId
@@ -470,8 +451,6 @@ func (m *manager) rpc(rpc *types.RPC) error {
 		return m.leaveDoc(rpc)
 	case types.ApplyUpdate:
 		return m.applyUpdate(rpc)
-	case types.AddComment:
-		return m.addComment(rpc)
 	case types.GetConnectedUsers:
 		return m.getConnectedUsers(rpc)
 	case types.UpdatePosition:

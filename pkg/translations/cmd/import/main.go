@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -129,8 +129,6 @@ func processLocale(key, v string) string {
 	case "saving_notification_with_seconds":
 		v = strings.ReplaceAll(v, "__docname__", "{{ `{{ state.doc.name }}` }}")
 		v = strings.ReplaceAll(v, "__seconds__", "{{ `{{ state.unsavedSeconds }}` }}")
-	case "bulk_accept_confirm", "bulk_reject_confirm":
-		v = strings.ReplaceAll(v, "__nChanges__", "{{ `{{ nChanges }}` }}")
 	case "file_has_been_deleted", "file_restored":
 		v = strings.ReplaceAll(v, "__filename__", "{{ `{{ history.diff.doc.name }}` }}")
 	case "sure_you_want_to_restore_before":
