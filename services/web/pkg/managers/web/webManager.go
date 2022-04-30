@@ -141,6 +141,7 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 		pm, um,
 		mm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
+		cm,
 	)
 	lm := login.New(options, ps, c, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(ps, editorEvents, pm, tm, um, loggedInUserJWTHandler)

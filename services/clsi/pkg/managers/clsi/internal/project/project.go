@@ -51,6 +51,8 @@ type Project interface {
 		response *types.CompileResponse,
 	) error
 
+	StartInBackground(imageName sharedTypes.ImageName)
+
 	StopCompile(ctx context.Context) error
 
 	SyncFromCode(
@@ -456,6 +458,17 @@ func (p *project) run(ctx context.Context, options *types.CommandOptions) (types
 		}
 	}
 	return -1, lastErr
+}
+
+func (p *project) StartInBackground(imageName sharedTypes.ImageName) {
+	if p.needsRunnerSetup(time.Now().Add(time.Minute)) {
+		go func() {
+			ctx, done := context.WithTimeout(context.Background(), time.Second*10)
+			defer done()
+			// We can ignore setup errors. They are already logged.
+			_ = p.setupRunner(ctx, imageName)
+		}()
+	}
 }
 
 func (p *project) needsRunnerSetup(deadline time.Time) bool {

@@ -18,6 +18,7 @@ package editor
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -156,21 +157,40 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		}
 		response.JWTLoggedInUser = s
 	}
+	signedOptions := types.SignedCompileProjectRequestOptions{
+		CompileGroup: ownerFeatures.CompileGroup,
+		ProjectId:    projectId,
+		UserId:       userId,
+		Timeout: sharedTypes.ComputeTimeout(
+			time.Duration(ownerFeatures.CompileTimeout) * time.Microsecond,
+		),
+	}
 	{
 		c := m.jwtProject.New().(*projectJWT.Claims)
-		c.CompileGroup = ownerFeatures.CompileGroup
 		c.EpochUser = u.Epoch
-		c.ProjectId = projectId
-		c.Timeout = sharedTypes.ComputeTimeout(
-			time.Duration(ownerFeatures.CompileTimeout) * time.Microsecond)
-		c.UserId = userId
 		c.AuthorizationDetails = *authorizationDetails
+		c.SignedCompileProjectRequestOptions = signedOptions
 
 		s, err := m.jwtProject.SetExpiryAndSign(c)
 		if err != nil {
 			return errors.Tag(err, "cannot get compile jwt")
 		}
 		response.JWTProject = s
+	}
+	if userId != m.options.SmokeTest.UserId {
+		go func() {
+			bCtx, done := context.WithTimeout(
+				context.Background(), 10*time.Second,
+			)
+			defer done()
+			err := m.cm.StartInBackground(bCtx, signedOptions, p.ImageName)
+			if err != nil {
+				log.Printf(
+					"%s/%s: cannot start compile container: %s",
+					projectId, userId, err.Error(),
+				)
+			}
+		}()
 	}
 
 	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()

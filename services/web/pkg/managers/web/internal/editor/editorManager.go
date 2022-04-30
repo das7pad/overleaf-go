@@ -33,6 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -58,7 +59,7 @@ type Manager interface {
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler, cm compile.Manager) Manager {
 	publicImageNames := make([]templates.AllowedImageName, 0)
 	for _, allowedImageName := range options.AllowedImageNames {
 		if !allowedImageName.AdminOnly {
@@ -67,6 +68,7 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 	}
 	return &manager{
 		client:           client,
+		cm:               cm,
 		mm:               mm,
 		editorEvents:     editorEvents,
 		fm:               fm,
@@ -83,6 +85,7 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 
 type manager struct {
 	client           redis.UniversalClient
+	cm               compile.Manager
 	mm               message.Manager
 	editorEvents     channel.Writer
 	fm               filestore.Manager

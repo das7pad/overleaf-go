@@ -51,6 +51,8 @@ type Manager interface {
 		request *types.ClearCompileCacheRequest,
 	) error
 
+	StartInBackground(ctx context.Context, options types.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName) error
+
 	SyncFromCode(
 		ctx context.Context,
 		request *types.SyncFromCodeRequest,
@@ -134,6 +136,42 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 		if clearPersistenceError != nil {
 			return clearPersistenceError
 		}
+		return nil
+	default:
+		return unexpectedStatus(res)
+	}
+}
+
+func (m *manager) StartInBackground(ctx context.Context, options types.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName) error {
+	u := m.baseURL
+	u += "/project/" + options.ProjectId.String()
+	u += "/user/" + options.UserId.String()
+	u += "/status"
+
+	blob, err := json.Marshal(
+		clsiTypes.StartInBackgroundRequest{
+			ImageName: m.getImageName(imageName),
+		},
+	)
+	body := bytes.NewReader(blob)
+	if err != nil {
+		return errors.New("cannot serialize start request body")
+	}
+
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
+	if err != nil {
+		return errors.Tag(err, "cannot create start request")
+	}
+	res, _, err := m.doPersistentRequest(ctx, options, r)
+	if err != nil {
+		return errors.Tag(err, "cannot action start request")
+	}
+	defer func() {
+		_ = res.Body.Close()
+	}()
+
+	switch res.StatusCode {
+	case http.StatusOK:
 		return nil
 	default:
 		return unexpectedStatus(res)

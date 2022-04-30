@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -156,7 +156,17 @@ func (h *httpController) wordCount(c *httpUtils.Context) {
 }
 
 func (h *httpController) cookieStatus(c *httpUtils.Context) {
-	c.Writer.WriteHeader(http.StatusOK)
+	request := &types.StartInBackgroundRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	err := h.cm.StartInBackground(
+		c.Request.Context(),
+		httpUtils.GetId(c, "projectId"),
+		httpUtils.GetId(c, "userId"),
+		request,
+	)
+	httpUtils.Respond(c, http.StatusOK, nil, err)
 }
 
 func (h *httpController) healthCheck(c *httpUtils.Context) {

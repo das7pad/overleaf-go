@@ -56,6 +56,8 @@ type Manager interface {
 
 	PeriodicCleanup(ctx context.Context)
 
+	StartInBackground(ctx context.Context, projectId, userId edgedb.UUID, request *types.StartInBackgroundRequest) error
+
 	StopCompile(
 		ctx context.Context,
 		projectId edgedb.UUID,
@@ -284,6 +286,21 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 		case <-nextCleanup.C:
 		}
 	}
+}
+
+func (m *manager) StartInBackground(ctx context.Context, projectId, userId edgedb.UUID, request *types.StartInBackgroundRequest) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
+	return m.operateOnProjectWithRecovery(
+		ctx,
+		projectId,
+		userId,
+		func(p project.Project) error {
+			p.StartInBackground(request.ImageName)
+			return nil
+		},
+	)
 }
 
 func (m *manager) StopCompile(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID) error {
