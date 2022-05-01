@@ -215,8 +215,8 @@ github.com/d2g/dhcp4 v0.0.0-20170904100407-a1d1b6c41b1c/go.mod h1:Ct2BUK8SB0YC1S
 github.com/d2g/dhcp4client v1.0.0/go.mod h1:j0hNfjhrt2SxUOw55nL0ATM/z4Yt3t2Kd1mW34z5W5s=
 github.com/d2g/dhcp4server v0.0.0-20181031114812-7d4a0a7f59a5/go.mod h1:Eo87+Kg/IX2hfWJfwxMzLyuSZyxSoAug2nGa1G2QAi8=
 github.com/d2g/hardwareaddr v0.0.0-20190221164911-e7d9fbe030e4/go.mod h1:bMl4RjIciD2oAxI7DmWRx6gbeqrkoLqv3MV0vzNad+I=
-github.com/das7pad/edgedb-go v0.9.3-0.20220501190555-716495e12226 h1:1V6cVEsDAr6iHGJCwd3ZV36yBSuWy/CMai9FR99WwVE=
-github.com/das7pad/edgedb-go v0.9.3-0.20220501190555-716495e12226/go.mod h1:kHbAnYmOUAXn0jmlGHfM0Bbswjmt8UZrq0GNsouiEOY=
+github.com/das7pad/edgedb-go v0.9.3-0.20220501211706-3b1145487062 h1:OAkao8hlTgWcJP7PMtoODQeUIt1oKqFydOZRf5JwfX4=
+github.com/das7pad/edgedb-go v0.9.3-0.20220501211706-3b1145487062/go.mod h1:kHbAnYmOUAXn0jmlGHfM0Bbswjmt8UZrq0GNsouiEOY=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
