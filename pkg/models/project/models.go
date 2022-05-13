@@ -131,6 +131,7 @@ type ForZip struct {
 
 type ForCreation struct {
 	CompilerField           `edgedb:"$inline"`
+	DeletedAtField          `edgedb:"$inline"`
 	EpochField              `edgedb:"$inline"`
 	IdField                 `edgedb:"$inline"`
 	ImageNameField          `edgedb:"$inline"`

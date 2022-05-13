@@ -60,6 +60,10 @@ type CompilerField struct {
 	Compiler sharedTypes.Compiler `json:"compiler" edgedb:"compiler"`
 }
 
+type DeletedAtField struct {
+	DeletedAt edgedb.OptionalDateTime `edgedb:"deleted_at"`
+}
+
 type DeletedDocsField struct {
 	DeletedDocs []CommonTreeFields `json:"deletedDocs" edgedb:"deleted_docs"`
 }

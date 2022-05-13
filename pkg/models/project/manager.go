@@ -144,8 +144,9 @@ with
 	),
 	p := (insert Project {
 		compiler := <str>$2,
-		image_name := <str>$3,
-		name := <str>$4,
+		deleted_at := <datetime>$3,
+		image_name := <str>$4,
+		name := <str>$5,
 		last_updated_by := owner,
 		owner := owner,
 		spell_check_language := lng,
@@ -154,7 +155,7 @@ with
 	cr := (insert ChatRoom { project := p }),
 select {p.id, rf.id, cr.id}`,
 		&ids,
-		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.ImageName,
+		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.DeletedAt, p.ImageName,
 		p.Name,
 	)
 	if err != nil {
@@ -393,6 +394,7 @@ func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) e
 update Project
 filter .id = <uuid>$0
 set {
+	deleted_at := <datetime>{},
 	name := <str>$1,
 	root_doc := (
 		select Doc

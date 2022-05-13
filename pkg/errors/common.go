@@ -78,6 +78,10 @@ func (m *MergedError) Add(err error) {
 	}
 }
 
+func (m *MergedError) Clear() {
+	m.errors = m.errors[:0]
+}
+
 func (m *MergedError) Finalize() error {
 	if len(m.errors) == 0 {
 		return nil

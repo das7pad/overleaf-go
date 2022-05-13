@@ -25,17 +25,14 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
-const (
-	expireProjectsAfter = 90 * 24 * time.Hour
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
 func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool, start time.Time) error {
 	nFailed := 0
 	err := m.pm.ProcessSoftDeleted(
 		ctx,
-		start.Add(-expireProjectsAfter),
+		start.Add(-constants.ExpireProjectsAfter),
 		func(projectId edgedb.UUID) bool {
 			if dryRun {
 				log.Println(

@@ -19,6 +19,7 @@ package projectUpload
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
@@ -28,15 +29,18 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/fileTree"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 const (
 	parallelUploads = 5
+	retryUploads    = 3
 )
 
 type uploadQueueEntry struct {
+	file         types.CreateProjectFile
 	reader       io.ReadCloser
 	sourceFileId edgedb.UUID
 }
@@ -63,6 +67,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		return err
 	}
 	p := project.NewProject(request.UserId)
+	p.DeletedAt = edgedb.NewOptionalDateTime(
+		// Give the project upload 1h until it gets cleaned up by the cron.
+		time.Now().UTC().Add(-constants.ExpireProjectsAfter).Add(time.Hour),
+	)
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
 	}
@@ -89,8 +97,8 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 
 	openReader := make(map[sharedTypes.PathName]uploadQueueEntry)
 	defer func() {
-		for _, q := range openReader {
-			if f := q.reader; f != nil {
+		for _, e := range openReader {
+			if f := e.reader; f != nil {
 				_ = f.Close()
 			}
 		}
@@ -98,137 +106,122 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	t := &p.RootFolder
 	rootDocPath := request.RootDocPath
 
-	errCreate := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
-		if p.Id != (edgedb.UUID{}) {
-			if err := m.purgeFilestoreData(p.Id); err != nil {
+	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
+			return errors.Tag(err, "cannot init project")
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		done := pCtx.Done()
+		for _, file := range request.Files {
+			select {
+			case <-done:
+				return pCtx.Err()
+			default:
+			}
+			path := file.Path()
+			dir := path.Dir()
+			name := path.Filename()
+			parent, errConflict := t.CreateParents(dir)
+			if errConflict != nil {
+				return errConflict
+			}
+			if e := file.SourceElement(); e != nil {
+				switch el := e.(type) {
+				case project.Doc:
+					parent.Docs = append(parent.Docs, el)
+				case project.FileRef:
+					parent.FileRefs = append(parent.FileRefs, el)
+					openReader[path] = uploadQueueEntry{
+						sourceFileId: el.Id,
+					}
+				}
+				continue
+			}
+			size := file.Size()
+			f, err := file.Open()
+			if err != nil {
+				return errors.Tag(err, "cannot open file")
+			}
+			s, isDoc, consumedFile, err := fileTree.IsTextFile(name, size, f)
+			if err != nil {
+				_ = f.Close()
 				return err
 			}
-		}
-		eg, pCtx := errgroup.WithContext(ctx)
-		eg.Go(func() error {
-			if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
-				return errors.Tag(err, "cannot init project")
+			if isDoc {
+				if err = f.Close(); err != nil {
+					return errors.Tag(err, "cannot close file")
+				}
+				d := project.NewDoc(name)
+				if path == "main.tex" ||
+					(rootDocPath == "" && path.Type().ValidForRootDoc()) {
+					if isRootDoc, title := scanContent(s); isRootDoc {
+						rootDocPath = path
+						if request.HasDefaultName && title != "" {
+							p.Name = title
+						}
+						if request.AddHeader != nil {
+							s = request.AddHeader(s)
+						}
+					}
+				}
+				d.Snapshot = string(s)
+				d.Size = int64(len(s))
+				parent.Docs = append(parent.Docs, d)
+			} else {
+				if consumedFile {
+					if f, err = seekToStart(file, f); err != nil {
+						_ = f.Close()
+						return err
+					}
+				}
+				var hash sharedTypes.Hash
+				if hash = file.PreComputedHash(); hash == "" {
+					hash, err = fileTree.HashFile(f, size)
+					if err != nil {
+						_ = f.Close()
+						return err
+					}
+					if f, err = seekToStart(file, f); err != nil {
+						_ = f.Close()
+						return err
+					}
+				}
+				fileRef := project.NewFileRef(name, hash, size)
+				parent.FileRefs = append(parent.FileRefs, fileRef)
+				openReader[path] = uploadQueueEntry{file: file, reader: f}
 			}
-			return nil
-		})
-		eg.Go(func() error {
-			done := pCtx.Done()
-			for _, file := range request.Files {
-				select {
-				case <-done:
-					return pCtx.Err()
-				default:
-				}
-				path := file.Path()
-				dir := path.Dir()
-				name := path.Filename()
-				parent, errConflict := t.CreateParents(dir)
-				if errConflict != nil {
-					return errConflict
-				}
-				if fileRef := parent.GetFile(name); fileRef != nil {
-					if _, exists := openReader[path]; !exists {
-						// The previous tx iteration started an upload, retry.
-						f, err := file.Open()
-						if err != nil {
-							return errors.Tag(err, "cannot open file")
-						}
-						openReader[path] = uploadQueueEntry{reader: f}
-					}
-					continue
-				}
-				if d := parent.GetDoc(name); d != nil {
-					continue
-				}
-				if e := file.SourceElement(); e != nil {
-					switch el := e.(type) {
-					case project.Doc:
-						parent.Docs = append(parent.Docs, el)
-					case project.FileRef:
-						parent.FileRefs = append(parent.FileRefs, el)
-						openReader[path] = uploadQueueEntry{
-							sourceFileId: el.Id,
-						}
-					}
-					continue
-				}
-				size := file.Size()
-				f, err := file.Open()
-				if err != nil {
-					return errors.Tag(err, "cannot open file")
-				}
-				s, isDoc, consumedFile, err := fileTree.IsTextFile(name, size, f)
-				if err != nil {
-					_ = f.Close()
-					return err
-				}
-				if isDoc {
-					if err = f.Close(); err != nil {
-						return errors.Tag(err, "cannot close file")
-					}
-					d := project.NewDoc(name)
-					if path == "main.tex" ||
-						(rootDocPath == "" && path.Type().ValidForRootDoc()) {
-						if isRootDoc, title := scanContent(s); isRootDoc {
-							rootDocPath = path
-							if request.HasDefaultName && title != "" {
-								p.Name = title
-							}
-							if request.AddHeader != nil {
-								s = request.AddHeader(s)
-							}
-						}
-					}
-					d.Snapshot = string(s)
-					d.Size = int64(len(s))
-					parent.Docs = append(parent.Docs, d)
-				} else {
-					if consumedFile {
-						if f, err = seekToStart(file, f); err != nil {
-							_ = f.Close()
-							return err
-						}
-					}
-					var hash sharedTypes.Hash
-					if hash = file.PreComputedHash(); hash == "" {
-						hash, err = fileTree.HashFile(f, size)
-						if err != nil {
-							_ = f.Close()
-							return err
-						}
-						if f, err = seekToStart(file, f); err != nil {
-							_ = f.Close()
-							return err
-						}
-					}
-					fileRef := project.NewFileRef(name, hash, size)
-					parent.FileRefs = append(parent.FileRefs, fileRef)
-					openReader[path] = uploadQueueEntry{reader: f}
-				}
-			}
-			return nil
-		})
-		if err := eg.Wait(); err != nil {
-			return err
 		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		if p.Id != (edgedb.UUID{}) {
+			return errors.Merge(err, m.pm.HardDelete(ctx, p.Id))
+		}
+		return err
+	}
 
-		if err := m.pm.CreateProjectTree(ctx, p); err != nil {
-			return err
-		}
-		if rootDocPath != "" {
-			parent, _ := t.CreateParents(rootDocPath.Dir())
-			p.RootDoc.Doc.Id = parent.GetDoc(rootDocPath.Filename()).Id
-		}
+	if err := m.pm.CreateProjectTree(ctx, p); err != nil {
+		return errors.Merge(err, m.pm.HardDelete(ctx, p.Id))
+	}
+	if rootDocPath != "" {
+		parent, _ := t.CreateParents(rootDocPath.Dir())
+		p.RootDoc.Doc.Id = parent.GetDoc(rootDocPath.Filename()).Id
+	}
 
-		eg, pCtx = errgroup.WithContext(ctx)
-		uploadQueue := make(chan sharedTypes.PathName, parallelUploads)
-		uploadEg, uploadCtx := errgroup.WithContext(pCtx)
-		for i := 0; i < parallelUploads; i++ {
-			uploadEg.Go(func() error {
-				for path := range uploadQueue {
-					e := openReader[path]
-					parent, _ := t.CreateParents(path.Dir())
-					fileRef := parent.GetFile(path.Filename())
+	eg, pCtx = errgroup.WithContext(ctx)
+	uploadQueue := make(chan sharedTypes.PathName, parallelUploads)
+	uploadEg, uploadCtx := errgroup.WithContext(pCtx)
+	for i := 0; i < parallelUploads; i++ {
+		uploadEg.Go(func() error {
+			for path := range uploadQueue {
+				e := openReader[path]
+				parent, _ := t.CreateParents(path.Dir())
+				fileRef := parent.GetFile(path.Filename())
+				mErr := &errors.MergedError{}
+				for j := 0; j < retryUploads; j++ {
 					if e.reader == nil {
 						err := m.fm.CopyProjectFile(
 							uploadCtx,
@@ -237,12 +230,13 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 							p.Id,
 							fileRef.Id,
 						)
-						if err != nil {
-							return errors.Tag(err, "cannot copy file")
+						if err == nil {
+							mErr.Clear()
+							break
 						}
+						mErr.Add(errors.Tag(err, "cannot copy file"))
 						continue
 					}
-					delete(openReader, path)
 					err := m.fm.SendStreamForProjectFile(
 						uploadCtx,
 						p.Id,
@@ -252,61 +246,68 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 							ContentSize: fileRef.Size,
 						},
 					)
-					errClose := e.reader.Close()
-					if err != nil {
-						return errors.Tag(err, "cannot upload file")
+					if err == nil {
+						mErr.Clear()
+						break
 					}
-					if errClose != nil {
-						return errors.Tag(errClose, "cannot close file")
+					mErr.Add(errors.Tag(err, "cannot upload file"))
+					e.reader, err = seekToStart(e.file, e.reader)
+					mErr.Add(err)
+					continue
+				}
+				if e.reader != nil {
+					if err := e.reader.Close(); err != nil {
+						mErr.Add(errors.Tag(err, "cannot close file"))
 					}
 				}
-				return nil
-			})
-		}
-		eg.Go(func() error {
-			<-uploadCtx.Done()
-			// Purge queue as soon as any consumer fails/ctx gets cancelled.
-			for range uploadQueue {
+				if err := mErr.Finalize(); err != nil {
+					return err
+				}
+				delete(openReader, path)
 			}
 			return nil
 		})
-		eg.Go(func() error {
-			err := uploadEg.Wait()
-			if err != nil {
-				return errors.Merge(err, m.purgeFilestoreData(p.Id))
-			}
-			return err
-		})
-		eg.Go(func() error {
-			for path := range openReader {
-				uploadQueue <- path
-			}
-			close(uploadQueue)
-			return nil
-		})
-		eg.Go(func() error {
-			if err := getProjectNames.Wait(pCtx); err != nil {
-				return errors.Tag(err, "cannot get project names")
-			}
-			p.Name = existingProjectNames.MakeUnique(p.Name)
-			if err := m.pm.FinalizeProjectCreation(pCtx, p); err != nil {
-				return errors.Tag(err, "cannot finalize project")
-			}
-			return nil
-		})
-		if err := eg.Wait(); err != nil {
-			return err
+	}
+	eg.Go(func() error {
+		<-uploadCtx.Done()
+		// Purge the queue as soon as any consumer fails/ctx gets cancelled.
+		for range uploadQueue {
 		}
 		return nil
 	})
-
-	if errCreate == nil {
-		response.Success = true
-		response.ProjectId = &p.Id
+	eg.Go(func() error {
+		return uploadEg.Wait()
+	})
+	eg.Go(func() error {
+		for path := range openReader {
+			uploadQueue <- path
+		}
+		close(uploadQueue)
 		return nil
+	})
+	eg.Go(func() error {
+		if err := getProjectNames.Wait(pCtx); err != nil {
+			return errors.Tag(err, "cannot get project names")
+		}
+		p.Name = existingProjectNames.MakeUnique(p.Name)
+		return nil
+	})
+	cleanupBestEffort := func(err error) error {
+		// NOTE: The cron job will clean up behind us if we fail here.
+		if errFiles := m.purgeFilestoreData(p.Id); errFiles != nil {
+			return err
+		}
+		return errors.Merge(err, m.pm.HardDelete(ctx, p.Id))
 	}
-	errMerged := &errors.MergedError{}
-	errMerged.Add(errors.Tag(errCreate, "cannot create project"))
-	errMerged.Add(m.purgeFilestoreData(p.Id))
-	return errMerged
+
+	if err := eg.Wait(); err != nil {
+		return cleanupBestEffort(err)
+	}
+	if err := m.pm.FinalizeProjectCreation(ctx, p); err != nil {
+		return cleanupBestEffort(errors.Tag(err, "cannot finalize project"))
+	}
+
+	response.Success = true
+	response.ProjectId = &p.Id
+	return nil
 }
