@@ -55,6 +55,7 @@ type Manager interface {
 	GetForZip(ctx context.Context, projectId edgedb.UUID, epoch int64) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
 	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
+	BumpLastOpened(ctx context.Context, projectId edgedb.UUID) error
 	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
 	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, error)
 	GetFile(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken, fileId edgedb.UUID) (*FileWithParent, error)
@@ -1911,6 +1912,16 @@ select {
 	return details, nil
 }
 
+func (m *manager) BumpLastOpened(ctx context.Context, projectId edgedb.UUID) error {
+	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
+update Project
+filter .id = <uuid>$0 and not exists .deleted_at
+set {
+	last_opened := datetime_of_transaction(),
+}
+`, &IdField{}, projectId))
+}
+
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
 	details := &LoadEditorDetails{}
 	if userId != (edgedb.UUID{}) {
@@ -1932,9 +1943,6 @@ with
 		}
 		limit 1
 	),
-	pBumpedLastOpened := (update pWithAuth set {
-		last_opened := datetime_of_transaction(),
-	})
 select {
 	user := (select u {
 		editor_config: {
@@ -1957,7 +1965,7 @@ select {
 		last_name,
 	}),
 	project_exists := (exists p),
-	project := (select pBumpedLastOpened {
+	project := (select pWithAuth {
 		access_ro: { id } filter User = u,
 		access_rw: { id } filter User = u,
 		access_token_ro: { id } filter User = u,

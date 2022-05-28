@@ -213,5 +213,16 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		},
 		EditorBootstrap: response,
 	}
+	go func() {
+		bCtx, done := context.WithTimeout(context.Background(), 3*time.Second)
+		defer done()
+		err := m.pm.BumpLastOpened(bCtx, projectId)
+		if err != nil {
+			log.Printf(
+				"%s/%s: cannot bump last opened time: %s",
+				projectId, userId, err,
+			)
+		}
+	}()
 	return nil
 }
