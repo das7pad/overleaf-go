@@ -25,37 +25,25 @@ func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snaps
 	for _, op := range ops {
 		if op.IsInsertion() {
 			snapshot = InjectInPlace(snapshot, op.Position, op.Insertion)
-		} else if op.IsDeletion() {
-			start := op.Position
-			end := op.Position + len(op.Deletion)
-			deletionActual := snapshot.Slice(start, end)
-			if string(op.Deletion) != string(deletionActual) {
-				return nil, &errors.CodedError{
-					Description: "Delete component '" +
-						string(op.Deletion) +
-						"' does not match deleted text '" +
-						string(deletionActual) +
-						"'",
-				}
-			}
-			s := snapshot[:]
-			snapshot = snapshot[:len(snapshot)-len(op.Deletion)]
-			copy(snapshot[start:], s[end:])
-		} else if op.IsComment() {
-			start := op.Position
-			end := op.Position + len(op.Comment)
-			commentActual := snapshot.Slice(start, end)
-			if string(op.Comment) != string(commentActual) {
-				return nil, &errors.CodedError{
-					Description: "Comment component '" +
-						string(op.Comment) +
-						"' does not match commented text '" +
-						string(commentActual) +
-						"'",
-				}
+			continue
+		}
+
+		// NOTE: validation on ingestion ensures `op` is a deletion.
+		start := op.Position
+		end := op.Position + len(op.Deletion)
+		deletionActual := snapshot.Slice(start, end)
+		if string(op.Deletion) != string(deletionActual) {
+			return nil, &errors.CodedError{
+				Description: "Delete component '" +
+					string(op.Deletion) +
+					"' does not match deleted text '" +
+					string(deletionActual) +
+					"'",
 			}
 		}
-		// NOTE: else case is handled in validation on ingestion into service.
+		s := snapshot[:]
+		snapshot = snapshot[:len(snapshot)-len(op.Deletion)]
+		copy(snapshot[start:], s[end:])
 	}
 	return snapshot, nil
 }

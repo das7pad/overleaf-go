@@ -95,15 +95,11 @@ func (d *DocumentUpdateMeta) Validate() error {
 }
 
 type Component struct {
-	Comment   Snippet `json:"c,omitempty"`
 	Deletion  Snippet `json:"d,omitempty"`
 	Insertion Snippet `json:"i,omitempty"`
 	Position  int     `json:"p"`
 }
 
-func (o *Component) IsComment() bool {
-	return len(o.Comment) != 0
-}
 func (o *Component) IsDeletion() bool {
 	return len(o.Deletion) != 0
 }
@@ -114,10 +110,7 @@ func (o *Component) Validate() error {
 	if o.Position < 0 {
 		return &errors.ValidationError{Msg: "position is negative"}
 	}
-	if o.IsComment() {
-		// TODO: delete comment code
-		return nil
-	} else if o.IsDeletion() {
+	if o.IsDeletion() {
 		return nil
 	} else if o.IsInsertion() {
 		return Snapshot(o.Insertion).Validate()
@@ -127,15 +120,6 @@ func (o *Component) Validate() error {
 }
 
 type Op []Component
-
-func (o Op) HasEdit() bool {
-	for _, op := range o {
-		if !op.IsComment() {
-			return true
-		}
-	}
-	return false
-}
 
 func (o Op) Validate() error {
 	if len(o) == 0 {

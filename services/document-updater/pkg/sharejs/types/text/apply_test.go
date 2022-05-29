@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -163,61 +163,6 @@ func TestApply(t *testing.T) {
 				snapshot: sharedTypes.Snapshot("fooBar"),
 				ops: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("barBaz"), Position: 42},
-				},
-			},
-			wantErr: true,
-			want:    sharedTypes.Snapshot(""),
-		},
-		{
-			name: "comment",
-			args: args{
-				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("Bar"), Position: 3},
-				},
-			},
-			wantErr: false,
-			want:    sharedTypes.Snapshot("fooBar"),
-		},
-		{
-			name: "commentUTF-8",
-			args: args{
-				snapshot: sharedTypes.Snapshot("fööBär"),
-				ops: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("Bär"), Position: 3},
-				},
-			},
-			wantErr: false,
-			want:    sharedTypes.Snapshot("fööBär"),
-		},
-		{
-			name: "commentMismatch",
-			args: args{
-				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("bar"), Position: 3},
-				},
-			},
-			wantErr: true,
-			want:    sharedTypes.Snapshot(""),
-		},
-		{
-			name: "commentOOB",
-			args: args{
-				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("out-of-bound"), Position: 3},
-				},
-			},
-			wantErr: true,
-			want:    sharedTypes.Snapshot(""),
-		},
-		{
-			name: "commentOOBStart",
-			args: args{
-				snapshot: sharedTypes.Snapshot("fooBar"),
-				ops: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("out-of-bound"), Position: 42},
 				},
 			},
 			wantErr: true,

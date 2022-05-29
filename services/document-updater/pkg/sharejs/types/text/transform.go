@@ -69,136 +69,71 @@ func transformComponent(op sharedTypes.Op, c, otherC sharedTypes.Component, side
 		c.Position = transformPosition(c.Position, otherC, side == rightSide)
 		return appendOp(op, c), nil
 	}
-	if c.IsDeletion() {
-		if otherC.IsInsertion() {
-			p := c.Position
-			d := c.Deletion
-			if c.Position < otherC.Position {
-				edge := otherC.Position - c.Position
-				if edge > len(d) {
-					edge = len(d)
-				}
-				c.Deletion = d[:edge]
-				op = appendOp(op, c)
-				d = d[edge:]
-			}
-			if len(d) == 0 {
-				return op, nil
-			}
-			return appendOp(op, sharedTypes.Component{
-				Deletion: d,
-				Position: p + len(otherC.Insertion),
-			}), nil
-		}
-		if otherC.IsDeletion() {
-			cEndBeforeOp := c.Position + len(c.Deletion)
-			otherCEndBeforeOp := otherC.Position + len(otherC.Deletion)
-			if c.Position >= otherCEndBeforeOp {
-				c.Position -= len(otherC.Deletion)
-				return appendOp(op, c), nil
-			}
-			if cEndBeforeOp <= otherC.Position {
-				return appendOp(op, c), nil
-			}
-
-			intersectStart := c.Position
-			intersectEnd := cEndBeforeOp
-
-			dLen := 0
-			if c.Position < otherC.Position {
-				intersectStart = otherC.Position
-				dLen += otherC.Position - c.Position
-			}
-			if cEndBeforeOp > otherCEndBeforeOp {
-				intersectEnd = otherCEndBeforeOp
-				dLen += len(c.Deletion) - (otherCEndBeforeOp - c.Position)
-			}
-			cIntersect := c.Deletion[intersectStart-c.Position : intersectEnd-c.Position]
-			otherCIntersect := otherC.Deletion[intersectStart-otherC.Position : intersectEnd-otherC.Position]
-
-			if string(cIntersect) != string(otherCIntersect) {
-				return nil, deleteOpsDeleteDifferentText
-			}
-
-			if dLen == 0 {
-				return op, nil
-			}
-			d := make(sharedTypes.Snippet, dLen)
-			dPos := 0
-			if c.Position < otherC.Position {
-				dPos += copy(d, c.Deletion[:otherC.Position-c.Position])
-			}
-			if cEndBeforeOp > otherCEndBeforeOp {
-				copy(d[dPos:], c.Deletion[otherCEndBeforeOp-c.Position:])
-			}
-
-			c.Deletion = d
-			c.Position = transformPosition(c.Position, otherC, false)
-			return appendOp(op, c), nil
-		}
-
-		// else: comment type
-		return appendOp(op, c), nil
-	}
-
-	// else: comment type
 	if otherC.IsInsertion() {
-		cLen := len(c.Comment)
-		if c.Position < otherC.Position && otherC.Position < c.Position+cLen {
-			offset := otherC.Position - c.Position
-			c.Comment = Inject(c.Comment, offset, otherC.Insertion)
-			return appendOp(op, c), nil
+		p := c.Position
+		d := c.Deletion
+		if c.Position < otherC.Position {
+			edge := otherC.Position - c.Position
+			if edge > len(d) {
+				edge = len(d)
+			}
+			c.Deletion = d[:edge]
+			op = appendOp(op, c)
+			d = d[edge:]
 		}
-		c.Position = transformPosition(c.Position, otherC, true)
+		if len(d) == 0 {
+			return op, nil
+		}
+		return appendOp(op, sharedTypes.Component{
+			Deletion: d,
+			Position: p + len(otherC.Insertion),
+		}), nil
+	}
+
+	// NOTE: validation on ingestion ensures `otherC` is a deletion.
+	cEndBeforeOp := c.Position + len(c.Deletion)
+	otherCEndBeforeOp := otherC.Position + len(otherC.Deletion)
+	if c.Position >= otherCEndBeforeOp {
+		c.Position -= len(otherC.Deletion)
 		return appendOp(op, c), nil
 	}
-	if otherC.IsDeletion() {
-		cEnd := c.Position + len(c.Comment)
-		otherCEndBeforeOp := otherC.Position + len(otherC.Deletion)
-
-		if c.Position >= otherCEndBeforeOp {
-			c.Position -= len(otherC.Deletion)
-			return appendOp(op, c), nil
-		}
-		if cEnd <= otherC.Position {
-			return appendOp(op, c), nil
-		}
-
-		intersectStart := c.Position
-		intersectEnd := cEnd
-
-		ccLen := 0
-		if c.Position < otherC.Position {
-			intersectStart = otherC.Position
-			ccLen += otherC.Position - c.Position
-		}
-		if cEnd > otherCEndBeforeOp {
-			intersectEnd = otherCEndBeforeOp
-			ccLen += len(c.Comment) - (otherCEndBeforeOp - c.Position)
-		}
-		cIntersect := c.Comment[intersectStart-c.Position : intersectEnd-c.Position]
-		otherCIntersect := otherC.Deletion[intersectStart-otherC.Position : intersectEnd-otherC.Position]
-
-		if string(cIntersect) != string(otherCIntersect) {
-			return nil, deleteOpsDeleteDifferentText
-		}
-
-		cc := make(sharedTypes.Snippet, ccLen)
-		ccPos := 0
-		if c.Position < otherC.Position {
-			ccPos += copy(cc, c.Comment[:otherC.Position-c.Position])
-		}
-		if cEnd > otherCEndBeforeOp {
-			intersectEnd = otherCEndBeforeOp
-			copy(cc[ccPos:], c.Comment[otherCEndBeforeOp-c.Position:])
-		}
-
-		c.Comment = cc
-		c.Position = transformPosition(c.Position, otherC, false)
+	if cEndBeforeOp <= otherC.Position {
 		return appendOp(op, c), nil
 	}
 
-	// else: comment type
+	intersectStart := c.Position
+	intersectEnd := cEndBeforeOp
+
+	dLen := 0
+	if c.Position < otherC.Position {
+		intersectStart = otherC.Position
+		dLen += otherC.Position - c.Position
+	}
+	if cEndBeforeOp > otherCEndBeforeOp {
+		intersectEnd = otherCEndBeforeOp
+		dLen += len(c.Deletion) - (otherCEndBeforeOp - c.Position)
+	}
+	cIntersect := c.Deletion[intersectStart-c.Position : intersectEnd-c.Position]
+	otherCIntersect := otherC.Deletion[intersectStart-otherC.Position : intersectEnd-otherC.Position]
+
+	if string(cIntersect) != string(otherCIntersect) {
+		return nil, deleteOpsDeleteDifferentText
+	}
+
+	if dLen == 0 {
+		return op, nil
+	}
+	d := make(sharedTypes.Snippet, dLen)
+	dPos := 0
+	if c.Position < otherC.Position {
+		dPos += copy(d, c.Deletion[:otherC.Position-c.Position])
+	}
+	if cEndBeforeOp > otherCEndBeforeOp {
+		copy(d[dPos:], c.Deletion[otherCEndBeforeOp-c.Position:])
+	}
+
+	c.Deletion = d
+	c.Position = transformPosition(c.Position, otherC, false)
 	return appendOp(op, c), nil
 }
 

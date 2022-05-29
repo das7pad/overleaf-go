@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -78,21 +78,6 @@ func TestTransform(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "insertionPassThroughComment",
-			args: args{
-				op: sharedTypes.Op{
-					{Insertion: sharedTypes.Snippet("foo"), Position: 10},
-				},
-				otherOp: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("foo"), Position: 42},
-				},
-			},
-			want: sharedTypes.Op{
-				{Insertion: sharedTypes.Snippet("foo"), Position: 10},
-			},
-			wantErr: false,
-		},
-		{
 			name: "deletionPassThroughInsertion",
 			args: args{
 				op: sharedTypes.Op{
@@ -123,53 +108,6 @@ func TestTransform(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "deletionPassThroughComment",
-			args: args{
-				op: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("foo"), Position: 10},
-				},
-				otherOp: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("foo"), Position: 42},
-				},
-			},
-			want: sharedTypes.Op{
-				{Deletion: sharedTypes.Snippet("foo"), Position: 10},
-			},
-			wantErr: false,
-		},
-		{
-			name: "mergeDeletions",
-			args: args{
-				op: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
-					{Deletion: sharedTypes.Snippet("Baz"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("do-not-matter"), Position: 42},
-				},
-			},
-			want: sharedTypes.Op{
-				{Deletion: sharedTypes.Snippet("fooBaz"), Position: 0},
-			},
-			wantErr: false,
-		},
-		{
-			name: "mergeInsertions",
-			args: args{
-				op: sharedTypes.Op{
-					{Insertion: sharedTypes.Snippet("foo"), Position: 0},
-					{Insertion: sharedTypes.Snippet("Baz"), Position: 3},
-				},
-				otherOp: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("do-not-matter"), Position: 42},
-				},
-			},
-			want: sharedTypes.Op{
-				{Insertion: sharedTypes.Snippet("fooBaz"), Position: 0},
-			},
-			wantErr: false,
-		},
-		{
 			name: "splitDeletionInsertion",
 			args: args{
 				op: sharedTypes.Op{
@@ -193,7 +131,6 @@ func TestTransform(t *testing.T) {
 				},
 				otherOp: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
-					{Comment: sharedTypes.Snippet("foo"), Position: 42},
 				},
 			},
 			want: sharedTypes.Op{
@@ -207,7 +144,6 @@ func TestTransform(t *testing.T) {
 			args: args{
 				op: sharedTypes.Op{
 					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
-					{Comment: sharedTypes.Snippet("foo"), Position: 42},
 				},
 				otherOp: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("fooBaz"), Position: 0},
@@ -215,22 +151,8 @@ func TestTransform(t *testing.T) {
 			},
 			want: sharedTypes.Op{
 				{Insertion: sharedTypes.Snippet("Bar"), Position: 0},
-				{Comment: sharedTypes.Snippet("foo"), Position: 36},
 			},
 			wantErr: false,
-		},
-		{
-			name: "splitDeletionInsertionMultiRevMismatch",
-			args: args{
-				op: sharedTypes.Op{
-					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
-					{Comment: sharedTypes.Snippet("foo"), Position: 6},
-				},
-				otherOp: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("fooBaz"), Position: 0},
-				},
-			},
-			wantErr: true,
 		},
 		{
 			name: "shiftInsertionFromDeletion",
@@ -289,21 +211,6 @@ func TestTransform(t *testing.T) {
 			},
 			want: sharedTypes.Op{
 				{Deletion: sharedTypes.Snippet("foo"), Position: 7},
-			},
-			wantErr: false,
-		},
-		{
-			name: "shiftCommentFromInsertion",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("foo"), Position: 10},
-				},
-				otherOp: sharedTypes.Op{
-					{Insertion: sharedTypes.Snippet("foo"), Position: 3},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("foo"), Position: 13},
 			},
 			wantErr: false,
 		},
@@ -368,21 +275,6 @@ func TestTransform(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "shiftCommentFromInsertionUTF-8",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("foo"), Position: 10},
-				},
-				otherOp: sharedTypes.Op{
-					{Insertion: sharedTypes.Snippet("föö"), Position: 3},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("foo"), Position: 13},
-			},
-			wantErr: false,
-		},
-		{
 			name: "eatDeletionChild",
 			args: args{
 				op: sharedTypes.Op{
@@ -428,15 +320,13 @@ func TestTransform(t *testing.T) {
 				op: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("oo"), Position: 1},
 					{Deletion: sharedTypes.Snippet("Bar"), Position: 1},
-					{Comment: sharedTypes.Snippet("foo"), Position: 42},
 				},
 				otherOp: sharedTypes.Op{
 					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
 					{Deletion: sharedTypes.Snippet("Bar"), Position: 0},
 				},
 			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("foo"), Position: 41}},
+			want:    sharedTypes.Op{},
 			wantErr: false,
 		},
 		{
@@ -481,122 +371,6 @@ func TestTransform(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: true,
-		},
-		{
-			name: "commentAndDeletionMismatch",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("Bar"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
-				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "commentAndDeletionMismatchMulti",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("foo"), Position: 0},
-					{Comment: sharedTypes.Snippet("Bar"), Position: 42},
-				},
-				otherOp: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("Baz"), Position: 0},
-				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "commentAndDeletionMismatchMultiReverse",
-			args: args{
-				op: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
-					{Comment: sharedTypes.Snippet("Bar"), Position: 42},
-				},
-				otherOp: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("Baz"), Position: 0},
-				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "commentCutFromDeletion",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("fooBar"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("foo"), Position: 0},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("Bar"), Position: 0},
-			},
-			wantErr: false,
-		},
-		{
-			name: "commentCutFromDeletionPartial",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("fooBarBaz"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("Bar"), Position: 3},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("fooBaz"), Position: 0},
-			},
-			wantErr: false,
-		},
-		{
-			name: "commentPassThroughDeletion",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("fooBar"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Deletion: sharedTypes.Snippet("Bar"), Position: 42},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("fooBar"), Position: 0},
-			},
-			wantErr: false,
-		},
-		{
-			name: "commentPassThroughComment",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("fooBar"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("Bar"), Position: 42},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("fooBar"), Position: 0},
-			},
-			wantErr: false,
-		},
-		{
-			name: "commentExtendedByInsertion",
-			args: args{
-				op: sharedTypes.Op{
-					{Comment: sharedTypes.Snippet("fooBaz"), Position: 0},
-				},
-				otherOp: sharedTypes.Op{
-					{Insertion: sharedTypes.Snippet("Bar"), Position: 3},
-				},
-			},
-			want: sharedTypes.Op{
-				{Comment: sharedTypes.Snippet("fooBarBaz"), Position: 0},
-			},
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
