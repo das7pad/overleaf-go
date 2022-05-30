@@ -40,19 +40,19 @@ CREATE TYPE EditorConfig AS
 CREATE TABLE users
 (
   beta_program       BOOLEAN      NOT NULL,
-  deleted_at         TIMESTAMP,
+  deleted_at         TIMESTAMP    NULL,
   editor_config      EditorConfig NOT NULL,
   email              TEXT         NOT NULL UNIQUE,
-  email_confirmed_at TIMESTAMP,
+  email_confirmed_at TIMESTAMP    NULL,
   email_created_at   TIMESTAMP    NOT NULL,
   epoch              INTEGER      NOT NULL,
   features           Features     NOT NULL,
   first_name         TEXT         NOT NULL,
-  id                 UUID PRIMARY KEY,
-  last_login_at      timestamp,
-  last_login_ip      TEXT,
+  id                 UUID         NOT NULL PRIMARY KEY,
+  last_login_at      timestamp    NULL,
+  last_login_ip      TEXT         NULL,
   last_name          TEXT         NOT NULL,
-  learned_words      TEXT[],
+  learned_words      TEXT[]       NULL,
   login_count        INTEGER      NOT NULL,
   must_reconfirm     BOOLEAN      NOT NULL,
   password_hash      TEXT         NOT NULL,
@@ -61,19 +61,20 @@ CREATE TABLE users
 
 CREATE TABLE contacts
 (
-  a            UUID REFERENCES users ON DELETE CASCADE,
-  b            UUID REFERENCES users ON DELETE CASCADE,
-  connections  INTEGER NOT NULL,
-  last_touched TIMESTAMP,
+  a            UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
+  b            UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
+  connections  INTEGER   NOT NULL,
+  last_touched TIMESTAMP NOT NULL,
+
   PRIMARY KEY (a, b)
 );
 
 CREATE TABLE user_audit_log
 (
-  id           UUID PRIMARY KEY,
-  info         JSONB,
-  initiator_id UUID      REFERENCES users ON DELETE SET NULL,
-  ip_address   TEXT,
+  id           UUID      NOT NULL PRIMARY KEY,
+  info         JSONB     NULL,
+  initiator_id UUID      NULL REFERENCES users ON DELETE SET NULL,
+  ip_address   TEXT      NULL,
   operation    TEXT      NOT NULL,
   timestamp    TIMESTAMP NOT NULL,
   user_id      UUID      NOT NULL REFERENCES users ON DELETE CASCADE
@@ -81,22 +82,22 @@ CREATE TABLE user_audit_log
 
 CREATE TABLE projects
 (
-  compiler             TEXT    NOT NULL,
-  deleted_at           TIMESTAMP,
-  epoch                INTEGER NOT NULL,
-  id                   UUID PRIMARY KEY,
-  image_name           TEXT    NOT NULL,
-  last_opened_at       TIMESTAMP,
-  last_updated_at      TIMESTAMP,
-  last_updated_by      UUID    REFERENCES users ON DELETE SET NULL,
-  name                 TEXT    NOT NULL,
-  owner_id             UUID REFERENCES users ON DELETE RESTRICT,
-  public_access_level  TEXT    NOT NULL,
-  spell_check_language TEXT    NOT NULL,
-  token_ro             TEXT UNIQUE,
-  token_rw             TEXT UNIQUE,
-  token_rw_prefix      TEXT UNIQUE,
-  tree_version         INTEGER NOT NULL
+  compiler             TEXT      NOT NULL,
+  deleted_at           TIMESTAMP NULL,
+  epoch                INTEGER   NOT NULL,
+  id                   UUID      NOT NULL PRIMARY KEY,
+  image_name           TEXT      NOT NULL,
+  last_opened_at       TIMESTAMP NULL,
+  last_updated_at      TIMESTAMP NULL,
+  last_updated_by      UUID      NULL REFERENCES users ON DELETE SET NULL,
+  name                 TEXT      NOT NULL,
+  owner_id             UUID      NOT NULL REFERENCES users ON DELETE RESTRICT,
+  public_access_level  TEXT      NOT NULL,
+  spell_check_language TEXT      NOT NULL,
+  token_ro             TEXT      NULL UNIQUE,
+  token_rw             TEXT      NULL, -- implicit UNIQUE via token_rw_prefix
+  token_rw_prefix      TEXT      NULL UNIQUE,
+  tree_version         INTEGER   NOT NULL
 );
 
 CREATE TABLE project_members
@@ -113,9 +114,9 @@ CREATE TABLE project_members
 
 CREATE TABLE project_audit_log
 (
-  id           UUID PRIMARY KEY,
-  info         JSONB,
-  initiator_id UUID      REFERENCES users ON DELETE SET NULL,
+  id           UUID      NOT NULL PRIMARY KEY,
+  info         JSONB     NULL,
+  initiator_id UUID      NULL REFERENCES users ON DELETE SET NULL,
   operation    TEXT      NOT NULL,
   project_id   UUID      NOT NULL REFERENCES projects ON DELETE CASCADE,
   timestamp    TIMESTAMP NOT NULL
@@ -126,11 +127,12 @@ CREATE TABLE project_invites
   created_at      TIMESTAMP NOT NULL,
   email           TEXT      NOT NULL,
   expires_at      TIMESTAMP NOT NULL,
-  id              UUID PRIMARY KEY,
+  id              UUID      NOT NULL PRIMARY KEY,
   privilege_level TEXT      NOT NULL,
-  project_id      UUID REFERENCES projects ON DELETE CASCADE,
-  sending_user_id UUID REFERENCES users ON DELETE CASCADE,
+  project_id      UUID      NOT NULL REFERENCES projects ON DELETE CASCADE,
+  sending_user_id UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
   token           TEXT      NOT NULL,
+
   UNIQUE (project_id, token)
 );
 
@@ -138,55 +140,106 @@ CREATE TYPE TreeNodeKind AS ENUM ('doc', 'file', 'folder');
 
 CREATE TABLE tree_nodes
 (
-  deleted_at TIMESTAMP,
-  id         UUID PRIMARY KEY,
+  deleted_at TIMESTAMP    NOT NULL,
+  id         UUID         NOT NULL PRIMARY KEY,
   kind       TreeNodeKind NOT NULL,
   name       TEXT         NOT NULL,
-  parent_id  UUID         NOT NULL REFERENCES tree_nodes ON DELETE CASCADE,
+  parent_id  UUID         NULL REFERENCES tree_nodes ON DELETE CASCADE,
   path       TEXT         NOT NULL,
   project_id UUID         NOT NULL REFERENCES projects ON DELETE CASCADE,
 
-  -- TODO: check NULL parent behavior, use path instead if not enforced
+  -- Assumption: creation and deletion of nodes takes >1 microsecond,
+  --  which is the resolution of deleted_at.
   UNIQUE (project_id, parent_id, name, deleted_at)
 );
 
-CREATE FUNCTION is_folder(project UUID, folder UUID) RETURNS BOOLEAN AS
+CREATE UNIQUE INDEX ensure_one_root_folder
+  ON tree_nodes (project_id, (parent_id IS NULL))
+  WHERE (parent_id IS NULL);
+
+CREATE FUNCTION is_tree_node_kind(node UUID, k TreeNodeKind)
+  RETURNS BOOLEAN
+  LANGUAGE SQL
+  STABLE
+  STRICT
+  PARALLEL SAFE
+AS
+$$
+SELECT TRUE
+FROM tree_nodes
+WHERE id = $1
+  AND kind = $2
+LIMIT 1
+$$;
+
+CREATE FUNCTION is_tree_node_kind_in(project UUID, node UUID, k TreeNodeKind)
+  RETURNS BOOLEAN
+  LANGUAGE SQL
+  STABLE
+  STRICT
+  PARALLEL SAFE
+AS
+$$
+SELECT TRUE
+FROM tree_nodes
+WHERE id = $2
+  AND project_id = $1
+  AND kind = $3
+LIMIT 1
+$$;
+
+CREATE FUNCTION is_tree_node_root(project UUID, node UUID)
+  RETURNS BOOLEAN
+  LANGUAGE SQL
+  STABLE
+  STRICT
+  PARALLEL SAFE
+AS
 $$
 SELECT TRUE
 FROM tree_nodes
 WHERE id = $2
   AND project_id = $1
   AND kind = 'folder'
-$$ LANGUAGE SQL;
+  AND parent_id IS NULL
+LIMIT 1
+$$;
+
+ALTER TABLE projects
+  ADD COLUMN root_folder_id UUID NULL REFERENCES tree_nodes
+    CHECK (
+      -- Check field is not yet set OR enforce is actual root folder.
+        root_folder_id IS NULL
+        OR is_tree_node_root(id, root_folder_id)
+      );
 
 ALTER TABLE tree_nodes
   ADD CONSTRAINT tree_nodes_parent_check
-    -- is root folder (folder w/o parent) or parent is folder
     CHECK (
+      -- Check we are root folder (folder w/o parent)
+      --  OR parent is folder in the same project.
         (parent_id IS NULL AND kind = 'folder')
         OR
-        is_folder(project_id, parent_id)
+        is_tree_node_kind_in(project_id, parent_id, 'folder')
       );
 
 CREATE TABLE docs
 (
-  id       UUID PRIMARY KEY REFERENCES tree_nodes ON DELETE CASCADE,
+  id       UUID    NOT NULL PRIMARY KEY REFERENCES tree_nodes ON DELETE CASCADE,
   snapshot TEXT    NOT NULL,
-  version  INTEGER NOT NULL
+  version  INTEGER NOT NULL,
+
+  CHECK (is_tree_node_kind(id, 'doc'))
 );
 
 ALTER TABLE projects
-  ADD COLUMN root_doc_id UUID REFERENCES docs ON DELETE SET NULL;
-
-ALTER TABLE projects
-  ADD COLUMN root_folder_id UUID REFERENCES tree_nodes
-    CHECK (is_folder(id, root_folder_id));
+  ADD COLUMN root_doc_id UUID NULL REFERENCES docs ON DELETE SET NULL;
 
 CREATE TABLE doc_history
 (
-  id             UUID PRIMARY KEY,
+  id             UUID      NOT NULL PRIMARY KEY,
   doc_id         UUID      NOT NULL REFERENCES docs ON DELETE CASCADE,
-  user_id        UUID      REFERENCES users ON DELETE SET NULL,
+  user_id        UUID      NULL REFERENCES users ON DELETE SET NULL,
   version        INTEGER   NOT NULL,
   op             JSON      NOT NULL,
   has_big_delete BOOLEAN   NOT NULL,
@@ -205,10 +258,12 @@ CREATE TYPE LinkedFileData AS
 
 CREATE TABLE files
 (
-  id               UUID PRIMARY KEY REFERENCES tree_nodes ON DELETE CASCADE,
-  created_at       TIMESTAMP NOT NULL,
-  hash             TEXT      NOT NULL,
-  linked_file_data LinkedFileData
+  id               UUID           NOT NULL PRIMARY KEY REFERENCES tree_nodes ON DELETE CASCADE,
+  created_at       TIMESTAMP      NOT NULL,
+  hash             TEXT           NOT NULL,
+  linked_file_data LinkedFileData NULL,
+
+  CHECK (is_tree_node_kind(id, 'file'))
 );
 
 CREATE TABLE one_time_tokens
@@ -216,26 +271,27 @@ CREATE TABLE one_time_tokens
   created_at TIMESTAMP NOT NULL,
   email      TEXT      NOT NULL,
   expires_at TIMESTAMP NOT NULL,
-  token      TEXT PRIMARY KEY,
+  token      TEXT      NOT NULL PRIMARY KEY,
   use        TEXT      NOT NULL,
-  used_at    TIMESTAMP,
+  used_at    TIMESTAMP NULL,
   user_id    UUID      NOT NULL REFERENCES users ON DELETE CASCADE
 );
 
 CREATE TABLE notifications
 (
   expires_at      TIMESTAMP NOT NULL,
-  id              UUID PRIMARY KEY,
+  id              UUID      NOT NULL PRIMARY KEY,
   key             TEXT      NOT NULL,
   message_options json      NOT NULL,
   template_key    TEXT      NOT NULL,
   user_id         UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
+
   UNIQUE (key, user_id)
 );
 
 CREATE TABLE tags
 (
-  id      UUID PRIMARY KEY,
+  id      UUID NOT NULL PRIMARY KEY,
   name    TEXT NOT NULL,
   user_id UUID NOT NULL REFERENCES users ON DELETE CASCADE,
 
@@ -246,21 +302,21 @@ CREATE TABLE tag_entries
 (
   project_id UUID NOT NULL REFERENCES projects ON DELETE CASCADE,
   tag_id     UUID NOT NULL REFERENCES tags ON DELETE CASCADE,
+
   PRIMARY KEY (project_id, tag_id)
 );
 
 CREATE TABLE system_messages
 (
   content TEXT NOT NULL,
-  id      UUID PRIMARY KEY
+  id      UUID NOT NULL PRIMARY KEY
 );
 
 CREATE TABLE chat_messages
 (
-  id         UUID PRIMARY KEY,
+  id         UUID      NOT NULL PRIMARY KEY,
   project_id UUID      NOT NULL REFERENCES projects ON DELETE CASCADE,
   content    TEXT      NOT NULL,
   created_at TIMESTAMP NOT NULL,
-  user_id    UUID      REFERENCES users ON DELETE SET NULL,
-  edited_at  TIMESTAMP
+  user_id    UUID      NULL REFERENCES users ON DELETE SET NULL
 );
