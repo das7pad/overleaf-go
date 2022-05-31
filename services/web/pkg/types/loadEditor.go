@@ -17,14 +17,13 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type ProjectEditorPageRequest struct {
-	ProjectId edgedb.UUID      `form:"-"`
+	ProjectId sharedTypes.UUID `form:"-"`
 	Session   *session.Session `form:"-"`
 }
 

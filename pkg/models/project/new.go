@@ -19,8 +19,6 @@ package project
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -29,7 +27,7 @@ const (
 	DefaultCompiler = sharedTypes.PDFLatex
 )
 
-func NewProject(ownerId edgedb.UUID) *ForCreation {
+func NewProject(ownerId sharedTypes.UUID) *ForCreation {
 	return &ForCreation{
 		CompilerField: CompilerField{
 			Compiler: DefaultCompiler,

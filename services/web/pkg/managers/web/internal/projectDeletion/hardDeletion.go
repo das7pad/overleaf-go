@@ -22,9 +22,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
@@ -33,7 +32,7 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool, st
 	err := m.pm.ProcessSoftDeleted(
 		ctx,
 		start.Add(-constants.ExpireProjectsAfter),
-		func(projectId edgedb.UUID) bool {
+		func(projectId sharedTypes.UUID) bool {
 			if dryRun {
 				log.Println(
 					"dry-run hard deleting project " + projectId.String(),
@@ -62,7 +61,7 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool, st
 	return err
 }
 
-func (m *manager) HardDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) HardDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	if err := m.fm.DeleteProject(ctx, projectId); err != nil {
 		return errors.Tag(err, "cannot destroy files")
 	}

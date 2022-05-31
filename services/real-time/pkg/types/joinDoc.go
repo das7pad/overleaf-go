@@ -17,13 +17,11 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type JoinDocRequest struct {
-	DocId       edgedb.UUID
+	DocId       sharedTypes.UUID
 	FromVersion sharedTypes.Version `json:"fromVersion"`
 }
 

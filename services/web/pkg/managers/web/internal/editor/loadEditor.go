@@ -21,8 +21,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -54,13 +52,13 @@ var (
 	}
 )
 
-func (m *manager) genJWTLoggedInUser(userId edgedb.UUID) (string, error) {
+func (m *manager) genJWTLoggedInUser(userId sharedTypes.UUID) (string, error) {
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 	c.UserId = userId
 	return m.jwtLoggedInUser.SetExpiryAndSign(c)
 }
 
-func (m *manager) genWSBootstrap(projectId edgedb.UUID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
+func (m *manager) genWSBootstrap(projectId sharedTypes.UUID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
 	c := m.wsBootstrap.New().(*wsBootstrap.Claims)
 	c.ProjectId = projectId
 	c.User.Id = u.Id
@@ -98,7 +96,7 @@ func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootst
 func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, res *types.ProjectEditorPageResponse) error {
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
-	isAnonymous := userId == (edgedb.UUID{})
+	isAnonymous := userId == (sharedTypes.UUID{})
 	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
 	if !isAnonymous {
 		// Logged-in users must go through the join process first
@@ -136,7 +134,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		}
 	}
 
-	if p.RootDoc.Id != (edgedb.UUID{}) {
+	if p.RootDoc.Id != (sharedTypes.UUID{}) {
 		response.RootDocPath = clsiTypes.RootResourcePath(
 			p.RootDoc.ResolvedPath,
 		)
@@ -161,9 +159,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		CompileGroup: ownerFeatures.CompileGroup,
 		ProjectId:    projectId,
 		UserId:       userId,
-		Timeout: sharedTypes.ComputeTimeout(
-			time.Duration(ownerFeatures.CompileTimeout) * time.Microsecond,
-		),
+		Timeout:      sharedTypes.ComputeTimeout(ownerFeatures.CompileTimeout),
 	}
 	{
 		c := m.jwtProject.New().(*projectJWT.Claims)

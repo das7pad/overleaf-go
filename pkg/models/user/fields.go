@@ -19,8 +19,6 @@ package user
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -34,10 +32,6 @@ type AuditLogField struct {
 
 type BetaProgramField struct {
 	BetaProgram bool `json:"betaProgram" edgedb:"beta_program"`
-}
-
-type ContactsField struct {
-	Contacts []Contact `edgedb:"contacts"`
 }
 
 type EditorConfigField struct {
@@ -65,7 +59,7 @@ type FirstNameField struct {
 }
 
 type IdField struct {
-	Id edgedb.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
 }
 
 type IsAdminField struct {

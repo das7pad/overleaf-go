@@ -19,8 +19,6 @@ package projectInvite
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -38,7 +36,7 @@ type ExpiresAtField struct {
 }
 
 type IdField struct {
-	Id edgedb.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
 }
 
 type PrivilegeLevelField struct {
@@ -46,7 +44,7 @@ type PrivilegeLevelField struct {
 }
 
 type ProjectField struct {
-	ProjectId edgedb.UUID `json:"-" edgedb:"id"`
+	ProjectId sharedTypes.UUID `json:"-" edgedb:"id"`
 }
 
 type SendingUserField struct {

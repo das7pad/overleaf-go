@@ -18,11 +18,12 @@ package user
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
-	"sort"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
+	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -30,32 +31,30 @@ import (
 
 type Manager interface {
 	CreateUser(ctx context.Context, u *ForCreation) error
-	SoftDelete(ctx context.Context, userId edgedb.UUID, ip string) error
-	HardDelete(ctx context.Context, userId edgedb.UUID) error
-	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId edgedb.UUID) bool) error
-	TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error
-	BumpEpoch(ctx context.Context, userId edgedb.UUID) error
+	SoftDelete(ctx context.Context, userId sharedTypes.UUID, ip string) error
+	HardDelete(ctx context.Context, userId sharedTypes.UUID) error
+	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId sharedTypes.UUID) bool) error
+	TrackClearSessions(ctx context.Context, userId sharedTypes.UUID, ip string, info interface{}) error
+	BumpEpoch(ctx context.Context, userId sharedTypes.UUID) error
 	CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error
-	GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error
+	GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
-	GetContacts(ctx context.Context, userId edgedb.UUID) ([]Contact, error)
-	AddContact(ctx context.Context, userId, contactId edgedb.UUID) error
-	ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error
-	SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error
-	UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, config EditorConfig) error
-	TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error
+	GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error)
+	AddContact(ctx context.Context, userId, contactId sharedTypes.UUID) error
+	ListProjects(ctx context.Context, userId sharedTypes.UUID, u interface{}) error
+	SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error
+	UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, config EditorConfig) error
+	TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
-	SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error
+	SetUserName(ctx context.Context, userId sharedTypes.UUID, u *WithNames) error
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
-	DeleteDictionary(ctx context.Context, userId edgedb.UUID) error
-	LearnWord(ctx context.Context, userId edgedb.UUID, word string) error
-	UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error
+	DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error
+	LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
+	UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 var (
@@ -63,6 +62,10 @@ var (
 		Msg: "email already registered",
 	}
 )
+
+func getErr(_ sql.Result, err error) error {
+	return err
+}
 
 func rewriteEdgedbError(err error) error {
 	if err == nil {
@@ -75,7 +78,8 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
 func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
@@ -147,7 +151,7 @@ select {u,auditLog}
 }
 
 func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, operation string, newHashedPassword string) error {
-	r := make([]edgedb.UUID, 0)
+	r := make([]sharedTypes.UUID, 0)
 	err := m.c.Query(ctx, `
 with u := (select User filter .id = <uuid>$0 and .epoch = <int64>$1)
 select (
@@ -187,7 +191,7 @@ select (
 	return nil
 }
 
-func (m *manager) UpdateEditorConfig(ctx context.Context, userId edgedb.UUID, e EditorConfig) error {
+func (m *manager) UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, e EditorConfig) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
 update u.editor_config
@@ -215,101 +219,69 @@ set {
 
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
-func (m *manager) SoftDelete(ctx context.Context, userId edgedb.UUID, ip string) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-with
-	u := (
-		update User
-		filter .id = <uuid>$0 and not exists .deleted_at
-		set {
-			deleted_at := datetime_of_transaction(),
-			epoch := User.epoch + 1,
-		}
-	)
-insert UserAuditLogEntry {
-	user := u,
-	initiator := u,
-	ip_address := <str>$1,
-	operation := <str>$2,
-}
-`, &IdField{}, userId, ip, AuditLogOperationSoftDeletion))
+func (m *manager) SoftDelete(ctx context.Context, userId sharedTypes.UUID, ip string) error {
+	return getErr(m.db.ExecContext(ctx, `
+BEGIN;
+
+UPDATE users
+SET deleted_at = transaction_timestamp(),
+    epoch      = epoch + 1
+WHERE id = $1
+  AND deleted_at IS NULL;
+
+INSERT INTO user_audit_log
+(id, initiator_id, ip_address, operation, timestamp, user_id)
+VALUES (gen_random_uuid(), $1, $2, 'soft-deletion', transaction_timestamp(),
+        $1);
+
+END;
+`, userId.String(), ip))
 }
 
-type hardDeleteResult struct {
-	UserExists            bool   `edgedb:"user_exists"`
-	UserSoftDeleted       bool   `edgedb:"user_soft_deleted"`
-	UserNotJoinedProjects bool   `edgedb:"user_not_joined_projects"`
-	Deletions             []bool `edgedb:"deletions"`
-}
-
-func (m *manager) HardDelete(ctx context.Context, userId edgedb.UUID) error {
-	r := hardDeleteResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$0),
-	uSoftDeleted := (select u filter exists .deleted_at),
-	uNotJoinedProjects := (select uSoftDeleted filter not exists .projects),
-	editorConfigCleanup := (delete uNotJoinedProjects.editor_config),
-	featureCleanup := (delete uNotJoinedProjects.features),
-	secondaryEmailCleanup := (
-		delete uNotJoinedProjects.emails
-		filter Email != u.email
-	),
-	primaryEmail := u.email,
-	uDeleted := (delete uNotJoinedProjects),
-	primaryEmailCleanup := (
-		delete primaryEmail filter exists uDeleted
-	),
-select {
-	user_exists := exists u,
-	user_soft_deleted := exists uSoftDeleted,
-	user_not_joined_projects := exists uNotJoinedProjects,
-	deletions := {
-		exists editorConfigCleanup,
-		exists secondaryEmailCleanup,
-		exists primaryEmailCleanup,
-		exists featureCleanup,
-		exists uDeleted,
-	},
-}
-`, &r, userId)
+func (m *manager) HardDelete(ctx context.Context, userId sharedTypes.UUID) error {
+	r := m.db.QueryRowContext(ctx, `
+DELETE
+FROM users
+WHERE id = $1
+  AND deleted_at IS NOT NULL
+RETURNING 1
+`, userId.String())
+	found, err := readInt(r)
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return err
 	}
-	switch {
-	case !r.UserExists:
-		return &errors.UnprocessableEntityError{Msg: "user missing"}
-	case !r.UserSoftDeleted:
-		return &errors.UnprocessableEntityError{Msg: "user not soft deleted"}
-	case !r.UserNotJoinedProjects:
-		return &errors.UnprocessableEntityError{Msg: "user joined projects"}
+	if found == 0 {
+		return &errors.UnprocessableEntityError{
+			Msg: "user missing or not deleted",
+		}
 	}
 	return nil
 }
 
-func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId edgedb.UUID) bool) error {
-	ids := make([]edgedb.UUID, 0, 100)
+func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId sharedTypes.UUID) bool) error {
+	userId := sharedTypes.UUID{}
 	for {
-		ids = ids[:0]
-		err := m.c.Query(ctx, `
-select (
-	select User
-	filter .deleted_at <= <datetime>$0
-	order by .deleted_at
-	limit 100
-).id
-`, &ids, cutOff)
+		r, err := m.db.QueryContext(ctx, `
+SELECT id
+FROM users
+WHERE deleted_at <= $1
+ORDER BY deleted_at
+LIMIT 100
+`, cutOff)
 		if err != nil {
 			return rewriteEdgedbError(err)
 		}
-		if len(ids) == 0 {
-			return nil
-		}
 		ok := true
-		for _, userId := range ids {
+		for r.Next() {
+			if err = r.Scan(&userId); err != nil {
+				return err
+			}
 			if !fn(userId) {
 				ok = false
 			}
+		}
+		if err = r.Err(); err != nil {
+			return err
 		}
 		if !ok {
 			return nil
@@ -317,28 +289,26 @@ select (
 	}
 }
 
-func (m *manager) TrackClearSessions(ctx context.Context, userId edgedb.UUID, ip string, info interface{}) error {
+func (m *manager) TrackClearSessions(ctx context.Context, userId sharedTypes.UUID, ip string, info interface{}) error {
 	blob, err := json.Marshal(info)
 	if err != nil {
 		return errors.Tag(err, "cannot serialize audit log info")
 	}
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-with
-	u := (
-		updater User
-		filter .id = <uuid>$0 and not exists .deleted_at
-		set {
-			epoch := User.epoch + 1,
-		}
-	)
-insert UserAuditLogEntry {
-	user := u,
-	initiator := u,
-	operation := <str>$3,
-	ip_address := <str>$1,
-	info := <json>$2,
-}
-`, &IdField{}, userId, ip, blob, AuditLogOperationClearSessions))
+	return getErr(m.db.ExecContext(ctx, `
+BEGIN;
+
+UPDATE users
+SET epoch = epoch + 1
+WHERE id = $1
+  AND deleted_at IS NULL;
+
+INSERT INTO user_audit_log
+(id, info, initiator_id, ip_address, operation, timestamp, user_id)
+VALUES (gen_random_uuid(), $2, $1, $3, 'clear-sessions',
+        transaction_timestamp(), $1);
+
+END;
+`, userId.String(), blob, ip))
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
@@ -397,65 +367,56 @@ const (
 	AnonymousUserEpoch = 1
 )
 
-func (m *manager) BumpEpoch(ctx context.Context, userId edgedb.UUID) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set {
-	epoch := User.epoch + 1,
-}
-`, &IdField{}, userId))
-}
-
-func (m *manager) SetBetaProgram(ctx context.Context, userId edgedb.UUID, joined bool) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set {
-	beta_program := <bool>$1,
-}
-`, &IdField{}, userId, joined))
+func (m *manager) BumpEpoch(ctx context.Context, userId sharedTypes.UUID) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET epoch = epoch + 1
+WHERE id = $1
+  AND deleted_at IS NULL;
+`, userId.String()))
 }
 
-func (m *manager) SetUserName(ctx context.Context, userId edgedb.UUID, u *WithNames) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set {
-	first_name := <str>$1,
-	last_name := <str>$2,
-}
-`, &IdField{}, userId, u.FirstName, u.LastName))
+func (m *manager) SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET beta_program = $2
+WHERE id = $1
+  AND deleted_at IS NULL;
+`, userId.String(), joined))
 }
 
-func (m *manager) TrackLogin(ctx context.Context, userId edgedb.UUID, ip string) error {
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (
-		update User
-		filter .id = <uuid>$0 and not exists .deleted_at
-		set {
-			login_count := User.login_count + 1,
-			last_logged_in := datetime_of_transaction(),
-			last_login_ip := <str>$1,
-		}
-	)
-insert UserAuditLogEntry {
-	user := u,
-	initiator := u,
-	operation := 'login',
-	ip_address := <str>$1,
-}
-`, &IdField{}, userId, ip)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+func (m *manager) SetUserName(ctx context.Context, userId sharedTypes.UUID, u *WithNames) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET first_name = $2,
+	last_name  = $3
+WHERE id = $1
+  AND deleted_at IS NULL;
+`, userId.String(), u.FirstName, u.LastName))
 }
 
-func (m *manager) GetUser(ctx context.Context, userId edgedb.UUID, target interface{}) error {
+func (m *manager) TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error {
+	return getErr(m.db.ExecContext(ctx, `
+BEGIN;
+
+UPDATE users
+SET login_count   = login_count + 1,
+    last_login_at = transaction_timestamp(),
+    last_login_ip = $2
+WHERE id = $1
+  AND deleted_at IS NULL;
+
+INSERT INTO user_audit_log
+(id, initiator_id, ip_address, operation, timestamp, user_id)
+VALUES (gen_random_uuid(), $1, $2, 'login', transaction_timestamp(), $1);
+
+END;
+`, userId.String(), ip))
+}
+
+func (m *manager) GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error {
 	var q string
-	switch target.(type) {
+	switch dst := target.(type) {
 	case *BetaProgramField:
 		q = `
 select User { beta_program }
@@ -465,9 +426,19 @@ filter .id = <uuid>$0 and not exists .deleted_at`
 select User { password_hash }
 filter .id = <uuid>$0 and not exists .deleted_at`
 	case *LearnedWordsField:
-		q = `
-select User { learned_words }
-filter .id = <uuid>$0 and not exists .deleted_at`
+		r := m.db.QueryRowContext(ctx, `
+SELECT learned_words
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String())
+		if err := r.Err(); err != nil {
+			return err
+		}
+		if err := r.Scan(pq.Array(&dst.LearnedWords)); err != nil {
+			return err
+		}
+		return nil
 	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
 		q = `
 select User { email: { email }, id, first_name, last_name }
@@ -499,15 +470,29 @@ filter .id = <uuid>$0 and not exists .deleted_at`
 	return nil
 }
 
-func (m *manager) CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error {
-	exists := false
-	err := m.c.QuerySingle(ctx, `
-select exists (select User filter .email.email = <str>$0)
-`, &exists, email)
-	if err != nil {
-		return rewriteEdgedbError(err)
+func readInt(r *sql.Row) (int, error) {
+	if err := r.Err(); err != nil {
+		return 0, err
 	}
-	if exists {
+	found := 0
+	if err := r.Scan(&found); err != nil {
+		return 0, err
+	}
+	return found, nil
+}
+
+func (m *manager) CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error {
+	r := m.db.QueryRowContext(ctx, `
+SELECT count(*)
+FROM users
+WHERE email = $1
+LIMIT 1
+`, email)
+	found, err := readInt(r)
+	if err != nil {
+		return err
+	}
+	if found != 0 {
 		return ErrEmailAlreadyRegistered
 	}
 	return nil
@@ -543,7 +528,7 @@ limit 1`
 	return nil
 }
 
-func (m *manager) ListProjects(ctx context.Context, userId edgedb.UUID, u interface{}) error {
+func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, u interface{}) error {
 	err := m.c.QuerySingle(ctx, `
 with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
 select u {
@@ -590,101 +575,80 @@ select u {
 	return nil
 }
 
-func (m *manager) GetContacts(ctx context.Context, userId edgedb.UUID) ([]Contact, error) {
-	u := ContactsField{}
-	err := m.c.QuerySingle(ctx, `
-select User {
-	contacts: {
-		@connections,
-		@last_touched,
-		email: { email },
-		id,
-		first_name,
-		last_name,
-	},
-}
-filter .id = <uuid>$0 and not exists .deleted_at
-`, &u, userId)
+func (m *manager) GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error) {
+	r, err := m.db.QueryContext(ctx, `
+WITH ids AS (SELECT unnest(ARRAY [a, b])
+             FROM contacts
+             WHERE a = $1
+                OR b = $1
+             ORDER BY connections DESC, last_touched DESC
+             LIMIT 50)
+SELECT id, email, first_name, last_name
+FROM users
+WHERE id = ids
+  AND id != $1
+  AND deleted_at IS NULL
+`, userId.String())
 	if err != nil {
-		return nil, rewriteEdgedbError(err)
+		return nil, err
 	}
 
-	sort.Slice(u.Contacts, func(i, j int) bool {
-		return u.Contacts[i].IsPreferredOver(u.Contacts[j])
-	})
-
-	if len(u.Contacts) > 50 {
-		u.Contacts = u.Contacts[:50]
-	}
-	for i := 0; i < len(u.Contacts); i++ {
-		u.Contacts[i].IdNoUnderscore = u.Contacts[i].Id
-	}
-	return u.Contacts, nil
-}
-
-func (m *manager) AddContact(ctx context.Context, userId, contactId edgedb.UUID) error {
-	var r bool
-	err := m.c.QuerySingle(ctx, `
-with
-	existing := (
-		select User.contacts@connections
-		filter User.id = <uuid>$0 and User.contacts.id = <uuid>$1
-		limit 1
-	),
-select exists (
-	select (
-		update User
-		filter .id = <uuid>$0 and not exists .deleted_at
-		set {
-			contacts += (
-				select detached User {
-					@connections := (existing ?? 0) + 1,
-					@last_touched := datetime_of_transaction(),
-				}
-				filter .id = <uuid>$1 and not exists .deleted_at
-			)
+	c := make([]WithPublicInfoAndNonStandardId, 0)
+	defer func() { _ = r.Close() }()
+	for i := 0; r.Next(); i++ {
+		c = append(c, WithPublicInfoAndNonStandardId{})
+		err = r.Scan(&c[i].Id, &c[i].Email, &c[i].FirstName, &c[i].LastName)
+		if err != nil {
+			return nil, err
 		}
-	) union (
-		update User
-		filter .id = <uuid>$1 and not exists .deleted_at
-		set {
-			contacts += (
-				select detached User {
-					@connections := (existing ?? 0) + 1,
-					@last_touched := datetime_of_transaction(),
-				}
-				filter .id = <uuid>$0 and not exists .deleted_at
-			)
-		}
-	)
-)
-`, &r, userId, contactId)
-	if err != nil {
-		return rewriteEdgedbError(err)
 	}
-	return nil
+	if err = r.Err(); err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(c); i++ {
+		c[i].IdNoUnderscore = c[i].Id
+	}
+	return c, nil
 }
 
-func (m manager) DeleteDictionary(ctx context.Context, userId edgedb.UUID) error {
-	return m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set { learned_words := {} }
-`, &IdField{}, userId)
+func (m *manager) AddContact(ctx context.Context, userId, contactId sharedTypes.UUID) error {
+	a, b := userId, contactId
+	for i, x := range userId {
+		if contactId[i] > x {
+			a, b = contactId, userId
+			break
+		}
+	}
+	return getErr(m.db.ExecContext(ctx, `
+INSERT INTO contacts
+VALUES ($1, $2, 1, now())
+ON CONFLICT DO UPDATE
+    SET connections  = connections + 1,
+        last_touched = now()
+`, a.String(), b.String()))
 }
 
-func (m manager) LearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set { learned_words := distinct (User.learned_words union {<str>$1}) }
-`, &IdField{}, userId, word))
+func (m manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET learned_words = NULL
+WHERE id = $1
+`, userId.String()))
 }
 
-func (m manager) UnlearnWord(ctx context.Context, userId edgedb.UUID, word string) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update User
-filter .id = <uuid>$0 and not exists .deleted_at
-set { learned_words -= <str>$1 }
-`, &IdField{}, userId, word))
+func (m manager) LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET learned_words = array_append(learned_words, $2)
+WHERE id = $1
+  AND array_position(learned_words, $2) IS NULL
+`, userId.String(), word))
+}
+
+func (m manager) UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET learned_words = array_remove(learned_words, $2)
+WHERE id = $1
+`, userId.String(), word))
 }

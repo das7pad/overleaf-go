@@ -21,8 +21,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 const sessionIdSizeBytes = 24
@@ -80,7 +81,7 @@ func (r *newSessionIdResult) Populate(s *Session) {
 	s.persisted = r.blob
 }
 
-func userSessionsKey(id edgedb.UUID) string {
+func userSessionsKey(id sharedTypes.UUID) string {
 	return "UserSessions:{" + id.String() + "}"
 }
 

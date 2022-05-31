@@ -22,9 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type BuildId string
@@ -59,7 +58,7 @@ func (i BuildId) Age() (time.Duration, error) {
 	return time.Now().Sub(time.Unix(0, ns)), nil
 }
 
-var anonymousSuffix = "-" + edgedb.UUID{}.String()
+var anonymousSuffix = "-" + sharedTypes.UUID{}.String()
 
 type Namespace string
 

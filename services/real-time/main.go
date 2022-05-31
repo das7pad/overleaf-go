@@ -18,16 +18,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
+	_ "github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/edgedbOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 )
 
@@ -55,16 +56,16 @@ func main() {
 		panic(err)
 	}
 
-	dsn := edgedbOptions.Parse()
-	c, err := edgedb.CreateClientDSN(triggerExitCtx, dsn, edgedb.Options{})
+	dsn := postgresOptions.Parse()
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		panic(errors.Tag(err, "cannot talk to edgedb"))
+		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
-	if err = c.EnsureConnected(triggerExitCtx); err != nil {
-		panic(errors.Tag(err, "cannot talk to edgedb"))
+	if err = db.PingContext(triggerExitCtx); err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
-	rtm, err := realTime.New(context.Background(), o.options, c, redisClient)
+	rtm, err := realTime.New(context.Background(), o.options, db, redisClient)
 	if err != nil {
 		panic(err)
 	}

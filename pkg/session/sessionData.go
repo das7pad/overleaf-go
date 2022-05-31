@@ -19,8 +19,6 @@ package session
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -39,7 +37,7 @@ type User struct {
 	Epoch          int64             `json:"epoch,omitempty"`
 	FirstName      string            `json:"first_name,omitempty"`
 	IPAddress      string            `json:"ip_address"`
-	Id             edgedb.UUID       `json:"_id,omitempty"`
+	Id             sharedTypes.UUID  `json:"_id,omitempty"`
 	IsAdmin        bool              `json:"isAdmin,omitempty"`
 	LastName       string            `json:"last_name,omitempty"`
 	Language       string            `json:"lng"`
@@ -83,11 +81,11 @@ func (d *Data) IsEmpty() bool {
 	return true
 }
 
-func (d *Data) GetAnonTokenAccess(projectId edgedb.UUID) project.AccessToken {
+func (d *Data) GetAnonTokenAccess(projectId sharedTypes.UUID) project.AccessToken {
 	return d.AnonTokenAccess[projectId.String()]
 }
 
-func (d *Data) AddAnonTokenAccess(projectId edgedb.UUID, token project.AccessToken) {
+func (d *Data) AddAnonTokenAccess(projectId sharedTypes.UUID, token project.AccessToken) {
 	if d.AnonTokenAccess == nil {
 		d.AnonTokenAccess = make(anonTokenAccess, 1)
 	}

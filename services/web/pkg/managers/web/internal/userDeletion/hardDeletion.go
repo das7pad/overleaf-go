@@ -22,9 +22,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
@@ -33,7 +32,7 @@ func (m *manager) HardDeleteExpiredUsers(ctx context.Context, dryRun bool, start
 	err := m.um.ProcessSoftDeleted(
 		ctx,
 		start.Add(-constants.ExpireUsersAfter),
-		func(userId edgedb.UUID) bool {
+		func(userId sharedTypes.UUID) bool {
 			if dryRun {
 				log.Println("dry-run hard deleting user " + userId.String())
 				return false

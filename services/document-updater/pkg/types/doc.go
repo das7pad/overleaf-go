@@ -23,8 +23,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/doc"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -34,14 +32,14 @@ import (
 type UnFlushedTime int64
 
 type LastUpdatedCtx struct {
-	At time.Time   `json:"at"`
-	By edgedb.UUID `json:"by,omitempty"`
+	At time.Time        `json:"at"`
+	By sharedTypes.UUID `json:"by,omitempty"`
 }
 
 type DocCore struct {
 	Snapshot  sharedTypes.Snapshot `json:"snapshot"`
 	Hash      sharedTypes.Hash     `json:"hash"`
-	ProjectId edgedb.UUID          `json:"project_id"`
+	ProjectId sharedTypes.UUID     `json:"project_id"`
 	PathName  sharedTypes.PathName `json:"path_name"`
 }
 
@@ -50,11 +48,11 @@ type Doc struct {
 	LastUpdatedCtx
 	sharedTypes.Version
 	UnFlushedTime
-	DocId               edgedb.UUID
+	DocId               sharedTypes.UUID
 	JustLoadedIntoRedis bool
 }
 
-func DocFromFlushedDoc(flushedDoc *project.Doc, projectId, docId edgedb.UUID) *Doc {
+func DocFromFlushedDoc(flushedDoc *project.Doc, projectId, docId sharedTypes.UUID) *Doc {
 	d := &Doc{}
 	d.DocId = docId
 	d.JustLoadedIntoRedis = true
@@ -69,7 +67,7 @@ type SetDocRequest struct {
 	Lines    sharedTypes.Lines    `json:"lines"`
 	Snapshot sharedTypes.Snapshot `json:"snapshot"`
 	Source   string               `json:"source"`
-	UserId   edgedb.UUID          `json:"user_id"`
+	UserId   sharedTypes.UUID     `json:"user_id"`
 	Undoing  bool                 `json:"undoing"`
 }
 
@@ -97,14 +95,14 @@ func (d *Doc) ToSetDocDetails() *doc.ForDocUpdate {
 }
 
 type DocContentLines struct {
-	Id       edgedb.UUID          `json:"_id"`
+	Id       sharedTypes.UUID     `json:"_id"`
 	Lines    sharedTypes.Lines    `json:"lines"`
 	PathName sharedTypes.PathName `json:"pathname"`
 	Version  sharedTypes.Version  `json:"v"`
 }
 
 type DocContentSnapshot struct {
-	Id            edgedb.UUID          `json:"_id"`
+	Id            sharedTypes.UUID     `json:"_id"`
 	Snapshot      string               `json:"snapshot"`
 	PathName      sharedTypes.PathName `json:"pathname"`
 	Version       sharedTypes.Version  `json:"v"`
@@ -171,7 +169,7 @@ func deserializeDocCoreV0(core *DocCore, blob []byte) error {
 
 	// parts[2] are Ranges
 
-	core.ProjectId, err = edgedb.ParseUUID(string(parts[3]))
+	core.ProjectId, err = sharedTypes.ParseUUID(string(parts[3]))
 	if err != nil {
 		return errors.Tag(err, "cannot parse projectId")
 	}

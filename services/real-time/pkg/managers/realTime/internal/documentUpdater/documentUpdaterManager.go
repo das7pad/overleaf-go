@@ -18,8 +18,8 @@ package documentUpdater
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -29,15 +29,15 @@ import (
 )
 
 type Manager interface {
-	GetDoc(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error)
-	CheckDocExists(ctx context.Context, projectId, docId edgedb.UUID) error
-	FlushProject(ctx context.Context, projectId edgedb.UUID) error
+	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*documentUpdaterTypes.GetDocResponse, error)
+	CheckDocExists(ctx context.Context, projectId, docId sharedTypes.UUID) error
+	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, db *sql.DB, client redis.UniversalClient) (Manager, error) {
 	return documentUpdater.New(
 		options.APIs.DocumentUpdater.Options,
-		c,
+		db,
 		client,
 	)
 }

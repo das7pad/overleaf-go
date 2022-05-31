@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,24 +14,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package wsBootstrap
+package utils
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
+	"context"
+	"database/sql"
+	"time"
+
+	_ "github.com/lib/pq"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 )
 
-type Claims struct {
-	expiringJWT.Claims
-	ProjectId sharedTypes.UUID `json:"projectId"`
-	User      types.User       `json:"user"`
-}
+func MustConnectPostgres(timeout time.Duration) *sql.DB {
+	ctx, done := context.WithTimeout(context.Background(), timeout)
+	defer done()
 
-func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
-		return &Claims{}
-	})
+	dsn := postgresOptions.Parse()
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
+	}
+	if err = db.PingContext(ctx); err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
+	}
+	return db
 }

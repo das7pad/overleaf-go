@@ -18,24 +18,24 @@ package projectInvite
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error
+	Delete(ctx context.Context, projectId, inviteId sharedTypes.UUID) error
 	Create(ctx context.Context, pi *WithToken) error
-	GetById(ctx context.Context, projectId, inviteId edgedb.UUID, pi *WithToken) error
-	GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, pi *WithoutToken) error
-	GetAllForProject(ctx context.Context, projectId, userId edgedb.UUID, invites *[]ForListing) error
+	GetById(ctx context.Context, projectId, inviteId sharedTypes.UUID, pi *WithToken) error
+	GetByToken(ctx context.Context, projectId sharedTypes.UUID, token Token, pi *WithoutToken) error
+	GetAllForProject(ctx context.Context, projectId, userId sharedTypes.UUID, invites *[]ForListing) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -46,7 +46,8 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
 func (m *manager) Create(ctx context.Context, pi *WithToken) error {
@@ -122,7 +123,7 @@ select exists (
 	return allErrors.Finalize()
 }
 
-func (m *manager) Delete(ctx context.Context, projectId, inviteId edgedb.UUID) error {
+func (m *manager) Delete(ctx context.Context, projectId, inviteId sharedTypes.UUID) error {
 	var r bool
 	err := m.c.QuerySingle(ctx, `
 with
@@ -152,7 +153,7 @@ select exists {pi, p}
 	return nil
 }
 
-func (m *manager) GetById(ctx context.Context, projectId, inviteId edgedb.UUID, pi *WithToken) error {
+func (m *manager) GetById(ctx context.Context, projectId, inviteId sharedTypes.UUID, pi *WithToken) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 select ProjectInvite {
 	created_at,
@@ -173,7 +174,7 @@ limit 1
 `, pi, inviteId, projectId))
 }
 
-func (m *manager) GetByToken(ctx context.Context, projectId edgedb.UUID, token Token, pi *WithoutToken) error {
+func (m *manager) GetByToken(ctx context.Context, projectId sharedTypes.UUID, token Token, pi *WithoutToken) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 select ProjectInvite {
 	created_at,
@@ -193,7 +194,7 @@ limit 1
 `, pi, projectId, token))
 }
 
-func (m *manager) GetAllForProject(ctx context.Context, projectId, userId edgedb.UUID, invites *[]ForListing) error {
+func (m *manager) GetAllForProject(ctx context.Context, projectId, userId sharedTypes.UUID, invites *[]ForListing) error {
 	return rewriteEdgedbError(m.c.Query(ctx, `
 with
 	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),

@@ -17,16 +17,14 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type coreProjectUpdate struct {
-	Id      edgedb.UUID `json:"id"`
-	Version string      `json:"version"`
-	Type    string      `json:"type"`
+	Id      sharedTypes.UUID `json:"id"`
+	Version string           `json:"version"`
+	Type    string           `json:"type"`
 }
 
 type RenameDocUpdate struct {
@@ -48,7 +46,7 @@ func (r *RenameDocUpdate) ToGeneric() *GenericProjectUpdate {
 	}
 }
 
-func NewRenameDocUpdate(id edgedb.UUID, newPath sharedTypes.PathName) *RenameDocUpdate {
+func NewRenameDocUpdate(id sharedTypes.UUID, newPath sharedTypes.PathName) *RenameDocUpdate {
 	return &RenameDocUpdate{
 		coreProjectUpdate: coreProjectUpdate{
 			Id:   id,

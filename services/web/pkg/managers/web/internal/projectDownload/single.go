@@ -22,8 +22,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
@@ -55,7 +53,7 @@ func (m *manager) CreateProjectZIP(ctx context.Context, request *types.CreatePro
 
 type bufferGetter func(filename sharedTypes.Filename) (io.Writer, error)
 
-func (m *manager) getProjectForZip(ctx context.Context, projectId, userId edgedb.UUID, token project.AccessToken) (*project.ForZip, error) {
+func (m *manager) getProjectForZip(ctx context.Context, projectId, userId sharedTypes.UUID, token project.AccessToken) (*project.ForZip, error) {
 	for i := 0; i < 10; i++ {
 		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
 		if err != nil {

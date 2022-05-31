@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
@@ -290,7 +288,7 @@ type DownloadPath string
 
 const publicProjectPrefix = "/project"
 
-func BuildDownloadPath(projectId, userId edgedb.UUID, buildId BuildId, name sharedTypes.PathName) DownloadPath {
+func BuildDownloadPath(projectId, userId sharedTypes.UUID, buildId BuildId, name sharedTypes.PathName) DownloadPath {
 	return BuildDownloadPathFromNamespace(
 		Namespace(projectId.String()+"-"+userId.String()), buildId, name,
 	)

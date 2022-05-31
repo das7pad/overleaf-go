@@ -21,21 +21,19 @@ import (
 	"os"
 	"strings"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type CreateMultiProjectZIPRequest struct {
-	Session    *session.Session `json:"-"`
-	ProjectIds []edgedb.UUID    `json:"-"`
+	Session    *session.Session   `json:"-"`
+	ProjectIds []sharedTypes.UUID `json:"-"`
 }
 
 func (r *CreateMultiProjectZIPRequest) FromQuery(q url.Values) error {
 	for _, raw := range strings.Split(q.Get("project_ids"), ",") {
-		id, err := edgedb.ParseUUID(raw)
+		id, err := sharedTypes.ParseUUID(raw)
 		if err != nil {
 			return &errors.ValidationError{
 				Msg: "invalid project id: " + err.Error(),
@@ -55,7 +53,7 @@ func (r *CreateMultiProjectZIPRequest) Validate() error {
 
 type CreateProjectZIPRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type CreateProjectZIPResponse struct {

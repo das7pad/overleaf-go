@@ -19,14 +19,13 @@ package projectJWT
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -39,7 +38,7 @@ type Claims struct {
 	EpochUser int64 `json:"eu"`
 }
 
-type validateProjectJWTEpochs func(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
+type validateProjectJWTEpochs func(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
 
 const (
 	jwtField = "projectJWT.Claims"

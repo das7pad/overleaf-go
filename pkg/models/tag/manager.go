@@ -18,26 +18,29 @@ package tag
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	AddProject(ctx context.Context, userId, tagId, projectId edgedb.UUID) error
-	Delete(ctx context.Context, userId, tagId edgedb.UUID) error
-	EnsureExists(ctx context.Context, userId edgedb.UUID, name string) (*Full, error)
-	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error
-	Rename(ctx context.Context, userId, tagId edgedb.UUID, newName string) error
+	AddProject(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error
+	Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error
+	EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error)
+	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error
+	Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{c: c}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
 func rewriteEdgedbError(err error) error {
@@ -47,7 +50,7 @@ func rewriteEdgedbError(err error) error {
 	return err
 }
 
-func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
+func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
 		`
@@ -67,7 +70,7 @@ set { projects += pWithAuth }`,
 	return nil
 }
 
-func (m *manager) Delete(ctx context.Context, userId, tagId edgedb.UUID) error {
+func (m *manager) Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
 		`
@@ -83,7 +86,7 @@ filter .id = <uuid>$0 and .user = u`,
 	return nil
 }
 
-func (m *manager) EnsureExists(ctx context.Context, userId edgedb.UUID, name string) (*Full, error) {
+func (m *manager) EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error) {
 	t := &Full{}
 	err := m.c.QuerySingle(
 		ctx,
@@ -99,11 +102,11 @@ else (select Tag { id, projects } filter .name = <str>$1 and .user = u)`,
 		return nil, rewriteEdgedbError(err)
 	}
 	t.Name = name
-	t.ProjectIds = make([]edgedb.UUID, len(t.Projects))
+	t.ProjectIds = make([]sharedTypes.UUID, len(t.Projects))
 	return t, nil
 }
 
-func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId edgedb.UUID) error {
+func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
 		`
@@ -120,7 +123,7 @@ set { projects -= (select Project filter .id = <uuid>$2) }`,
 	return nil
 }
 
-func (m *manager) Rename(ctx context.Context, userId, tagId edgedb.UUID, newName string) error {
+func (m *manager) Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error {
 	err := m.c.QuerySingle(
 		ctx,
 		`

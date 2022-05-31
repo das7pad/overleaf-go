@@ -19,10 +19,9 @@ package login
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -31,10 +30,10 @@ func (m *manager) ActivateUserPage(ctx context.Context, request *types.ActivateU
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	var userId edgedb.UUID
+	var userId sharedTypes.UUID
 	{
-		id, err := edgedb.ParseUUID(request.UserIdHex)
-		if err != nil || id == (edgedb.UUID{}) {
+		id, err := sharedTypes.ParseUUID(request.UserIdHex)
+		if err != nil || id == (sharedTypes.UUID{}) {
 			return &errors.ValidationError{Msg: "invalid user_id"}
 		}
 		userId = id

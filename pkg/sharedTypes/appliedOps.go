@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -80,7 +78,7 @@ type DocumentUpdateMeta struct {
 	Source           PublicId         `json:"source"`
 	Timestamp        Timestamp        `json:"ts,omitempty"`
 	TrackChangesSeed TrackChangesSeed `json:"tc,omitempty"`
-	UserId           edgedb.UUID      `json:"user_id,omitempty"`
+	UserId           UUID             `json:"user_id,omitempty"`
 	IngestionTime    *time.Time       `json:"ingestion_time,omitempty"`
 }
 
@@ -145,7 +143,7 @@ func (d DupIfSource) Contains(id PublicId) bool {
 }
 
 type DocumentUpdate struct {
-	DocId       edgedb.UUID        `json:"doc"`
+	DocId       UUID               `json:"doc"`
 	Dup         bool               `json:"dup,omitempty"`
 	DupIfSource DupIfSource        `json:"dupIfSource,omitempty"`
 	Hash        Hash               `json:"hash,omitempty"`
@@ -196,19 +194,19 @@ func (d *DocumentUpdate) CheckVersion(current Version) error {
 }
 
 type DocumentUpdateAck struct {
-	DocId   edgedb.UUID `json:"doc"`
-	Version Version     `json:"v"`
+	DocId   UUID    `json:"doc"`
+	Version Version `json:"v"`
 }
 
 type AppliedOpsMessage struct {
-	DocId       edgedb.UUID             `json:"doc_id"`
+	DocId       UUID                    `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
 	HealthCheck bool                    `json:"health_check,omitempty"`
 	Update      *DocumentUpdate         `json:"op,omitempty"`
 	ProcessedBy string                  `json:"processed_by,omitempty"`
 }
 
-func (m *AppliedOpsMessage) ChannelId() edgedb.UUID {
+func (m *AppliedOpsMessage) ChannelId() UUID {
 	return m.DocId
 }
 

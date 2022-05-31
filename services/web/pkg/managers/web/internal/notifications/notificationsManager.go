@@ -18,8 +18,7 @@ package notifications
 
 import (
 	"context"
-
-	"github.com/edgedb/edgedb-go"
+	"database/sql"
 
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -30,9 +29,9 @@ type Manager interface {
 	RemoveNotification(ctx context.Context, request *types.RemoveNotificationRequest) error
 }
 
-func New(c *edgedb.Client) Manager {
+func New(db *sql.DB) Manager {
 	return &manager{
-		nm: notification.New(c),
+		nm: notification.New(db),
 	}
 }
 

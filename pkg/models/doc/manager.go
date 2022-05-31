@@ -18,20 +18,20 @@ package doc
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	UpdateDoc(ctx context.Context, projectId, docId edgedb.UUID, update *ForDocUpdate) error
+	UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update *ForDocUpdate) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -42,15 +42,16 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId, docId edgedb.UUID, update *ForDocUpdate) error {
+func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update *ForDocUpdate) error {
 	if err := update.Snapshot.Validate(); err != nil {
 		return err
 	}
 
-	ids := make([]edgedb.UUID, 2)
+	ids := make([]sharedTypes.UUID, 2)
 	err := m.c.Query(ctx, `
 with
 	d := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),

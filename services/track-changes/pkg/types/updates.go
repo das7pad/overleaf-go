@@ -19,8 +19,6 @@ package types
 import (
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -32,7 +30,7 @@ type DocUpdateBounds struct {
 }
 
 type DocUpdateMeta struct {
-	UserIds []edgedb.UUID                         `json:"user_ids,omitempty"`
+	UserIds []sharedTypes.UUID                    `json:"user_ids,omitempty"`
 	Users   []user.WithPublicInfoAndNonStandardId `json:"users,omitempty"`
 	StartTs sharedTypes.Timestamp                 `json:"start_ts"`
 	EndTs   sharedTypes.Timestamp                 `json:"end_ts"`
@@ -44,8 +42,8 @@ type Update struct {
 }
 
 type GetProjectHistoryUpdatesRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
 
 	Before sharedTypes.Timestamp `form:"before" json:"before"`
 }

@@ -19,8 +19,6 @@ package editor
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -64,7 +62,7 @@ func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.Re
 	return m.removeMemberFromProject(ctx, projectId, epoch, userId)
 }
 
-func (m *manager) removeMemberFromProject(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
+func (m *manager) removeMemberFromProject(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
 	if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
 		return errors.Tag(err, "cannot remove user from project")
 	}

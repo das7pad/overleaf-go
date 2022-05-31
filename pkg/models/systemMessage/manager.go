@@ -18,8 +18,7 @@ package systemMessage
 
 import (
 	"context"
-
-	"github.com/edgedb/edgedb-go"
+	"database/sql"
 )
 
 type Manager interface {
@@ -28,34 +27,52 @@ type Manager interface {
 	GetAll(ctx context.Context) ([]Full, error)
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 type manager struct {
-	c *edgedb.Client
+	db *sql.DB
 }
 
 func (m *manager) Create(ctx context.Context, content string) error {
-	return m.c.QuerySingle(
+	_, err := m.db.ExecContext(
 		ctx,
-		"insert SystemMessage{ content := <str>$0 }",
-		&IdField{},
-		content,
-	)
+		`
+INSERT INTO system_messages (content, id)
+VALUES ($1, gen_random_uuid())
+`, content)
+	return err
 }
 
 func (m *manager) DeleteAll(ctx context.Context) error {
-	return m.c.Execute(ctx, "delete SystemMessage")
+	_, err := m.db.ExecContext(ctx, `
+DELETE FROM system_messages
+WHERE TRUE
+`)
+	return err
 }
 
 func (m *manager) GetAll(ctx context.Context) ([]Full, error) {
-	messages := make([]Full, 0)
-	return messages, m.c.Query(
+	r, err := m.db.QueryContext(
 		ctx,
-		"select SystemMessage{ id, content }",
-		&messages,
-	)
+		`
+SELECT id, content FROM system_messages
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = r.Close() }()
+	out := make([]Full, 0)
+	for r.Next() {
+		out = append(out, Full{})
+		i := len(out) - 1
+		if err = r.Scan(&out[i].Id, &out[i].Content); err != nil {
+			return nil, err
+		}
+	}
+	if err = r.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

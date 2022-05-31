@@ -23,7 +23,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -48,7 +47,7 @@ func shouldFlush(nUpdates, queueDepth int64) bool {
 	return before != after
 }
 
-func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId edgedb.UUID, nUpdates, queueDepth int64) error {
+func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId sharedTypes.UUID, nUpdates, queueDepth int64) error {
 	key := getProjectTrackingKey(projectId)
 	err := m.client.SAdd(ctx, key, docId.String()).Err()
 	if err != nil {
@@ -61,7 +60,7 @@ func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId
 	return nil
 }
 
-func (m *manager) FlushDocInBackground(projectId, docId edgedb.UUID) {
+func (m *manager) FlushDocInBackground(projectId, docId sharedTypes.UUID) {
 	go func() {
 		err := m.FlushDoc(context.Background(), projectId, docId)
 		if err != nil {
@@ -72,7 +71,7 @@ func (m *manager) FlushDocInBackground(projectId, docId edgedb.UUID) {
 	}()
 }
 
-func (m *manager) FlushDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error {
 	queueKey := fmt.Sprintf("UncompressedHistoryOps:{%s}", docId)
 	projectTracking := getProjectTrackingKey(projectId)
 	for {
@@ -140,7 +139,7 @@ func (m *manager) FlushDoc(ctx context.Context, projectId, docId edgedb.UUID) er
 	}
 }
 
-func (m *manager) persistUpdates(ctx context.Context, projectId, docId edgedb.UUID, updates []sharedTypes.DocumentUpdate) error {
+func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, updates []sharedTypes.DocumentUpdate) error {
 	if len(updates) == 0 {
 		return nil
 	}

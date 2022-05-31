@@ -17,13 +17,10 @@
 package project
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
 type JoinProjectViewPrivate struct {
-	edgedb.Optional
 	ForAuthorizationDetails `edgedb:"$inline"`
 	ForTree                 `edgedb:"$inline"`
 	JoinProjectViewPublic   `edgedb:"$inline"`
@@ -56,7 +53,6 @@ type ListViewPrivate struct {
 }
 
 type LoadEditorViewPrivate struct {
-	edgedb.Optional
 	LoadEditorViewPublic    `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
 	RootDocField            `edgedb:"$inline"`
@@ -93,7 +89,6 @@ type WithMembers struct {
 }
 
 type ForAuthorizationDetails struct {
-	edgedb.Optional
 	WithMembers            `edgedb:"$inline"`
 	EpochField             `edgedb:"$inline"`
 	OwnerField             `edgedb:"$inline"`

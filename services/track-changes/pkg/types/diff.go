@@ -19,8 +19,6 @@ package types
 import (
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -42,9 +40,9 @@ type DiffEntry struct {
 }
 
 type GetDocDiffRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	DocId     edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	DocId     sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
 
 	From sharedTypes.Version `form:"from" json:"from"`
 	To   sharedTypes.Version `form:"to" json:"to"`

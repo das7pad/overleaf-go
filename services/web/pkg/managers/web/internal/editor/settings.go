@@ -19,10 +19,9 @@ package editor
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -94,7 +93,7 @@ func (m *manager) SetSpellCheckLanguage(ctx context.Context, request *types.SetS
 }
 
 func (m *manager) SetRootDocId(ctx context.Context, r *types.SetRootDocIdRequest) error {
-	if r.RootDocId == (edgedb.UUID{}) {
+	if r.RootDocId == (sharedTypes.UUID{}) {
 		return &errors.ValidationError{Msg: "missing rootDocId"}
 	}
 	err := m.pm.SetRootDoc(ctx, r.ProjectId, r.UserId, r.RootDocId)

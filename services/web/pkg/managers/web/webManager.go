@@ -18,10 +18,10 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -98,7 +98,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient, localURL string) (Manager, error) {
+func New(options *types.Options, db *sql.DB, client redis.UniversalClient, localURL string) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
@@ -109,9 +109,9 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 	sm := session.New(options.SessionCookie, client)
 	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
-	mm := message.New(c)
+	mm := message.New(db)
 	dum, err := documentUpdater.New(
-		options.APIs.DocumentUpdater.Options, c, client,
+		options.APIs.DocumentUpdater.Options, db, client,
 	)
 	if err != nil {
 		return nil, err
@@ -120,11 +120,11 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 	if err != nil {
 		return nil, err
 	}
-	nm := notifications.New(c)
-	pm := project.New(c)
-	smm := systemMessage.New(c)
-	tm := tagModel.New(c)
-	um := user.New(c)
+	nm := notifications.New(db)
+	pm := project.New(db)
+	smm := systemMessage.New(db)
+	tm := tagModel.New(db)
+	um := user.New(db)
 	bm := betaProgram.New(ps, um)
 	cm, err := compile.New(options, client, dum, fm, pm, um)
 	if err != nil {
@@ -143,17 +143,17 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 		projectJWTHandler, loggedInUserJWTHandler,
 		cm,
 	)
-	lm := login.New(options, ps, c, um, loggedInUserJWTHandler, sm)
+	lm := login.New(options, ps, db, um, loggedInUserJWTHandler, sm)
 	plm := projectList.New(ps, editorEvents, pm, tm, um, loggedInUserJWTHandler)
 	pmm := projectMetadata.New(client, editorEvents, pm, dum)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(ps, pm)
 	pim := projectInvite.New(
-		options, ps, c, editorEvents, pm, um,
+		options, ps, db, editorEvents, pm, um,
 	)
-	ftm := fileTree.New(c, pm, dum, fm, editorEvents, pmm)
-	pum := projectUpload.New(options, c, pm, um, dum, fm)
-	hm, err := history.New(c, client, dum)
+	ftm := fileTree.New(db, pm, dum, fm, editorEvents, pmm)
+	pum := projectUpload.New(options, db, pm, um, dum, fm)
+	hm, err := history.New(db, client, dum)
 	if err != nil {
 		return nil, err
 	}
@@ -164,9 +164,9 @@ func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient,
 	}
 	pdm := projectDownload.New(pm, dum, fm)
 	pDelM := projectDeletion.New(pm, dum, fm)
-	uDelM := userDeletion.New(c, pm, um, pDelM)
-	ucm := userCreation.New(options, ps, c, um, lm)
-	am := admin.New(ps, c)
+	uDelM := userDeletion.New(db, pm, um, pDelM)
+	ucm := userCreation.New(options, ps, db, um, lm)
+	am := admin.New(ps, db)
 	learnM, err := learn.New(options, ps, proxy)
 	if err != nil {
 		return nil, err

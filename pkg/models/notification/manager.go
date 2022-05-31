@@ -18,22 +18,22 @@ package notification
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error
+	GetAllForUser(ctx context.Context, userId sharedTypes.UUID, notifications *[]Notification) error
 	Resend(ctx context.Context, notification Notification) error
-	RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error
+	RemoveById(ctx context.Context, userId sharedTypes.UUID, notificationId sharedTypes.UUID) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -44,10 +44,11 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
-func (m *manager) GetAllForUser(ctx context.Context, userId edgedb.UUID, notifications *[]Notification) error {
+func (m *manager) GetAllForUser(ctx context.Context, userId sharedTypes.UUID, notifications *[]Notification) error {
 	err := m.c.Query(
 		ctx,
 		`
@@ -93,7 +94,7 @@ set {
 	return nil
 }
 
-func (m *manager) RemoveById(ctx context.Context, userId edgedb.UUID, notificationId edgedb.UUID) error {
+func (m *manager) RemoveById(ctx context.Context, userId sharedTypes.UUID, notificationId sharedTypes.UUID) error {
 	err := m.c.QuerySingle(
 		ctx,
 		`

@@ -21,10 +21,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -94,16 +94,16 @@ func (m *shard) run(ctx context.Context) {
 	}
 }
 
-func parseKey(key string) (projectId, docId edgedb.UUID, err error) {
+func parseKey(key string) (projectId, docId sharedTypes.UUID, err error) {
 	if len(key) != 36+36+1 {
 		err = &errors.ValidationError{Msg: "unexpected length"}
 		return
 	}
-	projectId, err = edgedb.ParseUUID(key[:36])
+	projectId, err = sharedTypes.ParseUUID(key[:36])
 	if err != nil {
 		return
 	}
-	docId, err = edgedb.ParseUUID(key[36+1:])
+	docId, err = sharedTypes.ParseUUID(key[36+1:])
 	return
 }
 

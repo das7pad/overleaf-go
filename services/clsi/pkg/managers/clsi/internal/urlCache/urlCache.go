@@ -23,8 +23,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
@@ -34,18 +32,18 @@ import (
 type URLCache interface {
 	SetupForProject(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 	) error
 
 	Download(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 		resource *types.Resource,
 		dir types.CompileDir,
 	) error
 
 	ClearForProject(
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 	) error
 }
 
@@ -72,7 +70,7 @@ type urlCache struct {
 	client http.Client
 }
 
-func (u *urlCache) SetupForProject(_ context.Context, projectId edgedb.UUID) error {
+func (u *urlCache) SetupForProject(_ context.Context, projectId sharedTypes.UUID) error {
 	err := os.Mkdir(string(u.projectDir(projectId)), 0755)
 	if err == nil || os.IsExist(err) {
 		return nil
@@ -90,7 +88,7 @@ func atomicWrite(reader io.Reader, dest string) error {
 	return copyFile.Atomic(reader, dest, false)
 }
 
-func (u *urlCache) projectDir(projectId edgedb.UUID) types.ProjectCacheDir {
+func (u *urlCache) projectDir(projectId sharedTypes.UUID) types.ProjectCacheDir {
 	return u.cacheDir.ProjectCacheDir(projectId)
 }
 
@@ -132,7 +130,7 @@ func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedT
 	return err
 }
 
-func (u *urlCache) Download(ctx context.Context, projectId edgedb.UUID, resource *types.Resource, dir types.CompileDir) error {
+func (u *urlCache) Download(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, dir types.CompileDir) error {
 	cachePath := u.projectDir(projectId).Join(hashFileResource(resource))
 	dest := dir.Join(resource.Path)
 
@@ -159,6 +157,6 @@ func (u *urlCache) Download(ctx context.Context, projectId edgedb.UUID, resource
 	return nil
 }
 
-func (u *urlCache) ClearForProject(projectId edgedb.UUID) error {
+func (u *urlCache) ClearForProject(projectId sharedTypes.UUID) error {
 	return os.RemoveAll(string(u.projectDir(projectId)))
 }

@@ -18,29 +18,30 @@ package flush
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
 	"github.com/das7pad/overleaf-go/pkg/redisLocker"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	FlushDoc(ctx context.Context, projectId, docId edgedb.UUID) error
-	FlushDocInBackground(projectId, docId edgedb.UUID)
-	FlushProject(ctx context.Context, projectId edgedb.UUID) error
-	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId edgedb.UUID, nUpdates, queueDepth int64) error
+	FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
+	FlushDocInBackground(projectId, docId sharedTypes.UUID)
+	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
+	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId sharedTypes.UUID, nUpdates, queueDepth int64) error
 }
 
-func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(db *sql.DB, client redis.UniversalClient) (Manager, error) {
 	rl, err := redisLocker.New(client, "HistoryLock")
 	if err != nil {
 		return nil, err
 	}
 	return &manager{
 		client: client,
-		dhm:    docHistory.New(c),
+		dhm:    docHistory.New(db),
 		rl:     rl,
 	}, nil
 }

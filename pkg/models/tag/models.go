@@ -17,7 +17,7 @@
 package tag
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Full struct {
@@ -30,7 +30,7 @@ type Full struct {
 type Tags []Full
 
 func (t Full) Finalize() Full {
-	t.ProjectIds = make([]edgedb.UUID, len(t.Projects))
+	t.ProjectIds = make([]sharedTypes.UUID, len(t.Projects))
 	for _, project := range t.Projects {
 		t.ProjectIds = append(t.ProjectIds, project.Id)
 	}

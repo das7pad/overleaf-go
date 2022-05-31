@@ -20,17 +20,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func getProjectTrackingKey(projectId edgedb.UUID) string {
+func getProjectTrackingKey(projectId sharedTypes.UUID) string {
 	return "DocsWithHistoryOps:{" + projectId.String() + "}"
 }
 
-func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	projectTracking := getProjectTrackingKey(projectId)
 	docIdsRaw, errList := m.client.SMembers(ctx, projectTracking).Result()
 	if errList != nil {
@@ -40,13 +40,13 @@ func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error
 		return nil
 	}
 
-	queue := make(chan edgedb.UUID, len(docIdsRaw))
+	queue := make(chan sharedTypes.UUID, len(docIdsRaw))
 	defer func() {
 		for range queue {
 		}
 	}()
 	for _, s := range docIdsRaw {
-		id, err := edgedb.ParseUUID(s)
+		id, err := sharedTypes.ParseUUID(s)
 		if err != nil {
 			close(queue)
 			return errors.Tag(

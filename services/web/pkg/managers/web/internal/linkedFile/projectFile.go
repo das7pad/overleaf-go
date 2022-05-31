@@ -21,8 +21,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -89,10 +87,6 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 }
 
 func (m *manager) refreshProjectFile(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
-	id, err := edgedb.ParseUUID(r.File.LinkedFileData.SourceProjectId)
-	if err != nil {
-		return &errors.InvalidStateError{Msg: "corrupt source project id"}
-	}
 	return m.fromProjectFile(ctx, &types.CreateLinkedFileRequest{
 		UserId:         r.UserId,
 		ProjectId:      r.ProjectId,
@@ -100,7 +94,7 @@ func (m *manager) refreshProjectFile(ctx context.Context, r *types.RefreshLinked
 		Name:           r.File.Name,
 		Provider:       r.File.LinkedFileData.Provider,
 		Parameter: types.CreateLinkedFileProviderParameter{
-			SourceProjectId:  id,
+			SourceProjectId:  r.File.LinkedFileData.SourceProjectId,
 			SourceEntityPath: r.File.LinkedFileData.SourceEntityPath,
 		},
 	})

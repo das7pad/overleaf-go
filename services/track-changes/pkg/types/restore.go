@@ -17,15 +17,13 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type RestoreDocVersionRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	DocId     edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	DocId     sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
 
 	FromV sharedTypes.Version `json:"from_v"`
 }

@@ -17,23 +17,22 @@
 package httpUtils
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func ParseAndValidateId(c *Context, name string) (edgedb.UUID, error) {
-	id, err := edgedb.ParseUUID(c.Param(name))
-	if err != nil || id == (edgedb.UUID{}) {
-		return edgedb.UUID{}, &errors.ValidationError{
+func ParseAndValidateId(c *Context, name string) (sharedTypes.UUID, error) {
+	id, err := sharedTypes.ParseUUID(c.Param(name))
+	if err != nil || id == (sharedTypes.UUID{}) {
+		return sharedTypes.UUID{}, &errors.ValidationError{
 			Msg: "invalid " + name,
 		}
 	}
 	return id, nil
 }
 
-func GetId(c *Context, name string) edgedb.UUID {
-	return c.Value(name).(edgedb.UUID)
+func GetId(c *Context, name string) sharedTypes.UUID {
+	return c.Value(name).(sharedTypes.UUID)
 }
 
 func ValidateAndSetId(name string) MiddlewareFunc {
@@ -56,7 +55,7 @@ func ValidateAndSetIdZeroOK(name string) MiddlewareFunc {
 		return func(c *Context) {
 			raw := c.Param(name)
 			if raw == "00000000-0000-0000-0000-000000000000" {
-				c.AddValue(name, edgedb.UUID{})
+				c.AddValue(name, sharedTypes.UUID{})
 				next(c)
 			} else {
 				handleRegularId(c)

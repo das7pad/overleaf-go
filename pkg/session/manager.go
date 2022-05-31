@@ -24,16 +24,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 )
 
 type Manager interface {
-	DestroyAllForUser(ctx context.Context, userId edgedb.UUID) error
+	DestroyAllForUser(ctx context.Context, userId sharedTypes.UUID) error
 	GetSession(c *httpUtils.Context) (*Session, error)
 	GetOrCreateSession(c *httpUtils.Context) (*Session, error)
 	GetSessionById(ctx context.Context, id Id) (*Session, error)
@@ -88,7 +88,7 @@ func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
 	}
 }
 
-func (m *manager) DestroyAllForUser(ctx context.Context, userId edgedb.UUID) error {
+func (m *manager) DestroyAllForUser(ctx context.Context, userId sharedTypes.UUID) error {
 	s := m.new("", nil, &Data{
 		User: &User{Id: userId},
 	})

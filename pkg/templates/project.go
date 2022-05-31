@@ -19,8 +19,6 @@ package templates
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
@@ -53,7 +51,7 @@ type ProjectViewInviteData struct {
 	MarketingLayoutData
 
 	SharedProjectData SharedProjectData
-	ProjectId         edgedb.UUID
+	ProjectId         sharedTypes.UUID
 	Token             projectInvite.Token
 	Valid             bool
 }
@@ -63,17 +61,17 @@ func (d *ProjectViewInviteData) Render() ([]byte, error) {
 }
 
 type ProjectListProjectView struct {
-	Id                  edgedb.UUID                `json:"id"`
+	Id                  sharedTypes.UUID           `json:"id"`
 	Name                project.Name               `json:"name"`
 	LastUpdatedAt       time.Time                  `json:"lastUpdated"`
-	LastUpdatedByUserId edgedb.UUID                `json:"-"`
+	LastUpdatedByUserId sharedTypes.UUID           `json:"-"`
 	LastUpdatedBy       user.WithPublicInfo        `json:"lastUpdatedBy"`
 	PublicAccessLevel   project.PublicAccessLevel  `json:"publicAccessLevel"`
 	AccessLevel         sharedTypes.PrivilegeLevel `json:"accessLevel"`
 	AccessSource        project.AccessSource       `json:"source"`
 	Archived            bool                       `json:"archived"`
 	Trashed             bool                       `json:"trashed"`
-	OwnerRef            edgedb.UUID                `json:"owner_ref"`
+	OwnerRef            sharedTypes.UUID           `json:"owner_ref"`
 	Owner               user.WithPublicInfo        `json:"owner"`
 }
 

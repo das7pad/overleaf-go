@@ -20,11 +20,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type IdField struct {
-	Id edgedb.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
 }
 
 type KeyField struct {
@@ -32,7 +32,7 @@ type KeyField struct {
 }
 
 type UserIdField struct {
-	UserId edgedb.UUID `json:"user_id" edgedb:"user_id"`
+	UserId sharedTypes.UUID `json:"user_id" edgedb:"user_id"`
 }
 
 type ExpiresField struct {

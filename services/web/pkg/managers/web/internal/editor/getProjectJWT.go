@@ -18,9 +18,6 @@ package editor
 
 import (
 	"context"
-	"time"
-
-	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
@@ -44,7 +41,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 		return err
 	}
 
-	if userId == (edgedb.UUID{}) {
+	if userId == (sharedTypes.UUID{}) {
 		userEpoch = user.AnonymousUserEpoch
 	}
 
@@ -52,8 +49,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	c.ProjectId = projectId
 	c.UserId = userId
 	c.CompileGroup = p.Owner.Features.CompileGroup
-	c.Timeout = sharedTypes.ComputeTimeout(
-		time.Duration(p.Owner.Features.CompileTimeout) * time.Microsecond)
+	c.Timeout = sharedTypes.ComputeTimeout(p.Owner.Features.CompileTimeout)
 	c.EpochUser = userEpoch
 	c.AuthorizationDetails = *authorizationDetails
 

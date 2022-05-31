@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/gorilla/websocket"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -103,7 +102,7 @@ func generatePublicId() (sharedTypes.PublicId, error) {
 	return id, nil
 }
 
-func NewClient(projectId edgedb.UUID, user User, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
+func NewClient(projectId sharedTypes.UUID, user User, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
@@ -120,14 +119,14 @@ func NewClient(projectId edgedb.UUID, user User, writerChanges chan bool, writeQ
 
 type Client struct {
 	capabilities    Capabilities
-	lockedProjectId edgedb.UUID
+	lockedProjectId sharedTypes.UUID
 
-	DocId     *edgedb.UUID
+	DocId     *sharedTypes.UUID
 	PublicId  sharedTypes.PublicId
-	ProjectId *edgedb.UUID
+	ProjectId *sharedTypes.UUID
 	User      User
 
-	knownDocs []edgedb.UUID
+	knownDocs []sharedTypes.UUID
 
 	writerChanges chan bool
 	writeQueue    WriteQueue
@@ -142,7 +141,7 @@ func (c *Client) RemoveWriter() {
 	c.writerChanges <- false
 }
 
-func (c *Client) IsKnownDoc(id edgedb.UUID) bool {
+func (c *Client) IsKnownDoc(id sharedTypes.UUID) bool {
 	if c.knownDocs == nil {
 		return false
 	}
@@ -156,7 +155,7 @@ func (c *Client) IsKnownDoc(id edgedb.UUID) bool {
 
 const MaxKnownDocsToKeep = 100
 
-func (c *Client) AddKnownDoc(id edgedb.UUID) {
+func (c *Client) AddKnownDoc(id sharedTypes.UUID) {
 	if len(c.knownDocs) < MaxKnownDocsToKeep {
 		c.knownDocs = append(c.knownDocs, id)
 	} else {
@@ -207,7 +206,7 @@ func (c *Client) requireJoinedProjectAndDoc() error {
 	return nil
 }
 
-func (c *Client) CanJoinProject(id edgedb.UUID) error {
+func (c *Client) CanJoinProject(id sharedTypes.UUID) error {
 	if id != c.lockedProjectId {
 		return errors.Tag(
 			&errors.NotAuthorizedError{},
@@ -225,7 +224,7 @@ func (c *Client) CheckHasCapability(component CapabilityComponent) error {
 	return c.capabilities.CheckIncludes(component)
 }
 
-func (c *Client) CanDo(action Action, docId edgedb.UUID) error {
+func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	switch action {
 	case Ping:
 		return nil

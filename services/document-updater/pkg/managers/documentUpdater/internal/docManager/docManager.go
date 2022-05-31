@@ -18,10 +18,10 @@ package docManager
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/sync/errgroup"
 
@@ -40,23 +40,23 @@ import (
 )
 
 type Manager interface {
-	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error)
-	GetDocAndRecentUpdates(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
-	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edgedb.UUID) ([]*types.Doc, error)
+	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error)
+	GetDocAndRecentUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
+	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error)
 
-	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error
+	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error
 
-	RenameDoc(ctx context.Context, projectId edgedb.UUID, update *types.RenameDocUpdate) error
+	RenameDoc(ctx context.Context, projectId sharedTypes.UUID, update *types.RenameDocUpdate) error
 
-	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId edgedb.UUID) error
+	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId sharedTypes.UUID) error
 
-	FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error
-	FlushProject(ctx context.Context, projectId edgedb.UUID) error
-	FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
-	QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
+	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
+	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
+	FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
+	QueueFlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
 }
 
-func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(db *sql.DB, client redis.UniversalClient) (Manager, error) {
 	rl, err := redisLocker.New(client, "Blocking")
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	tc, err := trackChanges.New(c, client)
+	tc, err := trackChanges.New(db, client)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,8 @@ func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
 		rtRm: rtRm,
 		tc:   tc,
 		u:    u,
-		dm:   doc.New(c),
-		pm:   project.New(c),
+		dm:   doc.New(db),
+		pm:   project.New(db),
 	}, nil
 }
 
@@ -92,7 +92,7 @@ type manager struct {
 	pm   project.Manager
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, update *types.RenameDocUpdate) error {
+func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, update *types.RenameDocUpdate) error {
 	docId := update.Id
 	for {
 		var err error
@@ -125,7 +125,7 @@ func (m *manager) RenameDoc(ctx context.Context, projectId edgedb.UUID, update *
 	}
 }
 
-func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
+func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error) {
 	d, err := m.GetDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, nil, err
@@ -138,7 +138,7 @@ func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId e
 	return d, updates, nil
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
 	d, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
 		return d, nil
@@ -159,7 +159,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*ty
 	return d, nil
 }
 
-func (m *manager) getDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
+func (m *manager) getDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
 	d, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
 		return d, nil
@@ -178,7 +178,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId edgedb.UUID) (*ty
 	return d, nil
 }
 
-func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error {
+func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, requ
 	}
 }
 
-func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId sharedTypes.UUID) error {
 	var err error
 	for {
 		err = nil
@@ -288,7 +288,7 @@ const (
 	maxUnFlushedAge = 5 * time.Minute
 )
 
-func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
+func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
 	var d *types.Doc
 	var err error
 
@@ -333,7 +333,7 @@ var (
 	errPartialFlush = errors.New("partial flush")
 )
 
-func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edgedb.UUID) (*types.Doc, error) {
+func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
 	d, err := m.getDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, err
@@ -396,7 +396,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId edg
 
 func (m *manager) persistProcessedUpdates(
 	ctx context.Context,
-	projectId, docId edgedb.UUID,
+	projectId, docId sharedTypes.UUID,
 	doc *types.Doc,
 	initialVersion sharedTypes.Version,
 	processed []sharedTypes.DocumentUpdate,
@@ -451,7 +451,7 @@ func (m *manager) persistProcessedUpdates(
 	return nil
 }
 
-func (m *manager) reportError(projectId, docId edgedb.UUID, err error) {
+func (m *manager) reportError(projectId, docId sharedTypes.UUID, err error) {
 	// NOTE: This used to be in the background in Node.JS.
 	//       Move in foreground to avoid race-conditions.
 	reportCtx, cancel := context.WithTimeout(
@@ -466,7 +466,7 @@ func (m *manager) reportError(projectId, docId edgedb.UUID, err error) {
 	}
 }
 
-func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId edgedb.UUID) bool {
+func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId sharedTypes.UUID) bool {
 	// Look for the doc (version) and updates gracefully, ignoring errors.
 	// It's only used for taking a short-cut when already flushed.
 	// Else we go the long way of fetch doc, check for updates and then flush.
@@ -482,15 +482,15 @@ func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId edged
 	return n == 0
 }
 
-func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) FlushDocIfLoaded(ctx context.Context, projectId, docId sharedTypes.UUID) error {
 	return m.flushAndMaybeDeleteDoc(ctx, projectId, docId, false)
 }
 
-func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error {
 	return m.flushAndMaybeDeleteDoc(ctx, projectId, docId, true)
 }
 
-func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID, delete bool) error {
+func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID, delete bool) error {
 	var err error
 
 	for {
@@ -527,7 +527,7 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId e
 	}
 }
 
-func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId edgedb.UUID, doc *types.Doc, deleteFromRedis bool) error {
+func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId sharedTypes.UUID, doc *types.Doc, deleteFromRedis bool) error {
 	if deleteFromRedis {
 		m.tc.FlushDocInBackground(projectId, docId)
 	}
@@ -554,21 +554,21 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId ed
 	return nil
 }
 
-func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	return m.operateOnAllProjectDocs(ctx, projectId, m.FlushDocIfLoaded)
 }
 
-func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	return m.operateOnAllProjectDocs(ctx, projectId, m.FlushAndDeleteDoc)
 }
 
-func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	return m.rm.QueueFlushAndDeleteProject(ctx, projectId)
 }
 
-type projectDocOperation func(ctx context.Context, projectId, docId edgedb.UUID) error
+type projectDocOperation func(ctx context.Context, projectId, docId sharedTypes.UUID) error
 
-func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId edgedb.UUID, operation projectDocOperation) error {
+func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId sharedTypes.UUID, operation projectDocOperation) error {
 	docIds, err := m.rm.GetDocIdsInProject(ctx, projectId)
 	if err != nil {
 		return err
@@ -594,7 +594,7 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId edgedb.
 	return nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId edgedb.UUID) ([]*types.Doc, error) {
+func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error) {
 	docIds, errGetDocIds := m.rm.GetDocIdsInProject(ctx, projectId)
 	if errGetDocIds != nil {
 		return nil, errGetDocIds

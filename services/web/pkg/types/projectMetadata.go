@@ -17,7 +17,7 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ProjectMetadataResponse struct {
@@ -28,7 +28,7 @@ type ProjectDocMetadataRequest struct {
 }
 
 type ProjectDocMetadataResponse struct {
-	DocId              edgedb.UUID         `json:"docId"`
+	DocId              sharedTypes.UUID    `json:"docId"`
 	ProjectDocMetadata *ProjectDocMetadata `json:"meta"`
 }
 

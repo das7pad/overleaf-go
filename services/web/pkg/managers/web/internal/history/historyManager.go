@@ -18,8 +18,8 @@ package history
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -33,6 +33,6 @@ type Manager interface {
 	RestoreDocVersion(ctx context.Context, request *types.RestoreDocVersionRequest) error
 }
 
-func New(c *edgedb.Client, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
-	return trackChanges.New(c, client, dum)
+func New(db *sql.DB, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
+	return trackChanges.New(db, client, dum)
 }

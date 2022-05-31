@@ -17,8 +17,6 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -32,32 +30,32 @@ type UpdateEditorConfigRequest struct {
 }
 
 type SetCompilerRequest struct {
-	ProjectId edgedb.UUID          `json:"-"`
-	UserId    edgedb.UUID          `json:"-"`
+	ProjectId sharedTypes.UUID     `json:"-"`
+	UserId    sharedTypes.UUID     `json:"-"`
 	Compiler  sharedTypes.Compiler `json:"compiler"`
 }
 
 type SetImageNameRequest struct {
-	ProjectId edgedb.UUID           `json:"-"`
-	UserId    edgedb.UUID           `json:"-"`
+	ProjectId sharedTypes.UUID      `json:"-"`
+	UserId    sharedTypes.UUID      `json:"-"`
 	ImageName sharedTypes.ImageName `json:"imageName"`
 }
 
 type SetSpellCheckLanguageRequest struct {
-	ProjectId          edgedb.UUID                      `json:"-"`
-	UserId             edgedb.UUID                      `json:"-"`
+	ProjectId          sharedTypes.UUID                 `json:"-"`
+	UserId             sharedTypes.UUID                 `json:"-"`
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
 }
 
 type SetRootDocIdRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
-	RootDocId edgedb.UUID `json:"rootDocId"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+	RootDocId sharedTypes.UUID `json:"rootDocId"`
 }
 
 type SetPublicAccessLevelRequest struct {
-	ProjectId         edgedb.UUID               `json:"-"`
-	UserId            edgedb.UUID               `json:"-"`
+	ProjectId         sharedTypes.UUID          `json:"-"`
+	UserId            sharedTypes.UUID          `json:"-"`
 	Epoch             int64                     `json:"-"`
 	PublicAccessLevel project.PublicAccessLevel `json:"publicAccessLevel"`
 }

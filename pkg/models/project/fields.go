@@ -73,7 +73,7 @@ type EpochField struct {
 }
 
 type IdField struct {
-	Id edgedb.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
 }
 
 type ImageNameField struct {
@@ -115,7 +115,7 @@ type ReadOnlyRefsField struct {
 
 type RootDocIdField struct {
 	// Virtual field
-	RootDocId edgedb.UUID `json:"rootDoc_id"`
+	RootDocId sharedTypes.UUID `json:"rootDoc_id"`
 }
 
 type RootDocField struct {

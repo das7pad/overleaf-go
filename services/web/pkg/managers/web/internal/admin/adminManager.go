@@ -18,8 +18,7 @@ package admin
 
 import (
 	"context"
-
-	"github.com/edgedb/edgedb-go"
+	"database/sql"
 
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -30,10 +29,10 @@ type Manager interface {
 	AdminManageSitePage(ctx context.Context, request *types.AdminManageSitePageRequest, response *types.AdminManageSitePageResponse) error
 }
 
-func New(ps *templates.PublicSettings, c *edgedb.Client) Manager {
+func New(ps *templates.PublicSettings, db *sql.DB) Manager {
 	return &manager{
 		ps:  ps,
-		smm: systemMessage.New(c),
+		smm: systemMessage.New(db),
 	}
 }
 

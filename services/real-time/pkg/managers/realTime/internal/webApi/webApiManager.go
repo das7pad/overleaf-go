@@ -18,8 +18,7 @@ package webApi
 
 import (
 	"context"
-
-	"github.com/edgedb/edgedb-go"
+	"database/sql"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -29,8 +28,8 @@ type Manager interface {
 	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, string, error)
 }
 
-func New(c *edgedb.Client) (Manager, error) {
-	pm := project.New(c)
+func New(db *sql.DB) (Manager, error) {
+	pm := project.New(db)
 	return &monolithManager{
 		pm: pm,
 	}, nil

@@ -18,8 +18,8 @@ package documentUpdater
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/edgedbTx"
@@ -33,29 +33,29 @@ type Manager interface {
 	StartBackgroundTasks(ctx context.Context)
 	CheckDocExists(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		docId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		docId sharedTypes.UUID,
 	) error
 	GetDoc(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		docId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		docId sharedTypes.UUID,
 		fromVersion sharedTypes.Version,
 	) (*types.GetDocResponse, error)
-	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error)
-	FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error
-	FlushProject(ctx context.Context, projectId edgedb.UUID) error
-	FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error
-	SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error
-	ProcessProjectUpdates(ctx context.Context, projectId edgedb.UUID, request *types.ProcessProjectUpdatesRequest) error
+	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error)
+	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
+	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
+	FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
+	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error
+	ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, request *types.ProcessProjectUpdatesRequest) error
 }
 
-func New(options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, db *sql.DB, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	dm, err := docManager.New(c, client)
+	dm, err := docManager.New(db, client)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (m *manager) StartBackgroundTasks(ctx context.Context) {
 	m.dispatcher.Start(ctx)
 }
 
-func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId edgedb.UUID, request *types.ProcessProjectUpdatesRequest) error {
+func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, request *types.ProcessProjectUpdatesRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -101,12 +101,12 @@ func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId edgedb.UU
 	return nil
 }
 
-func (m *manager) CheckDocExists(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) CheckDocExists(ctx context.Context, projectId, docId sharedTypes.UUID) error {
 	_, err := m.dm.GetDoc(ctx, projectId, docId)
 	return err
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
 	response := &types.GetDocResponse{}
 	if fromVersion == -1 {
 		doc, err := m.dm.GetDoc(ctx, projectId, docId)
@@ -130,7 +130,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID, from
 	return response, nil
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId edgedb.UUID) (types.DocContentSnapshots, error) {
+func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error) {
 	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return nil, err
 	}
@@ -145,28 +145,28 @@ func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, proje
 	return docContentsSnapshot, nil
 }
 
-func (m *manager) SetDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.SetDocRequest) error {
+func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error {
 	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 
-func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId edgedb.UUID) error {
+func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error {
 	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushAndDeleteDoc(ctx, projectId, docId)
 }
 
-func (m *manager) FlushProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}
 	return m.dm.FlushProject(ctx, projectId)
 }
 
-func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
 		return err
 	}

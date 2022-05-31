@@ -18,6 +18,7 @@ package userDeletion
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -33,9 +34,9 @@ type Manager interface {
 	HardDeleteExpiredUsers(ctx context.Context, dryRun bool, start time.Time) error
 }
 
-func New(c *edgedb.Client, pm project.Manager, um user.Manager, pDelM projectDeletion.Manager) Manager {
+func New(db *sql.DB, pm project.Manager, um user.Manager, pDelM projectDeletion.Manager) Manager {
 	return &manager{
-		c:     c,
+		db:    db,
 		pm:    pm,
 		um:    um,
 		pDelM: pDelM,
@@ -44,6 +45,7 @@ func New(c *edgedb.Client, pm project.Manager, um user.Manager, pDelM projectDel
 
 type manager struct {
 	c     *edgedb.Client
+	db    *sql.DB
 	pm    project.Manager
 	um    user.Manager
 	pDelM projectDeletion.Manager

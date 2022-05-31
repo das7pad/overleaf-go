@@ -35,8 +35,8 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) cleanupFileUploadIfStarted(projectId, fileId edgedb.UUID) {
-	if fileId == (edgedb.UUID{}) {
+func (m *manager) cleanupFileUploadIfStarted(projectId, fileId sharedTypes.UUID) {
+	if fileId == (sharedTypes.UUID{}) {
 		return
 	}
 	bCtx, done := context.WithTimeout(
@@ -87,7 +87,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		}
 	}
 
-	var existingId edgedb.UUID
+	var existingId sharedTypes.UUID
 	var existingIsDoc bool
 	var uploadedFileRef *project.FileRef
 	var uploadedDoc *project.Doc
@@ -106,7 +106,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			return err
 		}
 
-		if existingId != (edgedb.UUID{}) {
+		if existingId != (sharedTypes.UUID{}) {
 			if existingIsDoc {
 				if isDoc {
 					// This a text file upload on a doc.
@@ -201,7 +201,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	// Failing the request and retrying now would result in duplicates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	if existingId != (edgedb.UUID{}) {
+	if existingId != (sharedTypes.UUID{}) {
 		if existingIsDoc {
 			m.cleanupDocDeletion(ctx, projectId, existingId)
 		}

@@ -17,9 +17,9 @@
 package message
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type IdField struct {
-	Id edgedb.UUID `edgedb:"id"`
+	Id sharedTypes.UUID `edgedb:"id"`
 }

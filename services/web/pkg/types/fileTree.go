@@ -17,97 +17,95 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AddDocRequest struct {
-	ProjectId      edgedb.UUID          `json:"-"`
-	UserId         edgedb.UUID          `json:"-"`
+	ProjectId      sharedTypes.UUID     `json:"-"`
+	UserId         sharedTypes.UUID     `json:"-"`
 	Name           sharedTypes.Filename `json:"name"`
-	ParentFolderId edgedb.UUID          `json:"parent_folder_id"`
+	ParentFolderId sharedTypes.UUID     `json:"parent_folder_id"`
 }
 
 type AddDocResponse = project.Doc
 
 type AddFolderRequest struct {
-	ProjectId      edgedb.UUID          `json:"-"`
-	UserId         edgedb.UUID          `edgedb:"-"`
+	ProjectId      sharedTypes.UUID     `json:"-"`
+	UserId         sharedTypes.UUID     `edgedb:"-"`
 	Name           sharedTypes.Filename `json:"name"`
-	ParentFolderId edgedb.UUID          `json:"parent_folder_id"`
+	ParentFolderId sharedTypes.UUID     `json:"parent_folder_id"`
 }
 
 type AddFolderResponse = project.Folder
 
 type DeleteDocRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
-	DocId     edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+	DocId     sharedTypes.UUID `json:"-"`
 }
 
 type DeleteFileRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
-	FileId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+	FileId    sharedTypes.UUID `json:"-"`
 }
 
 type DeleteFolderRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
-	FolderId  edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+	FolderId  sharedTypes.UUID `json:"-"`
 }
 
 type MoveDocRequest struct {
-	ProjectId      edgedb.UUID `json:"-"`
-	UserId         edgedb.UUID `json:"-"`
-	DocId          edgedb.UUID `json:"-"`
-	TargetFolderId edgedb.UUID `json:"folder_id"`
+	ProjectId      sharedTypes.UUID `json:"-"`
+	UserId         sharedTypes.UUID `json:"-"`
+	DocId          sharedTypes.UUID `json:"-"`
+	TargetFolderId sharedTypes.UUID `json:"folder_id"`
 }
 
 type MoveFileRequest struct {
-	ProjectId      edgedb.UUID `json:"-"`
-	UserId         edgedb.UUID `json:"-"`
-	FileId         edgedb.UUID `json:"-"`
-	TargetFolderId edgedb.UUID `json:"folder_id"`
+	ProjectId      sharedTypes.UUID `json:"-"`
+	UserId         sharedTypes.UUID `json:"-"`
+	FileId         sharedTypes.UUID `json:"-"`
+	TargetFolderId sharedTypes.UUID `json:"folder_id"`
 }
 
 type MoveFolderRequest struct {
-	ProjectId      edgedb.UUID `json:"-"`
-	UserId         edgedb.UUID `json:"-"`
-	FolderId       edgedb.UUID `json:"-"`
-	TargetFolderId edgedb.UUID `json:"folder_id"`
+	ProjectId      sharedTypes.UUID `json:"-"`
+	UserId         sharedTypes.UUID `json:"-"`
+	FolderId       sharedTypes.UUID `json:"-"`
+	TargetFolderId sharedTypes.UUID `json:"folder_id"`
 }
 
 type RenameDocRequest struct {
-	ProjectId edgedb.UUID          `json:"-"`
-	UserId    edgedb.UUID          `json:"-"`
-	DocId     edgedb.UUID          `json:"-"`
+	ProjectId sharedTypes.UUID     `json:"-"`
+	UserId    sharedTypes.UUID     `json:"-"`
+	DocId     sharedTypes.UUID     `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RenameFileRequest struct {
-	ProjectId edgedb.UUID          `json:"-"`
-	UserId    edgedb.UUID          `json:"-"`
-	FileId    edgedb.UUID          `json:"-"`
+	ProjectId sharedTypes.UUID     `json:"-"`
+	UserId    sharedTypes.UUID     `json:"-"`
+	FileId    sharedTypes.UUID     `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RenameFolderRequest struct {
-	ProjectId edgedb.UUID          `json:"-"`
-	UserId    edgedb.UUID          `json:"-"`
-	FolderId  edgedb.UUID          `json:"-"`
+	ProjectId sharedTypes.UUID     `json:"-"`
+	UserId    sharedTypes.UUID     `json:"-"`
+	FolderId  sharedTypes.UUID     `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocRequest struct {
-	ProjectId edgedb.UUID          `json:"-"`
-	UserId    edgedb.UUID          `json:"-"`
-	DocId     edgedb.UUID          `json:"-"`
+	ProjectId sharedTypes.UUID     `json:"-"`
+	UserId    sharedTypes.UUID     `json:"-"`
+	DocId     sharedTypes.UUID     `json:"-"`
 	Name      sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocResponse struct {
-	DocId edgedb.UUID `json:"doc_id"`
+	DocId sharedTypes.UUID `json:"doc_id"`
 }

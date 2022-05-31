@@ -27,12 +27,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -94,5 +94,5 @@ type manager struct {
 	smokeTestProjectIdMeta *regexp.Regexp
 	smokeTestProjectIdHex  string
 	smokeTestBaseURL       string
-	smokeTestUserId        edgedb.UUID
+	smokeTestUserId        sharedTypes.UUID
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,24 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package wsBootstrap
+package postgresOptions
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type Claims struct {
-	expiringJWT.Claims
-	ProjectId sharedTypes.UUID `json:"projectId"`
-	User      types.User       `json:"user"`
-}
-
-func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
-		return &Claims{}
-	})
+func Parse() string {
+	return utils.GetStringFromEnv(
+		"POSTGRES_DSN",
+		"postgresql://postgres@localhost:5432/postgres?sslmode=disable",
+	)
 }

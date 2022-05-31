@@ -17,14 +17,13 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetWSBootstrapRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type GetWSBootstrapResponse = WSBootstrap

@@ -22,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/draftMode"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/latexRunner"
@@ -40,14 +39,14 @@ import (
 type Manager interface {
 	GetProject(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		userId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		userId sharedTypes.UUID,
 	) (Project, error)
 
 	CleanupProject(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		userId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		userId sharedTypes.UUID,
 	) error
 
 	CleanupOldProjects(
@@ -110,8 +109,8 @@ func NewManager(options *types.Options) (Manager, error) {
 }
 
 type projectKey struct {
-	ProjectId edgedb.UUID
-	UserId    edgedb.UUID
+	ProjectId sharedTypes.UUID
+	UserId    sharedTypes.UUID
 }
 
 func (k projectKey) String() string {
@@ -161,7 +160,7 @@ func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.T
 	return nil
 }
 
-func (m *manager) CleanupProject(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID) error {
+func (m *manager) CleanupProject(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
 	key := projectKey{
 		ProjectId: projectId,
 		UserId:    userId,
@@ -181,7 +180,7 @@ func (m *manager) CleanupProject(ctx context.Context, projectId edgedb.UUID, use
 	return nil
 }
 
-func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID) (Project, error) {
+func (m *manager) GetProject(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) (Project, error) {
 	p, err := m.getOrCreateProject(ctx, projectId, userId)
 	if err != nil {
 		return nil, err
@@ -190,7 +189,7 @@ func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, userId 
 	return p, nil
 }
 
-func (m *manager) getOrCreateProject(ctx context.Context, projectId edgedb.UUID, userId edgedb.UUID) (Project, error) {
+func (m *manager) getOrCreateProject(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) (Project, error) {
 	key := projectKey{
 		ProjectId: projectId,
 		UserId:    userId,

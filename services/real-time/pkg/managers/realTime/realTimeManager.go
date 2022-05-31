@@ -18,11 +18,11 @@ package realTime
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -45,7 +45,7 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
+func New(ctx context.Context, options *types.Options, db *sql.DB, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
@@ -59,11 +59,11 @@ func New(ctx context.Context, options *types.Options, c *edgedb.Client, client r
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	w, err := webApi.New(c)
+	w, err := webApi.New(db)
 	if err != nil {
 		return nil, err
 	}
-	d, err := documentUpdater.New(options, c, client)
+	d, err := documentUpdater.New(options, db, client)
 	if err != nil {
 		return nil, err
 	}

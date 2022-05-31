@@ -20,8 +20,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -44,7 +42,7 @@ type ProjectUpdate struct {
 }
 
 type ForInsert struct {
-	UserId       edgedb.UUID         `json:"user_id"`
+	UserId       sharedTypes.UUID    `json:"user_id"`
 	Version      sharedTypes.Version `json:"version"`
 	HasBigDelete bool                `json:"has_big_delete"`
 	StartAt      time.Time           `json:"start_at"`

@@ -18,6 +18,7 @@ package oneTimeToken
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -28,15 +29,15 @@ import (
 )
 
 type Manager interface {
-	NewForEmailConfirmation(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
-	NewForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
-	NewForPasswordSet(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForEmailConfirmation(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
+	NewForPasswordSet(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error
 	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken, change *user.ForPasswordChange) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{c: c}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -52,26 +53,27 @@ const (
 )
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
-func (m *manager) NewForEmailConfirmation(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
+func (m *manager) NewForEmailConfirmation(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
 	return m.newToken(ctx, userId, email, emailConfirmationUse, time.Hour)
 }
 
-func (m *manager) NewForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
+func (m *manager) NewForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
 	return m.newForPasswordReset(ctx, userId, email, time.Hour)
 }
 
-func (m *manager) NewForPasswordSet(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email) (OneTimeToken, error) {
+func (m *manager) NewForPasswordSet(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
 	return m.newForPasswordReset(ctx, userId, email, 7*24*time.Hour)
 }
 
-func (m *manager) newForPasswordReset(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
+func (m *manager) newForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
 	return m.newToken(ctx, userId, email, passwordResetUse, validFor)
 }
 
-func (m *manager) newToken(ctx context.Context, userId edgedb.UUID, email sharedTypes.Email, use string, expiresIn time.Duration) (OneTimeToken, error) {
+func (m *manager) newToken(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, use string, expiresIn time.Duration) (OneTimeToken, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		token, err := generateNewToken()

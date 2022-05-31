@@ -18,6 +18,7 @@ package userCreation
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/edgedb/edgedb-go"
 
@@ -35,13 +36,13 @@ type Manager interface {
 	RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, um user.Manager, lm login.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um user.Manager, lm login.Manager) Manager {
 	return &manager{
-		c:            c,
+		db:           db,
 		emailOptions: options.EmailOptions(),
 		lm:           lm,
 		options:      options,
-		oTTm:         oneTimeToken.New(c),
+		oTTm:         oneTimeToken.New(db),
 		ps:           ps,
 		um:           um,
 	}
@@ -49,6 +50,7 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 
 type manager struct {
 	c            *edgedb.Client
+	db           *sql.DB
 	emailOptions *types.EmailOptions
 	lm           login.Manager
 	options      *types.Options

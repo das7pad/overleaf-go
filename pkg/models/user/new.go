@@ -19,8 +19,6 @@ package user
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -41,11 +39,8 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 		},
 		FeaturesField: FeaturesField{
 			Features: Features{
-				CompileTimeout: edgedb.Duration(
-					// Their Duration type is in on microsecond scale....... :(
-					180 * time.Second / time.Microsecond,
-				),
-				CompileGroup: sharedTypes.StandardCompileGroup,
+				CompileTimeout: 180 * time.Second,
+				CompileGroup:   sharedTypes.StandardCompileGroup,
 			},
 		},
 		HashedPasswordField: HashedPasswordField{

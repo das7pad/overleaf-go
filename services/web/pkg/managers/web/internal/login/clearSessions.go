@@ -20,16 +20,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) bumpEpoch(ctx context.Context, userId edgedb.UUID) error {
+func (m *manager) bumpEpoch(ctx context.Context, userId sharedTypes.UUID) error {
 	if err := m.um.BumpEpoch(ctx, userId); err != nil {
 		return errors.Tag(err, "cannot bump user epoch in edgedb")
 	}

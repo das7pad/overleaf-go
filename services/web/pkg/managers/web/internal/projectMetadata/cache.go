@@ -22,11 +22,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -38,11 +38,11 @@ type cacheEntry struct {
 	ProjectMeta    types.LightProjectMetadata `json:"projectMeta"`
 }
 
-func getCacheKey(projectId edgedb.UUID) string {
+func getCacheKey(projectId sharedTypes.UUID) string {
 	return "metadata:" + projectId.String()
 }
 
-func (m *manager) getCacheEntry(ctx context.Context, projectId edgedb.UUID) (*cacheEntry, error) {
+func (m *manager) getCacheEntry(ctx context.Context, projectId sharedTypes.UUID) (*cacheEntry, error) {
 	raw, err := m.client.Get(ctx, getCacheKey(projectId)).Bytes()
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (m *manager) getCacheEntry(ctx context.Context, projectId edgedb.UUID) (*ca
 	return entry, nil
 }
 
-func (m *manager) setCacheEntry(ctx context.Context, projectId edgedb.UUID, entry *cacheEntry) error {
+func (m *manager) setCacheEntry(ctx context.Context, projectId sharedTypes.UUID, entry *cacheEntry) error {
 	blob, err := json.Marshal(entry)
 	if err != nil {
 		return errors.Tag(err, "cannot serialize cache entry")
@@ -66,7 +66,7 @@ func (m *manager) setCacheEntry(ctx context.Context, projectId edgedb.UUID, entr
 	return nil
 }
 
-func (m *manager) getForProjectWithCache(ctx context.Context, projectId edgedb.UUID) (types.LightProjectMetadata, error) {
+func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTypes.UUID) (types.LightProjectMetadata, error) {
 	var cached *cacheEntry
 	var projectVersionFlushed time.Time
 	var recentlyEdited documentUpdaterTypes.DocContentSnapshots

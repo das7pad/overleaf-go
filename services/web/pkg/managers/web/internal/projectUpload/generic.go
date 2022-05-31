@@ -42,7 +42,7 @@ const (
 type uploadQueueEntry struct {
 	file         types.CreateProjectFile
 	reader       io.ReadCloser
-	sourceFileId edgedb.UUID
+	sourceFileId sharedTypes.UUID
 }
 
 func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
@@ -197,7 +197,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
-		if p.Id != (edgedb.UUID{}) {
+		if p.Id != (sharedTypes.UUID{}) {
 			return errors.Merge(err, m.pm.HardDelete(ctx, p.Id))
 		}
 		return err

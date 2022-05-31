@@ -21,7 +21,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -35,12 +34,12 @@ import (
 type ResourceWriter interface {
 	SyncResourcesToDisk(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 		namespace types.Namespace,
 		request *types.CompileRequest,
 	) (ResourceCache, error)
 
-	Clear(projectId edgedb.UUID, namespace types.Namespace) error
+	Clear(projectId sharedTypes.UUID, namespace types.Namespace) error
 
 	GetState(namespace types.Namespace) (types.SyncState, error)
 }
@@ -81,7 +80,7 @@ func (r *resourceWriter) GetState(namespace types.Namespace) (types.SyncState, e
 	return "", nil
 }
 
-func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId edgedb.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
+func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
 	dir := r.options.CompileBaseDir.CompileDir(namespace)
 	var cache ResourceCache
 	var err error
@@ -125,7 +124,7 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId edge
 	return cache, nil
 }
 
-func (r *resourceWriter) Clear(projectId edgedb.UUID, namespace types.Namespace) error {
+func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Namespace) error {
 	compileDir := r.options.CompileBaseDir.CompileDir(namespace)
 	errClearCompileDir := os.RemoveAll(string(compileDir))
 	errClearCache := r.urlCache.ClearForProject(projectId)
@@ -139,7 +138,7 @@ func (r *resourceWriter) Clear(projectId edgedb.UUID, namespace types.Namespace)
 	return nil
 }
 
-func (r *resourceWriter) fullSync(ctx context.Context, projectId edgedb.UUID, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
+func (r *resourceWriter) fullSync(ctx context.Context, projectId sharedTypes.UUID, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := composeResourceCache(request)
 
 	err := r.sync(ctx, projectId, request, dir, cache)
@@ -149,7 +148,7 @@ func (r *resourceWriter) fullSync(ctx context.Context, projectId edgedb.UUID, re
 	return cache, nil
 }
 
-func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId edgedb.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
+func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := composeResourceCache(request)
 
 	err := r.sync(ctx, projectId, request, dir, cache)
@@ -164,7 +163,7 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId edge
 	return cache, nil
 }
 
-func (r *resourceWriter) incrementalSync(ctx context.Context, projectId edgedb.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
+func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := r.loadResourceCache(namespace)
 	if len(cache) == 0 {
 		return nil, &errors.InvalidStateError{
@@ -184,7 +183,7 @@ func (r *resourceWriter) incrementalSync(ctx context.Context, projectId edgedb.U
 	return cache, nil
 }
 
-func (r *resourceWriter) sync(ctx context.Context, projectId edgedb.UUID, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {
+func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {
 	if err := r.urlCache.SetupForProject(ctx, projectId); err != nil {
 		return err
 	}
@@ -284,7 +283,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId edgedb.UUID, reques
 	return nil
 }
 
-func (r *resourceWriter) writeResource(ctx context.Context, projectId edgedb.UUID, resource *types.Resource, compileDir types.CompileDir) error {
+func (r *resourceWriter) writeResource(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, compileDir types.CompileDir) error {
 	if resource.IsDoc() {
 		return r.writeDoc(resource, compileDir)
 	} else {
@@ -300,6 +299,6 @@ func (r *resourceWriter) writeDoc(resource *types.Resource, compileDir types.Com
 	return os.WriteFile(compileDir.Join(resource.Path), blob, 0644)
 }
 
-func (r *resourceWriter) writeFile(ctx context.Context, projectId edgedb.UUID, resource *types.Resource, compileDir types.CompileDir) error {
+func (r *resourceWriter) writeFile(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, compileDir types.CompileDir) error {
 	return r.urlCache.Download(ctx, projectId, resource, compileDir)
 }

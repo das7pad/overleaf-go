@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/lib/pq v1.10.6
 	github.com/minio/minio-go/v7 v7.0.10
 	github.com/sergi/go-diff v1.2.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2

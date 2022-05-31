@@ -18,15 +18,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
+	_ "github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/options/edgedbOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 )
 
@@ -51,16 +52,16 @@ func main() {
 		panic(err)
 	}
 
-	dsn := edgedbOptions.Parse()
-	c, err := edgedb.CreateClientDSN(ctx, dsn, edgedb.Options{})
+	dsn := postgresOptions.Parse()
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		panic(errors.Tag(err, "cannot talk to edgedb"))
+		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
-	if err = c.EnsureConnected(ctx); err != nil {
-		panic(errors.Tag(err, "cannot talk to edgedb"))
+	if err = db.PingContext(ctx); err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
-	dum, err := documentUpdater.New(o.options, c, redisClient)
+	dum, err := documentUpdater.New(o.options, db, redisClient)
 	if err != nil {
 		panic(err)
 	}

@@ -17,13 +17,11 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type User struct {
-	Id        edgedb.UUID       `json:"user_id"`
+	Id        sharedTypes.UUID  `json:"user_id"`
 	FirstName string            `json:"first_name"`
 	LastName  string            `json:"last_name"`
 	Email     sharedTypes.Email `json:"email"`

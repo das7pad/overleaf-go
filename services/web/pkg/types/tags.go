@@ -17,16 +17,15 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AddProjectToTagRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
-	TagId     edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	TagId     sharedTypes.UUID `json:"-"`
 }
 
 type CreateTagRequest struct {
@@ -38,17 +37,17 @@ type CreateTagResponse = tag.Full
 
 type DeleteTagRequest struct {
 	Session *session.Session `json:"-"`
-	TagId   edgedb.UUID      `json:"-"`
+	TagId   sharedTypes.UUID `json:"-"`
 }
 
 type RemoveProjectToTagRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
-	TagId     edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	TagId     sharedTypes.UUID `json:"-"`
 }
 
 type RenameTagRequest struct {
 	Session *session.Session `json:"-"`
-	TagId   edgedb.UUID      `json:"-"`
+	TagId   sharedTypes.UUID `json:"-"`
 	Name    string           `json:"name"`
 }

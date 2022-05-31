@@ -19,32 +19,28 @@ package project
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type RootFolder struct {
-	edgedb.Optional
 	Folder `edgedb:"$inline"`
 }
 
 type TreeElement interface {
-	GetId() edgedb.UUID
+	GetId() sharedTypes.UUID
 }
 
 type CommonTreeFields struct {
-	Id   edgedb.UUID          `json:"_id" edgedb:"id"`
+	Id   sharedTypes.UUID     `json:"_id" edgedb:"id"`
 	Name sharedTypes.Filename `json:"name" edgedb:"name"`
 }
 
-func (c CommonTreeFields) GetId() edgedb.UUID {
+func (c CommonTreeFields) GetId() sharedTypes.UUID {
 	return c.Id
 }
 
 type RootDoc struct {
-	edgedb.Optional
 	Doc `edgedb:"$inline"`
 }
 
@@ -87,9 +83,8 @@ func (p LinkedFileProvider) Validate() error {
 }
 
 type LinkedFileData struct {
-	edgedb.Optional
 	Provider             LinkedFileProvider   `json:"provider" edgedb:"provider"`
-	SourceProjectId      string               `json:"source_project_id,omitempty" edgedb:"source_project_id"`
+	SourceProjectId      sharedTypes.UUID     `json:"source_project_id,omitempty" edgedb:"source_project_id"`
 	SourceEntityPath     sharedTypes.PathName `json:"source_entity_path,omitempty" edgedb:"source_entity_path"`
 	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path,omitempty" edgedb:"source_output_file_path"`
 	URL                  string               `json:"url,omitempty" edgedb:"url"`
@@ -298,7 +293,7 @@ func (p *ForTree) GetRootFolder() *Folder {
 		return &p.RootFolder.Folder
 	}
 
-	lookup := make(map[edgedb.UUID]Folder, len(p.Folders))
+	lookup := make(map[sharedTypes.UUID]Folder, len(p.Folders))
 	for _, folder := range p.Folders {
 		lookup[folder.Id] = folder
 	}

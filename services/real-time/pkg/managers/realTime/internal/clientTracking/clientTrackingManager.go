@@ -22,7 +22,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -56,11 +55,11 @@ const (
 	positionField = "cursorData"
 )
 
-func getConnectedUserKey(projectId edgedb.UUID, id sharedTypes.PublicId) string {
+func getConnectedUserKey(projectId sharedTypes.UUID, id sharedTypes.PublicId) string {
 	return "connected_user:{" + projectId.String() + "}:" + string(id)
 }
 
-func getProjectKey(projectId edgedb.UUID) string {
+func getProjectKey(projectId sharedTypes.UUID) string {
 	return "clients_in_project:{" + projectId.String() + "}"
 }
 
@@ -144,7 +143,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	return connectedClients, nil
 }
 
-func (m *manager) cleanupStaleClients(projectId edgedb.UUID, staleClients []sharedTypes.PublicId) {
+func (m *manager) cleanupStaleClients(projectId sharedTypes.UUID, staleClients []sharedTypes.PublicId) {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 

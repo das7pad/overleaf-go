@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/assets"
 	"github.com/das7pad/overleaf-go/pkg/csp"
 	"github.com/das7pad/overleaf-go/pkg/email"
@@ -71,8 +69,8 @@ type Options struct {
 	SmokeTest                 struct {
 		Email     sharedTypes.Email `json:"email"`
 		Password  UserPassword      `json:"password"`
-		ProjectId edgedb.UUID       `json:"projectId"`
-		UserId    edgedb.UUID       `json:"userId"`
+		ProjectId sharedTypes.UUID  `json:"projectId"`
+		UserId    sharedTypes.UUID  `json:"userId"`
 	} `json:"smoke_test"`
 	StatusPageURL            sharedTypes.URL       `json:"status_page_url"`
 	TeXLiveImageNameOverride sharedTypes.ImageName `json:"texlive_image_name_override"`
@@ -165,10 +163,10 @@ func (o *Options) Validate() error {
 	if err := o.SmokeTest.Password.Validate(); err != nil {
 		return errors.Tag(err, "smoke_test.password is invalid")
 	}
-	if o.SmokeTest.ProjectId == (edgedb.UUID{}) {
+	if o.SmokeTest.ProjectId == (sharedTypes.UUID{}) {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
-	if o.SmokeTest.UserId == (edgedb.UUID{}) {
+	if o.SmokeTest.UserId == (sharedTypes.UUID{}) {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
 

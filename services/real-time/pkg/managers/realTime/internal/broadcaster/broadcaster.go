@@ -21,18 +21,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Broadcaster interface {
-	Join(ctx context.Context, client *types.Client, id edgedb.UUID) error
-	Leave(client *types.Client, id edgedb.UUID) error
+	Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error
+	Leave(client *types.Client, id sharedTypes.UUID) error
 	StartListening(ctx context.Context) error
 	TriggerGracefulReconnect() int
 }
@@ -46,7 +45,7 @@ func New(c channel.Manager, newRoom NewRoom) Broadcaster {
 		allQueue: make(chan *channel.PubSubMessage),
 		queue:    make(chan action),
 		mux:      sync.RWMutex{},
-		rooms:    make(map[edgedb.UUID]Room),
+		rooms:    make(map[sharedTypes.UUID]Room),
 	}
 	return b
 }
@@ -59,7 +58,7 @@ type broadcaster struct {
 	newRoom NewRoom
 	queue   chan action
 	mux     sync.RWMutex
-	rooms   map[edgedb.UUID]Room
+	rooms   map[sharedTypes.UUID]Room
 }
 
 type operation int
@@ -75,7 +74,7 @@ type onDone chan pendingOperation.PendingOperation
 
 type action struct {
 	operation operation
-	id        edgedb.UUID
+	id        sharedTypes.UUID
 	ctx       context.Context
 	client    *types.Client
 	onDone    onDone
@@ -144,7 +143,7 @@ func (b *broadcaster) processQueue() {
 	}
 }
 
-func (b *broadcaster) cleanup(id edgedb.UUID) {
+func (b *broadcaster) cleanup(id sharedTypes.UUID) {
 	r, exists := b.rooms[id]
 	if !exists {
 		// Someone else cleaned it up already.
@@ -256,11 +255,11 @@ func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
 	return op
 }
 
-func (b *broadcaster) Join(ctx context.Context, client *types.Client, id edgedb.UUID) error {
+func (b *broadcaster) Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error {
 	return b.doJoinLeave(ctx, client, id, join)
 }
 
-func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id edgedb.UUID, target operation) error {
+func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id sharedTypes.UUID, target operation) error {
 	done := make(onDone)
 	defer close(done)
 	b.queue <- action{
@@ -287,7 +286,7 @@ func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id 
 	}
 }
 
-func (b *broadcaster) Leave(client *types.Client, id edgedb.UUID) error {
+func (b *broadcaster) Leave(client *types.Client, id sharedTypes.UUID) error {
 	return b.doJoinLeave(context.Background(), client, id, leave)
 }
 
@@ -329,7 +328,7 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 					id:        raw.Channel,
 				}
 			case channel.IncomingMessage:
-				if raw.Channel == (edgedb.UUID{}) {
+				if raw.Channel == (sharedTypes.UUID{}) {
 					b.allQueue <- raw
 				} else {
 					b.handleMessage(raw)

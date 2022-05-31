@@ -19,8 +19,6 @@ package tokenAccess
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -60,8 +58,8 @@ func (m *manager) GrantTokenAccessReadOnly(ctx context.Context, request *types.G
 	)
 }
 
-type getTokenAccess func(ctx context.Context, userId edgedb.UUID, token project.AccessToken) (*project.TokenAccessResult, error)
-type grantAccess func(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
+type getTokenAccess func(ctx context.Context, userId sharedTypes.UUID, token project.AccessToken) (*project.TokenAccessResult, error)
+type grantAccess func(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
 
 func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, getter getTokenAccess, granter grantAccess) error {
 	userId := request.Session.User.Id

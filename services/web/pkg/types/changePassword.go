@@ -19,8 +19,6 @@ package types
 import (
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
@@ -119,7 +117,7 @@ type ActivateUserPageRequest struct {
 }
 
 func (r *ActivateUserPageRequest) FromQuery(q url.Values) error {
-	id, err := edgedb.ParseUUID(q.Get("user_id"))
+	id, err := sharedTypes.ParseUUID(q.Get("user_id"))
 	if err != nil {
 		return &errors.ValidationError{
 			Msg: `query parameter "user_id" should be an ObjectID`,
@@ -131,7 +129,7 @@ func (r *ActivateUserPageRequest) FromQuery(q url.Values) error {
 }
 
 func (r *ActivateUserPageRequest) Validate() error {
-	if _, err := edgedb.ParseUUID(r.UserIdHex); err != nil {
+	if _, err := sharedTypes.ParseUUID(r.UserIdHex); err != nil {
 		return &errors.ValidationError{Msg: "missing user_id"}
 	}
 	if err := r.Token.Validate(); err != nil {

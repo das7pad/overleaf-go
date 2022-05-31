@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -77,8 +75,8 @@ type Project interface {
 }
 
 func newProject(
-	projectId edgedb.UUID,
-	userId edgedb.UUID,
+	projectId sharedTypes.UUID,
+	userId sharedTypes.UUID,
 	m *managers,
 	options *types.Options,
 ) (Project, error) {
@@ -122,7 +120,7 @@ type project struct {
 	dead       bool
 	lastAccess time.Time
 	namespace  types.Namespace
-	projectId  edgedb.UUID
+	projectId  sharedTypes.UUID
 
 	state          types.SyncState
 	stateMux       sync.RWMutex

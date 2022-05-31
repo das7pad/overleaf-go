@@ -88,7 +88,7 @@ func (m *manager) RefreshLinkedFile(ctx context.Context, request *types.RefreshL
 	if err != nil {
 		return err
 	}
-	if fileRef.LinkedFileData.Missing() {
+	if fileRef.LinkedFileData.Provider == "" {
 		return &errors.UnprocessableEntityError{Msg: "file is not linked"}
 	}
 

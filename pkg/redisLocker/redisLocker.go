@@ -26,17 +26,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Runner func(ctx context.Context)
 
 type Locker interface {
-	RunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error
-	TryRunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error
+	RunWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner) error
+	TryRunWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner) error
 }
 
 func New(client redis.UniversalClient, namespace string) (Locker, error) {
@@ -91,22 +91,22 @@ end
 
 func (l *locker) getUniqueValue() string {
 	now := time.Now().UnixNano()
-	c := atomic.AddInt64(&l.counter, 1)
+	n := atomic.AddInt64(&l.counter, 1)
 	return fmt.Sprintf(
 		"locked:host=%s:pid=%d:random=%s:time=%d:count=%d",
-		l.hostname, l.pid, l.rnd, now, c,
+		l.hostname, l.pid, l.rnd, now, n,
 	)
 }
 
-func (l *locker) RunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error {
+func (l *locker) RunWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner) error {
 	return l.runWithLock(ctx, docId, runner, true)
 }
 
-func (l *locker) TryRunWithLock(ctx context.Context, docId edgedb.UUID, runner Runner) error {
+func (l *locker) TryRunWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner) error {
 	return l.runWithLock(ctx, docId, runner, false)
 }
 
-func (l *locker) runWithLock(ctx context.Context, docId edgedb.UUID, runner Runner, poll bool) error {
+func (l *locker) runWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner, poll bool) error {
 	key := fmt.Sprintf("%s:{%s}", l.namespace, docId.String())
 	lockValue := l.getUniqueValue()
 

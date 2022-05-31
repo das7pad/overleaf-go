@@ -22,10 +22,10 @@ import (
 	"math"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Action int
@@ -37,12 +37,12 @@ const (
 
 type PubSubMessage struct {
 	Msg     string
-	Channel edgedb.UUID
+	Channel sharedTypes.UUID
 	Action  Action
 }
 
 type Message interface {
-	ChannelId() edgedb.UUID
+	ChannelId() sharedTypes.UUID
 }
 
 type Writer interface {
@@ -52,8 +52,8 @@ type Writer interface {
 
 type Manager interface {
 	Writer
-	Subscribe(ctx context.Context, id edgedb.UUID) error
-	Unsubscribe(ctx context.Context, id edgedb.UUID) error
+	Subscribe(ctx context.Context, id sharedTypes.UUID) error
+	Unsubscribe(ctx context.Context, id sharedTypes.UUID) error
 	Listen(ctx context.Context) (<-chan *PubSubMessage, error)
 	Close()
 }
@@ -61,15 +61,15 @@ type Manager interface {
 type BaseChannel string
 type channel string
 
-func (c BaseChannel) join(id edgedb.UUID) channel {
+func (c BaseChannel) join(id sharedTypes.UUID) channel {
 	return channel(string(c) + ":" + id.String())
 }
 
-func (c BaseChannel) parseIdFromChannel(s string) (edgedb.UUID, error) {
+func (c BaseChannel) parseIdFromChannel(s string) (sharedTypes.UUID, error) {
 	if len(s) != len(c)+36+1 {
-		return edgedb.UUID{}, errors.New("invalid channel format")
+		return sharedTypes.UUID{}, errors.New("invalid channel format")
 	}
-	return edgedb.ParseUUID(s[len(c)+1:])
+	return sharedTypes.ParseUUID(s[len(c)+1:])
 }
 
 func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
@@ -89,11 +89,11 @@ type manager struct {
 	base   BaseChannel
 }
 
-func (m *manager) Subscribe(ctx context.Context, id edgedb.UUID) error {
+func (m *manager) Subscribe(ctx context.Context, id sharedTypes.UUID) error {
 	return m.p.Subscribe(ctx, string(m.base.join(id)))
 }
 
-func (m *manager) Unsubscribe(ctx context.Context, id edgedb.UUID) error {
+func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) error {
 	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
 }
 
@@ -118,7 +118,7 @@ func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Mess
 }
 
 func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
-	m.p = m.client.Subscribe(ctx, string(m.base.join(edgedb.UUID{})))
+	m.p = m.client.Subscribe(ctx, string(m.base.join(sharedTypes.UUID{})))
 	if _, err := m.p.Receive(ctx); err != nil {
 		return nil, err
 	}

@@ -18,6 +18,7 @@ package login
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/edgedb/edgedb-go"
 
@@ -52,13 +53,13 @@ type Manager interface {
 	SettingsPage(ctx context.Context, request *types.SettingsPageRequest, response *types.SettingsPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
-		c:               c,
+		db:              db,
 		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
 		options:         options,
-		oTTm:            oneTimeToken.New(c),
+		oTTm:            oneTimeToken.New(db),
 		ps:              ps,
 		sm:              sm,
 		um:              um,
@@ -67,6 +68,7 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 
 type manager struct {
 	c               *edgedb.Client
+	db              *sql.DB
 	emailOptions    *types.EmailOptions
 	jwtLoggedInUser jwtHandler.JWTHandler
 	options         *types.Options

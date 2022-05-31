@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -41,10 +39,10 @@ const (
 type Callback int64
 
 type RPCRequest struct {
-	Action   Action          `json:"a"`
-	Body     json.RawMessage `json:"b"`
-	Callback Callback        `json:"c"`
-	DocId    edgedb.UUID     `json:"d"`
+	Action   Action           `json:"a"`
+	Body     json.RawMessage  `json:"b"`
+	Callback Callback         `json:"c"`
+	DocId    sharedTypes.UUID `json:"d"`
 }
 
 type RPCResponse struct {

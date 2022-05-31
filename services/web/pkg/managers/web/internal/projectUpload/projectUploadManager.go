@@ -18,6 +18,7 @@ package projectUpload
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -25,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -37,9 +39,9 @@ type Manager interface {
 	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error
 }
 
-func New(options *types.Options, c *edgedb.Client, pm project.Manager, um user.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
+func New(options *types.Options, db *sql.DB, pm project.Manager, um user.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
-		c:       c,
+		db:      db,
 		dum:     dum,
 		fm:      fm,
 		pm:      pm,
@@ -50,6 +52,7 @@ func New(options *types.Options, c *edgedb.Client, pm project.Manager, um user.M
 
 type manager struct {
 	c       *edgedb.Client
+	db      *sql.DB
 	dum     documentUpdater.Manager
 	fm      filestore.Manager
 	pm      project.Manager
@@ -57,7 +60,7 @@ type manager struct {
 	options *types.Options
 }
 
-func (m *manager) purgeFilestoreData(projectId edgedb.UUID) error {
+func (m *manager) purgeFilestoreData(projectId sharedTypes.UUID) error {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 

@@ -21,8 +21,6 @@ import (
 	"io"
 	"mime/multipart"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -41,9 +39,9 @@ var errTotalSizeTooHigh = errors.Tag(
 )
 
 type UploadFileRequest struct {
-	ProjectId      edgedb.UUID             `json:"-"`
-	UserId         edgedb.UUID             `json:"-"`
-	ParentFolderId edgedb.UUID             `json:"-"`
+	ProjectId      sharedTypes.UUID        `json:"-"`
+	UserId         sharedTypes.UUID        `json:"-"`
+	ParentFolderId sharedTypes.UUID        `json:"-"`
 	LinkedFileData *project.LinkedFileData `json:"-"`
 	UploadDetails
 }
@@ -96,13 +94,13 @@ type CreateProjectRequest struct {
 	ImageName          sharedTypes.ImageName
 	Name               project.Name
 	RootDocPath        sharedTypes.PathName
-	SourceProjectId    edgedb.UUID
+	SourceProjectId    sharedTypes.UUID
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage
-	UserId             edgedb.UUID
+	UserId             sharedTypes.UUID
 }
 
 func (r *CreateProjectRequest) Validate() error {
-	if r.UserId == (edgedb.UUID{}) {
+	if r.UserId == (sharedTypes.UUID{}) {
 		return errors.New("must be logged in")
 	}
 	if r.Compiler != "" {
@@ -145,9 +143,9 @@ func (r *CreateProjectRequest) Validate() error {
 }
 
 type CreateProjectResponse struct {
-	Success   bool         `json:"success"`
-	Error     string       `json:"error,omitempty"`
-	ProjectId *edgedb.UUID `json:"project_id,omitempty"`
+	Success   bool              `json:"success"`
+	Error     string            `json:"error,omitempty"`
+	ProjectId *sharedTypes.UUID `json:"project_id,omitempty"`
 }
 
 type UploadDetails struct {

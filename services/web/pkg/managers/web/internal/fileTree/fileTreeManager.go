@@ -18,6 +18,7 @@ package fileTree
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -49,9 +50,9 @@ type Manager interface {
 	UploadFile(ctx context.Context, request *types.UploadFileRequest) error
 }
 
-func New(c *edgedb.Client, pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
+func New(db *sql.DB, pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
 	return &manager{
-		c:               c,
+		db:              db,
 		dum:             dum,
 		editorEvents:    editorEvents,
 		fm:              fm,
@@ -62,6 +63,7 @@ func New(c *edgedb.Client, pm project.Manager, dum documentUpdater.Manager, fm f
 
 type manager struct {
 	c               *edgedb.Client
+	db              *sql.DB
 	dum             documentUpdater.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager
@@ -70,7 +72,7 @@ type manager struct {
 	projectMetadata projectMetadata.Manager
 }
 
-func (m *manager) notifyEditor(projectId edgedb.UUID, message string, args ...interface{}) {
+func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, args ...interface{}) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	blob, err := json.Marshal(args)

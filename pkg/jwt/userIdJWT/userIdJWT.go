@@ -17,15 +17,14 @@
 package userIdJWT
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Claims struct {
 	expiringJWT.Claims
-	UserId edgedb.UUID `json:"userId"`
+	UserId sharedTypes.UUID `json:"userId"`
 }
 
 func (c *Claims) PostProcess(target *httpUtils.Context) error {

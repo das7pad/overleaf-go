@@ -17,14 +17,12 @@
 package user
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type WithPublicInfoAndNonStandardId struct {
 	WithPublicInfo `edgedb:"$inline"`
-	IdNoUnderscore edgedb.UUID `json:"id"`
+	IdNoUnderscore sharedTypes.UUID `json:"id"`
 }
 
 type AsProjectMember struct {
@@ -34,7 +32,7 @@ type AsProjectMember struct {
 
 type BulkFetched []WithPublicInfo
 
-func (b BulkFetched) GetUserNonStandardId(uuid edgedb.UUID) WithPublicInfoAndNonStandardId {
+func (b BulkFetched) GetUserNonStandardId(uuid sharedTypes.UUID) WithPublicInfoAndNonStandardId {
 	for _, info := range b {
 		if info.Id == uuid {
 			return WithPublicInfoAndNonStandardId{

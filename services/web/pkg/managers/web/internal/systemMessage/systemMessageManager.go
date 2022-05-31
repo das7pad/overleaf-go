@@ -18,17 +18,17 @@ package systemMessage
 
 import (
 	"context"
+	"database/sql"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	GetAllCached(ctx context.Context, userId edgedb.UUID) []systemMessage.Full
+	GetAllCached(ctx context.Context, userId sharedTypes.UUID) []systemMessage.Full
 }
 
 type manager struct {
@@ -41,15 +41,15 @@ type manager struct {
 
 var noMessages = make([]systemMessage.Full, 0)
 
-func New(c *edgedb.Client) Manager {
+func New(db *sql.DB) Manager {
 	return &manager{
-		sm:     systemMessage.New(c),
+		sm:     systemMessage.New(db),
 		cached: noMessages,
 	}
 }
 
-func (m *manager) GetAllCached(ctx context.Context, userId edgedb.UUID) []systemMessage.Full {
-	if userId == (edgedb.UUID{}) {
+func (m *manager) GetAllCached(ctx context.Context, userId sharedTypes.UUID) []systemMessage.Full {
+	if userId == (sharedTypes.UUID{}) {
 		// Hide messages for logged out users.
 		return noMessages
 	}

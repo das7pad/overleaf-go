@@ -19,15 +19,13 @@ package message
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Message struct {
-	Id        edgedb.UUID                         `json:"id" edgedb:"id"`
+	Id        sharedTypes.UUID                    `json:"id" edgedb:"id"`
 	Content   string                              `json:"content" edgedb:"content"`
 	Timestamp time.Time                           `json:"timestamp" edgedb:"created_at"`
 	User      user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"user"`
-	EditedAt  edgedb.OptionalDateTime             `json:"edited_at,omitempty" edgedb:"edited_at"`
 }

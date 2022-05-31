@@ -35,8 +35,8 @@ func main() {
 	flag.Parse()
 	*msg = strings.TrimSpace(*msg)
 
-	c := utils.MustConnectEdgedb(*timeout)
-	smm := systemMessage.New(c)
+	db := utils.MustConnectPostgres(*timeout)
+	smm := systemMessage.New(db)
 
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()

@@ -20,8 +20,6 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
@@ -61,16 +59,9 @@ func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLink
 }
 
 func (m *manager) refreshProjectOutputFile(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
-	sourceProjectId, err := edgedb.ParseUUID(
-		r.File.LinkedFileData.SourceProjectId,
-	)
-	if err != nil {
-		return &errors.InvalidStateError{Msg: "corrupt source project id"}
-	}
-
 	res := &types.CompileProjectResponse{}
-	err = m.cm.CompileHeadLess(ctx, &types.CompileProjectHeadlessRequest{
-		ProjectId: sourceProjectId,
+	err := m.cm.CompileHeadLess(ctx, &types.CompileProjectHeadlessRequest{
+		ProjectId: r.File.LinkedFileData.SourceProjectId,
 		UserId:    r.UserId,
 	}, res)
 	if err != nil {
@@ -102,7 +93,7 @@ func (m *manager) refreshProjectOutputFile(ctx context.Context, r *types.Refresh
 			BuildId:              buildId,
 			ClsiServerId:         res.ClsiServerId,
 			SourceOutputFilePath: path,
-			SourceProjectId:      sourceProjectId,
+			SourceProjectId:      r.File.LinkedFileData.SourceProjectId,
 		},
 	})
 }

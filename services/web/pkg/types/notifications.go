@@ -17,10 +17,9 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetNotificationsRequest struct {
@@ -31,5 +30,5 @@ type GetNotificationsResponse = []notification.Notification
 
 type RemoveNotificationRequest struct {
 	Session        *session.Session `json:"-"`
-	NotificationId edgedb.UUID      `json:"-"`
+	NotificationId sharedTypes.UUID `json:"-"`
 }

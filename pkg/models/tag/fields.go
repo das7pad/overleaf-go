@@ -17,11 +17,11 @@
 package tag
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type IdField struct {
-	Id edgedb.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
 }
 
 type NameField struct {
@@ -33,5 +33,5 @@ type ProjectsField struct {
 }
 
 type ProjectIdsField struct {
-	ProjectIds []edgedb.UUID `json:"project_ids"`
+	ProjectIds []sharedTypes.UUID `json:"project_ids"`
 }

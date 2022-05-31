@@ -18,6 +18,7 @@ package docHistory
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -30,14 +31,14 @@ import (
 )
 
 type Manager interface {
-	InsertBulk(ctx context.Context, projectId, docId edgedb.UUID, dh []ForInsert) error
-	GetLastVersion(ctx context.Context, projectId, docId edgedb.UUID) (sharedTypes.Version, error)
-	GetForDoc(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version, r *GetForDocResult) error
-	GetForProject(ctx context.Context, projectId edgedb.UUID, before time.Time, limit int64, r *GetForProjectResult) error
+	InsertBulk(ctx context.Context, projectId, docId sharedTypes.UUID, dh []ForInsert) error
+	GetLastVersion(ctx context.Context, projectId, docId sharedTypes.UUID) (sharedTypes.Version, error)
+	GetForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version, r *GetForDocResult) error
+	GetForProject(ctx context.Context, projectId sharedTypes.UUID, before time.Time, limit int64, r *GetForProjectResult) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{c: c}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -51,10 +52,11 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
-func (m *manager) InsertBulk(ctx context.Context, projectId, docId edgedb.UUID, dh []ForInsert) error {
+func (m *manager) InsertBulk(ctx context.Context, projectId, docId sharedTypes.UUID, dh []ForInsert) error {
 	for i := 0; i < len(dh); i++ {
 		for _, component := range dh[i].Op {
 			if len(component.Deletion) > 16 {
@@ -94,7 +96,7 @@ select {exists inserted}
 	)
 }
 
-func (m *manager) GetLastVersion(ctx context.Context, projectId, docId edgedb.UUID) (sharedTypes.Version, error) {
+func (m *manager) GetLastVersion(ctx context.Context, projectId, docId sharedTypes.UUID) (sharedTypes.Version, error) {
 	var v sharedTypes.Version
 	err := m.c.QuerySingle(ctx, `
 with
@@ -122,7 +124,7 @@ type GetForDocResult struct {
 	Users   user.BulkFetched `edgedb:"users"`
 }
 
-func (m *manager) GetForDoc(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version, r *GetForDocResult) error {
+func (m *manager) GetForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version, r *GetForDocResult) error {
 	err := m.c.QuerySingle(ctx, `
 with
 	d := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),
@@ -175,7 +177,7 @@ type GetForProjectResult struct {
 	Users   user.BulkFetched `edgedb:"users"`
 }
 
-func (m *manager) GetForProject(ctx context.Context, projectId edgedb.UUID, before time.Time, limit int64, r *GetForProjectResult) error {
+func (m *manager) GetForProject(ctx context.Context, projectId sharedTypes.UUID, before time.Time, limit int64, r *GetForProjectResult) error {
 	return m.c.QuerySingle(ctx, `
 with
 	hIn := (

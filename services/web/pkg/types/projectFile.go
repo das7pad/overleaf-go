@@ -19,16 +19,14 @@ package types
 import (
 	"io"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetProjectFileSizeRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
-	FileId    edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	FileId    sharedTypes.UUID `json:"-"`
 }
 
 type GetProjectFileSizeResponse struct {
@@ -38,8 +36,8 @@ type GetProjectFileSizeResponse struct {
 
 type GetProjectFileRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
-	FileId    edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	FileId    sharedTypes.UUID `json:"-"`
 }
 
 type GetProjectFileResponse struct {

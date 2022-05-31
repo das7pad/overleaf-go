@@ -17,8 +17,6 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -28,41 +26,38 @@ import (
 type CreateLinkedFileProviderParameter struct {
 	ClsiServerId         ClsiServerId         `json:"clsiServerId"`
 	BuildId              clsiTypes.BuildId    `json:"build_id"`
-	SourceProjectId      edgedb.UUID          `json:"source_project_id"`
+	SourceProjectId      sharedTypes.UUID     `json:"source_project_id"`
 	SourceEntityPath     sharedTypes.PathName `json:"source_entity_path"`
 	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path"`
 	URL                  *sharedTypes.URL     `json:"url"`
 }
 
 type CreateLinkedFileRequest struct {
-	UserId         edgedb.UUID                       `json:"-"`
-	ProjectId      edgedb.UUID                       `json:"-"`
-	ParentFolderId edgedb.UUID                       `json:"parent_folder_id"`
+	UserId         sharedTypes.UUID                  `json:"-"`
+	ProjectId      sharedTypes.UUID                  `json:"-"`
+	ParentFolderId sharedTypes.UUID                  `json:"parent_folder_id"`
 	Name           sharedTypes.Filename              `json:"name"`
 	Provider       project.LinkedFileProvider        `json:"provider"`
 	Parameter      CreateLinkedFileProviderParameter `json:"data"`
 }
 
 type RefreshLinkedFileRequest struct {
-	UserId    edgedb.UUID `json:"-"`
-	ProjectId edgedb.UUID `json:"-"`
-	FileId    edgedb.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	FileId    sharedTypes.UUID `json:"-"`
 
-	ParentFolderId edgedb.UUID     `json:"-"`
-	File           project.FileRef `json:"-"`
+	ParentFolderId sharedTypes.UUID `json:"-"`
+	File           project.FileRef  `json:"-"`
 }
 
 func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
-	sourceProjectId := ""
 	uri := ""
 	if r.Provider == project.LinkedFileProviderURL {
 		uri = r.Parameter.URL.String()
-	} else {
-		sourceProjectId = r.Parameter.SourceProjectId.String()
 	}
 	return &project.LinkedFileData{
 		Provider:             r.Provider,
-		SourceProjectId:      sourceProjectId,
+		SourceProjectId:      r.Parameter.SourceProjectId,
 		SourceEntityPath:     r.Parameter.SourceEntityPath,
 		SourceOutputFilePath: r.Parameter.SourceOutputFilePath,
 		URL:                  uri,
@@ -87,7 +82,7 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		}
 		return nil
 	case project.LinkedFileProviderProjectFile:
-		if r.Parameter.SourceProjectId == (edgedb.UUID{}) {
+		if r.Parameter.SourceProjectId == (sharedTypes.UUID{}) {
 			return &errors.ValidationError{Msg: "missing source_project_id"}
 		}
 		if err := r.Parameter.SourceEntityPath.Validate(); err != nil {
@@ -95,7 +90,7 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		}
 		return nil
 	case project.LinkedFileProviderProjectOutputFile:
-		if r.Parameter.SourceProjectId == (edgedb.UUID{}) {
+		if r.Parameter.SourceProjectId == (sharedTypes.UUID{}) {
 			return &errors.ValidationError{Msg: "missing source_project_id"}
 		}
 		if err := r.Parameter.SourceOutputFilePath.Validate(); err != nil {

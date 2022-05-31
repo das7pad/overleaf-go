@@ -17,13 +17,12 @@
 package loggedInUserJWT
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type userIdJWTClaims = userIdJWT.Claims
@@ -36,7 +35,7 @@ func (c *Claims) Valid() error {
 	if err := c.userIdJWTClaims.Valid(); err != nil {
 		return err
 	}
-	if c.UserId == (edgedb.UUID{}) {
+	if c.UserId == (sharedTypes.UUID{}) {
 		return &errors.NotAuthorizedError{}
 	}
 	return nil

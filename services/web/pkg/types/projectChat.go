@@ -19,15 +19,13 @@ package types
 import (
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetProjectChatMessagesRequest struct {
-	ProjectId edgedb.UUID           `form:"-"`
+	ProjectId sharedTypes.UUID      `form:"-"`
 	Before    sharedTypes.Timestamp `form:"before"`
 }
 
@@ -41,7 +39,7 @@ func (r *GetProjectChatMessagesRequest) FromQuery(q url.Values) error {
 type GetProjectChatMessagesResponse = []message.Message
 
 type SendProjectChatMessageRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
-	Content   string      `json:"content"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+	Content   string           `json:"content"`
 }

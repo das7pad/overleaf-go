@@ -17,8 +17,6 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
@@ -29,7 +27,7 @@ func (d CacheBaseDir) NamespacedCacheDir(namespace Namespace) NamespacedCacheDir
 	return NamespacedCacheDir(string(d) + "/" + string(namespace))
 }
 
-func (d CacheBaseDir) ProjectCacheDir(projectId edgedb.UUID) ProjectCacheDir {
+func (d CacheBaseDir) ProjectCacheDir(projectId sharedTypes.UUID) ProjectCacheDir {
 	return ProjectCacheDir(string(d) + "/" + projectId.String())
 }
 

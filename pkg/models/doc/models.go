@@ -19,8 +19,6 @@ package doc
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -28,5 +26,5 @@ type ForDocUpdate struct {
 	Snapshot      sharedTypes.Snapshot
 	Version       sharedTypes.Version
 	LastUpdatedAt time.Time
-	LastUpdatedBy edgedb.UUID
+	LastUpdatedBy sharedTypes.UUID
 }

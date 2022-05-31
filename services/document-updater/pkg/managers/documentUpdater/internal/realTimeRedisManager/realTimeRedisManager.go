@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -34,17 +33,17 @@ type Manager interface {
 
 	GetPendingUpdatesForDoc(
 		ctx context.Context,
-		docId edgedb.UUID,
+		docId sharedTypes.UUID,
 	) ([]sharedTypes.DocumentUpdate, error)
 
 	GetUpdatesLength(
 		ctx context.Context,
-		docId edgedb.UUID,
+		docId sharedTypes.UUID,
 	) (int64, error)
 
 	ReportError(
 		ctx context.Context,
-		docId edgedb.UUID,
+		docId sharedTypes.UUID,
 		err error,
 	) error
 }
@@ -68,13 +67,13 @@ type manager struct {
 	hostname string
 }
 
-func getPendingUpdatesKey(docId edgedb.UUID) string {
+func getPendingUpdatesKey(docId sharedTypes.UUID) string {
 	return "PendingUpdates:{" + docId.String() + "}"
 }
 
 const maxOpsPerIteration = 10
 
-func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId edgedb.UUID) ([]sharedTypes.DocumentUpdate, error) {
+func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId sharedTypes.UUID) ([]sharedTypes.DocumentUpdate, error) {
 	var result *redis.StringSliceCmd
 	_, err := m.client.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		key := getPendingUpdatesKey(docId)
@@ -99,7 +98,7 @@ func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId edgedb.UUID
 	return updates, nil
 }
 
-func (m *manager) GetUpdatesLength(ctx context.Context, docId edgedb.UUID) (int64, error) {
+func (m *manager) GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) (int64, error) {
 	n, err := m.client.LLen(ctx, getPendingUpdatesKey(docId)).Result()
 	if err != nil {
 		return 0, errors.Tag(err, "cannot get updates queue depth")
@@ -137,7 +136,7 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 	return err
 }
 
-func (m *manager) ReportError(ctx context.Context, docId edgedb.UUID, err error) error {
+func (m *manager) ReportError(ctx context.Context, docId sharedTypes.UUID, err error) error {
 	message := &sharedTypes.AppliedOpsMessage{
 		DocId:       docId,
 		ProcessedBy: m.hostname,

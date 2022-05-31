@@ -17,7 +17,8 @@
 package trackChanges
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"database/sql"
+
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
@@ -33,12 +34,12 @@ type Manager interface {
 	updatesManager
 }
 
-func New(c *edgedb.Client, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
-	fm, err := flush.New(c, client)
+func New(db *sql.DB, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
+	fm, err := flush.New(db, client)
 	if err != nil {
 		return nil, err
 	}
-	dhm := docHistory.New(c)
+	dhm := docHistory.New(db)
 	dfm := diff.New(dhm, fm, dum)
 	um := updates.New(dhm, fm)
 	return &manager{

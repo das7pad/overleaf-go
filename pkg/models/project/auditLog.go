@@ -19,12 +19,12 @@ package project
 import (
 	"time"
 
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AuditLogEntry struct {
-	Info        interface{} `edgedb:"info"`
-	InitiatorId edgedb.UUID `edgedb:"initiatorId"`
-	Operation   string      `edgedb:"operation"`
-	Timestamp   time.Time   `edgedb:"timestamp"`
+	Info        interface{}      `edgedb:"info"`
+	InitiatorId sharedTypes.UUID `edgedb:"initiatorId"`
+	Operation   string           `edgedb:"operation"`
+	Timestamp   time.Time        `edgedb:"timestamp"`
 }

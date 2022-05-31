@@ -18,18 +18,19 @@ package trackChanges
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges/flush"
 )
 
 type Manager interface {
-	FlushDocInBackground(projectId, docId edgedb.UUID)
-	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId edgedb.UUID, nUpdates, queueDepth int64) error
+	FlushDocInBackground(projectId, docId sharedTypes.UUID)
+	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId sharedTypes.UUID, nUpdates, queueDepth int64) error
 }
 
-func New(c *edgedb.Client, client redis.UniversalClient) (Manager, error) {
-	return flush.New(c, client)
+func New(db *sql.DB, client redis.UniversalClient) (Manager, error) {
+	return flush.New(db, client)
 }

@@ -18,6 +18,7 @@ package projectInvite
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -47,14 +48,14 @@ type Manager interface {
 	ViewProjectInvite(ctx context.Context, request *types.ViewProjectInvitePageRequest, response *types.ViewProjectInvitePageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
 	return &manager{
-		c:            c,
+		db:           db,
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),
-		nm:           notification.New(c),
+		nm:           notification.New(db),
 		options:      options,
-		pim:          projectInvite.New(c),
+		pim:          projectInvite.New(db),
 		pm:           pm,
 		ps:           ps,
 		um:           um,
@@ -63,6 +64,7 @@ func New(options *types.Options, ps *templates.PublicSettings, c *edgedb.Client,
 
 type manager struct {
 	c            *edgedb.Client
+	db           *sql.DB
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions
 	nm           notification.Manager
@@ -73,7 +75,7 @@ type manager struct {
 	um           user.Manager
 }
 
-func getKey(inviteId edgedb.UUID) string {
+func getKey(inviteId sharedTypes.UUID) string {
 	return "project-invite-" + inviteId.String()
 }
 
@@ -82,7 +84,7 @@ type refreshMembershipDetails struct {
 	Members bool `json:"members,omitempty"`
 }
 
-func (m *manager) notifyEditorAboutChanges(projectId edgedb.UUID, r *refreshMembershipDetails) {
+func (m *manager) notifyEditorAboutChanges(projectId sharedTypes.UUID, r *refreshMembershipDetails) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 

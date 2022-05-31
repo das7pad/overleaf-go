@@ -18,6 +18,7 @@ package message
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -29,7 +30,7 @@ import (
 type Manager interface {
 	GetGlobalMessages(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 		limit int64,
 		before sharedTypes.Timestamp,
 		target *[]Message,
@@ -37,15 +38,13 @@ type Manager interface {
 
 	SendGlobalMessage(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 		msg *Message,
 	) error
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -59,12 +58,13 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	c  *edgedb.Client
+	db *sql.DB
 }
 
 func (m *manager) GetGlobalMessages(
 	ctx context.Context,
-	projectId edgedb.UUID,
+	projectId sharedTypes.UUID,
 	limit int64,
 	before sharedTypes.Timestamp,
 	messages *[]Message,
@@ -92,7 +92,7 @@ limit <int64>$2
 
 func (m *manager) SendGlobalMessage(
 	ctx context.Context,
-	projectId edgedb.UUID,
+	projectId sharedTypes.UUID,
 	msg *Message,
 ) error {
 	if err := checkContent(msg.Content); err != nil {

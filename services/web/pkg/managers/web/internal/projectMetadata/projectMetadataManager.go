@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -34,9 +33,9 @@ import (
 )
 
 type Manager interface {
-	BroadcastMetadataForDoc(projectId, docId edgedb.UUID) error
-	GetMetadataForProject(ctx context.Context, projectId edgedb.UUID) (*types.ProjectMetadataResponse, error)
-	GetMetadataForDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
+	BroadcastMetadataForDoc(projectId, docId sharedTypes.UUID) error
+	GetMetadataForProject(ctx context.Context, projectId sharedTypes.UUID) (*types.ProjectMetadataResponse, error)
+	GetMetadataForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
 }
 
 func New(client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, dum documentUpdater.Manager) Manager {
@@ -55,7 +54,7 @@ type manager struct {
 	dum    documentUpdater.Manager
 }
 
-func (m *manager) GetMetadataForProject(ctx context.Context, projectId edgedb.UUID) (*types.ProjectMetadataResponse, error) {
+func (m *manager) GetMetadataForProject(ctx context.Context, projectId sharedTypes.UUID) (*types.ProjectMetadataResponse, error) {
 	l, err := m.getForProjectWithCache(ctx, projectId)
 	if err != nil {
 		return nil, err
@@ -67,7 +66,7 @@ func (m *manager) GetMetadataForProject(ctx context.Context, projectId edgedb.UU
 	return &types.ProjectMetadataResponse{ProjectMetadata: p}, nil
 }
 
-func (m *manager) BroadcastMetadataForDoc(projectId, docId edgedb.UUID) error {
+func (m *manager) BroadcastMetadataForDoc(projectId, docId sharedTypes.UUID) error {
 	r := &types.ProjectDocMetadataRequest{Broadcast: true}
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
@@ -75,7 +74,7 @@ func (m *manager) BroadcastMetadataForDoc(projectId, docId edgedb.UUID) error {
 	return err
 }
 
-func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId edgedb.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error) {
+func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error) {
 	d, err := m.dum.GetDoc(ctx, projectId, docId, -1)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get doc")
@@ -106,7 +105,7 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId edgedb
 	return nil, nil
 }
 
-func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId edgedb.UUID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {
+func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId sharedTypes.UUID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {
 	t, err := m.pm.GetProjectWithContent(ctx, projectId)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get docs from edgedb")

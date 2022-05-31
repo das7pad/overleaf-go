@@ -19,8 +19,6 @@ package diff
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/sharejs/types/text"
 	"github.com/das7pad/overleaf-go/services/track-changes/pkg/types"
@@ -72,7 +70,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 			DiffEntry: types.DiffEntry{
 				Unchanged: sharedTypes.Snippet(s),
 				Meta: types.DiffMeta{
-					User:    dh.Users.GetUserNonStandardId(edgedb.UUID{}),
+					User:    dh.Users.GetUserNonStandardId(sharedTypes.UUID{}),
 					StartTs: 0,
 					EndTs:   0,
 				},

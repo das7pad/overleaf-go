@@ -17,8 +17,6 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -29,7 +27,7 @@ type GetUserProjectsRequest struct {
 }
 
 type GetUserProjectsEntry struct {
-	Id             edgedb.UUID                `json:"_id"`
+	Id             sharedTypes.UUID           `json:"_id"`
 	Name           project.Name               `json:"name"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"accessLevel"`
 }

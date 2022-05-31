@@ -18,6 +18,7 @@ package project
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -34,67 +35,65 @@ type Manager interface {
 	PrepareProjectCreation(ctx context.Context, p *ForCreation) error
 	CreateProjectTree(ctx context.Context, creation *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
-	SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error
-	HardDelete(ctx context.Context, projectId edgedb.UUID) error
-	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId edgedb.UUID) bool) error
-	GetDeletedProjectsName(ctx context.Context, projectId, userId edgedb.UUID) (Name, error)
-	Restore(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
-	AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error)
-	DeleteDoc(ctx context.Context, projectId, userId, docId edgedb.UUID) (sharedTypes.Version, error)
-	DeleteFile(ctx context.Context, projectId, userId, fileId edgedb.UUID) (sharedTypes.Version, error)
-	DeleteFolder(ctx context.Context, projectId, userId, folderId edgedb.UUID) (sharedTypes.Version, error)
-	RestoreDoc(ctx context.Context, projectId, userId, docId edgedb.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error)
-	MoveDoc(ctx context.Context, projectId, userId, folderId, docId edgedb.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
-	MoveFile(ctx context.Context, projectId, userId, folderId, fileId edgedb.UUID) (sharedTypes.Version, error)
-	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId edgedb.UUID) (sharedTypes.Version, []Doc, error)
-	RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error)
-	RenameFile(ctx context.Context, projectId, userId edgedb.UUID, f *FileRef) (sharedTypes.Version, error)
-	RenameFolder(ctx context.Context, projectId, userId edgedb.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
-	GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error)
-	GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error)
-	GetForZip(ctx context.Context, projectId edgedb.UUID, epoch int64) (*ForZip, error)
-	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error
-	BumpEpoch(ctx context.Context, projectId edgedb.UUID) error
-	BumpLastOpened(ctx context.Context, projectId edgedb.UUID) error
-	GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error)
-	GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, error)
-	GetFile(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken, fileId edgedb.UUID) (*FileWithParent, error)
-	GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId edgedb.UUID, name sharedTypes.Filename) (edgedb.UUID, bool, error)
-	GetElementByPath(ctx context.Context, projectId, userId edgedb.UUID, path sharedTypes.PathName) (edgedb.UUID, bool, error)
-	GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
-	GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
-	GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error)
-	GetProjectWithContent(ctx context.Context, projectId edgedb.UUID) (*Folder, error)
-	GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error
-	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
-	GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error)
-	GetEntries(ctx context.Context, projectId, userId edgedb.UUID) (*ForProjectEntries, error)
-	GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error)
-	GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error
-	GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
-	GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
-	PopulateTokens(ctx context.Context, projectId, userId edgedb.UUID) (*Tokens, error)
-	GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error)
-	SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error
-	SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error
-	SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
-	SetRootDoc(ctx context.Context, projectId, userId, rooDocId edgedb.UUID) error
-	SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, level PublicAccessLevel) error
-	ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
-	UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error
-	TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
-	UnTrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error
-	Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error
-	RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error
-	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId edgedb.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
-	CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error)
-	CreateFile(ctx context.Context, projectId, userId, folderId edgedb.UUID, f *FileRef) (sharedTypes.Version, error)
+	SoftDelete(ctx context.Context, projectId, userId sharedTypes.UUID, ipAddress string) error
+	HardDelete(ctx context.Context, projectId sharedTypes.UUID) error
+	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId sharedTypes.UUID) bool) error
+	GetDeletedProjectsName(ctx context.Context, projectId, userId sharedTypes.UUID) (Name, error)
+	Restore(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error
+	AddFolder(ctx context.Context, projectId, userId, parent sharedTypes.UUID, f *Folder) (sharedTypes.Version, error)
+	DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error)
+	DeleteFile(ctx context.Context, projectId, userId, fileId sharedTypes.UUID) (sharedTypes.Version, error)
+	DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error)
+	RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error)
+	MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
+	MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error)
+	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error)
+	RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error)
+	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
+	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
+	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, token AccessToken) (*AuthorizationDetails, error)
+	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForAuthorizationDetails, int64, error)
+	GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error)
+	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
+	BumpEpoch(ctx context.Context, projectId sharedTypes.UUID) error
+	BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error
+	GetEpoch(ctx context.Context, projectId sharedTypes.UUID) (int64, error)
+	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
+	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
+	GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error)
+	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
+	GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
+	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
+	GetProjectRootFolder(ctx context.Context, projectId sharedTypes.UUID) (*Folder, sharedTypes.Version, error)
+	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) (*Folder, error)
+	GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error
+	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error)
+	GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error)
+	GetEntries(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectEntries, error)
+	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
+	GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error
+	GrantReadAndWriteTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
+	GrantReadOnlyTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
+	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error)
+	GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error)
+	SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error
+	SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error
+	SetSpellCheckLanguage(ctx context.Context, projectId, userId sharedTypes.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error
+	SetRootDoc(ctx context.Context, projectId, userId, rooDocId sharedTypes.UUID) error
+	SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, level PublicAccessLevel) error
+	ArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
+	UnArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
+	TrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
+	UnTrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
+	Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error
+	RemoveMember(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
+	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
+	CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error)
+	CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
 }
 
-func New(c *edgedb.Client) Manager {
-	return &manager{
-		c: c,
-	}
+func New(db *sql.DB) Manager {
+	return &manager{db: db}
 }
 
 func rewriteEdgedbError(err error) error {
@@ -109,7 +108,8 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c *edgedb.Client
+	db *sql.DB
+	c  *edgedb.Client
 }
 
 type docForInsertion struct {
@@ -126,13 +126,13 @@ type fileForInsertion struct {
 }
 
 type folderForInsertion struct {
-	Id    edgedb.UUID        `json:"id"`
+	Id    sharedTypes.UUID   `json:"id"`
 	Docs  []docForInsertion  `json:"docs"`
 	Files []fileForInsertion `json:"files"`
 }
 
 func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
-	ids := make([]edgedb.UUID, 2)
+	ids := make([]sharedTypes.UUID, 2)
 	err := m.c.Query(
 		ctx,
 		`
@@ -428,7 +428,7 @@ func (r genericExistsAndAuthResult) toError() error {
 	return nil
 }
 
-func (m *manager) PopulateTokens(ctx context.Context, projectId, userId edgedb.UUID) (*Tokens, error) {
+func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		tokens, err := generateTokens()
@@ -482,7 +482,7 @@ select {
 	return nil, errors.Tag(allErrors, "bad random source")
 }
 
-func (m *manager) SetCompiler(ctx context.Context, projectId, userId edgedb.UUID, compiler sharedTypes.Compiler) error {
+func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -502,7 +502,7 @@ select {
 	return r.toError()
 }
 
-func (m *manager) SetImageName(ctx context.Context, projectId, userId edgedb.UUID, imageName sharedTypes.ImageName) error {
+func (m *manager) SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -522,7 +522,7 @@ select {
 	return r.toError()
 }
 
-func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId, userId edgedb.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
+func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId, userId sharedTypes.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -550,7 +550,7 @@ type setRootDocResult struct {
 	ProjectUpdated  bool `edgedb:"project_updated"`
 }
 
-func (m *manager) SetRootDoc(ctx context.Context, projectId, userId, rootDocId edgedb.UUID) error {
+func (m *manager) SetRootDoc(ctx context.Context, projectId, userId, rootDocId sharedTypes.UUID) error {
 	r := setRootDocResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -598,7 +598,7 @@ select {
 	}
 }
 
-func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId edgedb.UUID, publicAccessLevel PublicAccessLevel) error {
+func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, publicAccessLevel PublicAccessLevel) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -638,7 +638,7 @@ type transferOwnershipResult struct {
 	AuditLogEntry bool                `edgedb:"audit_log_entry"`
 }
 
-func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId edgedb.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error) {
+func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error) {
 	r := transferOwnershipResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -712,7 +712,7 @@ select {
 	return previousOwner, newOwner, r.ProjectName, nil
 }
 
-func (m *manager) Rename(ctx context.Context, projectId, userId edgedb.UUID, name Name) error {
+func (m *manager) Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -738,10 +738,10 @@ select {
 type addTreeElementResult struct {
 	genericExistsAndAuthResult `edgedb:"$inline"`
 	ProjectVersion             sharedTypes.Version `edgedb:"project_version"`
-	ElementId                  edgedb.UUID         `edgedb:"element_id"`
+	ElementId                  sharedTypes.UUID    `edgedb:"element_id"`
 }
 
-func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent edgedb.UUID, f *Folder) (sharedTypes.Version, error) {
+func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent sharedTypes.UUID, f *Folder) (sharedTypes.Version, error) {
 	r := addTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -798,7 +798,7 @@ func (r genericTreeElementResult) toError() error {
 	return nil
 }
 
-func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId edgedb.UUID) (sharedTypes.Version, error) {
+func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error) {
 	r := genericTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -838,7 +838,7 @@ select {
 	return r.ProjectVersion, r.toError()
 }
 
-func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId edgedb.UUID) (sharedTypes.Version, error) {
+func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
 	r := genericTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -878,7 +878,7 @@ type deletedFolderResult struct {
 	DeletedChildren          bool `edgedb:"deleted_children"`
 }
 
-func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId edgedb.UUID) (sharedTypes.Version, error) {
+func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error) {
 	r := deletedFolderResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -936,7 +936,7 @@ type moveTreeElementResult struct {
 	NewPath                  sharedTypes.PathName `edgedb:"new_path"`
 }
 
-func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docId edgedb.UUID) (sharedTypes.Version, sharedTypes.PathName, error) {
+func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error) {
 	r := moveTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -969,7 +969,7 @@ select {
 	return r.ProjectVersion, r.NewPath, r.toError()
 }
 
-func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fileId edgedb.UUID) (sharedTypes.Version, error) {
+func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
 	r := moveTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1008,7 +1008,7 @@ type moveFolderResult struct {
 	TargetLoopCheck       bool `edgedb:"target_loop_check"`
 }
 
-func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId edgedb.UUID) (sharedTypes.Version, []Doc, error) {
+func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error) {
 	r := moveFolderResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1078,7 +1078,7 @@ type renameTreeElementResult struct {
 	ParentPath               sharedTypes.DirName `edgedb:"parent_path"`
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId, userId edgedb.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error) {
+func (m *manager) RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error) {
 	r := renameTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1109,7 +1109,7 @@ select {
 	return r.ProjectVersion, r.ParentPath, r.toError()
 }
 
-func (m *manager) RenameFile(ctx context.Context, projectId, userId edgedb.UUID, f *FileRef) (sharedTypes.Version, error) {
+func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
 	r := renameTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1144,7 +1144,7 @@ type renameFolderResult struct {
 	DocsField               `edgedb:"$inline"`
 }
 
-func (m *manager) RenameFolder(ctx context.Context, projectId, userId edgedb.UUID, f *Folder) (sharedTypes.Version, []Doc, error) {
+func (m *manager) RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error) {
 	r := renameFolderResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1188,7 +1188,7 @@ select {
 	return r.ProjectVersion, r.Docs, r.toError()
 }
 
-func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
+func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1214,7 +1214,7 @@ select {
 	return r.toError()
 }
 
-func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
+func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1234,7 +1234,7 @@ select {
 	return r.toError()
 }
 
-func (m *manager) TrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
+func (m *manager) TrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1260,7 +1260,7 @@ select {
 	return r.toError()
 }
 
-func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId edgedb.UUID) error {
+func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
 	r := genericExistsAndAuthResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1286,7 +1286,7 @@ type forGetProjectNames struct {
 	Projects []NameField `edgedb:"projects"`
 }
 
-func (m *manager) GetProjectNames(ctx context.Context, userId edgedb.UUID) (Names, error) {
+func (m *manager) GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error) {
 	u := &forGetProjectNames{}
 	err := m.c.QuerySingle(ctx, `
 select User {
@@ -1304,7 +1304,7 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return names, nil
 }
 
-func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId edgedb.UUID, token AccessToken) (*AuthorizationDetails, error) {
+func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, token AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1335,7 +1335,7 @@ type getForProjectJWTResult struct {
 	Project   ForAuthorizationDetails `edgedb:"project"`
 }
 
-func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId edgedb.UUID) (*ForAuthorizationDetails, int64, error) {
+func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForAuthorizationDetails, int64, error) {
 	r := getForProjectJWTResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1367,15 +1367,15 @@ select {
 	if err != nil {
 		return nil, 0, rewriteEdgedbError(err)
 	}
-	if r.Project.Owner.Id == (edgedb.UUID{}) {
+	if r.Project.Owner.Id == (sharedTypes.UUID{}) {
 		return nil, 0, &errors.NotFoundError{}
 	}
 	userEpoch, _ := r.UserEpoch.Get()
 	return &r.Project, userEpoch, nil
 }
 
-func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userId edgedb.UUID, projectEpoch, userEpoch int64) error {
-	if userId == (edgedb.UUID{}) {
+func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
+	if userId == (sharedTypes.UUID{}) {
 		ok := false
 		err := m.c.QuerySingle(ctx, `
 select {
@@ -1428,7 +1428,7 @@ select {
 	return nil
 }
 
-func (m *manager) BumpEpoch(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) BumpEpoch(ctx context.Context, projectId sharedTypes.UUID) error {
 	err := m.c.QuerySingle(ctx, `
 update Project
 filter .id = <uuid>$0 and not exists .deleted_at
@@ -1442,7 +1442,7 @@ set {
 	return nil
 }
 
-func (m *manager) GetEpoch(ctx context.Context, projectId edgedb.UUID) (int64, error) {
+func (m *manager) GetEpoch(ctx context.Context, projectId sharedTypes.UUID) (int64, error) {
 	p := &EpochField{}
 	err := m.c.QuerySingle(ctx, `
 select Project { epoch } filter .id = <uuid>$0 and not exists .deleted_at
@@ -1453,7 +1453,7 @@ select Project { epoch } filter .id = <uuid>$0 and not exists .deleted_at
 	return p.Epoch, err
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId edgedb.UUID) (*Doc, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error) {
 	d := &Doc{}
 	err := m.c.QuerySingle(ctx, `
 select Doc {
@@ -1484,12 +1484,11 @@ type restoreDocResult struct {
 	genericTreeElementResult `edgedb:"$inline"`
 	DocDeleted               bool `edgedb:"doc_deleted"`
 	Doc                      struct {
-		edgedb.Optional
 		DocWithParent `edgedb:"$inline"`
 	} `edgedb:"doc"`
 }
 
-func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId edgedb.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error) {
+func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error) {
 	r := restoreDocResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1540,7 +1539,7 @@ select {
 	return &r.Doc.DocWithParent, r.ProjectVersion, nil
 }
 
-func (m *manager) GetFile(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken, fileId edgedb.UUID) (*FileWithParent, error) {
+func (m *manager) GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error) {
 	f := &FileWithParent{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1590,7 +1589,7 @@ type getDocOrFileResult struct {
 	ElementId                  edgedb.OptionalUUID `edgedb:"element_id"`
 }
 
-func (m *manager) GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId edgedb.UUID, name sharedTypes.Filename) (edgedb.UUID, bool, error) {
+func (m *manager) GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error) {
 	r := getDocOrFileResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1613,26 +1612,26 @@ select {
 }
 `, &r, projectId, userId, folderId, name)
 	if err != nil {
-		return edgedb.UUID{}, false, rewriteEdgedbError(err)
+		return sharedTypes.UUID{}, false, rewriteEdgedbError(err)
 	}
 	if err = r.toError(); err != nil {
-		return edgedb.UUID{}, false, err
+		return sharedTypes.UUID{}, false, err
 	}
 	switch {
 	case !r.ParentExists:
-		return edgedb.UUID{}, false, &errors.UnprocessableEntityError{
+		return sharedTypes.UUID{}, false, &errors.UnprocessableEntityError{
 			Msg: "parent folder does not exist",
 		}
 	case r.IsFolder:
-		return edgedb.UUID{}, false, &errors.UnprocessableEntityError{
+		return sharedTypes.UUID{}, false, &errors.UnprocessableEntityError{
 			Msg: "element is a folder",
 		}
 	}
 	id, _ := r.ElementId.Get()
-	return id, r.IsDoc, nil
+	return sharedTypes.UUID(id), r.IsDoc, nil
 }
 
-func (m *manager) GetElementByPath(ctx context.Context, projectId, userId edgedb.UUID, path sharedTypes.PathName) (edgedb.UUID, bool, error) {
+func (m *manager) GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error) {
 	r := getDocOrFileResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1655,19 +1654,19 @@ select {
 }
 `, &r, projectId, userId, path)
 	if err != nil {
-		return edgedb.UUID{}, false, rewriteEdgedbError(err)
+		return sharedTypes.UUID{}, false, rewriteEdgedbError(err)
 	}
 	if err = r.toError(); err != nil {
-		return edgedb.UUID{}, false, err
+		return sharedTypes.UUID{}, false, err
 	}
 	id, exists := r.ElementId.Get()
 	if !exists {
-		return edgedb.UUID{}, false, &errors.NotFoundError{}
+		return sharedTypes.UUID{}, false, &errors.NotFoundError{}
 	}
-	return id, r.IsDoc, nil
+	return sharedTypes.UUID(id), r.IsDoc, nil
 }
 
-func (m *manager) GetProjectRootFolder(ctx context.Context, projectId edgedb.UUID) (*Folder, sharedTypes.Version, error) {
+func (m *manager) GetProjectRootFolder(ctx context.Context, projectId sharedTypes.UUID) (*Folder, sharedTypes.Version, error) {
 	project := &ForTree{
 		RootFolderField: RootFolderField{
 			RootFolder: RootFolder{
@@ -1706,7 +1705,7 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return project.GetRootFolder(), project.Version, nil
 }
 
-func (m *manager) GetProjectWithContent(ctx context.Context, projectId edgedb.UUID) (*Folder, error) {
+func (m *manager) GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) (*Folder, error) {
 	project := &ForTree{}
 	err := m.c.QuerySingle(
 		ctx,
@@ -1738,7 +1737,7 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return project.GetRootFolder(), nil
 }
 
-func (m *manager) GetForZip(ctx context.Context, projectId edgedb.UUID, epoch int64) (*ForZip, error) {
+func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error) {
 	p := &ForZip{}
 	err := m.c.QuerySingle(
 		ctx,
@@ -1774,7 +1773,7 @@ filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
 	return p, nil
 }
 
-func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
+func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
 	details := &JoinProjectDetails{
 		Project: JoinProjectViewPrivate{
 			ForTree: ForTree{
@@ -1786,7 +1785,7 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId e
 			},
 		},
 	}
-	if userId != (edgedb.UUID{}) {
+	if userId != (sharedTypes.UUID{}) {
 		accessToken = "-"
 	}
 	err := m.c.QuerySingle(ctx, `
@@ -1912,7 +1911,7 @@ select {
 	return details, nil
 }
 
-func (m *manager) BumpLastOpened(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error {
 	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
 update Project
 filter .id = <uuid>$0 and not exists .deleted_at
@@ -1922,9 +1921,9 @@ set {
 `, &IdField{}, projectId))
 }
 
-func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId edgedb.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
+func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
 	details := &LoadEditorDetails{}
-	if userId != (edgedb.UUID{}) {
+	if userId != (sharedTypes.UUID{}) {
 		accessToken = "-"
 	}
 	err := m.c.QuerySingle(ctx, `
@@ -2010,7 +2009,7 @@ select {
 	return details, nil
 }
 
-func (m *manager) GetProject(ctx context.Context, projectId edgedb.UUID, target interface{}) error {
+func (m *manager) GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error {
 	var q string
 	switch target.(type) {
 	case *LastUpdatedAtField:
@@ -2077,21 +2076,21 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return nil
 }
 
-func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error) {
 	if err := token.ValidateReadAndWrite(); err != nil {
 		return nil, err
 	}
 	return m.getProjectByToken(ctx, userId, token)
 }
 
-func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error) {
 	if err := token.ValidateReadOnly(); err != nil {
 		return nil, err
 	}
 	return m.getProjectByToken(ctx, userId, token)
 }
 
-func (m *manager) GetEntries(ctx context.Context, projectId, userId edgedb.UUID) (*ForProjectEntries, error) {
+func (m *manager) GetEntries(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectEntries, error) {
 	p := &ForProjectEntries{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2108,7 +2107,7 @@ filter .id = <uuid>$0 and not exists .deleted_at and u in .min_access_ro
 	return p, nil
 }
 
-func (m *manager) GetProjectMembers(ctx context.Context, projectId edgedb.UUID) ([]user.AsProjectMember, error) {
+func (m *manager) GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error) {
 	var p WithInvitedMembers
 	err := m.c.QuerySingle(ctx, `
 select Project {
@@ -2133,7 +2132,7 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return p.GetProjectMembers(), nil
 }
 
-func (m *manager) GrantMemberAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID, level sharedTypes.PrivilegeLevel) error {
+func (m *manager) GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error {
 	var q string
 	switch level {
 	case sharedTypes.PrivilegeLevelReadAndWrite:
@@ -2181,7 +2180,7 @@ set {
 	return nil
 }
 
-func (m *manager) getProjectByToken(ctx context.Context, userId edgedb.UUID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) getProjectByToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error) {
 	p := &forTokenAccessCheck{}
 	var tokenPrefixRW, tokenRO AccessToken
 	if len(token) == lenReadOnly {
@@ -2226,14 +2225,14 @@ limit 1
 		Epoch:     p.Epoch,
 		Fresh:     freshAccess,
 	}
-	if userId == (edgedb.UUID{}) {
+	if userId == (sharedTypes.UUID{}) {
 		return r, nil
 	}
 	r.Existing, _ = p.GetPrivilegeLevelAuthenticated(userId)
 	return r, nil
 }
 
-func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
+func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
 	err := rewriteEdgedbError(m.c.QuerySingle(ctx, `
 with
 	u := (select User filter .id = <uuid>$2 and not exists .deleted_at)
@@ -2251,7 +2250,7 @@ set {
 	return err
 }
 
-func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
+func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
 	err := rewriteEdgedbError(m.c.QuerySingle(ctx, `
 with
 	u := (select User filter .id = <uuid>$2 and not exists .deleted_at)
@@ -2268,7 +2267,7 @@ set {
 	return err
 }
 
-func (m *manager) RemoveMember(ctx context.Context, projectId edgedb.UUID, epoch int64, userId edgedb.UUID) error {
+func (m *manager) RemoveMember(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
 	var r []bool
 	err := m.c.Query(ctx, `
 with
@@ -2309,7 +2308,7 @@ type softDeleteResult struct {
 	AuditLogEntry        bool `edgedb:"audit_log_entry"`
 }
 
-func (m *manager) SoftDelete(ctx context.Context, projectId, userId edgedb.UUID, ipAddress string) error {
+func (m *manager) SoftDelete(ctx context.Context, projectId, userId sharedTypes.UUID, ipAddress string) error {
 	r := softDeleteResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2369,7 +2368,7 @@ type hardDeleteResult struct {
 	Deleted            bool `edgedb:"deleted"`
 }
 
-func (m *manager) HardDelete(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) HardDelete(ctx context.Context, projectId sharedTypes.UUID) error {
 	r := hardDeleteResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2394,8 +2393,8 @@ select {
 	return nil
 }
 
-func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId edgedb.UUID) bool) error {
-	ids := make([]edgedb.UUID, 0, 100)
+func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId sharedTypes.UUID) bool) error {
+	ids := make([]sharedTypes.UUID, 0, 100)
 	for {
 		ids = ids[:0]
 		err := m.c.Query(ctx, `
@@ -2424,7 +2423,7 @@ select (
 	}
 }
 
-func (m *manager) GetDeletedProjectsName(ctx context.Context, projectId, userId edgedb.UUID) (Name, error) {
+func (m *manager) GetDeletedProjectsName(ctx context.Context, projectId, userId sharedTypes.UUID) (Name, error) {
 	var name Name
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2447,7 +2446,7 @@ type restoreResult struct {
 	ProjectRestored     bool `edgedb:"project_restored"`
 }
 
-func (m *manager) Restore(ctx context.Context, projectId, userId edgedb.UUID, name Name) error {
+func (m *manager) Restore(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
 	r := restoreResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2500,7 +2499,7 @@ type createTreeElementResult struct {
 	Version       edgedb.OptionalInt64 `edgedb:"version"`
 }
 
-func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId edgedb.UUID, d *Doc) (sharedTypes.Version, error) {
+func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error) {
 	result := createTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2568,13 +2567,14 @@ select {
 	case !result.FolderExists:
 		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
 	default:
-		d.Id, _ = result.ElementId.Get()
+		id, _ := result.ElementId.Get()
+		d.Id = sharedTypes.UUID(id)
 		v, _ := result.Version.Get()
 		return sharedTypes.Version(v), nil
 	}
 }
 
-func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId edgedb.UUID, f *FileRef) (sharedTypes.Version, error) {
+func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
 	result := createTreeElementResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2656,7 +2656,8 @@ select {
 	case !result.FolderExists:
 		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
 	default:
-		f.Id, _ = result.ElementId.Get()
+		id, _ := result.ElementId.Get()
+		f.Id = sharedTypes.UUID(id)
 		v, _ := result.Version.Get()
 		return sharedTypes.Version(v), nil
 	}

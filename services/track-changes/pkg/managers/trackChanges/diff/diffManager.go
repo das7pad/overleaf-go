@@ -19,8 +19,6 @@ package diff
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -50,7 +48,7 @@ type manager struct {
 	fm  flush.Manager
 }
 
-func (m *manager) getDocFrom(ctx context.Context, projectId, docId edgedb.UUID, from, to sharedTypes.Version) (sharedTypes.Snapshot, *docHistory.GetForDocResult, error) {
+func (m *manager) getDocFrom(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version) (sharedTypes.Snapshot, *docHistory.GetForDocResult, error) {
 	d, err := m.dum.GetDoc(ctx, projectId, docId, -1)
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot get latest doc version")

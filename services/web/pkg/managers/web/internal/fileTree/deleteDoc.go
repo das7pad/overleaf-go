@@ -20,8 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -51,7 +50,7 @@ func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.Delet
 	return nil
 }
 
-func (m *manager) cleanupDocDeletion(ctx context.Context, projectId, docId edgedb.UUID) {
+func (m *manager) cleanupDocDeletion(ctx context.Context, projectId, docId sharedTypes.UUID) {
 	// Cleanup in document-updater
 	_ = m.dum.FlushAndDeleteDoc(ctx, projectId, docId)
 }

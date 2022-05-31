@@ -17,22 +17,20 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type SignedCompileProjectRequestOptions struct {
 	CompileGroup sharedTypes.CompileGroup   `json:"c"`
-	ProjectId    edgedb.UUID                `json:"p"`
-	UserId       edgedb.UUID                `json:"u"`
+	ProjectId    sharedTypes.UUID           `json:"p"`
+	UserId       sharedTypes.UUID           `json:"u"`
 	Timeout      sharedTypes.ComputeTimeout `json:"t"`
 }
 
 type CompileProjectHeadlessRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
 }
 
 type ClearCompileCacheRequest struct {
@@ -49,7 +47,7 @@ type CompileProjectRequest struct {
 	Draft                      clsiTypes.DraftModeFlag    `json:"draft"`
 	ImageName                  sharedTypes.ImageName      `json:"imageName"`
 	IncrementalCompilesEnabled bool                       `json:"incrementalCompilesEnabled"`
-	RootDocId                  edgedb.UUID                `json:"rootDocId"`
+	RootDocId                  sharedTypes.UUID           `json:"rootDocId"`
 	RootDocPath                clsiTypes.RootResourcePath `json:"rootDocPath"`
 	SyncState                  clsiTypes.SyncState        `json:"syncState"`
 }

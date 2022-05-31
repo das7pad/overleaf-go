@@ -17,15 +17,13 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type JoinProjectRequest struct {
-	ProjectId            edgedb.UUID         `json:"project_id"`
+	ProjectId            sharedTypes.UUID    `json:"project_id"`
 	AnonymousAccessToken project.AccessToken `json:"anonymousAccessToken"`
 }
 

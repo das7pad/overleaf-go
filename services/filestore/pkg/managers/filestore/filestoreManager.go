@@ -22,8 +22,6 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
@@ -32,71 +30,71 @@ import (
 type Manager interface {
 	GetReadStreamForProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 		options objectStorage.GetOptions,
 	) (int64, io.ReadCloser, error)
 
 	GetRedirectURLForGETOnProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 	) (*url.URL, error)
 
 	GetRedirectURLForHEADOnProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 	) (*url.URL, error)
 
 	GetRedirectURLForPOSTOnProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 	) (*url.URL, objectStorage.FormData, error)
 
 	GetRedirectURLForPUTOnProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 	) (*url.URL, error)
 
 	GetSizeOfProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 	) (int64, error)
 
 	GetSizeOfProject(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 	) (int64, error)
 
 	CopyProjectFile(
 		ctx context.Context,
-		srcProjectId edgedb.UUID,
-		srcFileId edgedb.UUID,
-		destProjectId edgedb.UUID,
-		destFileId edgedb.UUID,
+		srcProjectId sharedTypes.UUID,
+		srcFileId sharedTypes.UUID,
+		destProjectId sharedTypes.UUID,
+		destFileId sharedTypes.UUID,
 	) error
 
 	DeleteProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 	) error
 
 	DeleteProject(
 		ctx context.Context,
-		projectId edgedb.UUID,
+		projectId sharedTypes.UUID,
 	) error
 
-	SendProjectFileFromFS(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID, path sharedTypes.PathName, options objectStorage.SendOptions) error
+	SendProjectFileFromFS(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, path sharedTypes.PathName, options objectStorage.SendOptions) error
 
 	SendStreamForProjectFile(
 		ctx context.Context,
-		projectId edgedb.UUID,
-		fileId edgedb.UUID,
+		projectId sharedTypes.UUID,
+		fileId sharedTypes.UUID,
 		reader io.Reader,
 		options objectStorage.SendOptions,
 	) error
@@ -124,15 +122,15 @@ type manager struct {
 	uploadBase sharedTypes.DirName
 }
 
-func getProjectPrefix(projectId edgedb.UUID) string {
+func getProjectPrefix(projectId sharedTypes.UUID) string {
 	return fmt.Sprintf("%s/", projectId.String())
 }
 
-func getProjectFileKey(projectId, fileId edgedb.UUID) string {
+func getProjectFileKey(projectId, fileId sharedTypes.UUID) string {
 	return fmt.Sprintf("%s/%s", projectId.String(), fileId.String())
 }
 
-func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID, options objectStorage.GetOptions) (int64, io.ReadCloser, error) {
+func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, options objectStorage.GetOptions) (int64, io.ReadCloser, error) {
 	return m.b.GetReadStream(
 		ctx,
 		m.buckets.UserFiles,
@@ -141,7 +139,7 @@ func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId edg
 	)
 }
 
-func (m *manager) GetRedirectURLForGETOnProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID) (*url.URL, error) {
+func (m *manager) GetRedirectURLForGETOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error) {
 	return m.b.GetRedirectURLForGET(
 		ctx,
 		m.buckets.UserFiles,
@@ -149,7 +147,7 @@ func (m *manager) GetRedirectURLForGETOnProjectFile(ctx context.Context, project
 	)
 }
 
-func (m *manager) GetRedirectURLForHEADOnProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID) (*url.URL, error) {
+func (m *manager) GetRedirectURLForHEADOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error) {
 	return m.b.GetRedirectURLForHEAD(
 		ctx,
 		m.buckets.UserFiles,
@@ -157,7 +155,7 @@ func (m *manager) GetRedirectURLForHEADOnProjectFile(ctx context.Context, projec
 	)
 }
 
-func (m *manager) GetRedirectURLForPOSTOnProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID) (*url.URL, objectStorage.FormData, error) {
+func (m *manager) GetRedirectURLForPOSTOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, objectStorage.FormData, error) {
 	return m.b.GetRedirectURLForPOST(
 		ctx,
 		m.buckets.UserFiles,
@@ -165,7 +163,7 @@ func (m *manager) GetRedirectURLForPOSTOnProjectFile(ctx context.Context, projec
 	)
 }
 
-func (m *manager) GetRedirectURLForPUTOnProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID) (*url.URL, error) {
+func (m *manager) GetRedirectURLForPUTOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error) {
 	return m.b.GetRedirectURLForPUT(
 		ctx,
 		m.buckets.UserFiles,
@@ -173,7 +171,7 @@ func (m *manager) GetRedirectURLForPUTOnProjectFile(ctx context.Context, project
 	)
 }
 
-func (m *manager) GetSizeOfProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID) (int64, error) {
+func (m *manager) GetSizeOfProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, error) {
 	return m.b.GetObjectSize(
 		ctx,
 		m.buckets.UserFiles,
@@ -181,7 +179,7 @@ func (m *manager) GetSizeOfProjectFile(ctx context.Context, projectId edgedb.UUI
 	)
 }
 
-func (m *manager) GetSizeOfProject(ctx context.Context, projectId edgedb.UUID) (int64, error) {
+func (m *manager) GetSizeOfProject(ctx context.Context, projectId sharedTypes.UUID) (int64, error) {
 	return m.b.GetDirectorySize(
 		ctx,
 		m.buckets.UserFiles,
@@ -189,7 +187,7 @@ func (m *manager) GetSizeOfProject(ctx context.Context, projectId edgedb.UUID) (
 	)
 }
 
-func (m *manager) CopyProjectFile(ctx context.Context, srcProjectId edgedb.UUID, srcFileId edgedb.UUID, destProjectId edgedb.UUID, destFileId edgedb.UUID) error {
+func (m *manager) CopyProjectFile(ctx context.Context, srcProjectId sharedTypes.UUID, srcFileId sharedTypes.UUID, destProjectId sharedTypes.UUID, destFileId sharedTypes.UUID) error {
 	return m.b.CopyObject(
 		ctx,
 		m.buckets.UserFiles,
@@ -198,7 +196,7 @@ func (m *manager) CopyProjectFile(ctx context.Context, srcProjectId edgedb.UUID,
 	)
 }
 
-func (m *manager) DeleteProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID) error {
+func (m *manager) DeleteProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) error {
 	return m.b.DeleteObject(
 		ctx,
 		m.buckets.UserFiles,
@@ -206,7 +204,7 @@ func (m *manager) DeleteProjectFile(ctx context.Context, projectId edgedb.UUID, 
 	)
 }
 
-func (m *manager) DeleteProject(ctx context.Context, projectId edgedb.UUID) error {
+func (m *manager) DeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	return m.b.DeletePrefix(
 		ctx,
 		m.buckets.UserFiles,
@@ -214,7 +212,7 @@ func (m *manager) DeleteProject(ctx context.Context, projectId edgedb.UUID) erro
 	)
 }
 
-func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID, reader io.Reader, options objectStorage.SendOptions) error {
+func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, options objectStorage.SendOptions) error {
 	return m.b.SendFromStream(
 		ctx,
 		m.buckets.UserFiles,
@@ -224,7 +222,7 @@ func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId edgedb
 	)
 }
 
-func (m *manager) SendProjectFileFromFS(ctx context.Context, projectId edgedb.UUID, fileId edgedb.UUID, path sharedTypes.PathName, options objectStorage.SendOptions) error {
+func (m *manager) SendProjectFileFromFS(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, path sharedTypes.PathName, options objectStorage.SendOptions) error {
 	if err := path.Validate(); err != nil {
 		return err
 	}

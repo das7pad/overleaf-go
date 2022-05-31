@@ -17,8 +17,6 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -29,15 +27,15 @@ import (
 
 type AcceptProjectInviteRequest struct {
 	Session   *session.Session    `json:"-"`
-	ProjectId edgedb.UUID         `json:"-"`
+	ProjectId sharedTypes.UUID    `json:"-"`
 	Token     projectInvite.Token `json:"-"`
 }
 
 type AcceptProjectInviteResponse = asyncForm.Response
 
 type CreateProjectInviteRequest struct {
-	ProjectId      edgedb.UUID                `json:"-"`
-	SenderUserId   edgedb.UUID                `json:"-"`
+	ProjectId      sharedTypes.UUID           `json:"-"`
+	SenderUserId   sharedTypes.UUID           `json:"-"`
 	Email          sharedTypes.Email          `json:"email"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
 }
@@ -62,18 +60,18 @@ func (r *CreateProjectInviteRequest) Validate() error {
 }
 
 type ResendProjectInviteRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	InviteId  edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	InviteId  sharedTypes.UUID `json:"-"`
 }
 
 type RevokeProjectInviteRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	InviteId  edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	InviteId  sharedTypes.UUID `json:"-"`
 }
 
 type ListProjectInvitesRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
 }
 
 type ListProjectInvitesResponse struct {
@@ -82,7 +80,7 @@ type ListProjectInvitesResponse struct {
 
 type ViewProjectInvitePageRequest struct {
 	Session   *session.Session    `form:"-"`
-	ProjectId edgedb.UUID         `form:"-"`
+	ProjectId sharedTypes.UUID    `form:"-"`
 	Token     projectInvite.Token `form:"-"`
 	templates.SharedProjectData
 }

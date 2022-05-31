@@ -17,10 +17,10 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type WsBootstrap struct {
-	ProjectId edgedb.UUID `json:"projectId"`
-	User      User        `json:"user"`
+	ProjectId sharedTypes.UUID `json:"projectId"`
+	User      User             `json:"user"`
 }

@@ -23,11 +23,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/cmd/internal/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func main() {
@@ -36,14 +35,14 @@ func main() {
 	deleteN := flag.Int("delete-n", 0, "enter number to delete")
 	flag.Parse()
 
-	userId, err := edgedb.ParseUUID(*rawUserId)
+	userId, err := sharedTypes.ParseUUID(*rawUserId)
 	if err != nil {
 		flag.PrintDefaults()
 		panic(errors.Tag(err, "cannot parse user id"))
 	}
 
-	c := utils.MustConnectEdgedb(*timeout)
-	um := user.New(c)
+	db := utils.MustConnectPostgres(*timeout)
+	um := user.New(db)
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
 

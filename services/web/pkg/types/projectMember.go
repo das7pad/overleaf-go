@@ -17,8 +17,6 @@
 package types
 
 import (
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -26,11 +24,11 @@ import (
 
 type LeaveProjectRequest struct {
 	Session   *session.Session `json:"-"`
-	ProjectId edgedb.UUID      `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type ListProjectMembersRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type ListProjectMembersResponse struct {
@@ -38,19 +36,19 @@ type ListProjectMembersResponse struct {
 }
 
 type RemoveProjectMemberRequest struct {
-	ProjectId edgedb.UUID `json:"-"`
-	Epoch     int64       `json:"-"`
-	UserId    edgedb.UUID `json:"-"`
+	ProjectId sharedTypes.UUID `json:"-"`
+	Epoch     int64            `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
 }
 
 type SetMemberPrivilegeLevelInProjectRequest struct {
-	ProjectId      edgedb.UUID                `json:"-"`
-	UserId         edgedb.UUID                `json:"-"`
+	ProjectId      sharedTypes.UUID           `json:"-"`
+	UserId         sharedTypes.UUID           `json:"-"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 }
 
 type TransferProjectOwnershipRequest struct {
-	ProjectId       edgedb.UUID `json:"-"`
-	PreviousOwnerId edgedb.UUID `json:"-"`
-	NewOwnerId      edgedb.UUID `json:"user_id"`
+	ProjectId       sharedTypes.UUID `json:"-"`
+	PreviousOwnerId sharedTypes.UUID `json:"-"`
+	NewOwnerId      sharedTypes.UUID `json:"user_id"`
 }

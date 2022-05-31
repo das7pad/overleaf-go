@@ -19,19 +19,17 @@ package sharedTypes
 import (
 	"encoding/json"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type EditorEventsMessage struct {
 	HealthCheck bool            `json:"health_check,omitempty"`
-	RoomId      edgedb.UUID     `json:"room_id"`
+	RoomId      UUID            `json:"room_id"`
 	Message     string          `json:"message"`
 	Payload     json.RawMessage `json:"payload"`
 }
 
-func (m *EditorEventsMessage) ChannelId() edgedb.UUID {
+func (m *EditorEventsMessage) ChannelId() UUID {
 	return m.RoomId
 }
 

@@ -17,7 +17,7 @@
 package user
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ProjectListViewCaller struct {
@@ -37,7 +37,7 @@ func (u *WithPublicInfo) SetMissing(_ bool) {
 }
 
 func (u *WithPublicInfo) Missing() bool {
-	return u.Id == (edgedb.UUID{})
+	return u.Id == (sharedTypes.UUID{})
 }
 
 type WithPublicInfoAndFeatures struct {

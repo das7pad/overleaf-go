@@ -18,9 +18,6 @@ package compile
 
 import (
 	"context"
-	"time"
-
-	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -38,7 +35,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 	}
 
 	var rootDocPath sharedTypes.PathName
-	if p.RootDoc.Id != (edgedb.UUID{}) {
+	if p.RootDoc.Id != (sharedTypes.UUID{}) {
 		rootDocPath = p.RootDoc.ResolvedPath
 		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
 	}
@@ -49,8 +46,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 			ProjectId:    r.ProjectId,
 			UserId:       r.UserId,
 			Timeout: sharedTypes.ComputeTimeout(
-				time.Duration(
-					p.Owner.Features.CompileTimeout) * time.Microsecond),
+				p.Owner.Features.CompileTimeout),
 		},
 		AutoCompile:                false,
 		CheckMode:                  clsiTypes.SilentCheck,
