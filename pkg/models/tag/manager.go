@@ -20,9 +20,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -39,103 +36,77 @@ func New(db *sql.DB) Manager {
 }
 
 type manager struct {
-	c  *edgedb.Client
 	db *sql.DB
 }
 
-func rewriteEdgedbError(err error) error {
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
+func getErr(_ sql.Result, err error) error {
 	return err
 }
 
 func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
-	err := m.c.QuerySingle(
-		ctx,
-		`
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$2 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_ro)
-update Tag
-filter .id = <uuid>$0 and .user = u
-set { projects += pWithAuth }`,
-		&IdField{},
-		tagId, userId, projectId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+WITH project AS (SELECT projects.id
+                 FROM projects
+                          LEFT JOIN project_members pm
+                                    on projects.id = pm.project_id
+                 WHERE projects.id = $3
+                   AND projects.deleted_at IS NULL
+                   AND (projects.owner_id = $2 OR pm.user_id = $2)
+                 LIMIT 1),
+     tag AS (SELECT id FROM tags WHERE id = $1 AND user_id = $2)
+INSERT
+INTO tag_entries (project_id, tag_id)
+SELECT project.id, tag.id
+FROM project,
+     tag
+ON CONFLICT DO NOTHING
+`, tagId.String(), userId.String(), projectId.String()))
 }
 
 func (m *manager) Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error {
-	err := m.c.QuerySingle(
-		ctx,
-		`
-with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-delete Tag
-filter .id = <uuid>$0 and .user = u`,
-		&IdField{},
-		tagId, userId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+DELETE
+FROM tags
+WHERE id = $1
+  AND user_id = $2
+`, tagId.String(), userId.String()))
 }
 
 func (m *manager) EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error) {
-	t := &Full{}
-	err := m.c.QuerySingle(
-		ctx,
-		`
-with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-insert Tag { name := <str>$1, user := u }
-unless conflict on (.name, .user)
-else (select Tag { id, projects } filter .name = <str>$1 and .user = u)`,
-		t,
-		userId, name,
-	)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
+	r := m.db.QueryRowContext(ctx, `
+INSERT INTO tags (id, name, user_id)
+VALUES (gen_random_uuid(), $2, $1)
+-- Perform a no-op update to get the id back.
+-- Use the user_id, which is static, whereas the name is not.
+ON CONFLICT DO UPDATE SET user_id = user_id
+RETURNING id
+`, userId.String(), name)
+	if err := r.Err(); err != nil {
+		return nil, err
 	}
-	t.Name = name
-	t.ProjectIds = make([]sharedTypes.UUID, len(t.Projects))
+	t := &Full{}
+	if err := r.Scan(&t.Id); err != nil {
+		return nil, err
+	}
+	t.ProjectIds = make([]sharedTypes.UUID, 0)
 	return t, nil
 }
 
 func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
-	err := m.c.QuerySingle(
-		ctx,
-		`
-with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-update Tag
-filter .id = <uuid>$0 and .user = u
-set { projects -= (select Project filter .id = <uuid>$2) }`,
-		&IdField{},
-		tagId, userId, projectId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+WITH tag AS (SELECT id FROM tags WHERE id = $1 AND user_id = $2)
+DELETE
+FROM tag_entries
+WHERE tag_id = tag.id
+  AND project_id = $3
+`, tagId.String(), userId.String(), projectId.String()))
 }
 
 func (m *manager) Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error {
-	err := m.c.QuerySingle(
-		ctx,
-		`
-with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-update Tag
-filter .id = <uuid>$0 and .user = u
-set { name := <str>$2 }`,
-		&IdField{},
-		tagId, userId, newName,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE tags
+SET name = $3
+WHERE id = $1
+  AND user_id = $2
+`, tagId.String(), userId.String(), newName))
 }

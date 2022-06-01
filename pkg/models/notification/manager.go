@@ -20,8 +20,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -36,35 +34,43 @@ func New(db *sql.DB) Manager {
 	return &manager{db: db}
 }
 
-func rewriteEdgedbError(err error) error {
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
+func getErr(_ sql.Result, err error) error {
 	return err
 }
 
 type manager struct {
-	c  *edgedb.Client
 	db *sql.DB
 }
 
 func (m *manager) GetAllForUser(ctx context.Context, userId sharedTypes.UUID, notifications *[]Notification) error {
-	err := m.c.Query(
-		ctx,
-		`
-select Notification {
-	key,
-	expires_at,
-	template_key,
-	message_options,
-}
-filter .user.id = <uuid>$0 and .template_key != ''`,
-		notifications,
-		userId,
-	)
+	r, err := m.db.QueryContext(ctx, `
+SELECT key, expires_at, template_key, message_options
+FROM notifications
+WHERE user_id = $1
+  AND template_key != ''
+`, userId.String())
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return err
 	}
+	defer func() { _ = r.Close() }()
+
+	acc := make([]Notification, 0)
+	for i := 0; r.Next(); i++ {
+		acc = append(acc, Notification{})
+		err = r.Scan(
+			&acc[i].Key,
+			&acc[i].Expires,
+			&acc[i].TemplateKey,
+			&acc[i].MessageOptions,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	if err = r.Err(); err != nil {
+		return err
+	}
+	*notifications = acc
 	return nil
 }
 
@@ -74,39 +80,22 @@ func (m *manager) Resend(ctx context.Context, n Notification) error {
 			Msg: "cannot add notification: missing key",
 		}
 	}
-	err := m.c.QuerySingle(
-		ctx,
-		`
-update Notification
-filter .key = <str>$1 and .user.id = <uuid>$0
-set {
-	expires_at := <datetime>$2,
-	template_key := <str>$3,
-	message_options := <json>$4,
-}
-)`,
-		&IdField{},
-		n.UserId, n.Key, n.Expires, n.TemplateKey, []byte(n.MessageOptions),
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE notifications
+SET expires_at      = $3,
+    template_key    = $4,
+    message_options = $5
+WHERE id = $1
+  and user_id = $2
+`, n.Key, n.UserId.String(), n.Expires, n.Key, n.MessageOptions))
 }
 
 func (m *manager) RemoveById(ctx context.Context, userId sharedTypes.UUID, notificationId sharedTypes.UUID) error {
-	err := m.c.QuerySingle(
-		ctx,
-		`
-update Notification
-filter .id = <uuid>$0 and .user.id = <uuid>$1
-set { template_key := {}, message_options := {} }
-`,
-		&IdField{},
-		notificationId, userId,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE notifications
+SET template_key    = '',
+    message_options = '{}'
+WHERE id = $1
+  and user_id = $2
+`, notificationId.String(), userId.String()))
 }

@@ -26,6 +26,6 @@ import (
 type Message struct {
 	Id        sharedTypes.UUID                    `json:"id" edgedb:"id"`
 	Content   string                              `json:"content" edgedb:"content"`
-	Timestamp time.Time                           `json:"timestamp" edgedb:"created_at"`
+	CreatedAt time.Time                           `json:"timestamp" edgedb:"created_at"`
 	User      user.WithPublicInfoAndNonStandardId `json:"user,omitempty" edgedb:"user"`
 }

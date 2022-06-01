@@ -167,8 +167,8 @@ AS
 $$
 SELECT TRUE
 FROM tree_nodes
-WHERE id = $1
-  AND kind = $2
+WHERE id = node
+  AND kind = k
 LIMIT 1
 $$;
 
@@ -182,9 +182,9 @@ AS
 $$
 SELECT TRUE
 FROM tree_nodes
-WHERE id = $2
-  AND project_id = $1
-  AND kind = $3
+WHERE id = node
+  AND project_id = project
+  AND kind = k
 LIMIT 1
 $$;
 
@@ -198,8 +198,8 @@ AS
 $$
 SELECT TRUE
 FROM tree_nodes
-WHERE id = $2
-  AND project_id = $1
+WHERE id = node
+  AND project_id = project
   AND kind = 'folder'
   AND parent_id IS NULL
 LIMIT 1

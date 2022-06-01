@@ -20,9 +20,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -34,15 +31,11 @@ func New(db *sql.DB) Manager {
 	return &manager{db: db}
 }
 
-func rewriteEdgedbError(err error) error {
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
+func getErr(_ sql.Result, err error) error {
 	return err
 }
 
 type manager struct {
-	c  *edgedb.Client
 	db *sql.DB
 }
 
@@ -51,37 +44,23 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UU
 		return err
 	}
 
-	ids := make([]sharedTypes.UUID, 2)
-	err := m.c.Query(ctx, `
-with
-	d := (select Doc filter .id = <uuid>$0 and .project.id = <uuid>$1),
-	p := (
-		update d.project
-		filter .last_updated_at < <datetime>$2
-		set {
-			last_updated_at := <datetime>$2,
-			last_updated_by := (select User filter .id = <uuid>$3),
-		}
-	),
-	updatedDoc := (
-		update d
-		set {
-			snapshot := <str>$4,
-			version := <int64>$5,
-		}
-	)
-select {p.id,updatedDoc.id}
+	return getErr(m.db.ExecContext(ctx, `
+BEGIN;
+
+UPDATE docs
+SET snapshot = $2,
+    version  = $3
+WHERE id = $1;
+
+UPDATE projects
+SET last_opened_at  = $5,
+    last_updated_by = $6
+WHERE id = $4
+  AND last_updated_at < $5;
+
+END;
 `,
-		&ids,
-		docId, projectId,
-		update.LastUpdatedAt, update.LastUpdatedBy,
-		string(update.Snapshot), int64(update.Version),
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	if len(ids) == 0 {
-		return &errors.NotFoundError{}
-	}
-	return nil
+		docId.String(), string(update.Snapshot), int64(update.Version),
+		projectId.String(), update.LastUpdatedAt, update.LastUpdatedBy,
+	))
 }

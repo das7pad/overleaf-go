@@ -21,8 +21,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -47,18 +45,7 @@ func New(db *sql.DB) Manager {
 	return &manager{db: db}
 }
 
-func rewriteEdgedbError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
 type manager struct {
-	c  *edgedb.Client
 	db *sql.DB
 }
 
@@ -75,19 +62,48 @@ func (m *manager) GetGlobalMessages(
 	} else {
 		t = before.ToTime()
 	}
-	return rewriteEdgedbError(m.c.Query(ctx, `
-select (select Project filter .id = <uuid>$0).chat.messages {
-	id,
-	content,
-	created_at,
-	user: {
-		email: { email }, id, first_name, last_name
-	} filter not exists .deleted_at,
-}
-filter .created_at < <datetime>$1
-order by .created_at desc
-limit <int64>$2
-`, messages, projectId, t, limit))
+	r, err := m.db.QueryContext(ctx, `
+SELECT cm.id,
+       cm.content,
+       cm.created_at,
+       users.id,
+       email,
+       first_name,
+       last_name
+FROM users
+         INNER JOIN chat_messages cm on users.id = cm.user_id
+WHERE cm.project_id = $1
+  AND cm.created_at < $2
+ORDER BY cm.created_at DESC
+LIMIT $3
+`, projectId.String(), t, limit)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.Close() }()
+
+	acc := make([]Message, 0)
+	for i := 0; r.Next(); i++ {
+		acc = append(acc, Message{})
+		err = r.Scan(
+			&acc[i].Id,
+			&acc[i].Content,
+			&acc[i].CreatedAt,
+			&acc[i].User.Id,
+			&acc[i].User.Email,
+			&acc[i].User.FirstName,
+			&acc[i].User.LastName,
+		)
+		if err != nil {
+			return err
+		}
+		acc[i].User.IdNoUnderscore = acc[i].User.Id
+	}
+	if err = r.Err(); err != nil {
+		return err
+	}
+	*messages = acc
+	return nil
 }
 
 func (m *manager) SendGlobalMessage(
@@ -98,18 +114,30 @@ func (m *manager) SendGlobalMessage(
 	if err := checkContent(msg.Content); err != nil {
 		return err
 	}
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-select (insert Message {
-	room := (select Project filter .id = <uuid>$0).chat,
-	user := (select User filter .id = <uuid>$1),
-	content := <str>$2,
-}) {
-	id,
-	content,
-	created_at,
-	user: { email: { email }, id, first_name, last_name },
-}
-`, msg, projectId, msg.User.Id, msg.Content))
+	r := m.db.QueryRowContext(ctx, `
+WITH msg AS (
+    INSERT INTO chat_messages (id, project_id, content, created_at, user_id)
+        VALUES (gen_random_uuid(), $1, $2, now(), $3)
+        RETURNING id, user_id)
+SELECT msg.id, users.id, email, first_name, last_name
+FROM users, msg
+WHERE users.id = msg.user_id
+`, projectId, msg.Content, msg.User.Id.String())
+	if err := r.Err(); err != nil {
+		return err
+	}
+	err := r.Scan(
+		&msg.Id,
+		&msg.User.Id,
+		&msg.User.Email,
+		&msg.User.FirstName,
+		&msg.User.LastName,
+	)
+	if err != nil {
+		return err
+	}
+	msg.User.IdNoUnderscore = msg.User.Id
+	return nil
 }
 
 var (
