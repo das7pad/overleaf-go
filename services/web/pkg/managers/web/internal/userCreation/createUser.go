@@ -20,31 +20,42 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) createUser(ctx context.Context, emailAddress sharedTypes.Email, pw types.UserPassword, ip string) (*user.ForCreation, error) {
-	if err := m.um.CheckEmailAlreadyRegistered(ctx, emailAddress); err != nil {
+func (m *manager) createUser(ctx context.Context, u *user.ForCreation, pw types.UserPassword) error {
+	if err := m.um.CheckEmailAlreadyRegistered(ctx, u.Email); err != nil {
 		if err == user.ErrEmailAlreadyRegistered {
 			// PERF: skip expensive bcrypt hashing.
-			return nil, err
+			return err
 		}
 		// go the long way and potentially fail again on insert.
 	}
 
 	hashedPw, err := login.HashPassword(pw, m.options.BcryptCost)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	u := user.NewUser(emailAddress, hashedPw)
-	if ip != "" {
-		u.LastLoginIp = ip
+	u.HashedPassword = hashedPw
+
+	allErrors := &errors.MergedError{}
+	for i := 0; i < 10; i++ {
+		u.OneTimeToken, err = oneTimeToken.GenerateNewToken()
+		if err != nil {
+			allErrors.Add(err)
+			continue
+		}
+		if err = m.um.CreateUser(ctx, u); err != nil {
+			if err == oneTimeToken.ErrDuplicateOneTimeToken {
+				allErrors.Add(err)
+				continue
+			}
+			return errors.Tag(err, "cannot create user")
+		}
+		return nil
 	}
-	if err = m.um.CreateUser(ctx, u); err != nil {
-		return nil, errors.Tag(err, "cannot create user")
-	}
-	return u, nil
+	return allErrors.Finalize()
 }

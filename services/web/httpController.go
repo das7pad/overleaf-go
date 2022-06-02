@@ -1742,6 +1742,7 @@ func (h *httpController) adminCreateUser(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
+	request.IPAddress = c.ClientIP()
 	request.Session = s
 	resp := &types.AdminCreateUserResponse{}
 	err = h.wm.AdminCreateUser(c.Request.Context(), request, resp)

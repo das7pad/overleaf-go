@@ -26,6 +26,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -51,6 +52,7 @@ type Manager interface {
 	DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error
 	LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
 	UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
+	ResolveAndExpirePasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error
 }
 
 func New(db *sql.DB) Manager {
@@ -64,6 +66,13 @@ var (
 )
 
 func getErr(_ sql.Result, err error) error {
+	return err
+}
+
+func rewritePostgresErr(err error) error {
+	if err == sql.ErrNoRows {
+		return &errors.NotFoundError{}
+	}
 	return err
 }
 
@@ -83,70 +92,56 @@ type manager struct {
 }
 
 func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
-	ids := make([]IdField, 3)
-	err := m.c.Query(ctx, `
-with
-	e := (insert Email {
-		email := <str>$6,
-	}),
-	u := (insert User {
-		editor_config := (insert EditorConfig {
-			auto_complete := true,
-			auto_pair_delimiters := true,
-			font_family := 'lucida',
-			font_size := 12,
-			line_height := 'normal',
-			mode := 'default',
-			overall_theme := '',
-			pdf_viewer := 'pdfjs',
-			syntax_validation := false,
-			spell_check_language := 'en',
-			theme := 'textmate',
-		}),
-		email := e,
-		emails := { e },
-		features := (insert Features {
-			compile_group := <str>$4,
-			compile_timeout := <duration>$5,
-		}),
-		first_name := <str>$0,
-		last_name := <str>$1,
-		password_hash := <str>$2,
-		last_logged_in := (
-			<datetime>{} if <str>$3 = "" else {datetime_of_transaction()}
-		),
-		last_login_ip := <str>$3,
-		login_count := ({0} if <str>$3 = "" else {1}),
-	}),
-	auditLog := (
-		for entry in ({1} if <str>$3 != "" else <int64>{}) union (
-			insert UserAuditLogEntry {
-				user := u,
-				initiator := u,
-				operation := <str>$7,
-				ip_address := <str>$3,
-			}
-		)
-	)
-select {u,auditLog}
+	// TODO: POST /api/register: cannot create user: pq: cannot insert multiple commands into a prepared statement
+	_, err := m.db.ExecContext(ctx, `
+BEGIN;
+
+INSERT INTO users
+(beta_program, editor_config, email, email_created_at, epoch, features,
+ first_name, id, last_login_at, last_login_ip, last_name, learned_words,
+ login_count, must_reconfirm, password_hash, signup_date)
+VALUES (FALSE,
+        ROW (TRUE, TRUE, FALSE, 12, 'lucida', 'normal', 'default', '', 'pdfjs', 'en', 'textmate'),
+        $1, $2, 1, ROW ($3, $4), '', $5, $6, $7, '', ARRAY []::TEXT[], $8,
+        FALSE, $9, $2);
+
+INSERT INTO user_audit_log
+(id, info, initiator_id, ip_address, operation, timestamp, user_id)
+VALUES (gen_random_uuid(), '{}', $10, $11, $12, $2, $5);
+
+INSERT INTO one_time_tokens
+(created_at, email, expires_at, token, use, user_id)
+VALUES ($2, $1, $13, $14, $15, $5);
+
+END;
 `,
-		&ids,
-		u.FirstName,
-		u.LastName,
-		u.HashedPassword,
-		u.LastLoginIp,
+		string(u.Email),
+		u.SignUpDate,
 		u.Features.CompileGroup,
 		u.Features.CompileTimeout,
-		string(u.Email),
-		AuditLogOperationLogin,
+		u.Id.String(),
+		u.LastLoggedIn,
+		u.LastLoginIp,
+		u.LoginCount,
+		u.HashedPassword,
+		u.AuditLog[0].InitiatorId.String(),
+		u.AuditLog[0].IpAddress,
+		u.AuditLog[0].Operation,
+		u.SignUpDate.Add(7*24*time.Hour),
+		u.OneTimeToken,
+		u.OneTimeTokenUse,
 	)
 	if err != nil {
-		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
-			return ErrEmailAlreadyRegistered
+		if e, ok := err.(*pq.Error); ok {
+			switch e.Constraint {
+			case "user_email_key":
+				return ErrEmailAlreadyRegistered
+			case "one_time_tokens_pkey":
+				return oneTimeToken.ErrDuplicateOneTimeToken
+			}
 		}
-		return rewriteEdgedbError(err)
+		return err
 	}
-	u.Id = ids[0].Id
 	return nil
 }
 
@@ -192,27 +187,17 @@ select (
 }
 
 func (m *manager) UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, e EditorConfig) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-update u.editor_config
-set {
-	auto_complete := <bool>$1,
-	auto_pair_delimiters := <bool>$2,
-	font_family := <str>$3,
-	font_size := <int64>$4,
-	line_height := <str>$5,
-	mode := <str>$6,
-	overall_theme := <str>$7,
-	pdf_viewer := <str>$8,
-	syntax_validation := <bool>$9,
-	spell_check_language := <str>$10,
-	theme := <str>$11,
-}
-`,
-		&IdField{},
-		userId,
-		e.AutoComplete, e.AutoPairDelimiters, e.FontFamily, e.FontSize,
-		e.LineHeight, e.Mode, e.OverallTheme, e.PDFViewer, e.SyntaxValidation,
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE users
+SET editor_config = ROW (
+    $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+    )
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String(),
+		e.AutoComplete, e.AutoPairDelimiters, e.SyntaxValidation,
+		e.FontSize,
+		e.FontFamily, e.LineHeight, e.Mode, e.OverallTheme, e.PDFViewer,
 		e.SpellCheckLanguage, e.Theme,
 	))
 }
@@ -231,26 +216,24 @@ WHERE id = $1
 
 INSERT INTO user_audit_log
 (id, initiator_id, ip_address, operation, timestamp, user_id)
-VALUES (gen_random_uuid(), $1, $2, 'soft-deletion', transaction_timestamp(),
+VALUES (gen_random_uuid(), $1, $2, $3, transaction_timestamp(),
         $1);
 
 END;
-`, userId.String(), ip))
+`, userId.String(), ip, AuditLogOperationSoftDeletion))
 }
 
 func (m *manager) HardDelete(ctx context.Context, userId sharedTypes.UUID) error {
-	r := m.db.QueryRowContext(ctx, `
+	r, err := m.db.ExecContext(ctx, `
 DELETE
 FROM users
 WHERE id = $1
   AND deleted_at IS NOT NULL
-RETURNING 1
 `, userId.String())
-	found, err := readInt(r)
 	if err != nil {
 		return err
 	}
-	if found == 0 {
+	if n, _ := r.RowsAffected(); n == 0 {
 		return &errors.UnprocessableEntityError{
 			Msg: "user missing or not deleted",
 		}
@@ -304,11 +287,11 @@ WHERE id = $1
 
 INSERT INTO user_audit_log
 (id, info, initiator_id, ip_address, operation, timestamp, user_id)
-VALUES (gen_random_uuid(), $2, $1, $3, 'clear-sessions',
+VALUES (gen_random_uuid(), $2, $1, $3, $4,
         transaction_timestamp(), $1);
 
 END;
-`, userId.String(), blob, ip))
+`, userId.String(), blob, ip, AuditLogOperationClearSessions))
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
@@ -415,117 +398,111 @@ END;
 }
 
 func (m *manager) GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error {
-	var q string
-	switch dst := target.(type) {
+	switch u := target.(type) {
 	case *BetaProgramField:
-		q = `
-select User { beta_program }
-filter .id = <uuid>$0 and not exists .deleted_at`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT beta_program
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(&u.BetaProgram))
 	case *HashedPasswordField:
-		q = `
-select User { password_hash }
-filter .id = <uuid>$0 and not exists .deleted_at`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT password_hash
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(&u.HashedPassword))
 	case *LearnedWordsField:
-		r := m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT learned_words
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String())
-		if err := r.Err(); err != nil {
-			return err
-		}
-		if err := r.Scan(pq.Array(&dst.LearnedWords)); err != nil {
-			return err
-		}
-		return nil
-	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
-		q = `
-select User { email: { email }, id, first_name, last_name }
-filter .id = <uuid>$0 and not exists .deleted_at`
+`, userId.String()).Scan(pq.Array(&u.LearnedWords)))
+	case *WithPublicInfo:
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT id, email, first_name, last_name
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(&u.Id, &u.Email, &u.FirstName, &u.LastName))
 	case *ForActivateUserPage:
-		q = `
-select User { email: { email }, login_count }
-filter .id = <uuid>$0 and not exists .deleted_at`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT email, login_count
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(&u.Email, &u.LoginCount))
 	case *ForEmailChange:
-		q = `
-select User { email: { email }, epoch, id }
-filter .id = <uuid>$0 and not exists .deleted_at`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT email, epoch, id
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(&u.Email, &u.Epoch, &u.Id))
 	case *ForPasswordChange:
-		q = `
-select User {
-	email: { email }, epoch, id, first_name, last_name, password_hash
-}
-filter .id = <uuid>$0 and not exists .deleted_at`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT id, email, first_name, last_name, epoch, password_hash
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(
+			&u.Id, &u.Email, &u.FirstName, &u.LastName,
+			&u.Epoch, &u.HashedPassword,
+		))
 	case *ForSettingsPage:
-		q = `
-select User { beta_program, email: { email }, id, first_name, last_name }
-filter .id = <uuid>$0 and not exists .deleted_at`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT id, email, first_name, last_name, beta_program
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(
+			&u.Id, &u.Email, &u.FirstName, &u.LastName, &u.BetaProgram,
+		))
 	default:
 		return errors.New("missing query for target")
 	}
-	if err := m.c.QuerySingle(ctx, q, target, userId); err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func readInt(r *sql.Row) (int, error) {
-	if err := r.Err(); err != nil {
-		return 0, err
-	}
-	found := 0
-	if err := r.Scan(&found); err != nil {
-		return 0, err
-	}
-	return found, nil
 }
 
 func (m *manager) CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error {
-	r := m.db.QueryRowContext(ctx, `
-SELECT count(*)
+	x := false
+	err := m.db.QueryRowContext(ctx, `
+SELECT TRUE
 FROM users
 WHERE email = $1
-LIMIT 1
-`, email)
-	found, err := readInt(r)
+`, email).Scan(&x)
+	if err == sql.ErrNoRows {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	if found != 0 {
-		return ErrEmailAlreadyRegistered
-	}
-	return nil
+	return ErrEmailAlreadyRegistered
 }
 
 func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error {
-	var q string
-	switch target.(type) {
+	switch u := target.(type) {
 	case *WithLoginInfo:
-		q = `
-select User {
-	email: { email },
-	epoch,
-	first_name,
-	id,
-	last_name,
-	must_reconfirm,
-	password_hash,
-}
-filter .email.email = <str>$0 and not exists .deleted_at
-limit 1`
-	case *WithPublicInfoAndNonStandardId, *WithPublicInfo:
-		q = `
-select User { email: { email }, id, first_name, last_name }
-filter .email.email = <str>$0 and not exists .deleted_at
-limit 1`
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT id, email, first_name, last_name, epoch, must_reconfirm, password_hash
+FROM users
+WHERE email = $1
+  AND deleted_at IS NULL
+`, email).Scan(
+			&u.Id, &u.Email, &u.FirstName, &u.LastName,
+			&u.Epoch, &u.MustReconfirm, &u.HashedPassword,
+		))
+	case *WithPublicInfo:
+		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT id, email, first_name, last_name
+FROM users
+WHERE email = $1
+  AND deleted_at IS NULL
+`, email).Scan(&u.Id, &u.Email, &u.FirstName, &u.LastName))
 	default:
 		return errors.New("missing query for target")
 	}
-	if err := m.c.QuerySingle(ctx, q, target, email); err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
 }
 
 func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, u interface{}) error {
@@ -628,7 +605,7 @@ ON CONFLICT DO UPDATE
 `, a.String(), b.String()))
 }
 
-func (m manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {
+func (m *manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE users
 SET learned_words = NULL
@@ -636,7 +613,7 @@ WHERE id = $1
 `, userId.String()))
 }
 
-func (m manager) LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
+func (m *manager) LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE users
 SET learned_words = array_append(learned_words, $2)
@@ -645,10 +622,40 @@ WHERE id = $1
 `, userId.String(), word))
 }
 
-func (m manager) UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
+func (m *manager) UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE users
 SET learned_words = array_remove(learned_words, $2)
 WHERE id = $1
 `, userId.String(), word))
+}
+
+func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error {
+	err := m.c.QuerySingle(ctx, `
+with
+	t := (
+		update OneTimeToken
+		filter
+				.use = <str>$0
+			and .token = <str>$1
+			and not exists .used_at
+			and .expires_at > datetime_of_transaction()
+			and not exists .email.user.deleted_at
+		set {
+			used_at := datetime_of_transaction()
+		}
+	)
+select t.email.user {
+	email: { email },
+	epoch,
+	first_name,
+	id,
+	last_name,
+	password_hash,
+}
+`, u, oneTimeToken.PasswordResetUse, token)
+	if err != nil {
+		return rewriteEdgedbError(err)
+	}
+	return nil
 }

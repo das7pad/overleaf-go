@@ -21,8 +21,6 @@ import (
 	"log"
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -41,22 +39,23 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 		return err
 	}
 
-	var u *user.ForCreation
-	var t oneTimeToken.OneTimeToken
-	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
-		var err error
-		u, err = m.createUser(ctx, r.Email, r.Password, r.IPAddress)
-		if err != nil {
-			return err
-		}
-		// TODO: merge into createUser
-		t, err = m.oTTm.NewForEmailConfirmation(ctx, u.Id, r.Email)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	u, err := user.NewUser(r.Email)
 	if err != nil {
+		return err
+	}
+	u.AuditLog = []user.AuditLogEntry{
+		{
+			InitiatorId: u.Id,
+			IpAddress:   r.IPAddress,
+			Operation:   user.AuditLogOperationLogin,
+			Timestamp:   u.SignUpDate,
+		},
+	}
+	u.LastLoggedIn = &u.SignUpDate
+	u.LastLoginIp = r.IPAddress
+	u.LoginCount = 1
+	u.OneTimeTokenUse = oneTimeToken.EmailConfirmationUse
+	if err = m.createUser(ctx, u, r.Password); err != nil {
 		if errors.GetCause(err) == user.ErrEmailAlreadyRegistered {
 			response.SetCustomFormMessage("already-exists", err)
 			return user.ErrEmailAlreadyRegistered
@@ -68,7 +67,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 		errEmail := m.sendWelcomeEmail(r.Email, m.options.SiteURL.
 			WithPath("/user/emails/confirm").
 			WithQuery(url.Values{
-				"token": {string(t)},
+				"token": {string(u.OneTimeToken)},
 			}),
 		)
 		if errEmail != nil {

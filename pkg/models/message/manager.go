@@ -114,7 +114,7 @@ func (m *manager) SendGlobalMessage(
 	if err := checkContent(msg.Content); err != nil {
 		return err
 	}
-	r := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRowContext(ctx, `
 WITH msg AS (
     INSERT INTO chat_messages (id, project_id, content, created_at, user_id)
         VALUES (gen_random_uuid(), $1, $2, now(), $3)
@@ -122,22 +122,15 @@ WITH msg AS (
 SELECT msg.id, users.id, email, first_name, last_name
 FROM users, msg
 WHERE users.id = msg.user_id
-`, projectId, msg.Content, msg.User.Id.String())
-	if err := r.Err(); err != nil {
-		return err
-	}
-	err := r.Scan(
+`, projectId, msg.Content, msg.User.Id.String()).Scan(
 		&msg.Id,
 		&msg.User.Id,
 		&msg.User.Email,
 		&msg.User.FirstName,
 		&msg.User.LastName,
 	)
-	if err != nil {
-		return err
-	}
 	msg.User.IdNoUnderscore = msg.User.Id
-	return nil
+	return err
 }
 
 var (

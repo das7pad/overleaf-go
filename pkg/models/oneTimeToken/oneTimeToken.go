@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,6 +23,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+var ErrDuplicateOneTimeToken = errors.New("duplicate one time token")
+
 const lenBytesOneTimeToken = 32
 
 var lenHexOneTimeToken = hex.EncodedLen(lenBytesOneTimeToken)
@@ -36,7 +38,7 @@ func (t OneTimeToken) Validate() error {
 	return nil
 }
 
-func generateNewToken() (OneTimeToken, error) {
+func GenerateNewToken() (OneTimeToken, error) {
 	b := make([]byte, lenBytesOneTimeToken)
 	if _, err := rand.Read(b); err != nil {
 		return "", errors.Tag(err, "cannot generate new token")

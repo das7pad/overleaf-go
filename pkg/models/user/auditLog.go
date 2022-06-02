@@ -29,6 +29,7 @@ const (
 	AuditLogOperationResetPassword      = "reset-password"
 	AuditLogOperationUpdatePassword     = "update-password"
 	AuditLogOperationSoftDeletion       = "soft-deletion"
+	AuditLogOperationCreateAccount      = "create-account"
 )
 
 type AuditLogEntry struct {

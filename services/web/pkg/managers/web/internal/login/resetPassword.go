@@ -45,7 +45,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 	//        actual password change.
 	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
 		{
-			err := m.oTTm.ResolveAndExpirePasswordResetToken(ctx, r.Token, u)
+			err := m.um.ResolveAndExpirePasswordResetToken(ctx, r.Token, u)
 			if err != nil {
 				if errors.IsNotFoundError(err) {
 					res.SetCustomFormMessage("token-expired", err)

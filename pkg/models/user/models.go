@@ -17,6 +17,7 @@
 package user
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -77,6 +78,9 @@ type ForCreation struct {
 	LastLoginIpField    `edgedb:"$inline"`
 	LoginCountField     `edgedb:"$inline"`
 	SignUpDateField     `edgedb:"$inline"`
+
+	oneTimeToken.OneTimeToken
+	OneTimeTokenUse string
 }
 
 type ForEmailChange struct {

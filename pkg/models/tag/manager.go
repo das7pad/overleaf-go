@@ -73,19 +73,16 @@ WHERE id = $1
 }
 
 func (m *manager) EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error) {
-	r := m.db.QueryRowContext(ctx, `
+	t := &Full{}
+	err := m.db.QueryRowContext(ctx, `
 INSERT INTO tags (id, name, user_id)
 VALUES (gen_random_uuid(), $2, $1)
 -- Perform a no-op update to get the id back.
 -- Use the user_id, which is static, whereas the name is not.
 ON CONFLICT DO UPDATE SET user_id = user_id
 RETURNING id
-`, userId.String(), name)
-	if err := r.Err(); err != nil {
-		return nil, err
-	}
-	t := &Full{}
-	if err := r.Scan(&t.Id); err != nil {
+`, userId.String(), name).Scan(&t.Id)
+	if err != nil {
 		return nil, err
 	}
 	t.ProjectIds = make([]sharedTypes.UUID, 0)

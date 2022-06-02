@@ -22,10 +22,17 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
+func NewUser(email sharedTypes.Email) (*ForCreation, error) {
+	id, err := sharedTypes.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
 	return &ForCreation{
 		ForSession: ForSession{
 			WithPublicInfo: WithPublicInfo{
+				IdField: IdField{
+					Id: id,
+				},
 				EmailField: EmailField{
 					Email: email,
 				},
@@ -43,8 +50,8 @@ func NewUser(email sharedTypes.Email, hashedPW string) *ForCreation {
 				CompileGroup:   sharedTypes.StandardCompileGroup,
 			},
 		},
-		HashedPasswordField: HashedPasswordField{
-			HashedPassword: hashedPW,
+		SignUpDateField: SignUpDateField{
+			SignUpDate: time.Now(),
 		},
-	}
+	}, nil
 }

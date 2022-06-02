@@ -22,8 +22,6 @@ import (
 	"encoding/hex"
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -53,19 +51,20 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 		return errPW
 	}
 
-	var u *user.ForCreation
-	var t oneTimeToken.OneTimeToken
-	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
-		var err error
-		if u, err = m.createUser(ctx, r.Email, pw, ""); err != nil {
-			return err
-		}
-		if t, err = m.oTTm.NewForPasswordSet(ctx, u.Id, r.Email); err != nil {
-			return err
-		}
-		return nil
-	})
+	u, err := user.NewUser(r.Email)
 	if err != nil {
+		return err
+	}
+	u.AuditLog = []user.AuditLogEntry{
+		{
+			InitiatorId: r.Session.User.Id,
+			IpAddress:   r.IPAddress,
+			Operation:   user.AuditLogOperationCreateAccount,
+			Timestamp:   u.SignUpDate,
+		},
+	}
+	u.OneTimeTokenUse = oneTimeToken.PasswordResetUse
+	if err = m.createUser(ctx, u, pw); err != nil {
 		if errors.GetCause(err) == user.ErrEmailAlreadyRegistered {
 			return user.ErrEmailAlreadyRegistered
 		}
@@ -75,12 +74,12 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 	setPasswordURL := m.options.SiteURL.
 		WithPath("/user/activate").
 		WithQuery(url.Values{
-			"token":   {string(t)},
+			"token":   {string(u.OneTimeToken)},
 			"user_id": {u.Id.String()},
 		})
 
 	response.SetNewPasswordURL = setPasswordURL
-	if err = m.sendActivateEmail(ctx, r.Email, setPasswordURL); err != nil {
+	if err := m.sendActivateEmail(ctx, r.Email, setPasswordURL); err != nil {
 		return err
 	}
 	return nil

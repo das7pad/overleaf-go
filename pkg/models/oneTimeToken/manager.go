@@ -24,7 +24,6 @@ import (
 	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -33,7 +32,6 @@ type Manager interface {
 	NewForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	NewForPasswordSet(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error
-	ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken, change *user.ForPasswordChange) error
 }
 
 func New(db *sql.DB) Manager {
@@ -48,8 +46,8 @@ func rewriteEdgedbError(err error) error {
 }
 
 const (
-	emailConfirmationUse = "email_confirmation"
-	passwordResetUse     = "password"
+	EmailConfirmationUse = "email_confirmation"
+	PasswordResetUse     = "password"
 )
 
 type manager struct {
@@ -58,7 +56,7 @@ type manager struct {
 }
 
 func (m *manager) NewForEmailConfirmation(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
-	return m.newToken(ctx, userId, email, emailConfirmationUse, time.Hour)
+	return m.newToken(ctx, userId, email, EmailConfirmationUse, time.Hour)
 }
 
 func (m *manager) NewForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
@@ -70,13 +68,13 @@ func (m *manager) NewForPasswordSet(ctx context.Context, userId sharedTypes.UUID
 }
 
 func (m *manager) newForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
-	return m.newToken(ctx, userId, email, passwordResetUse, validFor)
+	return m.newToken(ctx, userId, email, PasswordResetUse, validFor)
 }
 
 func (m *manager) newToken(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, use string, expiresIn time.Duration) (OneTimeToken, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
-		token, err := generateNewToken()
+		token, err := GenerateNewToken()
 		if err != nil {
 			allErrors.Add(err)
 			continue
@@ -138,40 +136,7 @@ update t.email
 set { confirmed_at := datetime_of_transaction() }
 `,
 		&IdField{},
-		emailConfirmationUse, token,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token OneTimeToken, u *user.ForPasswordChange) error {
-	err := m.c.QuerySingle(ctx, `
-with
-	t := (
-		update OneTimeToken
-		filter
-				.use = <str>$0
-			and .token = <str>$1
-			and not exists .used_at
-			and .expires_at > datetime_of_transaction()
-			and not exists .email.user.deleted_at
-		set {
-			used_at := datetime_of_transaction()
-		}
-	)
-select t.email.user {
-	email: { email },
-	epoch,
-	first_name,
-	id,
-	last_name,
-	password_hash,
-}
-`,
-		u,
-		passwordResetUse, token,
+		EmailConfirmationUse, token,
 	)
 	if err != nil {
 		return rewriteEdgedbError(err)

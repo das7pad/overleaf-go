@@ -17,6 +17,7 @@
 package sharedTypes
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -59,6 +60,19 @@ func ParseUUID(s string) (UUID, error) {
 			n++
 		}
 	}
+	return u, nil
+}
+
+func GenerateUUID() (UUID, error) {
+	// TODO: How heavy is crypto/rand on binary size for the agent?
+	u := UUID{}
+	if _, err := rand.Read(u[:]); err != nil {
+		return UUID{}, errors.Tag(err, "cannot generate new UUID")
+	}
+
+	// Reset bits and populate version (4) and variant (10).
+	u[6] = (u[6] & 0x0f) | 0x40
+	u[8] = (u[8] & 0x3f) | 0x80
 	return u, nil
 }
 
