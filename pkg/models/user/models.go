@@ -22,8 +22,8 @@ import (
 )
 
 type ProjectListViewCaller struct {
-	WithPublicInfo `edgedb:"$inline"`
-	EmailsField    `edgedb:"$inline"`
+	WithPublicInfo        `edgedb:"$inline"`
+	EmailConfirmedAtField `edgedb:"$inline"`
 }
 
 type WithPublicInfo struct {

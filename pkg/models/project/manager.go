@@ -23,9 +23,11 @@ import (
 	"time"
 
 	"github.com/edgedb/edgedb-go"
+	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -90,6 +92,7 @@ type Manager interface {
 	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
 	CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error)
 	CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
+	ListProjects(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
 }
 
 func New(db *sql.DB) Manager {
@@ -2661,4 +2664,56 @@ select {
 		v, _ := result.Version.Get()
 		return sharedTypes.Version(v), nil
 	}
+}
+
+type ForProjectList struct {
+	User          user.ProjectListViewCaller
+	Tags          tag.Tags
+	Projects      List
+	Collaborators user.BulkFetched
+}
+
+func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error {
+	return m.db.QueryRowContext(ctx, `
+WITH t AS (SELECT id, name, array_agg(project_id)
+           FROM tags t
+                    LEFT JOIN tag_entries te on t.id = te.tag_id
+           WHERE t.user_id = $1
+           GROUP BY t.id),
+     p AS (SELECT archived,
+                  can_write,
+                  epoch,
+                  id,
+                  last_updated_at,
+                  last_updated_by,
+                  name,
+                  owner_id,
+                  public_access_level,
+                  is_token_user,
+                  trashed
+           FROM projects p
+                    INNER JOIN project_members pm on p.id = pm.project_id
+           WHERE pm.user_id = $1),
+     c AS (SELECT u.id, email, first_name, last_name
+           FROM users u
+                    INNER JOIN p ON (
+                       u.id = p.owner_id OR
+                       u.id = p.last_updated_by)
+           WHERE u.deleted_at IS NULL)
+SELECT id,
+       email,
+       email_confirmed_at,
+       first_name,
+       last_name,
+       (SELECT array_agg(t) FROM t),
+       (SELECT array_agg(p) FROM p),
+       (SELECT array_agg(c) FROM c)
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`, userId.String()).Scan(
+		&r.User.Id, &r.User.Email, &r.User.EmailConfirmedAt,
+		&r.User.FirstName, &r.User.LastName,
+		pq.Array(&r.Tags), pq.Array(&r.Projects), pq.Array(&r.Collaborators),
+	)
 }

@@ -52,6 +52,8 @@ type ListViewPrivate struct {
 	TrashedByField          `edgedb:"$inline"`
 }
 
+type List []ListViewPrivate
+
 type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic    `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`

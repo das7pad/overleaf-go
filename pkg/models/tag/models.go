@@ -17,6 +17,8 @@
 package tag
 
 import (
+	"log"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -28,6 +30,12 @@ type Full struct {
 }
 
 type Tags []Full
+
+func (t *Full) Scan(dst interface{}) error {
+	// TODO: trigger parsing of result array
+	log.Println(string(dst.([]byte)))
+	return nil
+}
 
 func (t Full) Finalize() Full {
 	t.ProjectIds = make([]sharedTypes.UUID, len(t.Projects))

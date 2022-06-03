@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -41,41 +39,34 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 	}
 	u := &user.ForPasswordChange{}
 
-	// NOTE: Use a tx for not expiring the token for real until we action the
-	//        actual password change.
-	err := m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
-		{
-			err := m.um.ResolveAndExpirePasswordResetToken(ctx, r.Token, u)
-			if err != nil {
-				if errors.IsNotFoundError(err) {
-					res.SetCustomFormMessage("token-expired", err)
-				}
-				return errors.Tag(err, "cannot get token data")
+	if err := m.um.GetByPasswordResetToken(ctx, r.Token, u); err != nil {
+		if errors.IsNotFoundError(err) {
+			res.SetCustomFormMessage("token-expired", err)
+		}
+		return errors.Tag(err, "cannot get token data")
+	}
+	if err := r.Password.CheckForEmailMatch(u.Email); err != nil {
+		res.SetCustomFormMessage("invalid-password", err)
+		return err
+	}
+	{
+		errSamePW := CheckPassword(&u.HashedPasswordField, r.Password)
+		if errSamePW == nil {
+			return &errors.ValidationError{
+				Msg: "cannot re-use same password",
 			}
 		}
-		if err := r.Password.CheckForEmailMatch(u.Email); err != nil {
-			res.SetCustomFormMessage("invalid-password", err)
-			return err
+		if !errors.IsNotAuthorizedError(errSamePW) {
+			return errSamePW
 		}
-		{
-			errSamePW := CheckPassword(&u.HashedPasswordField, r.Password)
-			if errSamePW == nil {
-				return &errors.ValidationError{
-					Msg: "cannot re-use same password",
-				}
-			}
-			if !errors.IsNotAuthorizedError(errSamePW) {
-				return errSamePW
-			}
-		}
-		return m.changePassword(
-			ctx,
-			u,
-			r.IPAddress,
-			user.AuditLogOperationResetPassword,
-			r.Password,
-		)
-	})
+	}
+	err := m.changePassword(
+		ctx,
+		u,
+		r.IPAddress,
+		user.AuditLogOperationResetPassword,
+		r.Password,
+	)
 	if err != nil {
 		return err
 	}

@@ -17,14 +17,14 @@
 package user
 
 import (
-	"github.com/edgedb/edgedb-go"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type EmailDetails struct {
-	ConfirmedAt edgedb.OptionalDateTime `json:"confirmedAt" edgedb:"confirmed_at"`
-	Email       sharedTypes.Email       `json:"email" edgedb:"email"`
+	ConfirmedAt *time.Time        `json:"confirmedAt" edgedb:"confirmed_at"`
+	Email       sharedTypes.Email `json:"email" edgedb:"email"`
 }
 
 type EmailDetailsWithDefaultFlag struct {
@@ -33,13 +33,13 @@ type EmailDetailsWithDefaultFlag struct {
 }
 
 func (u *ProjectListViewCaller) ToUserEmails() []EmailDetailsWithDefaultFlag {
-	emails := make([]EmailDetailsWithDefaultFlag, len(u.Emails))
-	for i := 0; i < len(u.Emails); i++ {
-		details := u.Emails[i]
-		emails[i] = EmailDetailsWithDefaultFlag{
-			EmailDetails: details,
-			IsDefault:    details.Email == u.Email,
-		}
+	return []EmailDetailsWithDefaultFlag{
+		{
+			EmailDetails: EmailDetails{
+				ConfirmedAt: u.EmailConfirmedAt,
+				Email:       u.Email,
+			},
+			IsDefault: true,
+		},
 	}
-	return emails
 }

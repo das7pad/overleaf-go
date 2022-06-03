@@ -45,20 +45,13 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UU
 	}
 
 	return getErr(m.db.ExecContext(ctx, `
-BEGIN;
-
-UPDATE docs
-SET snapshot = $2,
-    version  = $3
-WHERE id = $1;
+WITH d AS (UPDATE docs SET snapshot = $2, version = $3 WHERE id = $1)
 
 UPDATE projects
 SET last_opened_at  = $5,
     last_updated_by = $6
 WHERE id = $4
   AND last_updated_at < $5;
-
-END;
 `,
 		docId.String(), string(update.Snapshot), int64(update.Version),
 		projectId.String(), update.LastUpdatedAt, update.LastUpdatedBy,

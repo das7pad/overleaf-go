@@ -42,6 +42,10 @@ type EmailField struct {
 	Email sharedTypes.Email `json:"email" edgedb:"email"`
 }
 
+type EmailConfirmedAtField struct {
+	EmailConfirmedAt *time.Time `json:"emailConfirmedAt"`
+}
+
 type EmailsField struct {
 	Emails []EmailDetails `json:"emails" edgedb:"emails"`
 }

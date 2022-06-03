@@ -39,3 +39,8 @@ type AuditLogEntry struct {
 	Operation   string           `edgedb:"operation"`
 	Timestamp   time.Time        `edgedb:"timestamp"`
 }
+
+type changeEmailAddressAuditLogInfo struct {
+	NewPrimaryEmail sharedTypes.Email `json:"newPrimaryEmail"`
+	OldPrimaryEmail sharedTypes.Email `json:"oldPrimaryEmail"`
+}

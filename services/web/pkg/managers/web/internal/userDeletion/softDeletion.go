@@ -25,7 +25,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
@@ -33,12 +32,6 @@ import (
 )
 
 const parallelDeletion = 5
-
-type forProjectListing struct {
-	user.ProjectListViewCaller `edgedb:"$inline"`
-	Tags                       []tag.Full                `edgedb:"tags"`
-	Projects                   []project.ListViewPrivate `edgedb:"projects"`
-}
 
 func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserRequest) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
@@ -60,9 +53,9 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	}
 
 	err := m.c.Tx(ctx, func(sCtx context.Context, _ *edgedb.Tx) error {
-		projects := &forProjectListing{}
+		projects := project.ForProjectList{}
 		{
-			err := m.um.ListProjects(sCtx, userId, projects)
+			err := m.pm.ListProjects(sCtx, userId, &projects)
 			if err != nil {
 				return errors.Tag(err, "cannot get projects")
 			}

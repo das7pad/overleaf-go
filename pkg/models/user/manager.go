@@ -42,7 +42,6 @@ type Manager interface {
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
 	GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error)
 	AddContact(ctx context.Context, userId, contactId sharedTypes.UUID) error
-	ListProjects(ctx context.Context, userId sharedTypes.UUID, u interface{}) error
 	SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error
@@ -52,7 +51,7 @@ type Manager interface {
 	DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error
 	LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
 	UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
-	ResolveAndExpirePasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error
+	GetByPasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error
 }
 
 func New(db *sql.DB) Manager {
@@ -87,38 +86,40 @@ func rewriteEdgedbError(err error) error {
 }
 
 type manager struct {
-	c  *edgedb.Client
 	db *sql.DB
 }
 
 func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
-	// TODO: POST /api/register: cannot create user: pq: cannot insert multiple commands into a prepared statement
 	_, err := m.db.ExecContext(ctx, `
-BEGIN;
+WITH u AS (
+    INSERT INTO users
+        (beta_program, editor_config, email, email_created_at, epoch, features,
+         first_name, id, last_login_at, last_login_ip, last_name,
+         learned_words, login_count, must_reconfirm, password_hash,
+         signup_date)
+        VALUES (FALSE,
+                ROW (TRUE, TRUE, FALSE, 12, 'lucida', 'normal', 'default', '', 'pdfjs', 'en', 'textmate'),
+                $1, $2, 1, ROW ($3, $4), '', $5, $6, $7, '', ARRAY []::TEXT[],
+                $8,
+                FALSE, $9, $2)
+        RETURNING id),
+     log AS (
+         INSERT INTO user_audit_log
+             (id, info, initiator_id, ip_address, operation, timestamp,
+              user_id)
+             VALUES (gen_random_uuid(), '{}', $10, $11, $12, $2, $5)
+             RETURNING FALSE)
 
-INSERT INTO users
-(beta_program, editor_config, email, email_created_at, epoch, features,
- first_name, id, last_login_at, last_login_ip, last_name, learned_words,
- login_count, must_reconfirm, password_hash, signup_date)
-VALUES (FALSE,
-        ROW (TRUE, TRUE, FALSE, 12, 'lucida', 'normal', 'default', '', 'pdfjs', 'en', 'textmate'),
-        $1, $2, 1, ROW ($3, $4), '', $5, $6, $7, '', ARRAY []::TEXT[], $8,
-        FALSE, $9, $2);
-
-INSERT INTO user_audit_log
-(id, info, initiator_id, ip_address, operation, timestamp, user_id)
-VALUES (gen_random_uuid(), '{}', $10, $11, $12, $2, $5);
-
-INSERT INTO one_time_tokens
+INSERT
+INTO one_time_tokens
 (created_at, email, expires_at, token, use, user_id)
-VALUES ($2, $1, $13, $14, $15, $5);
-
-END;
+SELECT $2, $1, $13, $14, $15, u.id
+FROM u;
 `,
 		string(u.Email),
 		u.SignUpDate,
 		u.Features.CompileGroup,
-		u.Features.CompileTimeout,
+		u.Features.CompileTimeout.String(),
 		u.Id.String(),
 		u.LastLoggedIn,
 		u.LastLoginIp,
@@ -146,44 +147,33 @@ END;
 }
 
 func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, operation string, newHashedPassword string) error {
-	r := make([]sharedTypes.UUID, 0)
-	err := m.c.Query(ctx, `
-with u := (select User filter .id = <uuid>$0 and .epoch = <int64>$1)
-select (
-	select (
-		update u
-		set {
-			epoch := User.epoch + 1,
-			password_hash := <str>$2,
-		}
-	).id
-) union (
-	select (
-		insert UserAuditLogEntry {
-			user := u,
-			initiator := u,
-			ip_address := <str>$3,
-			operation := <str>$4,
-		}
-	).id
-) union (
-	for entry in ({1} if <str>$4 = 'reset-password' else <int64>{}) union (
-		select (
-			update u.email
-			set {
-				confirmed_at := datetime_of_transaction(),
-			}
-		).id
-	)
-)
-`, &r, u.Id, u.Epoch, newHashedPassword, ip, operation)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	if len(r) == 0 {
-		return &errors.NotFoundError{}
-	}
-	return nil
+	// TODO: epoch changed error handling?
+	return getErr(m.db.ExecContext(ctx, `
+WITH u AS (
+    UPDATE users
+        SET epoch = epoch + 1, password_hash = $3
+        WHERE id = $1 AND deleted_at IS NULL AND epoch = $2
+        RETURNING id),
+     log AS (
+         INSERT INTO user_audit_log
+             (id, info, initiator_id, ip_address, operation, timestamp,
+              user_id)
+             SELECT gen_random_uuid(),
+                    '{}',
+                    u.id,
+                    $4,
+                    $5,
+                    transaction_timestamp(),
+                    u.id
+             FROM u)
+UPDATE one_time_tokens
+SET used_at = transaction_timestamp()
+FROM u
+WHERE user_id = u.id
+  AND use = $6
+  AND used_at IS NULL
+`, u.Id.String(), u.Epoch, newHashedPassword, ip, operation,
+		oneTimeToken.PasswordResetUse))
 }
 
 func (m *manager) UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, e EditorConfig) error {
@@ -206,20 +196,23 @@ var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
 func (m *manager) SoftDelete(ctx context.Context, userId sharedTypes.UUID, ip string) error {
 	return getErr(m.db.ExecContext(ctx, `
-BEGIN;
+WITH u AS (
+    UPDATE users
+        SET deleted_at = transaction_timestamp(),
+            epoch = epoch + 1
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id)
 
-UPDATE users
-SET deleted_at = transaction_timestamp(),
-    epoch      = epoch + 1
-WHERE id = $1
-  AND deleted_at IS NULL;
-
-INSERT INTO user_audit_log
+INSERT
+INTO user_audit_log
 (id, initiator_id, ip_address, operation, timestamp, user_id)
-VALUES (gen_random_uuid(), $1, $2, $3, transaction_timestamp(),
-        $1);
-
-END;
+SELECT gen_random_uuid(),
+       u.id,
+       $2,
+       $3,
+       transaction_timestamp(),
+       u.id
+FROM u;
 `, userId.String(), ip, AuditLogOperationSoftDeletion))
 }
 
@@ -278,69 +271,65 @@ func (m *manager) TrackClearSessions(ctx context.Context, userId sharedTypes.UUI
 		return errors.Tag(err, "cannot serialize audit log info")
 	}
 	return getErr(m.db.ExecContext(ctx, `
-BEGIN;
+WITH u AS (
+    UPDATE users
+        SET epoch = epoch + 1
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id)
 
-UPDATE users
-SET epoch = epoch + 1
-WHERE id = $1
-  AND deleted_at IS NULL;
-
-INSERT INTO user_audit_log
+INSERT
+INTO user_audit_log
 (id, info, initiator_id, ip_address, operation, timestamp, user_id)
-VALUES (gen_random_uuid(), $2, $1, $3, $4,
-        transaction_timestamp(), $1);
-
-END;
+SELECT gen_random_uuid(),
+       $2,
+       u.id,
+       $3,
+       $4,
+       transaction_timestamp(),
+       u.id
+FROM u;
 `, userId.String(), blob, ip, AuditLogOperationClearSessions))
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
-	err := m.c.Query(ctx, `
-with
-	u := assert_exists((
-		select User
-		filter .id = <uuid>$0 and .epoch = <int64>$1
-	)),
-	oldPrimaryEmail := u.email,
-	newPrimaryEmail := (insert Email {
-		email := <str>$2,
-	}),
-	uChanged := (
-		update u
-		set {
-			email := newPrimaryEmail,
-			emails := { newPrimaryEmail },
-		}
-	),
-	oldPrimaryEmailDeleted := (
-		delete oldPrimaryEmail
-		filter exists uChanged
-	),
-	auditLog := (
-		insert UserAuditLogEntry {
-			user := u,
-			initiator := u,
-			ip_address := <str>$3,
-			operation := <str>$4,
-			info := <json>{
-				oldPrimaryEmail := oldPrimaryEmail.email,
-				newPrimaryEmail := newPrimaryEmail.email,
-			}
-		}
-	)
-select {exists oldPrimaryEmailDeleted, exists auditLog}
-`,
-		&[]bool{},
-		u.Id, u.Epoch, newEmail, ip, AuditLogOperationChangePrimaryEmail,
-	)
+	blob, err := json.Marshal(changeEmailAddressAuditLogInfo{
+		OldPrimaryEmail: u.Email,
+		NewPrimaryEmail: newEmail,
+	})
 	if err != nil {
-		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+		return errors.Tag(err, "cannot serialize audit log info")
+	}
+	err = getErr(m.db.ExecContext(ctx, `
+WITH u AS (
+    UPDATE users
+        SET
+            email = $3,
+            email_created_at = transaction_timestamp(),
+            email_confirmed_at = NULL
+        WHERE id = $1 AND deleted_at IS NULL AND epoch = $2
+        RETURNING id),
+     tokens AS (
+         UPDATE one_time_tokens
+             SET used_at = transaction_timestamp()
+             WHERE user_id = u.id AND used_at IS NULL)
+INSERT
+INTO user_audit_log
+(id, info, initiator_id, ip_address, operation, timestamp, user_id)
+SELECT gen_random_uuid(),
+       $4,
+       u.id,
+       $5,
+       $6,
+       transaction_timestamp(),
+       u.id
+FROM u
+`, u.Id.String(), u.Epoch, newEmail, blob, ip,
+		AuditLogOperationChangePrimaryEmail))
+	if err != nil {
+		if e, ok := err.(*pq.Error); ok && e.Constraint == "user_email_key" {
 			return ErrEmailAlreadyRegistered
 		}
-		err = rewriteEdgedbError(err)
-		if errors.IsNotFoundError(err) {
-			return ErrEpochChanged
-		}
+		// TODO: epoch changed handling?
 		return err
 	}
 	return nil
@@ -380,20 +369,19 @@ WHERE id = $1
 
 func (m *manager) TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error {
 	return getErr(m.db.ExecContext(ctx, `
-BEGIN;
+WITH u AS (
+    UPDATE users
+        SET login_count = login_count + 1,
+            last_login_at = transaction_timestamp(),
+            last_login_ip = $2
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id)
 
-UPDATE users
-SET login_count   = login_count + 1,
-    last_login_at = transaction_timestamp(),
-    last_login_ip = $2
-WHERE id = $1
-  AND deleted_at IS NULL;
-
-INSERT INTO user_audit_log
+INSERT
+INTO user_audit_log
 (id, initiator_id, ip_address, operation, timestamp, user_id)
-VALUES (gen_random_uuid(), $1, $2, 'login', transaction_timestamp(), $1);
-
-END;
+SELECT gen_random_uuid(), u.id, $2, 'login', transaction_timestamp(), u.id
+FROM u;
 `, userId.String(), ip))
 }
 
@@ -505,53 +493,6 @@ WHERE email = $1
 	}
 }
 
-func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, u interface{}) error {
-	err := m.c.QuerySingle(ctx, `
-with u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-select u {
-	email: { email },
-	emails: { email, confirmed_at },
-	first_name,
-	id,
-	last_name,
-	projects: {
-		access_ro: { id } filter User = u,
-		access_rw: { id } filter User = u,
-		access_token_ro: { id } filter User = u,
-		access_token_rw: { id } filter User = u,
-		archived_by: { id } filter User = u,
-		epoch,
-		id,
-		last_updated_at,
-		last_updated_by: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-		},
-		name,
-		owner: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-		},
-		public_access_level,
-		trashed_by: { id } filter User = u,
-	},
-	tags: {
-		id,
-		name,
-		projects,
-	},
-}
-`, u, userId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
 func (m *manager) GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error) {
 	r, err := m.db.QueryContext(ctx, `
 WITH ids AS (SELECT unnest(ARRAY [a, b])
@@ -630,32 +571,18 @@ WHERE id = $1
 `, userId.String(), word))
 }
 
-func (m *manager) ResolveAndExpirePasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error {
-	err := m.c.QuerySingle(ctx, `
-with
-	t := (
-		update OneTimeToken
-		filter
-				.use = <str>$0
-			and .token = <str>$1
-			and not exists .used_at
-			and .expires_at > datetime_of_transaction()
-			and not exists .email.user.deleted_at
-		set {
-			used_at := datetime_of_transaction()
-		}
-	)
-select t.email.user {
-	email: { email },
-	epoch,
-	first_name,
-	id,
-	last_name,
-	password_hash,
-}
-`, u, oneTimeToken.PasswordResetUse, token)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+func (m *manager) GetByPasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error {
+	return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+SELECT id, u.email, first_name, last_name, epoch, password_hash
+FROM one_time_tokens ott
+         INNER JOIN users u on ott.user_id = u.id
+WHERE ott.token = $1
+  AND ott.use = $2
+  AND ott.used_at IS NULL
+  AND ott.expires_at > transaction_timestamp()
+  AND u.deleted_at IS NULL
+`, token, oneTimeToken.PasswordResetUse).Scan(
+		&u.Id, &u.Email, &u.FirstName, &u.LastName,
+		&u.Epoch, &u.HashedPassword,
+	))
 }

@@ -60,21 +60,15 @@ type manager struct {
 	jwtLoggedInUser jwtHandler.JWTHandler
 }
 
-type forProjectList struct {
-	user.ProjectListViewCaller `edgedb:"$inline"`
-	Tags                       tag.Tags                  `edgedb:"tags"`
-	Projects                   []project.ListViewPrivate `edgedb:"projects"`
-}
-
 func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
 
 	userId := request.Session.User.Id
-	u := forProjectList{}
+	u := project.ForProjectList{}
 	{
-		err := m.um.ListProjects(ctx, userId, &u)
+		err := m.pm.ListProjects(ctx, userId, &u)
 		if err != nil {
 			return errors.Tag(err, "cannot get user with projects")
 		}
@@ -101,9 +95,9 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		return err
 	}
 	userId := request.Session.User.Id
-	u := forProjectList{}
+	u := project.ForProjectList{}
 	{
-		err := m.um.ListProjects(ctx, userId, &u)
+		err := m.pm.ListProjects(ctx, userId, &u)
 		if err != nil {
 			return errors.Tag(err, "cannot get user with projects")
 		}
@@ -163,7 +157,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		Projects:        projects,
 		Tags:            u.Tags.Finalize(),
 		JWTLoggedInUser: jwtLoggedInUser,
-		UserEmails:      u.ToUserEmails(),
+		UserEmails:      u.User.ToUserEmails(),
 	}
 	return nil
 }
