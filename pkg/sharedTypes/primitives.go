@@ -18,6 +18,7 @@ package sharedTypes
 
 import (
 	"crypto/rand"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -76,6 +77,32 @@ func GenerateUUID() (UUID, error) {
 	return u, nil
 }
 
+type UUIDBatch struct {
+	buf    []byte
+	offset int
+}
+
+func (b *UUIDBatch) Next() UUID {
+	u := UUID{}
+	copy(u[:], b.buf[b.offset:b.offset+16])
+	b.offset += 16
+	return u
+}
+
+func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
+	buf := make([]byte, n*16)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, errors.Tag(err, "cannot generate new UUIDs")
+	}
+
+	for i := 0; i < n; i++ {
+		// Reset bits and populate version (4) and variant (10).
+		buf[i*16+6] = (buf[i*16+6] & 0x0f) | 0x40
+		buf[i*16+8] = (buf[i*16+8] & 0x3f) | 0x80
+	}
+	return &UUIDBatch{buf: buf}, nil
+}
+
 type UUID [16]byte
 
 func (u UUID) String() string {
@@ -100,6 +127,11 @@ func (u *UUID) Scan(x any) error {
 	}
 	*u = u2
 	return nil
+}
+
+func (u UUID) Value() (driver.Value, error) {
+	// TODO: leaner interface?
+	return u.String(), nil
 }
 
 func (u UUID) MarshalJSON() ([]byte, error) {

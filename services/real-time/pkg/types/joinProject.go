@@ -46,7 +46,6 @@ type JoinProjectDetails struct {
 	project.TokensField
 	project.VersionField
 	RootFolder []*project.Folder      `json:"rootFolder"`
-	Features   user.Features          `json:"features"`
 	Members    []user.AsProjectMember `json:"members"`
 	Owner      user.WithPublicInfo    `json:"owner"`
 }

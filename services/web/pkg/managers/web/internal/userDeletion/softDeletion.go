@@ -82,7 +82,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 		for i := 0; i < parallelDeletion; i++ {
 			eg.Go(func() error {
 				for p := range queue {
-					if p.Owner.Id == userId {
+					if p.OwnerId == userId {
 						// TODO: soft delete in bulk
 						err := m.pDelM.DeleteProjectInTx(
 							ctx, pCtx, &types.DeleteProjectRequest{

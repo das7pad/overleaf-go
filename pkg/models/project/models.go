@@ -28,12 +28,13 @@ type JoinProjectViewPrivate struct {
 }
 
 type JoinProjectViewPublic struct {
-	CompilerField           `edgedb:"$inline"`
-	DeletedDocsField        `edgedb:"$inline"`
-	IdField                 `edgedb:"$inline"`
-	ImageNameField          `edgedb:"$inline"`
-	InvitesField            `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
+	CompilerField    `edgedb:"$inline"`
+	DeletedDocsField `edgedb:"$inline"`
+	IdField          `edgedb:"$inline"`
+	ImageNameField   `edgedb:"$inline"`
+	InvitesField     `edgedb:"$inline"`
+	NameField        `edgedb:"$inline"`
+	OwnerFeaturesField
 	SpellCheckLanguageField `edgedb:"$inline"`
 }
 
@@ -43,13 +44,11 @@ type JoinProjectDetails struct {
 }
 
 type ListViewPrivate struct {
-	ArchivedByField         `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
 	IdField                 `edgedb:"$inline"`
 	LastUpdatedAtField      `edgedb:"$inline"`
 	LastUpdatedByField      `edgedb:"$inline"`
 	NameField               `edgedb:"$inline"`
-	TrashedByField          `edgedb:"$inline"`
 }
 
 type List []ListViewPrivate
@@ -71,13 +70,12 @@ type LoadEditorViewPublic struct {
 	IdField        `edgedb:"$inline"`
 	ImageNameField `edgedb:"$inline"`
 	NameField      `edgedb:"$inline"`
+	OwnerFeaturesField
 	RootDocIdField `edgedb:"$inline"`
 	VersionField   `edgedb:"$inline"`
 }
 
 type WithTokenMembers struct {
-	AccessTokenReadAndWriteField `edgedb:"$inline"`
-	AccessTokenReadOnlyField     `edgedb:"$inline"`
 }
 
 type WithInvitedMembers struct {
@@ -91,9 +89,10 @@ type WithMembers struct {
 }
 
 type ForAuthorizationDetails struct {
+	Member
 	WithMembers            `edgedb:"$inline"`
 	EpochField             `edgedb:"$inline"`
-	OwnerField             `edgedb:"$inline"`
+	OwnerIdField           `edgedb:"$inline"`
 	PublicAccessLevelField `edgedb:"$inline"`
 	TokensField            `edgedb:"$inline"`
 }
@@ -135,7 +134,7 @@ type ForCreation struct {
 	NameField               `edgedb:"$inline"`
 	LastUpdatedAtField      `edgedb:"$inline"`
 	LastUpdatedByField      `edgedb:"$inline"`
-	OwnerField              `edgedb:"$inline"`
+	OwnerIdField            `edgedb:"$inline"`
 	PublicAccessLevelField  `edgedb:"$inline"`
 	RootDocField            `edgedb:"$inline"`
 	SpellCheckLanguageField `edgedb:"$inline"`
@@ -151,4 +150,9 @@ type ForClone struct {
 	SpellCheckLanguageField `edgedb:"$inline"`
 	DocsField               `edgedb:"$inline"`
 	FilesField              `edgedb:"$inline"`
+}
+
+type ForProjectJWT struct {
+	ForAuthorizationDetails
+	OwnerFeaturesField
 }

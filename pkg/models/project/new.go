@@ -17,9 +17,6 @@
 package project
 
 import (
-	"time"
-
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -27,7 +24,11 @@ const (
 	DefaultCompiler = sharedTypes.PDFLatex
 )
 
-func NewProject(ownerId sharedTypes.UUID) *ForCreation {
+func NewProject(ownerId sharedTypes.UUID) (*ForCreation, error) {
+	id, err := sharedTypes.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
 	return &ForCreation{
 		CompilerField: CompilerField{
 			Compiler: DefaultCompiler,
@@ -35,15 +36,11 @@ func NewProject(ownerId sharedTypes.UUID) *ForCreation {
 		EpochField: EpochField{
 			Epoch: 1,
 		},
-		LastUpdatedAtField: LastUpdatedAtField{
-			LastUpdatedAt: time.Now().UTC(),
+		IdField: IdField{
+			Id: id,
 		},
-		OwnerField: OwnerField{
-			Owner: user.WithPublicInfoAndFeatures{
-				WithPublicInfo: user.WithPublicInfo{
-					IdField: user.IdField{Id: ownerId},
-				},
-			},
+		OwnerIdField: OwnerIdField{
+			OwnerId: ownerId,
 		},
 		PublicAccessLevelField: PublicAccessLevelField{
 			PublicAccessLevel: PrivateAccess,
@@ -59,5 +56,5 @@ func NewProject(ownerId sharedTypes.UUID) *ForCreation {
 		VersionField: VersionField{
 			Version: 1,
 		},
-	}
+	}, nil
 }

@@ -87,6 +87,10 @@ func (t ComputeTimeout) Validate() error {
 	return nil
 }
 
+func (t ComputeTimeout) String() string {
+	return time.Duration(t).String()
+}
+
 var imageNameYearRegex = regexp.MustCompile(":([0-9]+)\\.[0-9]+")
 
 type ImageName string

@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/lib/pq"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
@@ -35,7 +36,6 @@ import (
 
 type Manager interface {
 	PrepareProjectCreation(ctx context.Context, p *ForCreation) error
-	CreateProjectTree(ctx context.Context, creation *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
 	SoftDelete(ctx context.Context, projectId, userId sharedTypes.UUID, ipAddress string) error
 	HardDelete(ctx context.Context, projectId sharedTypes.UUID) error
@@ -54,7 +54,7 @@ type Manager interface {
 	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
 	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
 	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, token AccessToken) (*AuthorizationDetails, error)
-	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForAuthorizationDetails, int64, error)
+	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectJWT, int64, error)
 	GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
 	BumpEpoch(ctx context.Context, projectId sharedTypes.UUID) error
@@ -115,304 +115,192 @@ type manager struct {
 	c  *edgedb.Client
 }
 
-type docForInsertion struct {
-	Name     sharedTypes.Filename `json:"name"`
-	Size     int64                `json:"size"`
-	Snapshot string               `json:"snapshot"`
-}
-
-type fileForInsertion struct {
-	Name           sharedTypes.Filename `json:"name"`
-	Size           int64                `json:"size"`
-	Hash           sharedTypes.Hash     `json:"hash"`
-	LinkedFileData []LinkedFileData     `json:"linked_file_data"`
-}
-
-type folderForInsertion struct {
-	Id    sharedTypes.UUID   `json:"id"`
-	Docs  []docForInsertion  `json:"docs"`
-	Files []fileForInsertion `json:"files"`
-}
-
 func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
-	ids := make([]sharedTypes.UUID, 2)
-	err := m.c.Query(
+	ok := false
+	tx, err := m.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !ok {
+			_ = tx.Rollback()
+		}
+	}()
+
+	_, err = tx.ExecContext(
 		ctx,
 		`
-with
-	owner := (select User filter .id = <uuid>$0 and not exists .deleted_at),
-	provided_lng := <str>$1,
-	lng := (
-		owner.editor_config.spell_check_language
-		if provided_lng = 'inherit' else provided_lng
-	),
-	p := (insert Project {
-		compiler := <str>$2,
-		deleted_at := <datetime>$3,
-		image_name := <str>$4,
-		name := <str>$5,
-		last_updated_by := owner,
-		owner := owner,
-		spell_check_language := lng,
-	}),
-	rf := (insert RootFolder { project := p, path := '' }),
-	cr := (insert ChatRoom { project := p }),
-select {p.id, rf.id, cr.id}`,
-		&ids,
-		p.Owner.Id, p.SpellCheckLanguage, p.Compiler, p.DeletedAt, p.ImageName,
-		p.Name,
+WITH lng AS (SELECT CASE
+                        WHEN $2 = 'inherit' THEN
+                            (editor_config).spell_check_language
+                        ELSE
+                            $6
+                        END AS spell_check_language
+             FROM users
+             WHERE id = $1),
+     p AS (INSERT
+         INTO projects
+             (compiler, deleted_at, epoch, id, image_name, last_opened_at,
+              last_updated_at, last_updated_by, name, owner_id,
+              public_access_level, spell_check_language, tree_version)
+             SELECT $3,
+                    $4,
+                    1,
+                    $5,
+                    $6,
+                    transaction_timestamp(),
+                    transaction_timestamp(),
+                    $1,
+                    $7,
+                    $1,
+                    '',
+                    lng.spell_check_language,
+                    1
+             FROM lng)
+INSERT
+INTO project_members
+(project_id, user_id, can_write, is_token_member, archived, trashed)
+VALUES ($5, $1, TRUE, FALSE, FALSE, FALSE)
+`,
+		p.OwnerId, p.SpellCheckLanguage, p.Compiler, p.DeletedAt, p.Id,
+		p.ImageName, p.Name,
 	)
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return err
 	}
-	p.Id = ids[0]
-	p.RootFolder.Id = ids[1]
-	return nil
-}
-
-func (m *manager) CreateProjectTree(ctx context.Context, p *ForCreation) error {
-	r := &p.RootFolder
-	nFoldersWithContent := 0
-	nFoldersWithChildren := 0
-	{
-		// Collect tree stats for precise allocations
-		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-			if len(f.Docs)+len(f.FileRefs) > 0 {
-				nFoldersWithContent++
-			}
-			if len(f.Folders) > 0 {
-				nFoldersWithChildren++
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	if nFoldersWithChildren > 0 {
-		// Build tree of Folders
-		queue := make(chan *Folder, nFoldersWithChildren)
-		queue <- &r.Folder
-		queueChanges := make(chan int, 10)
-		queueChanges <- +1
-
-		eg, pCtx := errgroup.WithContext(ctx)
-		for i := 0; i < 5; i++ {
-			eg.Go(func() error {
-				defer func() {
-					for range queue {
-						// flush the queue
-						queueChanges <- -1
-					}
-				}()
-				for folder := range queue {
-					names := make([]string, len(folder.Folders))
-					for j, f := range folder.Folders {
-						names[j] = string(f.Name)
-					}
-					ids := make([]IdField, len(folder.Folders))
-					err := m.c.QuerySingle(
-						pCtx,
-						`
-with
-	project := (select Project filter .id = <uuid>$0),
-	parent := (select FolderLike filter .id = <uuid>$1)
-for name in array_unpack(<array<str>>$2) union (
-	insert Folder {
-		project := project,
-		parent := parent,
-		name := <str>name,
-		path := parent.path_for_join ++ <str>name,
-	}
-)`,
-						&ids,
-						p.Id, folder.Id, names,
-					)
-					if err != nil {
-						queueChanges <- -1
-						return rewriteEdgedbError(err)
-					}
-					for j := range folder.Folders {
-						f := &folder.Folders[j]
-						f.Id = ids[j].Id
-						if len(f.Folders) > 0 {
-							queue <- f
-							queueChanges <- +1
-						}
-					}
-					queueChanges <- -1
-				}
-				return nil
-			})
-		}
-
-		eg.Go(func() error {
-			queueDepth := 0
-			for i := range queueChanges {
-				queueDepth += i
-				if queueDepth == 0 {
-					break
-				}
-			}
-			close(queue)
-			close(queueChanges)
-			return nil
-		})
-
-		if err := eg.Wait(); err != nil {
-			return err
-		}
-	}
-
-	nItems := 0
-	folders := make([]*folderForInsertion, 0, nFoldersWithContent)
-	{
-		// Prepare insertion of Docs and Files
-		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-			n := len(f.Docs) + len(f.FileRefs)
-			if n > 0 {
-				nItems += n
-				fi := folderForInsertion{
-					Id:    f.Id,
-					Docs:  make([]docForInsertion, len(f.Docs)),
-					Files: make([]fileForInsertion, len(f.FileRefs)),
-				}
-				for i := range f.Docs {
-					fi.Docs[i].Name = f.Docs[i].Name
-					fi.Docs[i].Size = f.Docs[i].Size
-					fi.Docs[i].Snapshot = f.Docs[i].Snapshot
-				}
-				for i := range f.FileRefs {
-					fi.Files[i].Name = f.FileRefs[i].Name
-					fi.Files[i].Size = f.FileRefs[i].Size
-					fi.Files[i].Hash = f.FileRefs[i].Hash
-					if f.FileRefs[i].LinkedFileData.Provider != "" {
-						fi.Files[i].LinkedFileData = []LinkedFileData{
-							f.FileRefs[i].LinkedFileData,
-						}
-					} else {
-						fi.Files[i].LinkedFileData = make([]LinkedFileData, 0)
-					}
-				}
-				folders = append(folders, &fi)
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	ids := make([]IdField, nItems)
-	{
-		blob, err := json.Marshal(folders)
-		if err != nil {
-			return errors.Tag(err, "serialize docs/files")
-		}
-		// Insert Docs and Files
-		err = m.c.Query(ctx, `
-with
-	project := (select Project filter .id = <uuid>$0)
-for folder in json_array_unpack(<json>$1) union (
-	with
-		f := (select FolderLike filter .id = <uuid>folder['id'])
-	select (
-		for doc in json_array_unpack(folder['docs']) union (
-			insert Doc {
-				project := project,
-				parent := f,
-				name := <str>doc['name'],
-				size := <int64>doc['size'],
-				snapshot := <str>doc['snapshot'],
-				version := 0,
-			}
-		)
-	) union (
-		for file in json_array_unpack(folder['files']) union (
-			with
-				inserted := (
-					insert File {
-						project := project,
-						parent := f,
-						name := <str>file['name'],
-						size := <int64>file['size'],
-						hash := <str>file['hash'],
-					}
-				)
-			select (
-				inserted union (
-					for entry in json_array_unpack(file['linked_file_data']) union (
-						select (
-							insert LinkedFileData {
-								provider := <str>entry['provider'],
-								source_project_id := <str>json_get(
-									entry, 'source_project_id') ?? '',
-								source_entity_path := <str>json_get(
-									entry, 'source_entity_path') ?? '',
-								source_output_file_path := <str>json_get(
-									entry, 'source_output_file_path') ?? '',
-								url := <str>json_get(entry, 'url') ?? '',
-
-								file := inserted
-							}
-						).file
-					)
-				)
-			) limit 1
-		)
+	q, err := tx.PrepareContext(
+		ctx,
+		pq.CopyIn(
+			"tree_nodes",
+			"deleted_at", "id", "kind", "name", "parent_id", "path",
+			"project_id",
+		),
 	)
-)
-`,
-			&ids,
-			p.Id, blob,
-		)
-		if err != nil {
-			return rewriteEdgedbError(err)
+	if err != nil {
+		return errors.Tag(err, "prepare tree")
+	}
+	defer func() {
+		if !ok && q != nil {
+			_ = q.Close()
 		}
+	}()
+	deletedAt := "1970-01-01"
+	t := p.RootFolder
+	_, err = q.ExecContext(
+		ctx, deletedAt, t.Id, "folder", "", nil, "", p.Id,
+	)
+	if err != nil {
+		return errors.Tag(err, "queue root folder")
+	}
+	err = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
+		for _, d := range f.Docs {
+			_, err = q.ExecContext(
+				ctx,
+				deletedAt, d.Id, "doc", d.Name, f.Id, path.Join(d.Name), p.Id,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		for _, r := range f.FileRefs {
+			_, err = q.ExecContext(
+				ctx,
+				deletedAt, r.Id, "file", r.Name, f.Id, path.Join(r.Name), p.Id,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		for _, ff := range f.Folders {
+			_, err = q.ExecContext(
+				ctx,
+				deletedAt, ff.Id, "folder", ff.Name, f.Id, ff.Path, p.Id,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Tag(err, "queue tree")
+	}
+	if _, err = q.ExecContext(ctx); err != nil {
+		return errors.Tag(err, "flush tree")
+	}
+	if err = q.Close(); err != nil {
+		return errors.Tag(err, "close tree")
 	}
 
-	{
-		// Back-fill ids
-		i := 0
-		err := r.WalkFolders(func(f *Folder, _ sharedTypes.DirName) error {
-			for j := range f.Docs {
-				f.Docs[j].Id = ids[i].Id
-				i++
-			}
-			for j := range f.FileRefs {
-				f.FileRefs[j].Id = ids[i].Id
-				i++
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
+	q, err = tx.PrepareContext(
+		ctx,
+		pq.CopyIn("docs", "id", "snapshot", "version"),
+	)
+	if err != nil {
+		return errors.Tag(err, "prepare docs")
 	}
-	return nil
+	err = t.WalkDocs(func(e TreeElement, _ sharedTypes.PathName) error {
+		d := e.(*Doc)
+		_, err = q.ExecContext(ctx, d.Id, d.Snapshot, d.Version)
+		return err
+	})
+	if err != nil {
+		return errors.Tag(err, "queue docs")
+	}
+	if _, err = q.ExecContext(ctx); err != nil {
+		return errors.Tag(err, "flush docs")
+	}
+	if err = q.Close(); err != nil {
+		return err
+	}
+
+	q, err = tx.PrepareContext(
+		ctx,
+		pq.CopyIn("files", "id", "created_at", "hash", "linked_file_data"),
+	)
+	if err != nil {
+		return errors.Tag(err, "prepare files")
+	}
+	err = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
+		d := e.(*FileRef)
+		blob, err2 := json.Marshal(d.LinkedFileData)
+		if err2 != nil {
+			return err2
+		}
+		_, err = q.ExecContext(ctx, d.Id, d.Created, d.Hash, string(blob))
+		return err
+	})
+	if err != nil {
+		return errors.Tag(err, "queue files")
+	}
+	if _, err = q.ExecContext(ctx); err != nil {
+		return errors.Tag(err, "flush files")
+	}
+	if err = q.Close(); err != nil {
+		return errors.Tag(err, "close files")
+	}
+
+	ok = true
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return err
 }
 
 func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) error {
-	err := m.c.QuerySingle(ctx, `
-update Project
-filter .id = <uuid>$0
-set {
-	deleted_at := <datetime>{},
-	name := <str>$1,
-	root_doc := (
-		select Doc
-		filter .id = <uuid>$2 and .project.id = <uuid>$0
-	)
-}
-`,
-		&IdField{},
-		p.Id, p.Name, p.RootDoc.Id,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
+	var rootDocId interface{} = nil
+	if p.RootDoc.Id != (sharedTypes.UUID{}) {
+		rootDocId = p.RootDoc.Id.String()
 	}
-	return nil
+	_, err := m.db.ExecContext(ctx, `
+UPDATE projects
+SET deleted_at     = NULL,
+    name           = $2,
+    root_doc_id    = $3,
+    root_folder_id = $4
+WHERE id = $1
+`, p.Id.String(), p.Name, rootDocId, p.RootFolder.Id.String())
+	return err
 }
 
 type genericExistsAndAuthResult struct {
@@ -1285,24 +1173,20 @@ select {
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
-type forGetProjectNames struct {
-	Projects []NameField `edgedb:"projects"`
-}
-
 func (m *manager) GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error) {
-	u := &forGetProjectNames{}
-	err := m.c.QuerySingle(ctx, `
-select User {
-	projects: { name },
-}
-filter .id = <uuid>$0 and not exists .deleted_at
-`, u, userId)
+	var raw []string
+	err := m.db.QueryRowContext(ctx, `
+SELECT array_agg(name)
+FROM projects p
+	INNER JOIN project_members pm on p.id = pm.project_id
+WHERE user_id = $1
+`, userId).Scan(pq.Array(&raw))
 	if err != nil {
-		return nil, rewriteEdgedbError(err)
+		return nil, err
 	}
-	names := make(Names, len(u.Projects))
-	for i, project := range u.Projects {
-		names[i] = project.Name
+	names := make(Names, len(raw))
+	for i, s := range raw {
+		names[i] = Name(s)
 	}
 	return names, nil
 }
@@ -1334,11 +1218,11 @@ filter .id = <uuid>$0 and not exists .deleted_at
 }
 
 type getForProjectJWTResult struct {
-	UserEpoch edgedb.OptionalInt64    `edgedb:"user_epoch"`
-	Project   ForAuthorizationDetails `edgedb:"project"`
+	UserEpoch edgedb.OptionalInt64 `edgedb:"user_epoch"`
+	Project   ForProjectJWT        `edgedb:"project"`
 }
 
-func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForAuthorizationDetails, int64, error) {
+func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectJWT, int64, error) {
 	r := getForProjectJWTResult{}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -1370,7 +1254,7 @@ select {
 	if err != nil {
 		return nil, 0, rewriteEdgedbError(err)
 	}
-	if r.Project.Owner.Id == (sharedTypes.UUID{}) {
+	if r.Project.OwnerId == (sharedTypes.UUID{}) {
 		return nil, 0, &errors.NotFoundError{}
 	}
 	userEpoch, _ := r.UserEpoch.Get()
@@ -2365,33 +2249,20 @@ select {
 	}
 }
 
-type hardDeleteResult struct {
-	ProjectExists      bool `edgedb:"project_exists"`
-	ProjectSoftDeleted bool `edgedb:"project_soft_deleted"`
-	Deleted            bool `edgedb:"deleted"`
-}
-
 func (m *manager) HardDelete(ctx context.Context, projectId sharedTypes.UUID) error {
-	r := hardDeleteResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	pSoftDeleted := (select p filter exists .deleted_at),
-	pDeleted := (delete pSoftDeleted),
-select {
-	project_exists := exists p,
-	project_soft_deleted := exists pSoftDeleted,
-	deleted := exists pDeleted,
-}
-`, &r, projectId)
+	r, err := m.db.ExecContext(ctx, `
+DELETE
+FROM projects
+WHERE id = $1
+  AND deleted_at IS NOT NULL
+`, projectId.String())
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return err
 	}
-	switch {
-	case !r.ProjectExists:
-		return &errors.UnprocessableEntityError{Msg: "project missing"}
-	case !r.ProjectSoftDeleted:
-		return &errors.UnprocessableEntityError{Msg: "project not soft deleted"}
+	if n, _ := r.RowsAffected(); n == 0 {
+		return &errors.UnprocessableEntityError{
+			Msg: "user missing or not deleted",
+		}
 	}
 	return nil
 }
@@ -2400,16 +2271,17 @@ func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn f
 	ids := make([]sharedTypes.UUID, 0, 100)
 	for {
 		ids = ids[:0]
-		err := m.c.Query(ctx, `
-select (
-	select Project
-	filter .deleted_at <= <datetime>$0
-	order by .deleted_at
-	limit 100
-).id
-`, &ids, cutOff)
-		if err != nil {
-			return rewriteEdgedbError(err)
+		r := m.db.QueryRowContext(ctx, `
+WITH ids AS (SELECT id
+             FROM projects
+             WHERE deleted_at <= $1
+             ORDER BY deleted_at
+             LIMIT 100)
+SELECT array_agg(ids)
+FROM ids
+`, cutOff)
+		if err := r.Scan(pq.Array(&ids)); err != nil {
+			return err
 		}
 		if len(ids) == 0 {
 			return nil
@@ -2673,47 +2545,115 @@ type ForProjectList struct {
 	Collaborators user.BulkFetched
 }
 
-func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error {
-	return m.db.QueryRowContext(ctx, `
-WITH t AS (SELECT id, name, array_agg(project_id)
-           FROM tags t
-                    LEFT JOIN tag_entries te on t.id = te.tag_id
-           WHERE t.user_id = $1
-           GROUP BY t.id),
-     p AS (SELECT archived,
-                  can_write,
-                  epoch,
-                  id,
-                  last_updated_at,
-                  last_updated_by,
-                  name,
-                  owner_id,
-                  public_access_level,
-                  is_token_user,
-                  trashed
-           FROM projects p
-                    INNER JOIN project_members pm on p.id = pm.project_id
-           WHERE pm.user_id = $1),
-     c AS (SELECT u.id, email, first_name, last_name
-           FROM users u
-                    INNER JOIN p ON (
-                       u.id = p.owner_id OR
-                       u.id = p.last_updated_by)
-           WHERE u.deleted_at IS NULL)
-SELECT id,
-       email,
-       email_confirmed_at,
-       first_name,
-       last_name,
-       (SELECT array_agg(t) FROM t),
-       (SELECT array_agg(p) FROM p),
-       (SELECT array_agg(c) FROM c)
+func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
+	// pg does not support params in prepared statements with multiple queries.
+	// database/sql runs all queries in prepared statements.
+	// Bummer. We have to do the parameter replacement ourselves.
+	// (Or run multiple queries, which I'd like to avoid.)
+	// language=postgresql
+	q := `
+SELECT id, email, email_confirmed_at, first_name, last_name
 FROM users
 WHERE id = $1
-  AND deleted_at IS NULL
-`, userId.String()).Scan(
-		&r.User.Id, &r.User.Email, &r.User.EmailConfirmedAt,
-		&r.User.FirstName, &r.User.LastName,
-		pq.Array(&r.Tags), pq.Array(&r.Projects), pq.Array(&r.Collaborators),
+  AND deleted_at IS NULL;
+
+
+SELECT id, name, array_agg(project_id)
+FROM tags t
+         LEFT JOIN tag_entries te ON t.id = te.tag_id
+WHERE t.user_id = $1
+GROUP BY t.id;
+
+
+WITH p AS (SELECT owner_id, last_updated_by
+           FROM projects p
+                    INNER JOIN project_members pm ON p.id = pm.project_id
+           WHERE pm.user_id = $1)
+SELECT u.id, email, first_name, last_name
+FROM users u
+         INNER JOIN p ON (u.id = p.owner_id OR u.id = p.last_updated_by)
+WHERE u.deleted_at IS NULL;
+
+
+SELECT archived,
+       can_write,
+       epoch,
+       id,
+       is_token_member,
+       last_updated_at,
+       last_updated_by,
+       name,
+       owner_id,
+       public_access_level,
+       trashed
+FROM projects p
+         INNER JOIN project_members pm ON p.id = pm.project_id
+WHERE pm.user_id = $1;
+`
+	r, err := m.db.QueryContext(
+		ctx, strings.ReplaceAll(q, "$1", fmt.Sprintf("'%s'", userId)),
 	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.Close() }()
+
+	// User
+	if r.Next() {
+		err = r.Scan(
+			&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
+			&d.User.FirstName, &d.User.LastName)
+		if err != nil {
+			return err
+		}
+	}
+	if err = r.Err(); err != nil {
+		return err
+	}
+	// TODO: debug result set switching.
+
+	// Tags
+	r.NextResultSet()
+	for i := 0; r.Next(); i++ {
+		d.Tags = append(d.Tags, tag.Full{})
+		err = r.Scan(
+			&d.Tags[i].Id, &d.Tags[i].Name, pq.Array(&d.Tags[i].ProjectIds),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Collaborators
+	r.NextResultSet()
+	if err = d.Collaborators.ScanInto(r); err != nil {
+		return err
+	}
+
+	// Projects
+	r.NextResultSet()
+	for i := 0; r.Next(); i++ {
+		d.Projects = append(d.Projects, ListViewPrivate{})
+		err = r.Scan(
+			&d.Projects[i].Archived,
+			&d.Projects[i].CanWrite,
+			&d.Projects[i].Epoch,
+			&d.Projects[i].Id,
+			&d.Projects[i].IsTokenMember,
+			&d.Projects[i].LastUpdatedAt,
+			&d.Projects[i].LastUpdatedBy,
+			&d.Projects[i].Name,
+			&d.Projects[i].OwnerId,
+			&d.Projects[i].PublicAccessLevel,
+			&d.Projects[i].Trashed,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = r.Err(); err != nil {
+		return err
+	}
+	return nil
 }

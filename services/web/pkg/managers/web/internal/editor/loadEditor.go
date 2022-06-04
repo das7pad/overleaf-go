@@ -109,7 +109,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 	var p *project.LoadEditorViewPrivate
 	var u *user.WithLoadEditorInfo
-	var ownerFeatures *user.Features
 	var authorizationDetails *project.AuthorizationDetails
 	{
 		d, err := m.pm.GetLoadEditorDetails(
@@ -119,7 +118,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 			return errors.Tag(err, "cannot get project/user details")
 		}
 		p = &d.Project
-		ownerFeatures = &p.Owner.Features
 		if isAnonymous {
 			u = defaultUser
 		} else {
@@ -156,10 +154,10 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		response.JWTLoggedInUser = s
 	}
 	signedOptions := types.SignedCompileProjectRequestOptions{
-		CompileGroup: ownerFeatures.CompileGroup,
+		CompileGroup: p.OwnerFeatures.CompileGroup,
 		ProjectId:    projectId,
 		UserId:       userId,
-		Timeout:      sharedTypes.ComputeTimeout(ownerFeatures.CompileTimeout),
+		Timeout:      p.OwnerFeatures.CompileTimeout,
 	}
 	{
 		c := m.jwtProject.New().(*projectJWT.Claims)

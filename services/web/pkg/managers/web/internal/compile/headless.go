@@ -42,11 +42,10 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 
 	return m.Compile(ctx, &types.CompileProjectRequest{
 		SignedCompileProjectRequestOptions: types.SignedCompileProjectRequestOptions{
-			CompileGroup: p.Owner.Features.CompileGroup,
+			CompileGroup: p.OwnerFeatures.CompileGroup,
 			ProjectId:    r.ProjectId,
 			UserId:       r.UserId,
-			Timeout: sharedTypes.ComputeTimeout(
-				p.Owner.Features.CompileTimeout),
+			Timeout:      p.OwnerFeatures.CompileTimeout,
 		},
 		AutoCompile:                false,
 		CheckMode:                  clsiTypes.SilentCheck,

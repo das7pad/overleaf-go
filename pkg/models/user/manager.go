@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -70,16 +69,6 @@ func getErr(_ sql.Result, err error) error {
 
 func rewritePostgresErr(err error) error {
 	if err == sql.ErrNoRows {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
-func rewriteEdgedbError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
 		return &errors.NotFoundError{}
 	}
 	return err
@@ -235,29 +224,29 @@ WHERE id = $1
 }
 
 func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId sharedTypes.UUID) bool) error {
-	userId := sharedTypes.UUID{}
+	ids := make([]sharedTypes.UUID, 0, 100)
 	for {
-		r, err := m.db.QueryContext(ctx, `
-SELECT id
-FROM users
-WHERE deleted_at <= $1
-ORDER BY deleted_at
-LIMIT 100
+		ids = ids[:0]
+		r := m.db.QueryRowContext(ctx, `
+WITH ids AS (SELECT id
+             FROM users
+             WHERE deleted_at <= $1
+             ORDER BY deleted_at
+             LIMIT 100)
+SELECT array_agg(ids)
+FROM ids
 `, cutOff)
-		if err != nil {
-			return rewriteEdgedbError(err)
+		if err := r.Scan(pq.Array(&ids)); err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return nil
 		}
 		ok := true
-		for r.Next() {
-			if err = r.Scan(&userId); err != nil {
-				return err
-			}
+		for _, userId := range ids {
 			if !fn(userId) {
 				ok = false
 			}
-		}
-		if err = r.Err(); err != nil {
-			return err
 		}
 		if !ok {
 			return nil

@@ -62,31 +62,29 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	}
 
 	members := make([]user.AsProjectMember, 0)
-	owner := &d.Project.Owner
+	var owner user.WithPublicInfo
 
 	// Hide user details for restricted users
 	if authorizationDetails.IsRestrictedUser() {
 		d.Project.Invites = make([]projectInvite.WithoutToken, 0)
-		owner.WithPublicInfo = user.WithPublicInfo{
-			IdField: user.IdField{Id: p.Owner.Id},
-		}
+		owner.Id = p.OwnerId
 	} else {
 		members = p.GetProjectMembers()
+		// TODO: populate owner
 	}
 
 	// Populate fake feature flags
-	owner.Features.Collaborators = -1
-	owner.Features.TrackChangesVisible = false
-	owner.Features.TrackChanges = false
-	owner.Features.Versioning = true
+	p.OwnerFeatures.Collaborators = -1
+	p.OwnerFeatures.TrackChangesVisible = false
+	p.OwnerFeatures.TrackChanges = false
+	p.OwnerFeatures.Versioning = true
 
 	details := types.JoinProjectDetails{
-		Features:               owner.Features,
 		JoinProjectViewPublic:  p.JoinProjectViewPublic,
 		Members:                members,
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
-		Owner:                  owner.WithPublicInfo,
+		Owner:                  owner,
 		RootDocIdField: project.RootDocIdField{
 			RootDocId: p.RootDoc.Id,
 		},

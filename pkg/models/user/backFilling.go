@@ -17,6 +17,8 @@
 package user
 
 import (
+	"database/sql"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -31,6 +33,31 @@ type AsProjectMember struct {
 }
 
 type BulkFetched []WithPublicInfo
+
+func (b *BulkFetched) ScanInto(r *sql.Rows) error {
+	x := make(BulkFetched, 0)
+	for i := 0; r.Next(); i++ {
+		x = append(x, WithPublicInfo{})
+		err := r.Scan(&x[i].Id, &x[i].Email, &x[i].FirstName, &x[i].LastName)
+		if err != nil {
+			return err
+		}
+	}
+	if err := r.Err(); err != nil {
+		return err
+	}
+	*b = x
+	return nil
+}
+
+func (b BulkFetched) Get(uuid sharedTypes.UUID) WithPublicInfo {
+	for _, info := range b {
+		if info.Id == uuid {
+			return info
+		}
+	}
+	return WithPublicInfo{}
+}
 
 func (b BulkFetched) GetUserNonStandardId(uuid sharedTypes.UUID) WithPublicInfoAndNonStandardId {
 	for _, info := range b {

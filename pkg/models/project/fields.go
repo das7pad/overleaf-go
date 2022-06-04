@@ -17,15 +17,21 @@
 package project
 
 import (
+	"database/sql"
 	"time"
-
-	"github.com/edgedb/edgedb-go"
 
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
+
+type Member struct {
+	Archived      bool
+	CanWrite      bool
+	IsTokenMember IsTokenMember
+	Trashed       bool
+}
 
 type AccessReadAndWriteField struct {
 	AccessReadAndWrite Refs `edgedb:"access_rw"`
@@ -35,33 +41,12 @@ type AccessReadOnlyField struct {
 	AccessReadOnly Refs `edgedb:"access_ro"`
 }
 
-type AccessTokenReadAndWriteField struct {
-	AccessTokenReadAndWrite Refs `edgedb:"access_token_rw"`
-}
-
-type AccessTokenReadOnlyField struct {
-	AccessTokenReadOnly Refs `edgedb:"access_token_ro"`
-}
-
-type ArchivedByField struct {
-	ArchivedBy Refs `edgedb:"archived_by"`
-}
-
-type AuditLogField struct {
-	AuditLog []AuditLogEntry `edgedb:"audit_log"`
-}
-
-//goland:noinspection SpellCheckingInspection
-type CollaboratorRefsField struct {
-	CollaboratorRefs Refs `edgedb:"collaberator_refs"`
-}
-
 type CompilerField struct {
 	Compiler sharedTypes.Compiler `json:"compiler" edgedb:"compiler"`
 }
 
 type DeletedAtField struct {
-	DeletedAt edgedb.OptionalDateTime `edgedb:"deleted_at"`
+	DeletedAt sql.NullTime `edgedb:"deleted_at"`
 }
 
 type DeletedDocsField struct {
@@ -93,24 +78,24 @@ type LastUpdatedAtField struct {
 }
 
 type LastUpdatedByField struct {
-	LastUpdatedBy user.WithPublicInfo `edgedb:"last_updated_by"`
+	LastUpdatedBy sharedTypes.UUID `edgedb:"last_updated_by"`
 }
 
 type NameField struct {
 	Name Name `json:"name" edgedb:"name"`
 }
 
-type OwnerField struct {
-	Owner user.WithPublicInfoAndFeatures `edgedb:"owner" json:"owner"`
+type OwnerIdField struct {
+	OwnerId sharedTypes.UUID `json:"owner_ref"`
+}
+
+type OwnerFeaturesField struct {
+	OwnerFeatures user.Features `json:"features"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
 	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" edgedb:"public_access_level"`
-}
-
-type ReadOnlyRefsField struct {
-	ReadOnlyRefs Refs `edgedb:"readOnly_refs"`
 }
 
 type RootDocIdField struct {
@@ -126,20 +111,8 @@ type SpellCheckLanguageField struct {
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spell_check_language"`
 }
 
-type TokenAccessReadAndWriteRefsField struct {
-	TokenAccessReadAndWriteRefs Refs `edgedb:"tokenAccessReadAndWrite_refs"`
-}
-
-type TokenAccessReadOnlyRefsField struct {
-	TokenAccessReadOnlyRefs Refs `edgedb:"tokenAccessReadOnly_refs"`
-}
-
 type TokensField struct {
 	Tokens Tokens `json:"tokens" edgedb:"tokens"`
-}
-
-type TrashedByField struct {
-	TrashedBy Refs `edgedb:"trashed_by"`
 }
 
 type RootFolderField struct {

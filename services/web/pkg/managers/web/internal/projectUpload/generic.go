@@ -18,10 +18,10 @@ package projectUpload
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -66,11 +66,18 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	p := project.NewProject(request.UserId)
-	p.DeletedAt = edgedb.NewOptionalDateTime(
+	p, errProject := project.NewProject(request.UserId)
+	if errProject != nil {
+		return errProject
+	}
+	p.DeletedAt = sql.NullTime{
 		// Give the project upload 1h until it gets cleaned up by the cron.
-		time.Now().UTC().Add(-constants.ExpireProjectsAfter).Add(time.Hour),
-	)
+		Time: time.Now().
+			UTC().
+			Add(-constants.ExpireProjectsAfter).
+			Add(time.Hour),
+		Valid: true,
+	}
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
 	}
@@ -105,20 +112,13 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	}()
 	t := &p.RootFolder
 	rootDocPath := request.RootDocPath
-
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
-			return errors.Tag(err, "cannot init project")
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		done := pCtx.Done()
+	{
+		// Prepare tree
+		done := ctx.Done()
 		for _, file := range request.Files {
 			select {
 			case <-done:
-				return pCtx.Err()
+				return ctx.Err()
 			default:
 			}
 			path := file.Path()
@@ -194,24 +194,40 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				openReader[path] = uploadQueueEntry{file: file, reader: f}
 			}
 		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		if p.Id != (sharedTypes.UUID{}) {
-			return errors.Merge(err, m.pm.HardDelete(ctx, p.Id))
+	}
+	{
+		// Populate ids
+		nElements := 1
+		t.WalkFull(func(_ project.TreeElement) {
+			nElements += 1
+		})
+		b, err := sharedTypes.GenerateUUIDBulk(nElements)
+		if err != nil {
+			return err
 		}
+		t.Id = b.Next()
+		t.WalkFull(func(e project.TreeElement) {
+			switch el := e.(type) {
+			case *project.Doc:
+				el.Id = b.Next()
+			case *project.FileRef:
+				el.Id = b.Next()
+			case *project.Folder:
+				el.Id = b.Next()
+			}
+		})
+
+		if rootDocPath != "" {
+			parent, _ := t.CreateParents(rootDocPath.Dir())
+			p.RootDoc.Doc.Id = parent.GetDoc(rootDocPath.Filename()).Id
+		}
+	}
+
+	if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
 		return err
 	}
 
-	if err := m.pm.CreateProjectTree(ctx, p); err != nil {
-		return errors.Merge(err, m.pm.HardDelete(ctx, p.Id))
-	}
-	if rootDocPath != "" {
-		parent, _ := t.CreateParents(rootDocPath.Dir())
-		p.RootDoc.Doc.Id = parent.GetDoc(rootDocPath.Filename()).Id
-	}
-
-	eg, pCtx = errgroup.WithContext(ctx)
+	eg, pCtx := errgroup.WithContext(ctx)
 	uploadQueue := make(chan sharedTypes.PathName, parallelUploads)
 	uploadEg, uploadCtx := errgroup.WithContext(pCtx)
 	for i := 0; i < parallelUploads; i++ {
@@ -263,7 +279,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				if err := mErr.Finalize(); err != nil {
 					return err
 				}
-				delete(openReader, path)
 			}
 			return nil
 		})

@@ -99,7 +99,7 @@ type FileRef struct {
 	CommonTreeFields `edgedb:"$inline"`
 	ResolvedPath     sharedTypes.PathName `edgedb:"resolved_path"`
 
-	LinkedFileData LinkedFileData   `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
+	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
 	Created        time.Time        `json:"created" edgedb:"created_at"`
 	Size           int64            `json:"size" edgedb:"size"`
@@ -225,6 +225,19 @@ func (t *Folder) WalkFiles(fn TreeWalker) error {
 
 func (t *Folder) WalkFolders(fn DirWalker) error {
 	return ignoreAbort(t.walkDirs(fn, t.Path))
+}
+
+func (t *Folder) WalkFull(fn func(e TreeElement)) {
+	fnDir := func(f *Folder, path sharedTypes.DirName) error {
+		fn(f)
+		return nil
+	}
+	fnTree := func(e TreeElement, path sharedTypes.PathName) error {
+		fn(e)
+		return nil
+	}
+	_ = t.walkDirs(fnDir, t.Path)
+	_ = t.walk(fnTree, t.Path, walkModeAny)
 }
 
 type walkMode int

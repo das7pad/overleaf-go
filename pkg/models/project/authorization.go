@@ -56,7 +56,8 @@ type AuthorizationDetails struct {
 
 func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
 	return IsRestrictedUser(
-		a.IsTokenMember && a.PrivilegeLevel == sharedTypes.PrivilegeLevelReadOnly,
+		a.IsTokenMember &&
+			a.PrivilegeLevel == sharedTypes.PrivilegeLevelReadOnly,
 	)
 }
 
@@ -126,7 +127,7 @@ func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId sharedTypes
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId sharedTypes.UUID) (*AuthorizationDetails, error) {
-	if p.Owner.Id == userId {
+	if p.OwnerId == userId {
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceOwner,
@@ -134,15 +135,15 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId sharedTy
 			IsTokenMember:  false,
 		}, nil
 	}
-	if p.AccessReadAndWrite.Contains(userId) {
-		return &AuthorizationDetails{
-			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceInvite,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-			IsTokenMember:  false,
-		}, nil
-	}
-	if p.AccessReadOnly.Contains(userId) {
+	if !p.Member.IsTokenMember {
+		if p.Member.CanWrite {
+			return &AuthorizationDetails{
+				Epoch:          p.Epoch,
+				AccessSource:   AccessSourceInvite,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
+				IsTokenMember:  false,
+			}, nil
+		}
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   AccessSourceInvite,
@@ -151,7 +152,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId sharedTy
 		}, nil
 	}
 	if p.PublicAccessLevel == TokenBasedAccess {
-		if p.AccessTokenReadAndWrite.Contains(userId) {
+		if p.Member.CanWrite {
 			return &AuthorizationDetails{
 				Epoch:          p.Epoch,
 				AccessSource:   AccessSourceToken,
@@ -159,14 +160,12 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId sharedTy
 				IsTokenMember:  true,
 			}, nil
 		}
-		if p.AccessTokenReadOnly.Contains(userId) {
-			return &AuthorizationDetails{
-				Epoch:          p.Epoch,
-				AccessSource:   AccessSourceToken,
-				PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-				IsTokenMember:  true,
-			}, nil
-		}
+		return &AuthorizationDetails{
+			Epoch:          p.Epoch,
+			AccessSource:   AccessSourceToken,
+			PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
+			IsTokenMember:  true,
+		}, nil
 	}
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }

@@ -48,8 +48,8 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	c := m.jwtProject.New().(*projectJWT.Claims)
 	c.ProjectId = projectId
 	c.UserId = userId
-	c.CompileGroup = p.Owner.Features.CompileGroup
-	c.Timeout = sharedTypes.ComputeTimeout(p.Owner.Features.CompileTimeout)
+	c.CompileGroup = p.OwnerFeatures.CompileGroup
+	c.Timeout = p.OwnerFeatures.CompileTimeout
 	c.EpochUser = userEpoch
 	c.AuthorizationDetails = *authorizationDetails
 

@@ -95,7 +95,11 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		return err
 	}
 	userId := request.Session.User.Id
-	u := project.ForProjectList{}
+	u := project.ForProjectList{
+		Tags:          make(tag.Tags, 0),
+		Projects:      make(project.List, 0),
+		Collaborators: make(user.BulkFetched, 0),
+	}
 	{
 		err := m.pm.ListProjects(ctx, userId, &u)
 		if err != nil {
@@ -114,24 +118,25 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			Id:                p.Id,
 			Name:              p.Name,
 			LastUpdatedAt:     p.LastUpdatedAt,
-			LastUpdatedBy:     p.LastUpdatedBy,
 			PublicAccessLevel: p.PublicAccessLevel,
 			AccessLevel:       authorizationDetails.PrivilegeLevel,
 			AccessSource:      authorizationDetails.AccessSource,
-			Archived:          p.ArchivedBy.Contains(userId),
-			Trashed:           p.TrashedBy.Contains(userId),
-			OwnerRef:          p.Owner.Id,
-			Owner:             p.Owner.WithPublicInfo,
+			Archived:          p.Archived,
+			Trashed:           p.Trashed,
+			OwnerRef:          p.OwnerId,
 		}
 		if authorizationDetails.IsRestrictedUser() {
-			if projects[i].LastUpdatedBy.Id != userId {
-				projects[i].LastUpdatedBy = user.WithPublicInfo{
-					IdField: projects[i].LastUpdatedBy.IdField,
-				}
+			if p.LastUpdatedBy == userId {
+				projects[i].LastUpdatedBy = u.User.WithPublicInfo
+			} else {
+				projects[i].LastUpdatedBy = user.WithPublicInfo{}
+				projects[i].LastUpdatedBy.Id = p.LastUpdatedBy
 			}
-			projects[i].Owner = user.WithPublicInfo{
-				IdField: p.Owner.IdField,
-			}
+			projects[i].Owner = user.WithPublicInfo{}
+			projects[i].Owner.Id = p.OwnerId
+		} else {
+			projects[i].LastUpdatedBy = u.Collaborators.Get(p.LastUpdatedBy)
+			projects[i].Owner = u.Collaborators.Get(p.OwnerId)
 		}
 	}
 

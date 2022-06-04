@@ -150,9 +150,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 				hash,
 				request.Size,
 			)
-			if request.LinkedFileData != nil {
-				file.LinkedFileData = *request.LinkedFileData
-			}
+			file.LinkedFileData = request.LinkedFileData
 			if err = request.SeekFileToStart(); err != nil {
 				return err
 			}
