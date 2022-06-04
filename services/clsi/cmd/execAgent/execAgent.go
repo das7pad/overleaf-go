@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -38,7 +37,7 @@ const (
 	outputDir  = types.OutputDir(constants.OutputDirContainer)
 )
 
-func do(ctx context.Context, options *types.ExecAgentRequestOptions, timed *sharedTypes.Timed) (types.ExitCode, error) {
+func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, timed *sharedTypes.Timed) (types.ExitCode, error) {
 	args := make([]string, len(options.CommandLine))
 	for i, s := range options.CommandLine {
 		s = strings.ReplaceAll(
@@ -75,44 +74,55 @@ func do(ctx context.Context, options *types.ExecAgentRequestOptions, timed *shar
 	if err == nil {
 		return 0, nil
 	}
+	if err2 := ctx.Err(); err2 != nil {
+		return -1, err2
+	}
 	if exitError, isExitError := err.(*exec.ExitError); isExitError {
 		return types.ExitCode(exitError.ExitCode()), nil
 	}
 	return -1, err
 }
 
-func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 	options := types.ExecAgentRequestOptions{}
-	timed := sharedTypes.Timed{}
-	if err := json.NewDecoder(r.Body).Decode(&options); err != nil {
-		respond(w, http.StatusBadRequest, -1, timed, "invalid request")
-		return
+	if err := conn.SetDeadline(time.Now().Add(time.Second)); err != nil {
+		return -1, "guard slow read: " + err.Error()
 	}
-
-	timeout := time.Duration(options.ComputeTimeout)
-	ctx, done := context.WithTimeout(r.Context(), timeout)
+	if err := json.NewDecoder(conn).Decode(&options); err != nil {
+		return -1, "invalid request"
+	}
+	deadLine := time.Now().Add(time.Duration(options.ComputeTimeout))
+	ctx, done := context.WithDeadline(context.Background(), deadLine)
 	defer done()
-	code, err := do(ctx, &options, &timed)
+	t := time.AfterFunc(5*time.Millisecond, func() {
+		_ = conn.SetReadDeadline(deadLine)
+		_, _ = conn.Read(make([]byte, 1))
+		done()
+	})
+	code, err := doExec(ctx, &options, timed)
+	t.Stop()
 	if err == nil {
-		respond(w, http.StatusOK, code, timed, "")
+		return code, ""
 	} else if err == context.Canceled {
-		respond(w, http.StatusConflict, code, timed, constants.Cancelled)
+		return code, constants.Cancelled
 	} else if err == context.DeadlineExceeded {
-		respond(w, http.StatusConflict, code, timed, constants.TimedOut)
+		return code, constants.TimedOut
 	} else {
-		respond(w, http.StatusInternalServerError, code, timed, err.Error())
+		return code, err.Error()
 	}
 }
 
-func respond(w http.ResponseWriter, status int, code types.ExitCode, timed sharedTypes.Timed, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+func serve(conn net.Conn) {
+	timed := sharedTypes.Timed{}
+	code, message := do(conn, &timed)
 	msg := &types.ExecAgentResponseBody{
 		ExitCode:     code,
 		ErrorMessage: message,
 		Timed:        timed,
 	}
-	_ = json.NewEncoder(w).Encode(msg)
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	_ = json.NewEncoder(conn).Encode(msg)
+	_ = conn.Close()
 }
 
 func run() int {
@@ -129,15 +139,17 @@ func run() int {
 			return 1
 		}
 	}
-	server := http.Server{Handler: http.HandlerFunc(ServeHTTP)}
 	socket, err := net.Listen(proto, address)
 	if err != nil {
 		return 2
 	}
-	if err = server.Serve(socket); err != http.ErrServerClosed {
-		return 3
+	for {
+		conn, err2 := socket.Accept()
+		if err2 != nil {
+			return 3
+		}
+		go serve(conn)
 	}
-	return 0
 }
 
 func main() {

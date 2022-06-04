@@ -17,12 +17,10 @@
 package commandRunner
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -42,7 +40,7 @@ import (
 
 type agentRunner struct {
 	dockerClient *client.Client
-	agentClient  http.Client
+	d            *net.Dialer
 
 	options       *types.Options
 	o             types.DockerContainerOptions
@@ -87,25 +85,9 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	o := options.DockerContainerOptions
 	runner := agentRunner{
 		dockerClient: dockerClient,
-		agentClient: http.Client{
-			Timeout: time.Duration(sharedTypes.MaxComputeTimeout),
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// projectId-userId:80
-					if len(addr) != 36+1+36+3 {
-						return nil, errors.New("unexpected addr: " + addr)
-					}
-					namespace := types.Namespace(addr[:36+1+36])
-					compileDir := options.CompileBaseDir.CompileDir(namespace)
-					path := compileDir.Join(
-						sharedTypes.PathName(constants.AgentSocketName),
-					)
-					return net.Dial("unix", path)
-				},
-			},
-		},
-		options: options,
-		tries:   1 + o.AgentRestartAttempts,
+		d:            &net.Dialer{},
+		options:      options,
+		tries:        1 + o.AgentRestartAttempts,
 	}
 
 	if o.AgentPathContainer == "" {
@@ -385,25 +367,29 @@ func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, op
 		Environment:        options.Environment,
 		ComputeTimeout:     options.ComputeTimeout,
 	}
-	blob, err := json.Marshal(request)
+	socketPath := a.options.CompileBaseDir.
+		CompileDir(namespace).
+		Join(sharedTypes.PathName(constants.AgentSocketName))
+
+	conn, err := a.d.DialContext(ctx, "unix", socketPath)
 	if err != nil {
 		return -1, err
 	}
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		"http://"+string(namespace),
-		bytes.NewBuffer(blob),
-	)
+	ctx, done := context.WithCancel(ctx)
+	defer done()
+	go func() {
+		<-ctx.Done()
+		_ = conn.Close()
+	}()
+	err = conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
 	if err != nil {
 		return -1, err
 	}
-	resp, err := a.agentClient.Do(req)
-	if err != nil {
+	if err = json.NewEncoder(conn).Encode(request); err != nil {
 		return -1, err
 	}
 	var body types.ExecAgentResponseBody
-	if err = json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err = json.NewDecoder(conn).Decode(&body); err != nil {
 		return -1, err
 	}
 	if options.Timed != nil {
