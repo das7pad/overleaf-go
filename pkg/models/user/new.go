@@ -44,6 +44,9 @@ func NewUser(email sharedTypes.Email) (*ForCreation, error) {
 				},
 			},
 		},
+		EditorConfigField: EditorConfigField{
+			EditorConfig: DefaultEditorConfig,
+		},
 		FeaturesField: FeaturesField{
 			Features: Features{
 				CompileTimeout: sharedTypes.ComputeTimeout(180 * time.Second),

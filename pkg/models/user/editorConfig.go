@@ -17,6 +17,9 @@
 package user
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -33,6 +36,18 @@ type EditorConfig struct {
 	SyntaxValidation   bool                             `json:"syntaxValidation" edgedb:"syntax_validation"`
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spell_check_language"`
 	Theme              string                           `json:"theme" edgedb:"theme"`
+}
+
+func (e *EditorConfig) Scan(x interface{}) error {
+	return json.Unmarshal(x.([]byte), e)
+}
+
+func (e *EditorConfig) Value() (driver.Value, error) {
+	blob, err := json.Marshal(e)
+	if err != nil {
+		return nil, err
+	}
+	return string(blob), err
 }
 
 //goland:noinspection SpellCheckingInspection
@@ -54,6 +69,20 @@ const (
 	editorPdfViewerPdfjs  = "pdfjs"
 	editorPdfViewerNative = "native"
 )
+
+var DefaultEditorConfig = EditorConfig{
+	AutoComplete:       true,
+	AutoPairDelimiters: true,
+	FontFamily:         editorFontFamilyLucida,
+	FontSize:           12,
+	LineHeight:         editorLineHightNormal,
+	Mode:               editorModeDefault,
+	OverallTheme:       editorOverallThemeNone,
+	PDFViewer:          editorPdfViewerPdfjs,
+	SyntaxValidation:   true,
+	SpellCheckLanguage: "en",
+	Theme:              "textmate",
+}
 
 var (
 	//goland:noinspection SpellCheckingInspection

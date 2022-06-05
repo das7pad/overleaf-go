@@ -116,7 +116,7 @@ func (u UUID) String() string {
 	)
 }
 
-func (u *UUID) Scan(x any) error {
+func (u *UUID) Scan(x interface{}) error {
 	b, ok := x.([]byte)
 	if !ok {
 		return errors.New(fmt.Sprintf("unexpected uuid src: %q", x))

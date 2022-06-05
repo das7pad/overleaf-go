@@ -14,65 +14,28 @@
 --  You should have received a copy of the GNU Affero General Public License
 --  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
---  Golang port of Overleaf
---  Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
---
---  This program is free software: you can redistribute it and/or modify
---  it under the terms of the GNU Affero General Public License as published
---  by the Free Software Foundation, either version 3 of the License, or
---  (at your option) any later version.
---
---  This program is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU Affero General Public License for more details.
---
---  You should have received a copy of the GNU Affero General Public License
---  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 -- TODO: report duplicate copyright head bug?
-
-CREATE TYPE Features AS
-(
-  compile_group   TEXT,
-  compile_timeout INTERVAL
-);
-
-CREATE TYPE EditorConfig AS
-(
-  auto_complete        BOOLEAN,
-  auto_pair_delimiters BOOLEAN,
-  syntax_validation    BOOLEAN,
-  font_size            SMALLINT,
-  font_family          TEXT,
-  line_height          TEXT,
-  mode                 TEXT,
-  overall_theme        TEXT,
-  pdf_viewer           TEXT,
-  spell_check_language TEXT,
-  theme                TEXT
-);
 
 CREATE TABLE users
 (
-  beta_program       BOOLEAN      NOT NULL,
-  deleted_at         TIMESTAMP    NULL,
-  editor_config      EditorConfig NOT NULL,
-  email              TEXT         NOT NULL UNIQUE,
-  email_confirmed_at TIMESTAMP    NULL,
-  email_created_at   TIMESTAMP    NOT NULL,
-  epoch              INTEGER      NOT NULL,
-  features           Features     NOT NULL,
-  first_name         TEXT         NOT NULL,
-  id                 UUID         NOT NULL PRIMARY KEY,
-  last_login_at      timestamp    NULL,
-  last_login_ip      TEXT         NULL,
-  last_name          TEXT         NOT NULL,
-  learned_words      TEXT[]       NULL,
-  login_count        INTEGER      NOT NULL,
-  must_reconfirm     BOOLEAN      NOT NULL,
-  password_hash      TEXT         NOT NULL,
-  signup_date        TIMESTAMP    NOT NULL
+  beta_program       BOOLEAN   NOT NULL,
+  deleted_at         TIMESTAMP NULL,
+  editor_config      JSONB     NOT NULL,
+  email              TEXT      NOT NULL UNIQUE,
+  email_confirmed_at TIMESTAMP NULL,
+  email_created_at   TIMESTAMP NOT NULL,
+  epoch              INTEGER   NOT NULL,
+  features           JSONB     NOT NULL,
+  first_name         TEXT      NOT NULL,
+  id                 UUID      NOT NULL PRIMARY KEY,
+  last_login_at      timestamp NULL,
+  last_login_ip      TEXT      NULL,
+  last_name          TEXT      NOT NULL,
+  learned_words      TEXT[]    NULL,
+  login_count        INTEGER   NOT NULL,
+  must_reconfirm     BOOLEAN   NOT NULL,
+  password_hash      TEXT      NOT NULL,
+  signup_date        TIMESTAMP NOT NULL
 );
 
 CREATE TABLE contacts
@@ -96,24 +59,26 @@ CREATE TABLE user_audit_log
   user_id      UUID      NOT NULL REFERENCES users ON DELETE CASCADE
 );
 
+CREATE TYPE PublicAccessLevel AS ENUM ('', 'tokenBased');
+
 CREATE TABLE projects
 (
-  compiler             TEXT      NOT NULL,
-  deleted_at           TIMESTAMP NULL,
-  epoch                INTEGER   NOT NULL,
-  id                   UUID      NOT NULL PRIMARY KEY,
-  image_name           TEXT      NOT NULL,
-  last_opened_at       TIMESTAMP NULL,
-  last_updated_at      TIMESTAMP NULL,
-  last_updated_by      UUID      NULL REFERENCES users ON DELETE SET NULL,
-  name                 TEXT      NOT NULL,
-  owner_id             UUID      NOT NULL REFERENCES users ON DELETE RESTRICT,
-  public_access_level  TEXT      NOT NULL,
-  spell_check_language TEXT      NOT NULL,
-  token_ro             TEXT      NULL UNIQUE,
-  token_rw             TEXT      NULL, -- implicit UNIQUE via token_rw_prefix
-  token_rw_prefix      TEXT      NULL UNIQUE,
-  tree_version         INTEGER   NOT NULL
+  compiler             TEXT              NOT NULL,
+  deleted_at           TIMESTAMP         NULL,
+  epoch                INTEGER           NOT NULL,
+  id                   UUID              NOT NULL PRIMARY KEY,
+  image_name           TEXT              NOT NULL,
+  last_opened_at       TIMESTAMP         NULL,
+  last_updated_at      TIMESTAMP         NULL,
+  last_updated_by      UUID              NULL REFERENCES users ON DELETE SET NULL,
+  name                 TEXT              NOT NULL,
+  owner_id             UUID              NOT NULL REFERENCES users ON DELETE RESTRICT,
+  public_access_level  PublicAccessLevel NOT NULL,
+  spell_check_language TEXT              NOT NULL,
+  token_ro             TEXT              NULL UNIQUE,
+  token_rw             TEXT              NULL, -- implicit UNIQUE via token_rw_prefix
+  token_rw_prefix      TEXT              NULL UNIQUE,
+  tree_version         INTEGER           NOT NULL
 );
 
 CREATE TABLE project_members

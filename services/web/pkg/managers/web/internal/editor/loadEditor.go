@@ -39,15 +39,7 @@ var (
 			Epoch: user.AnonymousUserEpoch,
 		},
 		EditorConfigField: user.EditorConfigField{
-			EditorConfig: user.EditorConfig{
-				Mode:               "none",
-				Theme:              "textmate",
-				FontSize:           12,
-				AutoComplete:       true,
-				AutoPairDelimiters: true,
-				PDFViewer:          "pdfjs",
-				SyntaxValidation:   true,
-			},
+			EditorConfig: user.DefaultEditorConfig,
 		},
 	}
 )

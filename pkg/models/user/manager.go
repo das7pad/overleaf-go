@@ -87,8 +87,8 @@ WITH u AS (
          learned_words, login_count, must_reconfirm, password_hash,
          signup_date)
         VALUES (FALSE,
-                ROW (TRUE, TRUE, FALSE, 12, 'lucida', 'normal', 'default', '', 'pdfjs', 'en', 'textmate'),
-                $1, $2, 1, ROW ($3, $4), '', $5, $6, $7, '', ARRAY []::TEXT[],
+                $3,
+                $1, $2, 1, $4, '', $5, $6, $7, '', ARRAY []::TEXT[],
                 $8,
                 FALSE, $9, $2)
         RETURNING id),
@@ -107,8 +107,8 @@ FROM u;
 `,
 		string(u.Email),
 		u.SignUpDate,
-		u.Features.CompileGroup,
-		u.Features.CompileTimeout.String(),
+		&u.EditorConfig,
+		&u.Features,
 		u.Id.String(),
 		u.LastLoggedIn,
 		u.LastLoginIp,
@@ -166,19 +166,16 @@ WHERE user_id = u.id
 }
 
 func (m *manager) UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, e EditorConfig) error {
+	blob, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE users
-SET editor_config = ROW (
-    $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-    )
+SET editor_config = $2
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String(),
-		e.AutoComplete, e.AutoPairDelimiters, e.SyntaxValidation,
-		e.FontSize,
-		e.FontFamily, e.LineHeight, e.Mode, e.OverallTheme, e.PDFViewer,
-		e.SpellCheckLanguage, e.Theme,
-	))
+`, userId, string(blob)))
 }
 
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}

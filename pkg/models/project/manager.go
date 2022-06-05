@@ -110,6 +110,10 @@ func rewriteEdgedbError(err error) error {
 	return err
 }
 
+func getErr(_ sql.Result, err error) error {
+	return err
+}
+
 type manager struct {
 	db *sql.DB
 	c  *edgedb.Client
@@ -132,9 +136,9 @@ func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) er
 		`
 WITH lng AS (SELECT CASE
                         WHEN $2 = 'inherit' THEN
-                            (editor_config).spell_check_language
+                            (editor_config->'spellCheckLanguage')::text
                         ELSE
-                            $6
+                            $2::text
                         END AS spell_check_language
              FROM users
              WHERE id = $1),
@@ -1262,57 +1266,28 @@ select {
 }
 
 func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
+	ok := false
+	var err error
 	if userId == (sharedTypes.UUID{}) {
-		ok := false
-		err := m.c.QuerySingle(ctx, `
-select {
-	exists (
-		select Project
-		filter
-			.id = <uuid>$0
-		and .epoch = <int64>$1
-		and not exists .deleted_at
-	)
-}
-`, &ok, projectId, projectEpoch)
-		if err != nil {
-			return rewriteEdgedbError(err)
-		}
-		if !ok {
-			return &errors.UnauthorizedError{Reason: "epoch mismatch: project"}
-		}
+		err = m.db.QueryRowContext(ctx, `
+SELECT TRUE
+FROM projects
+WHERE id = $1 AND epoch = $2
+`, projectId, projectEpoch).Scan(&ok)
+	} else {
+		err = m.db.QueryRowContext(ctx, `
+SELECT TRUE
+FROM projects p, users u
+WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
+`, projectId, projectEpoch, userId, userEpoch).Scan(&ok)
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if err == nil && ok {
 		return nil
 	}
-
-	ok := make([]bool, 2, 2)
-	err := m.c.Query(ctx, `
-select {
-	exists (
-		select Project
-		filter
-			.id = <uuid>$0
-		and .epoch = <int64>$1
-		and not exists .deleted_at
-	),
-	exists (
-		select User
-		filter
-			.id = <uuid>$2
-		and .epoch = <int64>$3
-		and not exists .deleted_at
-	),
-}
-`, &ok, projectId, projectEpoch, userId, userEpoch)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	if !ok[0] {
-		return &errors.UnauthorizedError{Reason: "epoch mismatch: project"}
-	}
-	if !ok[1] {
-		return &errors.UnauthorizedError{Reason: "epoch mismatch: user"}
-	}
-	return nil
+	return &errors.UnauthorizedError{Reason: "epoch mismatch"}
 }
 
 func (m *manager) BumpEpoch(ctx context.Context, projectId sharedTypes.UUID) error {
@@ -1661,16 +1636,9 @@ filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
-	details := &JoinProjectDetails{
-		Project: JoinProjectViewPrivate{
-			ForTree: ForTree{
-				RootFolderField: RootFolderField{
-					RootFolder: RootFolder{
-						Folder: NewFolder(""),
-					},
-				},
-			},
-		},
+	details := &JoinProjectDetails{}
+	details.Project.RootFolder = RootFolder{
+		Folder: NewFolder(""),
 	}
 	if userId != (sharedTypes.UUID{}) {
 		accessToken = "-"
@@ -1799,101 +1767,76 @@ select {
 }
 
 func (m *manager) BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error {
-	return rewriteEdgedbError(m.c.QuerySingle(ctx, `
-update Project
-filter .id = <uuid>$0 and not exists .deleted_at
-set {
-	last_opened := datetime_of_transaction(),
-}
-`, &IdField{}, projectId))
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects
+SET last_opened_at = transaction_timestamp()
+WHERE id = $1
+`, projectId))
 }
 
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
-	details := &LoadEditorDetails{}
+	d := LoadEditorDetails{}
 	if userId != (sharedTypes.UUID{}) {
 		accessToken = "-"
 	}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (
-		select {
-			(select p filter u in .min_access_ro),
-			(
-				select p
-				filter
-					.public_access_level = 'tokenBased'
-				and (.tokens.token_ro ?? '') = <str>$2
-			),
-		}
-		limit 1
-	),
-select {
-	user := (select u {
-		editor_config: {
-			auto_complete,
-			auto_pair_delimiters,
-			font_family,
-			font_size,
-			line_height,
-			mode,
-			overall_theme,
-			pdf_viewer,
-			syntax_validation,
-			spell_check_language,
-			theme,
-		},
-		email: { email },
-		epoch,
-		first_name,
-		id,
-		last_name,
-	}),
-	project_exists := (exists p),
-	project := (select pWithAuth {
-		access_ro: { id } filter User = u,
-		access_rw: { id } filter User = u,
-		access_token_ro: { id } filter User = u,
-		access_token_rw: { id } filter User = u,
-		compiler,
-		epoch,
-		id,
-		image_name,
-		name,
-		owner: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-			features: {
-				compile_group,
-				compile_timeout,
-			},
-		},
-		public_access_level,
-		root_doc: {
-			id,
-			resolved_path,
-		},
-		tokens: {
-			token_ro,
-			token_rw,
-		},
-		version,
-	}),
-}
-`, details, projectId, userId, accessToken)
+	err := m.db.QueryRowContext(ctx, `
+SELECT p.compiler,
+       p.epoch,
+       p.image_name,
+       p.name,
+       p.owner_id,
+       p.public_access_level,
+       COALESCE(p.token_ro, ''),
+       COALESCE(p.token_rw, ''),
+       p.tree_version,
+       d.id,
+       d.path,
+       o.features,
+       u.editor_config,
+       u.email,
+       u.epoch,
+       u.first_name,
+       u.last_name
+FROM projects p
+         INNER JOIN users o ON p.owner_id = o.id
+         LEFT JOIN tree_nodes d ON p.root_doc_id = d.id
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $2)
+         LEFT JOIN users u ON (pm.user_id = u.id AND
+                               u.id = $2 AND
+                               u.deleted_at IS NULL)
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND (
+        (pm.is_token_member = FALSE)
+        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
+        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+    )
+`, projectId, userId, accessToken).Scan(
+		&d.Project.Compiler,
+		&d.Project.Epoch,
+		&d.Project.ImageName,
+		&d.Project.Name,
+		&d.Project.OwnerId,
+		&d.Project.PublicAccessLevel,
+		&d.Project.Tokens.ReadOnly,
+		&d.Project.Tokens.ReadAndWrite,
+		&d.Project.Version,
+		&d.Project.RootDoc.Id,
+		&d.Project.RootDoc.ResolvedPath,
+		&d.Project.OwnerFeatures,
+		&d.User.EditorConfig,
+		&d.User.Email,
+		&d.User.Epoch,
+		&d.User.FirstName,
+		&d.User.LastName,
+	)
 	if err != nil {
-		return nil, rewriteEdgedbError(err)
+		return nil, err
 	}
-	if !details.ProjectExists {
-		return nil, &errors.NotFoundError{}
-	}
-	if details.Project.Id != projectId {
-		return nil, &errors.NotAuthorizedError{}
-	}
-	return details, nil
+	d.Project.Id = projectId
+	d.User.Id = userId
+	return &d, err
 }
 
 func (m *manager) GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error {

@@ -17,6 +17,9 @@
 package user
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -27,4 +30,16 @@ type Features struct {
 	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" edgedb:"compile_group"`
 	TrackChanges        bool                       `json:"trackChanges"`
 	TrackChangesVisible bool                       `json:"trackChangesVisible"`
+}
+
+func (f *Features) Scan(x interface{}) error {
+	return json.Unmarshal(x.([]byte), f)
+}
+
+func (f *Features) Value() (driver.Value, error) {
+	blob, err := json.Marshal(map[string]interface{}{
+		"compileGroup":   f.CompileGroup,
+		"compileTimeout": f.CompileTimeout,
+	})
+	return string(blob), err
 }
