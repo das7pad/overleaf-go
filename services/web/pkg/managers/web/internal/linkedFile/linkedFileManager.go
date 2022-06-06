@@ -109,7 +109,7 @@ func (m *manager) RefreshLinkedFile(ctx context.Context, request *types.RefreshL
 	}
 
 	request.File = fileRef.FileRef
-	request.ParentFolderId = fileRef.Parent.Id
+	request.ParentFolderId = fileRef.ParentId
 
 	switch fileRef.LinkedFileData.Provider {
 	case project.LinkedFileProviderURL:

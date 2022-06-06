@@ -19,7 +19,6 @@ package project
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"strconv"
 	"time"
 
@@ -53,13 +52,11 @@ type Manager interface {
 	RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error)
 	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
 	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
-	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, token AccessToken) (*AuthorizationDetails, error)
-	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectJWT, int64, error)
+	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error)
+	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error)
 	GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
-	BumpEpoch(ctx context.Context, projectId sharedTypes.UUID) error
 	BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error
-	GetEpoch(ctx context.Context, projectId sharedTypes.UUID) (int64, error)
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error)
@@ -68,8 +65,8 @@ type Manager interface {
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
 	GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error
-	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error)
-	GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error)
+	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error)
+	GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error)
 	GetEntries(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectEntries, error)
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
 	GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error
@@ -259,18 +256,19 @@ VALUES ($5, $1, TRUE, FALSE, FALSE, FALSE)
 
 	q, err = tx.PrepareContext(
 		ctx,
-		pq.CopyIn("files", "id", "created_at", "hash", "linked_file_data"),
+		pq.CopyIn(
+			"files",
+			"id", "created_at", "hash", "linked_file_data", "size",
+		),
 	)
 	if err != nil {
 		return errors.Tag(err, "prepare files")
 	}
 	err = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 		d := e.(*FileRef)
-		blob, err2 := json.Marshal(d.LinkedFileData)
-		if err2 != nil {
-			return err2
-		}
-		_, err = q.ExecContext(ctx, d.Id, d.Created, d.Hash, string(blob))
+		_, err = q.ExecContext(
+			ctx, d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size,
+		)
 		return err
 	})
 	if err != nil {
@@ -629,49 +627,37 @@ select {
 	return r.toError()
 }
 
-type addTreeElementResult struct {
-	genericExistsAndAuthResult `edgedb:"$inline"`
-	ProjectVersion             sharedTypes.Version `edgedb:"project_version"`
-	ElementId                  sharedTypes.UUID    `edgedb:"element_id"`
-}
-
 func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent sharedTypes.UUID, f *Folder) (sharedTypes.Version, error) {
-	r := addTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
-	newFolder := (
-		insert Folder {
-			project := pWithAuth,
-			parent := f,
-			name := <str>$3,
-			path := f.path_for_join ++ <str>$3
-		}
-	),
-	pBumpedVersion := (
-		update newFolder.project
-		set {
-			version := newFolder.project.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	project_version := pBumpedVersion.version ?? 0,
-	element_id := newFolder.id,
-}
-`, &r, projectId, userId, parent, f.Name)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	// TODO: convert missing property error into 422
-	f.Id = r.ElementId
-	return r.ProjectVersion, r.toError()
+	var treeVersion sharedTypes.Version
+	return treeVersion, m.db.QueryRowContext(ctx, `
+WITH f AS (
+    INSERT INTO tree_nodes
+        (deleted_at, id, kind, name, parent_id, path, project_id)
+        SELECT '1970-01-01',
+               $4,
+               'folder',
+               $5,
+               $3,
+               CONCAT(t.path, $5::TEXT, '/'),
+               $1
+        FROM projects p
+                 INNER JOIN project_members pm ON (p.id = pm.project_id AND
+                                                   pm.user_id = $2)
+                 INNER JOIN tree_nodes t ON (p.id = t.project_id AND
+                                             t.id = $3 AND
+                                             t.deleted_at = '1970-01-01')
+        WHERE p.id = $1
+          AND p.deleted_at IS NULL
+          AND pm.can_write = TRUE
+        RETURNING project_id)
+UPDATE projects p
+SET tree_version    = tree_version + 1,
+    last_updated_at = transaction_timestamp(),
+    last_updated_by = $2
+FROM f
+WHERE p.id = f.project_id
+RETURNING p.tree_version
+`, projectId, userId, parent, f.Id, f.Name).Scan(&treeVersion)
 }
 
 type genericTreeElementResult struct {
@@ -1194,7 +1180,7 @@ WHERE user_id = $1
 	return names, nil
 }
 
-func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, token AccessToken) (*AuthorizationDetails, error) {
+func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
 	err := m.db.QueryRowContext(ctx, `
 SELECT COALESCE(can_write, FALSE),
@@ -1208,58 +1194,63 @@ FROM projects p
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
                                           pm.user_id = $2)
 WHERE p.id = $1
-`, projectId, userId).Scan(
+  AND (
+        (pm.is_token_member = FALSE)
+        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
+        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+    )
+`, projectId, userId, accessToken).Scan(
 		&p.CanWrite, &p.Epoch, &p.IsTokenMember, &p.OwnerId,
 		&p.PublicAccessLevel, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return p.GetPrivilegeLevel(userId, token)
+	return p.GetPrivilegeLevel(userId, accessToken)
 }
 
-type getForProjectJWTResult struct {
-	UserEpoch edgedb.OptionalInt64 `edgedb:"user_epoch"`
-	Project   ForProjectJWT        `edgedb:"project"`
-}
-
-func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectJWT, int64, error) {
-	r := getForProjectJWTResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at)
-select {
-	user_epoch := (select u { epoch }).epoch,
-	project := (select p {
-		access_ro: { id } filter User = u,
-		access_rw: { id } filter User = u,
-		access_token_ro: { id } filter User = u,
-		access_token_rw: { id } filter User = u,
-		epoch,
-		owner: {
-			id,
-			features: {
-				compile_group,
-				compile_timeout,
-			},
-		},
-		public_access_level,
-		tokens: {
-			token_ro,
-			token_rw,
-		},
-	})
-}
-`, &r, projectId, userId)
+func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error) {
+	p := ForProjectJWT{}
+	var userEpoch int64
+	err := m.db.QueryRowContext(ctx, `
+SELECT COALESCE(pm.can_write, FALSE),
+       p.epoch,
+       COALESCE(pm.is_token_member, TRUE),
+       p.owner_id,
+       p.public_access_level,
+       COALESCE(p.token_ro, ''),
+       COALESCE(p.token_rw, ''),
+       o.features,
+       COALESCE(u.epoch, 0)
+FROM projects p
+         INNER JOIN users o ON p.owner_id = o.id
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $2)
+         LEFT JOIN users u ON (pm.user_id = u.id AND
+                               u.id = $2 AND
+                               u.deleted_at IS NULL)
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND (
+        (pm.is_token_member = FALSE)
+        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
+        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+    )
+`, projectId, userId, accessToken).Scan(
+		&p.CanWrite,
+		&p.Epoch,
+		&p.IsTokenMember,
+		&p.OwnerId,
+		&p.PublicAccessLevel,
+		&p.Tokens.ReadOnly,
+		&p.Tokens.ReadAndWrite,
+		&p.OwnerFeatures,
+		&userEpoch,
+	)
 	if err != nil {
-		return nil, 0, rewriteEdgedbError(err)
+		return nil, 0, err
 	}
-	if r.Project.OwnerId == (sharedTypes.UUID{}) {
-		return nil, 0, &errors.NotFoundError{}
-	}
-	userEpoch, _ := r.UserEpoch.Get()
-	return &r.Project, userEpoch, nil
+	return &p, userEpoch, err
 }
 
 func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
@@ -1287,56 +1278,28 @@ WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
 	return &errors.UnauthorizedError{Reason: "epoch mismatch"}
 }
 
-func (m *manager) BumpEpoch(ctx context.Context, projectId sharedTypes.UUID) error {
-	err := m.c.QuerySingle(ctx, `
-update Project
-filter .id = <uuid>$0 and not exists .deleted_at
-set {
-	epoch := Project.epoch + 1,
-}
-`, &IdField{}, projectId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
-}
-
-func (m *manager) GetEpoch(ctx context.Context, projectId sharedTypes.UUID) (int64, error) {
-	p := &EpochField{}
-	err := m.c.QuerySingle(ctx, `
-select Project { epoch } filter .id = <uuid>$0 and not exists .deleted_at
-`, p, projectId)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return p.Epoch, err
-}
-
 func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error) {
-	d := &Doc{}
-	err := m.c.QuerySingle(ctx, `
-select Doc {
-	id,
-	name,
-	resolved_path,
-	size,
-	snapshot,
-	version,
-}
-filter
-	.id = <uuid>$0
-and not .deleted
-and .project.id = <uuid>$1
-and not exists .project.deleted_at
-`, d, docId, projectId)
-	if err != nil {
-		err = rewriteEdgedbError(err)
-		if errors.IsNotFoundError(err) {
-			return nil, &errors.ErrorDocNotFound{}
-		}
-		return nil, err
+	d := Doc{}
+	err := m.db.QueryRowContext(ctx, `
+SELECT t.path, d.snapshot, d.version
+FROM docs d
+         INNER JOIN tree_nodes t ON d.id = t.id
+         INNER JOIN projects p on t.project_id = p.id
+WHERE d.id = $2
+  AND t.project_id = $1
+  AND t.deleted_at = '1970-01-01'
+  AND p.deleted_at IS NULL
+`, projectId, docId).Scan(
+		&d.ResolvedPath,
+		&d.Snapshot,
+		&d.Version,
+	)
+	if err == sql.ErrNoRows {
+		return nil, &errors.ErrorDocNotFound{}
 	}
-	return d, nil
+	d.Id = docId
+	d.Name = d.ResolvedPath.Filename()
+	return &d, err
 }
 
 type restoreDocResult struct {
@@ -1399,45 +1362,33 @@ select {
 }
 
 func (m *manager) GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error) {
-	f := &FileWithParent{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$2 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$1 and not exists .deleted_at),
-	pWithAuth := (
-		select {
-			(select p filter u in .min_access_ro),
-			(
-				select p
-				filter
-					.public_access_level = 'tokenBased'
-				and (.tokens.token_ro ?? '') = <str>$3
-			),
-		}
-		limit 1
+	f := FileWithParent{}
+	d := LinkedFileData{}
+	err := m.db.QueryRowContext(ctx, `
+SELECT t.path, t.parent_id, f.linked_file_data, f.size
+FROM files f
+         INNER JOIN tree_nodes t ON f.id = t.id
+         INNER JOIN projects p on t.project_id = p.id
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $2)
+WHERE f.id = $4
+  AND t.project_id = $1
+  AND t.deleted_at = '1970-01-01'
+  AND p.deleted_at IS NULL
+  AND (
+        (pm.is_token_member = FALSE)
+        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
+        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+    )
+`, projectId, userId, accessToken, fileId).Scan(
+		&f.ResolvedPath, &f.ParentId, &d, &f.Size,
 	)
-select File {
-	id,
-	linked_file_data: {
-		provider,
-		source_project_id,
-		source_entity_path,
-		source_output_file_path,
-		url,
-	},
-	name,
-	parent,
-	size,
-}
-filter
-	.id = <uuid>$0
-and not .deleted
-and .project = pWithAuth
-`, f, fileId, projectId, userId, accessToken)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
+	f.Id = fileId
+	f.Name = f.ResolvedPath.Filename()
+	if d.Provider != "" {
+		f.LinkedFileData = &d
 	}
-	return f, nil
+	return &f, err
 }
 
 type getDocOrFileResult struct {
@@ -1567,7 +1518,6 @@ ORDER BY t.kind
 			})
 		}
 	}
-	// TODO: check sequence
 	return nodes[:len(nodes)-len(files)], files, nil
 }
 
@@ -1609,11 +1559,9 @@ filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
 	d := &JoinProjectDetails{}
+	d.Project.Id = projectId
 	d.Project.RootFolder.Folder = NewFolder("")
 	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
-	if userId != (sharedTypes.UUID{}) {
-		accessToken = "-"
-	}
 
 	var treeIds []sharedTypes.UUID
 	var treeKinds []string
@@ -1631,7 +1579,8 @@ WITH tree AS
                  array_remove(array_agg(t.path), NULL)      as paths
           FROM tree_nodes t
           WHERE t.project_id = $1
-            AND deleted_at = '1970-01-01'
+            AND t.deleted_at = '1970-01-01'
+			AND t.parent_id IS NOT NULL
           GROUP BY t.project_id),
      deleted_docs AS (SELECT t.project_id,
                              array_remove(array_agg(t.id), NULL)   as ids,
@@ -1704,21 +1653,19 @@ WHERE p.id = $1
 		if err2 != nil {
 			return nil, errors.Tag(err2, strconv.Itoa(i))
 		}
-		name := p.Filename()
 		switch kind {
 		case "doc":
-			e := NewDoc(name)
+			e := NewDoc(p.Filename())
 			e.Id = treeIds[i]
 			f.Docs = append(f.Docs, e)
 		case "file":
-			e := NewFileRef(name, "", 0)
+			e := NewFileRef(p.Filename(), "", 0)
 			e.Id = treeIds[i]
 			f.FileRefs = append(f.FileRefs, e)
 		case "folder":
-			f, err2 = t.CreateParents(sharedTypes.DirName(p))
-			if err2 != nil {
-				return nil, errors.Tag(err2, strconv.Itoa(i))
-			}
+			// NOTE: The paths of folders have a trailing slash in the DB.
+			//       When getting f, that slash is removed by the p.Dir() call
+			//        and f will have the correct path/name. :)
 			f.Id = treeIds[i]
 		}
 	}
@@ -1741,9 +1688,6 @@ WHERE id = $1
 
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
 	d := LoadEditorDetails{}
-	if userId != (sharedTypes.UUID{}) {
-		accessToken = "-"
-	}
 	err := m.db.QueryRowContext(ctx, `
 SELECT p.compiler,
        p.epoch,
@@ -1872,18 +1816,18 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return nil
 }
 
-func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error) {
-	if err := token.ValidateReadAndWrite(); err != nil {
+func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error) {
+	if err := accessToken.ValidateReadAndWrite(); err != nil {
 		return nil, err
 	}
-	return m.getProjectByToken(ctx, userId, token)
+	return m.getProjectByToken(ctx, userId, accessToken)
 }
 
-func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error) {
-	if err := token.ValidateReadOnly(); err != nil {
+func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error) {
+	if err := accessToken.ValidateReadOnly(); err != nil {
 		return nil, err
 	}
-	return m.getProjectByToken(ctx, userId, token)
+	return m.getProjectByToken(ctx, userId, accessToken)
 }
 
 func (m *manager) GetEntries(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectEntries, error) {
@@ -1976,13 +1920,13 @@ set {
 	return nil
 }
 
-func (m *manager) getProjectByToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error) {
+func (m *manager) getProjectByToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error) {
 	p := &forTokenAccessCheck{}
 	var tokenPrefixRW, tokenRO AccessToken
-	if len(token) == lenReadOnly {
-		tokenRO = token
+	if len(accessToken) == lenReadOnly {
+		tokenRO = accessToken
 	} else {
-		tokenPrefixRW = token[:lenReadAndWritePrefix]
+		tokenPrefixRW = accessToken[:lenReadAndWritePrefix]
 	}
 	err := m.c.QuerySingle(ctx, `
 with
@@ -2012,7 +1956,7 @@ limit 1
 	if err != nil {
 		return nil, rewriteEdgedbError(err)
 	}
-	freshAccess, err := p.GetPrivilegeLevelAnonymous(token)
+	freshAccess, err := p.GetPrivilegeLevelAnonymous(accessToken)
 	if err != nil {
 		return nil, err
 	}

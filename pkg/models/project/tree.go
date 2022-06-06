@@ -17,6 +17,8 @@
 package project
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -93,9 +95,25 @@ type LinkedFileData struct {
 	URL                  string               `json:"url,omitempty" edgedb:"url"`
 }
 
+func (d *LinkedFileData) Scan(x interface{}) error {
+	blob := x.([]byte)
+	if len(blob) == 4 && string(blob) == "null" {
+		return nil
+	}
+	return json.Unmarshal(blob, d)
+}
+
+func (d *LinkedFileData) Value() (driver.Value, error) {
+	if d == nil {
+		return "null", nil
+	}
+	blob, err := json.Marshal(d)
+	return string(blob), err
+}
+
 type FileWithParent struct {
-	FileRef `edgedb:"$inline"`
-	Parent  IdField `edgedb:"parent"`
+	FileRef  `edgedb:"$inline"`
+	ParentId sharedTypes.UUID `edgedb:"parent"`
 }
 
 type FileRef struct {

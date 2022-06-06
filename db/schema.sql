@@ -14,6 +14,22 @@
 --  You should have received a copy of the GNU Affero General Public License
 --  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+--  Golang port of Overleaf
+--  Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+--
+--  This program is free software: you can redistribute it and/or modify
+--  it under the terms of the GNU Affero General Public License as published
+--  by the Free Software Foundation, either version 3 of the License, or
+--  (at your option) any later version.
+--
+--  This program is distributed in the hope that it will be useful,
+--  but WITHOUT ANY WARRANTY; without even the implied warranty of
+--  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+--  GNU Affero General Public License for more details.
+--
+--  You should have received a copy of the GNU Affero General Public License
+--  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 -- TODO: report duplicate copyright head bug?
 
 CREATE TABLE users
@@ -234,6 +250,7 @@ CREATE TABLE files
   created_at       TIMESTAMP NOT NULL,
   hash             TEXT      NOT NULL,
   linked_file_data JSON      NULL,
+  size             INTEGER   NOT NULL,
 
   CHECK (is_tree_node_kind(id, 'file'))
 );

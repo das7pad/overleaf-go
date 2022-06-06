@@ -30,12 +30,14 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
 
-	p, userEpoch, err := m.pm.GetForProjectJWT(ctx, projectId, userId)
+	accessToken := request.Session.GetAnonTokenAccess(projectId)
+	p, userEpoch, err := m.pm.GetForProjectJWT(
+		ctx, projectId, userId, accessToken,
+	)
 	if err != nil {
 		return errors.Tag(err, "cannot get project/user details")
 	}
 
-	accessToken := request.Session.GetAnonTokenAccess(projectId)
 	authorizationDetails, err := p.GetPrivilegeLevel(userId, accessToken)
 	if err != nil {
 		return err

@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -33,6 +34,11 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	name := request.Name
 
 	folder := project.NewFolder(name)
+	folderId, err := sharedTypes.GenerateUUID()
+	if err != nil {
+		return err
+	}
+	folder.Id = folderId
 	projectVersion, err := m.pm.AddFolder(
 		ctx, projectId, request.UserId, parentFolderId, &folder,
 	)
