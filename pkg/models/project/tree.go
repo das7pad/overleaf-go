@@ -36,6 +36,11 @@ type CommonTreeFields struct {
 	Name sharedTypes.Filename `json:"name" edgedb:"name"`
 }
 
+type LeafFields struct {
+	CommonTreeFields
+	ResolvedPath sharedTypes.PathName `json:"-"`
+}
+
 func (c CommonTreeFields) GetId() sharedTypes.UUID {
 	return c.Id
 }
@@ -50,17 +55,15 @@ type DocWithParent struct {
 }
 
 type Doc struct {
-	CommonTreeFields `edgedb:"$inline"`
-	ResolvedPath     sharedTypes.PathName `edgedb:"resolved_path"`
-	Size             int64                `json:"size" edgedb:"size"`
-	Snapshot         string               `json:"snapshot" edgedb:"snapshot"`
-	Version          sharedTypes.Version  `json:"version" edgedb:"version"`
+	LeafFields `edgedb:"$inline"`
+	Snapshot   string              `json:"snapshot" edgedb:"snapshot"`
+	Version    sharedTypes.Version `json:"version" edgedb:"version"`
 }
 
 func NewDoc(name sharedTypes.Filename) Doc {
-	return Doc{CommonTreeFields: CommonTreeFields{
-		Name: name,
-	}}
+	d := Doc{}
+	d.Name = name
+	return d
 }
 
 type LinkedFileProvider string
@@ -96,8 +99,7 @@ type FileWithParent struct {
 }
 
 type FileRef struct {
-	CommonTreeFields `edgedb:"$inline"`
-	ResolvedPath     sharedTypes.PathName `edgedb:"resolved_path"`
+	LeafFields `edgedb:"$inline"`
 
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
 	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
@@ -106,14 +108,12 @@ type FileRef struct {
 }
 
 func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) FileRef {
-	return FileRef{
-		CommonTreeFields: CommonTreeFields{
-			Name: name,
-		},
-		Created: time.Now().UTC(),
-		Hash:    hash,
-		Size:    size,
-	}
+	f := FileRef{}
+	f.Name = name
+	f.Created = time.Now().UTC()
+	f.Hash = hash
+	f.Size = size
+	return f
 }
 
 type Folder struct {

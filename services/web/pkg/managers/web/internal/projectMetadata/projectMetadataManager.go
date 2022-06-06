@@ -106,7 +106,7 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId shared
 }
 
 func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId sharedTypes.UUID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {
-	t, err := m.pm.GetProjectWithContent(ctx, projectId)
+	docs, _, err := m.pm.GetProjectWithContent(ctx, projectId)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get docs from edgedb")
 	}
@@ -114,14 +114,12 @@ func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId share
 	for _, d := range recentlyEdited {
 		meta[d.Id.String()] = m.parseDoc(d.Snapshot)
 	}
-	err = t.WalkDocs(func(e project.TreeElement, path sharedTypes.PathName) error {
-		d := e.(*project.Doc)
+	for _, d := range docs {
 		id := d.Id.String()
 		// Skip parsing of the flushed state if the doc has been edited.
 		if _, exists := meta[id]; !exists {
 			meta[id] = m.parseDoc(d.Snapshot)
 		}
-		return nil
-	})
+	}
 	return meta, err
 }

@@ -66,8 +66,7 @@ type Manager interface {
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
-	GetProjectRootFolder(ctx context.Context, projectId sharedTypes.UUID) (*Folder, sharedTypes.Version, error)
-	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) (*Folder, error)
+	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
 	GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, token AccessToken) (*TokenAccessResult, error)
@@ -1197,26 +1196,24 @@ WHERE user_id = $1
 
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, token AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at)
-select Project {
-	access_ro: { id } filter User = u,
-	access_rw: { id } filter User = u,
-	access_token_ro: { id } filter User = u,
-	access_token_rw: { id } filter User = u,
-	epoch,
-	owner,
-	public_access_level,
-	tokens: {
-		token_ro,
-		token_rw,
-	},
-}
-filter .id = <uuid>$0 and not exists .deleted_at
-`, p, projectId, userId)
+	err := m.db.QueryRowContext(ctx, `
+SELECT COALESCE(can_write, FALSE),
+       epoch,
+       COALESCE(is_token_member, TRUE),
+       owner_id,
+       public_access_level,
+       COALESCE(p.token_ro, ''),
+       COALESCE(p.token_rw, '')
+FROM projects p
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $2)
+WHERE p.id = $1
+`, projectId, userId).Scan(
+		&p.CanWrite, &p.Epoch, &p.IsTokenMember, &p.OwnerId,
+		&p.PublicAccessLevel, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
+	)
 	if err != nil {
-		return nil, rewriteEdgedbError(err)
+		return nil, err
 	}
 	return p.GetPrivilegeLevel(userId, token)
 }
@@ -1528,75 +1525,50 @@ select {
 	return sharedTypes.UUID(id), r.IsDoc, nil
 }
 
-func (m *manager) GetProjectRootFolder(ctx context.Context, projectId sharedTypes.UUID) (*Folder, sharedTypes.Version, error) {
-	project := &ForTree{
-		RootFolderField: RootFolderField{
-			RootFolder: RootFolder{
-				Folder: NewFolder(""),
-			},
-		},
-	}
-	err := m.c.QuerySingle(
-		ctx,
-		`
-select
-	Project {
-		version,
-		root_folder: {
-			id,
-			folders,
-			docs: { id, name },
-			files: { id, name },
-		},
-		folders: {
-			id,
-			name,
-			folders,
-			docs: { id, name },
-			files: { id, name },
-		},
-	}
-filter .id = <uuid>$0 and not exists .deleted_at
-`,
-		project,
-		projectId,
-	)
+func (m *manager) GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error) {
+	r, err := m.db.QueryContext(ctx, `
+SELECT t.id, t.path, COALESCE(d.snapshot, ''), COALESCE(d.version, -1)
+FROM tree_nodes t
+         INNER JOIN projects p ON t.project_id = p.id
+         LEFT JOIN docs d ON t.id = d.id
+WHERE t.project_id = $1
+  AND p.deleted_at IS NULL
+  AND t.deleted_at = '1970-01-01'
+  -- Get all files, docs and also the root folder to differentiate between
+  --  and empty tree and a missing project.
+  AND ((t.kind = 'doc' OR t.kind = 'file') OR t.parent_id IS NULL)
+ORDER BY t.kind
+`, projectId)
 	if err != nil {
-		return nil, 0, rewriteEdgedbError(err)
+		return nil, nil, err
 	}
-	return project.GetRootFolder(), project.Version, nil
-}
+	nodes := make([]Doc, 0)
+	for i := 0; r.Next(); i++ {
+		nodes = append(nodes, Doc{})
+		err = r.Scan(
+			&nodes[i].Id, &nodes[i].ResolvedPath, &nodes[i].Snapshot,
+			&nodes[i].Version,
+		)
+	}
+	if err = r.Err(); err != nil {
+		return nil, nil, err
+	}
+	if len(nodes) == 0 {
+		return nil, nil, &errors.NotFoundError{}
+	}
+	// drop root folder
+	nodes = nodes[:len(nodes)-1]
 
-func (m *manager) GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) (*Folder, error) {
-	project := &ForTree{}
-	err := m.c.QuerySingle(
-		ctx,
-		`
-select
-	Project {
-		root_folder: {
-			id,
-			folders,
-			docs: { id, name, snapshot, version },
-			files: { id, name, created_at },
-		},
-		folders: {
-			id,
-			name,
-			folders,
-			docs: { id, name, snapshot, version },
-			files: { id, name, created_at },
-		},
+	var files []FileRef
+	for _, d := range nodes {
+		if d.Version == -1 {
+			files = append(files, FileRef{
+				LeafFields: d.LeafFields,
+			})
+		}
 	}
-filter .id = <uuid>$0 and not exists .deleted_at
-`,
-		project,
-		projectId,
-	)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
-	}
-	return project.GetRootFolder(), nil
+	// TODO: check sequence
+	return nodes[:len(nodes)-len(files)], files, nil
 }
 
 func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error) {
@@ -1637,9 +1609,8 @@ filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
 	d := &JoinProjectDetails{}
-	d.Project.RootFolder = RootFolder{
-		Folder: NewFolder(""),
-	}
+	d.Project.RootFolder.Folder = NewFolder("")
+	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
 	if userId != (sharedTypes.UUID{}) {
 		accessToken = "-"
 	}
@@ -1736,9 +1707,13 @@ WHERE p.id = $1
 		name := p.Filename()
 		switch kind {
 		case "doc":
-			f.Docs = append(f.Docs, NewDoc(name))
+			e := NewDoc(name)
+			e.Id = treeIds[i]
+			f.Docs = append(f.Docs, e)
 		case "file":
-			f.FileRefs = append(f.FileRefs, NewFileRef(name, "", 0))
+			e := NewFileRef(name, "", 0)
+			e.Id = treeIds[i]
+			f.FileRefs = append(f.FileRefs, e)
 		case "folder":
 			f, err2 = t.CreateParents(sharedTypes.DirName(p))
 			if err2 != nil {
@@ -1831,12 +1806,13 @@ WHERE p.id = $1
 
 func (m *manager) GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error {
 	var q string
-	switch target.(type) {
+	switch p := target.(type) {
 	case *LastUpdatedAtField:
-		q = `
-select Project { last_updated_at }
-filter .id = <uuid>$0 and not exists .deleted_at
-`
+		return m.db.QueryRowContext(ctx, `
+SELECT last_updated_at
+FROM projects
+WHERE id = $1 AND deleted_at IS NULL
+`, projectId).Scan(&p.LastUpdatedAt)
 	case *ForProjectInvite:
 		q = `
 select Project {
@@ -2552,7 +2528,7 @@ SELECT archived,
        id,
        is_token_member,
        last_updated_at,
-       last_updated_by,
+       COALESCE(last_updated_by, '00000000-0000-0000-0000-000000000000'::UUID),
        name,
        owner_id,
        public_access_level,
@@ -2590,8 +2566,9 @@ WHERE pm.user_id = $1;
 		return err
 	}
 	// The projects and collaborators queries are racing.
-	// Check for missing users and back fill them.
-	fetched := make(map[sharedTypes.UUID]struct{}, len(d.Collaborators))
+	// Check for missing users and back-fill them.
+	fetched := make(map[sharedTypes.UUID]struct{}, len(d.Collaborators)+1)
+	fetched[sharedTypes.UUID{}] = struct{}{}
 	for _, u := range d.Collaborators {
 		fetched[u.Id] = struct{}{}
 	}
@@ -2608,7 +2585,7 @@ WHERE pm.user_id = $1;
 		return nil
 	}
 
-	r, err := m.db.QueryContext(pCtx, `
+	r, err := m.db.QueryContext(ctx, `
 SELECT u.id, email, first_name, last_name
 FROM users u
 WHERE id = ANY ($1)

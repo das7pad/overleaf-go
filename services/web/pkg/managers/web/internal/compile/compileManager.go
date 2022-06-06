@@ -205,7 +205,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		} else if errors.IsInvalidState(err) {
 			syncType = clsiTypes.SyncTypeFullIncremental
 			fetchContentPerf.Begin()
-			resources, rootDocPath, err = m.fromEdgedb(ctx, request)
+			resources, rootDocPath, err = m.fromDB(ctx, request)
 			fetchContentPerf.End()
 			if err != nil {
 				return errors.Tag(err, "cannot get docs from edgedb")
@@ -242,47 +242,40 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	}
 }
 
-func (m *manager) fromEdgedb(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, clsiTypes.RootResourcePath, error) {
+func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, clsiTypes.RootResourcePath, error) {
 	err := m.dum.FlushProject(ctx, request.ProjectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot flush docs to edgedb")
 	}
-	folder, err := m.pm.GetProjectWithContent(ctx, request.ProjectId)
+	docs, files, err := m.pm.GetProjectWithContent(ctx, request.ProjectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot get folder from edgedb")
 	}
 	rootDocPath := request.RootDocPath
 	resources := make(clsiTypes.Resources, 0, 10)
 
-	err = folder.Walk(func(e project.TreeElement, p sharedTypes.PathName) error {
-		switch entry := e.(type) {
-		case *project.Doc:
-			if entry.Id == request.RootDocId {
-				rootDocPath = clsiTypes.RootResourcePath(p)
-			}
-			s := entry.Snapshot
-			resources = append(resources, &clsiTypes.Resource{
-				Path:    p,
-				Content: &s,
-			})
-		case *project.FileRef:
-			t := clsiTypes.ModifiedAt(entry.Created.Unix())
-			url, err2 := m.fm.GetRedirectURLForGETOnProjectFile(
-				ctx, request.ProjectId, entry.Id,
-			)
-			if err2 != nil {
-				return errors.Tag(err, "cannot sign file download")
-			}
-			resources = append(resources, &clsiTypes.Resource{
-				Path:       p,
-				ModifiedAt: &t,
-				URL:        &sharedTypes.URL{URL: *url},
-			})
+	for _, d := range docs {
+		if d.Id == request.RootDocId {
+			rootDocPath = clsiTypes.RootResourcePath(d.ResolvedPath)
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, "", errors.Tag(err, "cannot collect resources")
+		s := d.Snapshot
+		resources = append(resources, &clsiTypes.Resource{
+			Path:    d.ResolvedPath,
+			Content: &s,
+		})
+	}
+	for _, f := range files {
+		url, err2 := m.fm.GetRedirectURLForGETOnProjectFile(
+			ctx, request.ProjectId, f.Id,
+		)
+		if err2 != nil {
+			return nil, "", errors.Tag(err, "cannot sign file download")
+		}
+		resources = append(resources, &clsiTypes.Resource{
+			Path: f.ResolvedPath,
+			URL:  &sharedTypes.URL{URL: *url},
+		})
+
 	}
 	if rootDocPath == "" {
 		return nil, "", &errors.ValidationError{Msg: "rootDoc not found"}

@@ -78,12 +78,6 @@ func (u *urlCache) SetupForProject(_ context.Context, projectId sharedTypes.UUID
 	return err
 }
 
-func hashFileResource(resource *types.Resource) sharedTypes.PathName {
-	modified := resource.ModifiedAt.String()
-	raw := resource.URL.Path + "-" + modified
-	return sharedTypes.PathName(strings.ReplaceAll(raw, "/", "-"))
-}
-
 func atomicWrite(reader io.Reader, dest string) error {
 	return copyFile.Atomic(reader, dest, false)
 }
@@ -131,7 +125,9 @@ func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedT
 }
 
 func (u *urlCache) Download(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, dir types.CompileDir) error {
-	cachePath := u.projectDir(projectId).Join(hashFileResource(resource))
+	cachePath := u.projectDir(projectId).Join(
+		sharedTypes.PathName(strings.ReplaceAll(resource.URL.Path, "/", "-")),
+	)
 	dest := dir.Join(resource.Path)
 
 	// There is no need for atomic writes here. In the error case, the file

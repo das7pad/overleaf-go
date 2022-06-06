@@ -642,15 +642,20 @@
                         </span>
                       </td>
                       <td class="project-list-table-lastupdated-cell">
-                        <span
-                          class="last-modified"
-                          tooltip="{{ `{{project.lastUpdated | formatDate}}` }}"
-                        >{{ `{{project.lastUpdated | fromNowDate}}` }}</span>
-                        <span
-                          ng-show="project.lastUpdatedBy"
-                        >&nbsp;{{ translate "by" . }}
-                            {{ ` {{getUserName(project.lastUpdatedBy)}}` }}
-                        </span>
+                        <div ng-if="project.lastUpdated">
+                          <span
+                            class="last-modified"
+                            tooltip="{{ `{{project.lastUpdated | formatDate}}` }}"
+                          >{{ `{{project.lastUpdated | fromNowDate}}` }}</span>
+                          <span
+                            ng-show="project.lastUpdatedBy"
+                          >&nbsp;{{ translate "by" . }}
+                              {{ ` {{getUserName(project.lastUpdatedBy)}}` }}
+                          </span>
+                        </div>
+                        <div ng-if="!project.lastUpdated">
+                          Never
+                        </div>
                       </td>
                       <td class="project-list-table-actions-cell">
                         <div>

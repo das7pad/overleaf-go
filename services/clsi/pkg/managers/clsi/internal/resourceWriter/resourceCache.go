@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -34,9 +34,8 @@ func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
 }
 
 type resourceCacheEntry struct {
-	Path       sharedTypes.PathName `json:"p"`
-	ModifiedAt *types.ModifiedAt    `json:"m"`
-	URL        *sharedTypes.URL     `json:"u"`
+	Path sharedTypes.PathName `json:"p"`
+	URL  *sharedTypes.URL     `json:"u"`
 }
 
 type ResourceCache map[sharedTypes.PathName]resourceCacheEntry
@@ -63,9 +62,8 @@ func composeResourceCache(request *types.CompileRequest) ResourceCache {
 			continue
 		}
 		cache[resource.Path] = resourceCacheEntry{
-			Path:       resource.Path,
-			ModifiedAt: resource.ModifiedAt,
-			URL:        resource.URL,
+			Path: resource.Path,
+			URL:  resource.URL,
 		}
 	}
 	return cache

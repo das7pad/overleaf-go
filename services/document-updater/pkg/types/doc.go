@@ -130,12 +130,7 @@ func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 
 type DocContentSnapshots []*DocContentSnapshot
 
-var unixEpochStart = time.Unix(0, 0)
-
 func (l DocContentSnapshots) LastUpdatedAt() time.Time {
-	if l == nil {
-		return unixEpochStart
-	}
 	max := time.Time{}
 	for _, snapshot := range l {
 		if snapshot.LastUpdatedAt.After(max) {

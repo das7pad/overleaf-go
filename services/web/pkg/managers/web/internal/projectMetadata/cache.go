@@ -80,7 +80,9 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 		if err := m.pm.GetProject(pCtx, projectId, p); err != nil {
 			return errors.Tag(err, "cannot get project from edgedb")
 		}
-		projectVersionFlushed = p.LastUpdatedAt
+		if t := p.LastUpdatedAt; t != nil {
+			projectVersionFlushed = *t
+		}
 		return nil
 	})
 	eg.Go(func() error {
@@ -101,6 +103,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 		)
 		// fallback to flushed state.
 	}
+	// TODO: check caching behavior
 	projectVersionLive := recentlyEdited.LastUpdatedAt()
 	projectVersion := projectVersionFlushed
 	if projectVersionLive.After(projectVersionFlushed) {

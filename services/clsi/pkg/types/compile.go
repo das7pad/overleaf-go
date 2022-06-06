@@ -113,29 +113,11 @@ func (r RootResourcePath) Validate() error {
 	return nil
 }
 
-type ModifiedAt int64
-
-func (m *ModifiedAt) Validate() error {
-	if m == nil || *m == 0 {
-		return &errors.ValidationError{Msg: "missing modified timestamp"}
-	}
-	return nil
-}
-
-func (m *ModifiedAt) String() string {
-	if m == nil {
-		return "0"
-	}
-	return sharedTypes.Int(*m).String()
-}
-
-// The Resource is either the inline doc Content,
-//  or a file with download URL and ModifiedAt timestamp.
+// The Resource is either the inline doc Content, or a file with download URL.
 type Resource struct {
-	Path       sharedTypes.PathName `json:"path"`
-	Content    *string              `json:"content,omitempty"`
-	ModifiedAt *ModifiedAt          `json:"modified,omitempty"`
-	URL        *sharedTypes.URL     `json:"url,omitempty"`
+	Path    sharedTypes.PathName `json:"path"`
+	Content *string              `json:"content,omitempty"`
+	URL     *sharedTypes.URL     `json:"url,omitempty"`
 }
 
 func (r *Resource) IsDoc() bool {
@@ -155,14 +137,6 @@ func (r *Resource) Validate() error {
 		}
 		if err := r.URL.Validate(); err != nil {
 			return errors.Tag(err, "file url is invalid")
-		}
-		if r.ModifiedAt == nil {
-			return &errors.ValidationError{
-				Msg: "missing file modified timestamp",
-			}
-		}
-		if err := r.ModifiedAt.Validate(); err != nil {
-			return err
 		}
 	}
 	return nil

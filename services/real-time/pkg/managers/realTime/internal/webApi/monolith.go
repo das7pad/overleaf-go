@@ -62,15 +62,15 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 	}
 
 	members := make([]user.AsProjectMember, 0)
-	var owner user.WithPublicInfo
+	owner := user.WithPublicInfo{}
+	owner.Id = p.OwnerId
 
 	// Hide user details for restricted users
 	if authorizationDetails.IsRestrictedUser() {
 		d.Project.Invites = make([]projectInvite.WithoutToken, 0)
-		owner.Id = p.OwnerId
 	} else {
 		members = p.GetProjectMembers()
-		// TODO: populate owner
+		// TODO: populate owner?
 	}
 
 	// Populate fake feature flags
@@ -89,7 +89,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 			RootDocId: p.RootDoc.Id,
 		},
 		VersionField: p.VersionField,
-		RootFolder:   []*project.Folder{p.GetRootFolder()},
+		RootFolder:   []*project.Folder{&p.RootFolder.Folder},
 	}
 
 	return &types.JoinProjectWebApiResponse{

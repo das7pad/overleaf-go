@@ -74,7 +74,7 @@ type LastOpenedField struct {
 }
 
 type LastUpdatedAtField struct {
-	LastUpdatedAt time.Time `edgedb:"last_updated_at"`
+	LastUpdatedAt *time.Time `edgedb:"last_updated_at"`
 }
 
 type LastUpdatedByField struct {
