@@ -35,7 +35,7 @@ type AsProjectMember struct {
 type BulkFetched []WithPublicInfo
 
 func (b *BulkFetched) ScanInto(r *sql.Rows) error {
-	x := make(BulkFetched, 0)
+	x := *b
 	for i := 0; r.Next(); i++ {
 		x = append(x, WithPublicInfo{})
 		err := r.Scan(&x[i].Id, &x[i].Email, &x[i].FirstName, &x[i].LastName)

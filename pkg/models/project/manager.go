@@ -20,12 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
 	"github.com/lib/pq"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
@@ -1636,134 +1636,124 @@ filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
-	details := &JoinProjectDetails{}
-	details.Project.RootFolder = RootFolder{
+	d := &JoinProjectDetails{}
+	d.Project.RootFolder = RootFolder{
 		Folder: NewFolder(""),
 	}
 	if userId != (sharedTypes.UUID{}) {
 		accessToken = "-"
 	}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (
-		select {
-			(select p filter u in .min_access_ro),
-			(
-				select p
-				filter
-					.public_access_level = 'tokenBased'
-				and (.tokens.token_ro ?? '') = <str>$2
-			),
-		}
-		limit 1
+
+	var treeIds []sharedTypes.UUID
+	var treeKinds []string
+	var treePaths []string
+	var deletedDocIds []sharedTypes.UUID
+	var deletedDocNames []string
+
+	// TODO: fetch file details `created_at` and `linked_file_data`
+	// TODO: let frontend query members/invites on modal open (again)
+	err := m.db.QueryRowContext(ctx, `
+WITH tree AS
+         (SELECT t.project_id,
+                 array_remove(array_agg(t.id), NULL)        as ids,
+                 array_remove(array_agg(t.kind), NULL)      as kinds,
+                 array_remove(array_agg(t.path), NULL)      as paths
+          FROM tree_nodes t
+          WHERE t.project_id = $1
+            AND deleted_at = '1970-01-01'
+          GROUP BY t.project_id),
+     deleted_docs AS (SELECT t.project_id,
+                             array_remove(array_agg(t.id), NULL)   as ids,
+                             array_remove(array_agg(t.name), NULL) as names
+                      FROM tree_nodes t
+                      WHERE t.project_id = $1
+                        AND t.deleted_at != '1970-01-01'
+                      GROUP BY t.project_id)
+
+SELECT p.compiler,
+       p.epoch,
+       p.image_name,
+       p.name,
+       p.owner_id,
+       p.public_access_level,
+       p.root_doc_id,
+       p.root_folder_id,
+       p.spell_check_language,
+       COALESCE(p.token_ro, ''),
+       COALESCE(p.token_rw, ''),
+       p.tree_version,
+       o.features,
+       tree.ids,
+       tree.kinds,
+       tree.paths,
+       deleted_docs.ids,
+       deleted_docs.names
+FROM projects p
+         INNER JOIN users o ON p.owner_id = o.id
+         LEFT JOIN tree ON (p.id = tree.project_id)
+         LEFT JOIN deleted_docs ON (p.id = deleted_docs.project_id)
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $2)
+
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND (
+        (pm.is_token_member = FALSE)
+        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
+        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+    )
+`, projectId, userId, accessToken).Scan(
+		&d.Project.Compiler,
+		&d.Project.Epoch,
+		&d.Project.ImageName,
+		&d.Project.Name,
+		&d.Project.OwnerId,
+		&d.Project.PublicAccessLevel,
+		&d.Project.RootDoc.Id,
+		&d.Project.RootFolder.Id,
+		&d.Project.SpellCheckLanguage,
+		&d.Project.Tokens.ReadOnly,
+		&d.Project.Tokens.ReadAndWrite,
+		&d.Project.Version,
+		&d.Project.OwnerFeatures,
+		pq.Array(&treeIds),
+		pq.Array(&treeKinds),
+		pq.Array(&treePaths),
+		pq.Array(&deletedDocIds),
+		pq.Array(&deletedDocNames),
 	)
-select {
-	project_exists := (exists p),
-	project := (select pWithAuth {
-		access_ro: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-		},
-		access_rw: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-		},
-		access_token_ro: { id } filter User = u,
-		access_token_rw: { id } filter User = u,
-		compiler,
-		deleted_docs: { id, name },
-		epoch,
-		folders: {
-			id,
-			docs: {
-				id,
-				name,
-			},
-			files: {
-				created_at,
-				id,
-				linked_file_data: {
-					provider,
-					source_project_id,
-					source_entity_path,
-					source_output_file_path,
-					url,
-				},
-				name,
-				size,
-			},
-			folders,
-			name,
-		},
-		id,
-		image_name,
-		invites: {
-			created_at,
-			email,
-			expires_at,
-			id,
-			privilege_level,
-			sending_user,
-		},
-		name,
-		owner: {
-			email: { email },
-			first_name,
-			id,
-			last_name,
-			features: {
-				compile_group,
-				compile_timeout,
-			},
-		},
-		public_access_level,
-		root_doc,
-		root_folder: {
-			id,
-			docs: {
-				id,
-				name,
-			},
-			files: {
-				created_at,
-				id,
-				linked_file_data: {
-					provider,
-					source_project_id,
-					source_entity_path,
-					source_output_file_path,
-					url,
-				},
-				name,
-				size,
-			},
-			folders,
-		},
-		spell_check_language,
-		tokens: {
-			token_ro,
-			token_rw,
-		},
-		version,
-	}),
-}
-`, details, projectId, userId, accessToken)
 	if err != nil {
-		return nil, rewriteEdgedbError(err)
+		return nil, err
 	}
-	if !details.ProjectExists {
-		return nil, &errors.NotFoundError{}
+
+	t := &d.Project.RootFolder
+	for i, kind := range treeKinds {
+		p := sharedTypes.PathName(treePaths[i])
+		f, err2 := t.CreateParents(p.Dir())
+		if err2 != nil {
+			return nil, errors.Tag(err2, strconv.Itoa(i))
+		}
+		name := p.Filename()
+		switch kind {
+		case "doc":
+			f.Docs = append(f.Docs, NewDoc(name))
+		case "file":
+			f.FileRefs = append(f.FileRefs, NewFileRef(name, "", 0))
+		case "folder":
+			f, err2 = t.CreateParents(sharedTypes.DirName(p))
+			if err2 != nil {
+				return nil, errors.Tag(err2, strconv.Itoa(i))
+			}
+			f.Id = treeIds[i]
+		}
 	}
-	if details.Project.Id != projectId {
-		return nil, &errors.NotAuthorizedError{}
+	for i, id := range deletedDocIds {
+		d.Project.DeletedDocs = append(d.Project.DeletedDocs, CommonTreeFields{
+			Id:   id,
+			Name: sharedTypes.Filename(deletedDocNames[i]),
+		})
 	}
-	return details, nil
+	return d, nil
 }
 
 func (m *manager) BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error {
@@ -2489,25 +2479,51 @@ type ForProjectList struct {
 }
 
 func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
-	// pg does not support params in prepared statements with multiple queries.
-	// database/sql runs all queries in prepared statements.
-	// Bummer. We have to do the parameter replacement ourselves.
-	// (Or run multiple queries, which I'd like to avoid.)
-	// language=postgresql
-	q := `
+	// TODO: can we query in parallel from a tx? how many RTTs?
+	eg, pCtx := errgroup.WithContext(ctx)
+
+	// User
+	eg.Go(func() error {
+		return m.db.QueryRowContext(pCtx, `
 SELECT id, email, email_confirmed_at, first_name, last_name
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL;
+`, userId).Scan(
+			&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
+			&d.User.FirstName, &d.User.LastName)
+	})
 
-
-SELECT id, name, array_agg(project_id)
+	// Tags
+	eg.Go(func() error {
+		r, err := m.db.QueryContext(pCtx, `
+SELECT id, name, array_remove(array_agg(project_id), NULL)
 FROM tags t
          LEFT JOIN tag_entries te ON t.id = te.tag_id
 WHERE t.user_id = $1
 GROUP BY t.id;
+`, userId)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = r.Close() }()
 
+		for i := 0; r.Next(); i++ {
+			d.Tags = append(d.Tags, tag.Full{})
+			err = r.Scan(
+				&d.Tags[i].Id, &d.Tags[i].Name,
+				pq.Array(&d.Tags[i].ProjectIds),
+			)
+			if err != nil {
+				return err
+			}
+		}
+		return r.Err()
+	})
 
+	// Collaborators
+	eg.Go(func() error {
+		r, err := m.db.QueryContext(pCtx, `
 WITH p AS (SELECT owner_id, last_updated_by
            FROM projects p
                     INNER JOIN project_members pm ON p.id = pm.project_id
@@ -2516,8 +2532,20 @@ SELECT u.id, email, first_name, last_name
 FROM users u
          INNER JOIN p ON (u.id = p.owner_id OR u.id = p.last_updated_by)
 WHERE u.deleted_at IS NULL;
+`, userId)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = r.Close() }()
+		if err = d.Collaborators.ScanInto(r); err != nil {
+			return err
+		}
+		return r.Err()
+	})
 
-
+	// Projects
+	eg.Go(func() error {
+		r, err := m.db.QueryContext(pCtx, `
 SELECT archived,
        can_write,
        epoch,
@@ -2532,71 +2560,66 @@ SELECT archived,
 FROM projects p
          INNER JOIN project_members pm ON p.id = pm.project_id
 WHERE pm.user_id = $1;
-`
-	r, err := m.db.QueryContext(
-		ctx, strings.ReplaceAll(q, "$1", fmt.Sprintf("'%s'", userId)),
-	)
+`, userId)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = r.Close() }()
+		for i := 0; r.Next(); i++ {
+			d.Projects = append(d.Projects, ListViewPrivate{})
+			err = r.Scan(
+				&d.Projects[i].Archived,
+				&d.Projects[i].CanWrite,
+				&d.Projects[i].Epoch,
+				&d.Projects[i].Id,
+				&d.Projects[i].IsTokenMember,
+				&d.Projects[i].LastUpdatedAt,
+				&d.Projects[i].LastUpdatedBy,
+				&d.Projects[i].Name,
+				&d.Projects[i].OwnerId,
+				&d.Projects[i].PublicAccessLevel,
+				&d.Projects[i].Trashed,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		return r.Err()
+	})
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	// The projects and collaborators queries are racing.
+	// Check for missing users and back fill them.
+	fetched := make(map[sharedTypes.UUID]struct{}, len(d.Collaborators))
+	for _, u := range d.Collaborators {
+		fetched[u.Id] = struct{}{}
+	}
+	var missing []sharedTypes.UUID
+	for _, p := range d.Projects {
+		if _, got := fetched[p.OwnerId]; !got {
+			missing = append(missing, p.OwnerId)
+		}
+		if _, got := fetched[p.LastUpdatedBy]; !got {
+			missing = append(missing, p.LastUpdatedBy)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+
+	r, err := m.db.QueryContext(pCtx, `
+SELECT u.id, email, first_name, last_name
+FROM users u
+WHERE id = ANY ($1)
+  AND u.deleted_at IS NULL;
+`, pq.Array(missing))
 	if err != nil {
 		return err
 	}
 	defer func() { _ = r.Close() }()
-
-	// User
-	if r.Next() {
-		err = r.Scan(
-			&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
-			&d.User.FirstName, &d.User.LastName)
-		if err != nil {
-			return err
-		}
-	}
-	if err = r.Err(); err != nil {
-		return err
-	}
-	// TODO: debug result set switching.
-
-	// Tags
-	r.NextResultSet()
-	for i := 0; r.Next(); i++ {
-		d.Tags = append(d.Tags, tag.Full{})
-		err = r.Scan(
-			&d.Tags[i].Id, &d.Tags[i].Name, pq.Array(&d.Tags[i].ProjectIds),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Collaborators
-	r.NextResultSet()
 	if err = d.Collaborators.ScanInto(r); err != nil {
 		return err
 	}
-
-	// Projects
-	r.NextResultSet()
-	for i := 0; r.Next(); i++ {
-		d.Projects = append(d.Projects, ListViewPrivate{})
-		err = r.Scan(
-			&d.Projects[i].Archived,
-			&d.Projects[i].CanWrite,
-			&d.Projects[i].Epoch,
-			&d.Projects[i].Id,
-			&d.Projects[i].IsTokenMember,
-			&d.Projects[i].LastUpdatedAt,
-			&d.Projects[i].LastUpdatedBy,
-			&d.Projects[i].Name,
-			&d.Projects[i].OwnerId,
-			&d.Projects[i].PublicAccessLevel,
-			&d.Projects[i].Trashed,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err = r.Err(); err != nil {
-		return err
-	}
-	return nil
+	return r.Err()
 }
