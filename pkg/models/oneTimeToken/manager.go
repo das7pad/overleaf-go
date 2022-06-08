@@ -30,7 +30,6 @@ import (
 type Manager interface {
 	NewForEmailConfirmation(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	NewForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
-	NewForPasswordSet(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error)
 	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error
 }
 
@@ -60,15 +59,7 @@ func (m *manager) NewForEmailConfirmation(ctx context.Context, userId sharedType
 }
 
 func (m *manager) NewForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
-	return m.newForPasswordReset(ctx, userId, email, time.Hour)
-}
-
-func (m *manager) NewForPasswordSet(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
-	return m.newForPasswordReset(ctx, userId, email, 7*24*time.Hour)
-}
-
-func (m *manager) newForPasswordReset(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, validFor time.Duration) (OneTimeToken, error) {
-	return m.newToken(ctx, userId, email, PasswordResetUse, validFor)
+	return m.newToken(ctx, userId, email, PasswordResetUse, time.Hour)
 }
 
 func (m *manager) newToken(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, use string, expiresIn time.Duration) (OneTimeToken, error) {

@@ -400,60 +400,27 @@ WHERE p.id = $1
 `, projectId, userId, spellCheckLanguage))
 }
 
-type setRootDocResult struct {
-	ProjectExists   bool `edgedb:"project_exists"`
-	AuthCheck       bool `edgedb:"auth_check"`
-	DocExists       bool `edgedb:"doc_exists"`
-	RootDocEligible bool `edgedb:"root_doc_eligible"`
-	ProjectUpdated  bool `edgedb:"project_updated"`
-}
-
 func (m *manager) SetRootDoc(ctx context.Context, projectId, userId, rootDocId sharedTypes.UUID) error {
-	r := setRootDocResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	u := (select User filter .id = <uuid>$2 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	d := (
-		select Doc
-		filter .id = <uuid>$1 and not .deleted and .project = pWithAuth
-	),
-	newRootDoc := (
-		select d
-		filter (
-		   .name LIKE '%.tex' or .name LIKE '%.rtex' or .name LIKE '%.ltex'
-		)
-	),
-	pUpdated := (update newRootDoc.project set { root_doc := d })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	doc_exists := exists d,
-	root_doc_eligible := exists newRootDoc,
-	project_updated := exists pUpdated,
-}
-`, &r, projectId, rootDocId, userId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	switch {
-	case !r.ProjectExists:
-		return &errors.NotFoundError{}
-	case !r.AuthCheck:
-		return &errors.NotAuthorizedError{}
-	case !r.DocExists:
-		return &errors.UnprocessableEntityError{
-			Msg: "doc does not exist",
-		}
-	case !r.RootDocEligible:
-		return &errors.UnprocessableEntityError{
-			Msg: "doc does not have root doc extension (.tex, .rtex, .ltex)",
-		}
-	default:
-		// project updated
-		return nil
-	}
+	return getErr(m.db.ExecContext(ctx, `
+WITH d AS (SELECT d.id
+           FROM docs d
+                    INNER JOIN tree_nodes t ON d.id = t.id
+           WHERE d.id = $3
+             AND t.project_id = $1
+             AND t.deleted_at = '1970-01-01'
+             AND (t.path LIKE '%.tex' OR
+                  t.path LIKE '%.rtex' OR
+                  t.path LIKE '%.ltex'))
+UPDATE projects p
+SET root_doc_id = d.id
+FROM project_members pm,
+     d
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND p.id = pm.project_id
+  AND pm.user_id = $2
+  AND pm.can_write = TRUE
+`, projectId, userId, rootDocId))
 }
 
 func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, publicAccessLevel PublicAccessLevel) error {
@@ -612,79 +579,48 @@ func (r genericTreeElementResult) toError() error {
 	return nil
 }
 
-func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error) {
-	r := genericTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	d := (
-		select Doc
-		filter
-			.id = <uuid>$2
-		and .project = pWithAuth
-		and not .deleted
-	),
-	deletedDoc := (update d set {
-		deleted_at := datetime_of_transaction(),
-	}),
-	pBumpedVersion := (update deletedDoc.project set {
-		version := deletedDoc.project.version + 1,
-		root_doc := (
-			<Doc>{}
-			if (deletedDoc.project.root_doc = d) else
-			deletedDoc.project.root_doc
-		),
-		last_updated_at := datetime_of_transaction(),
-		last_updated_by := u,
-	})
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists d,
-	project_version := pBumpedVersion.version ?? 0,
+func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, error) {
+	var treeVersion sharedTypes.Version
+	return treeVersion, m.db.QueryRowContext(ctx, `
+WITH node AS (SELECT t.id
+              FROM tree_nodes t
+                       INNER JOIN projects p ON t.project_id = p.id
+                       INNER JOIN project_members pm
+                                  ON (t.project_id = pm.project_id AND
+                                      pm.user_id = $2)
+              WHERE t.id = $3
+                AND t.kind = $4
+                AND t.project_id = $1
+                AND p.deleted_at IS NULL
+                AND t.deleted_at = '1970-01-01'
+                AND pm.can_write = TRUE),
+     deleted
+         AS (
+         UPDATE tree_nodes t
+             SET deleted_at = transaction_timestamp()
+             FROM node
+             WHERE t.id = node.id
+             RETURNING t.id)
+
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    root_doc_id     = CASE
+                          WHEN p.root_doc_id = deleted.id THEN NULL
+                          ELSE p.root_doc_id END,
+    tree_version    = tree_version + 1
+FROM deleted
+WHERE p.id = $1
+RETURNING p.tree_version
+`, projectId, userId, nodeId, kind).Scan(&treeVersion)
 }
-`, &r, projectId, userId, docId)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.toError()
+
+func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error) {
+	return m.deleteTreeLeaf(ctx, projectId, userId, docId, "doc")
 }
 
 func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
-	r := genericTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (
-		select File
-		filter
-			.id = <uuid>$2
-		and .project = pWithAuth
-		and not .deleted
-	),
-	deletedFile := (update f set {
-		deleted_at := datetime_of_transaction(),
-	}),
-	pBumpedVersion := (update deletedFile.project set {
-		version := deletedFile.project.version + 1,
-		last_updated_at := datetime_of_transaction(),
-		last_updated_by := u,
-	})
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists f,
-	project_version := pBumpedVersion.version ?? 0,
-}
-`, &r, projectId, userId, fileId)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.toError()
+	return m.deleteTreeLeaf(ctx, projectId, userId, fileId, "file")
 }
 
 type deletedFolderResult struct {
@@ -1355,6 +1291,7 @@ ORDER BY t.kind
 	if err != nil {
 		return nil, nil, err
 	}
+	defer func() { _ = r.Close() }()
 	nodes := make([]Doc, 0)
 	for i := 0; r.Next(); i++ {
 		nodes = append(nodes, Doc{})
@@ -1711,6 +1648,7 @@ AND (t.kind = 'doc' OR t.kind = 'file')
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = r.Close() }()
 	entries := make([]TreeEntity, 0)
 	for i := 0; r.Next(); i++ {
 		entries = append(entries, TreeEntity{})
@@ -1963,7 +1901,11 @@ WHERE id = $1
 	if err != nil {
 		return err
 	}
-	if n, _ := r.RowsAffected(); n == 0 {
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return &errors.UnprocessableEntityError{
 			Msg: "user missing or not deleted",
 		}
@@ -2079,78 +2021,52 @@ type createTreeElementResult struct {
 }
 
 func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error) {
-	result := createTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	parent := (
-		select {
-			(
-				select Folder
-				filter
-					.id = <uuid>$2
-				and .project = pWithAuth
-				and not .deleted
-			),
-			(
-				select RootFolder
-				filter
-					.id = <uuid>$2
-				and .project = pWithAuth
-			),
-		}
-		limit 1
-	),
-	d := (insert Doc {
-		name := <str>$3,
-		parent := parent,
-		project := pWithAuth,
-		size := <int64>$4,
-		snapshot := <str>$5,
-		version := 0,
-	}),
-	pBumpedVersion := (
-		update d.project
-		set {
-			version := d.project.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := (exists p),
-	auth_check := (exists pWithAuth),
-	folder_exists := (exists parent),
-	element_id := d.id,
-	version := pBumpedVersion.version,
-}
-`,
-		&result,
-		projectId, userId, folderId,
-		d.Name, int64(len(d.Snapshot)), d.Snapshot,
-	)
+	var treeVersion sharedTypes.Version
+	err := m.db.QueryRowContext(ctx, `WITH f AS (SELECT t.id, t.path
+           FROM tree_nodes t
+                    INNER JOIN projects p ON t.project_id = p.id
+                    INNER JOIN project_members pm
+                               ON (t.project_id = pm.project_id AND
+                                   pm.user_id = $2)
+           WHERE t.id = $3
+             AND t.project_id = $1
+             AND p.deleted_at IS NULL
+             AND t.deleted_at = '1970-01-01'
+             AND pm.can_write = TRUE),
+     inserted_tree_node AS (
+         INSERT INTO tree_nodes
+             (deleted_at, id, kind, name, parent_id, path, project_id)
+             SELECT '1970-01-01',
+                    $4,
+                    'doc',
+                    $5,
+                    f.id,
+                    CONCAT(f.path, $5::TEXT),
+                    $1
+             FROM f
+             RETURNING id),
+     inserted_doc AS (
+         INSERT INTO docs
+             (id, snapshot, version)
+             SELECT inserted_tree_node.id, $6, 0
+             FROM inserted_tree_node
+			 RETURNING FALSE)
+
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    tree_version    = tree_version + 1
+FROM inserted_doc
+WHERE p.id = $1
+RETURNING p.tree_version
+`, projectId, userId, folderId, d.Id, d.Name, d.Snapshot).Scan(&treeVersion)
 	if err != nil {
-		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+		if e, ok := err.(*pq.Error); ok && e.Constraint == "tree_nodes_pkey" {
 			return 0, ErrDuplicateNameInFolder
 		}
-		return 0, rewriteEdgedbError(err)
+		return 0, err
 	}
-	// TODO: read MissingRequiredError details instead of result fields
-	switch {
-	case !result.ProjectExists:
-		return 0, &errors.NotFoundError{}
-	case !result.AuthCheck:
-		return 0, &errors.NotAuthorizedError{}
-	case !result.FolderExists:
-		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
-	default:
-		id, _ := result.ElementId.Get()
-		d.Id = sharedTypes.UUID(id)
-		v, _ := result.Version.Get()
-		return sharedTypes.Version(v), nil
-	}
+	return treeVersion, nil
 }
 
 func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {

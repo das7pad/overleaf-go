@@ -34,11 +34,9 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	name := request.Name
 
 	folder := project.NewFolder(name)
-	folderId, err := sharedTypes.GenerateUUID()
-	if err != nil {
+	if err := sharedTypes.PopulateUUID(&folder.Id); err != nil {
 		return err
 	}
-	folder.Id = folderId
 	projectVersion, err := m.pm.AddFolder(
 		ctx, projectId, request.UserId, parentFolderId, &folder,
 	)

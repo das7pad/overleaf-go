@@ -139,6 +139,9 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		if isDoc {
 			doc := project.NewDoc(request.FileName)
 			doc.Snapshot = string(s)
+			if err = sharedTypes.PopulateUUID(&doc.Id); err != nil {
+				return err
+			}
 			v, err = m.pm.CreateDoc(ctx, projectId, userId, folderId, &doc)
 			if err != nil {
 				return errors.Tag(err, "cannot create populated doc")
