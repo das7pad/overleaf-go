@@ -29,20 +29,9 @@ func (m *manager) GetProjectEntities(ctx context.Context, request *types.GetProj
 	}
 
 	userId := request.Session.User.Id
-	p, err := m.pm.GetEntries(ctx, request.ProjectId, userId)
+	entities, err := m.pm.GetTreeEntities(ctx, request.ProjectId, userId)
 	if err != nil {
 		return errors.Tag(err, "cannot get project")
-	}
-
-	nDocs := len(p.Docs)
-	entities := make([]types.GetProjectEntitiesEntry, nDocs+len(p.Files))
-	for i, doc := range p.Docs {
-		entities[i].Path = string("/" + doc.ResolvedPath)
-		entities[i].Type = "doc"
-	}
-	for i, file := range p.Files {
-		entities[nDocs+i].Path = string("/" + file.ResolvedPath)
-		entities[nDocs+i].Type = "file"
 	}
 	response.Entities = entities
 	return nil

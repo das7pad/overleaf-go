@@ -18,12 +18,8 @@ package userDeletion
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectDeletion"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -34,19 +30,14 @@ type Manager interface {
 	HardDeleteExpiredUsers(ctx context.Context, dryRun bool, start time.Time) error
 }
 
-func New(db *sql.DB, pm project.Manager, um user.Manager, pDelM projectDeletion.Manager) Manager {
+func New(um user.Manager, pDelM projectDeletion.Manager) Manager {
 	return &manager{
-		db:    db,
-		pm:    pm,
 		um:    um,
 		pDelM: pDelM,
 	}
 }
 
 type manager struct {
-	c     *edgedb.Client
-	db    *sql.DB
-	pm    project.Manager
 	um    user.Manager
 	pDelM projectDeletion.Manager
 }

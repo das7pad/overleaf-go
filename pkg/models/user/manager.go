@@ -315,7 +315,9 @@ FROM u
 		if e, ok := err.(*pq.Error); ok && e.Constraint == "user_email_key" {
 			return ErrEmailAlreadyRegistered
 		}
-		// TODO: epoch changed handling?
+		if err == sql.ErrNoRows {
+			return ErrEpochChanged
+		}
 		return err
 	}
 	return nil
@@ -561,7 +563,7 @@ func (m *manager) GetByPasswordResetToken(ctx context.Context, token oneTimeToke
 	return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT id, u.email, first_name, last_name, epoch, password_hash
 FROM one_time_tokens ott
-         INNER JOIN users u on ott.user_id = u.id
+         INNER JOIN users u ON ott.user_id = u.id
 WHERE ott.token = $1
   AND ott.use = $2
   AND ott.used_at IS NULL

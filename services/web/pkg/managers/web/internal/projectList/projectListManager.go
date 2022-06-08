@@ -66,18 +66,16 @@ func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserPro
 	}
 
 	userId := request.Session.User.Id
-	u := project.ForProjectList{}
-	{
-		err := m.pm.ListProjects(ctx, userId, &u)
-		if err != nil {
-			return errors.Tag(err, "cannot get user with projects")
-		}
+	l, err := m.pm.ListProjects(ctx, userId)
+	if err != nil {
+		return errors.Tag(err, "cannot get projects")
 	}
 
-	projects := make([]types.GetUserProjectsEntry, len(u.Projects))
-	for i, p := range u.Projects {
-		d, err2 := p.GetPrivilegeLevelAuthenticated(userId)
-		if err2 != nil {
+	projects := make([]types.GetUserProjectsEntry, len(l))
+	var d *project.AuthorizationDetails
+	for i, p := range l {
+		d, err = p.GetPrivilegeLevelAuthenticated(userId)
+		if err != nil {
 			return errors.New("listed project w/o access: " + p.Id.String())
 		}
 		projects[i] = types.GetUserProjectsEntry{
@@ -101,7 +99,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		Collaborators: make(user.BulkFetched, 0),
 	}
 	{
-		err := m.pm.ListProjects(ctx, userId, &u)
+		err := m.pm.GetProjectListDetails(ctx, userId, &u)
 		if err != nil {
 			return errors.Tag(err, "cannot get user with projects")
 		}

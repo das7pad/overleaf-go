@@ -164,7 +164,7 @@ func New(options *types.Options, db *sql.DB, client redis.UniversalClient, local
 	}
 	pdm := projectDownload.New(pm, dum, fm)
 	pDelM := projectDeletion.New(pm, dum, fm)
-	uDelM := userDeletion.New(db, pm, um, pDelM)
+	uDelM := userDeletion.New(um, pDelM)
 	ucm := userCreation.New(options, ps, db, um, lm)
 	am := admin.New(ps, db)
 	learnM, err := learn.New(options, ps, proxy)

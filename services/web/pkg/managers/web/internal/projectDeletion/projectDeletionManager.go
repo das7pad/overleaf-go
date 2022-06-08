@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -29,7 +30,7 @@ import (
 type Manager interface {
 	DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error
 	UnDeleteProject(ctx context.Context, request *types.UnDeleteProjectRequest) error
-	DeleteProjectInTx(ctx, sCtx context.Context, request *types.DeleteProjectRequest) error
+	DeleteUsersJoinedProjects(ctx context.Context, userId sharedTypes.UUID, ipAddress string) error
 	HardDeleteExpiredProjects(ctx context.Context, dryRun bool, start time.Time) error
 }
 

@@ -17,6 +17,7 @@
 package types
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -26,11 +27,6 @@ type GetProjectEntitiesRequest struct {
 	ProjectId sharedTypes.UUID `json:"-"`
 }
 
-type GetProjectEntitiesEntry struct {
-	Path string `json:"path"`
-	Type string `json:"type"`
-}
-
 type GetProjectEntitiesResponse struct {
-	Entities []GetProjectEntitiesEntry `json:"entities"`
+	Entities []project.TreeEntity `json:"entities"`
 }

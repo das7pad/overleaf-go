@@ -37,7 +37,7 @@ type ListProjectMembersResponse struct {
 
 type RemoveProjectMemberRequest struct {
 	ProjectId sharedTypes.UUID `json:"-"`
-	Epoch     int64            `json:"-"`
+	ActorId   sharedTypes.UUID `json:"-"`
 	UserId    sharedTypes.UUID `json:"-"`
 }
 

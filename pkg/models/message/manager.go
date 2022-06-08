@@ -71,7 +71,7 @@ SELECT cm.id,
        first_name,
        last_name
 FROM users
-         INNER JOIN chat_messages cm on users.id = cm.user_id
+         INNER JOIN chat_messages cm ON users.id = cm.user_id
 WHERE cm.project_id = $1
   AND cm.created_at < $2
 ORDER BY cm.created_at DESC

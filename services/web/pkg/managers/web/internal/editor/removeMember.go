@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -31,39 +30,18 @@ func (m *manager) LeaveProject(ctx context.Context, request *types.LeaveProjectR
 	}
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
-	for i := 0; i < 10; i++ {
-		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
-		if err != nil {
-			if errors.IsNotAuthorizedError(err) {
-				// Already removed.
-				return nil
-			}
-			return errors.Tag(err, "cannot check auth")
-		}
-		if d.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
-			return &errors.InvalidStateError{Msg: "cannot leave owned project"}
-		}
-		err = m.removeMemberFromProject(ctx, projectId, d.Epoch, userId)
-		if err != nil {
-			if errors.GetCause(err) == project.ErrEpochIsNotStable {
-				continue
-			}
-			return err
-		}
-		return nil
-	}
-	return project.ErrEpochIsNotStable
+	return m.removeMemberFromProject(ctx, projectId, userId, userId)
 }
 
 func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error {
 	projectId := request.ProjectId
 	userId := request.UserId
-	epoch := request.Epoch
-	return m.removeMemberFromProject(ctx, projectId, epoch, userId)
+	return m.removeMemberFromProject(ctx, projectId, request.ActorId, userId)
 }
 
-func (m *manager) removeMemberFromProject(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
-	if err := m.pm.RemoveMember(ctx, projectId, epoch, userId); err != nil {
+func (m *manager) removeMemberFromProject(ctx context.Context, projectId sharedTypes.UUID, actorId, userId sharedTypes.UUID) error {
+	projectIds := []sharedTypes.UUID{projectId}
+	if err := m.pm.RemoveMember(ctx, projectIds, actorId, userId); err != nil {
 		return errors.Tag(err, "cannot remove user from project")
 	}
 	go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{

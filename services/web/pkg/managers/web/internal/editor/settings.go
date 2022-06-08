@@ -133,7 +133,9 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, request *types.SetPu
 		}
 	}
 
-	err := m.pm.SetPublicAccessLevel(ctx, request.ProjectId, request.UserId, request.PublicAccessLevel)
+	err := m.pm.SetPublicAccessLevel(
+		ctx, request.ProjectId, request.UserId, request.PublicAccessLevel,
+	)
 	if err != nil {
 		return errors.Tag(err, "cannot update PublicAccessLevel")
 	}

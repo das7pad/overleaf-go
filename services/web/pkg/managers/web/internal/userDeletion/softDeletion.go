@@ -20,18 +20,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/login"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
-
-const parallelDeletion = 5
 
 func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserRequest) error {
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
@@ -52,91 +48,35 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 		return errPW
 	}
 
-	err := m.c.Tx(ctx, func(sCtx context.Context, _ *edgedb.Tx) error {
-		projects := project.ForProjectList{}
-		{
-			err := m.pm.ListProjects(sCtx, userId, &projects)
-			if err != nil {
-				return errors.Tag(err, "cannot get projects")
-			}
-		}
-
-		queue := make(chan project.ListViewPrivate, parallelDeletion)
-		eg, pCtx := errgroup.WithContext(sCtx)
-		go func() {
-			<-pCtx.Done()
-			if pCtx.Err() != nil {
-				for range queue {
-					// Clear the queue
-				}
-			}
-		}()
-
-		eg.Go(func() error {
-			defer close(queue)
-			for _, p := range projects.Projects {
-				queue <- p
-			}
-			return nil
-		})
-		for i := 0; i < parallelDeletion; i++ {
-			eg.Go(func() error {
-				for p := range queue {
-					if p.OwnerId == userId {
-						// TODO: soft delete in bulk
-						err := m.pDelM.DeleteProjectInTx(
-							ctx, pCtx, &types.DeleteProjectRequest{
-								Session:   request.Session,
-								ProjectId: p.Id,
-								IPAddress: request.IPAddress,
-								EpochHint: &p.Epoch,
-							},
-						)
-						if err != nil {
-							return errors.Tag(
-								err, "cannot delete project "+p.Id.String(),
-							)
-						}
-					} else {
-						err := m.pm.RemoveMember(pCtx, p.Id, p.Epoch, userId)
-						if err != nil {
-							return errors.Tag(
-								err,
-								"cannot remove user from project "+p.Id.String(),
-							)
-						}
-					}
-				}
-				return nil
-			})
-		}
-
-		eg.Go(func() error {
-			otherSessions, err := request.Session.GetOthers(pCtx)
-			if err != nil {
-				return errors.Tag(err, "cannot get other sessions")
-			}
-			if len(otherSessions.Sessions) == 0 {
-				return nil
-			}
-			err = request.Session.DestroyOthers(pCtx, otherSessions)
-			if err != nil {
-				return errors.Tag(err, "cannot clear other sessions")
-			}
-			return nil
-		})
-		if err := eg.Wait(); err != nil {
-			return err
-		}
-
-		if err := m.um.SoftDelete(sCtx, userId, ipAddress); err != nil {
-			return errors.Tag(err, "cannot delete user")
+	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := m.pDelM.DeleteUsersJoinedProjects(pCtx, userId, ipAddress)
+		if err != nil {
+			return errors.Tag(err, "delete users projects")
 		}
 		return nil
 	})
 
-	if err != nil {
+	eg.Go(func() error {
+		otherSessions, err := request.Session.GetOthers(pCtx)
+		if err != nil {
+			return errors.Tag(err, "cannot get other sessions")
+		}
+		if len(otherSessions.Sessions) == 0 {
+			return nil
+		}
+		err = request.Session.DestroyOthers(pCtx, otherSessions)
+		if err != nil {
+			return errors.Tag(err, "cannot clear other sessions")
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
 		return err
+	}
+
+	if err := m.um.SoftDelete(ctx, userId, ipAddress); err != nil {
+		return errors.Tag(err, "cannot delete user")
 	}
 
 	// The user has been deleted by now.

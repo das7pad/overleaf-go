@@ -19,6 +19,7 @@ package project
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -36,7 +37,7 @@ import (
 type Manager interface {
 	PrepareProjectCreation(ctx context.Context, p *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
-	SoftDelete(ctx context.Context, projectId, userId sharedTypes.UUID, ipAddress string) error
+	SoftDelete(ctx context.Context, projectId []sharedTypes.UUID, userId sharedTypes.UUID, ipAddress string) error
 	HardDelete(ctx context.Context, projectId sharedTypes.UUID) error
 	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId sharedTypes.UUID) bool) error
 	GetDeletedProjectsName(ctx context.Context, projectId, userId sharedTypes.UUID) (Name, error)
@@ -67,7 +68,7 @@ type Manager interface {
 	GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error
 	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error)
 	GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error)
-	GetEntries(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectEntries, error)
+	GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error)
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
 	GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error
 	GrantReadAndWriteTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
@@ -84,11 +85,12 @@ type Manager interface {
 	TrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
 	UnTrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
 	Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error
-	RemoveMember(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
+	RemoveMember(ctx context.Context, projectId []sharedTypes.UUID, actor, userId sharedTypes.UUID) error
 	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
 	CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error)
 	CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
-	ListProjects(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
+	ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error)
+	GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
 }
 
 func New(db *sql.DB) Manager {
@@ -293,15 +295,14 @@ func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) e
 	if p.RootDoc.Id != (sharedTypes.UUID{}) {
 		rootDocId = p.RootDoc.Id.String()
 	}
-	_, err := m.db.ExecContext(ctx, `
+	return getErr(m.db.ExecContext(ctx, `
 UPDATE projects
 SET deleted_at     = NULL,
     name           = $2,
     root_doc_id    = $3,
     root_folder_id = $4
 WHERE id = $1
-`, p.Id.String(), p.Name, rootDocId, p.RootFolder.Id.String())
-	return err
+`, p.Id.String(), p.Name, rootDocId, p.RootFolder.Id.String()))
 }
 
 type genericExistsAndAuthResult struct {
@@ -328,45 +329,31 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTy
 			allErrors.Add(err)
 			continue
 		}
-		r := genericExistsAndAuthResult{}
-		err = m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter .owner = u),
-	created := (
-		update pWithAuth
-		filter (.tokens.token_ro ?? '') = ''
-		set {
-			tokens := (insert Tokens {
-				token_ro := <str>$2,
-				token_rw := <str>$3,
-				token_prefix_rw := <str>$4,
-			}),
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists created,
-}
+		persisted := Tokens{}
+		err = m.db.QueryRowContext(ctx, `
+UPDATE projects
+SET token_ro        = token_ro || $3,
+    token_rw        = token_rw || $4,
+    token_rw_prefix = token_rw_prefix || $5
+WHERE id = $1
+  AND owner_id = $2
+  AND deleted_at IS NULL
+RETURNING token_ro, token_rw
 `,
-			&r,
 			projectId, userId,
 			tokens.ReadOnly, tokens.ReadAndWrite, tokens.ReadAndWritePrefix,
-		)
+		).Scan(&persisted.ReadOnly, &persisted.ReadAndWrite)
 		if err != nil {
-			if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+			if e, ok := err.(*pq.Error); ok &&
+				(e.Constraint == "projects_token_ro_key" ||
+					e.Constraint == "projects_token_rw_prefix_key") {
 				allErrors.Add(err)
 				continue
 			}
-			return nil, rewriteEdgedbError(err)
-		}
-		if err = r.toError(); err != nil {
 			return nil, err
 		}
-		if r.OK {
-			return tokens, nil
+		if tokens.ReadOnly == persisted.ReadOnly {
+			return &persisted, nil
 		}
 		// tokens are already populated
 		return nil, nil
@@ -375,63 +362,42 @@ select {
 }
 
 func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	updated := (update pWithAuth set { compiler := <str>$2 })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId, string(compiler))
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects p
+SET compiler = $3
+FROM project_members pm
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND p.id = pm.project_id
+  AND pm.user_id = $2
+  AND pm.can_write = TRUE
+`, projectId, userId, compiler))
 }
 
 func (m *manager) SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	updated := (update pWithAuth set { image_name := <str>$2 })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId, string(imageName))
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects p
+SET image_name = $3
+FROM project_members pm
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND p.id = pm.project_id
+  AND pm.user_id = $2
+  AND pm.can_write = TRUE
+`, projectId, userId, imageName))
 }
 
 func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId, userId sharedTypes.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	updated := (update pWithAuth set { spell_check_language := <str>$2 })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId, string(spellCheckLanguage))
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects p
+SET spell_check_language = $3
+FROM project_members pm
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND p.id = pm.project_id
+  AND pm.user_id = $2
+  AND pm.can_write = TRUE
+`, projectId, userId, spellCheckLanguage))
 }
 
 type setRootDocResult struct {
@@ -491,33 +457,14 @@ select {
 }
 
 func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, publicAccessLevel PublicAccessLevel) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter .owner = u),
-	updated := (
-		update pWithAuth
-		filter .tokens.token_ro != ''
-		set { public_access_level := <str>$2 }
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId, string(publicAccessLevel))
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	if err = r.toError(); err != nil {
-		return err
-	}
-	if !r.OK {
-		return &errors.UnprocessableEntityError{Msg: "missing tokens"}
-	}
-	return nil
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects
+SET public_access_level = $3
+WHERE id = $1
+  AND owner_id = $2
+  AND deleted_at IS NULL
+  AND token_ro IS NOT NULL
+`, projectId, userId, publicAccessLevel))
 }
 
 type transferOwnershipResult struct {
@@ -605,26 +552,13 @@ select {
 }
 
 func (m *manager) Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter .owner = u),
-	updated := (update pWithAuth set { name := <str>$2 })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`,
-		&r,
-		projectId, userId, string(name),
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects
+SET name = $3
+WHERE id = $1
+  AND deleted_at IS NULL
+  AND owner_id = $2
+`, projectId, userId, name))
 }
 
 func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent sharedTypes.UUID, f *Folder) (sharedTypes.Version, error) {
@@ -1069,95 +1003,41 @@ select {
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_ro),
-	updated := (
-		update pWithAuth
-		set {
-			archived_by := distinct (pWithAuth.archived_by union {u}),
-			trashed_by -= u
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE project_members
+SET archived = TRUE,
+    trashed  = FALSE
+WHERE project_id = $1
+  AND user_id = $2
+`, projectId, userId))
 }
 
 func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_ro),
-	updated := (update pWithAuth set { archived_by -= u })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE project_members
+SET archived = FALSE
+WHERE project_id = $1
+  AND user_id = $2
+`, projectId, userId))
 }
 
 func (m *manager) TrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_ro),
-	updated := (
-		update pWithAuth
-		set {
-			trashed_by := distinct (pWithAuth.trashed_by union {u}),
-			archived_by -= u
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE project_members
+SET archived = FALSE,
+    trashed  = TRUE
+WHERE project_id = $1
+  AND user_id = $2
+`, projectId, userId))
 }
 
 func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	r := genericExistsAndAuthResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_ro),
-	updated := (update pWithAuth set { trashed_by -= u })
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	ok := exists updated,
-}
-`, &r, projectId, userId)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return r.toError()
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE project_members
+SET trashed = FALSE
+WHERE project_id = $1
+  AND user_id = $2
+`, projectId, userId))
 }
 
 var ErrEpochIsNotStable = errors.New("epoch is not stable")
@@ -1167,7 +1047,7 @@ func (m *manager) GetProjectNames(ctx context.Context, userId sharedTypes.UUID) 
 	err := m.db.QueryRowContext(ctx, `
 SELECT array_agg(name)
 FROM projects p
-	INNER JOIN project_members pm on p.id = pm.project_id
+	INNER JOIN project_members pm ON p.id = pm.project_id
 WHERE user_id = $1
 `, userId).Scan(pq.Array(&raw))
 	if err != nil {
@@ -1284,7 +1164,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 SELECT t.path, d.snapshot, d.version
 FROM docs d
          INNER JOIN tree_nodes t ON d.id = t.id
-         INNER JOIN projects p on t.project_id = p.id
+         INNER JOIN projects p ON t.project_id = p.id
 WHERE d.id = $2
   AND t.project_id = $1
   AND t.deleted_at = '1970-01-01'
@@ -1368,7 +1248,7 @@ func (m *manager) GetFile(ctx context.Context, projectId, userId sharedTypes.UUI
 SELECT t.path, t.parent_id, f.linked_file_data, f.size
 FROM files f
          INNER JOIN tree_nodes t ON f.id = t.id
-         INNER JOIN projects p on t.project_id = p.id
+         INNER JOIN projects p ON t.project_id = p.id
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
                                           pm.user_id = $2)
 WHERE f.id = $4
@@ -1442,38 +1322,20 @@ select {
 }
 
 func (m *manager) GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error) {
-	r := getDocOrFileResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_ro),
-	e := (
-		select ContentElement
-		filter
-			.project = pWithAuth
- 		and not .deleted
-		and .resolved_path = <str>$2
-		limit 1
-	),
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	is_doc := e is Doc ?? false,
-	element_id := e.id,
-}
-`, &r, projectId, userId, path)
-	if err != nil {
-		return sharedTypes.UUID{}, false, rewriteEdgedbError(err)
-	}
-	if err = r.toError(); err != nil {
-		return sharedTypes.UUID{}, false, err
-	}
-	id, exists := r.ElementId.Get()
-	if !exists {
-		return sharedTypes.UUID{}, false, &errors.NotFoundError{}
-	}
-	return sharedTypes.UUID(id), r.IsDoc, nil
+	var id sharedTypes.UUID
+	var isDoc bool
+	return id, isDoc, m.db.QueryRowContext(ctx, `
+SELECT t.id, t.kind = 'doc'
+FROM tree_nodes t
+         INNER JOIN projects p ON (t.project_id = p.id)
+         INNER JOIN project_members pm ON (t.project_id = pm.project_id AND
+                                           pm.user_id = $2)
+WHERE t.project_id = $1
+  AND p.deleted_at IS NULL
+  AND t.deleted_at = '1970-01-01'
+  AND t.path = $3
+  AND (t.kind = 'doc' OR t.kind = 'file')
+`, projectId, userId, path).Scan(&id, &isDoc)
 }
 
 func (m *manager) GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error) {
@@ -1830,46 +1692,74 @@ func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId s
 	return m.getProjectByToken(ctx, userId, accessToken)
 }
 
-func (m *manager) GetEntries(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForProjectEntries, error) {
-	p := &ForProjectEntries{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at)
-select Project {
-	docs: { resolved_path },
-	files: { resolved_path },
+type TreeEntity struct {
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
-filter .id = <uuid>$0 and not exists .deleted_at and u in .min_access_ro
-`, p, projectId, userId)
+
+func (m *manager) GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error) {
+	r, err := m.db.QueryContext(ctx, `
+SELECT path, kind
+FROM tree_nodes t
+INNER JOIN projects p ON t.project_id = p.id
+INNER JOIN project_members pm ON (p.id = pm.project_id AND
+                                  pm.user_id = $2)
+WHERE t.project_id = $1
+  AND p.deleted_at IS NULL
+AND (t.kind = 'doc' OR t.kind = 'file')
+`, projectId, userId)
 	if err != nil {
-		return nil, rewriteEdgedbError(err)
+		return nil, err
 	}
-	return p, nil
+	entries := make([]TreeEntity, 0)
+	for i := 0; r.Next(); i++ {
+		entries = append(entries, TreeEntity{})
+		err = r.Scan(&entries[i].Path, &entries[i].Type)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err = r.Err(); err != nil {
+		return nil, err
+	}
+	return entries, nil
 }
 
 func (m *manager) GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error) {
-	var p WithInvitedMembers
-	err := m.c.QuerySingle(ctx, `
-select Project {
-	access_ro: {
-		email: { email },
-		first_name,
-		id,
-		last_name,
-	},
-	access_rw: {
-		email: { email },
-		first_name,
-		id,
-		last_name,
-	},
-}
-filter .id = <uuid>$0 and not exists .deleted_at
-`, &p, projectId)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
+	r, err := m.db.QueryContext(ctx, `
+SELECT u.id,
+       u.email,
+       u.first_name,
+       u.last_name,
+       CASE
+           WHEN pm.can_write
+               THEN 'readAndWrite'
+           ELSE 'readOnly'
+           END
+FROM project_members pm
+         INNER JOIN projects p ON p.id = pm.project_id
+         INNER JOIN users u ON pm.user_id = u.id
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND pm.is_token_member = FALSE
+  AND u.deleted_at IS NULL
+`, projectId)
+	defer func() { _ = r.Close() }()
+	c := make([]user.AsProjectMember, 0)
+	for i := 0; r.Next(); i++ {
+		c = append(c, user.AsProjectMember{})
+		err = r.Scan(
+			&c[i].Id, &c[i].Email, &c[i].FirstName, &c[i].LastName,
+			&c[i].PrivilegeLevel,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return p.GetProjectMembers(), nil
+	if err = r.Err(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (m *manager) GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error {
@@ -2007,99 +1897,60 @@ set {
 	return err
 }
 
-func (m *manager) RemoveMember(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
-	var r []bool
-	err := m.c.Query(ctx, `
-with
-	u := (select User filter .id = <uuid>$0 and not exists .deleted_at),
-	p := (
-		update Project
-		filter
-			.id = <uuid>$1
-		and .epoch = <int64>$2
- 		and not exists .deleted_at
-		set {
-			epoch := Project.epoch + 1,
-			access_ro -= u,
-			access_rw -= u,
-			access_token_ro -= u,
-			access_token_rw -= u,
-			archived_by -= u,
-			trashed_by -= u,
-		}
-	),
-	tags := (update u.tags set { projects -= p })
-select { exists p, exists tags }
-`, &r, userId, projectId, epoch)
+func (m *manager) RemoveMember(ctx context.Context, projectIds []sharedTypes.UUID, actor, userId sharedTypes.UUID) error {
+	return getErr(m.db.ExecContext(ctx, `
+WITH pm AS (
+    DELETE
+        FROM project_members pm
+            USING projects p
+            WHERE pm.project_id = ANY ($1)
+                AND pm.user_id = $3
+                AND p.owner_id != $3
+                AND (p.owner_id = $2 OR $2 = $3)
+            RETURNING project_id)
+UPDATE projects
+SET epoch = epoch + 1
+WHERE id = pm.project_id
+`, pq.Array(projectIds), actor, userId))
+}
+
+func (m *manager) SoftDelete(ctx context.Context, projectIds []sharedTypes.UUID, userId sharedTypes.UUID, ipAddress string) error {
+	blob, err := json.Marshal(map[string]string{
+		"ipAddress": ipAddress,
+	})
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return err
 	}
-	if len(r) == 0 || !r[0] {
-		return ErrEpochIsNotStable
+	r, err := m.db.ExecContext(ctx, `
+with soft_deleted AS (
+    UPDATE projects
+        SET deleted_at = transaction_timestamp(),
+            epoch = epoch + 1
+        WHERE id = ANY ($1) AND owner_id = $2 AND deleted_at IS NULL
+        RETURNING id)
+
+INSERT
+INTO project_audit_log (id, info, initiator_id, operation, project_id,
+                        timestamp)
+SELECT gen_random_uuid(),
+       $3,
+       $2,
+       'soft-deletion',
+       id,
+       transaction_timestamp()
+FROM soft_deleted
+`, pq.Array(projectIds), userId, string(blob))
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != int64(len(projectIds)) {
+		return errors.New("incomplete soft deletion")
 	}
 	return nil
-}
-
-type softDeleteResult struct {
-	ProjectExists        bool `edgedb:"project_exists"`
-	AuthCheck            bool `edgedb:"auth_check"`
-	ProjectNotDeletedYet bool `edgedb:"project_not_deleted_yet"`
-	ProjectSoftDeleted   bool `edgedb:"project_soft_deleted"`
-	AuditLogEntry        bool `edgedb:"audit_log_entry"`
-}
-
-func (m *manager) SoftDelete(ctx context.Context, projectId, userId sharedTypes.UUID, ipAddress string) error {
-	r := softDeleteResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$0 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$1),
-	pWithAuth := (select p filter .owner = u),
-	pNotDeletedYet := (select pWithAuth filter not exists .deleted_at),
-	pDeleted := (
-		update pNotDeletedYet
-		set {
-			deleted_at := datetime_of_transaction(),
-			epoch := pNotDeletedYet.epoch + 1,
-		}
-	),
-	auditLogEntry := (
-		insert ProjectAuditLogEntry {
-			project := pDeleted,
-			initiator := u,
-			operation := 'soft-deletion',
-			info := <json>{
-				ipAddress := <str>$2,
-			}
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	project_not_deleted_yet := exists pNotDeletedYet,
-	project_soft_deleted := exists pDeleted,
-	audit_log_entry := exists auditLogEntry,
-}
-`,
-		&r,
-		userId, projectId, ipAddress,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	switch {
-	case !r.ProjectExists:
-		return &errors.NotFoundError{}
-	case !r.AuthCheck:
-		return &errors.NotAuthorizedError{}
-	case !r.ProjectNotDeletedYet:
-		return &errors.UnprocessableEntityError{
-			Msg: "project already soft deleted",
-		}
-	default:
-		// project soft deleted
-		return nil
-	}
 }
 
 func (m *manager) HardDelete(ctx context.Context, projectId sharedTypes.UUID) error {
@@ -2398,7 +2249,52 @@ type ForProjectList struct {
 	Collaborators user.BulkFetched
 }
 
-func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
+func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error) {
+	r, err := m.db.QueryContext(ctx, `
+SELECT archived,
+       can_write,
+       epoch,
+       id,
+       is_token_member,
+       last_updated_at,
+       COALESCE(last_updated_by, '00000000-0000-0000-0000-000000000000'::UUID),
+       name,
+       owner_id,
+       public_access_level,
+       trashed
+FROM projects p
+         INNER JOIN project_members pm ON p.id = pm.project_id
+WHERE pm.user_id = $1
+  AND p.deleted_at IS NULL;
+`, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = r.Close() }()
+	projects := make(List, 0)
+	for i := 0; r.Next(); i++ {
+		projects = append(projects, ListViewPrivate{})
+		err = r.Scan(
+			&projects[i].Archived,
+			&projects[i].CanWrite,
+			&projects[i].Epoch,
+			&projects[i].Id,
+			&projects[i].IsTokenMember,
+			&projects[i].LastUpdatedAt,
+			&projects[i].LastUpdatedBy,
+			&projects[i].Name,
+			&projects[i].OwnerId,
+			&projects[i].PublicAccessLevel,
+			&projects[i].Trashed,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return projects, r.Err()
+}
+
+func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
 	// TODO: can we query in parallel from a tx? how many RTTs?
 	eg, pCtx := errgroup.WithContext(ctx)
 
@@ -2465,46 +2361,12 @@ WHERE u.deleted_at IS NULL;
 
 	// Projects
 	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
-SELECT archived,
-       can_write,
-       epoch,
-       id,
-       is_token_member,
-       last_updated_at,
-       COALESCE(last_updated_by, '00000000-0000-0000-0000-000000000000'::UUID),
-       name,
-       owner_id,
-       public_access_level,
-       trashed
-FROM projects p
-         INNER JOIN project_members pm ON p.id = pm.project_id
-WHERE pm.user_id = $1;
-`, userId)
+		var err error
+		d.Projects, err = m.ListProjects(ctx, userId)
 		if err != nil {
-			return err
+			return errors.Tag(err, "list projects")
 		}
-		defer func() { _ = r.Close() }()
-		for i := 0; r.Next(); i++ {
-			d.Projects = append(d.Projects, ListViewPrivate{})
-			err = r.Scan(
-				&d.Projects[i].Archived,
-				&d.Projects[i].CanWrite,
-				&d.Projects[i].Epoch,
-				&d.Projects[i].Id,
-				&d.Projects[i].IsTokenMember,
-				&d.Projects[i].LastUpdatedAt,
-				&d.Projects[i].LastUpdatedBy,
-				&d.Projects[i].Name,
-				&d.Projects[i].OwnerId,
-				&d.Projects[i].PublicAccessLevel,
-				&d.Projects[i].Trashed,
-			)
-			if err != nil {
-				return err
-			}
-		}
-		return r.Err()
+		return nil
 	})
 	if err := eg.Wait(); err != nil {
 		return err
