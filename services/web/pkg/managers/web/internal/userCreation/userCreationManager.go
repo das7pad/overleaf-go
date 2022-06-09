@@ -20,8 +20,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -49,7 +47,6 @@ func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um us
 }
 
 type manager struct {
-	c            *edgedb.Client
 	db           *sql.DB
 	emailOptions *types.EmailOptions
 	lm           login.Manager

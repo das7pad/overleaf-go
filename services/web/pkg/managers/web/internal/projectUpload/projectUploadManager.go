@@ -21,8 +21,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -51,7 +49,6 @@ func New(options *types.Options, db *sql.DB, pm project.Manager, um user.Manager
 }
 
 type manager struct {
-	c       *edgedb.Client
 	db      *sql.DB
 	dum     documentUpdater.Manager
 	fm      filestore.Manager

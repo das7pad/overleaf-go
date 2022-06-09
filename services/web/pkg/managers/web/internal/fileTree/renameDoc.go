@@ -34,7 +34,7 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	d.Id = request.DocId
 	d.Name = request.Name
 
-	projectVersion, parentPath, err := m.pm.RenameDoc(
+	projectVersion, path, err := m.pm.RenameDoc(
 		ctx, projectId, request.UserId, d,
 	)
 	if err != nil {
@@ -52,7 +52,7 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
 				documentUpdaterTypes.NewRenameDocUpdate(
 					d.Id,
-					parentPath.Join(d.Name),
+					path,
 				).ToGeneric(),
 			},
 		}

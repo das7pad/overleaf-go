@@ -50,7 +50,7 @@ type Manager interface {
 	MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
 	MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error)
 	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error)
-	RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error)
+	RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.PathName, error)
 	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
 	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
 	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error)
@@ -332,9 +332,9 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTy
 		persisted := Tokens{}
 		err = m.db.QueryRowContext(ctx, `
 UPDATE projects
-SET token_ro        = token_ro || $3,
-    token_rw        = token_rw || $4,
-    token_rw_prefix = token_rw_prefix || $5
+SET token_ro        = COALESCE(token_ro, $3),
+    token_rw        = COALESCE(token_rw, $4),
+    token_rw_prefix = COALESCE(token_rw_prefix, $5)
 WHERE id = $1
   AND owner_id = $2
   AND deleted_at IS NULL
@@ -605,9 +605,7 @@ WITH node AS (SELECT t.id
 UPDATE projects p
 SET last_updated_by = $2,
     last_updated_at = transaction_timestamp(),
-    root_doc_id     = CASE
-                          WHEN p.root_doc_id = deleted.id THEN NULL
-                          ELSE p.root_doc_id END,
+    root_doc_id     = NULLIF(p.root_doc_id, deleted.id),
     tree_version    = tree_version + 1
 FROM deleted
 WHERE p.id = $1
@@ -686,69 +684,47 @@ type moveTreeElementResult struct {
 	NewPath                  sharedTypes.PathName `edgedb:"new_path"`
 }
 
-func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error) {
-	r := moveTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	d := (select Doc filter .id = <uuid>$3 and .project = pWithAuth),
-	updatedDoc := (update d set {
-		parent := (
-			select FolderLike
-			filter .id = <uuid>$2 and .project = pWithAuth
-		),
-	}),
-	pBumpedVersion := (update updatedDoc.project set {
-		version := updatedDoc.project.version + 1,
-		last_updated_at := datetime_of_transaction(),
-		last_updated_by := u,
-	})
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists d,
-	new_path := updatedDoc.resolved_path ?? '',
-	project_version := pBumpedVersion.version ?? 0,
+func (m *manager) moveTreeLeaf(ctx context.Context, projectId, userId, folderId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, sharedTypes.PathName, error) {
+	var treeVersion sharedTypes.Version
+	var path sharedTypes.PathName
+	return treeVersion, path, m.db.QueryRowContext(ctx, `
+WITH f AS (SELECT t.id, t.path
+           FROM tree_nodes t
+                    INNER JOIN projects p ON t.project_id = p.id
+                    INNER JOIN project_members pm
+                               ON (t.project_id = pm.project_id AND
+                                   pm.user_id = $2)
+           WHERE t.id = $3
+             AND t.project_id = $1
+             AND p.deleted_at IS NULL
+             AND t.deleted_at = '1970-01-01'
+             AND pm.can_write = TRUE),
+     updated
+         AS (
+         UPDATE tree_nodes t
+             SET parent_id = f.id,
+                 path = CONCAT(f.path, SPLIT_PART(t.path, '/', -1))
+             FROM f
+             WHERE t.id = $4 AND kind = $5 AND t.deleted_at = '1970-01-01'
+             RETURNING t.id, t.path)
+
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    tree_version    = tree_version + 1
+FROM updated
+WHERE p.id = $1
+RETURNING p.tree_version, updated.path
+`, projectId, userId, folderId, nodeId, kind).Scan(&treeVersion, &path)
 }
-`, &r, projectId, userId, folderId, docId)
-	if err != nil {
-		return 0, "", rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.NewPath, r.toError()
+
+func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error) {
+	return m.moveTreeLeaf(ctx, projectId, userId, folderId, docId, "doc")
 }
 
 func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
-	r := moveTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (select File filter .id = <uuid>$3 and .project = pWithAuth),
-	updatedFile := (update f set {
-		parent := (
-			select FolderLike
-			filter .id = <uuid>$2 and .project = pWithAuth
-		),
-	}),
-	pBumpedVersion := (update updatedFile.project set {
-		version := updatedFile.project.version + 1,
-		last_updated_at := datetime_of_transaction(),
-		last_updated_by := u,
-	})
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists f,
-	project_version := pBumpedVersion.version ?? 0,
-}
-`, &r, projectId, userId, folderId, fileId)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.toError()
+	v, _, err := m.moveTreeLeaf(ctx, projectId, userId, folderId, fileId, "file")
+	return v, err
 }
 
 type moveFolderResult struct {
@@ -828,65 +804,48 @@ type renameTreeElementResult struct {
 	ParentPath               sharedTypes.DirName `edgedb:"parent_path"`
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.DirName, error) {
-	r := renameTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	d := (select Doc filter .id = <uuid>$2 and .project = pWithAuth),
-	updatedDoc := (update d set { name := <str>$3 }),
-	pBumpedVersion := (
-		update updatedDoc.project
-		set {
-			version := pWithAuth.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists d,
-	parent_path := updatedDoc.parent.path ?? '',
-	project_version := pBumpedVersion.version ?? 0,
+func (m *manager) renameTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.PathName, error) {
+	var treeVersion sharedTypes.Version
+	var path sharedTypes.PathName
+	return treeVersion, path, m.db.QueryRowContext(ctx, `
+WITH node AS (SELECT t.id, f.path AS parent_path
+           FROM tree_nodes t
+                    INNER JOIN projects p ON t.project_id = p.id
+                    INNER JOIN project_members pm
+                               ON (t.project_id = pm.project_id AND
+                                   pm.user_id = $2)
+           			INNER JOIN tree_nodes f ON t.parent_id = f.id
+           WHERE t.id = $3
+             AND t.kind = $4
+             AND t.project_id = $1
+             AND p.deleted_at IS NULL
+             AND t.deleted_at = '1970-01-01'
+             AND pm.can_write = TRUE),
+     updated
+         AS (
+         UPDATE tree_nodes t
+             SET path = CONCAT(node.parent_path, $5::TEXT)
+             FROM node
+             WHERE t.id = node.id
+             RETURNING t.id, t.path)
+
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    tree_version    = tree_version + 1
+FROM updated
+WHERE p.id = $1
+RETURNING p.tree_version, updated.path
+`, projectId, userId, nodeId, kind, name).Scan(&treeVersion, &path)
 }
-`, &r, projectId, userId, d.Id, d.Name)
-	if err != nil {
-		return 0, "", rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.ParentPath, r.toError()
+
+func (m *manager) RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.PathName, error) {
+	return m.renameTreeLeaf(ctx, projectId, userId, d.Id, "doc", d.Name)
 }
 
 func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
-	r := renameTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (select File filter .id = <uuid>$2 and .project = pWithAuth),
-	updatedFile := (update f set { name := <str>$3 }),
-	pBumpedVersion := (
-		update updatedFile.project
-		set {
-			version := pWithAuth.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists f,
-	project_version := pBumpedVersion.version ?? 0,
-}
-`, &r, projectId, userId, f.Id, f.Name)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.toError()
+	v, _, err := m.renameTreeLeaf(ctx, projectId, userId, f.Id, "file", f.Name)
+	return v, err
 }
 
 type renameFolderResult struct {
@@ -1207,54 +1166,31 @@ WHERE f.id = $4
 	return &f, err
 }
 
-type getDocOrFileResult struct {
-	genericExistsAndAuthResult `edgedb:"$inline"`
-	ParentExists               bool                `edgedb:"parent_exists"`
-	IsDoc                      bool                `edgedb:"is_doc"`
-	IsFolder                   bool                `edgedb:"is_folder"`
-	ElementId                  edgedb.OptionalUUID `edgedb:"element_id"`
-}
-
 func (m *manager) GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error) {
-	r := getDocOrFileResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (select FolderLike filter .id = <uuid>$2 and .project = pWithAuth),
-	e := (
-		select VisibleTreeElement
-		filter .parent = f and .name = <str>$3 and not .deleted
-		limit 1
-	),
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	parent_exists := exists f,
-	is_doc := e is Doc ?? false,
-	is_folder := e is Folder ?? false,
-	element_id := e.id,
-}
-`, &r, projectId, userId, folderId, name)
-	if err != nil {
-		return sharedTypes.UUID{}, false, rewriteEdgedbError(err)
+	var nodeId sharedTypes.UUID
+	var kind string
+	err := m.db.QueryRowContext(ctx, `
+SELECT t.id, t.kind
+FROM tree_nodes t
+         INNER JOIN projects p ON t.project_id = p.id
+         INNER JOIN project_members pm ON (p.id = pm.project_id AND
+                                           pm.user_id = $2)
+         INNER JOIN tree_nodes f ON t.parent_id = f.id
+WHERE t.project_id = $1
+  AND f.id = $3
+  AND t.deleted_at = '1970-01-01'
+  AND p.deleted_at IS NULL
+  AND (t.path = $4 OR t.path LIKE CONCAT('%/', $4::TEXT))
+`, projectId, userId, folderId, name).Scan(&nodeId, &kind)
+	if err == sql.ErrNoRows {
+		return nodeId, false, nil
 	}
-	if err = r.toError(); err != nil {
-		return sharedTypes.UUID{}, false, err
-	}
-	switch {
-	case !r.ParentExists:
-		return sharedTypes.UUID{}, false, &errors.UnprocessableEntityError{
-			Msg: "parent folder does not exist",
-		}
-	case r.IsFolder:
-		return sharedTypes.UUID{}, false, &errors.UnprocessableEntityError{
+	if kind == "folder" {
+		return nodeId, false, &errors.UnprocessableEntityError{
 			Msg: "element is a folder",
 		}
 	}
-	id, _ := r.ElementId.Get()
-	return sharedTypes.UUID(id), r.IsDoc, nil
+	return nodeId, kind == "doc", err
 }
 
 func (m *manager) GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error) {
@@ -1946,83 +1882,36 @@ FROM ids
 
 func (m *manager) GetDeletedProjectsName(ctx context.Context, projectId, userId sharedTypes.UUID) (Name, error) {
 	var name Name
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0),
-	pWithAuth := (select p filter .owner = u),
-	pDeleted := (select pWithAuth filter exists .deleted_at)
-select pDeleted.name
-`, &name, projectId, userId)
-	if err != nil {
-		return "", rewriteEdgedbError(err)
-	}
-	return name, nil
-}
-
-type restoreResult struct {
-	ProjectExists       bool `edgedb:"project_exists"`
-	AuthCheck           bool `edgedb:"auth_check"`
-	ProjectStillDeleted bool `edgedb:"project_still_deleted"`
-	ProjectRestored     bool `edgedb:"project_restored"`
+	return name, m.db.QueryRowContext(ctx, `
+SELECT p.name
+FROM projects p
+         INNER JOIN users u ON p.owner_id = u.id
+WHERE p.id = $1
+  AND p.deleted_at IS NOT NULL
+  AND u.id = $2
+  AND u.deleted_at IS NULL
+`, projectId, userId).Scan(&name)
 }
 
 func (m *manager) Restore(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
-	r := restoreResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$0 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$1),
-	pWithAuth := (select p filter .owner = u),
-	pStillDeleted := (select pWithAuth filter exists .deleted_at),
-	pRestored := (
-		update pStillDeleted
-		set {
-			deleted_at := <datetime>{},
-			epoch := pStillDeleted.epoch + 1,
-			name := <str>$2,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	project_still_deleted := exists pStillDeleted,
-	project_updated := exists pRestored,
-}
-`,
-		&r,
-		userId, projectId, name,
-	)
-	if err != nil {
-		return rewriteEdgedbError(err)
-	}
-	switch {
-	case !r.ProjectExists:
-		return &errors.NotFoundError{}
-	case !r.AuthCheck:
-		return &errors.NotAuthorizedError{}
-	case !r.ProjectStillDeleted:
-		return &errors.UnprocessableEntityError{
-			Msg: "project not deleted",
-		}
-	default:
-		// project restored
-		return nil
-	}
-}
-
-type createTreeElementResult struct {
-	ProjectExists bool                 `edgedb:"project_exists"`
-	AuthCheck     bool                 `edgedb:"auth_check"`
-	FolderExists  bool                 `edgedb:"folder_exists"`
-	ElementId     edgedb.OptionalUUID  `edgedb:"element_id"`
-	Linked        bool                 `edgedb:"linked"`
-	Version       edgedb.OptionalInt64 `edgedb:"version"`
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE projects p
+SET deleted_at = NULL,
+    epoch      = epoch + 1,
+    name       = $3
+FROM users u
+WHERE p.id = $1
+  AND p.deleted_at IS NOT NULL
+  AND p.owner_id = $2
+  AND p.owner_id = u.id
+  AND u.deleted_at IS NULL
+`, projectId, userId, name))
 }
 
 func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
-	err := m.db.QueryRowContext(ctx, `WITH f AS (SELECT t.id, t.path
+	err := m.db.QueryRowContext(ctx, `
+WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
                     INNER JOIN project_members pm
@@ -2070,92 +1959,56 @@ RETURNING p.tree_version
 }
 
 func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
-	result := createTreeElementResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	parent := (
-		select {
-			(
-				select Folder
-				filter
-					.id = <uuid>$2
-				and .project = pWithAuth
-				and not .deleted
-			),
-			(
-				select RootFolder
-				filter
-					.id = <uuid>$2
-				and .project = pWithAuth
-			),
-		}
-		limit 1
-	),
-	f := (insert File {
-		name := <str>$3,
-		parent := parent,
-		project := pWithAuth,
-		size := <int64>$4,
-		hash := <str>$5,
-	}),
-	linkedFileData := (
-		for entry in ({1} if <str>$6 != "" else <int64>{}) union (
-			insert LinkedFileData {
-				provider := <str>$6,
-				source_project_id := <str>$7,
-				source_entity_path := <str>$8,
-				source_output_file_path := <str>$9,
-				url := <str>$10,
-				file := f,
-			}
-		)
-	),
-	pBumpedVersion := (
-		update f.project
-		set {
-			version := f.project.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := (exists p),
-	auth_check := (exists pWithAuth),
-	folder_exists := (exists parent),
-	element_id := f.id,
-	linked := exists linkedFileData,
-	version := pBumpedVersion.version,
-}
+	var treeVersion sharedTypes.Version
+	err := m.db.QueryRowContext(ctx, `
+WITH f AS (SELECT t.id, t.path
+           FROM tree_nodes t
+                    INNER JOIN projects p ON t.project_id = p.id
+                    INNER JOIN project_members pm
+                               ON (t.project_id = pm.project_id AND
+                                   pm.user_id = $2)
+           WHERE t.id = $3
+             AND t.project_id = $1
+             AND p.deleted_at IS NULL
+             AND t.deleted_at = '1970-01-01'
+             AND pm.can_write = TRUE),
+     inserted_tree_node AS (
+         INSERT INTO tree_nodes
+             (deleted_at, id, kind, name, parent_id, path, project_id)
+             SELECT '1970-01-01',
+                    $4,
+                    'file',
+                    $5,
+                    f.id,
+                    CONCAT(f.path, $5::TEXT),
+                    $1
+             FROM f
+             RETURNING id),
+     inserted_file AS (
+         INSERT INTO files
+             (id, created_at, hash, linked_file_data, size)
+             SELECT inserted_tree_node.id, transaction_timestamp(), $6, $7, $8
+             FROM inserted_tree_node
+			 RETURNING FALSE)
+
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    tree_version    = tree_version + 1
+FROM inserted_file
+WHERE p.id = $1
+RETURNING p.tree_version
 `,
-		&result,
 		projectId, userId, folderId,
-		f.Name, f.Size, f.Hash, f.LinkedFileData.Provider,
-		f.LinkedFileData.SourceProjectId, f.LinkedFileData.SourceEntityPath,
-		f.LinkedFileData.SourceOutputFilePath, f.LinkedFileData.URL,
-	)
+		f.Id, f.Name, f.Hash, f.LinkedFileData, f.Size,
+	).Scan(&treeVersion)
 	if err != nil {
-		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
+		if e, ok := err.(*pq.Error); ok && e.Constraint == "tree_nodes_pkey" {
 			return 0, ErrDuplicateNameInFolder
 		}
-		return 0, rewriteEdgedbError(err)
+		return 0, err
 	}
-	// TODO: read MissingRequiredError details instead of result fields
-	switch {
-	case !result.ProjectExists:
-		return 0, &errors.NotFoundError{}
-	case !result.AuthCheck:
-		return 0, &errors.NotAuthorizedError{}
-	case !result.FolderExists:
-		return 0, &errors.UnprocessableEntityError{Msg: "missing folder"}
-	default:
-		id, _ := result.ElementId.Get()
-		f.Id = sharedTypes.UUID(id)
-		v, _ := result.Version.Get()
-		return sharedTypes.Version(v), nil
-	}
+	return treeVersion, nil
 }
 
 type ForProjectList struct {

@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -62,7 +60,6 @@ func New(db *sql.DB, pm project.Manager, dum documentUpdater.Manager, fm filesto
 }
 
 type manager struct {
-	c               *edgedb.Client
 	db              *sql.DB
 	dum             documentUpdater.Manager
 	editorEvents    channel.Writer
