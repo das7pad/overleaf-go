@@ -89,7 +89,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 			RootDocId: p.RootDoc.Id,
 		},
 		VersionField: p.VersionField,
-		RootFolder:   []*project.Folder{&p.RootFolder.Folder},
+		RootFolder:   []*project.Folder{p.GetRootFolder()},
 	}
 
 	return &types.JoinProjectWebApiResponse{

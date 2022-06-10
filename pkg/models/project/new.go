@@ -49,9 +49,7 @@ func NewProject(ownerId sharedTypes.UUID) (*ForCreation, error) {
 			SpellCheckLanguage: "inherit",
 		},
 		RootFolderField: RootFolderField{
-			RootFolder: RootFolder{
-				Folder: NewFolder(""),
-			},
+			RootFolder: NewFolder(""),
 		},
 		VersionField: VersionField{
 			Version: 1,

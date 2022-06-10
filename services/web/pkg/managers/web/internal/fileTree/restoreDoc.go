@@ -19,6 +19,7 @@ package fileTree
 import (
 	"context"
 
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -26,20 +27,22 @@ func (m *manager) RestoreDeletedDocInProject(ctx context.Context, request *types
 	if err := request.Name.Validate(); err != nil {
 		return err
 	}
-	projectId := request.ProjectId
 
-	d, projectVersion, err := m.pm.RestoreDoc(
-		ctx, projectId, request.UserId, request.DocId, request.Name,
+	projectVersion, rootFolderId, err := m.pm.RestoreDoc(
+		ctx, request.ProjectId, request.UserId, request.DocId, request.Name,
 	)
 	if err != nil {
 		return err
 	}
-	response.DocId = d.Id
+	response.DocId = request.DocId
+
+	d := project.NewDoc(request.Name)
+	d.Id = request.DocId
 
 	//goland:noinspection SpellCheckingInspection
 	m.notifyEditor(
-		projectId, "reciveNewDoc",
-		d.Parent.Id, d.Doc, projectVersion,
+		request.ProjectId, "reciveNewDoc",
+		rootFolderId, d, projectVersion,
 	)
 	return nil
 }

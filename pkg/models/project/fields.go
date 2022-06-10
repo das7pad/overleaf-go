@@ -116,7 +116,7 @@ type TokensField struct {
 }
 
 type RootFolderField struct {
-	RootFolder RootFolder `edgedb:"root_folder"`
+	RootFolder Folder `edgedb:"root_folder"`
 }
 
 type FoldersField struct {

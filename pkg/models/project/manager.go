@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strconv"
 	"time"
 
 	"github.com/edgedb/edgedb-go"
@@ -46,7 +45,7 @@ type Manager interface {
 	DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error)
 	DeleteFile(ctx context.Context, projectId, userId, fileId sharedTypes.UUID) (sharedTypes.Version, error)
 	DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error)
-	RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error)
+	RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.UUID, error)
 	MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
 	MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error)
 	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error)
@@ -55,7 +54,7 @@ type Manager interface {
 	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
 	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error)
-	GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error)
+	GetForZip(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, accessToken AccessToken) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
 	BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
@@ -109,6 +108,20 @@ func rewriteEdgedbError(err error) error {
 }
 
 func getErr(_ sql.Result, err error) error {
+	return err
+}
+
+func rewritePostgresErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	e, ok := err.(*pq.Error)
+	if !ok {
+		return err
+	}
+	if e.Constraint == "tree_nodes_pkey" {
+		return ErrDuplicateNameInFolder
+	}
 	return err
 }
 
@@ -1077,63 +1090,40 @@ WHERE d.id = $2
 	return &d, err
 }
 
-type restoreDocResult struct {
-	genericTreeElementResult `edgedb:"$inline"`
-	DocDeleted               bool `edgedb:"doc_deleted"`
-	Doc                      struct {
-		DocWithParent `edgedb:"$inline"`
-	} `edgedb:"doc"`
-}
+func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.UUID, error) {
+	var v sharedTypes.Version
+	var rootFolderId sharedTypes.UUID
+	return v, rootFolderId, rewritePostgresErr(m.db.QueryRowContext(ctx, `
+WITH d AS (SELECT t.id, p.root_folder_id
+           FROM tree_nodes t
+                    INNER JOIN projects p ON t.project_id = p.id
+                    INNER JOIN project_members pm
+                               ON (t.project_id = pm.project_id AND
+                                   pm.user_id = $2)
+           WHERE t.id = $3
+             AND t.kind = 'doc'
+             AND t.project_id = $1
+             AND p.deleted_at IS NULL
+             AND t.deleted_at != '1970-01-01'
+             AND pm.can_write = TRUE),
+     restored
+         AS (
+         UPDATE tree_nodes t
+             SET deleted_at = '1970-01-01',
+                 parent_id = d.root_folder_id,
+                 path = $4
+             FROM d
+             WHERE t.id = d.id
+             RETURNING t.id, t.parent_id)
 
-func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (*DocWithParent, sharedTypes.Version, error) {
-	r := restoreDocResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$1 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter u in .min_access_rw),
-	d := (select Doc filter .id = <uuid>$2 and .project = pWithAuth),
-	dWithDeletedCheck := (select d filter .deleted),
-	dRestored := (
-		update dWithDeletedCheck
-		set {
-			name := <str>$3,
-			deleted_at := <datetime>'1970-01-01T00:00:00.000000Z',
-		}
-	),
-	pBumped := (
-		update dRestored.project
-		set {
-			version := dRestored.project.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists d,
-	doc_deleted := exists dWithDeletedCheck,
-	doc := dRestored {
-		id,
-		name,
-		parent,
-	},
-	project_version := pBumped.version,
-`, &r, projectId, userId, docId, name)
-	if err != nil {
-		if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.ConstraintViolationError) {
-			return nil, 0, ErrDuplicateNameInFolder
-		}
-		return nil, 0, rewriteEdgedbError(err)
-	}
-	if err = r.toError(); err != nil {
-		return nil, 0, err
-	}
-	if !r.DocDeleted {
-		return nil, 0, &errors.UnprocessableEntityError{Msg: "doc not deleted"}
-	}
-	return &r.Doc.DocWithParent, r.ProjectVersion, nil
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    tree_version    = tree_version + 1
+FROM restored
+WHERE p.id = $1
+RETURNING p.tree_version, restored.parent_id
+`, projectId, userId, docId, name).Scan(&v, &rootFolderId))
 }
 
 func (m *manager) GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error) {
@@ -1256,51 +1246,53 @@ ORDER BY t.kind
 	return nodes[:len(nodes)-len(files)], files, nil
 }
 
-func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, epoch int64) (*ForZip, error) {
-	p := &ForZip{}
-	err := m.c.QuerySingle(
-		ctx,
-		`
-select Project {
-	folders: {
-		id,
-		name,
-		folders,
-		docs: { id, name, snapshot },
-		files: { id, name },
-	},
-	name,
-	root_folder: {
-		id,
-		folders,
-		docs: { id, name, snapshot },
-		files: { id, name },
-	},
-}
-filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
-`,
-		p,
-		projectId, epoch,
+func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, accessToken AccessToken) (*ForZip, error) {
+	p := ForZip{}
+	return &p, m.db.QueryRowContext(ctx, `
+WITH tree AS
+         (SELECT t.project_id,
+                 array_agg(t.id)                     as ids,
+                 array_agg(t.kind)                   as kinds,
+                 array_agg(t.path)                   as paths,
+                 array_agg(COALESCE(d.snapshot, '')) as snapshots
+          FROM tree_nodes t
+                   LEFT JOIN docs d on t.id = d.id
+          WHERE t.project_id = $1
+            AND t.deleted_at = '1970-01-01'
+            AND t.parent_id IS NOT NULL
+          GROUP BY t.project_id)
+
+SELECT p.name,
+       tree.ids,
+       tree.kinds,
+       tree.paths,
+       tree.snapshots
+FROM projects p
+         LEFT JOIN tree ON (p.id = tree.project_id)
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $2)
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND (
+        (pm.is_token_member = FALSE)
+        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
+        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+    )
+`, projectId, userId, accessToken).Scan(
+		&p.Name,
+		pq.Array(&p.treeIds),
+		pq.Array(&p.treeKinds),
+		pq.Array(&p.treePaths),
+		pq.Array(&p.docSnapshots),
 	)
-	if err != nil {
-		err = rewriteEdgedbError(err)
-		if errors.IsNotFoundError(err) {
-			return nil, ErrEpochIsNotStable
-		}
-		return nil, err
-	}
-	return p, nil
 }
 
 func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
 	d := &JoinProjectDetails{}
 	d.Project.Id = projectId
-	d.Project.RootFolder.Folder = NewFolder("")
+	d.Project.RootFolder = NewFolder("")
 	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
 
-	var treeIds []sharedTypes.UUID
-	var treeKinds []string
-	var treePaths []string
 	var deletedDocIds []sharedTypes.UUID
 	var deletedDocNames []string
 
@@ -1309,17 +1301,17 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId s
 	err := m.db.QueryRowContext(ctx, `
 WITH tree AS
          (SELECT t.project_id,
-                 array_remove(array_agg(t.id), NULL)        as ids,
-                 array_remove(array_agg(t.kind), NULL)      as kinds,
-                 array_remove(array_agg(t.path), NULL)      as paths
+                 array_agg(t.id)   as ids,
+                 array_agg(t.kind) as kinds,
+                 array_agg(t.path) as paths
           FROM tree_nodes t
           WHERE t.project_id = $1
             AND t.deleted_at = '1970-01-01'
-			AND t.parent_id IS NOT NULL
+            AND t.parent_id IS NOT NULL
           GROUP BY t.project_id),
      deleted_docs AS (SELECT t.project_id,
-                             array_remove(array_agg(t.id), NULL)   as ids,
-                             array_remove(array_agg(t.name), NULL) as names
+                             array_agg(t.id)   as ids,
+                             array_agg(t.name) as names
                       FROM tree_nodes t
                       WHERE t.project_id = $1
                         AND t.deleted_at != '1970-01-01'
@@ -1331,7 +1323,7 @@ SELECT p.compiler,
        p.name,
        p.owner_id,
        p.public_access_level,
-       p.root_doc_id,
+       COALESCE(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
        p.root_folder_id,
        p.spell_check_language,
        COALESCE(p.token_ro, ''),
@@ -1371,38 +1363,14 @@ WHERE p.id = $1
 		&d.Project.Tokens.ReadAndWrite,
 		&d.Project.Version,
 		&d.Project.OwnerFeatures,
-		pq.Array(&treeIds),
-		pq.Array(&treeKinds),
-		pq.Array(&treePaths),
+		pq.Array(&d.Project.treeIds),
+		pq.Array(&d.Project.treeKinds),
+		pq.Array(&d.Project.treePaths),
 		pq.Array(&deletedDocIds),
 		pq.Array(&deletedDocNames),
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	t := &d.Project.RootFolder
-	for i, kind := range treeKinds {
-		p := sharedTypes.PathName(treePaths[i])
-		f, err2 := t.CreateParents(p.Dir())
-		if err2 != nil {
-			return nil, errors.Tag(err2, strconv.Itoa(i))
-		}
-		switch kind {
-		case "doc":
-			e := NewDoc(p.Filename())
-			e.Id = treeIds[i]
-			f.Docs = append(f.Docs, e)
-		case "file":
-			e := NewFileRef(p.Filename(), "", 0)
-			e.Id = treeIds[i]
-			f.FileRefs = append(f.FileRefs, e)
-		case "folder":
-			// NOTE: The paths of folders have a trailing slash in the DB.
-			//       When getting f, that slash is removed by the p.Dir() call
-			//        and f will have the correct path/name. :)
-			f.Id = treeIds[i]
-		}
 	}
 	for i, id := range deletedDocIds {
 		d.Project.DeletedDocs = append(d.Project.DeletedDocs, CommonTreeFields{
@@ -1433,8 +1401,8 @@ SELECT p.compiler,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, ''),
        p.tree_version,
-       d.id,
-       d.path,
+       COALESCE(d.id, '00000000-0000-0000-0000-000000000000'::UUID),
+       COALESCE(d.path, ''),
        o.features,
        u.editor_config,
        u.email,
@@ -1909,8 +1877,8 @@ WHERE p.id = $1
 }
 
 func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error) {
-	var treeVersion sharedTypes.Version
-	err := m.db.QueryRowContext(ctx, `
+	var v sharedTypes.Version
+	return v, rewritePostgresErr(m.db.QueryRowContext(ctx, `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -1948,19 +1916,12 @@ SET last_updated_by = $2,
 FROM inserted_doc
 WHERE p.id = $1
 RETURNING p.tree_version
-`, projectId, userId, folderId, d.Id, d.Name, d.Snapshot).Scan(&treeVersion)
-	if err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Constraint == "tree_nodes_pkey" {
-			return 0, ErrDuplicateNameInFolder
-		}
-		return 0, err
-	}
-	return treeVersion, nil
+`, projectId, userId, folderId, d.Id, d.Name, d.Snapshot).Scan(&v))
 }
 
 func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
-	var treeVersion sharedTypes.Version
-	err := m.db.QueryRowContext(ctx, `
+	var v sharedTypes.Version
+	return v, rewritePostgresErr(m.db.QueryRowContext(ctx, `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -2001,14 +1962,7 @@ RETURNING p.tree_version
 `,
 		projectId, userId, folderId,
 		f.Id, f.Name, f.Hash, f.LinkedFileData, f.Size,
-	).Scan(&treeVersion)
-	if err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Constraint == "tree_nodes_pkey" {
-			return 0, ErrDuplicateNameInFolder
-		}
-		return 0, err
-	}
-	return treeVersion, nil
+	).Scan(&v))
 }
 
 type ForProjectList struct {

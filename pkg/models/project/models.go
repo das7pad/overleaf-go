@@ -18,6 +18,7 @@ package project
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type JoinProjectViewPrivate struct {
@@ -36,6 +37,7 @@ type JoinProjectViewPublic struct {
 	NameField        `edgedb:"$inline"`
 	OwnerFeaturesField
 	SpellCheckLanguageField `edgedb:"$inline"`
+	VersionField            `edgedb:"$inline"`
 }
 
 type JoinProjectDetails struct {
@@ -114,10 +116,12 @@ type ForProjectEntries struct {
 }
 
 type ForTree struct {
-	VersionField       `edgedb:"$inline"`
-	RootFolderField    `edgedb:"$inline"`
-	FoldersField       `edgedb:"$inline"`
-	rootFolderResolved bool
+	RootFolderField `edgedb:"$inline"`
+
+	treeIds      []sharedTypes.UUID
+	treeKinds    []string
+	treePaths    []string
+	docSnapshots []string
 }
 
 type ForZip struct {

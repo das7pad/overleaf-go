@@ -25,10 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type RootFolder struct {
-	Folder `edgedb:"$inline"`
-}
-
 type TreeElement interface {
 	GetId() sharedTypes.UUID
 }
@@ -320,26 +316,30 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 }
 
 func (p *ForTree) GetRootFolder() *Folder {
-	if p.rootFolderResolved {
-		return &p.RootFolder.Folder
-	}
-
-	lookup := make(map[sharedTypes.UUID]Folder, len(p.Folders))
-	for _, folder := range p.Folders {
-		lookup[folder.Id] = folder
-	}
-
-	for _, folder := range p.Folders {
-		for i, f := range folder.Folders {
-			folder.Folders[i] = lookup[f.Id]
+	t := p.RootFolder
+	for i, kind := range p.treeKinds {
+		path := sharedTypes.PathName(p.treePaths[i])
+		// NOTE: The db has a unique constraint on paths.
+		//       We can safely ignore the conflict error here.
+		f, _ := t.CreateParents(path.Dir())
+		switch kind {
+		case "doc":
+			e := NewDoc(path.Filename())
+			e.Id = p.treeIds[i]
+			if p.docSnapshots != nil {
+				e.Snapshot = p.docSnapshots[i]
+			}
+			f.Docs = append(f.Docs, e)
+		case "file":
+			e := NewFileRef(path.Filename(), "", 0)
+			e.Id = p.treeIds[i]
+			f.FileRefs = append(f.FileRefs, e)
+		case "folder":
+			// NOTE: The paths of folders have a trailing slash in the DB.
+			//       When getting f, that slash is removed by the path.Dir()
+			//        call and f will have the correct path/name. :)
+			f.Id = p.treeIds[i]
 		}
 	}
-
-	for i, f := range p.RootFolder.Folders {
-		p.RootFolder.Folders[i] = lookup[f.Id]
-	}
-
-	p.rootFolderResolved = true
-	p.Folders = nil
-	return &p.RootFolder.Folder
+	return &t
 }

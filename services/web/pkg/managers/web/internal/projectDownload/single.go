@@ -54,26 +54,20 @@ func (m *manager) CreateProjectZIP(ctx context.Context, request *types.CreatePro
 type bufferGetter func(filename sharedTypes.Filename) (io.Writer, error)
 
 func (m *manager) getProjectForZip(ctx context.Context, projectId, userId sharedTypes.UUID, token project.AccessToken) (*project.ForZip, error) {
-	for i := 0; i < 10; i++ {
-		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
-		if err != nil {
-			return nil, errors.Tag(err, "cannot check auth")
-		}
-
-		if err = m.dum.FlushProject(ctx, projectId); err != nil {
-			return nil, errors.Tag(err, "cannot flush project")
-		}
-
-		p, err := m.pm.GetForZip(ctx, projectId, d.Epoch)
-		if err != nil {
-			if err == project.ErrEpochIsNotStable {
-				continue
-			}
-			return nil, errors.Tag(err, "cannot get project")
-		}
-		return p, nil
+	_, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot check auth")
 	}
-	return nil, project.ErrEpochIsNotStable
+
+	if err = m.dum.FlushProject(ctx, projectId); err != nil {
+		return nil, errors.Tag(err, "cannot flush project")
+	}
+
+	p, err := m.pm.GetForZip(ctx, projectId, userId, token)
+	if err != nil {
+		return nil, errors.Tag(err, "cannot get project")
+	}
+	return p, nil
 }
 
 func (m *manager) createProjectZIP(ctx context.Context, request *types.CreateProjectZIPRequest, getBuffer bufferGetter) error {
