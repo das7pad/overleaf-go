@@ -59,7 +59,7 @@ CREATE TABLE user_audit_log
   user_id      UUID      NOT NULL REFERENCES users ON DELETE CASCADE
 );
 
-CREATE TYPE PublicAccessLevel AS ENUM ('', 'tokenBased');
+CREATE TYPE PublicAccessLevel AS ENUM ('private', 'tokenBased');
 
 CREATE TABLE projects
 (
@@ -81,14 +81,17 @@ CREATE TABLE projects
   tree_version         INTEGER           NOT NULL
 );
 
+CREATE TYPE AccessSource AS ENUM ('token', 'invite', 'owner');
+CREATE TYPE PrivilegeLevel AS ENUM ('readOnly', 'readAndWrite', 'owner');
+
 CREATE TABLE project_members
 (
-  project_id      UUID    NOT NULL REFERENCES projects ON DELETE CASCADE,
-  user_id         UUID    NOT NULL REFERENCES users ON DELETE CASCADE,
-  can_write       BOOLEAN NOT NULL,
-  is_token_member BOOLEAN NOT NULL,
-  archived        BOOLEAN NOT NULL,
-  trashed         BOOLEAN NOT NULL,
+  project_id      UUID           NOT NULL REFERENCES projects ON DELETE CASCADE,
+  user_id         UUID           NOT NULL REFERENCES users ON DELETE CASCADE,
+  access_source   AccessSource   NOT NULL,
+  privilege_level PrivilegeLevel NOT NULL,
+  archived        BOOLEAN        NOT NULL,
+  trashed         BOOLEAN        NOT NULL,
 
   PRIMARY KEY (project_id, user_id)
 );

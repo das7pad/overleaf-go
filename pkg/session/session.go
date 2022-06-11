@@ -86,6 +86,7 @@ func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (str
 		IPAddress:      ip,
 		SessionCreated: time.Now().UTC(),
 	}
+	s.AnonTokenAccess = nil
 	if err := s.Cycle(ctx); err != nil {
 		return "", errors.Tag(err, "cannot cycle session")
 	}

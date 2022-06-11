@@ -27,10 +27,12 @@ import (
 )
 
 type Member struct {
-	Archived      bool
-	CanWrite      bool
-	IsTokenMember IsTokenMember
-	Trashed       bool
+	Archived       bool
+	AccessSource   AccessSource
+	PrivilegeLevel sharedTypes.PrivilegeLevel
+	CanWrite       bool
+	IsTokenMember  IsTokenMember
+	Trashed        bool
 }
 
 type AccessReadAndWriteField struct {

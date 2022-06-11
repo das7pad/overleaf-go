@@ -30,7 +30,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 		return err
 	}
 	p := &d.Project
-	if _, err = p.GetPrivilegeLevelAuthenticated(r.UserId); err != nil {
+	if _, err = p.GetPrivilegeLevelAuthenticated(); err != nil {
 		return err
 	}
 

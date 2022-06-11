@@ -118,53 +118,18 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
-func (p *ForAuthorizationDetails) CheckPrivilegeLevelIsAtLest(userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error {
-	d, err := p.GetPrivilegeLevelAuthenticated(userId)
-	if err != nil {
-		return err
-	}
-	return d.PrivilegeLevel.CheckIsAtLeast(level)
-}
-
-func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated(userId sharedTypes.UUID) (*AuthorizationDetails, error) {
-	if p.OwnerId == userId {
+func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated() (*AuthorizationDetails, error) {
+	if p.PrivilegeLevel == "" {
+		// This user has not joined yet.
+	} else if p.AccessSource == AccessSourceToken &&
+		p.PublicAccessLevel != TokenBasedAccess {
+		// The owner turned off link sharing.
+	} else {
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceOwner,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelOwner,
-			IsTokenMember:  false,
-		}, nil
-	}
-	if !p.Member.IsTokenMember {
-		if p.Member.CanWrite {
-			return &AuthorizationDetails{
-				Epoch:          p.Epoch,
-				AccessSource:   AccessSourceInvite,
-				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-				IsTokenMember:  false,
-			}, nil
-		}
-		return &AuthorizationDetails{
-			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceInvite,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-			IsTokenMember:  false,
-		}, nil
-	}
-	if p.PublicAccessLevel == TokenBasedAccess {
-		if p.Member.CanWrite {
-			return &AuthorizationDetails{
-				Epoch:          p.Epoch,
-				AccessSource:   AccessSourceToken,
-				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-				IsTokenMember:  true,
-			}, nil
-		}
-		return &AuthorizationDetails{
-			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceToken,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-			IsTokenMember:  true,
+			AccessSource:   p.Member.AccessSource,
+			PrivilegeLevel: p.Member.PrivilegeLevel,
+			IsTokenMember:  p.Member.AccessSource == AccessSourceToken,
 		}, nil
 	}
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
@@ -174,7 +139,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId sharedTypes.UUID, acc
 	if userId == (sharedTypes.UUID{}) {
 		return p.GetPrivilegeLevelAnonymous(accessToken)
 	} else {
-		return p.GetPrivilegeLevelAuthenticated(userId)
+		return p.GetPrivilegeLevelAuthenticated()
 	}
 }
 

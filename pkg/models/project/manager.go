@@ -168,14 +168,14 @@ WITH lng AS (SELECT CASE
                     $1,
                     $7,
                     $1,
-                    '',
+                    'private',
                     lng.spell_check_language,
                     1
              FROM lng)
 INSERT
 INTO project_members
-(project_id, user_id, can_write, is_token_member, archived, trashed)
-VALUES ($5, $1, TRUE, FALSE, FALSE, FALSE)
+(project_id, user_id, access_source, privilege_level, archived, trashed)
+VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 `,
 		p.OwnerId, p.SpellCheckLanguage, p.Compiler, p.DeletedAt, p.Id,
 		p.ImageName, p.Name,
@@ -367,7 +367,7 @@ WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.id = pm.project_id
   AND pm.user_id = $2
-  AND pm.can_write = TRUE
+  AND pm.privilege_level >= 'readAndWrite'
 `, projectId, userId, compiler))
 }
 
@@ -380,7 +380,7 @@ WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.id = pm.project_id
   AND pm.user_id = $2
-  AND pm.can_write = TRUE
+  AND pm.privilege_level >= 'readAndWrite'
 `, projectId, userId, imageName))
 }
 
@@ -393,7 +393,7 @@ WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.id = pm.project_id
   AND pm.user_id = $2
-  AND pm.can_write = TRUE
+  AND pm.privilege_level >= 'readAndWrite'
 `, projectId, userId, spellCheckLanguage))
 }
 
@@ -416,7 +416,7 @@ WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.id = pm.project_id
   AND pm.user_id = $2
-  AND pm.can_write = TRUE
+  AND pm.privilege_level >= 'readAndWrite'
 `, projectId, userId, rootDocId))
 }
 
@@ -546,7 +546,7 @@ WITH f AS (
                                              t.deleted_at = '1970-01-01')
         WHERE p.id = $1
           AND p.deleted_at IS NULL
-          AND pm.can_write = TRUE
+          AND pm.privilege_level >= 'readAndWrite'
         RETURNING project_id)
 UPDATE projects p
 SET tree_version    = tree_version + 1,
@@ -572,7 +572,7 @@ WITH node AS (SELECT t.id
                 AND t.project_id = $1
                 AND p.deleted_at IS NULL
                 AND t.deleted_at = '1970-01-01'
-                AND pm.can_write = TRUE),
+                AND pm.privilege_level >= 'readAndWrite'),
      deleted AS (
          UPDATE tree_nodes t
              SET deleted_at = transaction_timestamp()
@@ -617,7 +617,7 @@ WITH node AS (SELECT t.id,
                 AND t.parent_id IS NOT NULL
                 AND p.deleted_at IS NULL
                 AND t.deleted_at = '1970-01-01'
-                AND pm.can_write = TRUE),
+                AND pm.privilege_level >= 'readAndWrite'),
      updated_children AS (
          UPDATE tree_nodes t
              SET deleted_at = transaction_timestamp()
@@ -657,7 +657,7 @@ WITH f AS (SELECT t.id, t.path, t.project_id
              AND t.project_id = $1
              AND p.deleted_at IS NULL
              AND t.deleted_at = '1970-01-01'
-             AND pm.can_write = TRUE),
+             AND pm.privilege_level >= 'readAndWrite'),
      updated AS (
          UPDATE tree_nodes t
              SET parent_id = f.id,
@@ -709,7 +709,7 @@ WITH node AS (SELECT t.id,
                 AND t.parent_id IS NOT NULL
                 AND p.deleted_at IS NULL
                 AND t.deleted_at = '1970-01-01'
-                AND pm.can_write = TRUE),
+                AND pm.privilege_level >= 'readAndWrite'),
      new_parent AS (SELECT t.id, t.path
                     FROM tree_nodes t
                              INNER JOIN node ON t.project_id = node.project_id
@@ -777,7 +777,7 @@ WITH node AS (SELECT t.id, f.path AS parent_path
              AND t.project_id = $1
              AND p.deleted_at IS NULL
              AND t.deleted_at = '1970-01-01'
-             AND pm.can_write = TRUE),
+             AND pm.privilege_level >= 'readAndWrite'),
      updated AS (
          UPDATE tree_nodes t
              SET path = CONCAT(node.parent_path, $5::TEXT)
@@ -826,7 +826,7 @@ WITH node AS (SELECT t.id,
                 AND t.parent_id IS NOT NULL
                 AND p.deleted_at IS NULL
                 AND t.deleted_at = '1970-01-01'
-                AND pm.can_write = TRUE),
+                AND pm.privilege_level >= 'readAndWrite'),
      updated AS (
          UPDATE tree_nodes t
              SET name = $4,
@@ -933,21 +933,22 @@ WHERE user_id = $1
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
 	err := m.db.QueryRowContext(ctx, `
-SELECT COALESCE(can_write, FALSE),
-       epoch,
-       COALESCE(is_token_member, TRUE),
-       owner_id,
-       public_access_level,
+SELECT pm.access_source,
+       p.epoch,
+       p.owner_id,
+       pm.privilege_level,
+       p.public_access_level,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, '')
 FROM projects p
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
                                           pm.user_id = $2)
 WHERE p.id = $1
+  AND p.deleted_at IS NULL
   AND (
-        (pm.is_token_member = FALSE)
-        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
-        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND
+         (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
 		&p.CanWrite, &p.Epoch, &p.IsTokenMember, &p.OwnerId,
@@ -963,10 +964,10 @@ func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId shared
 	p := ForProjectJWT{}
 	var userEpoch int64
 	err := m.db.QueryRowContext(ctx, `
-SELECT COALESCE(pm.can_write, FALSE),
+SELECT pm.access_source,
        p.epoch,
-       COALESCE(pm.is_token_member, TRUE),
        p.owner_id,
+       pm.privilege_level,
        p.public_access_level,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, ''),
@@ -982,9 +983,9 @@ FROM projects p
 WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND (
-        (pm.is_token_member = FALSE)
-        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
-        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND
+         (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
 		&p.CanWrite,
@@ -1067,7 +1068,7 @@ WITH d AS (SELECT t.id, p.root_folder_id
              AND t.project_id = $1
              AND p.deleted_at IS NULL
              AND t.deleted_at != '1970-01-01'
-             AND pm.can_write = TRUE),
+             AND pm.privilege_level >= 'readAndWrite'),
      restored
          AS (
          UPDATE tree_nodes t
@@ -1103,9 +1104,9 @@ WHERE f.id = $4
   AND t.deleted_at = '1970-01-01'
   AND p.deleted_at IS NULL
   AND (
-        (pm.is_token_member = FALSE)
-        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
-        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND
+         (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken, fileId).Scan(
 		&f.ResolvedPath, &f.ParentId, &d, &f.Size,
@@ -1236,9 +1237,9 @@ FROM projects p
 WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND (
-        (pm.is_token_member = FALSE)
-        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
-        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND
+         (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
 		&p.Name,
@@ -1307,9 +1308,9 @@ FROM projects p
 WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND (
-        (pm.is_token_member = FALSE)
-        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
-        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND
+         (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
 		&d.Project.Compiler,
@@ -1382,9 +1383,9 @@ FROM projects p
 WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND (
-        (pm.is_token_member = FALSE)
-        OR (p.public_access_level = 'tokenBased' AND pm.is_token_member = TRUE)
-        OR (p.public_access_level = 'tokenBased' AND p.token_ro = $3)
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND
+         (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
 		&d.Project.Compiler,
@@ -1535,17 +1536,13 @@ SELECT u.id,
        u.email,
        u.first_name,
        u.last_name,
-       CASE
-           WHEN pm.can_write
-               THEN 'readAndWrite'
-           ELSE 'readOnly'
-           END
+       pm.privilege_level
 FROM project_members pm
          INNER JOIN projects p ON p.id = pm.project_id
          INNER JOIN users u ON pm.user_id = u.id
 WHERE p.id = $1
   AND p.deleted_at IS NULL
-  AND pm.is_token_member = FALSE
+  AND pm.access_source >= 'invite'
   AND u.deleted_at IS NULL
 `, projectId)
 	defer func() { _ = r.Close() }()
@@ -1662,7 +1659,7 @@ limit 1
 	if userId == (sharedTypes.UUID{}) {
 		return r, nil
 	}
-	r.Existing, _ = p.GetPrivilegeLevelAuthenticated(userId)
+	r.Existing, _ = p.GetPrivilegeLevelAuthenticated()
 	return r, nil
 }
 
@@ -1850,7 +1847,7 @@ WITH f AS (SELECT t.id, t.path
              AND t.project_id = $1
              AND p.deleted_at IS NULL
              AND t.deleted_at = '1970-01-01'
-             AND pm.can_write = TRUE),
+             AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
          INSERT INTO tree_nodes
              (deleted_at, id, kind, name, parent_id, path, project_id)
@@ -1893,7 +1890,7 @@ WITH f AS (SELECT t.id, t.path
              AND t.project_id = $1
              AND p.deleted_at IS NULL
              AND t.deleted_at = '1970-01-01'
-             AND pm.can_write = TRUE),
+             AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
          INSERT INTO tree_nodes
              (deleted_at, id, kind, name, parent_id, path, project_id)
@@ -1935,15 +1932,15 @@ type ForProjectList struct {
 
 func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error) {
 	r, err := m.db.QueryContext(ctx, `
-SELECT archived,
-       can_write,
+SELECT access_source,
+       archived,
        epoch,
        id,
-       is_token_member,
        last_updated_at,
        COALESCE(last_updated_by, '00000000-0000-0000-0000-000000000000'::UUID),
        name,
        owner_id,
+       privilege_level,
        public_access_level,
        trashed
 FROM projects p

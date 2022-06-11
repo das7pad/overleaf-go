@@ -74,7 +74,7 @@ func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserPro
 	projects := make([]types.GetUserProjectsEntry, len(l))
 	var d *project.AuthorizationDetails
 	for i, p := range l {
-		d, err = p.GetPrivilegeLevelAuthenticated(userId)
+		d, err = p.GetPrivilegeLevelAuthenticated()
 		if err != nil {
 			return errors.New("listed project w/o access: " + p.Id.String())
 		}
@@ -107,8 +107,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 
 	projects := make([]*templates.ProjectListProjectView, len(u.Projects))
 	for i, p := range u.Projects {
-		authorizationDetails, err :=
-			p.GetPrivilegeLevelAuthenticated(userId)
+		authorizationDetails, err := p.GetPrivilegeLevelAuthenticated()
 		if err != nil {
 			return errors.New("listed project w/o access: " + p.Id.String())
 		}
