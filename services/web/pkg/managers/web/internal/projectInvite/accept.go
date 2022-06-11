@@ -52,7 +52,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 		level := pi.PrivilegeLevel
 		invitingUserId := pi.SendingUser.Id
 		grantAccess :=
-			!(d.PrivilegeLevel.IsAtLeast(level) && d.IsTokenMember == false)
+			!d.PrivilegeLevel.IsAtLeast(level) || d.IsTokenMember()
 
 		// TODO: merge into a single query
 		err = m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {

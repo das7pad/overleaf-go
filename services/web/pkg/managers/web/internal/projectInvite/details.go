@@ -63,7 +63,7 @@ func (d *projectInviteDetails) ValidateForCreation() error {
 		// This user is not a member yet.
 		return nil
 	}
-	if authorizationDetails.IsTokenMember {
+	if authorizationDetails.IsTokenMember() {
 		// We can promote them to a collaborator.
 		return nil
 	}

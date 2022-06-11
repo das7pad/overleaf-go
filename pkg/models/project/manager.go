@@ -65,13 +65,11 @@ type Manager interface {
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
 	GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error
-	GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error)
-	GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error)
+	GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, error)
 	GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error)
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
+	GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error
 	GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error
-	GrantReadAndWriteTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
-	GrantReadOnlyTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
 	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error)
 	GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error)
 	SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error
@@ -145,33 +143,29 @@ func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) er
 	_, err = tx.ExecContext(
 		ctx,
 		`
-WITH lng AS (SELECT CASE
-                        WHEN $2 = 'inherit' THEN
-                            (editor_config->'spellCheckLanguage')::text
-                        ELSE
-                            $2::text
-                        END AS spell_check_language
-             FROM users
-             WHERE id = $1),
-     p AS (INSERT
-         INTO projects
-             (compiler, deleted_at, epoch, id, image_name, last_opened_at,
-              last_updated_at, last_updated_by, name, owner_id,
-              public_access_level, spell_check_language, tree_version)
-             SELECT $3,
-                    $4,
-                    1,
-                    $5,
-                    $6,
-                    transaction_timestamp(),
-                    transaction_timestamp(),
-                    $1,
-                    $7,
-                    $1,
-                    'private',
-                    lng.spell_check_language,
-                    1
-             FROM lng)
+WITH p AS (
+    INSERT INTO projects
+        (compiler, deleted_at, epoch, id, image_name, last_opened_at,
+         last_updated_at, last_updated_by, name, owner_id, public_access_level,
+         spell_check_language, tree_version)
+        SELECT $3,
+               $4,
+               1,
+               $5,
+               $6,
+               transaction_timestamp(),
+               transaction_timestamp(),
+               o.id,
+               $7,
+               o.id,
+               'private',
+               coalesce(
+                       nullif($2, 'inherit'),
+                       (o.editor_config ->> 'spellCheckLanguage')
+                   ),
+               1
+        FROM users o
+        WHERE id = $1)
 INSERT
 INTO project_members
 (project_id, user_id, access_source, privilege_level, archived, trashed)
@@ -933,10 +927,9 @@ WHERE user_id = $1
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
 	err := m.db.QueryRowContext(ctx, `
-SELECT pm.access_source,
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
        p.epoch,
-       p.owner_id,
-       pm.privilege_level,
        p.public_access_level,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, '')
@@ -951,7 +944,7 @@ WHERE p.id = $1
          (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
-		&p.CanWrite, &p.Epoch, &p.IsTokenMember, &p.OwnerId,
+		&p.Member.AccessSource, &p.Member.PrivilegeLevel, &p.Epoch,
 		&p.PublicAccessLevel, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
 	)
 	if err != nil {
@@ -964,10 +957,9 @@ func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId shared
 	p := ForProjectJWT{}
 	var userEpoch int64
 	err := m.db.QueryRowContext(ctx, `
-SELECT pm.access_source,
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
        p.epoch,
-       p.owner_id,
-       pm.privilege_level,
        p.public_access_level,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, ''),
@@ -988,10 +980,9 @@ WHERE p.id = $1
          (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
-		&p.CanWrite,
+		&p.Member.AccessSource,
+		&p.Member.PrivilegeLevel,
 		&p.Epoch,
-		&p.IsTokenMember,
-		&p.OwnerId,
 		&p.PublicAccessLevel,
 		&p.Tokens.ReadOnly,
 		&p.Tokens.ReadAndWrite,
@@ -1280,7 +1271,9 @@ WITH tree AS
                         AND t.deleted_at != '1970-01-01'
                       GROUP BY t.project_id)
 
-SELECT p.compiler,
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
+       p.compiler,
        p.epoch,
        p.image_name,
        p.name,
@@ -1293,6 +1286,9 @@ SELECT p.compiler,
        COALESCE(p.token_rw, ''),
        p.tree_version,
        o.features,
+       o.email,
+       o.first_name,
+       o.last_name,
        tree.ids,
        tree.kinds,
        tree.paths,
@@ -1313,6 +1309,8 @@ WHERE p.id = $1
          (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
+		&d.Project.Member.AccessSource,
+		&d.Project.Member.PrivilegeLevel,
 		&d.Project.Compiler,
 		&d.Project.Epoch,
 		&d.Project.ImageName,
@@ -1326,6 +1324,9 @@ WHERE p.id = $1
 		&d.Project.Tokens.ReadAndWrite,
 		&d.Project.Version,
 		&d.Project.OwnerFeatures,
+		&d.Owner.Email,
+		&d.Owner.FirstName,
+		&d.Owner.LastName,
 		pq.Array(&d.Project.treeIds),
 		pq.Array(&d.Project.treeKinds),
 		pq.Array(&d.Project.treePaths),
@@ -1341,6 +1342,7 @@ WHERE p.id = $1
 			Name: sharedTypes.Filename(deletedDocNames[i]),
 		})
 	}
+	d.Owner.Id = d.Project.OwnerId
 	return d, nil
 }
 
@@ -1355,11 +1357,12 @@ WHERE id = $1
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
 	d := LoadEditorDetails{}
 	err := m.db.QueryRowContext(ctx, `
-SELECT p.compiler,
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
+       p.compiler,
        p.epoch,
        p.image_name,
        p.name,
-       p.owner_id,
        p.public_access_level,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, ''),
@@ -1367,11 +1370,11 @@ SELECT p.compiler,
        COALESCE(d.id, '00000000-0000-0000-0000-000000000000'::UUID),
        COALESCE(d.path, ''),
        o.features,
-       u.editor_config,
-       u.email,
-       u.epoch,
-       u.first_name,
-       u.last_name
+       coalesce(u.editor_config, '{}'),
+       coalesce(u.email, ''),
+       coalesce(u.epoch, 0),
+       coalesce(u.first_name, ''),
+       coalesce(u.last_name, '')
 FROM projects p
          INNER JOIN users o ON p.owner_id = o.id
          LEFT JOIN tree_nodes d ON p.root_doc_id = d.id
@@ -1388,11 +1391,12 @@ WHERE p.id = $1
          (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken).Scan(
+		&d.Project.Member.AccessSource,
+		&d.Project.Member.PrivilegeLevel,
 		&d.Project.Compiler,
 		&d.Project.Epoch,
 		&d.Project.ImageName,
 		&d.Project.Name,
-		&d.Project.OwnerId,
 		&d.Project.PublicAccessLevel,
 		&d.Project.Tokens.ReadOnly,
 		&d.Project.Tokens.ReadAndWrite,
@@ -1482,20 +1486,6 @@ filter .id = <uuid>$0 and not exists .deleted_at
 	return nil
 }
 
-func (m *manager) GetProjectAccessForReadAndWriteToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error) {
-	if err := accessToken.ValidateReadAndWrite(); err != nil {
-		return nil, err
-	}
-	return m.getProjectByToken(ctx, userId, accessToken)
-}
-
-func (m *manager) GetProjectAccessForReadOnlyToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error) {
-	if err := accessToken.ValidateReadOnly(); err != nil {
-		return nil, err
-	}
-	return m.getProjectByToken(ctx, userId, accessToken)
-}
-
 type TreeEntity struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
@@ -1542,7 +1532,7 @@ FROM project_members pm
          INNER JOIN users u ON pm.user_id = u.id
 WHERE p.id = $1
   AND p.deleted_at IS NULL
-  AND pm.access_source >= 'invite'
+  AND pm.access_source = 'invite'
   AND u.deleted_at IS NULL
 `, projectId)
 	defer func() { _ = r.Close() }()
@@ -1611,91 +1601,57 @@ set {
 	return nil
 }
 
-func (m *manager) getProjectByToken(ctx context.Context, userId sharedTypes.UUID, accessToken AccessToken) (*TokenAccessResult, error) {
-	p := &forTokenAccessCheck{}
-	var tokenPrefixRW, tokenRO AccessToken
-	if len(accessToken) == lenReadOnly {
-		tokenRO = accessToken
-	} else {
-		tokenPrefixRW = accessToken[:lenReadAndWritePrefix]
-	}
-	err := m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-select Project {
-	access_ro: { id } filter User = u,
-	access_rw: { id } filter User = u,
-	access_token_ro: { id } filter User = u,
-	access_token_rw: { id } filter User = u,
-	epoch,
-	id,
-	owner,
-	public_access_level,
-	tokens: {
-		token_ro,
-		token_rw,
-	},
-}
-filter
-	.public_access_level = 'tokenBased'
- 	and not exists .deleted_at
-	and (
-		.tokens.token_prefix_rw = <str>$1 or .tokens.token_ro = <str>$2
-	)
-limit 1
-`, p, userId, tokenPrefixRW, tokenRO)
-	if err != nil {
-		return nil, rewriteEdgedbError(err)
-	}
-	freshAccess, err := p.GetPrivilegeLevelAnonymous(accessToken)
+func (m *manager) GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, error) {
+	p := ForTokenAccessDetails{}
+	q, err := accessToken.toQueryParameters(privilegeLevel)
 	if err != nil {
 		return nil, err
 	}
-	r := &TokenAccessResult{
-		ProjectId: p.Id,
-		Epoch:     p.Epoch,
-		Fresh:     freshAccess,
+	err = m.db.QueryRowContext(ctx, `
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
+       p.id,
+       p.epoch,
+       COALESCE(p.token_ro, ''),
+       COALESCE(p.token_rw, '')
+FROM projects p
+         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
+                                          pm.user_id = $1)
+WHERE (p.token_ro = $2 OR p.token_rw_prefix = $3)
+  AND p.public_access_level = 'tokenBased'
+  AND p.deleted_at IS NULL
+`, userId, q.tokenRO, q.tokenRWPrefix).Scan(
+		&p.Member.AccessSource, &p.Member.PrivilegeLevel,
+		&p.Id, &p.Epoch, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
+	)
+	if err != nil {
+		return nil, err
 	}
-	if userId == (sharedTypes.UUID{}) {
-		return r, nil
-	}
-	r.Existing, _ = p.GetPrivilegeLevelAuthenticated()
-	return r, nil
+	p.PublicAccessLevel = TokenBasedAccess
+	return &p, nil
 }
 
-func (m *manager) GrantReadAndWriteTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
-	err := rewriteEdgedbError(m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$2 and not exists .deleted_at)
-update Project
-filter .id = <uuid>$0 and .epoch = <int64>$1 and not exists .deleted_at
-set {
-	access_token_rw += u,
-	access_token_ro -= u,
-	epoch := Project.epoch + 1,
-}
-`, &IdField{}, projectId, epoch, userId))
-	if err != nil && errors.IsNotFoundError(err) {
-		return ErrEpochIsNotStable
+func (m *manager) GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error {
+	q, err := accessToken.toQueryParameters(privilegeLevel)
+	if err != nil {
+		return err
 	}
-	return err
-}
+	return getErr(m.db.ExecContext(ctx, `
+INSERT INTO project_members
+(project_id, user_id, access_source, privilege_level, archived, trashed)
+SELECT p.id, $2, 'token', $5, FALSE, FALSE
+FROM projects p
+WHERE id = $1
+  AND deleted_at IS NULL
+  AND public_access_level = 'tokenBased'
+  AND (token_ro = $3 OR token_rw_prefix = $4)
 
-func (m *manager) GrantReadOnlyTokenAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error {
-	err := rewriteEdgedbError(m.c.QuerySingle(ctx, `
-with
-	u := (select User filter .id = <uuid>$2 and not exists .deleted_at)
-update Project
-filter .id = <uuid>$0 and .epoch = <int64>$1
-set {
-	access_token_ro += u,
-	epoch := Project.epoch + 1,
-}
-`, &IdField{}, projectId, epoch, userId))
-	if err != nil && errors.IsNotFoundError(err) {
-		return ErrEpochIsNotStable
-	}
-	return err
+ON CONFLICT (project_id, user_id)
+WHERE privilege_level < $5
+    DO
+UPDATE
+SET privilege_level = $5
+`, projectId, userId, q.tokenRO, q.tokenRWPrefix, privilegeLevel))
 }
 
 func (m *manager) RemoveMember(ctx context.Context, projectIds []sharedTypes.UUID, actor, userId sharedTypes.UUID) error {
@@ -1956,15 +1912,15 @@ WHERE pm.user_id = $1
 	for i := 0; r.Next(); i++ {
 		projects = append(projects, ListViewPrivate{})
 		err = r.Scan(
+			&projects[i].AccessSource,
 			&projects[i].Archived,
-			&projects[i].CanWrite,
 			&projects[i].Epoch,
 			&projects[i].Id,
-			&projects[i].IsTokenMember,
 			&projects[i].LastUpdatedAt,
 			&projects[i].LastUpdatedBy,
 			&projects[i].Name,
 			&projects[i].OwnerId,
+			&projects[i].PrivilegeLevel,
 			&projects[i].PublicAccessLevel,
 			&projects[i].Trashed,
 		)

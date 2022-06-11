@@ -20,7 +20,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -30,17 +29,7 @@ type Member struct {
 	Archived       bool
 	AccessSource   AccessSource
 	PrivilegeLevel sharedTypes.PrivilegeLevel
-	CanWrite       bool
-	IsTokenMember  IsTokenMember
 	Trashed        bool
-}
-
-type AccessReadAndWriteField struct {
-	AccessReadAndWrite Refs `edgedb:"access_rw"`
-}
-
-type AccessReadOnlyField struct {
-	AccessReadOnly Refs `edgedb:"access_ro"`
 }
 
 type CompilerField struct {
@@ -65,10 +54,6 @@ type IdField struct {
 
 type ImageNameField struct {
 	ImageName sharedTypes.ImageName `json:"imageName" edgedb:"image_name"`
-}
-
-type InvitesField struct {
-	Invites []projectInvite.WithoutToken `json:"invites" edgedb:"invites"`
 }
 
 type LastOpenedField struct {

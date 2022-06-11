@@ -25,7 +25,8 @@ type JoinProjectViewPrivate struct {
 	ForAuthorizationDetails `edgedb:"$inline"`
 	ForTree                 `edgedb:"$inline"`
 	JoinProjectViewPublic   `edgedb:"$inline"`
-	RootDocField            `edgedb:"$inline"`
+	OwnerIdField
+	RootDocField `edgedb:"$inline"`
 }
 
 type JoinProjectViewPublic struct {
@@ -33,7 +34,6 @@ type JoinProjectViewPublic struct {
 	DeletedDocsField `edgedb:"$inline"`
 	IdField          `edgedb:"$inline"`
 	ImageNameField   `edgedb:"$inline"`
-	InvitesField     `edgedb:"$inline"`
 	NameField        `edgedb:"$inline"`
 	OwnerFeaturesField
 	SpellCheckLanguageField `edgedb:"$inline"`
@@ -41,8 +41,8 @@ type JoinProjectViewPublic struct {
 }
 
 type JoinProjectDetails struct {
-	ProjectExists bool                   `edgedb:"project_exists"`
-	Project       JoinProjectViewPrivate `edgedb:"project"`
+	Project JoinProjectViewPrivate `edgedb:"project"`
+	Owner   user.WithPublicInfo
 }
 
 type ListViewPrivate struct {
@@ -51,6 +51,7 @@ type ListViewPrivate struct {
 	LastUpdatedAtField      `edgedb:"$inline"`
 	LastUpdatedByField      `edgedb:"$inline"`
 	NameField               `edgedb:"$inline"`
+	OwnerIdField
 }
 
 type List []ListViewPrivate
@@ -62,9 +63,8 @@ type LoadEditorViewPrivate struct {
 }
 
 type LoadEditorDetails struct {
-	ProjectExists bool                    `edgedb:"project_exists"`
-	Project       LoadEditorViewPrivate   `edgedb:"project"`
-	User          user.WithLoadEditorInfo `edgedb:"user"`
+	Project LoadEditorViewPrivate   `edgedb:"project"`
+	User    user.WithLoadEditorInfo `edgedb:"user"`
 }
 
 type LoadEditorViewPublic struct {
@@ -77,29 +77,14 @@ type LoadEditorViewPublic struct {
 	VersionField   `edgedb:"$inline"`
 }
 
-type WithTokenMembers struct {
-}
-
-type WithInvitedMembers struct {
-	AccessReadAndWriteField `edgedb:"$inline"`
-	AccessReadOnlyField     `edgedb:"$inline"`
-}
-
-type WithMembers struct {
-	WithInvitedMembers `edgedb:"$inline"`
-	WithTokenMembers   `edgedb:"$inline"`
-}
-
 type ForAuthorizationDetails struct {
 	Member
-	WithMembers            `edgedb:"$inline"`
 	EpochField             `edgedb:"$inline"`
-	OwnerIdField           `edgedb:"$inline"`
 	PublicAccessLevelField `edgedb:"$inline"`
 	TokensField            `edgedb:"$inline"`
 }
 
-type forTokenAccessCheck struct {
+type ForTokenAccessDetails struct {
 	IdField                 `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
 }

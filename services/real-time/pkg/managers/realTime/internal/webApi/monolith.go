@@ -21,7 +21,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -61,16 +60,12 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 		tokens = project.Tokens{ReadOnly: p.Tokens.ReadOnly}
 	}
 
-	members := make([]user.AsProjectMember, 0)
 	owner := user.WithPublicInfo{}
 	owner.Id = p.OwnerId
 
-	// Hide user details for restricted users
-	if authorizationDetails.IsRestrictedUser() {
-		d.Project.Invites = make([]projectInvite.WithoutToken, 0)
-	} else {
-		members = p.GetProjectMembers()
-		// TODO: populate owner?
+	// Hide owner details for token users
+	if authorizationDetails.AccessSource != "token" {
+		owner = d.Owner
 	}
 
 	// Populate fake feature flags
@@ -81,7 +76,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	details := types.JoinProjectDetails{
 		JoinProjectViewPublic:  p.JoinProjectViewPublic,
-		Members:                members,
+		Members:                make([]user.AsProjectMember, 0),
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
 		Owner:                  owner,

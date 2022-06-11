@@ -47,50 +47,45 @@ type manager struct {
 func (m *manager) GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {
 	return m.grantTokenAccess(
 		ctx, request, response,
-		m.pm.GetProjectAccessForReadAndWriteToken, m.pm.GrantReadAndWriteTokenAccess,
+		sharedTypes.PrivilegeLevelReadAndWrite,
 	)
 }
 
 func (m *manager) GrantTokenAccessReadOnly(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {
 	return m.grantTokenAccess(
 		ctx, request, response,
-		m.pm.GetProjectAccessForReadOnlyToken, m.pm.GrantReadOnlyTokenAccess,
+		sharedTypes.PrivilegeLevelReadOnly,
 	)
 }
 
-type getTokenAccess func(ctx context.Context, userId sharedTypes.UUID, token project.AccessToken) (*project.TokenAccessResult, error)
-type grantAccess func(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID) error
-
-func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, getter getTokenAccess, granter grantAccess) error {
+func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, privilegeLevel sharedTypes.PrivilegeLevel) error {
 	userId := request.Session.User.Id
 	token := request.Token
-	for i := 0; i < 10; i++ {
-		r, err := getter(ctx, userId, token)
-		if err != nil {
-			if errors.IsNotAuthorizedError(err) {
-				response.RedirectTo = "/restricted"
-				return nil
-			}
-			return errors.Tag(err, "cannot get project")
-		}
-		projectId := r.ProjectId
-		if request.Session.IsLoggedIn() {
-			if r.ShouldGrantHigherAccess() {
-				err = granter(ctx, projectId, r.Epoch, userId)
-				if err != nil {
-					if errors.GetCause(err) == project.ErrEpochIsNotStable {
-						continue
-					}
-					return errors.Tag(err, "cannot grant access")
-				}
-			}
-		} else {
-			request.Session.AddAnonTokenAccess(projectId, token)
-		}
-		response.RedirectTo = "/project/" + projectId.String()
+	p, err := m.pm.GetTokenAccessDetails(ctx, userId, privilegeLevel, token)
+	if err != nil {
+		return errors.Tag(err, "cannot get project")
+	}
+	fromToken, err := p.GetPrivilegeLevelAnonymous(token)
+	if err != nil {
+		response.RedirectTo = "/restricted"
 		return nil
 	}
-	return project.ErrEpochIsNotStable
+	projectId := p.Id
+	if request.Session.IsLoggedIn() {
+		existing, _ := p.GetPrivilegeLevelAuthenticated()
+		if fromToken.PrivilegeLevel.IsHigherThan(existing.PrivilegeLevel) {
+			err = m.pm.GrantTokenAccess(
+				ctx, projectId, userId, token, fromToken.PrivilegeLevel,
+			)
+			if err != nil {
+				return errors.Tag(err, "cannot grant access")
+			}
+		}
+	} else {
+		request.Session.AddAnonTokenAccess(projectId, token)
+	}
+	response.RedirectTo = "/project/" + projectId.String()
+	return nil
 }
 
 func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error {

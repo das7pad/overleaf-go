@@ -18,7 +18,6 @@ package project
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -36,7 +35,6 @@ func (l PublicAccessLevel) Validate() error {
 }
 
 type IsRestrictedUser bool
-type IsTokenMember bool
 
 const (
 	AccessSourceOwner  AccessSource = "owner"
@@ -48,46 +46,20 @@ const (
 )
 
 type AuthorizationDetails struct {
-	Epoch          int64                      `json:"e,omitempty"`
+	Epoch          int64                      `json:"e"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"l"`
-	IsTokenMember  IsTokenMember              `json:"tm,omitempty"`
-	AccessSource   AccessSource               `json:"-"`
+	AccessSource   AccessSource               `json:"s"`
+}
+
+func (a *AuthorizationDetails) IsTokenMember() bool {
+	return a.AccessSource == AccessSourceToken
 }
 
 func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
 	return IsRestrictedUser(
-		a.IsTokenMember &&
+		a.IsTokenMember() &&
 			a.PrivilegeLevel == sharedTypes.PrivilegeLevelReadOnly,
 	)
-}
-
-type Refs []user.WithPublicInfo
-
-func (r Refs) Contains(userId sharedTypes.UUID) bool {
-	for _, ref := range r {
-		if userId == ref.Id {
-			return true
-		}
-	}
-	return false
-}
-
-func (p *WithInvitedMembers) GetProjectMembers() []user.AsProjectMember {
-	members := make(
-		[]user.AsProjectMember,
-		len(p.AccessReadOnly)+len(p.AccessReadAndWrite),
-	)
-	for i, u := range p.AccessReadOnly {
-		members[i].WithPublicInfo = u
-		members[i].PrivilegeLevel = sharedTypes.PrivilegeLevelReadOnly
-	}
-	offset := len(p.AccessReadOnly)
-	for i, u := range p.AccessReadAndWrite {
-		members[offset+i].WithPublicInfo = u
-		members[offset+i].PrivilegeLevel =
-			sharedTypes.PrivilegeLevelReadAndWrite
-	}
-	return members
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessToken) (*AuthorizationDetails, error) {
@@ -100,7 +72,6 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 					Epoch:          p.Epoch,
 					AccessSource:   AccessSourceToken,
 					PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-					IsTokenMember:  true,
 				}, nil
 			}
 		default:
@@ -110,7 +81,6 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 					Epoch:          p.Epoch,
 					AccessSource:   AccessSourceToken,
 					PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-					IsTokenMember:  true,
 				}, nil
 			}
 		}
@@ -129,7 +99,6 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated() (*Authorizati
 			Epoch:          p.Epoch,
 			AccessSource:   p.Member.AccessSource,
 			PrivilegeLevel: p.Member.PrivilegeLevel,
-			IsTokenMember:  p.Member.AccessSource == AccessSourceToken,
 		}, nil
 	}
 	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
@@ -143,14 +112,13 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId sharedTypes.UUID, acc
 	}
 }
 
-type TokenAccessResult struct {
+type TokenAccessDetails struct {
 	ProjectId sharedTypes.UUID
-	Epoch     int64
 	Fresh     *AuthorizationDetails
 	Existing  *AuthorizationDetails
 }
 
-func (r *TokenAccessResult) ShouldGrantHigherAccess() bool {
+func (r *TokenAccessDetails) ShouldGrantHigherAccess() bool {
 	if r.Existing == nil {
 		return true
 	}

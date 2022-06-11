@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 const (
@@ -32,6 +33,27 @@ const (
 )
 
 type AccessToken string
+
+type accessTokenQueryParameter struct {
+	tokenRO       AccessToken
+	tokenRWPrefix AccessToken
+}
+
+func (t AccessToken) toQueryParameters(privilegeLevel sharedTypes.PrivilegeLevel) (accessTokenQueryParameter, error) {
+	q := accessTokenQueryParameter{}
+	if privilegeLevel == sharedTypes.PrivilegeLevelReadOnly {
+		if err := t.ValidateReadOnly(); err != nil {
+			return q, err
+		}
+		q.tokenRO = t
+	} else {
+		if err := t.ValidateReadAndWrite(); err != nil {
+			return q, err
+		}
+		q.tokenRWPrefix = t
+	}
+	return q, nil
+}
 
 func (t AccessToken) EqualsTimingSafe(other AccessToken) bool {
 	return subtle.ConstantTimeCompare([]byte(t), []byte(other)) == 1

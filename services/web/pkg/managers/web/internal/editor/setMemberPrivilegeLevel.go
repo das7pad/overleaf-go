@@ -40,7 +40,7 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, request 
 			}
 			return errors.Tag(err, "cannot get project")
 		}
-		if d.IsTokenMember {
+		if d.IsTokenMember() {
 			return errUserIsNotAMember
 		}
 		err = m.pm.GrantMemberAccess(

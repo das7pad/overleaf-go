@@ -483,16 +483,16 @@ WHERE email = $1
 
 func (m *manager) GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error) {
 	r, err := m.db.QueryContext(ctx, `
-WITH ids AS (SELECT unnest(ARRAY [a, b])
+WITH ids AS (SELECT unnest(ARRAY [a, b]) AS id
              FROM contacts
              WHERE a = $1
                 OR b = $1
              ORDER BY connections DESC, last_touched DESC
              LIMIT 50)
-SELECT id, email, first_name, last_name
-FROM users
-WHERE id = ids
-  AND id != $1
+SELECT u.id, email, first_name, last_name
+FROM users u, ids
+WHERE u.id = ids.id
+  AND u.id != $1
   AND deleted_at IS NULL
 `, userId.String())
 	if err != nil {
