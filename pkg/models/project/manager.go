@@ -318,22 +318,6 @@ WHERE id = $1
 `, p.Id.String(), p.Name, rootDocId, p.RootFolder.Id.String()))
 }
 
-type genericExistsAndAuthResult struct {
-	ProjectExists bool `edgedb:"project_exists"`
-	AuthCheck     bool `edgedb:"auth_check"`
-	OK            bool `edgedb:"ok"`
-}
-
-func (r genericExistsAndAuthResult) toError() error {
-	switch {
-	case !r.ProjectExists:
-		return &errors.NotFoundError{}
-	case !r.AuthCheck:
-		return &errors.NotAuthorizedError{}
-	}
-	return nil
-}
-
 func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
@@ -574,24 +558,6 @@ RETURNING p.tree_version
 `, projectId, userId, parent, f.Id, f.Name).Scan(&treeVersion)
 }
 
-type genericTreeElementResult struct {
-	genericExistsAndAuthResult `edgedb:"$inline"`
-	ElementExists              bool                `edgedb:"element_exists"`
-	ProjectVersion             sharedTypes.Version `edgedb:"project_version"`
-}
-
-func (r genericTreeElementResult) toError() error {
-	if err := r.genericExistsAndAuthResult.toError(); err != nil {
-		return err
-	}
-	if !r.ElementExists {
-		return &errors.UnprocessableEntityError{
-			Msg: "element does not exist",
-		}
-	}
-	return nil
-}
-
 func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
 	return treeVersion, m.db.QueryRowContext(ctx, `
@@ -607,8 +573,7 @@ WITH node AS (SELECT t.id
                 AND p.deleted_at IS NULL
                 AND t.deleted_at = '1970-01-01'
                 AND pm.can_write = TRUE),
-     deleted
-         AS (
+     deleted AS (
          UPDATE tree_nodes t
              SET deleted_at = transaction_timestamp()
              FROM node
@@ -634,74 +599,55 @@ func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId shar
 	return m.deleteTreeLeaf(ctx, projectId, userId, fileId, "file")
 }
 
-type deletedFolderResult struct {
-	genericTreeElementResult `edgedb:"$inline"`
-	DeletedChildren          bool `edgedb:"deleted_children"`
-}
-
 func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error) {
-	r := deletedFolderResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (
-		select Folder
-		filter
-			.id = <uuid>$2
-		and .project = pWithAuth
-		and not .deleted
-	),
-	deletedFolder := (update f set {
-		deleted_at := datetime_of_transaction(),
-	}),
-	deletionPrefix := deletedFolder.path ++ '/%',
-	deletedItems := (
-		update VisibleTreeElement
-		filter
-			.project = pWithAuth
-		and not .deleted
-		and .parent.path_for_join like deletionPrefix
-		set {
-			deleted_at := datetime_of_transaction(),
-		}
-	),
-	pBumpedVersion := (update deletedFolder.project set {
-		version := deletedFolder.project.version + 1,
-		root_doc := (
-			<Doc>{} if (
-				deletedFolder.project.root_doc.resolved_path
-				like deletionPrefix
-			) else deletedFolder.project.root_doc
-		),
-		last_updated_at := datetime_of_transaction(),
-		last_updated_by := u,
-	})
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists f,
-	deleted_children := exists deletedItems,
-	project_version := pBumpedVersion.version ?? 0,
-}
-`, &r, projectId, userId, folderId)
-	if err != nil {
-		return 0, rewriteEdgedbError(err)
-	}
-	return r.ProjectVersion, r.toError()
-}
-
-type moveTreeElementResult struct {
-	genericTreeElementResult `edgedb:"$inline"`
-	NewPath                  sharedTypes.PathName `edgedb:"new_path"`
+	var v sharedTypes.Version
+	return v, rewritePostgresErr(m.db.QueryRowContext(ctx, `
+WITH node AS (SELECT t.id,
+                     t.project_id,
+                     t.path
+              FROM tree_nodes t
+                       INNER JOIN projects p ON t.project_id = p.id
+                       INNER JOIN project_members pm
+                                  ON (t.project_id = pm.project_id AND
+                                      pm.user_id = $2)
+                       INNER JOIN tree_nodes parent ON t.parent_id = parent.id
+              WHERE t.id = $3
+                AND t.kind = 'folder'
+                AND t.project_id = $1
+                AND t.parent_id IS NOT NULL
+                AND p.deleted_at IS NULL
+                AND t.deleted_at = '1970-01-01'
+                AND pm.can_write = TRUE),
+     updated_children AS (
+         UPDATE tree_nodes t
+             SET deleted_at = transaction_timestamp()
+             FROM node
+             WHERE t.project_id = node.project_id
+                 AND t.deleted_at = '1970-01-01'
+                 AND starts_with(t.path, node.path)
+             RETURNING t.id, t.project_id),
+     updated_root_doc AS (SELECT (SELECT c.id
+                                  FROM updated_children c
+                                           INNER JOIN projects p
+                                                      ON c.project_id = p.id
+                                  WHERE p.root_doc_id = c.id) AS id)
+UPDATE projects p
+SET last_updated_by = $2,
+    last_updated_at = transaction_timestamp(),
+    root_doc_id     = NULLIF(root_doc_id, updated_root_doc.id),
+    tree_version    = tree_version + 1
+FROM updated_root_doc,
+     node
+WHERE p.id = node.project_id
+RETURNING p.tree_version
+`, projectId, userId, folderId).Scan(&v))
 }
 
 func (m *manager) moveTreeLeaf(ctx context.Context, projectId, userId, folderId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, sharedTypes.PathName, error) {
 	var treeVersion sharedTypes.Version
 	var path sharedTypes.PathName
 	return treeVersion, path, m.db.QueryRowContext(ctx, `
-WITH f AS (SELECT t.id, t.path
+WITH f AS (SELECT t.id, t.path, t.project_id
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
                     INNER JOIN project_members pm
@@ -712,13 +658,15 @@ WITH f AS (SELECT t.id, t.path
              AND p.deleted_at IS NULL
              AND t.deleted_at = '1970-01-01'
              AND pm.can_write = TRUE),
-     updated
-         AS (
+     updated AS (
          UPDATE tree_nodes t
              SET parent_id = f.id,
                  path = CONCAT(f.path, SPLIT_PART(t.path, '/', -1))
              FROM f
-             WHERE t.id = $4 AND kind = $5 AND t.deleted_at = '1970-01-01'
+             WHERE t.id = $4
+                 AND t.project_id = f.project_id
+                 AND kind = $5
+                 AND t.deleted_at = '1970-01-01'
              RETURNING t.id, t.path)
 
 UPDATE projects p
@@ -740,81 +688,77 @@ func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fil
 	return v, err
 }
 
-type moveFolderResult struct {
-	moveTreeElementResult `edgedb:"$inline"`
-	DocsField             `edgedb:"$inline"`
-	TargetExists          bool `edgedb:"target_exists"`
-	TargetLoopCheck       bool `edgedb:"target_loop_check"`
-}
-
 func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error) {
-	r := moveFolderResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (select Folder filter .id = <uuid>$3 and .project = pWithAuth),
-	oldPath := f.path,
-	target := (
-		select FolderLike filter .id = <uuid>$2 and .project = pWithAuth
-	),
-	targetWithLoopCheck := (
-		select FolderLike
-		filter
-			FolderLike = target
-		and .path_for_join not like (oldPath ++ '/%')
-	),
-	newPath := targetWithLoopCheck.path_for_join ++ f.name,
-	updatedFolders := (update Folder
-		filter
-			.project = targetWithLoopCheck.project
-		and .path_for_join like (oldPath ++ '/%')
-		set {
-			parent := (targetWithLoopCheck if (Folder = f) else Folder.parent),
-			path := newPath ++ Folder.path[len(oldPath):],
-		}
-	),
-	pBumpedVersion := (
-		update targetWithLoopCheck.project
-		set {
-			version := targetWithLoopCheck.project.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists f,
-	target_exists := exists target,
-	target_loop_check := exists targetWithLoopCheck,
-	project_version := pBumpedVersion.version ?? 0,
-	docs := (select updatedFolders.docs { id, resolved_path })
-}
-`, &r, projectId, userId, targetFolderId, folderId)
-	if err != nil {
-		return 0, nil, rewriteEdgedbError(err)
-	}
-	if err = r.toError(); err != nil {
-		return 0, nil, err
-	}
-	switch {
-	case !r.TargetExists:
-		return 0, nil, &errors.UnprocessableEntityError{
-			Msg: "target does not exist",
-		}
-	case !r.TargetLoopCheck:
-		return 0, nil, &errors.UnprocessableEntityError{
-			Msg: "target is inside folder",
-		}
-	}
-	return r.ProjectVersion, r.Docs, nil
-}
+	var v sharedTypes.Version
+	var docIds []sharedTypes.UUID
+	var docPaths []string
+	err := m.db.QueryRowContext(ctx, `
+WITH node AS (SELECT t.id,
+                     t.project_id,
+                     t.path,
+                     char_length(t.path) + 1     AS old_end,
+                     split_part(t.path, '/', -2) AS name
+              FROM tree_nodes t
+                       INNER JOIN projects p ON t.project_id = p.id
+                       INNER JOIN project_members pm
+                                  ON (t.project_id = pm.project_id AND
+                                      pm.user_id = $2)
+              WHERE t.id = $3
+                AND t.kind = 'folder'
+                AND t.project_id = $1
+                AND t.parent_id IS NOT NULL
+                AND p.deleted_at IS NULL
+                AND t.deleted_at = '1970-01-01'
+                AND pm.can_write = TRUE),
+     new_parent AS (SELECT t.id, t.path
+                    FROM tree_nodes t
+                             INNER JOIN node ON t.project_id = node.project_id
+                    WHERE t.id = $4
+                      AND t.deleted_at = '1970-01-01'
+                      AND NOT starts_with(t.path, node.path)),
+     updated AS (
+         UPDATE tree_nodes t
+             SET parent_id = new_parent.id,
+                 path = concat(new_parent.path, node.name, '/')
+             FROM node, new_parent
+             WHERE t.id = node.id
+             RETURNING t.path),
+     updated_children AS (
+         UPDATE tree_nodes t
+             SET path = concat(updated.path, substr(t.path, node.old_end))
+             FROM node, updated
+             WHERE t.project_id = node.project_id AND
+                   t.deleted_at = '1970-01-01' AND
+                   starts_with(t.path, node.path)
+             RETURNING t.id, t.kind, t.path),
+     updated_docs AS (SELECT array_agg(id) as ids, array_agg(path) as paths
+                      FROM updated_children
+                      WHERE kind = 'doc'),
+     updated_version AS (
+         UPDATE projects p
+             SET last_updated_by = $2,
+                 last_updated_at = transaction_timestamp(),
+                 tree_version = tree_version + 1
+             FROM updated
+             WHERE p.id = $1
+             RETURNING p.tree_version)
 
-type renameTreeElementResult struct {
-	genericTreeElementResult `edgedb:"$inline"`
-	ParentPath               sharedTypes.DirName `edgedb:"parent_path"`
+SELECT updated_version.tree_version, updated_docs.ids, updated_docs.paths
+FROM updated_version,
+     updated_docs
+`, projectId, userId, folderId, targetFolderId).
+		Scan(&v, pq.Array(&docIds), pq.Array(&docPaths))
+	if err != nil {
+		return 0, nil, rewritePostgresErr(err)
+	}
+	var docs []Doc
+	for i, id := range docIds {
+		d := Doc{}
+		d.Id = id
+		d.ResolvedPath = sharedTypes.PathName(docPaths[i])
+		docs = append(docs, d)
+	}
+	return v, docs, nil
 }
 
 func (m *manager) renameTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.PathName, error) {
@@ -834,8 +778,7 @@ WITH node AS (SELECT t.id, f.path AS parent_path
              AND p.deleted_at IS NULL
              AND t.deleted_at = '1970-01-01'
              AND pm.can_write = TRUE),
-     updated
-         AS (
+     updated AS (
          UPDATE tree_nodes t
              SET path = CONCAT(node.parent_path, $5::TEXT)
              FROM node
@@ -861,53 +804,72 @@ func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.
 	return v, err
 }
 
-type renameFolderResult struct {
-	renameTreeElementResult `edgedb:"$inline"`
-	DocsField               `edgedb:"$inline"`
-}
-
 func (m *manager) RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error) {
-	r := renameFolderResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	p := (select Project filter .id = <uuid>$0),
-	u := (select User filter .id = <uuid>$1),
-	pWithAuth := (select p filter u in .min_access_rw),
-	f := (select Folder filter .id = <uuid>$2 and .project = pWithAuth),
-	updatedFolders := (update Folder
-		filter
-			.project = pWithAuth
-		and .path_for_join like (f.path ++ '/%')
-		set {
-			name := (<str>$3 if (Folder = f) else Folder.name),
-			path := (
-				f.path[:-len(f.name)]
-				++ <str>$3
-				++ Folder.path[len(f.path):]
-			)
-		}
-	),
-	pBumpedVersion := (
-		update f.project
-		set {
-			version := f.project.version + 1,
-			last_updated_at := datetime_of_transaction(),
-			last_updated_by := u,
-		}
-	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	element_exists := exists f,
-	parent_path := f.parent.path ?? '',
-	project_version := pBumpedVersion.version ?? 0,
-	docs := (select updatedFolders.docs { id, resolved_path }),
-}
-`, &r, projectId, userId, f.Id, f.Name)
+	var v sharedTypes.Version
+	var docIds []sharedTypes.UUID
+	var docPaths []string
+	err := m.db.QueryRowContext(ctx, `
+WITH node AS (SELECT t.id,
+                     t.project_id,
+                     t.path,
+                     char_length(t.path) + 1     AS old_end,
+                     parent.path AS parent_path
+              FROM tree_nodes t
+                       INNER JOIN projects p ON t.project_id = p.id
+                       INNER JOIN project_members pm
+                                  ON (t.project_id = pm.project_id AND
+                                      pm.user_id = $2)
+						INNER JOIN tree_nodes parent ON t.parent_id = parent.id
+              WHERE t.id = $3
+                AND t.kind = 'folder'
+                AND t.project_id = $1
+                AND t.parent_id IS NOT NULL
+                AND p.deleted_at IS NULL
+                AND t.deleted_at = '1970-01-01'
+                AND pm.can_write = TRUE),
+     updated AS (
+         UPDATE tree_nodes t
+             SET name = $4,
+                 path = concat(node.parent_path, $4, '/')
+             FROM node
+             WHERE t.id = node.id
+             RETURNING t.path),
+     updated_children AS (
+         UPDATE tree_nodes t
+             SET path = concat(updated.path, substr(t.path, node.old_end))
+             FROM node, updated
+             WHERE t.project_id = node.project_id AND
+                   t.deleted_at = '1970-01-01' AND
+                   starts_with(t.path, node.path)
+             RETURNING t.id, t.kind, t.path),
+     updated_docs AS (SELECT array_agg(id) as ids, array_agg(path) as paths
+                      FROM updated_children
+                      WHERE kind = 'doc'),
+     updated_version AS (
+         UPDATE projects p
+             SET last_updated_by = $2,
+                 last_updated_at = transaction_timestamp(),
+                 tree_version = tree_version + 1
+             FROM updated
+             WHERE p.id = $1
+             RETURNING p.tree_version)
+
+SELECT updated_version.tree_version, updated_docs.ids, updated_docs.paths
+FROM updated_version,
+     updated_docs
+`, projectId, userId, f.Id, f.Name).
+		Scan(&v, pq.Array(&docIds), pq.Array(&docPaths))
 	if err != nil {
-		return 0, nil, rewriteEdgedbError(err)
+		return 0, nil, rewritePostgresErr(err)
 	}
-	return r.ProjectVersion, r.Docs, r.toError()
+	var docs []Doc
+	for i, id := range docIds {
+		d := Doc{}
+		d.Id = id
+		d.ResolvedPath = sharedTypes.PathName(docPaths[i])
+		docs = append(docs, d)
+	}
+	return v, docs, nil
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
@@ -1742,14 +1704,13 @@ set {
 func (m *manager) RemoveMember(ctx context.Context, projectIds []sharedTypes.UUID, actor, userId sharedTypes.UUID) error {
 	return getErr(m.db.ExecContext(ctx, `
 WITH pm AS (
-    DELETE
-        FROM project_members pm
-            USING projects p
-            WHERE pm.project_id = ANY ($1)
-                AND pm.user_id = $3
-                AND p.owner_id != $3
-                AND (p.owner_id = $2 OR $2 = $3)
-            RETURNING project_id)
+    DELETE FROM project_members pm
+        USING projects p
+        WHERE pm.project_id = ANY ($1)
+            AND pm.user_id = $3
+            AND p.owner_id != $3
+            AND (p.owner_id = $2 OR $2 = $3)
+        RETURNING project_id)
 UPDATE projects
 SET epoch = epoch + 1
 WHERE id = pm.project_id
@@ -1764,7 +1725,7 @@ func (m *manager) SoftDelete(ctx context.Context, projectIds []sharedTypes.UUID,
 		return err
 	}
 	r, err := m.db.ExecContext(ctx, `
-with soft_deleted AS (
+WITH soft_deleted AS (
     UPDATE projects
         SET deleted_at = transaction_timestamp(),
             epoch = epoch + 1
@@ -1772,8 +1733,8 @@ with soft_deleted AS (
         RETURNING id)
 
 INSERT
-INTO project_audit_log (id, info, initiator_id, operation, project_id,
-                        timestamp)
+INTO project_audit_log
+(id, info, initiator_id, operation, project_id, timestamp)
 SELECT gen_random_uuid(),
        $3,
        $2,
