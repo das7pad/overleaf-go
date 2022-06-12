@@ -74,30 +74,35 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 		return errors.Tag(err, "cannot flush docs to edgedb")
 	}
 
-	sp := &project.ForClone{}
-	if err := m.pm.GetProject(ctx, sourceProjectId, sp); err != nil {
+	p, err := m.pm.GetForClone(ctx, sourceProjectId, userId)
+	if err != nil {
 		return errors.Tag(err, "cannot get source project")
 	}
-	if _, err := sp.GetPrivilegeLevelAuthenticated(); err != nil {
+	if _, err = p.GetPrivilegeLevelAuthenticated(); err != nil {
 		return err
 	}
+	sourceDocs, sourceFiles := p.GetDocsAndFiles()
 
-	nDocs := len(sp.Docs)
-	files := make([]types.CreateProjectFile, nDocs+len(sp.Files))
-	for i, d := range sp.Docs {
+	nDocs := len(sourceDocs)
+	files := make([]types.CreateProjectFile, nDocs+len(sourceFiles))
+	var rootDocPath sharedTypes.PathName
+	for i, d := range sourceDocs {
+		if d.Id == p.RootDoc.Id {
+			rootDocPath = d.ResolvedPath
+		}
 		files[i] = cloneProjectFile{TreeElement: d}
 	}
-	for i, file := range sp.Files {
+	for i, file := range sourceFiles {
 		files[nDocs+i] = cloneProjectFile{TreeElement: file}
 	}
 	return m.CreateProject(ctx, &types.CreateProjectRequest{
-		Compiler:           sp.Compiler,
+		Compiler:           p.Compiler,
 		Files:              files,
-		ImageName:          sp.ImageName,
+		ImageName:          p.ImageName,
 		Name:               request.Name,
-		RootDocPath:        sp.RootDoc.ResolvedPath,
+		RootDocPath:        rootDocPath,
 		SourceProjectId:    sourceProjectId,
-		SpellCheckLanguage: sp.SpellCheckLanguage,
+		SpellCheckLanguage: p.SpellCheckLanguage,
 		UserId:             request.Session.User.Id,
 	}, response)
 }

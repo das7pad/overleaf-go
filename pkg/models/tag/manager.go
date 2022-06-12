@@ -60,7 +60,7 @@ SELECT project.id, tag.id
 FROM project,
      tag
 ON CONFLICT DO NOTHING
-`, tagId.String(), userId.String(), projectId.String()))
+`, tagId, userId, projectId))
 }
 
 func (m *manager) Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error {
@@ -69,7 +69,7 @@ DELETE
 FROM tags
 WHERE id = $1
   AND user_id = $2
-`, tagId.String(), userId.String()))
+`, tagId, userId))
 }
 
 func (m *manager) EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error) {
@@ -81,7 +81,7 @@ VALUES (gen_random_uuid(), $2, $1)
 -- Use the user_id, which is static, whereas the name is not.
 ON CONFLICT DO UPDATE SET user_id = user_id
 RETURNING id
-`, userId.String(), name).Scan(&t.Id)
+`, userId, name).Scan(&t.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ DELETE
 FROM tag_entries
 WHERE tag_id = tag.id
   AND project_id = $3
-`, tagId.String(), userId.String(), projectId.String()))
+`, tagId, userId, projectId))
 }
 
 func (m *manager) Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error {
@@ -105,5 +105,5 @@ UPDATE tags
 SET name = $3
 WHERE id = $1
   AND user_id = $2
-`, tagId.String(), userId.String(), newName))
+`, tagId, userId, newName))
 }

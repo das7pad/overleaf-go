@@ -21,7 +21,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -61,8 +60,7 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 		}
 	}
 	{
-		pi := &projectInvite.WithoutToken{}
-		if err := m.pim.GetByToken(ctx, projectId, r.Token, pi); err == nil {
+		if err := m.pim.CheckExists(ctx, projectId, r.Token); err == nil {
 			// Happy path
 		} else if errors.IsNotFoundError(err) {
 			valid = false

@@ -44,9 +44,6 @@ func (e *EditorConfig) Scan(x interface{}) error {
 
 func (e *EditorConfig) Value() (driver.Value, error) {
 	blob, err := json.Marshal(e)
-	if err != nil {
-		return nil, err
-	}
 	return string(blob), err
 }
 

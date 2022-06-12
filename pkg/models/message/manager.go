@@ -76,7 +76,7 @@ WHERE cm.project_id = $1
   AND cm.created_at < $2
 ORDER BY cm.created_at DESC
 LIMIT $3
-`, projectId.String(), t, limit)
+`, projectId, t, limit)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ WITH msg AS (
 SELECT msg.id, users.id, email, first_name, last_name
 FROM users, msg
 WHERE users.id = msg.user_id
-`, projectId, msg.Content, msg.User.Id.String()).Scan(
+`, projectId, msg.Content, msg.User.Id).Scan(
 		&msg.Id,
 		&msg.User.Id,
 		&msg.User.Email,

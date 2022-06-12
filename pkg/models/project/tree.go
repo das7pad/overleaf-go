@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -92,16 +94,15 @@ type LinkedFileData struct {
 }
 
 func (d *LinkedFileData) Scan(x interface{}) error {
-	blob := x.([]byte)
-	if len(blob) == 4 && string(blob) == "null" {
+	if x == nil {
 		return nil
 	}
-	return json.Unmarshal(blob, d)
+	return json.Unmarshal(x.([]byte), d)
 }
 
 func (d *LinkedFileData) Value() (driver.Value, error) {
-	if d == nil {
-		return "null", nil
+	if d == nil || d.Provider == "" {
+		return nil, nil
 	}
 	blob, err := json.Marshal(d)
 	return string(blob), err
@@ -116,7 +117,7 @@ type FileRef struct {
 	LeafFields `edgedb:"$inline"`
 
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
-	Hash           sharedTypes.Hash `json:"hash" edgedb:"hash"`
+	Hash           sharedTypes.Hash `json:"hash,omitempty" edgedb:"hash"`
 	Created        time.Time        `json:"created" edgedb:"created_at"`
 	Size           int64            `json:"size" edgedb:"size"`
 }
@@ -333,6 +334,19 @@ func (p *ForTree) GetRootFolder() *Folder {
 		case "file":
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
+			if p.createdAts != nil {
+				s := string(p.createdAts[i])
+				e.Created, _ = pq.ParseTimestamp(nil, s)
+			}
+			if p.hashes != nil {
+				e.Hash = sharedTypes.Hash(p.hashes[i])
+			}
+			if p.linkedFileData != nil && p.linkedFileData[i].Provider != "" {
+				e.LinkedFileData = &p.linkedFileData[i]
+			}
+			if p.sizes != nil {
+				e.Size = p.sizes[i]
+			}
 			f.FileRefs = append(f.FileRefs, e)
 		case "folder":
 			// NOTE: The paths of folders have a trailing slash in the DB.
@@ -342,4 +356,41 @@ func (p *ForTree) GetRootFolder() *Folder {
 		}
 	}
 	return &t
+}
+
+func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
+	var docs []Doc
+	var files []FileRef
+	for i, kind := range p.treeKinds {
+		path := sharedTypes.PathName(p.treePaths[i])
+		switch kind {
+		case "doc":
+			e := NewDoc(path.Filename())
+			e.Id = p.treeIds[i]
+			e.ResolvedPath = path
+			if p.docSnapshots != nil {
+				e.Snapshot = p.docSnapshots[i]
+			}
+			docs = append(docs, e)
+		case "file":
+			e := NewFileRef(path.Filename(), "", 0)
+			e.Id = p.treeIds[i]
+			e.ResolvedPath = path
+			if p.createdAts != nil {
+				s := string(p.createdAts[i])
+				e.Created, _ = pq.ParseTimestamp(nil, s)
+			}
+			if p.hashes != nil {
+				e.Hash = sharedTypes.Hash(p.hashes[i])
+			}
+			if p.linkedFileData != nil && p.linkedFileData[i].Provider != "" {
+				e.LinkedFileData = &p.linkedFileData[i]
+			}
+			if p.sizes != nil {
+				e.Size = p.sizes[i]
+			}
+			files = append(files, e)
+		}
+	}
+	return docs, files
 }

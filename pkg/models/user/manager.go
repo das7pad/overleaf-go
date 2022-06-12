@@ -109,12 +109,12 @@ FROM u;
 		u.SignUpDate,
 		&u.EditorConfig,
 		&u.Features,
-		u.Id.String(),
+		u.Id,
 		u.LastLoggedIn,
 		u.LastLoginIp,
 		u.LoginCount,
 		u.HashedPassword,
-		u.AuditLog[0].InitiatorId.String(),
+		u.AuditLog[0].InitiatorId,
 		u.AuditLog[0].IpAddress,
 		u.AuditLog[0].Operation,
 		u.SignUpDate.Add(7*24*time.Hour),
@@ -161,7 +161,7 @@ FROM u
 WHERE user_id = u.id
   AND use = $6
   AND used_at IS NULL
-`, u.Id.String(), u.Epoch, newHashedPassword, ip, operation,
+`, u.Id, u.Epoch, newHashedPassword, ip, operation,
 		oneTimeToken.PasswordResetUse))
 }
 
@@ -199,7 +199,7 @@ SELECT gen_random_uuid(),
        transaction_timestamp(),
        u.id
 FROM u;
-`, userId.String(), ip, AuditLogOperationSoftDeletion))
+`, userId, ip, AuditLogOperationSoftDeletion))
 }
 
 func (m *manager) HardDelete(ctx context.Context, userId sharedTypes.UUID) error {
@@ -208,7 +208,7 @@ DELETE
 FROM users
 WHERE id = $1
   AND deleted_at IS NOT NULL
-`, userId.String())
+`, userId)
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ SELECT gen_random_uuid(),
        transaction_timestamp(),
        u.id
 FROM u;
-`, userId.String(), blob, ip, AuditLogOperationClearSessions))
+`, userId, blob, ip, AuditLogOperationClearSessions))
 }
 
 func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
@@ -309,7 +309,7 @@ SELECT gen_random_uuid(),
        transaction_timestamp(),
        u.id
 FROM u
-`, u.Id.String(), u.Epoch, newEmail, blob, ip,
+`, u.Id, u.Epoch, newEmail, blob, ip,
 		AuditLogOperationChangePrimaryEmail))
 	if err != nil {
 		if e, ok := err.(*pq.Error); ok && e.Constraint == "user_email_key" {
@@ -333,7 +333,7 @@ UPDATE users
 SET epoch = epoch + 1
 WHERE id = $1
   AND deleted_at IS NULL;
-`, userId.String()))
+`, userId))
 }
 
 func (m *manager) SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error {
@@ -342,7 +342,7 @@ UPDATE users
 SET beta_program = $2
 WHERE id = $1
   AND deleted_at IS NULL;
-`, userId.String(), joined))
+`, userId, joined))
 }
 
 func (m *manager) SetUserName(ctx context.Context, userId sharedTypes.UUID, u *WithNames) error {
@@ -352,7 +352,7 @@ SET first_name = $2,
 	last_name  = $3
 WHERE id = $1
   AND deleted_at IS NULL;
-`, userId.String(), u.FirstName, u.LastName))
+`, userId, u.FirstName, u.LastName))
 }
 
 func (m *manager) TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error {
@@ -370,7 +370,7 @@ INTO user_audit_log
 (id, initiator_id, ip_address, operation, timestamp, user_id)
 SELECT gen_random_uuid(), u.id, $2, 'login', transaction_timestamp(), u.id
 FROM u;
-`, userId.String(), ip))
+`, userId, ip))
 }
 
 func (m *manager) GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error {
@@ -381,49 +381,49 @@ SELECT beta_program
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(&u.BetaProgram))
+`, userId).Scan(&u.BetaProgram))
 	case *HashedPasswordField:
 		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT password_hash
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(&u.HashedPassword))
+`, userId).Scan(&u.HashedPassword))
 	case *LearnedWordsField:
 		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT learned_words
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(pq.Array(&u.LearnedWords)))
+`, userId).Scan(pq.Array(&u.LearnedWords)))
 	case *WithPublicInfo:
 		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT id, email, first_name, last_name
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(&u.Id, &u.Email, &u.FirstName, &u.LastName))
+`, userId).Scan(&u.Id, &u.Email, &u.FirstName, &u.LastName))
 	case *ForActivateUserPage:
 		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT email, login_count
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(&u.Email, &u.LoginCount))
+`, userId).Scan(&u.Email, &u.LoginCount))
 	case *ForEmailChange:
 		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT email, epoch, id
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(&u.Email, &u.Epoch, &u.Id))
+`, userId).Scan(&u.Email, &u.Epoch, &u.Id))
 	case *ForPasswordChange:
 		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
 SELECT id, email, first_name, last_name, epoch, password_hash
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(
+`, userId).Scan(
 			&u.Id, &u.Email, &u.FirstName, &u.LastName,
 			&u.Epoch, &u.HashedPassword,
 		))
@@ -433,7 +433,7 @@ SELECT id, email, first_name, last_name, beta_program
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId.String()).Scan(
+`, userId).Scan(
 			&u.Id, &u.Email, &u.FirstName, &u.LastName, &u.BetaProgram,
 		))
 	default:
@@ -494,7 +494,7 @@ FROM users u, ids
 WHERE u.id = ids.id
   AND u.id != $1
   AND deleted_at IS NULL
-`, userId.String())
+`, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +531,7 @@ VALUES ($1, $2, 1, now())
 ON CONFLICT DO UPDATE
     SET connections  = connections + 1,
         last_touched = now()
-`, a.String(), b.String()))
+`, a, b))
 }
 
 func (m *manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {
@@ -539,7 +539,7 @@ func (m *manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID)
 UPDATE users
 SET learned_words = NULL
 WHERE id = $1
-`, userId.String()))
+`, userId))
 }
 
 func (m *manager) LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
@@ -548,7 +548,7 @@ UPDATE users
 SET learned_words = array_append(learned_words, $2)
 WHERE id = $1
   AND array_position(learned_words, $2) IS NULL
-`, userId.String(), word))
+`, userId, word))
 }
 
 func (m *manager) UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
@@ -556,7 +556,7 @@ func (m *manager) UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word
 UPDATE users
 SET learned_words = array_remove(learned_words, $2)
 WHERE id = $1
-`, userId.String(), word))
+`, userId, word))
 }
 
 func (m *manager) GetByPasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error {

@@ -20,43 +20,22 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-var errUserIsNotAMember = errors.Tag(&errors.NotFoundError{}, "user is not a member")
-
-func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, request *types.SetMemberPrivilegeLevelInProjectRequest) error {
-	if err := request.PrivilegeLevel.Validate(); err != nil {
+func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, r *types.SetMemberPrivilegeLevelInProjectRequest) error {
+	if err := r.PrivilegeLevel.Validate(); err != nil {
 		return err
 	}
-	projectId := request.ProjectId
-	userId := request.UserId
-	for i := 0; i < 10; i++ {
-		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
-		if err != nil {
-			if errors.IsNotAuthorizedError(err) {
-				return errUserIsNotAMember
-			}
-			return errors.Tag(err, "cannot get project")
-		}
-		if d.IsTokenMember() {
-			return errUserIsNotAMember
-		}
-		err = m.pm.GrantMemberAccess(
-			ctx, projectId, d.Epoch, userId, request.PrivilegeLevel,
-		)
-		if err != nil {
-			if errors.GetCause(err) == project.ErrEpochIsNotStable {
-				continue
-			}
-			return errors.Tag(err, "cannot remove user from project")
-		}
-
-		go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
-			Members: true,
-		})
-		return nil
+	err := m.pm.GrantMemberAccess(
+		ctx, r.ProjectId, r.ActorId, r.UserId, r.PrivilegeLevel,
+	)
+	if err != nil {
+		return errors.Tag(err, "cannot update project member")
 	}
-	return project.ErrEpochIsNotStable
+
+	go m.notifyEditorAboutAccessChanges(r.ProjectId, &refreshMembershipDetails{
+		Members: true,
+	})
+	return nil
 }

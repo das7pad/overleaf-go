@@ -48,7 +48,7 @@ SELECT key, expires_at, template_key, message_options
 FROM notifications
 WHERE user_id = $1
   AND template_key != ''
-`, userId.String())
+`, userId)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ SET expires_at      = $3,
     message_options = $5
 WHERE id = $1
   and user_id = $2
-`, n.Key, n.UserId.String(), n.Expires, n.Key, n.MessageOptions))
+`, n.Key, n.UserId, n.Expires, n.Key, n.MessageOptions))
 }
 
 func (m *manager) RemoveById(ctx context.Context, userId sharedTypes.UUID, notificationId sharedTypes.UUID) error {
@@ -97,5 +97,5 @@ SET template_key    = '',
     message_options = '{}'
 WHERE id = $1
   and user_id = $2
-`, notificationId.String(), userId.String()))
+`, notificationId, userId))
 }

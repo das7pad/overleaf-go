@@ -103,10 +103,14 @@ type ForProjectEntries struct {
 type ForTree struct {
 	RootFolderField `edgedb:"$inline"`
 
-	treeIds      []sharedTypes.UUID
-	treeKinds    []string
-	treePaths    []string
-	docSnapshots []string
+	treeIds        []sharedTypes.UUID
+	treeKinds      []string
+	treePaths      []string
+	docSnapshots   []string
+	createdAts     [][]byte
+	hashes         []string
+	sizes          []int64
+	linkedFileData []LinkedFileData
 }
 
 type ForZip struct {
@@ -137,8 +141,7 @@ type ForClone struct {
 	ImageNameField          `edgedb:"$inline"`
 	RootDocField            `edgedb:"$inline"`
 	SpellCheckLanguageField `edgedb:"$inline"`
-	DocsField               `edgedb:"$inline"`
-	FilesField              `edgedb:"$inline"`
+	ForTree
 }
 
 type ForProjectJWT struct {

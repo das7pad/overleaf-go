@@ -43,6 +43,7 @@ type RemoveProjectMemberRequest struct {
 
 type SetMemberPrivilegeLevelInProjectRequest struct {
 	ProjectId      sharedTypes.UUID           `json:"-"`
+	ActorId        sharedTypes.UUID           `json:"-"`
 	UserId         sharedTypes.UUID           `json:"-"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 }

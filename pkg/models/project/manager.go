@@ -53,6 +53,7 @@ type Manager interface {
 	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
 	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
 	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error)
+	GetForClone(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForClone, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error)
 	GetForZip(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, accessToken AccessToken) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
@@ -69,7 +70,7 @@ type Manager interface {
 	GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error)
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
 	GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error
-	GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error
+	GrantMemberAccess(ctx context.Context, projectId, ownerId, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel) error
 	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error)
 	GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error)
 	SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error
@@ -300,7 +301,7 @@ VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) error {
 	var rootDocId interface{} = nil
 	if p.RootDoc.Id != (sharedTypes.UUID{}) {
-		rootDocId = p.RootDoc.Id.String()
+		rootDocId = p.RootDoc.Id
 	}
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE projects
@@ -309,7 +310,7 @@ SET deleted_at     = NULL,
     root_doc_id    = $3,
     root_folder_id = $4
 WHERE id = $1
-`, p.Id.String(), p.Name, rootDocId, p.RootFolder.Id.String()))
+`, p.Id, p.Name, rootDocId, p.RootFolder.Id))
 }
 
 func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
@@ -1250,15 +1251,17 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId s
 	var deletedDocIds []sharedTypes.UUID
 	var deletedDocNames []string
 
-	// TODO: fetch file details `created_at` and `linked_file_data`
-	// TODO: let frontend query members/invites on modal open (again)
 	err := m.db.QueryRowContext(ctx, `
 WITH tree AS
          (SELECT t.project_id,
-                 array_agg(t.id)   as ids,
-                 array_agg(t.kind) as kinds,
-                 array_agg(t.path) as paths
+                 array_agg(t.id)                as ids,
+                 array_agg(t.kind)              as kinds,
+                 array_agg(t.path)              as paths,
+                 array_agg(f.created_at)        as created_ats,
+                 array_agg(f.linked_file_data)  as linked_file_data,
+                 array_agg(coalesce(f.size, 0)) as sizes
           FROM tree_nodes t
+                   LEFT JOIN files f on t.id = f.id
           WHERE t.project_id = $1
             AND t.deleted_at = '1970-01-01'
             AND t.parent_id IS NOT NULL
@@ -1292,6 +1295,9 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        tree.ids,
        tree.kinds,
        tree.paths,
+       tree.created_ats,
+       tree.linked_file_data,
+       tree.sizes,
        deleted_docs.ids,
        deleted_docs.names
 FROM projects p
@@ -1330,6 +1336,9 @@ WHERE p.id = $1
 		pq.Array(&d.Project.treeIds),
 		pq.Array(&d.Project.treeKinds),
 		pq.Array(&d.Project.treePaths),
+		pq.Array(&d.Project.createdAts),
+		pq.Array(&d.Project.linkedFileData),
+		pq.Array(&d.Project.sizes),
 		pq.Array(&deletedDocIds),
 		pq.Array(&deletedDocNames),
 	)
@@ -1442,41 +1451,6 @@ select Project {
 }
 filter .id = <uuid>$0 and not exists .deleted_at
 `
-	case *ForClone:
-		q = `
-select Project {
-	access_ro,
-	access_rw,
-	access_token_ro,
-	access_token_rw,
-	compiler,
-	docs: {
-		name,
-		resolved_path,
-		snapshot,
-	},
-	files: {
-		hash,
-		id,
-		linked_file_data: {
-			provider,
-			source_project_id,
-			source_entity_path,
-			source_output_file_path,
-			url,
-		},
-		name,
-		resolved_path,
-		size,
-	},
-	image_name,
-	owner,
-	public_access_level,
-	root_doc: { resolved_path },
-	spell_check_language,
-}
-filter .id = <uuid>$0 and not exists .deleted_at
-`
 	default:
 		return errors.New("missing query for target")
 	}
@@ -1484,6 +1458,69 @@ filter .id = <uuid>$0 and not exists .deleted_at
 		return rewriteEdgedbError(err)
 	}
 	return nil
+}
+
+func (m *manager) GetForClone(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForClone, error) {
+	p := ForClone{}
+	return &p, m.db.QueryRowContext(ctx, `
+WITH tree AS
+         (SELECT t.project_id,
+                 array_agg(t.id)                     as ids,
+                 array_agg(t.kind)                   as kinds,
+                 array_agg(t.path)                   as paths,
+                 array_agg(COALESCE(d.snapshot, '')) as snapshots,
+                 array_agg(f.created_at)             as created_ats,
+                 array_agg(f.linked_file_data)       as linked_file_data,
+                 array_agg(coalesce(f.size, 0))      as sizes
+          FROM tree_nodes t
+                   LEFT JOIN docs d on t.id = d.id
+                   LEFT JOIN files f on t.id = f.id
+          WHERE t.project_id = $1
+            AND t.deleted_at = '1970-01-01'
+            AND t.parent_id IS NOT NULL
+          GROUP BY t.project_id)
+
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
+       p.compiler,
+       p.image_name,
+       p.public_access_level,
+       COALESCE(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
+       p.spell_check_language,
+       tree.ids,
+       tree.kinds,
+       tree.paths,
+       tree.snapshots,
+       tree.created_ats,
+       tree.linked_file_data,
+       tree.sizes
+FROM projects p
+         INNER JOIN project_members pm ON (p.id = pm.project_id AND
+                                           pm.user_id = $2)
+         LEFT JOIN tree ON (p.id = tree.project_id)
+
+WHERE p.id = $1
+  AND p.deleted_at IS NULL
+  AND (
+        (pm.access_source >= 'invite') OR
+        (p.public_access_level = 'tokenBased' AND pm.access_source = 'token')
+    )
+`, projectId, userId).Scan(
+		&p.Member.AccessSource,
+		&p.Member.PrivilegeLevel,
+		&p.Compiler,
+		&p.ImageName,
+		&p.PublicAccessLevel,
+		&p.RootDoc.Id,
+		&p.SpellCheckLanguage,
+		pq.Array(&p.treeIds),
+		pq.Array(&p.treeKinds),
+		pq.Array(&p.treePaths),
+		pq.Array(&p.docSnapshots),
+		pq.Array(&p.createdAts),
+		pq.Array(&p.linkedFileData),
+		pq.Array(&p.sizes),
+	)
 }
 
 type TreeEntity struct {
@@ -1553,52 +1590,17 @@ WHERE p.id = $1
 	return c, nil
 }
 
-func (m *manager) GrantMemberAccess(ctx context.Context, projectId sharedTypes.UUID, epoch int64, userId sharedTypes.UUID, level sharedTypes.PrivilegeLevel) error {
-	var q string
-	switch level {
-	case sharedTypes.PrivilegeLevelReadAndWrite:
-		q = `
-with
-	u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-update Project
-filter
-	.id = <uuid>$1
-and .epoch = <int64>$2
-and not exists .deleted_at
-set {
-	epoch := Project.epoch + 1,
-	access_rw := distinct (Project.access_rw union {u}),
-	access_ro -= u,
-}
-`
-	case sharedTypes.PrivilegeLevelReadOnly:
-		q = `
-with
-	u := (select User filter .id = <uuid>$0 and not exists .deleted_at)
-update Project
-filter
-	.id = <uuid>$1
-and .epoch = <int64>$2
-and not exists .deleted_at
-set {
-	epoch := Project.epoch + 1,
-	access_ro := distinct (Project.access_ro union {u}),
-	access_rw -= u,
-}
-`
-	default:
-		return errors.New("invalid member access level: " + string(level))
-	}
-
-	err := m.c.QuerySingle(ctx, q, &IdField{}, userId, projectId, epoch)
-	if err != nil {
-		err = rewriteEdgedbError(err)
-		if errors.IsNotFoundError(err) {
-			return ErrEpochIsNotStable
-		}
-		return err
-	}
-	return nil
+func (m *manager) GrantMemberAccess(ctx context.Context, projectId, ownerId, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel) error {
+	return getErr(m.db.ExecContext(ctx, `
+UPDATE project_members pm
+SET privilege_level = $4
+FROM projects p
+WHERE p.id = $1
+  AND p.owner_id = $2
+  AND p.id = pm.project_id
+  AND pm.user_id = $3
+  AND pm.access_source = 'invite'
+`, projectId, ownerId, userId, privilegeLevel))
 }
 
 func (m *manager) GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, error) {
@@ -1715,7 +1717,7 @@ DELETE
 FROM projects
 WHERE id = $1
   AND deleted_at IS NOT NULL
-`, projectId.String())
+`, projectId)
 	if err != nil {
 		return err
 	}

@@ -19,11 +19,7 @@ package projectInvite
 import (
 	"context"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -37,57 +33,16 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
 
-	for i := 0; i < 10; i++ {
-		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
-		if err != nil && !errors.IsNotAuthorizedError(err) {
-			return err
-		}
-		epoch := d.Epoch
-
-		pi := &projectInvite.WithoutToken{}
-		err = m.pim.GetByToken(ctx, projectId, request.Token, pi)
-		if err != nil {
-			return errors.Tag(err, "cannot get invite")
-		}
-		level := pi.PrivilegeLevel
-		invitingUserId := pi.SendingUser.Id
-		grantAccess :=
-			!d.PrivilegeLevel.IsAtLeast(level) || d.IsTokenMember()
-
-		// TODO: merge into a single query
-		err = m.c.Tx(ctx, func(ctx context.Context, _ *edgedb.Tx) error {
-			if grantAccess {
-				err = m.pm.GrantMemberAccess(
-					ctx, projectId, epoch, userId, level,
-				)
-				if err != nil {
-					return errors.Tag(err, "cannot grant access")
-				}
-			}
-
-			// The contact hints are transparent to the user and OK to fail.
-			// TODO: consider merging into m.pim.Delete
-			_ = m.um.AddContact(ctx, invitingUserId, userId)
-
-			if err = m.pim.Delete(ctx, projectId, pi.Id); err != nil {
-				return errors.Tag(err, "cannot delete invite")
-			}
-			return nil
-		})
-		if err != nil {
-			if errors.GetCause(err) == project.ErrEpochIsNotStable {
-				continue
-			}
-			return err
-		}
-
-		go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
-			Invites: true,
-			Members: true,
-		})
-
-		response.RedirectTo = "/project/" + projectId.String()
-		return nil
+	err := m.pim.Accept(ctx, projectId, userId, request.Token)
+	if err != nil {
+		return errors.Tag(err, "cannot get invite")
 	}
-	return project.ErrEpochIsNotStable
+
+	go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
+		Invites: true,
+		Members: true,
+	})
+
+	response.RedirectTo = "/project/" + projectId.String()
+	return nil
 }

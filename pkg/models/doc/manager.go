@@ -53,7 +53,7 @@ SET last_opened_at  = $5,
 WHERE id = $4
   AND last_updated_at < $5;
 `,
-		docId.String(), string(update.Snapshot), int64(update.Version),
-		projectId.String(), update.LastUpdatedAt, update.LastUpdatedBy,
+		docId, string(update.Snapshot), int64(update.Version),
+		projectId, update.LastUpdatedAt, update.LastUpdatedBy,
 	))
 }
