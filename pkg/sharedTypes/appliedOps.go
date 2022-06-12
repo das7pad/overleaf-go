@@ -17,6 +17,8 @@
 package sharedTypes
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -129,6 +131,15 @@ func (o Op) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (o Op) Value() (driver.Value, error) {
+	blob, err := json.Marshal(o)
+	return string(blob), err
+}
+
+func (o *Op) Scan(x interface{}) error {
+	return json.Unmarshal(x.([]byte), o)
 }
 
 type DupIfSource []PublicId

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -141,7 +141,7 @@ func (m *minioBackend) GetRedirectURLForPOST(ctx context.Context, bucket string,
 	if err := policy.SetKey(key); err != nil {
 		return nil, nil, err
 	}
-	err := policy.SetExpires(time.Now().UTC().Add(m.signedURLExpiry))
+	err := policy.SetExpires(time.Now().Add(m.signedURLExpiry))
 	if err != nil {
 		return nil, nil, err
 	}

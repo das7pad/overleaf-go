@@ -29,7 +29,7 @@ import (
 )
 
 func (m *manager) emailSecurityAlert(ctx context.Context, u *user.WithPublicInfo, action, actionDescribed string) error {
-	now := time.Now().UTC().Format("Monday 02 January 2006 at 15:04 MST")
+	now := time.Now().Format("Monday 02 January 2006 at 15:04 MST")
 	msg1 := fmt.Sprintf(
 		"We are writing to let you know that %s on %s.",
 		actionDescribed, now,

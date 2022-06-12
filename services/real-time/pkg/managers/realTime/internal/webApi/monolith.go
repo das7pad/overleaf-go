@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -76,6 +77,7 @@ func (m *monolithManager) JoinProject(ctx context.Context, client *types.Client,
 
 	details := types.JoinProjectDetails{
 		JoinProjectViewPublic:  p.JoinProjectViewPublic,
+		Invites:                make([]projectInvite.WithoutToken, 0),
 		Members:                make([]user.AsProjectMember, 0),
 		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,

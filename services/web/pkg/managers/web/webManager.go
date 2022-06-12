@@ -278,7 +278,7 @@ func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {
 }
 
 func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
-	start := time.Now().UTC()
+	start := time.Now()
 	ok := true
 	if err := m.HardDeleteExpiredProjects(ctx, dryRun, start); err != nil {
 		log.Println("hard deletion of projects failed: " + err.Error())

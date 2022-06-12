@@ -60,7 +60,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 	if r.Before > 0 {
 		before = time.UnixMilli(int64(r.Before))
 	} else {
-		before = time.Now().UTC()
+		before = time.Now()
 	}
 	batch := docHistory.GetForProjectResult{
 		History: make([]docHistory.ProjectUpdate, 0, fetchAtLeastNUpdates),
@@ -95,7 +95,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 				res.Updates = append(res.Updates, types.Update{
 					Meta: types.DocUpdateMeta{
 						Users: []user.WithPublicInfoAndNonStandardId{
-							batch.Users.GetUserNonStandardId(update.User.Id),
+							batch.Users.GetUserNonStandardId(update.UserId),
 						},
 						StartTs: startAt,
 						EndTs:   endAt,
@@ -125,7 +125,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 			}
 			alreadyAdded := false
 			for _, u := range lastUpdate.Meta.Users {
-				if u.Id == update.User.Id {
+				if u.Id == update.UserId {
 					alreadyAdded = true
 					break
 				}
@@ -133,7 +133,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 			if !alreadyAdded {
 				lastUpdate.Meta.Users = append(
 					lastUpdate.Meta.Users,
-					batch.Users.GetUserNonStandardId(update.User.Id),
+					batch.Users.GetUserNonStandardId(update.UserId),
 				)
 			}
 			if lastUpdate.Meta.StartTs.ToTime().After(update.StartAt) {

@@ -18,6 +18,7 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -45,7 +46,8 @@ type JoinProjectDetails struct {
 	project.RootDocIdField
 	project.TokensField
 	project.VersionField
-	RootFolder []*project.Folder      `json:"rootFolder"`
-	Members    []user.AsProjectMember `json:"members"`
-	Owner      user.WithPublicInfo    `json:"owner"`
+	RootFolder []*project.Folder            `json:"rootFolder"`
+	Invites    []projectInvite.WithoutToken `json:"invites"`
+	Members    []user.AsProjectMember       `json:"members"`
+	Owner      user.WithPublicInfo          `json:"owner"`
 }

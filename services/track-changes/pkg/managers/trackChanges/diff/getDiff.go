@@ -80,7 +80,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 	n := 1
 	for _, history := range dh.History {
 		meta := types.DiffMeta{
-			User:    dh.Users.GetUserNonStandardId(history.User.Id),
+			User:    dh.Users.GetUserNonStandardId(history.UserId),
 			StartTs: sharedTypes.Timestamp(history.StartAt.UnixMilli()),
 			EndTs:   sharedTypes.Timestamp(history.EndAt.UnixMilli()),
 		}

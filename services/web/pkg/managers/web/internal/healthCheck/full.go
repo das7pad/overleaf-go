@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -172,7 +172,7 @@ func (i *insecureJar) Cookies(_ *url.URL) []*http.Cookie {
 }
 
 func (m *manager) SmokeTestFull(ctx context.Context, response *types.SmokeTestResponse) error {
-	start := time.Now().UTC()
+	start := time.Now()
 
 	s := &smokeTestSession{
 		baseURL: m.smokeTestBaseURL,
@@ -214,7 +214,7 @@ func (m *manager) SmokeTestFull(ctx context.Context, response *types.SmokeTestRe
 				fatalError = errors.Tag(err, step.Name)
 			}
 		}
-		now := time.Now().UTC()
+		now := time.Now()
 		step.Duration = now.Sub(lastEnd).String()
 		lastEnd = now
 		if fatalError != nil {

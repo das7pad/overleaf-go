@@ -22,7 +22,6 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/overleaf-go/pkg/edgedbTx"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
@@ -131,9 +130,6 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error) {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return nil, err
-	}
 	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
 	if err != nil {
 		return nil, err
@@ -146,29 +142,17 @@ func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, proje
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
 	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 
 func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
 	return m.dm.FlushAndDeleteDoc(ctx, projectId, docId)
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
 	return m.dm.FlushProject(ctx, projectId)
 }
 
 func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
-	if err := edgedbTx.CheckNotInTx(ctx); err != nil {
-		return err
-	}
 	return m.dm.FlushAndDeleteProject(ctx, projectId)
 }

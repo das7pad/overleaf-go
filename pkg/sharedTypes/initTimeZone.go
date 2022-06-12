@@ -14,21 +14,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package edgedbTx
+package sharedTypes
 
 import (
-	"context"
-
-	"github.com/edgedb/edgedb-go"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
+	"time"
 )
 
-var errInTx = errors.New("operation not available: in tx")
-
-func CheckNotInTx(ctx context.Context) error {
-	if _, ok := edgedb.TxFromContext(ctx); ok {
-		return errInTx
-	}
-	return nil
+func init() {
+	time.Local = time.UTC
 }

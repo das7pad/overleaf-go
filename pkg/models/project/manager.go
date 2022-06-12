@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
@@ -54,6 +53,7 @@ type Manager interface {
 	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
 	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error)
 	GetForClone(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForClone, error)
+	GetForProjectInvite(ctx context.Context, projectId, actorId sharedTypes.UUID, email sharedTypes.Email) (*ForProjectInvite, error)
 	GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error)
 	GetForZip(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, accessToken AccessToken) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
@@ -63,9 +63,9 @@ type Manager interface {
 	GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
+	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
-	GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error
 	GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, error)
 	GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error)
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
@@ -95,17 +95,6 @@ func New(db *sql.DB) Manager {
 	return &manager{db: db}
 }
 
-func rewriteEdgedbError(err error) error {
-	if err == nil {
-		return nil
-	}
-	// TODO: handle conflicting path -> edgedb.ConstraintViolationError
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
 func getErr(_ sql.Result, err error) error {
 	return err
 }
@@ -126,7 +115,6 @@ func rewritePostgresErr(err error) error {
 
 type manager struct {
 	db *sql.DB
-	c  *edgedb.Client
 }
 
 func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
@@ -291,11 +279,11 @@ VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 		return errors.Tag(err, "close files")
 	}
 
-	ok = true
 	if err = tx.Commit(); err != nil {
 		return err
 	}
-	return err
+	ok = true
+	return nil
 }
 
 func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) error {
@@ -426,88 +414,91 @@ WHERE id = $1
 `, projectId, userId, publicAccessLevel))
 }
 
-type transferOwnershipResult struct {
-	ProjectExists bool                `edgedb:"project_exists"`
-	AuthCheck     bool                `edgedb:"auth_check"`
-	MemberCheck   bool                `edgedb:"member_check"`
-	ProjectName   Name                `edgedb:"project_name"`
-	NewOwner      user.WithPublicInfo `edgedb:"new_owner"`
-	PreviousOwner user.WithPublicInfo `edgedb:"previous_owner"`
-	AuditLogEntry bool                `edgedb:"audit_log_entry"`
-}
-
 func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error) {
-	r := transferOwnershipResult{}
-	err := m.c.QuerySingle(ctx, `
-with
-	previousOwner := (
-		select User filter .id = <uuid>$1 and not exists .deleted_at
-	),
-	newOwner := (select User filter .id = <uuid>$2 and not exists .deleted_at),
-	p := (select Project filter .id = <uuid>$0 and not exists .deleted_at),
-	pWithAuth := (select p filter .owner = previousOwner),
-	pWithMemberCheck := (
-		select {
-			(select pWithAuth filter newOwner in .access_ro),
-			(select pWithAuth filter newOwner in .access_rw),
-		}
-		limit 1
-	),
-	pUpdated := (
-		update pWithMemberCheck
-		set {
-			access_rw := distinct {
-				previousOwner,
-				(select pWithMemberCheck.access_rw filter .id != <uuid>$2)
-			},
-			access_ro -= newOwner,
-			access_token_ro -= newOwner,
-			access_token_rw -= newOwner,
-			epoch := pWithMemberCheck.epoch + 1,
-			owner := newOwner,
-		}
-	),
-	auditLogEntry := (
-		insert ProjectAuditLogEntry {
-			project := pUpdated,
-			initiator := previousOwner,
-			operation := 'transfer-ownership',
-			info := <json>{
-				newOwnerId := newOwner.id,
-				previousOwnerId := previousOwner.id,
-			}
-		}
+	previousOwner := user.WithPublicInfo{}
+	previousOwner.Id = previousOwnerId
+	newOwner := user.WithPublicInfo{}
+	newOwner.Id = newOwnerId
+	var name Name
+	return &previousOwner, &newOwner, name, m.db.QueryRowContext(ctx, `
+WITH ctx AS (SELECT p.id     AS project_id,
+                    p.name   AS project_name,
+                    o_old.id AS old_owner_id,
+                    o_new.id AS new_owner_id
+             FROM projects p
+                      INNER JOIN project_members pm_old
+                                 ON p.id = pm_old.project_id
+                      INNER JOIN users o_old ON pm_old.user_id = o_old.id
+                      INNER JOIN project_members pm_new
+                                 ON p.id = pm_new.project_id
+                      INNER JOIN users o_new ON pm_new.user_id = o_new.id
+             WHERE p.id = $1
+               AND p.owner_id = $2
+               AND o_old.id = $2
+               AND o_old.deleted_at IS NULL
+               AND o_new.id = $3
+               AND o_new.deleted_at IS NULL),
+     swap_member_old AS (
+         UPDATE project_members pm
+             SET access_source = 'invite',
+                 privilege_level = 'readAndWrite'
+             FROM ctx
+             WHERE pm.project_id = ctx.project_id AND
+                   pm.user_id = ctx.old_owner_id
+             RETURNING TRUE),
+     swap_member_new AS (
+         UPDATE project_members pm
+             SET access_source = 'owner',
+                 privilege_level = 'owner'
+             FROM ctx
+             WHERE pm.project_id = ctx.project_id AND
+                   pm.user_id = ctx.new_owner_id
+             RETURNING TRUE),
+     swap_owner AS (
+         UPDATE projects p
+             SET owner_id = ctx.new_owner_id,
+                 epoch = p.epoch + 1
+             FROM ctx
+             WHERE p.id = ctx.project_id
+             RETURNING TRUE),
+     log AS (
+         INSERT
+             INTO project_audit_log
+                 (id, info, initiator_id, operation, project_id, timestamp)
+                 SELECT gen_random_uuid(),
+                        json_build_object(
+                                'newOwnerId', ctx.new_owner_id,
+                                'previousOwnerId', ctx.old_owner_id
+                            ),
+                        ctx.old_owner_id,
+                        'transfer-ownership',
+                        ctx.project_id,
+                        transaction_timestamp()
+                 FROM ctx
+                 RETURNING TRUE)
+SELECT ctx.project_name,
+       o_old.email,
+       o_old.first_name,
+       o_old.last_name,
+       o_new.email,
+       o_new.first_name,
+       o_new.last_name
+FROM swap_member_old,
+     swap_member_new,
+     swap_owner,
+     log,
+     ctx
+         INNER JOIN users o_old ON o_old.id = ctx.old_owner_id
+         INNER JOIN users o_new ON o_new.id = ctx.new_owner_id
+`, projectId, previousOwnerId, newOwnerId).Scan(
+		&name,
+		&previousOwner.Email,
+		&previousOwner.FirstName,
+		&previousOwner.LastName,
+		&newOwner.Email,
+		&newOwner.FirstName,
+		&newOwner.LastName,
 	)
-select {
-	project_exists := exists p,
-	auth_check := exists pWithAuth,
-	member_check := exists pWithMemberCheck,
-	project_name := pUpdated.name ?? "",
-	new_owner := newOwner {
-		email: { email }, id, first_name, last_name,
-	},
-	previous_owner := previousOwner {
-		email: { email }, id, first_name, last_name,
-	},
-	audit_log_entry := exists auditLogEntry,
-}
-`, &r, projectId, previousOwnerId, newOwnerId)
-	if err != nil {
-		return nil, nil, "", rewriteEdgedbError(err)
-	}
-	switch {
-	case !r.ProjectExists:
-		return nil, nil, "", &errors.NotFoundError{}
-	case !r.AuthCheck:
-		return nil, nil, "", &errors.NotAuthorizedError{}
-	case !r.MemberCheck:
-		return nil, nil, "", &errors.InvalidStateError{
-			Msg: "new owner is not an invited user",
-		}
-	}
-	previousOwner := &r.PreviousOwner
-	newOwner := &r.NewOwner
-	return previousOwner, newOwner, r.ProjectName, nil
 }
 
 func (m *manager) Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
@@ -949,9 +940,53 @@ WHERE p.id = $1
 		&p.PublicAccessLevel, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &errors.NotAuthorizedError{}
+		}
 		return nil, err
 	}
 	return p.GetPrivilegeLevel(userId, accessToken)
+}
+
+func (m *manager) GetForProjectInvite(ctx context.Context, projectId, actorId sharedTypes.UUID, email sharedTypes.Email) (*ForProjectInvite, error) {
+	d := ForProjectInvite{}
+	return &d, m.db.QueryRowContext(ctx, `
+WITH u AS (SELECT id, email, first_name, last_name FROM users WHERE email = $3)
+SELECT coalesce(pm.access_source::TEXT, ''),
+       coalesce(pm.privilege_level::TEXT, ''),
+       p.name,
+       p.public_access_level,
+       o.id,
+       o.email,
+       o.first_name,
+       o.last_name,
+       coalesce(u.id, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(u.email, $3),
+       coalesce(u.first_name, ''),
+       coalesce(u.last_name, '')
+FROM projects p
+         INNER JOIN users o ON p.owner_id = o.id
+         LEFT JOIN u ON TRUE
+         LEFT JOIN project_members pm
+                   ON (p.id = pm.project_id AND pm.user_id = u.id)
+
+WHERE p.id = $1
+  AND p.owner_id = $2
+  AND p.deleted_at IS NULL
+`, projectId, actorId, email).Scan(
+		&d.AccessSource,
+		&d.PrivilegeLevel,
+		&d.Name,
+		&d.PublicAccessLevel,
+		&d.Sender.Id,
+		&d.Sender.Email,
+		&d.Sender.FirstName,
+		&d.Sender.LastName,
+		&d.User.Id,
+		&d.User.Email,
+		&d.User.FirstName,
+		&d.User.LastName,
+	)
 }
 
 func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error) {
@@ -1211,7 +1246,7 @@ WITH tree AS
                  array_agg(t.path)                   as paths,
                  array_agg(COALESCE(d.snapshot, '')) as snapshots
           FROM tree_nodes t
-                   LEFT JOIN docs d on t.id = d.id
+                   LEFT JOIN docs d ON t.id = d.id
           WHERE t.project_id = $1
             AND t.deleted_at = '1970-01-01'
             AND t.parent_id IS NOT NULL
@@ -1261,7 +1296,7 @@ WITH tree AS
                  array_agg(f.linked_file_data)  as linked_file_data,
                  array_agg(coalesce(f.size, 0)) as sizes
           FROM tree_nodes t
-                   LEFT JOIN files f on t.id = f.id
+                   LEFT JOIN files f ON t.id = f.id
           WHERE t.project_id = $1
             AND t.deleted_at = '1970-01-01'
             AND t.parent_id IS NOT NULL
@@ -1426,38 +1461,13 @@ WHERE p.id = $1
 	d.User.Id = userId
 	return &d, err
 }
-
-func (m *manager) GetProject(ctx context.Context, projectId sharedTypes.UUID, target interface{}) error {
-	var q string
-	switch p := target.(type) {
-	case *LastUpdatedAtField:
-		return m.db.QueryRowContext(ctx, `
+func (m *manager) GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error) {
+	at := time.Time{}
+	return at, m.db.QueryRowContext(ctx, `
 SELECT last_updated_at
 FROM projects
 WHERE id = $1 AND deleted_at IS NULL
-`, projectId).Scan(&p.LastUpdatedAt)
-	case *ForProjectInvite:
-		q = `
-select Project {
-	access_ro,
-	access_rw,
-	access_token_ro,
-	access_token_rw,
-	epoch,
-	id,
-	name,
-	owner,
-	public_access_level,
-}
-filter .id = <uuid>$0 and not exists .deleted_at
-`
-	default:
-		return errors.New("missing query for target")
-	}
-	if err := m.c.QuerySingle(ctx, q, target, projectId); err != nil {
-		return rewriteEdgedbError(err)
-	}
-	return nil
+`, projectId).Scan(&at)
 }
 
 func (m *manager) GetForClone(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForClone, error) {
@@ -1473,8 +1483,8 @@ WITH tree AS
                  array_agg(f.linked_file_data)       as linked_file_data,
                  array_agg(coalesce(f.size, 0))      as sizes
           FROM tree_nodes t
-                   LEFT JOIN docs d on t.id = d.id
-                   LEFT JOIN files f on t.id = f.id
+                   LEFT JOIN docs d ON t.id = d.id
+                   LEFT JOIN files f ON t.id = f.id
           WHERE t.project_id = $1
             AND t.deleted_at = '1970-01-01'
             AND t.parent_id IS NOT NULL

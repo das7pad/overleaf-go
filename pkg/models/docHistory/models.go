@@ -17,24 +17,22 @@
 package docHistory
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type DocHistory struct {
-	User    OptionalIdField     `edgedb:"user"`
+	UserId  sharedTypes.UUID
 	Version sharedTypes.Version `edgedb:"version"`
 	StartAt time.Time           `edgedb:"start_at"`
 	EndAt   time.Time           `edgedb:"end_at"`
 	Op      sharedTypes.Op      `edgedb:"-"`
-	OpForDB json.RawMessage     `edgedb:"op"`
 }
 
 type ProjectUpdate struct {
-	Doc          IdField             `edgedb:"doc"`
-	User         OptionalIdField     `edgedb:"user"`
+	Doc          IdField `edgedb:"doc"`
+	UserId       sharedTypes.UUID
 	Version      sharedTypes.Version `edgedb:"version"`
 	HasBigDelete bool                `edgedb:"has_big_delete"`
 	StartAt      time.Time           `edgedb:"start_at"`

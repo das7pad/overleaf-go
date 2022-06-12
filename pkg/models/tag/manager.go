@@ -48,7 +48,7 @@ func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId share
 WITH project AS (SELECT projects.id
                  FROM projects
                           LEFT JOIN project_members pm
-                                    on projects.id = pm.project_id
+                                    ON projects.id = pm.project_id
                  WHERE projects.id = $3
                    AND projects.deleted_at IS NULL
                    AND (projects.owner_id = $2 OR pm.user_id = $2)
@@ -59,7 +59,7 @@ INTO tag_entries (project_id, tag_id)
 SELECT project.id, tag.id
 FROM project,
      tag
-ON CONFLICT DO NOTHING
+ON CONFLICT (project_id, tag_id) DO NOTHING
 `, tagId, userId, projectId))
 }
 
@@ -73,20 +73,21 @@ WHERE id = $1
 }
 
 func (m *manager) EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error) {
-	t := &Full{}
+	t := Full{}
 	err := m.db.QueryRowContext(ctx, `
 INSERT INTO tags (id, name, user_id)
 VALUES (gen_random_uuid(), $2, $1)
 -- Perform a no-op update to get the id back.
 -- Use the user_id, which is static, whereas the name is not.
-ON CONFLICT DO UPDATE SET user_id = user_id
+ON CONFLICT (name, user_id) DO UPDATE SET user_id = $1
 RETURNING id
 `, userId, name).Scan(&t.Id)
 	if err != nil {
 		return nil, err
 	}
 	t.ProjectIds = make([]sharedTypes.UUID, 0)
-	return t, nil
+	t.Name = name
+	return &t, nil
 }
 
 func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {

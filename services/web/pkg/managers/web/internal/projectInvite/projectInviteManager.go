@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
-
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/spamSafe"
@@ -63,7 +61,6 @@ func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, edito
 }
 
 type manager struct {
-	c            *edgedb.Client
 	db           *sql.DB
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions

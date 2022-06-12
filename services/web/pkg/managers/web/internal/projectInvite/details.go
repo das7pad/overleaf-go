@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -31,10 +29,10 @@ import (
 )
 
 type projectInviteDetails struct {
-	project *project.ForProjectInvite
+	project project.ForProjectInvite
 	invite  *projectInvite.WithToken
-	sender  *user.WithPublicInfo
-	user    *user.WithPublicInfo
+	sender  user.WithPublicInfo
+	user    user.WithPublicInfo
 }
 
 func (d *projectInviteDetails) IsUserRegistered() bool {
@@ -44,7 +42,7 @@ func (d *projectInviteDetails) IsUserRegistered() bool {
 func (d *projectInviteDetails) GetInviteURL(siteURL sharedTypes.URL) *sharedTypes.URL {
 	return siteURL.WithPath(fmt.Sprintf(
 		"/project/%s/invite/token/%s",
-		d.project.Id.String(), d.invite.Token,
+		d.invite.ProjectId.String(), d.invite.Token,
 	)).WithQuery(url.Values{
 		"project_name":    {string(d.project.Name)},
 		"user_first_name": {d.sender.DisplayName()},
@@ -73,56 +71,15 @@ func (d *projectInviteDetails) ValidateForCreation() error {
 	return nil
 }
 
-func (m *manager) getDetails(ctx context.Context, pi *projectInvite.WithToken) (*projectInviteDetails, error) {
-	p := &project.ForProjectInvite{}
-	s := &pi.SendingUser
-	u := &user.WithPublicInfo{}
-
-	// TODO: merge into single query?
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		if err := m.pm.GetProject(pCtx, pi.ProjectId, p); err != nil {
-			return errors.Tag(err, "cannot get project")
-		}
-		return nil
-	})
-
-	eg.Go(func() error {
-		if err := m.um.GetUser(pCtx, pi.SendingUser.Id, s); err != nil {
-			return errors.Tag(err, "cannot get sender details")
-		}
-		return nil
-	})
-
-	eg.Go(func() error {
-		err := m.um.GetUserByEmail(pCtx, pi.Email, u)
-		if err == nil {
-			// Cleanup any auto-generated first name.
-			// The email is normalized to lower case, which reduces the chance
-			//  for false-positives `Alice` vs `alice@foo.bar`.
-			if u.FirstName == u.Email.LocalPart() {
-				u.FirstName = ""
-			}
-			// Set the primary email field to the invited email address.
-			u.Email = pi.Email
-			return nil
-		} else if errors.IsNotFoundError(err) {
-			// Non-registered user, just populate the primary email field.
-			u.Email = pi.Email
-			return nil
-		} else {
-			return errors.Tag(err, "cannot get user")
-		}
-	})
-
-	if err := eg.Wait(); err != nil {
-		return nil, err
+func (m *manager) getDetails(ctx context.Context, pi *projectInvite.WithToken, actorId sharedTypes.UUID) (*projectInviteDetails, error) {
+	d, err := m.pm.GetForProjectInvite(ctx, pi.ProjectId, actorId, pi.Email)
+	if err != nil {
+		return nil, errors.Tag(err, "get project invite details")
 	}
-
 	return &projectInviteDetails{
-		project: p,
+		project: *d,
 		invite:  pi,
-		sender:  s,
-		user:    u,
+		sender:  d.Sender,
+		user:    d.User,
 	}, nil
 }

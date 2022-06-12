@@ -14,6 +14,7 @@
 --  You should have received a copy of the GNU Affero General Public License
 --  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
 -- TODO: report duplicate copyright head bug?
 
 CREATE TABLE users
@@ -108,14 +109,14 @@ CREATE TABLE project_audit_log
 
 CREATE TABLE project_invites
 (
-  created_at      TIMESTAMP NOT NULL,
-  email           TEXT      NOT NULL,
-  expires_at      TIMESTAMP NOT NULL,
-  id              UUID      NOT NULL PRIMARY KEY,
-  privilege_level TEXT      NOT NULL,
-  project_id      UUID      NOT NULL REFERENCES projects ON DELETE CASCADE,
-  sending_user_id UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
-  token           TEXT      NOT NULL,
+  created_at      TIMESTAMP      NOT NULL,
+  email           TEXT           NOT NULL,
+  expires_at      TIMESTAMP      NOT NULL,
+  id              UUID           NOT NULL PRIMARY KEY,
+  privilege_level PrivilegeLevel NOT NULL,
+  project_id      UUID           NOT NULL REFERENCES projects ON DELETE CASCADE,
+  sending_user_id UUID           NOT NULL REFERENCES users ON DELETE CASCADE,
+  token           TEXT           NOT NULL,
 
   UNIQUE (project_id, token)
 );

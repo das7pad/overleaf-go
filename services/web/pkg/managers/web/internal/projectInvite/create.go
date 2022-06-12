@@ -31,7 +31,7 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 		return err
 	}
 
-	now := time.Now().UTC()
+	now := time.Now()
 	pi := &projectInvite.WithToken{}
 	pi.Email = request.Email
 	pi.Expires = now.Add(30 * 24 * time.Hour)
@@ -39,7 +39,7 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 	pi.ProjectId = request.ProjectId
 	pi.SendingUser.Id = request.SenderUserId
 
-	d, err := m.getDetails(ctx, pi)
+	d, err := m.getDetails(ctx, pi, request.SenderUserId)
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/docker/docker v20.10.6+incompatible
 	github.com/docker/go-units v0.4.0
-	github.com/edgedb/edgedb-go v0.9.2
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/gorilla/mux v1.8.0
@@ -19,11 +18,8 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
-replace github.com/edgedb/edgedb-go v0.9.2 => github.com/das7pad/edgedb-go v0.9.3-0.20220501211706-3b1145487062
-
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect
-	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/containerd/containerd v1.5.5 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
@@ -48,8 +44,6 @@ require (
 	github.com/rs/xid v1.2.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartystreets/assertions v1.1.0 // indirect
-	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
-	github.com/xdg/stringprep v1.0.0 // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect

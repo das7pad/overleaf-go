@@ -296,7 +296,7 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 	}
 
 	// insert
-	if err = m.dhm.InsertBulk(ctx, projectId, docId, dh); err != nil {
+	if err = m.dhm.InsertBulk(ctx, docId, dh); err != nil {
 		return errors.Tag(err, "cannot insert history into db")
 	}
 	return nil

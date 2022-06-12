@@ -1126,6 +1126,7 @@ func (h *httpController) resendProjectInvite(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ResendProjectInviteRequest{
 		ProjectId: o.ProjectId,
+		ActorId:   o.UserId,
 		InviteId:  httpUtils.GetId(c, "inviteId"),
 	}
 	err := h.wm.ResendProjectInvite(c.Request.Context(), request)
@@ -1181,6 +1182,7 @@ func (h *httpController) setMemberPrivilegeLevelInProject(c *httpUtils.Context) 
 		return
 	}
 	request.ProjectId = o.ProjectId
+	request.ActorId = o.UserId
 	request.UserId = httpUtils.GetId(c, "userId")
 	err := h.wm.SetMemberPrivilegeLevelInProject(c.Request.Context(), request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)

@@ -125,7 +125,7 @@ type FileRef struct {
 func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) FileRef {
 	f := FileRef{}
 	f.Name = name
-	f.Created = time.Now().UTC()
+	f.Created = time.Now()
 	f.Hash = hash
 	f.Size = size
 	return f

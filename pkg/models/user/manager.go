@@ -40,7 +40,6 @@ type Manager interface {
 	GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
 	GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error)
-	AddContact(ctx context.Context, userId, contactId sharedTypes.UUID) error
 	SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error
@@ -517,27 +516,10 @@ WHERE u.id = ids.id
 	return c, nil
 }
 
-func (m *manager) AddContact(ctx context.Context, userId, contactId sharedTypes.UUID) error {
-	a, b := userId, contactId
-	for i, x := range userId {
-		if contactId[i] > x {
-			a, b = contactId, userId
-			break
-		}
-	}
-	return getErr(m.db.ExecContext(ctx, `
-INSERT INTO contacts
-VALUES ($1, $2, 1, now())
-ON CONFLICT DO UPDATE
-    SET connections  = connections + 1,
-        last_touched = now()
-`, a, b))
-}
-
 func (m *manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE users
-SET learned_words = NULL
+SET learned_words = ARRAY []::TEXT[]
 WHERE id = $1
 `, userId))
 }

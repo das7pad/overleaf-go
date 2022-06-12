@@ -21,7 +21,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/edgedb/edgedb-go"
+	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -37,20 +37,12 @@ func New(db *sql.DB) Manager {
 	return &manager{db: db}
 }
 
-func rewriteEdgedbError(err error) error {
-	if e, ok := err.(edgedb.Error); ok && e.Category(edgedb.NoDataError) {
-		return &errors.NotFoundError{}
-	}
-	return err
-}
-
 const (
 	EmailConfirmationUse = "email_confirmation"
 	PasswordResetUse     = "password"
 )
 
 type manager struct {
-	c  *edgedb.Client
 	db *sql.DB
 }
 
@@ -70,38 +62,32 @@ func (m *manager) newToken(ctx context.Context, userId sharedTypes.UUID, email s
 			allErrors.Add(err)
 			continue
 		}
-		err = m.c.QuerySingle(ctx, `
-insert OneTimeToken {
-	expires_at := <datetime>$0,
-	token := <str>$1,
-	use := <str>$2,
-	email := (
-		select Email
-		filter
-			.email = <str>$3
-		and .user.id = <uuid>$4
-		and not exists .user.deleted_at
-	)
-}
-`,
-			&IdField{},
-			time.Now().UTC().Add(expiresIn), token, use, email, userId,
-		)
+		r, err := m.db.ExecContext(ctx, `
+INSERT INTO one_time_tokens
+(created_at, email, expires_at, token, use, user_id)
+SELECT transaction_timestamp(), $2, $3, $4, $5, u.id
+FROM users u
+WHERE u.id = $1
+  AND u.email = $2
+  AND u.deleted_at IS NULL
+`, userId, email, time.Now().Add(expiresIn), token, use)
 		if err != nil {
-			if e, ok := err.(edgedb.Error); ok {
-				if e.Category(edgedb.ConstraintViolationError) {
-					// Duplicate .token
-					allErrors.Add(err)
-					continue
-				}
-				if e.Category(edgedb.MissingRequiredError) {
-					// Missing .email
-					return "", &errors.UnprocessableEntityError{
-						Msg: "account does not hold given email",
-					}
-				}
+			if e, ok := err.(*pq.Error); ok &&
+				e.Constraint == "one_time_tokens_pkey" {
+				// Duplicate .token
+				allErrors.Add(err)
+				continue
 			}
-			return "", rewriteEdgedbError(err)
+			return "", err
+		}
+		n, err := r.RowsAffected()
+		if err != nil {
+			return "", err
+		}
+		if n == 0 {
+			return "", &errors.UnprocessableEntityError{
+				Msg: "account does not hold given email",
+			}
 		}
 		return token, nil
 	}
@@ -109,28 +95,28 @@ insert OneTimeToken {
 }
 
 func (m *manager) ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error {
-	err := m.c.QuerySingle(ctx, `
-with
-	t := (
-		update OneTimeToken
-		filter
-				.use = <str>$0
-			and .token = <str>$1
-			and not exists .used_at
-			and .expires_at > datetime_of_transaction()
-			and not exists .email.user.deleted_at
-		set {
-			used_at := datetime_of_transaction()
-		}
-	)
-update t.email
-set { confirmed_at := datetime_of_transaction() }
-`,
-		&IdField{},
-		EmailConfirmationUse, token,
-	)
+	r, err := m.db.ExecContext(ctx, `
+WITH ott AS (
+    UPDATE one_time_tokens
+        SET used_at = transaction_timestamp()
+        WHERE token = $1 AND use = $2 AND used_at IS NULL
+        RETURNING email)
+UPDATE users u
+SET email_confirmed_at = transaction_timestamp()
+FROM ott
+WHERE u.email = ott.email
+  AND u.deleted_at IS NULL
+  AND u.email_confirmed_at IS NULL
+`, token, EmailConfirmationUse)
 	if err != nil {
-		return rewriteEdgedbError(err)
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return &errors.NotFoundError{}
 	}
 	return nil
 }

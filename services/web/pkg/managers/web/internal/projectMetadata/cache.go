@@ -25,7 +25,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -76,12 +75,10 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 		return nil
 	})
 	eg.Go(func() error {
-		p := &project.LastUpdatedAtField{}
-		if err := m.pm.GetProject(pCtx, projectId, p); err != nil {
+		var err error
+		projectVersionFlushed, err = m.pm.GetLastUpdatedAt(pCtx, projectId)
+		if err != nil {
 			return errors.Tag(err, "cannot get project from edgedb")
-		}
-		if t := p.LastUpdatedAt; t != nil {
-			projectVersionFlushed = *t
 		}
 		return nil
 	})

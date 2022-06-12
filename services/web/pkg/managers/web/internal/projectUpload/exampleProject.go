@@ -38,7 +38,7 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 		return errUnknownTemplate
 	}
 	viewData := &exampleProjects.ViewData{
-		ProjectCreationDate: time.Now().UTC(),
+		ProjectCreationDate: time.Now(),
 		ProjectName:         request.Name,
 		Owner:               request.Session.User.ToPublicUserInfo(),
 	}

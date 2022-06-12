@@ -90,9 +90,11 @@ type ForTokenAccessDetails struct {
 }
 
 type ForProjectInvite struct {
-	IdField                 `edgedb:"$inline"`
 	NameField               `edgedb:"$inline"`
 	ForAuthorizationDetails `edgedb:"$inline"`
+
+	Sender user.WithPublicInfo
+	User   user.WithPublicInfo
 }
 
 type ForProjectEntries struct {

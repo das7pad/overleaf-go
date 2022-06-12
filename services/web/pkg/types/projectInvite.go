@@ -62,6 +62,7 @@ func (r *CreateProjectInviteRequest) Validate() error {
 type ResendProjectInviteRequest struct {
 	ProjectId sharedTypes.UUID `json:"-"`
 	InviteId  sharedTypes.UUID `json:"-"`
+	ActorId   sharedTypes.UUID `json:"-"`
 }
 
 type RevokeProjectInviteRequest struct {

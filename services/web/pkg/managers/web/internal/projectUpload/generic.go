@@ -73,7 +73,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	p.DeletedAt = sql.NullTime{
 		// Give the project upload 1h until it gets cleaned up by the cron.
 		Time: time.Now().
-			UTC().
 			Add(-constants.ExpireProjectsAfter).
 			Add(time.Hour),
 		Valid: true,

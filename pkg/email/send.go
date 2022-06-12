@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -109,7 +109,7 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		return errors.Tag(err, "cannot set robust boundary")
 	}
 
-	now := time.Now().UTC()
+	now := time.Now()
 	headers := map[string]string{
 		"Content-Type": fmt.Sprintf(
 			"multipart/alternative; boundary=%q", m.Boundary(),
