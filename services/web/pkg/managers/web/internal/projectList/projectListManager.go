@@ -94,7 +94,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 	}
 	userId := request.Session.User.Id
 	u := project.ForProjectList{
-		Tags:          make(tag.Tags, 0),
+		Tags:          make([]tag.Full, 0),
 		Projects:      make(project.List, 0),
 		Collaborators: make(user.BulkFetched, 0),
 	}
@@ -157,7 +157,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			},
 		},
 		Projects:        projects,
-		Tags:            u.Tags.Finalize(),
+		Tags:            u.Tags,
 		JWTLoggedInUser: jwtLoggedInUser,
 		UserEmails:      u.User.ToUserEmails(),
 	}

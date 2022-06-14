@@ -31,8 +31,8 @@ type AddDocRequest struct {
 type AddDocResponse = project.Doc
 
 type AddFolderRequest struct {
-	ProjectId      sharedTypes.UUID     `json:"-"`
-	UserId         sharedTypes.UUID     `edgedb:"-"`
+	ProjectId      sharedTypes.UUID `json:"-"`
+	UserId         sharedTypes.UUID
 	Name           sharedTypes.Filename `json:"name"`
 	ParentFolderId sharedTypes.UUID     `json:"parent_folder_id"`
 }

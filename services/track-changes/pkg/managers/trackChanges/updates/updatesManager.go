@@ -86,7 +86,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 		}
 
 		for _, update := range batch.History {
-			docId := update.Doc.Id.String()
+			docId := update.DocId.String()
 			startAt := sharedTypes.Timestamp(update.StartAt.UnixMilli())
 			endAt := sharedTypes.Timestamp(update.EndAt.UnixMilli())
 			if len(res.Updates) == 0 ||

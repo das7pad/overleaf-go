@@ -24,19 +24,19 @@ import (
 
 type DocHistory struct {
 	UserId  sharedTypes.UUID
-	Version sharedTypes.Version `edgedb:"version"`
-	StartAt time.Time           `edgedb:"start_at"`
-	EndAt   time.Time           `edgedb:"end_at"`
-	Op      sharedTypes.Op      `edgedb:"-"`
+	Version sharedTypes.Version
+	StartAt time.Time
+	EndAt   time.Time
+	Op      sharedTypes.Op
 }
 
 type ProjectUpdate struct {
-	Doc          IdField `edgedb:"doc"`
+	DocId        sharedTypes.UUID
 	UserId       sharedTypes.UUID
-	Version      sharedTypes.Version `edgedb:"version"`
-	HasBigDelete bool                `edgedb:"has_big_delete"`
-	StartAt      time.Time           `edgedb:"start_at"`
-	EndAt        time.Time           `edgedb:"end_at"`
+	Version      sharedTypes.Version
+	HasBigDelete bool
+	StartAt      time.Time
+	EndAt        time.Time
 }
 
 type ForInsert struct {

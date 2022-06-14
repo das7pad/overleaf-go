@@ -33,43 +33,43 @@ type Member struct {
 }
 
 type CompilerField struct {
-	Compiler sharedTypes.Compiler `json:"compiler" edgedb:"compiler"`
+	Compiler sharedTypes.Compiler `json:"compiler"`
 }
 
 type DeletedAtField struct {
-	DeletedAt sql.NullTime `edgedb:"deleted_at"`
+	DeletedAt sql.NullTime
 }
 
 type DeletedDocsField struct {
-	DeletedDocs []CommonTreeFields `json:"deletedDocs" edgedb:"deleted_docs"`
+	DeletedDocs []CommonTreeFields `json:"deletedDocs"`
 }
 
 type EpochField struct {
-	Epoch int64 `edgedb:"epoch"`
+	Epoch int64
 }
 
 type IdField struct {
-	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id"`
 }
 
 type ImageNameField struct {
-	ImageName sharedTypes.ImageName `json:"imageName" edgedb:"image_name"`
+	ImageName sharedTypes.ImageName `json:"imageName"`
 }
 
 type LastOpenedField struct {
-	LastOpened time.Time `edgedb:"last_opened"`
+	LastOpened time.Time
 }
 
 type LastUpdatedAtField struct {
-	LastUpdatedAt *time.Time `edgedb:"last_updated_at"`
+	LastUpdatedAt *time.Time
 }
 
 type LastUpdatedByField struct {
-	LastUpdatedBy sharedTypes.UUID `edgedb:"last_updated_by"`
+	LastUpdatedBy sharedTypes.UUID
 }
 
 type NameField struct {
-	Name Name `json:"name" edgedb:"name"`
+	Name Name `json:"name"`
 }
 
 type OwnerIdField struct {
@@ -82,7 +82,7 @@ type OwnerFeaturesField struct {
 
 //goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
-	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" edgedb:"public_access_level"`
+	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel"`
 }
 
 type RootDocIdField struct {
@@ -91,33 +91,33 @@ type RootDocIdField struct {
 }
 
 type RootDocField struct {
-	RootDoc RootDoc `json:"root_doc" edgedb:"root_doc"`
+	RootDoc RootDoc `json:"root_doc"`
 }
 
 type SpellCheckLanguageField struct {
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spell_check_language"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
 }
 
 type TokensField struct {
-	Tokens Tokens `json:"tokens" edgedb:"tokens"`
+	Tokens Tokens `json:"tokens"`
 }
 
 type RootFolderField struct {
-	RootFolder Folder `edgedb:"root_folder"`
+	RootFolder Folder
 }
 
 type FoldersField struct {
-	Folders []Folder `json:"-" edgedb:"folders"`
+	Folders []Folder `json:"-"`
 }
 
 type DocsField struct {
-	Docs []Doc `edgedb:"docs"`
+	Docs []Doc
 }
 
 type FilesField struct {
-	Files []FileRef `edgedb:"files"`
+	Files []FileRef
 }
 
 type VersionField struct {
-	Version sharedTypes.Version `json:"version" edgedb:"version"`
+	Version sharedTypes.Version `json:"version"`
 }

@@ -23,8 +23,8 @@ import (
 )
 
 type EmailDetails struct {
-	ConfirmedAt *time.Time        `json:"confirmedAt" edgedb:"confirmed_at"`
-	Email       sharedTypes.Email `json:"email" edgedb:"email"`
+	ConfirmedAt *time.Time        `json:"confirmedAt"`
+	Email       sharedTypes.Email `json:"email"`
 }
 
 type EmailDetailsWithDefaultFlag struct {

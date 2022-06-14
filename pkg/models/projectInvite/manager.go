@@ -203,7 +203,7 @@ WITH pi AS (
         RETURNING project_id, privilege_level, sending_user_id),
      contacts AS (
          WITH sortedIds AS (
-             WITH ids AS (SELECT $2::UUID as x, pi.sending_user_id as y
+             WITH ids AS (SELECT $2::UUID AS x, pi.sending_user_id AS y
                           FROM pi)
              SELECT least(ids.x, ids.y) AS a, greatest(ids.x, ids.y) AS b
              FROM ids),

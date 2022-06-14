@@ -32,8 +32,8 @@ type TreeElement interface {
 }
 
 type CommonTreeFields struct {
-	Id   sharedTypes.UUID     `json:"_id" edgedb:"id"`
-	Name sharedTypes.Filename `json:"name" edgedb:"name"`
+	Id   sharedTypes.UUID     `json:"_id"`
+	Name sharedTypes.Filename `json:"name"`
 }
 
 type LeafFields struct {
@@ -46,18 +46,18 @@ func (c CommonTreeFields) GetId() sharedTypes.UUID {
 }
 
 type RootDoc struct {
-	Doc `edgedb:"$inline"`
+	Doc
 }
 
 type DocWithParent struct {
-	Doc    `edgedb:"$inline"`
-	Parent IdField `edgedb:"parent"`
+	Doc
+	Parent IdField
 }
 
 type Doc struct {
-	LeafFields `edgedb:"$inline"`
-	Snapshot   string              `json:"snapshot" edgedb:"snapshot"`
-	Version    sharedTypes.Version `json:"version" edgedb:"version"`
+	LeafFields
+	Snapshot string              `json:"snapshot"`
+	Version  sharedTypes.Version `json:"version"`
 }
 
 func NewDoc(name sharedTypes.Filename) Doc {
@@ -86,11 +86,11 @@ func (p LinkedFileProvider) Validate() error {
 }
 
 type LinkedFileData struct {
-	Provider             LinkedFileProvider   `json:"provider" edgedb:"provider"`
-	SourceProjectId      sharedTypes.UUID     `json:"source_project_id,omitempty" edgedb:"source_project_id"`
-	SourceEntityPath     sharedTypes.PathName `json:"source_entity_path,omitempty" edgedb:"source_entity_path"`
-	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path,omitempty" edgedb:"source_output_file_path"`
-	URL                  string               `json:"url,omitempty" edgedb:"url"`
+	Provider             LinkedFileProvider   `json:"provider"`
+	SourceProjectId      sharedTypes.UUID     `json:"source_project_id,omitempty"`
+	SourceEntityPath     sharedTypes.PathName `json:"source_entity_path,omitempty"`
+	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path,omitempty"`
+	URL                  string               `json:"url,omitempty"`
 }
 
 func (d *LinkedFileData) Scan(x interface{}) error {
@@ -109,17 +109,17 @@ func (d *LinkedFileData) Value() (driver.Value, error) {
 }
 
 type FileWithParent struct {
-	FileRef  `edgedb:"$inline"`
-	ParentId sharedTypes.UUID `edgedb:"parent"`
+	FileRef
+	ParentId sharedTypes.UUID
 }
 
 type FileRef struct {
-	LeafFields `edgedb:"$inline"`
+	LeafFields
 
-	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" edgedb:"linked_file_data"`
-	Hash           sharedTypes.Hash `json:"hash,omitempty" edgedb:"hash"`
-	Created        time.Time        `json:"created" edgedb:"created_at"`
-	Size           int64            `json:"size" edgedb:"size"`
+	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty"`
+	Hash           sharedTypes.Hash `json:"hash,omitempty"`
+	Created        time.Time        `json:"created"`
+	Size           int64            `json:"size"`
 }
 
 func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) FileRef {
@@ -132,12 +132,12 @@ func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) Fi
 }
 
 type Folder struct {
-	CommonTreeFields `edgedb:"$inline"`
-	Path             sharedTypes.DirName `json:"-" edgedb:"path"`
+	CommonTreeFields
+	Path sharedTypes.DirName `json:"-"`
 
-	Docs     []Doc     `json:"docs" edgedb:"docs"`
-	FileRefs []FileRef `json:"fileRefs" edgedb:"files"`
-	Folders  []Folder  `json:"folders" edgedb:"folders"`
+	Docs     []Doc     `json:"docs"`
+	FileRefs []FileRef `json:"fileRefs"`
+	Folders  []Folder  `json:"folders"`
 }
 
 func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {

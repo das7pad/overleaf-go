@@ -108,7 +108,7 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId shared
 func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId sharedTypes.UUID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {
 	docs, _, err := m.pm.GetProjectWithContent(ctx, projectId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get docs from edgedb")
+		return nil, errors.Tag(err, "cannot get docs from db")
 	}
 	meta := make(types.LightProjectMetadata, len(recentlyEdited))
 	for _, d := range recentlyEdited {

@@ -23,7 +23,7 @@ import (
 )
 
 type WithPublicInfoAndNonStandardId struct {
-	WithPublicInfo `edgedb:"$inline"`
+	WithPublicInfo
 	IdNoUnderscore sharedTypes.UUID `json:"id"`
 }
 

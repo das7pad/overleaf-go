@@ -33,11 +33,11 @@ const (
 )
 
 type AuditLogEntry struct {
-	Info        interface{}      `edgedb:"info"`
-	InitiatorId sharedTypes.UUID `edgedb:"initiatorId"`
-	IpAddress   string           `edgedb:"ipAddress"`
-	Operation   string           `edgedb:"operation"`
-	Timestamp   time.Time        `edgedb:"timestamp"`
+	Info        interface{}
+	InitiatorId sharedTypes.UUID
+	IpAddress   string
+	Operation   string
+	Timestamp   time.Time
 }
 
 type changeEmailAddressAuditLogInfo struct {

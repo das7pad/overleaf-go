@@ -23,8 +23,8 @@ import (
 )
 
 type AuditLogEntry struct {
-	Info        interface{}      `edgedb:"info"`
-	InitiatorId sharedTypes.UUID `edgedb:"initiatorId"`
-	Operation   string           `edgedb:"operation"`
-	Timestamp   time.Time        `edgedb:"timestamp"`
+	Info        interface{}
+	InitiatorId sharedTypes.UUID
+	Operation   string
+	Timestamp   time.Time
 }

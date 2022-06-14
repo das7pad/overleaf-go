@@ -51,7 +51,7 @@ func (m *manager) smokeTestRedis(ctx context.Context) error {
 	return nil
 }
 
-func (m *manager) smokeTestEdgedb(ctx context.Context) error {
+func (m *manager) smokeTestPostgres(ctx context.Context) error {
 	u := &user.BetaProgramField{}
 	if err := m.um.GetUser(ctx, m.smokeTestUserId, u); err != nil {
 		return err
@@ -70,8 +70,8 @@ func (m *manager) smokeTestAPI() error {
 		return nil
 	})
 	eg.Go(func() error {
-		if err := m.smokeTestEdgedb(pCtx); err != nil {
-			return errors.Tag(err, "edgedb check failed")
+		if err := m.smokeTestPostgres(pCtx); err != nil {
+			return errors.Tag(err, "db check failed")
 		}
 		return nil
 	})

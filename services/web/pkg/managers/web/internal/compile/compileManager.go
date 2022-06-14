@@ -208,7 +208,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			resources, rootDocPath, err = m.fromDB(ctx, request)
 			fetchContentPerf.End()
 			if err != nil {
-				return errors.Tag(err, "cannot get docs from edgedb")
+				return errors.Tag(err, "cannot get docs from db")
 			}
 		} else {
 			return errors.Tag(err, "cannot get docs from redis")
@@ -245,11 +245,11 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, clsiTypes.RootResourcePath, error) {
 	err := m.dum.FlushProject(ctx, request.ProjectId)
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot flush docs to edgedb")
+		return nil, "", errors.Tag(err, "cannot flush docs to db")
 	}
 	docs, files, err := m.pm.GetProjectWithContent(ctx, request.ProjectId)
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot get folder from edgedb")
+		return nil, "", errors.Tag(err, "cannot get folder from db")
 	}
 	rootDocPath := request.RootDocPath
 	resources := make(clsiTypes.Resources, 0, 10)

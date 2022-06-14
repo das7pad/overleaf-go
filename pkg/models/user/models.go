@@ -18,94 +18,85 @@ package user
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ProjectListViewCaller struct {
-	WithPublicInfo        `edgedb:"$inline"`
-	EmailConfirmedAtField `edgedb:"$inline"`
+	WithPublicInfo
+	EmailConfirmedAtField
 }
 
 type WithPublicInfo struct {
-	EmailField     `edgedb:"email"`
-	FirstNameField `edgedb:"$inline"`
-	IdField        `edgedb:"$inline"`
-	LastNameField  `edgedb:"$inline"`
-}
-
-func (u *WithPublicInfo) SetMissing(_ bool) {
-	// We can detect the missing state by checking for an all zero id.
-}
-
-func (u *WithPublicInfo) Missing() bool {
-	return u.Id == (sharedTypes.UUID{})
+	EmailField
+	FirstNameField
+	IdField
+	LastNameField
 }
 
 type WithPublicInfoAndFeatures struct {
-	FeaturesField  `edgedb:"$inline"`
-	WithPublicInfo `edgedb:"$inline"`
+	FeaturesField
+	WithPublicInfo
 }
 
 type WithLoadEditorInfo struct {
-	AlphaProgramField         `edgedb:"$inline"`
-	BetaProgramField          `edgedb:"$inline"`
-	EditorConfigField         `edgedb:"$inline"`
-	EpochField                `edgedb:"$inline"`
-	IsAdminField              `edgedb:"$inline"`
-	WithPublicInfoAndFeatures `edgedb:"$inline"`
+	AlphaProgramField
+	BetaProgramField
+	EditorConfigField
+	EpochField
+	IsAdminField
+	WithPublicInfoAndFeatures
 }
 
 type WithLoginInfo struct {
-	ForSession          `edgedb:"$inline"`
-	HashedPasswordField `edgedb:"$inline"`
-	MustReconfirmField  `edgedb:"$inline"`
+	ForSession
+	HashedPasswordField
+	MustReconfirmField
 }
 
 type ForSession struct {
-	EpochField     `edgedb:"$inline"`
-	IsAdminField   `edgedb:"$inline"`
-	WithPublicInfo `edgedb:"$inline"`
+	EpochField
+	IsAdminField
+	WithPublicInfo
 }
 
 type ForCreation struct {
-	ForSession          `edgedb:"$inline"`
-	AuditLogField       `edgedb:"$inline"`
-	EditorConfigField   `edgedb:"$inline"`
-	EmailsField         `edgedb:"$inline"`
-	FeaturesField       `edgedb:"$inline"`
-	HashedPasswordField `edgedb:"$inline"`
-	LastLoggedInField   `edgedb:"$inline"`
-	LastLoginIpField    `edgedb:"$inline"`
-	LoginCountField     `edgedb:"$inline"`
-	SignUpDateField     `edgedb:"$inline"`
+	ForSession
+	AuditLogField
+	EditorConfigField
+	EmailsField
+	FeaturesField
+	HashedPasswordField
+	LastLoggedInField
+	LastLoginIpField
+	LoginCountField
+	SignUpDateField
 
 	oneTimeToken.OneTimeToken
 	OneTimeTokenUse string
 }
 
 type ForEmailChange struct {
-	EmailField `edgedb:"email"`
-	EpochField `edgedb:"$inline"`
-	IdField    `edgedb:"$inline"`
+	EmailField
+	EpochField
+	IdField
 }
 
 type ForPasswordChange struct {
-	WithPublicInfo      `edgedb:"$inline"`
-	EpochField          `edgedb:"$inline"`
-	HashedPasswordField `edgedb:"$inline"`
+	WithPublicInfo
+	EpochField
+	HashedPasswordField
 }
 
 type WithNames struct {
-	FirstNameField `edgedb:"$inline"`
-	LastNameField  `edgedb:"$inline"`
+	FirstNameField
+	LastNameField
 }
 
 type ForSettingsPage struct {
-	WithPublicInfo   `edgedb:"$inline"`
-	BetaProgramField `edgedb:"$inline"`
+	WithPublicInfo
+	BetaProgramField
 }
 
 type ForActivateUserPage struct {
-	EmailField      `edgedb:"email"`
-	LoginCountField `edgedb:"$inline"`
+	EmailField
+	LoginCountField
 }

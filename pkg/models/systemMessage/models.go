@@ -16,7 +16,11 @@
 
 package systemMessage
 
+import (
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type Full struct {
-	IdField      `edgedb:"$inline"`
-	ContentField `edgedb:"$inline"`
+	Id      sharedTypes.UUID `json:"_id"`
+	Content string           `json:"content"`
 }

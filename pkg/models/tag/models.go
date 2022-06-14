@@ -21,25 +21,7 @@ import (
 )
 
 type Full struct {
-	IdField       `edgedb:"$inline"`
-	NameField     `edgedb:"$inline"`
-	ProjectsField `edgedb:"$inline"`
-	ProjectIdsField
-}
-
-type Tags []Full
-
-func (t Full) Finalize() Full {
-	t.ProjectIds = make([]sharedTypes.UUID, len(t.Projects))
-	for _, project := range t.Projects {
-		t.ProjectIds = append(t.ProjectIds, project.Id)
-	}
-	return t
-}
-
-func (ts Tags) Finalize() Tags {
-	for i, t := range ts {
-		ts[i] = t.Finalize()
-	}
-	return ts
+	Id         sharedTypes.UUID   `json:"_id"`
+	Name       string             `json:"name"`
+	ProjectIds []sharedTypes.UUID `json:"project_ids"`
 }

@@ -22,88 +22,88 @@ import (
 )
 
 type JoinProjectViewPrivate struct {
-	ForAuthorizationDetails `edgedb:"$inline"`
-	ForTree                 `edgedb:"$inline"`
-	JoinProjectViewPublic   `edgedb:"$inline"`
+	ForAuthorizationDetails
+	ForTree
+	JoinProjectViewPublic
 	OwnerIdField
-	RootDocField `edgedb:"$inline"`
+	RootDocField
 }
 
 type JoinProjectViewPublic struct {
-	CompilerField    `edgedb:"$inline"`
-	DeletedDocsField `edgedb:"$inline"`
-	IdField          `edgedb:"$inline"`
-	ImageNameField   `edgedb:"$inline"`
-	NameField        `edgedb:"$inline"`
+	CompilerField
+	DeletedDocsField
+	IdField
+	ImageNameField
+	NameField
 	OwnerFeaturesField
-	SpellCheckLanguageField `edgedb:"$inline"`
-	VersionField            `edgedb:"$inline"`
+	SpellCheckLanguageField
+	VersionField
 }
 
 type JoinProjectDetails struct {
-	Project JoinProjectViewPrivate `edgedb:"project"`
+	Project JoinProjectViewPrivate
 	Owner   user.WithPublicInfo
 }
 
 type ListViewPrivate struct {
-	ForAuthorizationDetails `edgedb:"$inline"`
-	IdField                 `edgedb:"$inline"`
-	LastUpdatedAtField      `edgedb:"$inline"`
-	LastUpdatedByField      `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
+	ForAuthorizationDetails
+	IdField
+	LastUpdatedAtField
+	LastUpdatedByField
+	NameField
 	OwnerIdField
 }
 
 type List []ListViewPrivate
 
 type LoadEditorViewPrivate struct {
-	LoadEditorViewPublic    `edgedb:"$inline"`
-	ForAuthorizationDetails `edgedb:"$inline"`
-	RootDocField            `edgedb:"$inline"`
+	LoadEditorViewPublic
+	ForAuthorizationDetails
+	RootDocField
 }
 
 type LoadEditorDetails struct {
-	Project LoadEditorViewPrivate   `edgedb:"project"`
-	User    user.WithLoadEditorInfo `edgedb:"user"`
+	Project LoadEditorViewPrivate
+	User    user.WithLoadEditorInfo
 }
 
 type LoadEditorViewPublic struct {
-	CompilerField  `edgedb:"$inline"`
-	IdField        `edgedb:"$inline"`
-	ImageNameField `edgedb:"$inline"`
-	NameField      `edgedb:"$inline"`
+	CompilerField
+	IdField
+	ImageNameField
+	NameField
 	OwnerFeaturesField
-	RootDocIdField `edgedb:"$inline"`
-	VersionField   `edgedb:"$inline"`
+	RootDocIdField
+	VersionField
 }
 
 type ForAuthorizationDetails struct {
 	Member
-	EpochField             `edgedb:"$inline"`
-	PublicAccessLevelField `edgedb:"$inline"`
-	TokensField            `edgedb:"$inline"`
+	EpochField
+	PublicAccessLevelField
+	TokensField
 }
 
 type ForTokenAccessDetails struct {
-	IdField                 `edgedb:"$inline"`
-	ForAuthorizationDetails `edgedb:"$inline"`
+	IdField
+	ForAuthorizationDetails
 }
 
 type ForProjectInvite struct {
-	NameField               `edgedb:"$inline"`
-	ForAuthorizationDetails `edgedb:"$inline"`
+	NameField
+	ForAuthorizationDetails
 
 	Sender user.WithPublicInfo
 	User   user.WithPublicInfo
 }
 
 type ForProjectEntries struct {
-	DocsField  `edgedb:"$inline"`
-	FilesField `edgedb:"$inline"`
+	DocsField
+	FilesField
 }
 
 type ForTree struct {
-	RootFolderField `edgedb:"$inline"`
+	RootFolderField
 
 	treeIds        []sharedTypes.UUID
 	treeKinds      []string
@@ -116,33 +116,33 @@ type ForTree struct {
 }
 
 type ForZip struct {
-	NameField `edgedb:"$inline"`
-	ForTree   `edgedb:"$inline"`
+	NameField
+	ForTree
 }
 
 type ForCreation struct {
-	CompilerField           `edgedb:"$inline"`
-	DeletedAtField          `edgedb:"$inline"`
-	EpochField              `edgedb:"$inline"`
-	IdField                 `edgedb:"$inline"`
-	ImageNameField          `edgedb:"$inline"`
-	NameField               `edgedb:"$inline"`
-	LastUpdatedAtField      `edgedb:"$inline"`
-	LastUpdatedByField      `edgedb:"$inline"`
-	OwnerIdField            `edgedb:"$inline"`
-	PublicAccessLevelField  `edgedb:"$inline"`
-	RootDocField            `edgedb:"$inline"`
-	SpellCheckLanguageField `edgedb:"$inline"`
-	RootFolderField         `edgedb:"$inline"`
-	VersionField            `edgedb:"$inline"`
+	CompilerField
+	DeletedAtField
+	EpochField
+	IdField
+	ImageNameField
+	NameField
+	LastUpdatedAtField
+	LastUpdatedByField
+	OwnerIdField
+	PublicAccessLevelField
+	RootDocField
+	SpellCheckLanguageField
+	RootFolderField
+	VersionField
 }
 
 type ForClone struct {
-	ForAuthorizationDetails `edgedb:"$inline"`
-	CompilerField           `edgedb:"$inline"`
-	ImageNameField          `edgedb:"$inline"`
-	RootDocField            `edgedb:"$inline"`
-	SpellCheckLanguageField `edgedb:"$inline"`
+	ForAuthorizationDetails
+	CompilerField
+	ImageNameField
+	RootDocField
+	SpellCheckLanguageField
 	ForTree
 }
 

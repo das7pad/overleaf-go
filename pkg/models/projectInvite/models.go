@@ -17,22 +17,22 @@
 package projectInvite
 
 type ForListing struct {
-	EmailField          `edgedb:"$inline"`
-	IdField             `edgedb:"$inline"`
-	PrivilegeLevelField `edgedb:"$inline"`
+	EmailField
+	IdField
+	PrivilegeLevelField
 }
 
 type WithoutToken struct {
-	CreatedAtField      `edgedb:"$inline"`
-	EmailField          `edgedb:"$inline"`
-	ExpiresAtField      `edgedb:"$inline"`
-	IdField             `edgedb:"$inline"`
-	PrivilegeLevelField `edgedb:"$inline"`
-	ProjectField        `edgedb:"project"`
-	SendingUserField    `edgedb:"$inline"`
+	CreatedAtField
+	EmailField
+	ExpiresAtField
+	IdField
+	PrivilegeLevelField
+	ProjectField
+	SendingUserField
 }
 
 type WithToken struct {
-	WithoutToken `edgedb:"$inline"`
-	TokenField   `edgedb:"$inline"`
+	WithoutToken
+	TokenField
 }

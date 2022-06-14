@@ -78,7 +78,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 		var err error
 		projectVersionFlushed, err = m.pm.GetLastUpdatedAt(pCtx, projectId)
 		if err != nil {
-			return errors.Tag(err, "cannot get project from edgedb")
+			return errors.Tag(err, "cannot get project from db")
 		}
 		return nil
 	})

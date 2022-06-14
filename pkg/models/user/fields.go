@@ -23,23 +23,23 @@ import (
 )
 
 type AlphaProgramField struct {
-	AlphaProgram bool `json:"alphaProgram" edgedb:"alphaProgram"`
+	AlphaProgram bool `json:"alphaProgram"`
 }
 
 type AuditLogField struct {
-	AuditLog []AuditLogEntry `edgedb:"auditLog"`
+	AuditLog []AuditLogEntry
 }
 
 type BetaProgramField struct {
-	BetaProgram bool `json:"betaProgram" edgedb:"beta_program"`
+	BetaProgram bool `json:"betaProgram"`
 }
 
 type EditorConfigField struct {
-	EditorConfig EditorConfig `json:"ace" edgedb:"editor_config"`
+	EditorConfig EditorConfig `json:"ace"`
 }
 
 type EmailField struct {
-	Email sharedTypes.Email `json:"email" edgedb:"email"`
+	Email sharedTypes.Email `json:"email"`
 }
 
 type EmailConfirmedAtField struct {
@@ -47,23 +47,23 @@ type EmailConfirmedAtField struct {
 }
 
 type EmailsField struct {
-	Emails []EmailDetails `json:"emails" edgedb:"emails"`
+	Emails []EmailDetails `json:"emails"`
 }
 
 type EpochField struct {
-	Epoch int64 `json:"epoch" edgedb:"epoch"`
+	Epoch int64 `json:"epoch"`
 }
 
 type FeaturesField struct {
-	Features Features `json:"features" edgedb:"features"`
+	Features Features `json:"features"`
 }
 
 type FirstNameField struct {
-	FirstName string `json:"first_name" edgedb:"first_name"`
+	FirstName string `json:"first_name"`
 }
 
 type IdField struct {
-	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id"`
 }
 
 type IsAdminField struct {
@@ -71,33 +71,33 @@ type IsAdminField struct {
 }
 
 type HashedPasswordField struct {
-	HashedPassword string `json:"-" edgedb:"password_hash"`
+	HashedPassword string `json:"-"`
 }
 
 type LastLoggedInField struct {
-	LastLoggedIn *time.Time `edgedb:"last_logged_in"`
+	LastLoggedIn *time.Time
 }
 
 type LastLoginIpField struct {
-	LastLoginIp string `edgedb:"last_login_ip"`
+	LastLoginIp string
 }
 
 type LastNameField struct {
-	LastName string `json:"last_name" edgedb:"last_name"`
+	LastName string `json:"last_name"`
 }
 
 type LearnedWordsField struct {
-	LearnedWords []string `edgedb:"learned_words"`
+	LearnedWords []string
 }
 
 type LoginCountField struct {
-	LoginCount int64 `edgedb:"login_count"`
+	LoginCount int64
 }
 
 type MustReconfirmField struct {
-	MustReconfirm bool `edgedb:"must_reconfirm"`
+	MustReconfirm bool
 }
 
 type SignUpDateField struct {
-	SignUpDate time.Time `edgedb:"signup_date"`
+	SignUpDate time.Time
 }

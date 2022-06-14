@@ -24,33 +24,33 @@ import (
 )
 
 type CreatedAtField struct {
-	CreatedAt time.Time `json:"createdAt" edgedb:"created_at"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type EmailField struct {
-	Email sharedTypes.Email `json:"email" edgedb:"email"`
+	Email sharedTypes.Email `json:"email"`
 }
 
 type ExpiresAtField struct {
-	Expires time.Time `json:"expires" edgedb:"expires_at"`
+	Expires time.Time `json:"expires"`
 }
 
 type IdField struct {
-	Id sharedTypes.UUID `json:"_id" edgedb:"id"`
+	Id sharedTypes.UUID `json:"_id"`
 }
 
 type PrivilegeLevelField struct {
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" edgedb:"privilege_level"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
 }
 
 type ProjectField struct {
-	ProjectId sharedTypes.UUID `json:"-" edgedb:"id"`
+	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type SendingUserField struct {
-	SendingUser user.WithPublicInfo `json:"-" edgedb:"sending_user"`
+	SendingUser user.WithPublicInfo `json:"-"`
 }
 
 type TokenField struct {
-	Token Token `json:"-" edgedb:"token"`
+	Token Token `json:"-"`
 }

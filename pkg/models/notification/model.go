@@ -16,11 +16,18 @@
 
 package notification
 
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type Notification struct {
-	IdField          `edgedb:"$inline"`
-	KeyField         `edgedb:"$inline"`
-	UserIdField      `edgedb:"$inline"`
-	ExpiresField     `edgedb:"$inline"`
-	TemplateKeyField `edgedb:"$inline"`
-	MessageOptsField `edgedb:"$inline"`
+	Id             sharedTypes.UUID `json:"_id"`
+	UserId         sharedTypes.UUID `json:"user_id"`
+	Expires        time.Time        `json:"expires,omitempty"`
+	Key            string           `json:"key"`
+	TemplateKey    string           `json:"templateKey,omitempty"`
+	MessageOptions json.RawMessage  `json:"messageOpts,omitempty"`
 }

@@ -127,14 +127,13 @@ CREATE TABLE tree_nodes
   deleted_at TIMESTAMP    NOT NULL,
   id         UUID         NOT NULL PRIMARY KEY,
   kind       TreeNodeKind NOT NULL,
-  name       TEXT         NOT NULL,
   parent_id  UUID         NULL REFERENCES tree_nodes ON DELETE CASCADE,
   path       TEXT         NOT NULL,
   project_id UUID         NOT NULL REFERENCES projects ON DELETE CASCADE,
 
   -- Assumption: creation and deletion of nodes takes >1 microsecond,
   --  which is the resolution of deleted_at.
-  UNIQUE (project_id, parent_id, name, deleted_at)
+  UNIQUE (project_id, path, deleted_at)
 );
 
 CREATE UNIQUE INDEX ensure_one_root_folder

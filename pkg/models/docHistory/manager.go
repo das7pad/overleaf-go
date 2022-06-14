@@ -135,8 +135,8 @@ LIMIT 1
 }
 
 type GetForDocResult struct {
-	History []DocHistory     `edgedb:"history"`
-	Users   user.BulkFetched `edgedb:"users"`
+	History []DocHistory
+	Users   user.BulkFetched
 }
 
 func (m *manager) GetForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version, res *GetForDocResult) error {
@@ -219,8 +219,8 @@ WHERE p.id = $1
 }
 
 type GetForProjectResult struct {
-	History []ProjectUpdate  `edgedb:"history"`
-	Users   user.BulkFetched `edgedb:"users"`
+	History []ProjectUpdate
+	Users   user.BulkFetched
 }
 
 func (m *manager) GetForProject(ctx context.Context, projectId sharedTypes.UUID, before time.Time, limit int64, res *GetForProjectResult) error {
@@ -267,7 +267,7 @@ ORDER BY dh.end_at DESC
 				&h[i].EndAt,
 				&h[i].HasBigDelete,
 				&h[i].UserId,
-				&h[i].Doc.Id,
+				&h[i].DocId,
 			)
 			if err != nil {
 				return err

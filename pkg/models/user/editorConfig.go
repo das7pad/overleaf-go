@@ -25,17 +25,17 @@ import (
 )
 
 type EditorConfig struct {
-	AutoComplete       bool                             `json:"autoComplete" edgedb:"auto_complete"`
-	AutoPairDelimiters bool                             `json:"autoPairDelimiters" edgedb:"auto_pair_delimiters"`
-	FontFamily         string                           `json:"fontFamily" edgedb:"font_family"`
-	FontSize           int64                            `json:"fontSize" edgedb:"font_size"`
-	LineHeight         string                           `json:"lineHeight" edgedb:"line_height"`
-	Mode               string                           `json:"mode" edgedb:"mode"`
-	OverallTheme       string                           `json:"overallTheme" edgedb:"overall_theme"`
-	PDFViewer          string                           `json:"pdfViewer" edgedb:"pdf_viewer"`
-	SyntaxValidation   bool                             `json:"syntaxValidation" edgedb:"syntax_validation"`
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" edgedb:"spell_check_language"`
-	Theme              string                           `json:"theme" edgedb:"theme"`
+	AutoComplete       bool                             `json:"autoComplete"`
+	AutoPairDelimiters bool                             `json:"autoPairDelimiters"`
+	FontFamily         string                           `json:"fontFamily"`
+	FontSize           int64                            `json:"fontSize"`
+	LineHeight         string                           `json:"lineHeight"`
+	Mode               string                           `json:"mode"`
+	OverallTheme       string                           `json:"overallTheme"`
+	PDFViewer          string                           `json:"pdfViewer"`
+	SyntaxValidation   bool                             `json:"syntaxValidation"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
+	Theme              string                           `json:"theme"`
 }
 
 func (e *EditorConfig) Scan(x interface{}) error {

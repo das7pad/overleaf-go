@@ -71,7 +71,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 		return errors.Tag(err, "cannot check auth")
 	}
 	if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
-		return errors.Tag(err, "cannot flush docs to edgedb")
+		return errors.Tag(err, "cannot flush docs to db")
 	}
 
 	p, err := m.pm.GetForClone(ctx, sourceProjectId, userId)

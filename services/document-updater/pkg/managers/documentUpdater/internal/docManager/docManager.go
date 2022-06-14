@@ -169,7 +169,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 	}
 	flushedDoc, err := m.pm.GetDoc(ctx, projectId, docId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get doc from edgedb")
+		return nil, errors.Tag(err, "cannot get doc from db")
 	}
 	d = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
 	if err = m.rm.PutDocInMemory(ctx, projectId, docId, d); err != nil {
@@ -536,7 +536,7 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId sh
 			ctx, projectId, docId, doc.ToSetDocDetails(),
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot persist doc in edgedb")
+			return errors.Tag(err, "cannot persist doc in db")
 		}
 	}
 	if deleteFromRedis {

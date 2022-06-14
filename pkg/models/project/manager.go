@@ -170,7 +170,7 @@ VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 		ctx,
 		pq.CopyIn(
 			"tree_nodes",
-			"deleted_at", "id", "kind", "name", "parent_id", "path",
+			"deleted_at", "id", "kind", "parent_id", "path",
 			"project_id",
 		),
 	)
@@ -185,7 +185,7 @@ VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 	deletedAt := "1970-01-01"
 	t := p.RootFolder
 	_, err = q.ExecContext(
-		ctx, deletedAt, t.Id, "folder", "", nil, "", p.Id,
+		ctx, deletedAt, t.Id, "folder", nil, "", p.Id,
 	)
 	if err != nil {
 		return errors.Tag(err, "queue root folder")
@@ -194,7 +194,7 @@ VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 		for _, d := range f.Docs {
 			_, err = q.ExecContext(
 				ctx,
-				deletedAt, d.Id, "doc", d.Name, f.Id, path.Join(d.Name), p.Id,
+				deletedAt, d.Id, "doc", f.Id, path.Join(d.Name), p.Id,
 			)
 			if err != nil {
 				return err
@@ -203,7 +203,7 @@ VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
 		for _, r := range f.FileRefs {
 			_, err = q.ExecContext(
 				ctx,
-				deletedAt, r.Id, "file", r.Name, f.Id, path.Join(r.Name), p.Id,
+				deletedAt, r.Id, "file", f.Id, path.Join(r.Name), p.Id,
 			)
 			if err != nil {
 				return err
@@ -516,11 +516,10 @@ func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent share
 	return treeVersion, m.db.QueryRowContext(ctx, `
 WITH f AS (
     INSERT INTO tree_nodes
-        (deleted_at, id, kind, name, parent_id, path, project_id)
+        (deleted_at, id, kind, parent_id, path, project_id)
         SELECT '1970-01-01',
                $4,
                'folder',
-               $5,
                $3,
                CONCAT(t.path, $5::TEXT, '/'),
                $1
@@ -713,9 +712,10 @@ WITH node AS (SELECT t.id,
          UPDATE tree_nodes t
              SET path = concat(updated.path, substr(t.path, node.old_end))
              FROM node, updated
-             WHERE t.project_id = node.project_id AND
-                   t.deleted_at = '1970-01-01' AND
-                   starts_with(t.path, node.path)
+             WHERE t.project_id = node.project_id
+                 AND t.deleted_at = '1970-01-01'
+                 AND t.id != node.id
+                 AND starts_with(t.path, node.path)
              RETURNING t.id, t.kind, t.path),
      updated_docs AS (SELECT array_agg(id) as ids, array_agg(path) as paths
                       FROM updated_children
@@ -799,7 +799,7 @@ WITH node AS (SELECT t.id,
                      t.project_id,
                      t.path,
                      char_length(t.path) + 1     AS old_end,
-                     parent.path AS parent_path
+                     concat(parent.path, $4::TEXT, '/') AS new_path
               FROM tree_nodes t
                        INNER JOIN projects p ON t.project_id = p.id
                        INNER JOIN project_members pm
@@ -813,22 +813,15 @@ WITH node AS (SELECT t.id,
                 AND p.deleted_at IS NULL
                 AND t.deleted_at = '1970-01-01'
                 AND pm.privilege_level >= 'readAndWrite'),
-     updated AS (
-         UPDATE tree_nodes t
-             SET name = $4,
-                 path = concat(node.parent_path, $4, '/')
-             FROM node
-             WHERE t.id = node.id
-             RETURNING t.path),
      updated_children AS (
          UPDATE tree_nodes t
-             SET path = concat(updated.path, substr(t.path, node.old_end))
-             FROM node, updated
+             SET path = concat(node.new_path, substr(t.path, node.old_end))
+             FROM node
              WHERE t.project_id = node.project_id AND
                    t.deleted_at = '1970-01-01' AND
                    starts_with(t.path, node.path)
              RETURNING t.id, t.kind, t.path),
-     updated_docs AS (SELECT array_agg(id) as ids, array_agg(path) as paths
+     updated_docs AS (SELECT array_agg(id) AS ids, array_agg(path) AS paths
                       FROM updated_children
                       WHERE kind = 'doc'),
      updated_version AS (
@@ -836,7 +829,7 @@ WITH node AS (SELECT t.id,
              SET last_updated_by = $2,
                  last_updated_at = transaction_timestamp(),
                  tree_version = tree_version + 1
-             FROM updated
+             FROM node
              WHERE p.id = $1
              RETURNING p.tree_version)
 
@@ -1241,10 +1234,10 @@ func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, use
 	return &p, m.db.QueryRowContext(ctx, `
 WITH tree AS
          (SELECT t.project_id,
-                 array_agg(t.id)                     as ids,
-                 array_agg(t.kind)                   as kinds,
-                 array_agg(t.path)                   as paths,
-                 array_agg(COALESCE(d.snapshot, '')) as snapshots
+                 array_agg(t.id)                     AS ids,
+                 array_agg(t.kind)                   AS kinds,
+                 array_agg(t.path)                   AS paths,
+                 array_agg(COALESCE(d.snapshot, '')) AS snapshots
           FROM tree_nodes t
                    LEFT JOIN docs d ON t.id = d.id
           WHERE t.project_id = $1
@@ -1289,12 +1282,12 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId s
 	err := m.db.QueryRowContext(ctx, `
 WITH tree AS
          (SELECT t.project_id,
-                 array_agg(t.id)                as ids,
-                 array_agg(t.kind)              as kinds,
-                 array_agg(t.path)              as paths,
-                 array_agg(f.created_at)        as created_ats,
-                 array_agg(f.linked_file_data)  as linked_file_data,
-                 array_agg(coalesce(f.size, 0)) as sizes
+                 array_agg(t.id)                AS ids,
+                 array_agg(t.kind)              AS kinds,
+                 array_agg(t.path)              AS paths,
+                 array_agg(f.created_at)        AS created_ats,
+                 array_agg(f.linked_file_data)  AS linked_file_data,
+                 array_agg(coalesce(f.size, 0)) AS sizes
           FROM tree_nodes t
                    LEFT JOIN files f ON t.id = f.id
           WHERE t.project_id = $1
@@ -1302,8 +1295,8 @@ WITH tree AS
             AND t.parent_id IS NOT NULL
           GROUP BY t.project_id),
      deleted_docs AS (SELECT t.project_id,
-                             array_agg(t.id)   as ids,
-                             array_agg(t.name) as names
+                             array_agg(t.id)                        AS ids,
+                             array_agg(split_part(t.path, '/', -1)) AS names
                       FROM tree_nodes t
                       WHERE t.project_id = $1
                         AND t.deleted_at != '1970-01-01'
@@ -1475,13 +1468,13 @@ func (m *manager) GetForClone(ctx context.Context, projectId, userId sharedTypes
 	return &p, m.db.QueryRowContext(ctx, `
 WITH tree AS
          (SELECT t.project_id,
-                 array_agg(t.id)                     as ids,
-                 array_agg(t.kind)                   as kinds,
-                 array_agg(t.path)                   as paths,
-                 array_agg(COALESCE(d.snapshot, '')) as snapshots,
-                 array_agg(f.created_at)             as created_ats,
-                 array_agg(f.linked_file_data)       as linked_file_data,
-                 array_agg(coalesce(f.size, 0))      as sizes
+                 array_agg(t.id)                     AS ids,
+                 array_agg(t.kind)                   AS kinds,
+                 array_agg(t.path)                   AS paths,
+                 array_agg(COALESCE(d.snapshot, '')) AS snapshots,
+                 array_agg(f.created_at)             AS created_ats,
+                 array_agg(f.linked_file_data)       AS linked_file_data,
+                 array_agg(coalesce(f.size, 0))      AS sizes
           FROM tree_nodes t
                    LEFT JOIN docs d ON t.id = d.id
                    LEFT JOIN files f ON t.id = f.id
@@ -1818,11 +1811,10 @@ WITH f AS (SELECT t.id, t.path
              AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
          INSERT INTO tree_nodes
-             (deleted_at, id, kind, name, parent_id, path, project_id)
+             (deleted_at, id, kind, parent_id, path, project_id)
              SELECT '1970-01-01',
                     $4,
                     'doc',
-                    $5,
                     f.id,
                     CONCAT(f.path, $5::TEXT),
                     $1
@@ -1861,11 +1853,10 @@ WITH f AS (SELECT t.id, t.path
              AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
          INSERT INTO tree_nodes
-             (deleted_at, id, kind, name, parent_id, path, project_id)
+             (deleted_at, id, kind, parent_id, path, project_id)
              SELECT '1970-01-01',
                     $4,
                     'file',
-                    $5,
                     f.id,
                     CONCAT(f.path, $5::TEXT),
                     $1
@@ -1893,7 +1884,7 @@ RETURNING p.tree_version
 
 type ForProjectList struct {
 	User          user.ProjectListViewCaller
-	Tags          tag.Tags
+	Tags          []tag.Full
 	Projects      List
 	Collaborators user.BulkFetched
 }
