@@ -52,6 +52,9 @@ type ListViewPrivate struct {
 	LastUpdatedByField
 	NameField
 	OwnerIdField
+
+	Owner       user.WithPublicInfo
+	LastUpdater user.WithPublicInfo
 }
 
 type List []ListViewPrivate
@@ -123,18 +126,13 @@ type ForZip struct {
 type ForCreation struct {
 	CompilerField
 	DeletedAtField
-	EpochField
 	IdField
 	ImageNameField
 	NameField
-	LastUpdatedAtField
-	LastUpdatedByField
 	OwnerIdField
-	PublicAccessLevelField
 	RootDocField
 	SpellCheckLanguageField
 	RootFolderField
-	VersionField
 }
 
 type ForClone struct {

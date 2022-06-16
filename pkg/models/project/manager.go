@@ -1483,11 +1483,8 @@ WITH tree AS
             AND t.parent_id IS NOT NULL
           GROUP BY t.project_id)
 
-SELECT coalesce(pm.access_source::TEXT, ''),
-       coalesce(pm.privilege_level::TEXT, ''),
-       p.compiler,
+SELECT p.compiler,
        p.image_name,
-       p.public_access_level,
        COALESCE(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
        p.spell_check_language,
        tree.ids,
@@ -1509,11 +1506,8 @@ WHERE p.id = $1
         (p.public_access_level = 'tokenBased' AND pm.access_source = 'token')
     )
 `, projectId, userId).Scan(
-		&p.Member.AccessSource,
-		&p.Member.PrivilegeLevel,
 		&p.Compiler,
 		&p.ImageName,
-		&p.PublicAccessLevel,
 		&p.RootDoc.Id,
 		&p.SpellCheckLanguage,
 		pq.Array(&p.treeIds),
@@ -1883,27 +1877,34 @@ RETURNING p.tree_version
 }
 
 type ForProjectList struct {
-	User          user.ProjectListViewCaller
-	Tags          []tag.Full
-	Projects      List
-	Collaborators user.BulkFetched
+	User     user.ProjectListViewCaller
+	Tags     []tag.Full
+	Projects List
 }
 
 func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error) {
 	r, err := m.db.QueryContext(ctx, `
 SELECT access_source,
        archived,
-       epoch,
-       id,
+       p.epoch,
+       p.id,
        last_updated_at,
-       COALESCE(last_updated_by, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(last_updated_by, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(l.email, ''),
+       coalesce(l.first_name, ''),
+       coalesce(l.last_name, ''),
        name,
        owner_id,
+       o.email,
+       o.first_name,
+       o.last_name,
        privilege_level,
        public_access_level,
        trashed
 FROM projects p
          INNER JOIN project_members pm ON p.id = pm.project_id
+		 INNER JOIN users o on p.owner_id = o.id
+		 LEFT JOIN users l on p.last_updated_by = l.id
 WHERE pm.user_id = $1
   AND p.deleted_at IS NULL;
 `, userId)
@@ -1921,8 +1922,14 @@ WHERE pm.user_id = $1
 			&projects[i].Id,
 			&projects[i].LastUpdatedAt,
 			&projects[i].LastUpdatedBy,
+			&projects[i].LastUpdater.Email,
+			&projects[i].LastUpdater.FirstName,
+			&projects[i].LastUpdater.LastName,
 			&projects[i].Name,
 			&projects[i].OwnerId,
+			&projects[i].Owner.Email,
+			&projects[i].Owner.FirstName,
+			&projects[i].Owner.LastName,
 			&projects[i].PrivilegeLevel,
 			&projects[i].PublicAccessLevel,
 			&projects[i].Trashed,
@@ -1930,12 +1937,13 @@ WHERE pm.user_id = $1
 		if err != nil {
 			return nil, err
 		}
+		projects[i].Owner.Id = projects[i].OwnerId
+		projects[i].LastUpdater.Id = projects[i].LastUpdatedBy
 	}
 	return projects, r.Err()
 }
 
 func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
-	// TODO: can we query in parallel from a tx? how many RTTs?
 	eg, pCtx := errgroup.WithContext(ctx)
 
 	// User
@@ -1977,28 +1985,6 @@ GROUP BY t.id;
 		return r.Err()
 	})
 
-	// Collaborators
-	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
-WITH p AS (SELECT owner_id, last_updated_by
-           FROM projects p
-                    INNER JOIN project_members pm ON p.id = pm.project_id
-           WHERE pm.user_id = $1)
-SELECT u.id, email, first_name, last_name
-FROM users u
-         INNER JOIN p ON (u.id = p.owner_id OR u.id = p.last_updated_by)
-WHERE u.deleted_at IS NULL;
-`, userId)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = r.Close() }()
-		if err = d.Collaborators.ScanInto(r); err != nil {
-			return err
-		}
-		return r.Err()
-	})
-
 	// Projects
 	eg.Go(func() error {
 		var err error
@@ -2008,41 +1994,5 @@ WHERE u.deleted_at IS NULL;
 		}
 		return nil
 	})
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	// The projects and collaborators queries are racing.
-	// Check for missing users and back-fill them.
-	fetched := make(map[sharedTypes.UUID]struct{}, len(d.Collaborators)+1)
-	fetched[sharedTypes.UUID{}] = struct{}{}
-	for _, u := range d.Collaborators {
-		fetched[u.Id] = struct{}{}
-	}
-	var missing []sharedTypes.UUID
-	for _, p := range d.Projects {
-		if _, got := fetched[p.OwnerId]; !got {
-			missing = append(missing, p.OwnerId)
-		}
-		if _, got := fetched[p.LastUpdatedBy]; !got {
-			missing = append(missing, p.LastUpdatedBy)
-		}
-	}
-	if len(missing) == 0 {
-		return nil
-	}
-
-	r, err := m.db.QueryContext(ctx, `
-SELECT u.id, email, first_name, last_name
-FROM users u
-WHERE id = ANY ($1)
-  AND u.deleted_at IS NULL;
-`, pq.Array(missing))
-	if err != nil {
-		return err
-	}
-	defer func() { _ = r.Close() }()
-	if err = d.Collaborators.ScanInto(r); err != nil {
-		return err
-	}
-	return r.Err()
+	return eg.Wait()
 }

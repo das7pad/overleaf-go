@@ -78,9 +78,6 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 	if err != nil {
 		return errors.Tag(err, "cannot get source project")
 	}
-	if _, err = p.GetPrivilegeLevelAuthenticated(); err != nil {
-		return err
-	}
 	sourceDocs, sourceFiles := p.GetDocsAndFiles()
 
 	nDocs := len(sourceDocs)

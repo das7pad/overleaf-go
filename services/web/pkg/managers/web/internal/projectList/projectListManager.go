@@ -94,9 +94,8 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 	}
 	userId := request.Session.User.Id
 	u := project.ForProjectList{
-		Tags:          make([]tag.Full, 0),
-		Projects:      make(project.List, 0),
-		Collaborators: make(user.BulkFetched, 0),
+		Tags:     make([]tag.Full, 0),
+		Projects: make(project.List, 0),
 	}
 	{
 		err := m.pm.GetProjectListDetails(ctx, userId, &u)
@@ -132,8 +131,8 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			projects[i].Owner = user.WithPublicInfo{}
 			projects[i].Owner.Id = p.OwnerId
 		} else {
-			projects[i].LastUpdatedBy = u.Collaborators.Get(p.LastUpdatedBy)
-			projects[i].Owner = u.Collaborators.Get(p.OwnerId)
+			projects[i].LastUpdatedBy = p.LastUpdater
+			projects[i].Owner = p.Owner
 		}
 	}
 

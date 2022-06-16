@@ -33,26 +33,17 @@ func NewProject(ownerId sharedTypes.UUID) (*ForCreation, error) {
 		CompilerField: CompilerField{
 			Compiler: DefaultCompiler,
 		},
-		EpochField: EpochField{
-			Epoch: 1,
-		},
 		IdField: IdField{
 			Id: id,
 		},
 		OwnerIdField: OwnerIdField{
 			OwnerId: ownerId,
 		},
-		PublicAccessLevelField: PublicAccessLevelField{
-			PublicAccessLevel: PrivateAccess,
-		},
 		SpellCheckLanguageField: SpellCheckLanguageField{
 			SpellCheckLanguage: "inherit",
 		},
 		RootFolderField: RootFolderField{
 			RootFolder: NewFolder(""),
-		},
-		VersionField: VersionField{
-			Version: 1,
 		},
 	}, nil
 }
