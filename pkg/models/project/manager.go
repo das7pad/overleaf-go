@@ -1900,13 +1900,16 @@ SELECT access_source,
        o.last_name,
        privilege_level,
        public_access_level,
-       trashed
+       trashed,
+       (SELECT array_agg(t.tag_id)
+        FROM tag_entries t
+        WHERE t.project_id = p.id)
 FROM projects p
          INNER JOIN project_members pm ON p.id = pm.project_id
-		 INNER JOIN users o on p.owner_id = o.id
-		 LEFT JOIN users l on p.last_updated_by = l.id
+         INNER JOIN users o ON p.owner_id = o.id
+         LEFT JOIN users l ON p.last_updated_by = l.id
 WHERE pm.user_id = $1
-  AND p.deleted_at IS NULL;
+  AND p.deleted_at IS NULL
 `, userId)
 	if err != nil {
 		return nil, err
@@ -1933,6 +1936,7 @@ WHERE pm.user_id = $1
 			&projects[i].PrivilegeLevel,
 			&projects[i].PublicAccessLevel,
 			&projects[i].Trashed,
+			pq.Array(&projects[i].TagIds),
 		)
 		if err != nil {
 			return nil, err
@@ -1944,48 +1948,32 @@ WHERE pm.user_id = $1
 }
 
 func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
-	eg, pCtx := errgroup.WithContext(ctx)
+	var tagNames []string
+	var tagIds []sharedTypes.UUID
 
-	// User
+	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return m.db.QueryRowContext(pCtx, `
-SELECT id, email, email_confirmed_at, first_name, last_name
-FROM users
-WHERE id = $1
-  AND deleted_at IS NULL;
+WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
+           FROM tags
+           WHERE user_id = $1)
+SELECT u.id,
+       email,
+       email_confirmed_at,
+       first_name,
+       last_name,
+       t.ids,
+       t.names
+FROM users u,
+     t
+WHERE u.id = $1
+  AND u.deleted_at IS NULL
 `, userId).Scan(
 			&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
-			&d.User.FirstName, &d.User.LastName)
+			&d.User.FirstName, &d.User.LastName,
+			pq.Array(&tagIds), pq.Array(&tagNames),
+		)
 	})
-
-	// Tags
-	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
-SELECT id, name, array_remove(array_agg(project_id), NULL)
-FROM tags t
-         LEFT JOIN tag_entries te ON t.id = te.tag_id
-WHERE t.user_id = $1
-GROUP BY t.id;
-`, userId)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = r.Close() }()
-
-		for i := 0; r.Next(); i++ {
-			d.Tags = append(d.Tags, tag.Full{})
-			err = r.Scan(
-				&d.Tags[i].Id, &d.Tags[i].Name,
-				pq.Array(&d.Tags[i].ProjectIds),
-			)
-			if err != nil {
-				return err
-			}
-		}
-		return r.Err()
-	})
-
-	// Projects
 	eg.Go(func() error {
 		var err error
 		d.Projects, err = m.ListProjects(ctx, userId)
@@ -1994,5 +1982,27 @@ GROUP BY t.id;
 		}
 		return nil
 	})
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	for i, id := range tagIds {
+		t := tag.Full{
+			Id:   id,
+			Name: tagNames[i],
+		}
+		for _, p := range d.Projects {
+			for _, tagId := range p.TagIds {
+				if tagId == id {
+					t.ProjectIds = append(t.ProjectIds, p.Id)
+					break
+				}
+			}
+		}
+		if t.ProjectIds == nil {
+			t.ProjectIds = make([]sharedTypes.UUID, 0)
+		}
+		d.Tags = append(d.Tags, t)
+	}
+	return nil
 }
