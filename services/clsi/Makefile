@@ -67,7 +67,8 @@ $(SERVICE):
 .PHONY: execAgent
 execAgent:
 	$(BUILD_IN) golang:1.18 sh -c \
-		'go build cmd/execAgent/execAgent.go && touch -m -d 2021-01-01T00:00Z $@'
+		'go build -ldflags="-s -w" ./cmd/execAgent \
+		 && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/build/production: execAgent
 docker/build/production: $(SERVICE)

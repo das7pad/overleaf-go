@@ -70,7 +70,6 @@ func GenerateUUID() (UUID, error) {
 }
 
 func PopulateUUID(u *UUID) error {
-	// TODO: How heavy is crypto/rand on binary size for the agent?
 	if _, err := rand.Read(u[:]); err != nil {
 		return errors.Tag(err, "cannot generate new UUID")
 	}
@@ -134,7 +133,6 @@ func (u *UUID) Scan(x interface{}) error {
 }
 
 func (u UUID) Value() (driver.Value, error) {
-	// TODO: leaner interface?
 	return u.String(), nil
 }
 
