@@ -83,7 +83,7 @@ type Manager interface {
 	TrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
 	UnTrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error
 	Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error
-	RemoveMember(ctx context.Context, projectId []sharedTypes.UUID, actor, userId sharedTypes.UUID) error
+	RemoveMember(ctx context.Context, projectId sharedTypes.UUID, actor, userId sharedTypes.UUID) error
 	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
 	CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error)
 	CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
@@ -1653,20 +1653,21 @@ SET privilege_level = $5
 `, projectId, userId, q.tokenRO, q.tokenRWPrefix, privilegeLevel))
 }
 
-func (m *manager) RemoveMember(ctx context.Context, projectIds []sharedTypes.UUID, actor, userId sharedTypes.UUID) error {
+func (m *manager) RemoveMember(ctx context.Context, projectId sharedTypes.UUID, actor, userId sharedTypes.UUID) error {
 	return getErr(m.db.ExecContext(ctx, `
 WITH pm AS (
     DELETE FROM project_members pm
         USING projects p
-        WHERE pm.project_id = ANY ($1)
+        WHERE pm.project_id = $1
             AND pm.user_id = $3
             AND p.owner_id != $3
             AND (p.owner_id = $2 OR $2 = $3)
         RETURNING project_id)
 UPDATE projects
 SET epoch = epoch + 1
+FROM pm
 WHERE id = pm.project_id
-`, pq.Array(projectIds), actor, userId))
+`, projectId, actor, userId))
 }
 
 func (m *manager) SoftDelete(ctx context.Context, projectIds []sharedTypes.UUID, userId sharedTypes.UUID, ipAddress string) error {
@@ -1907,7 +1908,8 @@ SELECT access_source,
 FROM projects p
          INNER JOIN project_members pm ON p.id = pm.project_id
          INNER JOIN users o ON p.owner_id = o.id
-         LEFT JOIN users l ON p.last_updated_by = l.id
+         LEFT JOIN users l ON (p.last_updated_by = l.id AND
+                               l.deleted_at IS NULL)
 WHERE pm.user_id = $1
   AND p.deleted_at IS NULL
 `, userId)

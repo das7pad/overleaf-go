@@ -30,7 +30,7 @@ import (
 type Manager interface {
 	DeleteProject(ctx context.Context, request *types.DeleteProjectRequest) error
 	UnDeleteProject(ctx context.Context, request *types.UnDeleteProjectRequest) error
-	DeleteUsersJoinedProjects(ctx context.Context, userId sharedTypes.UUID, ipAddress string) error
+	DeleteUsersOwnedProjects(ctx context.Context, userId sharedTypes.UUID, ipAddress string) error
 	HardDeleteExpiredProjects(ctx context.Context, dryRun bool, start time.Time) error
 }
 

@@ -180,12 +180,17 @@ WHERE id = $1
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
 func (m *manager) SoftDelete(ctx context.Context, userId sharedTypes.UUID, ip string) error {
-	return getErr(m.db.ExecContext(ctx, `
+	r, err := m.db.ExecContext(ctx, `
 WITH u AS (
     UPDATE users
         SET deleted_at = transaction_timestamp(),
             epoch = epoch + 1
-        WHERE id = $1 AND deleted_at IS NULL
+        WHERE id = $1
+            AND deleted_at IS NULL
+            AND (SELECT count(*) = 0
+                 FROM projects p
+                 WHERE p.owner_id = $1
+                   AND p.deleted_at IS NULL)
         RETURNING id)
 
 INSERT
@@ -198,7 +203,20 @@ SELECT gen_random_uuid(),
        transaction_timestamp(),
        u.id
 FROM u;
-`, userId, ip, AuditLogOperationSoftDeletion))
+`, userId, ip, AuditLogOperationSoftDeletion)
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return &errors.UnprocessableEntityError{
+			Msg: "user already deleted or user has owned projects",
+		}
+	}
+	return nil
 }
 
 func (m *manager) HardDelete(ctx context.Context, userId sharedTypes.UUID) error {

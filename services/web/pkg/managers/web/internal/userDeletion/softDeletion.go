@@ -50,7 +50,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		err := m.pDelM.DeleteUsersJoinedProjects(pCtx, userId, ipAddress)
+		err := m.pDelM.DeleteUsersOwnedProjects(pCtx, userId, ipAddress)
 		if err != nil {
 			return errors.Tag(err, "delete users projects")
 		}
