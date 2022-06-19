@@ -31,7 +31,7 @@ CREATE TABLE users
   last_login_at      timestamp NULL,
   last_login_ip      TEXT      NULL,
   last_name          TEXT      NOT NULL,
-  learned_words      TEXT[]    NULL,
+  learned_words      TEXT[]    NOT NULL,
   login_count        INTEGER   NOT NULL,
   must_reconfirm     BOOLEAN   NOT NULL,
   password_hash      TEXT      NOT NULL,
