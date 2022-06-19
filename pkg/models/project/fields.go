@@ -86,7 +86,6 @@ type PublicAccessLevelField struct {
 }
 
 type RootDocIdField struct {
-	// Virtual field
 	RootDocId sharedTypes.UUID `json:"rootDoc_id"`
 }
 

@@ -43,6 +43,7 @@ type uploadQueueEntry struct {
 	file         types.CreateProjectFile
 	reader       io.ReadCloser
 	sourceFileId sharedTypes.UUID
+	ref          *project.FileRef
 }
 
 func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
@@ -177,8 +178,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				}
 				var hash sharedTypes.Hash
 				if hash = file.PreComputedHash(); hash == "" {
-					hash, err = fileTree.HashFile(f, size)
-					if err != nil {
+					if hash, err = fileTree.HashFile(f, size); err != nil {
 						_ = f.Close()
 						return err
 					}
@@ -189,7 +189,11 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				}
 				fileRef := project.NewFileRef(name, hash, size)
 				parent.FileRefs = append(parent.FileRefs, fileRef)
-				openReader[path] = uploadQueueEntry{file: file, reader: f}
+				openReader[path] = uploadQueueEntry{
+					file:   file,
+					reader: f,
+					ref:    &parent.FileRefs[len(parent.FileRefs)-1],
+				}
 			}
 		}
 	}
@@ -232,8 +236,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		uploadEg.Go(func() error {
 			for path := range uploadQueue {
 				e := openReader[path]
-				parent, _ := t.CreateParents(path.Dir())
-				fileRef := parent.GetFile(path.Filename())
+				fileRef := e.ref
 				mErr := &errors.MergedError{}
 				for j := 0; j < retryUploads; j++ {
 					if e.reader == nil {

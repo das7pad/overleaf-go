@@ -33,9 +33,9 @@ type cloneProjectFile struct {
 func (c cloneProjectFile) Path() sharedTypes.PathName {
 	switch el := c.TreeElement.(type) {
 	case project.Doc:
-		return el.ResolvedPath
+		return el.Path
 	case project.FileRef:
-		return el.ResolvedPath
+		return el.Path
 	default:
 		return ""
 	}
@@ -85,7 +85,7 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 	var rootDocPath sharedTypes.PathName
 	for i, d := range sourceDocs {
 		if d.Id == p.RootDoc.Id {
-			rootDocPath = d.ResolvedPath
+			rootDocPath = d.Path
 		}
 		files[i] = cloneProjectFile{TreeElement: d}
 	}

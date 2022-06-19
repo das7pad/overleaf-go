@@ -145,7 +145,7 @@ WITH p AS (
                transaction_timestamp(),
                transaction_timestamp(),
                o.id,
-               $7,
+               '',
                o.id,
                'private',
                coalesce(
@@ -154,14 +154,17 @@ WITH p AS (
                    ),
                1
         FROM users o
-        WHERE id = $1)
+        WHERE o.id = $1
+          AND o.deleted_at IS NULL
+        RETURNING id, owner_id)
 INSERT
 INTO project_members
 (project_id, user_id, access_source, privilege_level, archived, trashed)
-VALUES ($5, $1, 'owner', 'owner', FALSE, FALSE)
+SELECT p.id, p.owner_id, 'owner', 'owner', FALSE, FALSE
+FROM p
 `,
 		p.OwnerId, p.SpellCheckLanguage, p.Compiler, p.DeletedAt, p.Id,
-		p.ImageName, p.Name,
+		p.ImageName,
 	)
 	if err != nil {
 		return err
@@ -741,7 +744,7 @@ FROM updated_version,
 	for i, id := range docIds {
 		d := Doc{}
 		d.Id = id
-		d.ResolvedPath = sharedTypes.PathName(docPaths[i])
+		d.Path = sharedTypes.PathName(docPaths[i])
 		docs = append(docs, d)
 	}
 	return v, docs, nil
@@ -845,7 +848,7 @@ FROM updated_version,
 	for i, id := range docIds {
 		d := Doc{}
 		d.Id = id
-		d.ResolvedPath = sharedTypes.PathName(docPaths[i])
+		d.Path = sharedTypes.PathName(docPaths[i])
 		docs = append(docs, d)
 	}
 	return v, docs, nil
@@ -896,8 +899,9 @@ func (m *manager) GetProjectNames(ctx context.Context, userId sharedTypes.UUID) 
 	err := m.db.QueryRowContext(ctx, `
 SELECT array_agg(name)
 FROM projects p
-	INNER JOIN project_members pm ON p.id = pm.project_id
+         INNER JOIN project_members pm ON p.id = pm.project_id
 WHERE user_id = $1
+  AND p.deleted_at IS NULL
 `, userId).Scan(pq.Array(&raw))
 	if err != nil {
 		return nil, err
@@ -1060,16 +1064,12 @@ WHERE d.id = $2
   AND t.project_id = $1
   AND t.deleted_at = '1970-01-01'
   AND p.deleted_at IS NULL
-`, projectId, docId).Scan(
-		&d.ResolvedPath,
-		&d.Snapshot,
-		&d.Version,
-	)
+`, projectId, docId).Scan(&d.Path, &d.Snapshot, &d.Version)
 	if err == sql.ErrNoRows {
 		return nil, &errors.ErrorDocNotFound{}
 	}
 	d.Id = docId
-	d.Name = d.ResolvedPath.Filename()
+	d.Name = d.Path.Filename()
 	return &d, err
 }
 
@@ -1129,10 +1129,10 @@ WHERE f.id = $4
          (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken, fileId).Scan(
-		&f.ResolvedPath, &f.ParentId, &d, &f.Size,
+		&f.Path, &f.ParentId, &d, &f.Size,
 	)
 	f.Id = fileId
-	f.Name = f.ResolvedPath.Filename()
+	f.Name = f.Path.Filename()
 	if d.Provider != "" {
 		f.LinkedFileData = &d
 	}
@@ -1205,7 +1205,7 @@ ORDER BY t.kind
 	for i := 0; r.Next(); i++ {
 		nodes = append(nodes, Doc{})
 		err = r.Scan(
-			&nodes[i].Id, &nodes[i].ResolvedPath, &nodes[i].Snapshot,
+			&nodes[i].Id, &nodes[i].Path, &nodes[i].Snapshot,
 			&nodes[i].Version,
 		)
 	}
@@ -1439,7 +1439,7 @@ WHERE p.id = $1
 		&d.Project.Tokens.ReadAndWrite,
 		&d.Project.Version,
 		&d.Project.RootDoc.Id,
-		&d.Project.RootDoc.ResolvedPath,
+		&d.Project.RootDoc.Path,
 		&d.Project.OwnerFeatures,
 		&d.User.EditorConfig,
 		&d.User.Email,

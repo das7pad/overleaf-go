@@ -38,7 +38,7 @@ type CommonTreeFields struct {
 
 type LeafFields struct {
 	CommonTreeFields
-	ResolvedPath sharedTypes.PathName `json:"-"`
+	Path sharedTypes.PathName `json:"-"`
 }
 
 func (c CommonTreeFields) GetId() sharedTypes.UUID {
@@ -367,7 +367,7 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 		case "doc":
 			e := NewDoc(path.Filename())
 			e.Id = p.treeIds[i]
-			e.ResolvedPath = path
+			e.Path = path
 			if p.docSnapshots != nil {
 				e.Snapshot = p.docSnapshots[i]
 			}
@@ -375,7 +375,7 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 		case "file":
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
-			e.ResolvedPath = path
+			e.Path = path
 			if p.createdAts != nil {
 				s := string(p.createdAts[i])
 				e.Created, _ = pq.ParseTimestamp(nil, s)

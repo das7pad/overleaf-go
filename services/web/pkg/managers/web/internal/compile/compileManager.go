@@ -256,11 +256,11 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 
 	for _, d := range docs {
 		if d.Id == request.RootDocId {
-			rootDocPath = clsiTypes.RootResourcePath(d.ResolvedPath)
+			rootDocPath = clsiTypes.RootResourcePath(d.Path)
 		}
 		s := d.Snapshot
 		resources = append(resources, &clsiTypes.Resource{
-			Path:    d.ResolvedPath,
+			Path:    d.Path,
 			Content: &s,
 		})
 	}
@@ -272,7 +272,7 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 			return nil, "", errors.Tag(err, "cannot sign file download")
 		}
 		resources = append(resources, &clsiTypes.Resource{
-			Path: f.ResolvedPath,
+			Path: f.Path,
 			URL:  &sharedTypes.URL{URL: *url},
 		})
 

@@ -56,7 +56,7 @@ func DocFromFlushedDoc(flushedDoc *project.Doc, projectId, docId sharedTypes.UUI
 	d := &Doc{}
 	d.DocId = docId
 	d.JustLoadedIntoRedis = true
-	d.PathName = flushedDoc.ResolvedPath
+	d.PathName = flushedDoc.Path
 	d.ProjectId = projectId
 	d.Snapshot = sharedTypes.Snapshot(flushedDoc.Snapshot)
 	d.Version = flushedDoc.Version

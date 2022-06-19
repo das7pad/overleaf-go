@@ -124,13 +124,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		}
 	}
 
-	if p.RootDoc.Id != (sharedTypes.UUID{}) {
-		response.RootDocPath = clsiTypes.RootResourcePath(
-			p.RootDoc.ResolvedPath,
-		)
-		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
-	}
-
 	{
 		b, err := m.genWSBootstrap(projectId, &u.WithPublicInfo)
 		if err != nil {
@@ -181,6 +174,8 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 
 	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()
 	response.Project = p.LoadEditorViewPublic
+	response.Project.RootDocId = p.RootDoc.Id
+	response.RootDocPath = clsiTypes.RootResourcePath(p.RootDoc.Path)
 	response.User = *u
 	if u.IsAdmin {
 		response.AllowedImageNames = m.options.AllowedImageNames

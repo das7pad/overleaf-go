@@ -59,10 +59,7 @@ func New(ctx context.Context, options *types.Options, db *sql.DB, client redis.U
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	w, err := webApi.New(db)
-	if err != nil {
-		return nil, err
-	}
+	w := webApi.New(db)
 	d, err := documentUpdater.New(options, db, client)
 	if err != nil {
 		return nil, err
@@ -141,8 +138,8 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		return err
 	}
 
-	r, by, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
-	rpc.Response.ProcessedBy = by
+	r, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
+	rpc.Response.ProcessedBy = "self"
 	if err != nil {
 		return errors.Tag(
 			err, "webApi.joinProject failed for "+args.ProjectId.String(),

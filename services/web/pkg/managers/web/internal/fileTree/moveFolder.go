@@ -49,7 +49,7 @@ func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFo
 		for i, doc := range docs {
 			updates[i] = documentUpdaterTypes.NewRenameDocUpdate(
 				doc.Id,
-				doc.ResolvedPath,
+				doc.Path,
 			).ToGeneric()
 		}
 		p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{

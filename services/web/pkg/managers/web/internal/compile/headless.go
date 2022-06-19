@@ -19,7 +19,6 @@ package compile
 import (
 	"context"
 
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -32,12 +31,6 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 	p := &d.Project
 	if _, err = p.GetPrivilegeLevelAuthenticated(); err != nil {
 		return err
-	}
-
-	var rootDocPath sharedTypes.PathName
-	if p.RootDoc.Id != (sharedTypes.UUID{}) {
-		rootDocPath = p.RootDoc.ResolvedPath
-		p.LoadEditorViewPublic.RootDocId = p.RootDoc.Id
 	}
 
 	return m.Compile(ctx, &types.CompileProjectRequest{
@@ -54,7 +47,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 		ImageName:                  p.ImageName,
 		IncrementalCompilesEnabled: true,
 		RootDocId:                  p.RootDoc.Id,
-		RootDocPath:                clsiTypes.RootResourcePath(rootDocPath),
+		RootDocPath:                clsiTypes.RootResourcePath(p.RootDoc.Path),
 		SyncState:                  clsiTypes.SyncState(p.Version.String()),
 	}, response)
 }
