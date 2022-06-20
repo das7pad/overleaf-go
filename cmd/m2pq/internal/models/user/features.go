@@ -32,7 +32,7 @@ type Features struct {
 	TrackChangesVisible bool                       `json:"trackChangesVisible"`
 }
 
-func (f *Features) Value() (driver.Value, error) {
+func (f Features) Value() (driver.Value, error) {
 	blob, err := json.Marshal(map[string]interface{}{
 		"compileGroup":   f.CompileGroup,
 		"compileTimeout": f.CompileTimeout,

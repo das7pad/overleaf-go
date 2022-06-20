@@ -38,7 +38,7 @@ type EditorConfig struct {
 	Theme              string                           `json:"theme" bson:"theme"`
 }
 
-func (e *EditorConfig) Value() (driver.Value, error) {
+func (e EditorConfig) Value() (driver.Value, error) {
 	blob, err := json.Marshal(e)
 	return string(blob), err
 }

@@ -16,6 +16,86 @@
 
 package main
 
-func main() {
+import (
+	"context"
+	"database/sql"
+	"log"
+	"os/signal"
+	"syscall"
+	"time"
 
+	_ "github.com/lib/pq"
+	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/mongoOptions"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
+)
+
+func main() {
+	timeout := time.Minute
+	limit := 1000
+
+	signalCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	var mDB *mongo.Database
+	{
+		ctx, done := context.WithTimeout(signalCtx, timeout)
+		defer done()
+
+		mOptions, dbName := mongoOptions.Parse()
+
+		mClient, err := mongo.Connect(ctx, mOptions)
+		if err != nil {
+			panic(errors.Tag(err, "cannot talk to mongo"))
+		}
+		if err = mClient.Ping(ctx, nil); err != nil {
+			panic(errors.Tag(err, "cannot talk to mongo"))
+		}
+		done()
+		mDB = mClient.Database(dbName)
+	}
+	var pqDB *sql.DB
+	{
+		ctx, done := context.WithTimeout(signalCtx, timeout)
+		defer done()
+
+		dsn := postgresOptions.Parse()
+		db, err := sql.Open("postgres", dsn)
+		if err != nil {
+			panic(errors.Tag(err, "cannot talk to postgres"))
+		}
+		if err = db.PingContext(ctx); err != nil {
+			panic(errors.Tag(err, "cannot talk to postgres"))
+		}
+		done()
+		pqDB = db
+	}
+
+	errCount := 0
+	for {
+		ctx, done := context.WithTimeout(signalCtx, timeout)
+		err := user.Import(ctx, mDB, pqDB, limit)
+		done()
+		if err == status.HitLimit {
+			continue
+		}
+		if err != nil {
+			errCount++
+			log.Printf("user import failed: %d: %s", errCount, err)
+			if errCount > 100 {
+				panic("failed too often")
+			}
+			continue
+		}
+		if signalCtx.Err() != nil {
+			panic(signalCtx.Err())
+		}
+		break
+	}
+
+	log.Println("Done.")
 }

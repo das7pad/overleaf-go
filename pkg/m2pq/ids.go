@@ -37,7 +37,7 @@ func ObjectID2UUID(id [12]byte) sharedTypes.UUID {
 }
 
 func UUID2ObjectID(u sharedTypes.UUID) ([12]byte, error) {
-	if u[6] != 4 || u[7] != 0 || u[8] != 10 || u[9] != 0 {
+	if u[6] != 64 || u[7] != 0 || u[8] != 128 || u[9] != 0 {
 		return [12]byte{}, &errors.ValidationError{Msg: "not a mongo id"}
 	}
 	id := [12]byte{}

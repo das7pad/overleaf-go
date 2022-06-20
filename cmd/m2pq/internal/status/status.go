@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,20 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package learnedWords
+package status
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type LearnedWordsField struct {
-	LearnedWords []string `bson:"learnedWords"`
-}
-
-type UserIdField struct {
-	Token string `bson:"token"`
-}
-
-func (u *UserIdField) UserId() (primitive.ObjectID, error) {
-	return primitive.ObjectIDFromHex(u.Token)
-}
+var HitLimit = &errors.CodedError{}

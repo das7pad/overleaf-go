@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net/netip"
+	"strings"
 
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,28 +30,29 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/learnedWords"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ForPQ struct {
-	AuditLogField
-	BetaProgramField
-	EditorConfigField
-	EmailField
-	EmailsField
-	EpochField
-	FeaturesField
-	FirstNameField
-	IdField
-	HashedPasswordField
-	LastLoggedInField
-	LastLoginIpField
-	LastNameField
-	LoginCountField
-	MustReconfirmField
-	SignUpDateField
+	AuditLogField       `bson:"inline"`
+	BetaProgramField    `bson:"inline"`
+	EditorConfigField   `bson:"inline"`
+	EmailField          `bson:"inline"`
+	EmailsField         `bson:"inline"`
+	EpochField          `bson:"inline"`
+	FeaturesField       `bson:"inline"`
+	FirstNameField      `bson:"inline"`
+	IdField             `bson:"inline"`
+	HashedPasswordField `bson:"inline"`
+	LastLoggedInField   `bson:"inline"`
+	LastLoginIpField    `bson:"inline"`
+	LastNameField       `bson:"inline"`
+	LoginCountField     `bson:"inline"`
+	MustReconfirmField  `bson:"inline"`
+	SignUpDateField     `bson:"inline"`
 }
 
 func Import(ctx context.Context, mDB *mongo.Database, pqDB *sql.DB, limit int) error {
@@ -85,7 +88,7 @@ LIMIT 1
 			ctx,
 			uQuery,
 			options.Find().
-				SetSort(bson.M{"_id": 1}).
+				SetSort(bson.M{"_id": -1}).
 				SetBatchSize(100),
 		)
 	if err != nil {
@@ -101,7 +104,7 @@ LIMIT 1
 			ctx,
 			spQuery,
 			options.Find().
-				SetSort(bson.M{"token": 1}).
+				SetSort(bson.M{"token": -1}).
 				SetBatchSize(100),
 		)
 	if err != nil {
@@ -144,12 +147,16 @@ LIMIT 1
 		}
 	}()
 
-	for i := 0; uC.Next(ctx) && i < limit; i++ {
+	i := 0
+	for i = 0; uC.Next(ctx) && i < limit; i++ {
 		u := ForPQ{}
 		if err = uC.Decode(&u); err != nil {
 			return errors.Tag(err, "cannot decode user")
 		}
-		idS := u.Id.String()
+		if u.Id == (primitive.ObjectID{}) {
+			continue
+		}
+		idS := u.Id.Hex()
 		log.Printf("user[%d/%d]: %s", i, limit, idS)
 		for idS < lastLW.Token && lwC.Next(ctx) {
 			if err = lwC.Decode(&lastLW); err != nil {
@@ -163,6 +170,13 @@ LIMIT 1
 		lw := noLw
 		if idS == lastLW.Token {
 			lw = lastLW.LearnedWords
+		}
+		if strings.ContainsRune(u.LastLoginIp, ':') {
+			addr, err2 := netip.ParseAddrPort(u.LastLoginIp)
+			if err2 != nil {
+				return errors.Tag(err2, "parse login ip")
+			}
+			u.LastLoginIp = addr.Addr().String()
 		}
 
 		_, err = q.ExecContext(
@@ -180,7 +194,7 @@ LIMIT 1
 			u.LastLoggedIn,           // last_login_at
 			u.LastLoginIp,            // last_login_ip
 			u.LastName,               // last_name
-			lw,                       // learned_words
+			pq.Array(lw),             // learned_words
 			u.LoginCount,             // login_count
 			u.MustReconfirm,          // must_reconfirm
 			u.HashedPassword,         // password_hash
@@ -202,6 +216,9 @@ LIMIT 1
 	ok = true
 	if err = uC.Err(); err != nil {
 		return errors.Tag(err, "cannot iter user cur")
+	}
+	if i == limit {
+		return status.HitLimit
 	}
 	return nil
 }
