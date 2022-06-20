@@ -17,6 +17,8 @@
 package project
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -53,6 +55,9 @@ func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
 
 type Doc struct {
 	CommonTreeFields `bson:"inline"`
+
+	Snapshot string
+	Version  sharedTypes.Version
 }
 
 func (d *Doc) FieldNameInFolder() MongoPath {
@@ -84,6 +89,14 @@ type LinkedFileData struct {
 	SourceEntityPath     string             `json:"source_entity_path,omitempty" bson:"source_entity_path,omitempty"`
 	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" bson:"source_output_file_path,omitempty"`
 	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
+}
+
+func (d *LinkedFileData) Value() (driver.Value, error) {
+	if d == nil || d.Provider == "" {
+		return nil, nil
+	}
+	blob, err := json.Marshal(d)
+	return string(blob), err
 }
 
 type FileRef struct {

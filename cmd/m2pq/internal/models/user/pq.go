@@ -55,12 +55,12 @@ type ForPQ struct {
 	SignUpDateField     `bson:"inline"`
 }
 
-func Import(ctx context.Context, mDB *mongo.Database, pqDB *sql.DB, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
 	uQuery := bson.M{}
 	spQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := pqDB.QueryRowContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 SELECT id
 FROM users u
 ORDER BY signup_date
@@ -77,12 +77,12 @@ LIMIT 1
 			uQuery["_id"] = bson.M{
 				"$lt": primitive.ObjectID(oldest),
 			}
-			uQuery["token"] = bson.M{
+			spQuery["token"] = bson.M{
 				"$lt": primitive.ObjectID(oldest).String(),
 			}
 		}
 	}
-	uC, err := mDB.
+	uC, err := db.
 		Collection("users").
 		Find(
 			ctx,
@@ -98,7 +98,7 @@ LIMIT 1
 		_ = uC.Close(ctx)
 	}()
 
-	lwC, err := mDB.
+	lwC, err := db.
 		Collection("spellingPreferences").
 		Find(
 			ctx,
@@ -121,16 +121,6 @@ LIMIT 1
 	}
 	noLw := make([]string, 0)
 
-	ok := false
-	tx, err := pqDB.BeginTx(ctx, nil)
-	if err != nil {
-		return errors.Tag(err, "start tx")
-	}
-	defer func() {
-		if !ok {
-			_ = tx.Rollback()
-		}
-	}()
 	q, err := tx.PrepareContext(
 		ctx,
 		pq.CopyIn(
@@ -142,9 +132,7 @@ LIMIT 1
 		return errors.Tag(err, "prepare insert")
 	}
 	defer func() {
-		if !ok && q != nil {
-			_ = q.Close()
-		}
+		_ = q.Close()
 	}()
 
 	i := 0
@@ -210,12 +198,8 @@ LIMIT 1
 	if err = q.Close(); err != nil {
 		return errors.Tag(err, "finalize statement")
 	}
-	if err = tx.Commit(); err != nil {
-		return errors.Tag(err, "commit tx")
-	}
-	ok = true
 	if err = uC.Err(); err != nil {
-		return errors.Tag(err, "cannot iter user cur")
+		return errors.Tag(err, "cannot close user cur")
 	}
 	if i == limit {
 		return status.HitLimit

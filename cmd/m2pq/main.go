@@ -27,12 +27,16 @@ import (
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/contact"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/project"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/mongoOptions"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 )
+
+type importer func(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error
 
 func main() {
 	timeout := time.Minute
@@ -75,26 +79,49 @@ func main() {
 		pqDB = db
 	}
 
-	errCount := 0
-	for {
-		ctx, done := context.WithTimeout(signalCtx, timeout)
-		err := user.Import(ctx, mDB, pqDB, limit)
-		done()
-		if err == status.HitLimit {
-			continue
-		}
-		if err != nil {
+	queue := map[string]importer{
+		"user":    user.Import,
+		"contact": contact.Import,
+		"project": project.Import,
+	}
+
+	for name, fn := range queue {
+		errCount := 0
+		log.Printf("%s import start", name)
+		for {
+			if signalCtx.Err() != nil {
+				panic(signalCtx.Err())
+			}
+
+			ctx, done := context.WithTimeout(signalCtx, timeout)
+			tx, err := pqDB.BeginTx(ctx, nil)
+			if err != nil {
+				panic(errors.Tag(err, "start tx"))
+			}
+			err = fn(ctx, mDB, tx, limit)
+			if err == nil || err == status.HitLimit {
+				if err = tx.Commit(); err != nil {
+					panic(errors.Tag(err, "commit tx"))
+				}
+				done()
+				if err == status.HitLimit {
+					errCount = 0
+					continue
+				}
+				break
+			}
 			errCount++
-			log.Printf("user import failed: %d: %s", errCount, err)
+			log.Printf("%s import failed: %d: %s", name, errCount, err)
+			if err = tx.Rollback(); err != nil {
+				panic(errors.Tag(err, "rollback tx"))
+			}
 			if errCount > 100 {
 				panic("failed too often")
 			}
+			done()
 			continue
 		}
-		if signalCtx.Err() != nil {
-			panic(signalCtx.Err())
-		}
-		break
+		log.Printf("%s import done", name)
 	}
 
 	log.Println("Done.")
