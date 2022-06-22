@@ -281,7 +281,7 @@ LIMIT 1
 		}
 		pId := m2pq.ObjectID2UUID(p.Id)
 		idS := p.Id.Hex()
-		log.Printf("project[%d/%d]: %s", i, limit, idS)
+		log.Printf("projects[%d/%d]: %s", i, limit, idS)
 
 		for idS < lastDoc.ProjectId.Hex() && dC.Next(ctx) {
 			if err = dC.Decode(&lastDoc); err != nil {
@@ -637,6 +637,7 @@ WHERE id = $1
 		}
 
 		// TODO: history
+		// TODO: audit log
 	}
 
 	// Upon returning for committing the tx, all copying should have finished.

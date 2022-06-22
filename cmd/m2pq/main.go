@@ -28,7 +28,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/contact"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/notification"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/project"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/projectInvite"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/tag"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/mongoOptions"
@@ -84,10 +87,13 @@ func main() {
 	}
 
 	queue := []importer{
-		{name: "user", fn: user.Import},
-		{name: "contact", fn: contact.Import},
-		{name: "project", fn: project.Import},
-		{name: "tag", fn: tag.Import},
+		{name: "users", fn: user.Import},
+		{name: "contacts", fn: contact.Import},
+		{name: "projects", fn: project.Import},
+		{name: "tags", fn: tag.Import},
+		{name: "project_invites", fn: projectInvite.Import},
+		{name: "one_time_tokens", fn: oneTimeToken.Import},
+		{name: "notifications", fn: notification.Import},
 	}
 
 	for _, task := range queue {

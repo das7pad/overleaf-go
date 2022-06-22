@@ -145,7 +145,7 @@ LIMIT 1
 			continue
 		}
 		idS := u.Id.Hex()
-		log.Printf("user[%d/%d]: %s", i, limit, idS)
+		log.Printf("users[%d/%d]: %s", i, limit, idS)
 		for idS < lastLW.Token && lwC.Next(ctx) {
 			if err = lwC.Decode(&lastLW); err != nil {
 				return errors.Tag(err, "cannot decode lw")
@@ -191,6 +191,8 @@ LIMIT 1
 		if err != nil {
 			return errors.Tag(err, "queue user")
 		}
+
+		// TODO: audit log
 	}
 	if _, err = q.ExecContext(ctx); err != nil {
 		return errors.Tag(err, "flush queue")

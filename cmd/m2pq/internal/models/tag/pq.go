@@ -101,7 +101,7 @@ LIMIT 1
 	}
 	var userId primitive.ObjectID
 	for i, t := range tags {
-		log.Printf("tag[%d/%d]: tags: %s", i, limit, t.Id.Hex())
+		log.Printf("tags[%d/%d]: tags: %s", i, limit, t.Id.Hex())
 
 		userId, err = primitive.ObjectIDFromHex(t.UserId)
 		if err != nil {
@@ -136,7 +136,7 @@ LIMIT 1
 		return errors.Tag(err, "prepare tag entries insert")
 	}
 	for i, t := range tags {
-		log.Printf("tag[%d/%d]: tag_entries: %s", i, limit, t.Id.Hex())
+		log.Printf("tags[%d/%d]: tag_entries: %s", i, limit, t.Id.Hex())
 		for _, projectId := range t.ProjectIds {
 			_, err = q.ExecContext(
 				ctx,
