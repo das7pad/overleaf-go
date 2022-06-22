@@ -29,6 +29,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/contact"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/project"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/tag"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/mongoOptions"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
@@ -36,7 +37,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 )
 
-type importer func(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error
+type importer struct {
+	name string
+	fn   func(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error
+}
 
 func main() {
 	timeout := time.Minute
@@ -79,13 +83,15 @@ func main() {
 		pqDB = db
 	}
 
-	queue := map[string]importer{
-		"user":    user.Import,
-		"contact": contact.Import,
-		"project": project.Import,
+	queue := []importer{
+		{name: "user", fn: user.Import},
+		{name: "contact", fn: contact.Import},
+		{name: "project", fn: project.Import},
+		{name: "tag", fn: tag.Import},
 	}
 
-	for name, fn := range queue {
+	for _, task := range queue {
+		name := task.name
 		errCount := 0
 		log.Printf("%s import start", name)
 		for {
@@ -98,7 +104,7 @@ func main() {
 			if err != nil {
 				panic(errors.Tag(err, "start tx"))
 			}
-			err = fn(ctx, mDB, tx, limit)
+			err = task.fn(ctx, mDB, tx, limit)
 			if err == nil || err == status.HitLimit {
 				if err = tx.Commit(); err != nil {
 					panic(errors.Tag(err, "commit tx"))

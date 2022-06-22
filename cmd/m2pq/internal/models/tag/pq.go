@@ -16,9 +16,147 @@
 
 package tag
 
+import (
+	"context"
+	"database/sql"
+	"log"
+
+	"github.com/lib/pq"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/m2pq"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+)
+
 type ForPQ struct {
 	IdField         `bson:"inline"`
 	NameField       `bson:"inline"`
 	ProjectIdsField `bson:"inline"`
 	UserIdField     `bson:"inline"`
+}
+
+func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
+	tQuery := bson.M{}
+	{
+		var o sharedTypes.UUID
+		err := tx.QueryRowContext(ctx, `
+SELECT user_id
+FROM tags
+ORDER BY user_id
+LIMIT 1
+`).Scan(&o)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Tag(err, "cannot get last inserted user")
+		}
+		if err != sql.ErrNoRows {
+			lowest, err2 := m2pq.UUID2ObjectID(o)
+			if err2 != nil {
+				return errors.Tag(err2, "cannot decode last insert id")
+			}
+			tQuery["user_id"] = bson.M{
+				"$lt": primitive.ObjectID(lowest),
+			}
+		}
+	}
+	tC, err := db.
+		Collection("tags").
+		Find(
+			ctx,
+			tQuery,
+			options.Find().
+				SetSort(bson.M{"user_id": -1}).
+				SetBatchSize(int32(limit)).
+				SetLimit(int64(limit)),
+		)
+	if err != nil {
+		return errors.Tag(err, "get contacts cursor")
+	}
+	tags := make([]ForPQ, limit)
+	if err = tC.All(ctx, &tags); err != nil {
+		return errors.Tag(err, "fetch all tags")
+	}
+
+	var q *sql.Stmt
+	defer func() {
+		if q != nil {
+			_ = q.Close()
+		}
+	}()
+
+	// Part 1: user <-> tag with name
+	q, err = tx.PrepareContext(
+		ctx,
+		pq.CopyIn(
+			"tags",
+			"id", "name", "user_id",
+		),
+	)
+	if err != nil {
+		return errors.Tag(err, "prepare tags insert")
+	}
+	var userId primitive.ObjectID
+	for i, t := range tags {
+		log.Printf("tag[%d/%d]: tags: %s", i, limit, t.Id.Hex())
+
+		userId, err = primitive.ObjectIDFromHex(t.UserId)
+		if err != nil {
+			return errors.Tag(err, "parse user id")
+		}
+		_, err = q.ExecContext(
+			ctx,
+			m2pq.ObjectID2UUID(t.Id),
+			t.Name,
+			m2pq.ObjectID2UUID(userId),
+		)
+		if err != nil {
+			return errors.Tag(err, "queue tag")
+		}
+	}
+	if _, err = q.ExecContext(ctx); err != nil {
+		return errors.Tag(err, "flush tags queue")
+	}
+	if err = q.Close(); err != nil {
+		return errors.Tag(err, "finalize tags statement")
+	}
+
+	// Part 2: tag <-> project
+	q, err = tx.PrepareContext(
+		ctx,
+		pq.CopyIn(
+			"tag_entries",
+			"project_id", "tag_id",
+		),
+	)
+	if err != nil {
+		return errors.Tag(err, "prepare tag entries insert")
+	}
+	for i, t := range tags {
+		log.Printf("tag[%d/%d]: tag_entries: %s", i, limit, t.Id.Hex())
+		for _, projectId := range t.ProjectIds {
+			_, err = q.ExecContext(
+				ctx,
+				m2pq.ObjectID2UUID(projectId),
+				m2pq.ObjectID2UUID(t.Id),
+			)
+			if err != nil {
+				return errors.Tag(err, "queue tag entry")
+			}
+		}
+	}
+	if _, err = q.ExecContext(ctx); err != nil {
+		return errors.Tag(err, "flush tag entries queue")
+	}
+	if err = q.Close(); err != nil {
+		return errors.Tag(err, "finalize tag entries statement")
+	}
+
+	if len(tags) >= limit {
+		return status.HitLimit
+	}
+	return nil
 }

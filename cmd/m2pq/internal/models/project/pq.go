@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/doc"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
@@ -103,6 +105,12 @@ func deserializeDocArchive(r io.ReadCloser) (sharedTypes.Lines, error) {
 	return nil, &errors.InvalidStateError{Msg: "unknown archive schema"}
 }
 
+type projectFile struct {
+	ProjectId sharedTypes.UUID
+	FileId    sharedTypes.UUID
+	Size      int64
+}
+
 func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
 	var fo objectStorage.Backend
 	fBucket := utils.MustGetStringFromEnv("FILESTORE_BUCKET")
@@ -126,6 +134,53 @@ func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) erro
 		}
 		do = m
 	}
+
+	eg := &errgroup.Group{}
+	defer func() {
+		// Ensure no clobbering of concurrent retries.
+		_ = eg.Wait()
+	}()
+	copyQueueClosed := false
+	copyQueue := make(chan projectFile, 50)
+
+	eg = &errgroup.Group{}
+	for j := 0; j < 10; j++ {
+		eg.Go(func() error {
+			var lastErr error
+			for e := range copyQueue {
+				dst := e.ProjectId.String() + "/" + e.FileId.String()
+				{
+					s, err := fo.GetObjectSize(ctx, fBucket, dst)
+					if err == nil && s == e.Size {
+						// already copied in full
+						continue
+					}
+				}
+				pId, _ := m2pq.UUID2ObjectID(e.ProjectId)
+				fId, _ := m2pq.UUID2ObjectID(e.FileId)
+				src :=
+					primitive.ObjectID(pId).Hex() +
+						"/" +
+						primitive.ObjectID(fId).Hex()
+				if err := fo.CopyObject(ctx, fBucket, src, dst); err != nil {
+					err = errors.Tag(
+						err,
+						fmt.Sprintf("copy %s -> %s", src, dst),
+					)
+					log.Println(err.Error())
+					lastErr = err
+				}
+			}
+			return lastErr
+		})
+	}
+	defer func() {
+		if !copyQueueClosed {
+			close(copyQueue)
+		}
+		for range copyQueue {
+		}
+	}()
 
 	pQuery := bson.M{}
 	dQuery := bson.M{}
@@ -217,7 +272,6 @@ LIMIT 1
 	lastDoc.ProjectId = maxId
 	lastDeletedFile := DeletedFile{}
 	lastDeletedFile.ProjectId = maxId
-	var t *Folder
 
 	i := 0
 	for i = 0; pC.Next(ctx) && i < limit; i++ {
@@ -240,6 +294,7 @@ LIMIT 1
 			}
 		}
 
+		var t *Folder
 		if t, err = p.GetRootFolder(); err != nil {
 			return errors.Tag(err, "get tree")
 		}
@@ -376,14 +431,15 @@ SELECT $1,
 				}
 			}
 			for _, r := range f.FileRefs {
+				fileId := m2pq.ObjectID2UUID(r.Id)
 				_, err = q.ExecContext(
 					ctx,
-					deletedAt, m2pq.ObjectID2UUID(r.Id), "file", fId,
-					path.Join(r.Name), pId,
+					deletedAt, fileId, "file", fId, path.Join(r.Name), pId,
 				)
 				if err != nil {
 					return err
 				}
+				copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 			}
 			for _, ff := range f.Folders {
 				_, err = q.ExecContext(
@@ -402,14 +458,16 @@ SELECT $1,
 		}
 
 		for _, f := range deletedFiles {
+			fileId := m2pq.ObjectID2UUID(f.Id)
 			_, err = q.ExecContext(
 				ctx,
-				f.DeletedAt, m2pq.ObjectID2UUID(f.Id), "file", tId, f.Name,
+				f.DeletedAt, fileId, "file", tId, f.Name,
 				pId,
 			)
 			if err != nil {
 				return errors.Tag(err, "queue deleted file tree node")
 			}
+			copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 		}
 
 		for _, d := range docs {
@@ -509,9 +567,85 @@ WHERE id = $1
 			return errors.Tag(err, "finalize project")
 		}
 
-		// TODO: access
+		q, err = tx.PrepareContext(
+			ctx,
+			pq.CopyIn(
+				"project_members",
+				"project_id", "user_id", "access_source", "privilege_level", "archived", "trashed",
+			),
+		)
+		if err != nil {
+			return errors.Tag(err, "prepare collaborators")
+		}
+
+		access := []struct {
+			AccessSource
+			sharedTypes.PrivilegeLevel
+			Refs
+		}{
+			{
+				AccessSource:   AccessSourceOwner,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelOwner,
+				Refs:           Refs{p.OwnerRef},
+			},
+			{
+				AccessSource:   AccessSourceInvite,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
+				Refs:           p.CollaboratorRefs,
+			},
+			{
+				AccessSource:   AccessSourceInvite,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
+				Refs:           p.ReadOnlyRefs,
+			},
+			{
+				AccessSource:   AccessSourceToken,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
+				Refs:           p.TokenAccessReadAndWriteRefs,
+			},
+			{
+				AccessSource:   AccessSourceToken,
+				PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
+				Refs:           p.TokenAccessReadOnlyRefs,
+			},
+		}
+		seen := make(map[primitive.ObjectID]bool, 0)
+
+		for _, a := range access {
+			for _, userId := range a.Refs {
+				if seen[userId] {
+					continue
+				}
+				_, err = q.ExecContext(
+					ctx,
+					pId, m2pq.ObjectID2UUID(userId), a.AccessSource,
+					a.PrivilegeLevel, p.ArchivedBy.Contains(userId),
+					p.TrashedBy.Contains(userId),
+				)
+				if err != nil {
+					return errors.Tag(err, "queue collaborator")
+				}
+				seen[userId] = true
+			}
+		}
+
+		if _, err = q.ExecContext(ctx); err != nil {
+			return errors.Tag(err, "flush collaborator queue")
+		}
+		if err = q.Close(); err != nil {
+			return errors.Tag(err, "close collaborator queue")
+		}
+
 		// TODO: history
 	}
+
+	// Upon returning for committing the tx, all copying should have finished.
+	copyQueueClosed = true
+	close(copyQueue)
+	if err = eg.Wait(); err != nil {
+		return err
+	}
+
 	if i == limit {
 		return status.HitLimit
 	}
