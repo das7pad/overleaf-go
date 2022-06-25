@@ -34,6 +34,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/doc"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
@@ -267,6 +268,7 @@ LIMIT 1
 		}
 	}()
 
+	auditLogs := make(map[sharedTypes.UUID][]AuditLogEntry)
 	maxId, _ := primitive.ObjectIDFromHex("ffffffffffffffffffffffff")
 	lastDoc := doc.ForPQ{}
 	lastDoc.ProjectId = maxId
@@ -282,6 +284,8 @@ LIMIT 1
 		pId := m2pq.ObjectID2UUID(p.Id)
 		idS := p.Id.Hex()
 		log.Printf("projects[%d/%d]: %s", i, limit, idS)
+
+		auditLogs[pId] = p.AuditLog
 
 		for idS < lastDoc.ProjectId.Hex() && dC.Next(ctx) {
 			if err = dC.Decode(&lastDoc); err != nil {
@@ -637,7 +641,62 @@ WHERE id = $1
 		}
 
 		// TODO: history
-		// TODO: audit log
+	}
+
+	nAuditLogs := 0
+	initiatorMongoIds := make(map[primitive.ObjectID]bool)
+	for _, entries := range auditLogs {
+		nAuditLogs += len(entries)
+		for _, entry := range entries {
+			initiatorMongoIds[entry.InitiatorId] = true
+		}
+	}
+	initiatorIds, err := user.GetUsersForAuditLog(ctx, tx, initiatorMongoIds)
+	if err != nil {
+		return errors.Tag(err, "resolve audit log users")
+	}
+
+	q, err = tx.PrepareContext(
+		ctx,
+		pq.CopyIn(
+			"project_audit_log",
+			"id", "info", "initiator_id", "operation", "project_id", "timestamp",
+		),
+	)
+	if err != nil {
+		return errors.Tag(err, "prepare audit log")
+	}
+
+	ids, err := sharedTypes.GenerateUUIDBulk(nAuditLogs)
+	if err != nil {
+		return errors.Tag(err, "audit log ids")
+	}
+	for projectId, entries := range auditLogs {
+		for _, entry := range entries {
+			var infoBlob []byte
+			infoBlob, err = json.Marshal(entry.Info)
+			if err != nil {
+				return errors.Tag(err, "serialize audit log")
+			}
+			_, err = q.ExecContext(
+				ctx,
+				ids.Next(),                      // id
+				string(infoBlob),                // info
+				initiatorIds[entry.InitiatorId], // initiator_id
+				entry.Operation,                 // operation
+				projectId,                       // project_id
+				entry.Timestamp,                 // timestamp
+			)
+			if err != nil {
+				return errors.Tag(err, "queue audit log")
+			}
+		}
+	}
+	if _, err = q.ExecContext(ctx); err != nil {
+		return errors.Tag(err, "flush audit log queue")
+	}
+	if err = q.Close(); err != nil {
+		return errors.Tag(err, "close audit log queue")
 	}
 
 	// Upon returning for committing the tx, all copying should have finished.
