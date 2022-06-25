@@ -24,13 +24,11 @@ import (
 )
 
 var (
-	allZeroObjectIDString = "000000000000000000000000"
-	allZeroObjectIDByte   = [12]byte{}
-	ErrInvalidID          = &errors.ValidationError{Msg: "invalid id"}
+	ErrInvalidID = &errors.ValidationError{Msg: "invalid id"}
 )
 
 func ObjectID2UUID(id [12]byte) sharedTypes.UUID {
-	if id == allZeroObjectIDByte {
+	if id == [12]byte{} {
 		return sharedTypes.UUID{}
 	}
 	return objectID2UUID(id[:])
@@ -60,9 +58,6 @@ func objectID2UUID(id []byte) sharedTypes.UUID {
 func ParseID(s string) (sharedTypes.UUID, error) {
 	switch len(s) {
 	case 24:
-		if s == allZeroObjectIDString {
-			return sharedTypes.UUID{}, nil
-		}
 		b, err := hex.DecodeString(s)
 		if err != nil {
 			return sharedTypes.UUID{}, ErrInvalidID

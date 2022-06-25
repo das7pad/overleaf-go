@@ -62,9 +62,9 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 		err := tx.QueryRowContext(ctx, `
 SELECT p.id, d.id, end_at
 FROM doc_history
-         INNER JOIN docs d on doc_history.doc_id = d.id
-         INNER JOIN tree_nodes tn on d.id = tn.id
-         INNER JOIN projects p on tn.project_id = p.id
+         INNER JOIN docs d ON doc_history.doc_id = d.id
+         INNER JOIN tree_nodes tn ON d.id = tn.id
+         INNER JOIN projects p ON tn.project_id = p.id
 ORDER BY d.id
 LIMIT 1
 `).Scan(&pId, &docId, &end)
@@ -140,8 +140,8 @@ LIMIT 1
 	checkStmt, err := rTx.PrepareContext(ctx, `
 SELECT TRUE
 FROM docs d
-         INNER JOIN tree_nodes tn on d.id = tn.id
-         INNER JOIN projects p on tn.project_id = p.id
+         INNER JOIN tree_nodes tn ON d.id = tn.id
+         INNER JOIN projects p ON tn.project_id = p.id
 WHERE d.id = $1
   AND p.id = $2
 `)

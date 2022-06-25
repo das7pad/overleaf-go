@@ -18,11 +18,12 @@ package httpUtils
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func ParseAndValidateId(c *Context, name string) (sharedTypes.UUID, error) {
-	id, err := sharedTypes.ParseUUID(c.Param(name))
+	id, err := m2pq.ParseID(c.Param(name))
 	if err != nil || id == (sharedTypes.UUID{}) {
 		return sharedTypes.UUID{}, &errors.ValidationError{
 			Msg: "invalid " + name,

@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -117,10 +118,10 @@ type ActivateUserPageRequest struct {
 }
 
 func (r *ActivateUserPageRequest) FromQuery(q url.Values) error {
-	id, err := sharedTypes.ParseUUID(q.Get("user_id"))
+	id, err := m2pq.ParseID(q.Get("user_id"))
 	if err != nil {
 		return &errors.ValidationError{
-			Msg: `query parameter "user_id" should be an ObjectID`,
+			Msg: `query parameter "user_id" should be a UUID`,
 		}
 	}
 	r.UserIdHex = id.String()
@@ -129,7 +130,7 @@ func (r *ActivateUserPageRequest) FromQuery(q url.Values) error {
 }
 
 func (r *ActivateUserPageRequest) Validate() error {
-	if _, err := sharedTypes.ParseUUID(r.UserIdHex); err != nil {
+	if _, err := m2pq.ParseID(r.UserIdHex); err != nil {
 		return &errors.ValidationError{Msg: "missing user_id"}
 	}
 	if err := r.Token.Validate(); err != nil {

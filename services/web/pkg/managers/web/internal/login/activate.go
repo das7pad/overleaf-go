@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -32,7 +33,7 @@ func (m *manager) ActivateUserPage(ctx context.Context, request *types.ActivateU
 	}
 	var userId sharedTypes.UUID
 	{
-		id, err := sharedTypes.ParseUUID(request.UserIdHex)
+		id, err := m2pq.ParseID(request.UserIdHex)
 		if err != nil || id == (sharedTypes.UUID{}) {
 			return &errors.ValidationError{Msg: "invalid user_id"}
 		}

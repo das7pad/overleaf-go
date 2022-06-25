@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -33,7 +34,7 @@ type CreateMultiProjectZIPRequest struct {
 
 func (r *CreateMultiProjectZIPRequest) FromQuery(q url.Values) error {
 	for _, raw := range strings.Split(q.Get("project_ids"), ",") {
-		id, err := sharedTypes.ParseUUID(raw)
+		id, err := m2pq.ParseID(raw)
 		if err != nil {
 			return &errors.ValidationError{
 				Msg: "invalid project id: " + err.Error(),
