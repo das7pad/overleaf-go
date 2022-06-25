@@ -112,7 +112,7 @@ type projectFile struct {
 	Size      int64
 }
 
-func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
 	var fo objectStorage.Backend
 	fBucket := utils.MustGetStringFromEnv("FILESTORE_BUCKET")
 	{
@@ -639,8 +639,6 @@ WHERE id = $1
 		if err = q.Close(); err != nil {
 			return errors.Tag(err, "close collaborator queue")
 		}
-
-		// TODO: history
 	}
 
 	nAuditLogs := 0
@@ -651,7 +649,7 @@ WHERE id = $1
 			initiatorMongoIds[entry.InitiatorId] = true
 		}
 	}
-	initiatorIds, err := user.GetUsersForAuditLog(ctx, tx, initiatorMongoIds)
+	initiatorIds, err := user.ResolveUsers(ctx, rTx, initiatorMongoIds)
 	if err != nil {
 		return errors.Tag(err, "resolve audit log users")
 	}

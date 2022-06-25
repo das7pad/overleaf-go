@@ -23,6 +23,7 @@ import (
 
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -41,7 +42,7 @@ type ForPQ struct {
 	MessageOptsField `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
 	ottQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
@@ -60,7 +61,7 @@ LIMIT 1
 				return errors.Tag(err2, "cannot decode last insert id")
 			}
 			ottQuery["_id"] = bson.M{
-				"$lt": lowest,
+				"$lt": primitive.ObjectID(lowest),
 			}
 		}
 	}

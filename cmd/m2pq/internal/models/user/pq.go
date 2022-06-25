@@ -67,7 +67,7 @@ func cleanIP(s string) (string, error) {
 	return addr.Addr().String(), nil
 }
 
-func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
 	uQuery := bson.M{}
 	spQuery := bson.M{}
 	{
@@ -221,7 +221,7 @@ LIMIT 1
 			initiatorMongoIds[entry.InitiatorId] = true
 		}
 	}
-	initiatorIds, err := GetUsersForAuditLog(ctx, tx, initiatorMongoIds)
+	initiatorIds, err := ResolveUsers(ctx, rTx, initiatorMongoIds)
 	if err != nil {
 		return errors.Tag(err, "resolve audit log users")
 	}
@@ -281,12 +281,12 @@ LIMIT 1
 	return nil
 }
 
-func GetUsersForAuditLog(ctx context.Context, tx *sql.Tx, ids map[primitive.ObjectID]bool) (map[primitive.ObjectID]sql.NullString, error) {
+func ResolveUsers(ctx context.Context, rTx *sql.Tx, ids map[primitive.ObjectID]bool) (map[primitive.ObjectID]sql.NullString, error) {
 	idsFlat := make([]sharedTypes.UUID, len(ids))
 	for id := range ids {
 		idsFlat = append(idsFlat, m2pq.ObjectID2UUID(id))
 	}
-	r, err := tx.QueryContext(ctx, `
+	r, err := rTx.QueryContext(ctx, `
 SELECT id
 FROM users
 WHERE id = ANY ($1)
@@ -296,7 +296,7 @@ WHERE id = ANY ($1)
 	}
 	defer func() { _ = r.Close() }()
 
-	m := make(map[primitive.ObjectID]sql.NullString)
+	m := make(map[primitive.ObjectID]sql.NullString, len(ids))
 	for r.Next() {
 		id := sharedTypes.UUID{}
 		if err = r.Scan(&id); err != nil {
@@ -310,6 +310,13 @@ WHERE id = ANY ($1)
 	}
 	if err = r.Err(); err != nil {
 		return nil, errors.Tag(err, "iter users")
+	}
+
+	for id := range ids {
+		if _, exists := m[id]; exists {
+			continue
+		}
+		m[id] = sql.NullString{}
 	}
 
 	return m, nil

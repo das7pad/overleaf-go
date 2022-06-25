@@ -28,6 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/contact"
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/docHistory"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/notification"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/project"
@@ -42,12 +43,12 @@ import (
 
 type importer struct {
 	name string
-	fn   func(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error
+	fn   func(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error
 }
 
 func main() {
 	timeout := time.Minute
-	limit := 1000
+	limit := 100
 
 	signalCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -94,7 +95,17 @@ func main() {
 		{name: "project_invites", fn: projectInvite.Import},
 		{name: "one_time_tokens", fn: oneTimeToken.Import},
 		{name: "notifications", fn: notification.Import},
+		{name: "doc_history", fn: docHistory.Import},
 	}
+	var rTx *sql.Tx
+	{
+		var err error
+		rTx, err = pqDB.BeginTx(signalCtx, nil)
+		if err != nil {
+			panic(errors.Tag(err, "open read tx"))
+		}
+	}
+	defer func() { _ = rTx.Rollback() }()
 
 	for _, task := range queue {
 		name := task.name
@@ -110,10 +121,10 @@ func main() {
 			if err != nil {
 				panic(errors.Tag(err, "start tx"))
 			}
-			err = task.fn(ctx, mDB, tx, limit)
+			err = task.fn(ctx, mDB, rTx, tx, limit)
 			if err == nil || err == status.HitLimit {
-				if err = tx.Commit(); err != nil {
-					panic(errors.Tag(err, "commit tx"))
+				if err2 := tx.Commit(); err2 != nil {
+					panic(errors.Tag(err2, "commit tx"))
 				}
 				done()
 				if err == status.HitLimit {

@@ -62,7 +62,7 @@ type ForPQ struct {
 	UsedAtField    `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
 	ottQuery := bson.M{}
 	{
 		var oldest time.Time
@@ -117,7 +117,7 @@ LIMIT 1
 		if err = ottC.Decode(&ott); err != nil {
 			return errors.Tag(err, "cannot decode ott")
 		}
-		log.Printf("project_invite[%d/%d]: %s", i, limit, ott.CreatedAt)
+		log.Printf("one_time_token[%d/%d]: %s", i, limit, ott.CreatedAt)
 
 		var userId primitive.ObjectID
 		if userId, err = ott.Data.GetUserId(); err != nil {

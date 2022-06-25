@@ -40,7 +40,7 @@ type ForPQ struct {
 	UserIdField     `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
 	tQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
