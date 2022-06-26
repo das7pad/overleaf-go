@@ -51,12 +51,12 @@ ORDER BY user_id
 LIMIT 1
 `).Scan(&o)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted user")
+			return errors.Tag(err, "get last inserted user")
 		}
 		if err != sql.ErrNoRows {
 			lowest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last insert id")
+				return errors.Tag(err2, "decode last insert id")
 			}
 			tQuery["user_id"] = bson.M{
 				"$lt": primitive.ObjectID(lowest),

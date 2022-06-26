@@ -24,10 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type AlphaProgramField struct {
-	AlphaProgram bool `json:"alphaProgram" bson:"alphaProgram"`
-}
-
 type AuditLogField struct {
 	AuditLog []AuditLogEntry `bson:"auditLog"`
 }
@@ -90,11 +86,6 @@ type LoginCountField struct {
 
 type MustReconfirmField struct {
 	MustReconfirm bool `bson:"must_reconfirm"`
-}
-
-//goland:noinspection SpellCheckingInspection
-type ReferralIdField struct {
-	ReferralId string `bson:"referal_id"`
 }
 
 type SignUpDateField struct {

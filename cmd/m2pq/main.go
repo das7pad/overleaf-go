@@ -27,6 +27,7 @@ import (
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/chat"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/contact"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/docHistory"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/notification"
@@ -96,6 +97,7 @@ func main() {
 		{name: "one_time_tokens", fn: oneTimeToken.Import},
 		{name: "notifications", fn: notification.Import},
 		{name: "doc_history", fn: docHistory.Import},
+		{name: "chat_messages", fn: chat.Import},
 	}
 	var rTx *sql.Tx
 	{

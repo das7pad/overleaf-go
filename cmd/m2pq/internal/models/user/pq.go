@@ -79,12 +79,12 @@ ORDER BY signup_date
 LIMIT 1
 `).Scan(&o)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted user")
+			return errors.Tag(err, "get last inserted user")
 		}
 		if err != sql.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last insert id")
+				return errors.Tag(err2, "decode last insert id")
 			}
 			uQuery["_id"] = bson.M{
 				"$lt": primitive.ObjectID(oldest),
@@ -153,7 +153,7 @@ LIMIT 1
 	for i = 0; uC.Next(ctx) && i < limit; i++ {
 		u := ForPQ{}
 		if err = uC.Decode(&u); err != nil {
-			return errors.Tag(err, "cannot decode user")
+			return errors.Tag(err, "decode user")
 		}
 		if u.Id == (primitive.ObjectID{}) {
 			continue
@@ -166,11 +166,11 @@ LIMIT 1
 
 		for idS < lastLW.Token && lwC.Next(ctx) {
 			if err = lwC.Decode(&lastLW); err != nil {
-				return errors.Tag(err, "cannot decode lw")
+				return errors.Tag(err, "decode lw")
 			}
 		}
 		if err = lwC.Err(); err != nil {
-			return errors.Tag(err, "cannot iter lw cur")
+			return errors.Tag(err, "iter lw cur")
 		}
 
 		lw := noLw
@@ -206,6 +206,9 @@ LIMIT 1
 		if err != nil {
 			return errors.Tag(err, "queue user")
 		}
+	}
+	if err = uC.Err(); err != nil {
+		return errors.Tag(err, "iter users")
 	}
 	if _, err = q.ExecContext(ctx); err != nil {
 		return errors.Tag(err, "flush queue")

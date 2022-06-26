@@ -195,12 +195,12 @@ ORDER BY id
 LIMIT 1
 `).Scan(&o)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted user")
+			return errors.Tag(err, "get last inserted user")
 		}
 		if err != sql.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last insert id")
+				return errors.Tag(err2, "decode last insert id")
 			}
 			pQuery["_id"] = bson.M{
 				"$lt": primitive.ObjectID(oldest),
@@ -279,7 +279,7 @@ LIMIT 1
 	for i = 0; pC.Next(ctx) && i < limit; i++ {
 		p := ForPQ{}
 		if err = pC.Decode(&p); err != nil {
-			return errors.Tag(err, "cannot decode contact")
+			return errors.Tag(err, "decode contact")
 		}
 		pId := m2pq.ObjectID2UUID(p.Id)
 		idS := p.Id.Hex()

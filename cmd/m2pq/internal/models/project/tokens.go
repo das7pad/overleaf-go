@@ -16,54 +16,7 @@
 
 package project
 
-import (
-	"crypto/subtle"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
-const (
-	lenReadOnly           = 12
-	lenReadAndWrite       = 22
-	lenReadAndWritePrefix = 10
-)
-
 type AccessToken string
-
-func (t AccessToken) EqualsTimingSafe(other AccessToken) bool {
-	return subtle.ConstantTimeCompare([]byte(t), []byte(other)) == 1
-}
-
-var ErrInvalidTokenFormat = &errors.ValidationError{Msg: "invalid token format"}
-
-func (t AccessToken) ValidateReadAndWrite() error {
-	if len(t) != lenReadAndWrite {
-		return ErrInvalidTokenFormat
-	}
-	for i := 0; i < lenReadAndWritePrefix; i++ {
-		if t[i] < '0' || t[i] > '9' {
-			return ErrInvalidTokenFormat
-		}
-	}
-	for i := lenReadAndWritePrefix; i < lenReadAndWrite; i++ {
-		if t[i] < 'a' || t[i] > 'z' {
-			return ErrInvalidTokenFormat
-		}
-	}
-	return nil
-}
-
-func (t AccessToken) ValidateReadOnly() error {
-	if len(t) != lenReadOnly {
-		return ErrInvalidTokenFormat
-	}
-	for i := 0; i < lenReadOnly; i++ {
-		if t[i] < 'a' || t[i] > 'z' {
-			return ErrInvalidTokenFormat
-		}
-	}
-	return nil
-}
 
 type Tokens struct {
 	ReadOnly           AccessToken `json:"readOnly" bson:"readOnly"`

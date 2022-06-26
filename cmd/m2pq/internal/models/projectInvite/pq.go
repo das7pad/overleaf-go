@@ -55,12 +55,12 @@ ORDER BY created_at
 LIMIT 1
 `).Scan(&o)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted pi")
+			return errors.Tag(err, "get last inserted pi")
 		}
 		if err != sql.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last insert id")
+				return errors.Tag(err2, "decode last insert id")
 			}
 			piQuery["_id"] = bson.M{
 				"$lt": primitive.ObjectID(oldest),
@@ -101,7 +101,7 @@ LIMIT 1
 	for i = 0; piC.Next(ctx) && i < limit; i++ {
 		pi := ForPQ{}
 		if err = piC.Decode(&pi); err != nil {
-			return errors.Tag(err, "cannot decode pi")
+			return errors.Tag(err, "decode pi")
 		}
 		log.Printf("project_invite[%d/%d]: %s", i, limit, pi.Id.Hex())
 

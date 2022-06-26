@@ -16,21 +16,4 @@
 
 package oneTimeToken
 
-import (
-	"encoding/hex"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
-const lenBytesOneTimeToken = 32
-
-var lenHexOneTimeToken = hex.EncodedLen(lenBytesOneTimeToken)
-
 type OneTimeToken string
-
-func (t OneTimeToken) Validate() error {
-	if len(t) != lenHexOneTimeToken {
-		return &errors.ValidationError{Msg: "invalid token"}
-	}
-	return nil
-}

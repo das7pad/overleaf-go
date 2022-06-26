@@ -73,7 +73,7 @@ ORDER BY created_at
 LIMIT 1
 `).Scan(&oldest)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted pi")
+			return errors.Tag(err, "get last inserted pi")
 		}
 		if err != sql.ErrNoRows {
 			ottQuery["createdAt"] = bson.M{
@@ -115,7 +115,7 @@ LIMIT 1
 	for i = 0; ottC.Next(ctx) && i < limit; i++ {
 		ott := ForPQ{}
 		if err = ottC.Decode(&ott); err != nil {
-			return errors.Tag(err, "cannot decode ott")
+			return errors.Tag(err, "decode ott")
 		}
 		log.Printf("one_time_token[%d/%d]: %s", i, limit, ott.CreatedAt)
 

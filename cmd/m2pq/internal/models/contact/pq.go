@@ -49,12 +49,12 @@ ORDER BY b
 LIMIT 1
 `).Scan(&o)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted user")
+			return errors.Tag(err, "get last inserted user")
 		}
 		if err != sql.ErrNoRows {
 			lowest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last insert id")
+				return errors.Tag(err2, "decode last insert id")
 			}
 			cQuery["user_id"] = bson.M{
 				"$lt": primitive.ObjectID(lowest),
@@ -96,7 +96,7 @@ LIMIT 1
 	for i = 0; uC.Next(ctx) && i < limit; i++ {
 		u := ForPQ{}
 		if err = uC.Decode(&u); err != nil {
-			return errors.Tag(err, "cannot decode contact")
+			return errors.Tag(err, "decode contact")
 		}
 		id := m2pq.ObjectID2UUID(u.UserId)
 		idS := u.UserId.Hex()
@@ -130,7 +130,7 @@ LIMIT 1
 		return errors.Tag(err, "finalize statement")
 	}
 	if err = uC.Err(); err != nil {
-		return errors.Tag(err, "cannot close contacts cur")
+		return errors.Tag(err, "close contacts cur")
 	}
 	if i == limit {
 		return status.HitLimit

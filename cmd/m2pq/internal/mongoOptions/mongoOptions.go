@@ -51,7 +51,7 @@ func Parse() (*options.ClientOptions, string) {
 
 	cs, err := connstring.Parse(mongoConnectionString)
 	if err != nil {
-		panic(errors.Tag(err, "cannot parse connection string"))
+		panic(errors.Tag(err, "parse connection string"))
 	}
 	dbName := cs.Database
 

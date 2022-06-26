@@ -18,48 +18,16 @@ package project
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AccessSource string
 type PublicAccessLevel string
 
-func (l PublicAccessLevel) Validate() error {
-	switch l {
-	case PrivateAccess:
-	case TokenBasedAccess:
-	default:
-		return &errors.ValidationError{Msg: "unknown PublicAccessLevel"}
-	}
-	return nil
-}
-
-type IsRestrictedUser bool
-type IsTokenMember bool
-
 const (
 	AccessSourceOwner  AccessSource = "owner"
 	AccessSourceToken  AccessSource = "token"
 	AccessSourceInvite AccessSource = "invite"
-
-	TokenBasedAccess PublicAccessLevel = "tokenBased"
-	PrivateAccess    PublicAccessLevel = "private"
 )
-
-type AuthorizationDetails struct {
-	Epoch          int64                      `json:"e,omitempty"`
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"l"`
-	IsTokenMember  IsTokenMember              `json:"tm,omitempty"`
-	AccessSource   AccessSource               `json:"-"`
-}
-
-func (a *AuthorizationDetails) IsRestrictedUser() IsRestrictedUser {
-	return IsRestrictedUser(
-		a.IsTokenMember && a.PrivilegeLevel == sharedTypes.PrivilegeLevelReadOnly,
-	)
-}
 
 type Refs []primitive.ObjectID
 
@@ -70,94 +38,4 @@ func (r Refs) Contains(userId primitive.ObjectID) bool {
 		}
 	}
 	return false
-}
-
-func (p *ForPQ) GetPrivilegeLevelAnonymous(accessToken AccessToken) (*AuthorizationDetails, error) {
-	if p.PublicAccessLevel == TokenBasedAccess && accessToken != "" {
-		switch accessToken[0] {
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			// ReadAndWrite tokens start with numeric characters.
-			if p.Tokens.ReadAndWrite.EqualsTimingSafe(accessToken) {
-				return &AuthorizationDetails{
-					Epoch:          p.Epoch,
-					AccessSource:   AccessSourceToken,
-					PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-					IsTokenMember:  true,
-				}, nil
-			}
-		default:
-			// ReadOnly tokens are composed of alpha characters only.
-			if p.Tokens.ReadOnly.EqualsTimingSafe(accessToken) {
-				return &AuthorizationDetails{
-					Epoch:          p.Epoch,
-					AccessSource:   AccessSourceToken,
-					PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-					IsTokenMember:  true,
-				}, nil
-			}
-		}
-	}
-	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
-}
-
-func (p *ForPQ) CheckPrivilegeLevelIsAtLest(userId primitive.ObjectID, level sharedTypes.PrivilegeLevel) error {
-	d, err := p.GetPrivilegeLevelAuthenticated(userId)
-	if err != nil {
-		return err
-	}
-	return d.PrivilegeLevel.CheckIsAtLeast(level)
-}
-
-func (p *ForPQ) GetPrivilegeLevelAuthenticated(userId primitive.ObjectID) (*AuthorizationDetails, error) {
-	if p.OwnerRef == userId {
-		return &AuthorizationDetails{
-			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceOwner,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelOwner,
-			IsTokenMember:  false,
-		}, nil
-	}
-	if p.CollaboratorRefs.Contains(userId) {
-		return &AuthorizationDetails{
-			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceInvite,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-			IsTokenMember:  false,
-		}, nil
-	}
-	if p.ReadOnlyRefs.Contains(userId) {
-		return &AuthorizationDetails{
-			Epoch:          p.Epoch,
-			AccessSource:   AccessSourceInvite,
-			PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-			IsTokenMember:  false,
-		}, nil
-	}
-	if p.PublicAccessLevel == TokenBasedAccess {
-		if p.TokenAccessReadAndWriteRefs.Contains(userId) {
-			return &AuthorizationDetails{
-				Epoch:          p.Epoch,
-				AccessSource:   AccessSourceToken,
-				PrivilegeLevel: sharedTypes.PrivilegeLevelReadAndWrite,
-				IsTokenMember:  true,
-			}, nil
-		}
-		if p.TokenAccessReadOnlyRefs.Contains(userId) {
-			return &AuthorizationDetails{
-				Epoch:          p.Epoch,
-				AccessSource:   AccessSourceToken,
-				PrivilegeLevel: sharedTypes.PrivilegeLevelReadOnly,
-				IsTokenMember:  true,
-			}, nil
-		}
-	}
-	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
-}
-
-func (p *ForPQ) GetPrivilegeLevel(userId primitive.ObjectID, accessToken AccessToken) (*AuthorizationDetails, error) {
-	if userId.IsZero() {
-		return p.GetPrivilegeLevelAnonymous(accessToken)
-	} else {
-		return p.GetPrivilegeLevelAuthenticated(userId)
-	}
 }

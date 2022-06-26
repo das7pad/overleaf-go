@@ -16,15 +16,4 @@
 
 package projectInvite
 
-import (
-	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
 type Token string
-
-func (t Token) Validate() error {
-	if len(t) < 32 {
-		return &errors.ValidationError{Msg: "token too short"}
-	}
-	return nil
-}

@@ -52,10 +52,6 @@ type InS3Field struct {
 	InS3 bool `json:"inS3" bson:"inS3"`
 }
 
-func (f InS3Field) IsArchived() bool {
-	return f.InS3
-}
-
 type VersionField struct {
 	Version sharedTypes.Version `json:"version" bson:"version"`
 }

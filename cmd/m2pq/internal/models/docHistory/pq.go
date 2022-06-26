@@ -69,17 +69,18 @@ ORDER BY d.id
 LIMIT 1
 `).Scan(&pId, &docId, &end)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Tag(err, "cannot get last inserted pi")
+			return errors.Tag(err, "get last inserted pi")
 		}
 		if err != sql.ErrNoRows {
 			lowerProjectId, err2 := m2pq.UUID2ObjectID(pId)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last project id")
+				return errors.Tag(err2, "decode last project id")
 			}
 			lowerDocId, err2 := m2pq.UUID2ObjectID(docId)
 			if err2 != nil {
-				return errors.Tag(err2, "cannot decode last doc id")
+				return errors.Tag(err2, "decode last doc id")
 			}
+			// TODO: This query has a flaw?
 			dhQuery["$or"] = bson.A{
 				bson.M{
 					"project_id": bson.M{
@@ -156,7 +157,7 @@ WHERE d.id = $1
 	for i = 0; dhC.Next(ctx) && i < limit; i++ {
 		dh := ForPQ{}
 		if err = dhC.Decode(&dh); err != nil {
-			return errors.Tag(err, "cannot decode dh")
+			return errors.Tag(err, "decode dh")
 		}
 
 		docId := m2pq.ObjectID2UUID(dh.DocId)
@@ -166,7 +167,7 @@ WHERE d.id = $1
 			continue
 		}
 		if err != nil {
-			return errors.Tag(err, "cannot check doc exists in project")
+			return errors.Tag(err, "check doc exists in project")
 		}
 
 		log.Printf("doc_history[%d/%d]: %s", i, limit, dh.DocId.Hex())

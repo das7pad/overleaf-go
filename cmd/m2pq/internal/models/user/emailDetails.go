@@ -32,8 +32,3 @@ type EmailDetails struct {
 	Email            sharedTypes.Email            `json:"email" bson:"email"`
 	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" bson:"reversedHostname"`
 }
-
-type EmailDetailsWithDefaultFlag struct {
-	EmailDetails
-	IsDefault bool `json:"default"`
-}

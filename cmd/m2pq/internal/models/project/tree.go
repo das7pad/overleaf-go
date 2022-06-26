@@ -20,7 +20,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -31,9 +30,6 @@ import (
 
 type TreeElement interface {
 	GetId() primitive.ObjectID
-	GetName() sharedTypes.Filename
-	SetName(name sharedTypes.Filename)
-	FieldNameInFolder() MongoPath
 }
 
 type CommonTreeFields struct {
@@ -45,14 +41,6 @@ func (c CommonTreeFields) GetId() primitive.ObjectID {
 	return c.Id
 }
 
-func (c CommonTreeFields) GetName() sharedTypes.Filename {
-	return c.Name
-}
-
-func (c *CommonTreeFields) SetName(name sharedTypes.Filename) {
-	c.Name = name
-}
-
 type Doc struct {
 	CommonTreeFields `bson:"inline"`
 
@@ -60,28 +48,7 @@ type Doc struct {
 	Version  sharedTypes.Version
 }
 
-func (d *Doc) FieldNameInFolder() MongoPath {
-	return "docs"
-}
-
 type LinkedFileProvider string
-
-const (
-	LinkedFileProviderURL               = "url"
-	LinkedFileProviderProjectFile       = "project_file"
-	LinkedFileProviderProjectOutputFile = "project_output_file"
-)
-
-func (p LinkedFileProvider) Validate() error {
-	switch p {
-	case LinkedFileProviderURL:
-	case LinkedFileProviderProjectFile:
-	case LinkedFileProviderProjectOutputFile:
-	default:
-		return &errors.ValidationError{Msg: "unknown provider"}
-	}
-	return nil
-}
 
 type LinkedFileData struct {
 	Provider             LinkedFileProvider `json:"provider" bson:"provider"`
@@ -108,85 +75,12 @@ type FileRef struct {
 	Size           *int64           `json:"size" bson:"size"`
 }
 
-func (f *FileRef) FieldNameInFolder() MongoPath {
-	return "fileRefs"
-}
-
 type Folder struct {
 	CommonTreeFields `bson:"inline"`
 
 	Docs     []*Doc     `json:"docs" bson:"docs"`
 	FileRefs []*FileRef `json:"fileRefs" bson:"fileRefs"`
 	Folders  []*Folder  `json:"folders" bson:"folders"`
-}
-
-func (t *Folder) FieldNameInFolder() MongoPath {
-	return "folders"
-}
-
-func (t *Folder) CreateParents(path sharedTypes.DirName) (*Folder, error) {
-	if path == "." || path == "" {
-		return t, nil
-	}
-	dir := path.Dir()
-	name := path.Filename()
-	parent, err := t.CreateParents(dir)
-	if err != nil {
-		return nil, err
-	}
-	entry, _ := parent.GetEntry(name)
-	if entry == nil {
-		folder := NewFolder(name)
-		parent.Folders = append(parent.Folders, folder)
-		return folder, nil
-	}
-	if folder, ok := entry.(*Folder); ok {
-		return folder, nil
-	}
-	return nil, &errors.ValidationError{Msg: "conflicting paths"}
-}
-
-var ErrDuplicateFolderEntries = &errors.InvalidStateError{
-	Msg: "duplicate folder entries",
-}
-
-func (t *Folder) CheckHasUniqueEntries() error {
-	n := len(t.Docs) + len(t.FileRefs) + len(t.Folders)
-	if n == 0 {
-		return nil
-	}
-	names := make(map[sharedTypes.Filename]struct{}, n)
-	for _, d := range t.Docs {
-		if _, exists := names[d.Name]; exists {
-			return ErrDuplicateFolderEntries
-		}
-		names[d.Name] = struct{}{}
-	}
-	for _, f := range t.FileRefs {
-		if _, exists := names[f.Name]; exists {
-			return ErrDuplicateFolderEntries
-		}
-		names[f.Name] = struct{}{}
-	}
-	for _, f := range t.Folders {
-		if _, exists := names[f.Name]; exists {
-			return ErrDuplicateFolderEntries
-		}
-		names[f.Name] = struct{}{}
-	}
-	return nil
-}
-
-func NewFolder(name sharedTypes.Filename) *Folder {
-	return &Folder{
-		CommonTreeFields: CommonTreeFields{
-			Id:   primitive.NewObjectID(),
-			Name: name,
-		},
-		Docs:     make([]*Doc, 0),
-		FileRefs: make([]*FileRef, 0),
-		Folders:  make([]*Folder, 0),
-	}
 }
 
 var AbortWalk = errors.New("abort walk")
@@ -198,76 +92,12 @@ type DirWalkerMongo func(parent, folder *Folder, path sharedTypes.DirName, mongo
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
 type TreeWalkerMongo func(parent *Folder, element TreeElement, path sharedTypes.PathName, mongoPath MongoPath) error
 
-var (
-	ErrDuplicateNameInFolder = &errors.InvalidStateError{
-		Msg: "folder already has entry with given name",
-	}
-)
-
-const (
-	baseMongoPath MongoPath = "rootFolder.0"
-)
-
-func (t *Folder) CheckIsUniqueName(needle sharedTypes.Filename) error {
-	if t.HasEntry(needle) {
-		return ErrDuplicateNameInFolder
-	}
-	return nil
-}
-
-func (t *Folder) HasEntry(needle sharedTypes.Filename) bool {
-	entry, _ := t.GetEntry(needle)
-	return entry != nil
-}
-
-func (t *Folder) GetEntry(needle sharedTypes.Filename) (TreeElement, MongoPath) {
-	for i, doc := range t.Docs {
-		if doc.Name == needle {
-			p := MongoPath(".docs." + strconv.FormatInt(int64(i), 10))
-			return doc, p
-		}
-	}
-	for i, file := range t.FileRefs {
-		if file.Name == needle {
-			p := MongoPath(".fileRefs." + strconv.FormatInt(int64(i), 10))
-			return file, p
-		}
-	}
-	for i, folder := range t.Folders {
-		if folder.Name == needle {
-			p := MongoPath(".folders." + strconv.FormatInt(int64(i), 10))
-			return folder, p
-		}
-	}
-	return nil, ""
-}
-
-func (t *Folder) Walk(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, "", walkModeAny))
-}
-
-func (t *Folder) WalkDocs(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, "", walkModeDoc))
-}
-
-func (t *Folder) WalkDocsMongo(fn TreeWalkerMongo) error {
-	return ignoreAbort(t.walkMongo(fn, "", baseMongoPath, walkModeDoc))
-}
-
 func (t *Folder) WalkFiles(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, "", walkModeFiles))
 }
 
-func (t *Folder) WalkFilesMongo(fn TreeWalkerMongo) error {
-	return ignoreAbort(t.walkMongo(fn, "", baseMongoPath, walkModeFiles))
-}
-
 func (t *Folder) WalkFolders(fn DirWalker) error {
 	return ignoreAbort(t.walkDirs(fn, ""))
-}
-
-func (t *Folder) WalkFoldersMongo(fn DirWalkerMongo) error {
-	return ignoreAbort(t.walkDirsMongo(nil, fn, "", baseMongoPath))
 }
 
 type walkMode int
@@ -306,21 +136,6 @@ func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 	return nil
 }
 
-func (t *Folder) walkDirsMongo(parent *Folder, fn DirWalkerMongo, parentPath sharedTypes.DirName, mongoParent MongoPath) error {
-	if err := fn(parent, t, parentPath, mongoParent); err != nil {
-		return err
-	}
-	mongoParent += ".folders."
-	for i, folder := range t.Folders {
-		branch := parentPath.JoinDir(folder.Name)
-		s := MongoPath(strconv.FormatInt(int64(i), 10))
-		if err := folder.walkDirsMongo(t, fn, branch, mongoParent+s); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) error {
 	if m == walkModeDoc || m == walkModeAny {
 		for _, doc := range t.Docs {
@@ -339,36 +154,6 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 	for _, folder := range t.Folders {
 		branch := parent.JoinDir(folder.Name)
 		if err := folder.walk(fn, branch, m); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *Folder) walkMongo(fn TreeWalkerMongo, parentPath sharedTypes.DirName, mongoParent MongoPath, m walkMode) error {
-	if m == walkModeDoc || m == walkModeAny {
-		mp := mongoParent + ".docs."
-		for i, doc := range t.Docs {
-			s := MongoPath(strconv.FormatInt(int64(i), 10))
-			if err := fn(t, doc, parentPath.Join(doc.Name), mp+s); err != nil {
-				return err
-			}
-		}
-	}
-	if m == walkModeFiles || m == walkModeAny {
-		mp := mongoParent + ".fileRefs."
-		for i, fileRef := range t.FileRefs {
-			s := MongoPath(strconv.FormatInt(int64(i), 10))
-			if err := fn(t, fileRef, parentPath.Join(fileRef.Name), mp+s); err != nil {
-				return err
-			}
-		}
-	}
-	mongoParent += ".folders."
-	for i, folder := range t.Folders {
-		branch := parentPath.JoinDir(folder.Name)
-		s := MongoPath(strconv.FormatInt(int64(i), 10))
-		if err := folder.walkMongo(fn, branch, mongoParent+s, m); err != nil {
 			return err
 		}
 	}

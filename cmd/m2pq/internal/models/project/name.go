@@ -16,30 +16,4 @@
 
 package project
 
-import (
-	"github.com/das7pad/overleaf-go/pkg/errors"
-)
-
 type Name string
-
-func (n Name) Validate() error {
-	if len(n) == 0 {
-		return &errors.ValidationError{Msg: "name cannot be blank"}
-	}
-	if len(n) > 150 {
-		return &errors.ValidationError{Msg: "name is too long"}
-	}
-	for _, c := range n {
-		switch c {
-		case '/':
-			return &errors.ValidationError{Msg: "name cannot contain /"}
-		case '\\':
-			return &errors.ValidationError{Msg: "name cannot contain \\"}
-		case '\r', '\n':
-			return &errors.ValidationError{
-				Msg: "name cannot contain line feeds",
-			}
-		}
-	}
-	return nil
-}
