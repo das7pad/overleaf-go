@@ -72,7 +72,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 		batch.History = batch.History[:0]
 		batch.Users = batch.Users[:0]
 		err := m.dhm.GetForProject(
-			ctx, r.ProjectId, before, fetchAtLeastNUpdates, &batch,
+			ctx, r.ProjectId, r.UserId, before, fetchAtLeastNUpdates, &batch,
 		)
 		if err != nil {
 			return errors.Tag(err, "cannot get next batch of history")

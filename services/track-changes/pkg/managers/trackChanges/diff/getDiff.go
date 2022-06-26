@@ -59,7 +59,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 	docId := r.DocId
 
 	// get the base-line plus history entries
-	s, dh, err := m.getDocFrom(ctx, projectId, docId, r.From, r.To)
+	s, dh, err := m.getDocFrom(ctx, projectId, r.UserId, docId, r.From, r.To)
 	if err != nil {
 		return err
 	}

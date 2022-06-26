@@ -48,7 +48,7 @@ type manager struct {
 	fm  flush.Manager
 }
 
-func (m *manager) getDocFrom(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version) (sharedTypes.Snapshot, *docHistory.GetForDocResult, error) {
+func (m *manager) getDocFrom(ctx context.Context, projectId, userId, docId sharedTypes.UUID, from, to sharedTypes.Version) (sharedTypes.Snapshot, *docHistory.GetForDocResult, error) {
 	d, err := m.dum.GetDoc(ctx, projectId, docId, -1)
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot get latest doc version")
@@ -67,7 +67,7 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, docId sharedTypes.U
 		History: make([]docHistory.DocHistory, 0, 1+d.Version-from),
 		Users:   make(user.BulkFetched, 10),
 	}
-	err = m.dhm.GetForDoc(ctx, projectId, docId, from, d.Version, &dh)
+	err = m.dhm.GetForDoc(ctx, projectId, userId, docId, from, d.Version, &dh)
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot get flushed history")
 	}
