@@ -215,7 +215,7 @@ FROM p
 		for _, ff := range f.Folders {
 			_, err = q.ExecContext(
 				ctx,
-				deletedAt, ff.Id, "folder", ff.Name, f.Id, ff.Path, p.Id,
+				deletedAt, ff.Id, "folder", f.Id, ff.Path+"/", p.Id,
 			)
 			if err != nil {
 				return err

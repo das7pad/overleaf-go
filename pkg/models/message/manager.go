@@ -66,14 +66,15 @@ func (m *manager) GetGlobalMessages(
 SELECT cm.id,
        cm.content,
        cm.created_at,
-       users.id,
-       email,
-       first_name,
-       last_name
-FROM users
-         INNER JOIN chat_messages cm ON users.id = cm.user_id
+       coalesce(u.id, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(u.email, ''),
+       coalesce(u.first_name, ''),
+       coalesce(u.last_name, '')
+FROM chat_messages cm
+         LEFT JOIN users u ON cm.user_id = u.id
 WHERE cm.project_id = $1
   AND cm.created_at < $2
+  AND u.deleted_at IS NULL
 ORDER BY cm.created_at DESC
 LIMIT $3
 `, projectId, t, limit)

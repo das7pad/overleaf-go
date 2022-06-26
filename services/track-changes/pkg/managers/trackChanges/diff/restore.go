@@ -28,7 +28,7 @@ func (m *manager) RestoreDocVersion(ctx context.Context, r *types.RestoreDocVers
 	projectId := r.ProjectId
 	docId := r.DocId
 
-	s, _, err := m.getDocFrom(ctx, projectId, docId, r.FromV, -1)
+	s, _, err := m.getDocFrom(ctx, projectId, r.UserId, docId, r.FromV, -1)
 	if err != nil {
 		return errors.Tag(err, "cannot get old doc version")
 	}

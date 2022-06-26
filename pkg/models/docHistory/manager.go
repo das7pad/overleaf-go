@@ -32,8 +32,8 @@ import (
 type Manager interface {
 	InsertBulk(ctx context.Context, docId sharedTypes.UUID, dh []ForInsert) error
 	GetLastVersion(ctx context.Context, projectId, docId sharedTypes.UUID) (sharedTypes.Version, error)
-	GetForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version, r *GetForDocResult) error
-	GetForProject(ctx context.Context, projectId sharedTypes.UUID, before time.Time, limit int64, r *GetForProjectResult) error
+	GetForDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, from, to sharedTypes.Version, r *GetForDocResult) error
+	GetForProject(ctx context.Context, projectId, userId sharedTypes.UUID, before time.Time, limit int64, r *GetForProjectResult) error
 }
 
 func New(db *sql.DB) Manager {
@@ -139,7 +139,7 @@ type GetForDocResult struct {
 	Users   user.BulkFetched
 }
 
-func (m *manager) GetForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, from, to sharedTypes.Version, res *GetForDocResult) error {
+func (m *manager) GetForDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, from, to sharedTypes.Version, res *GetForDocResult) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		r, err := m.db.QueryContext(pCtx, `
@@ -152,12 +152,16 @@ FROM doc_history dh
          INNER JOIN docs d ON d.id = dh.doc_id
          INNER JOIN tree_nodes t ON d.id = t.id
          INNER JOIN projects p ON t.project_id = p.id
+         INNER JOIN project_members pm ON p.id = pm.project_id
 WHERE p.id = $1
-  AND t.id = $2
-  AND dh.version >= $3
-  AND dh.version <= $4
+  AND pm.user_id = $2
+  AND (pm.access_source > 'token' OR
+       pm.privilege_level > 'readOnly')
+  AND t.id = $3
+  AND dh.version >= $4
+  AND dh.version <= $5
 ORDER BY dh.version
-`, projectId, docId, from, to)
+`, projectId, userId, docId, from, to)
 		if err != nil {
 			return err
 		}
@@ -188,12 +192,16 @@ FROM doc_history dh
          INNER JOIN tree_nodes t ON d.id = t.id
          INNER JOIN projects p ON t.project_id = p.id
          INNER JOIN users u ON dh.user_id = u.id
+         INNER JOIN project_members pm ON p.id = pm.project_id
 WHERE p.id = $1
-  AND t.id = $2
-  AND dh.version >= $3
-  AND dh.version <= $4
+  AND pm.user_id = $2
+  AND (pm.access_source > 'token' OR
+       pm.privilege_level > 'readOnly')
+  AND t.id = $3
+  AND dh.version >= $4
+  AND dh.version <= $5
   AND u.deleted_at IS NULL
-`, projectId, docId, from, to)
+`, projectId, userId, docId, from, to)
 		if err != nil {
 			return err
 		}
@@ -223,21 +231,30 @@ type GetForProjectResult struct {
 	Users   user.BulkFetched
 }
 
-func (m *manager) GetForProject(ctx context.Context, projectId sharedTypes.UUID, before time.Time, limit int64, res *GetForProjectResult) error {
+func (m *manager) GetForProject(ctx context.Context, projectId, userId sharedTypes.UUID, before time.Time, limit int64, res *GetForProjectResult) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		r, err := m.db.QueryContext(pCtx, `
-WITH dh AS (SELECT dh.*
+WITH dh AS (SELECT dh.version,
+                   dh.start_at,
+                   dh.end_at,
+                   dh.has_big_delete,
+                   dh.user_id,
+                   dh.doc_id
             FROM doc_history dh
                      INNER JOIN docs d ON d.id = dh.doc_id
                      INNER JOIN tree_nodes t ON d.id = t.id
                      INNER JOIN projects p ON t.project_id = p.id
-            WHERE p.id = $1),
+                     INNER JOIN project_members pm ON p.id = pm.project_id
+            WHERE p.id = $1
+              AND pm.user_id = $2
+              AND (pm.access_source > 'token' OR
+                   pm.privilege_level > 'readOnly')),
      dh_end AS (WITH dh_window AS (SELECT end_at
                                    FROM dh
-                                   WHERE end_at < $2
+                                   WHERE end_at < $3
                                    ORDER BY end_at DESC
-                                   LIMIT $3)
+                                   LIMIT $4)
                 SELECT min(end_at) AS end_at_min
                 FROM dh_window)
 
@@ -249,10 +266,10 @@ SELECT dh.version,
        dh.doc_id
 FROM dh,
      dh_end
-WHERE dh.end_at < $2
+WHERE dh.end_at < $3
   AND dh.end_at >= dh_end.end_at_min
 ORDER BY dh.end_at DESC
-`, projectId, before, limit)
+`, projectId, userId, before, limit)
 		if err != nil {
 			return err
 		}
@@ -283,23 +300,27 @@ WITH dh AS (SELECT dh.*
                      INNER JOIN docs d ON d.id = dh.doc_id
                      INNER JOIN tree_nodes t ON d.id = t.id
                      INNER JOIN projects p ON t.project_id = p.id
-            WHERE p.id = $1),
+                     INNER JOIN project_members pm on p.id = pm.project_id
+            WHERE p.id = $1
+              AND pm.user_id = $2
+              AND (pm.access_source > 'token' OR
+                   pm.privilege_level > 'readOnly')),
      dh_end AS (WITH dh_window AS (SELECT end_at
                                    FROM dh
-                                   WHERE end_at < $2
+                                   WHERE end_at < $3
                                    ORDER BY end_at DESC
-                                   LIMIT $3)
+                                   LIMIT $4)
                 SELECT min(end_at) AS end_at_min
                 FROM dh_window)
 
 SELECT DISTINCT ON (u.id) u.id, u.email, u.first_name, u.last_name
 FROM dh
-    INNER JOIN users u ON dh.user_id = u.id
-	INNER JOIN dh_end ON TRUE
-WHERE dh.end_at < $2
+         INNER JOIN users u ON dh.user_id = u.id
+         INNER JOIN dh_end ON TRUE
+WHERE dh.end_at < $3
   AND dh.end_at >= dh_end.end_at_min
   AND u.deleted_at IS NULL
-`, projectId, before, limit)
+`, projectId, userId, before, limit)
 		if err != nil {
 			return err
 		}
