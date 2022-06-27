@@ -65,7 +65,7 @@ FROM doc_history
          INNER JOIN docs d ON doc_history.doc_id = d.id
          INNER JOIN tree_nodes tn ON d.id = tn.id
          INNER JOIN projects p ON tn.project_id = p.id
-ORDER BY d.id
+ORDER BY p.id, d.id, end_at
 LIMIT 1
 `).Scan(&pId, &docId, &end)
 		if err != nil && err != sql.ErrNoRows {
@@ -80,7 +80,6 @@ LIMIT 1
 			if err2 != nil {
 				return errors.Tag(err2, "decode last doc id")
 			}
-			// TODO: This query has a flaw?
 			dhQuery["$or"] = bson.A{
 				bson.M{
 					"project_id": bson.M{
