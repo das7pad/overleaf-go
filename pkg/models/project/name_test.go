@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,6 +35,12 @@ func TestNames_MakeUnique(t *testing.T) {
 			names: Names{},
 			args:  args{source: "foo"},
 			want:  "foo",
+		},
+		{
+			name:  "one name",
+			names: Names{"foo"},
+			args:  args{source: "foo"},
+			want:  "foo (1)",
 		},
 		{
 			name:  "trim suffix",
