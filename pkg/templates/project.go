@@ -186,7 +186,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 func (d *ProjectEditorData) Render() ([]byte, error) {
 	d.HideFooter = true
 	d.HideNavBar = true
-	return render("project/editor.gohtml", 67*1024, d)
+	return render("project/editor.gohtml", 43*1024, d)
 }
 
 func (d *ProjectEditorData) CSP() string {
