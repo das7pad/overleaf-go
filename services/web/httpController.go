@@ -17,7 +17,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -2000,8 +1999,7 @@ func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
 	request := &types.OpenInOverleafGatewayPageRequest{Session: s}
 	switch c.Request.Method {
 	case http.MethodGet:
-		q := c.Request.URL.Query()
-		request.Query = &q
+		request.Query = c.Request.URL.Query()
 	case http.MethodPost:
 		c.Request.Body = http.MaxBytesReader(
 			c.Writer, c.Request.Body, types.MaxUploadSize,
@@ -2009,12 +2007,11 @@ func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
 		if c.Request.Header.Get("Content-Type") == "application/json" {
 			var body []byte
 			if body, err = io.ReadAll(c.Request.Body); err == nil {
-				request.Body = (*json.RawMessage)(&body)
+				request.Body = body
 			}
 		} else {
 			if err = c.Request.ParseForm(); err == nil {
-				q := c.Request.Form
-				request.Query = &q
+				request.Query = c.Request.Form
 			}
 		}
 		if err != nil {

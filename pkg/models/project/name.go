@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -86,7 +86,7 @@ func (names Names) MakeUnique(source Name) Name {
 	if sourceNameIsUnique {
 		return source
 	}
-	for i := 1; i < len(names); i++ {
+	for i := 1; i <= len(names); i++ {
 		candidate := Name(fmt.Sprintf("%s (%d)", cleanName, n+i))
 		unique := true
 		for _, name := range names {

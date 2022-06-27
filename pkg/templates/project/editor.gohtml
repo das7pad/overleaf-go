@@ -626,25 +626,16 @@
                   vertical-resizable-top="vertical-resizable-top"
                 >
                   <div
-                    class="loading-panel rich-text-spacing"
+                    class="loading-panel"
                     ng-show="(!editor.sharejs_doc || editor.opening) && !editor.error_state"
                   >
                     <span ng-show="editor.open_doc_id"><i class="fa fa-spin fa-refresh"></i>&nbsp;&nbsp;{{ translate "loading" . }}
                       …</span><span ng-show="!editor.open_doc_id"><i class="fa fa-arrow-left"></i>&nbsp;&nbsp;{{ translate "open_a_file_on_the_left" . }}
                     </span></div>
-                  <div ng-controller="EditorLoaderController">
+                  <div>
                     <div
                       class="toolbar toolbar-editor"
-                      ng-controller="EditorToolbarController"
                     >
-                      <div class="toggle-wrapper">
-                        <toggle-switch
-                          description="Editor mode."
-                          label-false="Source"
-                          label-true="Rich Text"
-                          ng-model="editor.showRichText"
-                        ></toggle-switch>
-                      </div>
                       <button
                         class="btn btn-warning symbol-palette-toggle"
                         ng-click="editor.toggleSymbolPalette()"
@@ -652,16 +643,6 @@
                         title="Symbol Palette"
                       >Σ
                       </button>
-                      <div
-                        formatting-buttons="formatting-buttons"
-                        ng-cloak="ng-cloak"
-                        ng-if="editor.showRichText && permissions.write"
-                        buttons="buttons"
-                        opening="editor.opening"
-                        resize-on="layout:main:resize,layout:pdf:resize,layout:review:resize,review-panel:toggle"
-                        is-fullscreen-editor="ui.view == 'editor' && ui.pdfLayout == 'flat'"
-                        class="formatting-buttons"
-                      ></div>
                       <div class="toolbar-right"><a
                           href="#"
                           ng-click="switchToFlatLayout('editor')"
@@ -678,70 +659,7 @@
                           tooltip-append-to-body="true"
                         ><i class="fa fa-compress"></i><i class="split-screen"></i><i class="split-screen"></i></a>
                       </div>
-                      <script
-                        type="text/ng-template"
-                        id="formattingButtonsTpl"
-                      >
-                        <div class="formatting-buttons-wrapper">&nbsp;<button
-                            class="btn formatting-btn formatting-btn--icon"
-                            ng-repeat="button in shownButtons"
-                            ng-click="button.handleClick()"
-                            title="{{ `{{ button.title }}` }}"
-                          >
-                            <i class="{{ `{{ button.iconClass }}` }}">{{ `{{ button.iconText }}` }}</i>
-                          </button>
-                          <div
-                            class="dropdown formatting-more"
-                            ng-if="showMore"
-                            dropdown="dropdown"
-                            dropdown-append-to-body="dropdown-append-to-body"
-                          >
-                            <button
-                              class="btn formatting-btn formatting-btn--more dropdown-toggle"
-                              dropdown-toggle="dropdown-toggle"
-                            >{{ translate "more" . }}
-                              &nbsp;<span class="caret"></span></button>
-                            <ul
-                              class="dropdown-menu formatting-menu"
-                              role="menu"
-                            >
-                              <li
-                                class="formatting-menu-item"
-                                ng-repeat="button in overflowedButtons"
-                              >
-                                <button
-                                  class="btn formatting-btn formatting-btn--icon"
-                                  ng-click="button.handleClick()"
-                                  title="{{ `{{ button.title }}` }}"
-                                >
-                                  <i class="{{ `{{ button.iconClass }}` }}">{{ `{{ button.iconText }}` }}</i>
-                                </button>
-                              </li>
-                            </ul>
-                          </div>
-                        </div></script>
                     </div>
-                    <div
-                      id="editor-rich-text"
-                      cm-editor="cm-editor"
-                      ng-if="editor.showRichText && richText.bundle"
-                      ng-show="!!editor.sharejs_doc && !editor.opening"
-                      bundle="richText.bundle"
-                      formatting-events="richText.formattingEvents"
-                      init-code-mirror="initCodeMirror"
-                      sharejs-doc="editor.sharejs_doc"
-                      read-only="!permissions.write"
-                      resize-on="layout:main:resize,layout:pdf:resize,layout:review:resize,review-panel:toggle"
-                      spell-check="!anonymous"
-                      spell-check-language="project.spellCheckLanguage"
-                      track-changes="editor.trackChanges"
-                      auto-complete="settings.autoComplete"
-                      auto-close-brackets="settings.autoPairDelimiters"
-                      font-size="settings.fontSize"
-                      line-height="settings.lineHeight || ui.defaultLineHeight"
-                      doc-id="editor.open_doc_id"
-                      on-save="recompileViaKey"
-                    ></div>
                   </div>
                   <div
                     class="multi-selection-ongoing"

@@ -42,8 +42,8 @@ func (m metaEntry) ContentAsString() (string, error) {
 	case stringContentType:
 		return m.Content.(string), nil
 	case jsonContentType:
-		if b, ok := m.Content.(*json.RawMessage); ok {
-			return string(*b), nil
+		if b, ok := m.Content.(json.RawMessage); ok {
+			return string(b), nil
 		}
 		b, err := json.Marshal(m.Content)
 		if err != nil {

@@ -305,7 +305,7 @@
       </div>
     </footer>
   {{ end }}
-  {{ range $index, $chunk := getEntrypointChunks "frontend/js/marketing.js" }}
+  {{ range $index, $chunk := getEntrypointChunks .Entrypoint }}
     <script
       type="module"
       src="{{ $chunk }}"

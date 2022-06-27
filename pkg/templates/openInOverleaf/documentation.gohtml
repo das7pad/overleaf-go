@@ -17,7 +17,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */ -}}
 {{- /*gotype: github.com/das7pad/overleaf-go/pkg/templates.OpenInOverleafDocumentationData*/ -}}
-{{ template "layout-angular" . }}
+{{ template "layout-marketing" . }}
 {{ define "headScripts" }}
   <link
     rel="stylesheet"
@@ -31,7 +31,6 @@
 {{ define "content" }}
   <main
     class="content content-alt"
-    ng-controller="OpenInOverleafDocumentation"
     id="main-content"
   >
   <div class="container">
@@ -603,29 +602,6 @@ SNIPPET GOES HERE
                 with one of the following values: <code>latex_dvipdf</code>,
                 <code>pdflatex</code>, <code>xelatex</code> or
                 <code>lualatex</code>.
-              </p>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-xs-12">
-              <h3>Rich Text</h3>
-              <p>
-                There are two editing modes in Overleaf: Source mode and Rich
-                Text mode. By default, new project are displayed in
-                <strong>Source mode</strong>.
-              </p>
-              <p>
-                You can mark a project to default to Rich Text mode by
-                passing
-                a <code>rich_text</code> parameter with value
-                <code>true</code>.
-              </p>
-              <p>
-                Note that the user can always switch between editing modes
-                with
-                one click, and their preference for each project is stored
-                and
-                has higher precedence over the default setting.
               </p>
             </div>
           </div>

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,11 +18,10 @@ package templates
 
 import (
 	"encoding/json"
-	"net/url"
 )
 
 type OpenInOverleafDocumentationData struct {
-	AngularLayoutData
+	MarketingLayoutData
 
 	gwURL string
 }
@@ -38,33 +37,35 @@ func (d *OpenInOverleafDocumentationData) Render() ([]byte, error) {
 	return render("openInOverleaf/documentation.gohtml", 21*1024, d)
 }
 
-type OpenInOverleafGatewayData struct {
-	AngularLayoutData
+func (d *OpenInOverleafDocumentationData) Entrypoint() string {
+	return "modules/open-in-overleaf/frontend/js/pages/documentation.js"
+}
 
-	Query *url.Values
-	Body  *json.RawMessage
+type OpenInOverleafGatewayData struct {
+	MarketingLayoutData
+	Params json.RawMessage
 }
 
 func (d *OpenInOverleafGatewayData) Meta() []metaEntry {
-	m := d.AngularLayoutData.Meta()
-	if d.Query != nil {
-		m = append(m, metaEntry{
-			Name:    "ol-oio-params",
-			Type:    jsonContentType,
-			Content: d.Query,
-		})
-	} else {
-		m = append(m, metaEntry{
-			Name:    "ol-oio-params",
-			Type:    jsonContentType,
-			Content: d.Body,
-		})
-	}
+	m := d.MarketingLayoutData.Meta()
+	m = append(m, metaEntry{
+		Name:    "ol-oio-params",
+		Type:    jsonContentType,
+		Content: d.Params,
+	})
 	return m
 }
 
 func (d *OpenInOverleafGatewayData) Render() ([]byte, error) {
 	d.HideFooter = true
 	d.HideNavBar = true
-	return render("openInOverleaf/gateway.gohtml", 100*1024, d)
+	n := 10 * 1024
+	if len(d.Params) > 6*1024 {
+		n = 100 * 1024
+	}
+	return render("openInOverleaf/gateway.gohtml", n, d)
+}
+
+func (d *OpenInOverleafGatewayData) Entrypoint() string {
+	return "modules/open-in-overleaf/frontend/js/pages/gateway.js"
 }

@@ -17,16 +17,15 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */ -}}
 {{- /*gotype: github.com/das7pad/overleaf-go/pkg/templates.OpenInOverleafGatewayData*/ -}}
-{{ template "layout-angular" . }}
+{{ template "layout-marketing" . }}
 {{ define "content" }}
   <main
     class="editor full-size"
-    ng-controller="OpenInOverleafGatewayController"
-    ng-init="handleGateway();"
+    ng-cloak
   >
   <div
     class="loading-screen"
-    ng-hide="error || serverError"
+    data-ol-loading-container
   >
     <div class="loading-screen-brand-container">
       <div
@@ -43,8 +42,8 @@
   </div>
   <div
     class="container"
-    ng-show="error || serverError"
-    ng-cloak
+    data-ol-error-container
+    hidden="hidden"
   >
     <div class="row">
       <div class="col-md-8 col-md-offset-2">
@@ -59,16 +58,16 @@
         <div class="errors">
           <div
             class="alert alert-danger"
-            ng-show="error"
-            ng-cloak
+            data-ol-error="missing-data"
+            hidden="hidden"
           >
-              {{ translate "sorry_something_went_wrong_opening_the_document_please_try_again" . }}
+              {{ translate "the_required_parameters_were_not_supplied" . }}
           </div>
           <div
             class="alert alert-danger"
-            ng-show="serverError"
-            ng-cloak
-          >{{ `{{ serverError }}` }}</div>
+            data-ol-error="server"
+            hidden="hidden"
+          ></div>
           <a
             class="error-btn"
             href="/"

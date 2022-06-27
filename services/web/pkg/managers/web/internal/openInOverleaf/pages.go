@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,14 +18,16 @@ package openInOverleaf
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) OpenInOverleafDocumentationPage(_ context.Context, request *types.OpenInOverleafDocumentationPageRequest, response *types.OpenInOverleafDocumentationPageResponse) error {
 	response.Data = &templates.OpenInOverleafDocumentationData{
-		AngularLayoutData: templates.AngularLayoutData{
+		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
 				Title:       "Open In Overleaf",
@@ -37,16 +39,25 @@ func (m *manager) OpenInOverleafDocumentationPage(_ context.Context, request *ty
 }
 
 func (m *manager) OpenInOverleafGatewayPage(_ context.Context, request *types.OpenInOverleafGatewayPageRequest, response *types.OpenInOverleafGatewayPageResponse) error {
+	var params json.RawMessage
+	if len(request.Query) != 0 {
+		blob, err := json.Marshal(request.Query)
+		if err != nil {
+			return errors.Tag(err, "serialize params")
+		}
+		params = blob
+	} else if request.Body != nil {
+		params = request.Body
+	}
 	response.Data = &templates.OpenInOverleafGatewayData{
-		AngularLayoutData: templates.AngularLayoutData{
+		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
 				Title:       "Open In Overleaf",
 				SessionUser: request.Session.User,
 			},
 		},
-		Query: request.Query,
-		Body:  request.Body,
+		Params: params,
 	}
 	return nil
 }
