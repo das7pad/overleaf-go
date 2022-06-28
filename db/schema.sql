@@ -37,7 +37,6 @@ CREATE TABLE users
   password_hash      TEXT      NOT NULL,
   signup_date        TIMESTAMP NOT NULL
 );
-CREATE INDEX ON users (email);
 
 CREATE TABLE contacts
 (
@@ -81,8 +80,6 @@ CREATE TABLE projects
   token_rw_prefix      TEXT              NULL UNIQUE,
   tree_version         INTEGER           NOT NULL
 );
-CREATE INDEX ON projects (token_ro);
-CREATE INDEX ON projects (token_rw_prefix);
 
 CREATE TYPE AccessSource AS ENUM ('token', 'invite', 'owner');
 CREATE TYPE PrivilegeLevel AS ENUM ('readOnly', 'readAndWrite', 'owner');
@@ -98,7 +95,6 @@ CREATE TABLE project_members
 
   PRIMARY KEY (project_id, user_id)
 );
-CREATE INDEX ON project_members (project_id);
 CREATE INDEX ON project_members (user_id);
 
 CREATE TABLE project_audit_log
@@ -124,7 +120,6 @@ CREATE TABLE project_invites
 
   UNIQUE (project_id, token)
 );
-CREATE INDEX ON project_invites (project_id);
 CREATE INDEX ON project_invites (token);
 
 CREATE TYPE TreeNodeKind AS ENUM ('doc', 'file', 'folder');
@@ -140,9 +135,8 @@ CREATE TABLE tree_nodes
 
   -- Assumption: creation and deletion of nodes takes >1 microsecond,
   --  which is the resolution of deleted_at.
-  UNIQUE (project_id, path, deleted_at)
+  UNIQUE (project_id, deleted_at, path)
 );
-CREATE INDEX ON tree_nodes (project_id, deleted_at);
 
 CREATE UNIQUE INDEX ensure_one_root_folder
   ON tree_nodes (project_id, (parent_id IS NULL))
@@ -237,7 +231,7 @@ CREATE TABLE doc_history
   start_at       TIMESTAMP NOT NULL,
   end_at         TIMESTAMP NOT NULL
 );
-CREATE UNIQUE INDEX ON doc_history (doc_id, version);
+CREATE UNIQUE INDEX ON doc_history (doc_id, version DESC);
 
 CREATE TABLE files
 (
@@ -265,14 +259,11 @@ CREATE TABLE notifications
 (
   expires_at      TIMESTAMP NOT NULL,
   id              UUID      NOT NULL PRIMARY KEY,
-  key             TEXT      NOT NULL,
+  key             TEXT      NOT NULL UNIQUE,
   message_options json      NOT NULL,
   template_key    TEXT      NOT NULL,
-  user_id         UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
-
-  UNIQUE (key, user_id)
+  user_id         UUID      NOT NULL REFERENCES users ON DELETE CASCADE
 );
-CREATE INDEX ON notifications (key);
 CREATE INDEX ON notifications (user_id);
 
 CREATE TABLE tags
@@ -281,9 +272,8 @@ CREATE TABLE tags
   name    TEXT NOT NULL,
   user_id UUID NOT NULL REFERENCES users ON DELETE CASCADE,
 
-  UNIQUE (name, user_id)
+  UNIQUE (user_id, name)
 );
-CREATE INDEX ON tags (user_id);
 
 CREATE TABLE tag_entries
 (
@@ -307,4 +297,4 @@ CREATE TABLE chat_messages
   created_at TIMESTAMP NOT NULL,
   user_id    UUID      NULL REFERENCES users ON DELETE SET NULL
 );
-CREATE INDEX ON chat_messages (project_id, created_at);
+CREATE INDEX ON chat_messages (project_id, created_at DESC);
