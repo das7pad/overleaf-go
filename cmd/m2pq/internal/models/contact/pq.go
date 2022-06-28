@@ -27,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
@@ -38,7 +39,7 @@ type ForPQ struct {
 	UserIdField   `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
 	cQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
@@ -90,31 +91,66 @@ LIMIT 1
 	defer func() {
 		_ = q.Close()
 	}()
+	resolved := make(map[primitive.ObjectID]sql.NullString)
+	pending := make([]primitive.ObjectID, 0)
 
-	var other sharedTypes.UUID
 	i := 0
 	for i = 0; uC.Next(ctx) && i < limit; i++ {
 		u := ForPQ{}
 		if err = uC.Decode(&u); err != nil {
 			return errors.Tag(err, "decode contact")
 		}
-		id := m2pq.ObjectID2UUID(u.UserId)
 		idS := u.UserId.Hex()
 		log.Printf("contact[%d/%d]: %s", i, limit, idS)
 
-		for raw, details := range u.Contacts {
+		pending = pending[:0]
+		missing := make(map[primitive.ObjectID]bool)
+		if _, exists := resolved[u.UserId]; !exists {
+			missing[u.UserId] = true
+		}
+
+		var otherId primitive.ObjectID
+		for raw := range u.Contacts {
 			if idS < raw {
 				// We will insert this contact in reverse.
 				continue
 			}
-			other, err = m2pq.ParseID(raw)
+			otherId, err = primitive.ObjectIDFromHex(raw)
 			if err != nil {
 				return errors.Tag(err, "parse contact id")
 			}
+			pending = append(pending, otherId)
+			if _, exists := resolved[otherId]; !exists {
+				missing[otherId] = true
+			}
+		}
+
+		if len(missing) > 0 {
+			var r map[primitive.ObjectID]sql.NullString
+			r, err = user.ResolveUsers(ctx, rTx, missing)
+			if err != nil {
+				return errors.Tag(err, "resolve users")
+			}
+			for rId, s := range r {
+				resolved[rId] = s
+			}
+		}
+
+		id := resolved[u.UserId]
+		if !id.Valid {
+			continue
+		}
+
+		for _, other := range pending {
+			r := resolved[other]
+			if !r.Valid {
+				continue
+			}
+			details := u.Contacts[other.Hex()]
 			_, err = q.ExecContext(
 				ctx,
-				other,                      // a
-				id,                         // b
+				r.String,                   // a
+				id.String,                  // b
 				details.Connections,        // connections
 				details.LastTouched.Time(), // last_touched
 			)

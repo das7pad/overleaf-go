@@ -288,11 +288,13 @@ LIMIT 1
 		auditLogs[pId] = p.AuditLog
 
 		for idS < lastDoc.ProjectId.Hex() && dC.Next(ctx) {
+			lastDoc = doc.ForPQ{}
 			if err = dC.Decode(&lastDoc); err != nil {
 				return errors.Tag(err, "decode doc")
 			}
 		}
 		for idS < lastDeletedFile.ProjectId.Hex() && dfC.Next(ctx) {
+			lastDeletedFile = DeletedFile{}
 			if err = dfC.Decode(&lastDeletedFile); err != nil {
 				return errors.Tag(err, "decode deleted file")
 			}
@@ -309,7 +311,7 @@ LIMIT 1
 			if f.Size != nil {
 				return nil
 			}
-			key := p.Id.Hex() + "/" + f.Id.Hex()
+			key := idS + "/" + f.Id.Hex()
 			s, err2 := fo.GetObjectSize(ctx, fBucket, key)
 			if err2 != nil {
 				return errors.Tag(err2, key)
@@ -324,12 +326,12 @@ LIMIT 1
 		docs := make([]doc.ForPQ, 0)
 		for idS == lastDoc.ProjectId.Hex() {
 			if lastDoc.InS3 {
-				key := p.Id.Hex() + "/" + lastDoc.Id.Hex()
+				key := idS + "/" + lastDoc.Id.Hex()
 				_, r, err2 := do.GetReadStream(
 					ctx, dBucket, key, objectStorage.GetOptions{},
 				)
 				if err2 != nil {
-					return errors.Tag(err2, "get doc archive")
+					return errors.Tag(err2, "get doc archive: "+key)
 				}
 				lastDoc.Lines, err = deserializeDocArchive(r)
 				if err != nil {
@@ -350,10 +352,10 @@ LIMIT 1
 		deletedFiles := make([]DeletedFile, 0)
 		for idS == lastDeletedFile.ProjectId.Hex() {
 			if lastDeletedFile.Size == nil {
-				key := p.Id.Hex() + "/" + lastDeletedFile.Id.Hex()
+				key := idS + "/" + lastDeletedFile.Id.Hex()
 				s, err2 := fo.GetObjectSize(ctx, fBucket, key)
 				if err2 != nil {
-					return errors.Tag(err2, "get deleted file size")
+					return errors.Tag(err2, "get deleted file size: "+key)
 				}
 				lastDeletedFile.Size = &s
 			}

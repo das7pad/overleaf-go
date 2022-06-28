@@ -162,12 +162,12 @@ LIMIT 1
 			}
 
 			if len(missing) > 0 {
-				var r map[primitive.ObjectID]sql.NullString
-				r, err = user.ResolveUsers(ctx, rTx, missing)
+				var users map[primitive.ObjectID]sql.NullString
+				users, err = user.ResolveUsers(ctx, rTx, missing)
 				if err != nil {
 					return errors.Tag(err, "resolve users")
 				}
-				for id, s := range r {
+				for id, s := range users {
 					resolved[id] = s
 				}
 			}
@@ -190,6 +190,7 @@ LIMIT 1
 		}
 
 		for roomIdS <= lastMsgRoom && mC.Next(ctx) {
+			lastMsg = Message{}
 			if err = mC.Decode(&lastMsg); err != nil {
 				return errors.Tag(err, "decode message")
 			}

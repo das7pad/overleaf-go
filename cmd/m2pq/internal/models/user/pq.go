@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/netip"
 	"strings"
@@ -57,8 +58,12 @@ type ForPQ struct {
 }
 
 func cleanIP(s string) (string, error) {
+	s = strings.TrimPrefix(s, "::ffff:")
 	if !strings.ContainsRune(s, ':') {
 		return s, nil
+	}
+	if strings.Count(s, ":") == 7 && s[0] != '[' {
+		s = fmt.Sprintf("[%s]:42", s)
 	}
 	addr, err := netip.ParseAddrPort(s)
 	if err != nil {
@@ -165,6 +170,7 @@ LIMIT 1
 		auditLogs[uId] = u.AuditLog
 
 		for idS < lastLW.Token && lwC.Next(ctx) {
+			lastLW = learnedWords.ForPQ{}
 			if err = lwC.Decode(&lastLW); err != nil {
 				return errors.Tag(err, "decode lw")
 			}
