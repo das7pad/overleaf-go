@@ -45,6 +45,7 @@
             <div
               data-ol-form-messages=""
               role="alert"
+              hidden="hidden"
             ></div>
             <div class="form-group">
               <label
@@ -52,7 +53,7 @@
               >{{ translate "please_enter_email" . }}</label>
               <input
                 class="form-control"
-                aria-label="email"
+                aria-label="{{ translate "email" . }}"
                 type="email"
                 name="email"
                 placeholder="email@example.com"
