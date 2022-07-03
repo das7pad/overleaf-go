@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -66,11 +66,14 @@ func RespondHTMLCustomStatus(
 ) {
 	if err != nil {
 		if shouldRedirectToLogin(s, err) {
-			s.PostLoginRedirect = ps.SiteURL.
-				WithPath(c.Request.URL.Path).
-				WithQuery(c.Request.URL.Query()).
-				String()
-			_ = flushSession(c, s)
+			if c.Request.URL.Path != "/project" {
+				// We are redirecting to /project after login by default.
+				s.PostLoginRedirect = ps.SiteURL.
+					WithPath(c.Request.URL.Path).
+					WithQuery(c.Request.URL.Query()).
+					String()
+				_ = flushSession(c, s)
+			}
 			q := c.Request.URL.Query()
 			if q.Get("project_name") != "" {
 				// Show SharedProjectData details on registration page.

@@ -36,7 +36,7 @@ func (m *manager) bumpEpoch(ctx context.Context, userId sharedTypes.UUID) error 
 }
 
 type clearSessionsAuditLogInfo struct {
-	Sessions []*session.OtherSessionData `json:"sessions"`
+	Sessions []session.OtherSessionData `json:"sessions"`
 }
 
 func (m *manager) ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error {

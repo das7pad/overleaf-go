@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -33,26 +33,26 @@ var (
 	RedisConnectionDeSyncErr = errors.New("redis connection de-synced")
 )
 
-func (s *sessionDataWithDeSyncProtection) Validate(id Id) error {
-	if s.ValidationToken != id.toSessionValidationToken() {
+func (s sessionValidationToken) Validate(id Id) error {
+	if s != id.toSessionValidationToken() {
 		return RedisConnectionDeSyncErr
 	}
 	return nil
 }
 
 func serializeSession(id Id, data Data) ([]byte, error) {
-	return json.Marshal(&sessionDataWithDeSyncProtection{
+	return json.Marshal(sessionDataWithDeSyncProtection{
 		ValidationToken: id.toSessionValidationToken(),
 		Data:            data,
 	})
 }
 
 func deSerializeSession(id Id, blob []byte) (*Data, error) {
-	dst := &sessionDataWithDeSyncProtection{}
-	if err := json.Unmarshal(blob, dst); err != nil {
+	dst := sessionDataWithDeSyncProtection{}
+	if err := json.Unmarshal(blob, &dst); err != nil {
 		return nil, err
 	}
-	if err := dst.Validate(id); err != nil {
+	if err := dst.ValidationToken.Validate(id); err != nil {
 		return nil, err
 	}
 	return &dst.Data, nil

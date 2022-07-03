@@ -42,7 +42,7 @@ type Manager interface {
 	GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error)
 	SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, config EditorConfig) error
-	TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error
+	TrackLogin(ctx context.Context, userId sharedTypes.UUID, epoch int64, ip string) error
 	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
 	SetUserName(ctx context.Context, userId sharedTypes.UUID, u *WithNames) error
 	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
@@ -372,22 +372,22 @@ WHERE id = $1
 `, userId, u.FirstName, u.LastName))
 }
 
-func (m *manager) TrackLogin(ctx context.Context, userId sharedTypes.UUID, ip string) error {
+func (m *manager) TrackLogin(ctx context.Context, userId sharedTypes.UUID, epoch int64, ip string) error {
 	return getErr(m.db.ExecContext(ctx, `
 WITH u AS (
     UPDATE users
         SET login_count = login_count + 1,
             last_login_at = transaction_timestamp(),
-            last_login_ip = $2
-        WHERE id = $1 AND deleted_at IS NULL
+            last_login_ip = $3
+        WHERE id = $1 AND epoch = $2 AND deleted_at IS NULL
         RETURNING id)
 
 INSERT
 INTO user_audit_log
 (id, initiator_id, ip_address, operation, timestamp, user_id)
-SELECT gen_random_uuid(), u.id, $2, 'login', transaction_timestamp(), u.id
+SELECT gen_random_uuid(), u.id, $3, 'login', transaction_timestamp(), u.id
 FROM u;
-`, userId, ip))
+`, userId, epoch, ip))
 }
 
 func (m *manager) GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error {

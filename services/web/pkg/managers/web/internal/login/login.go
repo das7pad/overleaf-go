@@ -21,6 +21,8 @@ import (
 	"net/url"
 	"strings"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -57,15 +59,25 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 		return nil
 	}
 
-	if err := m.um.TrackLogin(ctx, u.Id, r.IPAddress); err != nil {
-		return errors.Tag(err, "cannot track login")
-	}
-
-	redirect, err := r.Session.Login(ctx, &u.ForSession, r.IPAddress)
-	if err != nil {
+	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := m.um.TrackLogin(pCtx, u.Id, u.Epoch, r.IPAddress)
+		if err != nil {
+			return errors.Tag(err, "track login")
+		}
+		return nil
+	})
+	var triggerSessionCleanup func()
+	eg.Go(func() error {
+		var err error
+		res.RedirectTo, triggerSessionCleanup, err =
+			r.Session.PrepareLogin(pCtx, &u.ForSession, r.IPAddress)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
 		return err
 	}
-	res.RedirectTo = redirect
+	triggerSessionCleanup()
 	return nil
 }
 

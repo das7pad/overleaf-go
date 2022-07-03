@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -44,62 +45,53 @@ func (s Id) toSessionValidationToken() sessionValidationToken {
 func genNewSessionId() (Id, error) {
 	b := make([]byte, sessionIdSizeBytes)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", errors.Tag(err, "generate new session id")
 	}
 	return Id(b64.EncodeToString(b)), nil
 }
 
-func (s *Session) assignNewSessionId(ctx context.Context) (*newSessionIdResult, error) {
+func (s *Session) newSessionId(ctx context.Context) (Id, []byte, error) {
 	var err error
-	var r *newSessionIdResult
+	var id Id
+	var blob []byte
+	var ok bool
 
 	for i := 0; i < 10; i++ {
-		r, err = s.newSessionIdOnceVia(ctx, s.client)
+		id, err = genNewSessionId()
 		if err != nil {
 			continue
 		}
-		if err = r.Err(); err != nil {
+		blob, err = s.serializeWithId(id)
+		if err != nil {
+			return "", nil, err
+		}
+		ok, err = s.client.SetNX(ctx, id.toKey(), blob, s.expiry).Result()
+		if err != nil {
+			err = errors.Tag(err, "set in redis")
 			continue
 		}
-		return r, nil
+		if !ok {
+			err = errors.New("id already taken")
+			continue
+		}
+		if s.IsLoggedIn() {
+			// Multi/EXEC skips over nil error from `SET NX`.
+			// Perform tracking calls after getting session id.
+			_, err = s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
+				trackingKey := userSessionsKey(s.User.Id)
+				tx.SAdd(ctx, trackingKey, id.toKey())
+				tx.Expire(ctx, trackingKey, s.expiry)
+				return nil
+			})
+			if err != nil {
+				return "", nil, errors.Tag(err, "track session")
+			}
+		}
+		return id, blob, nil
 	}
-	return nil, err
-}
-
-type newSessionIdResult struct {
-	cmdSet *redis.BoolCmd
-	id     Id
-	blob   []byte
-}
-
-func (r *newSessionIdResult) Err() error {
-	return r.cmdSet.Err()
-}
-
-func (r *newSessionIdResult) Populate(s *Session) {
-	s.id = r.id
-	s.persisted = r.blob
+	return "", nil, err
 }
 
 func userSessionsKey(id sharedTypes.UUID) string {
 	return "UserSessions:{" + id.String() + "}"
-}
-
-func (s *Session) newSessionIdOnceVia(ctx context.Context, runner redis.Cmdable) (*newSessionIdResult, error) {
-	id, err := genNewSessionId()
-	if err != nil {
-		return nil, err
-	}
-	blob, err := s.serializeWithId(id)
-	if err != nil {
-		return nil, err
-	}
-
-	cmdSet := runner.SetNX(ctx, id.toKey(), blob, s.expiry)
-
-	return &newSessionIdResult{
-		cmdSet: cmdSet,
-		id:     id,
-		blob:   blob,
-	}, nil
 }

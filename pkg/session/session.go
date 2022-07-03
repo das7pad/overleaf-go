@@ -36,13 +36,12 @@ type Session struct {
 	// Block full access on the session data. Read/Write individual details.
 	*internalDataAccessOnly
 
-	client         redis.UniversalClient
-	expiry         time.Duration
-	id             Id
-	incomingUserId *sharedTypes.UUID
-	noAutoSave     bool
-	persisted      []byte
-	providedId     Id
+	client     redis.UniversalClient
+	expiry     time.Duration
+	id         Id
+	noAutoSave bool
+	persisted  []byte
+	providedId Id
 }
 
 var errNotAdmin = &errors.NotAuthorizedError{}
@@ -68,13 +67,19 @@ func (s *Session) IsLoggedIn() bool {
 	return s.User.Id != (sharedTypes.UUID{})
 }
 
-func (s *Session) SetNoAutoSave() {
-	s.noAutoSave = true
+func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (string, error) {
+	redirect, triggerCleanup, err := s.PrepareLogin(ctx, u, ip)
+	if err != nil {
+		return "", err
+	}
+	triggerCleanup()
+	return redirect, nil
 }
 
-func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (string, error) {
+func (s *Session) PrepareLogin(ctx context.Context, u *user.ForSession, ip string) (string, func(), error) {
 	redirect := s.PostLoginRedirect
-	s.SetNoAutoSave()
+	triggerCleanup := s.prepareCleanup()
+	s.noAutoSave = true
 	s.PostLoginRedirect = ""
 	s.User = &User{
 		Id:             u.Id,
@@ -87,66 +92,49 @@ func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (str
 		SessionCreated: time.Now(),
 	}
 	s.AnonTokenAccess = nil
-	if err := s.Cycle(ctx); err != nil {
-		return "", errors.Tag(err, "cannot cycle session")
+	id, blob, err := s.newSessionId(ctx)
+	if err != nil {
+		return "", nil, errors.Tag(err, "cannot cycle session")
 	}
 	if redirect == "" {
 		redirect = "/project"
 	}
-	return redirect, nil
-}
-
-func (s *Session) Cycle(ctx context.Context) error {
-	noAutoSafeBefore := s.noAutoSave
-	s.noAutoSave = true
-	oldId := s.id
-
-	r, err := s.assignNewSessionId(ctx)
-	if err != nil {
-		return err
-	}
-
-	if s.IsLoggedIn() {
-		// Multi/EXEC skips over nil error from `SET NX`.
-		// Perform tracking calls after getting session id.
-		_, err2 := s.client.TxPipelined(ctx, func(tx redis.Pipeliner) error {
-			key := userSessionsKey(s.User.Id)
-			tx.SAdd(ctx, key, r.id.toKey())
-			tx.Expire(ctx, key, s.expiry)
-			return nil
-		})
-		if err2 != nil {
-			return err2
+	return redirect, func() {
+		s.id = id
+		s.persisted = blob
+		if triggerCleanup == nil {
+			return
 		}
-	}
-
-	if oldId != "" {
 		// Session cleanup can happen in the background; Ignore errors as well.
 		go func() {
 			delCtx, done :=
 				context.WithTimeout(context.Background(), 10*time.Second)
 			defer done()
-			_ = s.destroyOldSession(delCtx, oldId)
+			_ = triggerCleanup(delCtx)
 		}()
-	}
-
-	// Populate after tracking the session.
-	r.Populate(s)
-	s.noAutoSave = noAutoSafeBefore
-	return nil
+	}, nil
 }
 
-func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
-	if id == "" {
+func (s *Session) prepareCleanup() func(ctx context.Context) error {
+	if s.id == "" {
 		return nil
 	}
-	key := id.toKey()
-	err := s.client.Del(ctx, key).Err()
-	if err != nil && err != redis.Nil {
-		return err
-	}
-	if s.incomingUserId != nil && *s.incomingUserId != (sharedTypes.UUID{}) {
+	id := s.id
+	userId := s.User.Id
+
+	return func(ctx context.Context) error {
+		err := s.client.Del(ctx, id.toKey()).Err()
+		if err != nil && err != redis.Nil {
+			return err
+		}
+		if userId == (sharedTypes.UUID{}) {
+			return nil
+		}
 		// Multi/EXEC skips over nil error from `DEL`.
+		// NOTE: The session may reside in another redis cluster shard than
+		//        the user tracking key. Sending both commands in parallel has
+		//        the potential for scrubbing the tracking key but leaving the
+		//        session alive.
 		// Perform tracking calls after deleting session id.
 		// Ignore errors as there is no option to recover from any error
 		//  (e.g. retry logging out) as the actual session data has been
@@ -155,19 +143,22 @@ func (s *Session) destroyOldSession(ctx context.Context, id Id) error {
 			bCtx, done :=
 				context.WithTimeout(context.Background(), 3*time.Second)
 			defer done()
-			s.client.SRem(bCtx, userSessionsKey(*s.incomingUserId), key)
+			s.client.SRem(bCtx, userSessionsKey(userId), id.toKey())
 		}()
+		return nil
 	}
-	return nil
 }
 
 func (s *Session) Destroy(ctx context.Context) error {
+	cleanup := s.prepareCleanup()
 	// Any following access/writes must error out.
 	s.internalDataAccessOnly = nil
 	s.noAutoSave = true
 	s.persisted = nil
-	if err := s.destroyOldSession(ctx, s.id); err != nil {
-		return err
+	if cleanup != nil {
+		if err := cleanup(ctx); err != nil {
+			return errors.Tag(err, "destroy session")
+		}
 	}
 	s.id = ""
 	return nil
@@ -179,7 +170,7 @@ type OtherSessionData struct {
 }
 
 type OtherSessionsDetails struct {
-	Sessions   []*OtherSessionData
+	Sessions   []OtherSessionData
 	sessionIds []Id
 }
 
@@ -218,7 +209,7 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 	if err != nil && err != redis.Nil {
 		return nil, errors.Tag(err, "cannot fetch session data")
 	}
-	sessions := make([]*OtherSessionData, 0, len(otherIds))
+	sessions := make([]OtherSessionData, 0, len(otherIds))
 	validSessionIds := make([]Id, 0, len(otherIds))
 	for i, id := range otherIds {
 		var blob []byte
@@ -229,11 +220,11 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 			}
 			return nil, errors.Tag(err, "cannot fetch session data")
 		}
-		data := &sessionDataWithDeSyncProtection{}
-		if err = json.Unmarshal(blob, data); err != nil {
+		data := sessionDataWithDeSyncProtection{}
+		if err = json.Unmarshal(blob, &data); err != nil {
 			return nil, errors.New("redis returned corrupt session data")
 		}
-		if err = data.Validate(id); err != nil {
+		if err = data.ValidationToken.Validate(id); err != nil {
 			return nil, err
 		}
 		if data.User == nil || data.User.Id != s.User.Id {
@@ -241,7 +232,7 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 			continue
 		}
 		validSessionIds = append(validSessionIds, id)
-		sessions = append(sessions, &OtherSessionData{
+		sessions = append(sessions, OtherSessionData{
 			IPAddress:      data.User.IPAddress,
 			SessionCreated: data.User.SessionCreated,
 		})
@@ -291,11 +282,12 @@ func (s *Session) Save(ctx context.Context) (bool, error) {
 		if s.IsEmpty() {
 			return true, nil
 		}
-		r, err := s.assignNewSessionId(ctx)
+		id, blob, err := s.newSessionId(ctx)
 		if err != nil {
 			return false, err
 		}
-		r.Populate(s)
+		s.id = id
+		s.persisted = blob
 		return false, nil
 	}
 	b, err := s.serializeWithId(s.id)
@@ -322,13 +314,13 @@ func (s *Session) serializeWithId(id Id) ([]byte, error) {
 	}
 	b, err := serializeSession(id, data)
 	if err != nil {
-		return b, errors.Tag(err, "cannot serialize session")
+		return nil, errors.Tag(err, "serialize session")
 	}
 	return b, nil
 }
 
-func (s *Session) ToOtherSessionData() *OtherSessionData {
-	return &OtherSessionData{
+func (s *Session) ToOtherSessionData() OtherSessionData {
+	return OtherSessionData{
 		IPAddress:      s.User.IPAddress,
 		SessionCreated: s.User.SessionCreated,
 	}

@@ -81,7 +81,6 @@ func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
 		client:                 m.client,
 		expiry:                 m.Expiry,
 		id:                     id,
-		incomingUserId:         &data.User.Id,
 		internalDataAccessOnly: data,
 		persisted:              persisted,
 		providedId:             id,
