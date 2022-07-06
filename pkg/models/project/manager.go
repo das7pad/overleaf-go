@@ -60,7 +60,6 @@ type Manager interface {
 	BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
-	GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
 	GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
@@ -86,7 +85,9 @@ type Manager interface {
 	RemoveMember(ctx context.Context, projectId sharedTypes.UUID, actor, userId sharedTypes.UUID) error
 	TransferOwnership(ctx context.Context, projectId, previousOwnerId, newOwnerId sharedTypes.UUID) (*user.WithPublicInfo, *user.WithPublicInfo, Name, error)
 	CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error)
-	CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
+	EnsureIsDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.UUID, bool, sharedTypes.Version, error)
+	PrepareFileCreation(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) error
+	FinalizeFileCreation(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.UUID, bool, sharedTypes.Version, error)
 	ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error)
 	GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
 }
@@ -96,7 +97,7 @@ func New(db *sql.DB) Manager {
 }
 
 func getErr(_ sql.Result, err error) error {
-	return err
+	return rewritePostgresErr(err)
 }
 
 func rewritePostgresErr(err error) error {
@@ -107,10 +108,14 @@ func rewritePostgresErr(err error) error {
 	if !ok {
 		return err
 	}
-	if e.Constraint == "tree_nodes_pkey" {
+	if e.Constraint == "tree_nodes_project_id_deleted_at_path_key" {
 		return ErrDuplicateNameInFolder
 	}
 	return err
+}
+
+type queryRunner interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 type manager struct {
@@ -546,9 +551,10 @@ RETURNING p.tree_version
 `, projectId, userId, parent, f.Id, f.Name).Scan(&treeVersion)
 }
 
-func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, error) {
+func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, runner queryRunner) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
-	return treeVersion, m.db.QueryRowContext(ctx, `
+	return treeVersion, runner.QueryRowContext(ctx,
+		/* language=postgresql */ `
 WITH node AS (SELECT t.id
               FROM tree_nodes t
                        INNER JOIN projects p ON t.project_id = p.id
@@ -580,11 +586,11 @@ RETURNING p.tree_version
 }
 
 func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error) {
-	return m.deleteTreeLeaf(ctx, projectId, userId, docId, "doc")
+	return m.deleteTreeLeaf(ctx, projectId, userId, docId, "doc", m.db)
 }
 
 func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
-	return m.deleteTreeLeaf(ctx, projectId, userId, fileId, "file")
+	return m.deleteTreeLeaf(ctx, projectId, userId, fileId, "file", m.db)
 }
 
 func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error) {
@@ -1139,10 +1145,10 @@ WHERE f.id = $4
 	return &f, err
 }
 
-func (m *manager) GetElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.UUID, bool, error) {
+func (m *manager) getElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename, tx *sql.Tx) (sharedTypes.UUID, bool, error) {
 	var nodeId sharedTypes.UUID
 	var kind string
-	err := m.db.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 SELECT t.id, t.kind
 FROM tree_nodes t
          INNER JOIN projects p ON t.project_id = p.id
@@ -1791,8 +1797,13 @@ WHERE p.id = $1
 }
 
 func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.Version, error) {
+	return m.createDocVia(ctx, projectId, userId, folderId, d, m.db)
+}
+
+func (m *manager) createDocVia(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc, runner queryRunner) (sharedTypes.Version, error) {
 	var v sharedTypes.Version
-	return v, rewritePostgresErr(m.db.QueryRowContext(ctx, `
+	return v, rewritePostgresErr(runner.QueryRowContext(ctx,
+		/* language=postgresql */ `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -1820,7 +1831,7 @@ WITH f AS (SELECT t.id, t.path
              (id, snapshot, version)
              SELECT inserted_tree_node.id, $6, 0
              FROM inserted_tree_node
-			 RETURNING FALSE)
+             RETURNING FALSE)
 
 UPDATE projects p
 SET last_updated_by = $2,
@@ -1832,9 +1843,50 @@ RETURNING p.tree_version
 `, projectId, userId, folderId, d.Id, d.Name, d.Snapshot).Scan(&v))
 }
 
-func (m *manager) CreateFile(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
-	var v sharedTypes.Version
-	return v, rewritePostgresErr(m.db.QueryRowContext(ctx, `
+func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.UUID, bool, sharedTypes.Version, error) {
+	v, errInsert := m.CreateDoc(ctx, projectId, userId, folderId, d)
+	if errInsert == nil || errInsert != ErrDuplicateNameInFolder {
+		return sharedTypes.UUID{}, false, 0, errInsert
+	}
+	tx, err := m.db.BeginTx(ctx, nil)
+	if err != nil {
+		return sharedTypes.UUID{}, false, 0, errors.Tag(err, "start tx")
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			_ = tx.Rollback()
+		}
+	}()
+	existingId, isDoc, err := m.getElementHintForOverwrite(
+		ctx, projectId, userId, folderId, d.Name, tx,
+	)
+	if err != nil {
+		return sharedTypes.UUID{}, false, 0, err
+	}
+	if existingId == (sharedTypes.UUID{}) {
+		return existingId, false, 0, errInsert
+	}
+	if isDoc {
+		return existingId, true, v, nil
+	}
+	v, err = m.deleteTreeLeaf(ctx, projectId, userId, existingId, "file", tx)
+	if err != nil {
+		return existingId, false, 0, errors.Tag(err, "delete existing file")
+	}
+	v, err = m.createDocVia(ctx, projectId, userId, folderId, d, tx)
+	if err != nil {
+		return existingId, false, 0, errors.Tag(err, "create doc")
+	}
+	if err = tx.Commit(); err != nil {
+		return existingId, false, 0, errors.Tag(err, "commit tx")
+	}
+	ok = true
+	return existingId, false, v, nil
+}
+
+func (m *manager) PrepareFileCreation(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) error {
+	return getErr(m.db.ExecContext(ctx, `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -1849,32 +1901,74 @@ WITH f AS (SELECT t.id, t.path
      inserted_tree_node AS (
          INSERT INTO tree_nodes
              (deleted_at, id, kind, parent_id, path, project_id)
-             SELECT '1970-01-01',
+             SELECT $6,
                     $4,
                     'file',
                     f.id,
                     CONCAT(f.path, $5::TEXT),
                     $1
              FROM f
-             RETURNING id),
-     inserted_file AS (
-         INSERT INTO files
-             (id, created_at, hash, linked_file_data, size)
-             SELECT inserted_tree_node.id, transaction_timestamp(), $6, $7, $8
-             FROM inserted_tree_node
-			 RETURNING FALSE)
+             RETURNING id)
+INSERT
+INTO files
+    (id, created_at, hash, linked_file_data, size)
+SELECT inserted_tree_node.id, $7, $8, $9, $10
+FROM inserted_tree_node
+`,
+		projectId, userId, folderId,
+		f.Id, f.Name, f.Created.Add(-time.Microsecond), f.Created, f.Hash,
+		f.LinkedFileData, f.Size,
+	))
+}
+
+func (m *manager) FinalizeFileCreation(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.UUID, bool, sharedTypes.Version, error) {
+	var nodeId sharedTypes.UUID
+	var kind string
+	var v sharedTypes.Version
+	err := m.db.QueryRowContext(ctx, `
+WITH f AS (SELECT t.id, t.project_id, t.path
+           FROM tree_nodes t
+                    INNER JOIN projects p ON t.project_id = p.id
+                    INNER JOIN project_members pm
+                               ON (t.project_id = pm.project_id AND
+                                   pm.user_id = $2)
+           WHERE t.id = $3
+             AND t.project_id = $1
+             AND p.deleted_at IS NULL
+             AND t.deleted_at = $4
+             AND pm.privilege_level >= 'readAndWrite'),
+     d AS (
+         UPDATE tree_nodes t
+             SET deleted_at = transaction_timestamp()
+             FROM f
+             WHERE t.project_id = f.project_id
+                 AND t.path = f.path
+                 AND t.deleted_at = '1970-01-01'
+                 AND t.kind != 'folder'
+             RETURNING t.id, kind),
+     deleted AS (SELECT coalesce((SELECT id FROM d),
+                                 '00000000-0000-0000-0000-000000000000'::UUID) AS id,
+                        coalesce((SELECT kind FROM d)::TEXT, '')               AS kind),
+     created AS (
+         UPDATE tree_nodes t
+             SET deleted_at = '1970-01-01'
+             FROM deleted, f
+             WHERE t.id = f.id
+             RETURNING FALSE)
 
 UPDATE projects p
 SET last_updated_by = $2,
     last_updated_at = transaction_timestamp(),
-    tree_version    = tree_version + 1
-FROM inserted_file
-WHERE p.id = $1
-RETURNING p.tree_version
-`,
-		projectId, userId, folderId,
-		f.Id, f.Name, f.Hash, f.LinkedFileData, f.Size,
-	).Scan(&v))
+    tree_version    = tree_version + 1,
+    root_doc_id     = NULLIF(root_doc_id, deleted.id)
+FROM created,
+     deleted,
+     f
+WHERE p.id = f.project_id
+RETURNING deleted.id, deleted.kind, p.tree_version
+`, projectId, userId, f.Id, f.Created.Add(-time.Microsecond)).
+		Scan(&nodeId, &kind, &v)
+	return nodeId, kind == "doc", v, err
 }
 
 type ForProjectList struct {

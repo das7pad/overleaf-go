@@ -82,68 +82,41 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		}
 	}
 
+	var err error
+	var existingId sharedTypes.UUID
+	var existingIsDoc bool
 	var uploadedFileRef *project.FileRef
 	var uploadedDoc *project.Doc
 	var v sharedTypes.Version
-	existingId, existingIsDoc, err := m.pm.GetElementHintForOverwrite(
-		ctx, projectId, userId, folderId, request.FileName,
-	)
-	if err != nil {
-		return err
-	}
 
-	if existingId != (sharedTypes.UUID{}) {
-		if existingIsDoc {
-			if isDoc {
-				// This a text file upload on a doc. Just upsert the content.
-				err = m.dum.SetDoc(
-					ctx, projectId, existingId,
-					&documentUpdaterTypes.SetDocRequest{
-						Snapshot: s,
-						Source:   source,
-						UserId:   userId,
-					},
-				)
-				if err != nil {
-					return errors.Tag(err, "cannot upsert doc")
-				}
-				_ = m.projectMetadata.BroadcastMetadataForDoc(
-					projectId, existingId,
-				)
-				return nil
-			}
-			// This is a binary file overwriting a doc.
-			// Delete the doc, then create the file.
-			// TODO: Consider merging this into a single _complex_ query?
-			_, err = m.pm.DeleteDoc(ctx, projectId, userId, existingId)
-			if err != nil {
-				return errors.Tag(
-					err, "cannot delete doc for overwriting",
-				)
-			}
-		} else {
-			// This a binary file overwriting another.
-			// Files are immutable. Delete this one, then create a new one.
-			// TODO: The replacement should happen in a single transaction.
-			v, err = m.pm.DeleteFile(ctx, projectId, userId, existingId)
-			if err != nil {
-				return errors.Tag(
-					err, "cannot delete file for overwriting",
-				)
-			}
-		}
-	}
-
-	// Create the new element.
 	if isDoc {
 		doc := project.NewDoc(request.FileName)
 		doc.Snapshot = string(s)
 		if err = sharedTypes.PopulateUUID(&doc.Id); err != nil {
 			return err
 		}
-		v, err = m.pm.CreateDoc(ctx, projectId, userId, folderId, &doc)
+		existingId, existingIsDoc, v, err =
+			m.pm.EnsureIsDoc(ctx, projectId, userId, folderId, &doc)
 		if err != nil {
 			return errors.Tag(err, "cannot create populated doc")
+		}
+		if existingId != (sharedTypes.UUID{}) && existingIsDoc {
+			// This a text file upload on a doc. Just upsert the content.
+			err = m.dum.SetDoc(
+				ctx, projectId, existingId,
+				&documentUpdaterTypes.SetDocRequest{
+					Snapshot: s,
+					Source:   source,
+					UserId:   userId,
+				},
+			)
+			if err != nil {
+				return errors.Tag(err, "cannot upsert doc")
+			}
+			_ = m.projectMetadata.BroadcastMetadataForDoc(
+				projectId, existingId,
+			)
+			return nil
 		}
 		uploadedDoc = &doc
 	} else {
@@ -151,6 +124,10 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		file.LinkedFileData = request.LinkedFileData
 		if err = sharedTypes.PopulateUUID(&file.Id); err != nil {
 			return err
+		}
+		err = m.pm.PrepareFileCreation(ctx, projectId, userId, folderId, &file)
+		if err != nil {
+			return errors.Tag(err, "prepare tree entry")
 		}
 		if err = request.SeekFileToStart(); err != nil {
 			return err
@@ -168,10 +145,10 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			m.cleanupFileUpload(projectId, uploadedFileRef.Id)
 			return errors.Tag(err, "cannot upload new file")
 		}
-		v, err = m.pm.CreateFile(ctx, projectId, userId, folderId, &file)
+		existingId, existingIsDoc, v, err =
+			m.pm.FinalizeFileCreation(ctx, projectId, userId, &file)
 		if err != nil {
-			m.cleanupFileUpload(projectId, uploadedFileRef.Id)
-			return err
+			return errors.Tag(err, "finalize file creation")
 		}
 		uploadedFileRef = &file
 	}
@@ -196,6 +173,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			folderId, f, source, f.LinkedFileData, userId, v,
 		)
 	} else {
+		uploadedDoc.Snapshot = ""
 		//goland:noinspection SpellCheckingInspection
 		m.notifyEditor(
 			projectId, "reciveNewDoc",
