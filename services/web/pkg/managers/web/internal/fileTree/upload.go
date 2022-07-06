@@ -21,7 +21,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"io"
-	"log"
 	"strconv"
 	"time"
 
@@ -32,19 +31,6 @@ import (
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
-
-func (m *manager) cleanupFileUpload(projectId, fileId sharedTypes.UUID) {
-	bCtx, done := context.WithTimeout(
-		context.Background(), 10*time.Second,
-	)
-	defer done()
-	if err := m.fm.DeleteProjectFile(bCtx, projectId, fileId); err != nil {
-		log.Printf(
-			"file upload cleanup failed: %s/%s: %s",
-			projectId, fileId, err.Error(),
-		)
-	}
-}
 
 func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileRequest) error {
 	if err := request.Validate(); err != nil {
@@ -120,20 +106,24 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		}
 		uploadedDoc = &doc
 	} else {
+		if err = request.SeekFileToStart(); err != nil {
+			return err
+		}
 		file := project.NewFileRef(request.FileName, hash, request.Size)
 		file.LinkedFileData = request.LinkedFileData
 		if err = sharedTypes.PopulateUUID(&file.Id); err != nil {
 			return err
 		}
-		err = m.pm.PrepareFileCreation(ctx, projectId, userId, folderId, &file)
+		uploadCtx, done := context.WithTimeout(ctx, fileUploadsStaleAfter)
+		defer done()
+		err = m.pm.PrepareFileCreation(
+			uploadCtx, projectId, userId, folderId, &file,
+		)
 		if err != nil {
 			return errors.Tag(err, "prepare tree entry")
 		}
-		if err = request.SeekFileToStart(); err != nil {
-			return err
-		}
 		err = m.fm.SendStreamForProjectFile(
-			ctx,
+			uploadCtx,
 			projectId,
 			file.Id,
 			request.File,
@@ -142,11 +132,10 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			},
 		)
 		if err != nil {
-			m.cleanupFileUpload(projectId, uploadedFileRef.Id)
 			return errors.Tag(err, "cannot upload new file")
 		}
 		existingId, existingIsDoc, v, err =
-			m.pm.FinalizeFileCreation(ctx, projectId, userId, &file)
+			m.pm.FinalizeFileCreation(uploadCtx, projectId, userId, &file)
 		if err != nil {
 			return errors.Tag(err, "finalize file creation")
 		}

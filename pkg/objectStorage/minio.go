@@ -181,7 +181,8 @@ func (m *minioBackend) GetDirectorySize(ctx context.Context, bucket string, pref
 }
 
 func (m *minioBackend) DeleteObject(ctx context.Context, bucket string, key string) error {
-	return m.mc.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+	err := m.mc.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+	return rewriteError(err)
 }
 
 func (m *minioBackend) DeletePrefix(ctx context.Context, bucket string, prefix string) error {

@@ -34,6 +34,7 @@ import (
 type Manager interface {
 	AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error
 	AddFolderToProject(ctx context.Context, request *types.AddFolderRequest, response *types.AddFolderResponse) error
+	CleanupStaleFileUploads(ctx context.Context, dryRun bool, start time.Time) error
 	DeleteDocFromProject(ctx context.Context, request *types.DeleteDocRequest) error
 	DeleteFileFromProject(ctx context.Context, request *types.DeleteFileRequest) error
 	DeleteFolderFromProject(ctx context.Context, request *types.DeleteFolderRequest) error

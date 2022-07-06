@@ -88,6 +88,8 @@ type Manager interface {
 	EnsureIsDoc(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc) (sharedTypes.UUID, bool, sharedTypes.Version, error)
 	PrepareFileCreation(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) error
 	FinalizeFileCreation(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.UUID, bool, sharedTypes.Version, error)
+	ProcessStaleFileUploads(ctx context.Context, cutOff time.Time, fn func(projectId, fileId sharedTypes.UUID) bool) error
+	PurgeStaleFileUpload(ctx context.Context, projectId, fileId sharedTypes.UUID) error
 	ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error)
 	GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
 }
@@ -264,7 +266,7 @@ FROM p
 		ctx,
 		pq.CopyIn(
 			"files",
-			"id", "created_at", "hash", "linked_file_data", "size",
+			"id", "created_at", "hash", "linked_file_data", "size", "pending",
 		),
 	)
 	if err != nil {
@@ -273,7 +275,7 @@ FROM p
 	err = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 		d := e.(*FileRef)
 		_, err = q.ExecContext(
-			ctx, d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size,
+			ctx, d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size, false,
 		)
 		return err
 	})
@@ -1911,8 +1913,8 @@ WITH f AS (SELECT t.id, t.path
              RETURNING id)
 INSERT
 INTO files
-    (id, created_at, hash, linked_file_data, size)
-SELECT inserted_tree_node.id, $7, $8, $9, $10
+    (id, created_at, hash, linked_file_data, size, pending)
+SELECT inserted_tree_node.id, $7, $8, $9, $10, TRUE
 FROM inserted_tree_node
 `,
 		projectId, userId, folderId,
@@ -1927,12 +1929,14 @@ func (m *manager) FinalizeFileCreation(ctx context.Context, projectId, userId sh
 	var v sharedTypes.Version
 	err := m.db.QueryRowContext(ctx, `
 WITH f AS (SELECT t.id, t.project_id, t.path
-           FROM tree_nodes t
+           FROM files f
+                    INNER JOIN tree_nodes t ON f.id = t.id
                     INNER JOIN projects p ON t.project_id = p.id
                     INNER JOIN project_members pm
                                ON (t.project_id = pm.project_id AND
                                    pm.user_id = $2)
-           WHERE t.id = $3
+           WHERE f.pending = TRUE
+             AND t.id = $3
              AND t.project_id = $1
              AND p.deleted_at IS NULL
              AND t.deleted_at = $4
@@ -1949,11 +1953,17 @@ WITH f AS (SELECT t.id, t.project_id, t.path
      deleted AS (SELECT coalesce((SELECT id FROM d),
                                  '00000000-0000-0000-0000-000000000000'::UUID) AS id,
                         coalesce((SELECT kind FROM d)::TEXT, '')               AS kind),
-     created AS (
+     createdTn AS (
          UPDATE tree_nodes t
              SET deleted_at = '1970-01-01'
              FROM deleted, f
              WHERE t.id = f.id
+             RETURNING t.id),
+     createdF AS (
+         UPDATE files f
+             SET pending = FALSE
+             FROM createdTn
+             WHERE f.id = createdTn.id
              RETURNING FALSE)
 
 UPDATE projects p
@@ -1961,7 +1971,7 @@ SET last_updated_by = $2,
     last_updated_at = transaction_timestamp(),
     tree_version    = tree_version + 1,
     root_doc_id     = NULLIF(root_doc_id, deleted.id)
-FROM created,
+FROM createdF,
      deleted,
      f
 WHERE p.id = f.project_id
@@ -1969,6 +1979,50 @@ RETURNING deleted.id, deleted.kind, p.tree_version
 `, projectId, userId, f.Id, f.Created.Add(-time.Microsecond)).
 		Scan(&nodeId, &kind, &v)
 	return nodeId, kind == "doc", v, err
+}
+
+func (m *manager) ProcessStaleFileUploads(ctx context.Context, cutOff time.Time, fn func(projectId, fileId sharedTypes.UUID) bool) error {
+	for {
+		r, err := m.db.QueryContext(ctx, `
+SELECT p.id, f.id
+FROM files f
+         INNER JOIN tree_nodes t ON f.id = t.id
+         INNER JOIN projects p ON t.project_id = p.id
+WHERE f.pending = TRUE
+  AND t.deleted_at <= $1
+ORDER BY t.deleted_at, t.id
+LIMIT 100
+`, cutOff)
+		if err != nil {
+			return errors.Tag(err, "get cursor")
+		}
+		ok := true
+		foundAny := false
+		var projectId, fileId sharedTypes.UUID
+		for r.Next() {
+			if err = r.Scan(&projectId, &fileId); err != nil {
+				return errors.Tag(err, "deserialize ids")
+			}
+			foundAny = true
+			if !fn(projectId, fileId) {
+				ok = false
+			}
+		}
+		if !ok || !foundAny {
+			return nil
+		}
+	}
+}
+
+func (m *manager) PurgeStaleFileUpload(ctx context.Context, projectId, fileId sharedTypes.UUID) error {
+	return getErr(m.db.ExecContext(ctx, `
+DELETE
+FROM tree_nodes t USING files f
+WHERE t.project_id = $1
+  AND t.id = $2
+  AND t.id = f.id
+  AND f.pending = TRUE
+`, projectId, fileId))
 }
 
 type ForProjectList struct {

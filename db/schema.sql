@@ -240,9 +240,12 @@ CREATE TABLE files
   hash             TEXT      NOT NULL,
   linked_file_data JSON      NULL,
   size             INTEGER   NOT NULL,
+  pending          BOOLEAN   NOT NULL,
 
   CHECK (is_tree_node_kind(id, 'file'))
 );
+
+CREATE INDEX ON files (pending) WHERE (pending = TRUE);
 
 CREATE TABLE one_time_tokens
 (

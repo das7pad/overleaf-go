@@ -527,7 +527,7 @@ SELECT $1,
 			ctx,
 			pq.CopyIn(
 				"files",
-				"id", "created_at", "hash", "linked_file_data", "size",
+				"id", "created_at", "hash", "linked_file_data", "size", "pending",
 			),
 		)
 		if err != nil {
@@ -539,6 +539,7 @@ SELECT $1,
 				ctx,
 				m2pq.ObjectID2UUID(d.Id), d.Created, d.Hash, d.LinkedFileData,
 				*d.Size,
+				false,
 			)
 			return err
 		})
@@ -550,6 +551,7 @@ SELECT $1,
 				ctx,
 				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
 				*f.Size,
+				false,
 			)
 			if err != nil {
 				return errors.Tag(err, "queue deleted file")

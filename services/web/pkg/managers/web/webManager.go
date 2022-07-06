@@ -288,5 +288,9 @@ func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
 		log.Println("hard deletion of users failed: " + err.Error())
 		ok = false
 	}
+	if err := m.CleanupStaleFileUploads(ctx, dryRun, start); err != nil {
+		log.Println("purging of file uploads failed: " + err.Error())
+		ok = false
+	}
 	return ok
 }
