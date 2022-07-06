@@ -138,9 +138,7 @@ CREATE TABLE tree_nodes
   UNIQUE (project_id, deleted_at, path)
 );
 
-CREATE UNIQUE INDEX ensure_one_root_folder
-  ON tree_nodes (project_id, (parent_id IS NULL))
-  WHERE (parent_id IS NULL);
+CREATE UNIQUE INDEX ON tree_nodes (project_id) WHERE (parent_id IS NULL);
 
 CREATE FUNCTION is_tree_node_kind(node UUID, k TreeNodeKind)
   RETURNS BOOLEAN
