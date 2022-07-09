@@ -26,6 +26,7 @@
   <div
     class="loading-screen"
     data-ol-loading-container
+    hidden="hidden"
   >
     <div class="loading-screen-brand-container">
       <div
@@ -39,6 +40,36 @@
       <span class="loading-screen-ellip">.</span>
       <span class="loading-screen-ellip">.</span>
     </h3>
+  </div>
+  <div
+    class="container"
+    data-ol-confirm-third-party
+    hidden="hidden"
+  >
+    <div class="row">
+      <div class="col-md-8 col-md-offset-2">
+        <div class="card">
+          <div class="page-header">
+            <h1>{{ translate "loading_content" . }}</h1>
+          </div>
+          <div class="text-center">
+            <p>
+              Another site <em data-ol-site></em> wants to create a new project
+              in your Overleaf account.
+            </p>
+            <button
+              class="btn btn-lg btn-primary"
+              type="submit"
+              data-ol-confirm-submission
+            >{{ translate "accept" . }}</button>
+            <a
+              class="btn btn-lg btn-danger"
+              href="/"
+            >{{ translate "reject" . }}</a>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <div
     class="container"
