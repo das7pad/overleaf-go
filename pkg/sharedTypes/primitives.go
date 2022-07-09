@@ -19,6 +19,7 @@ package sharedTypes
 import (
 	"crypto/rand"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -41,25 +42,19 @@ func (i Int) String() string {
 }
 
 func ParseUUID(s string) (UUID, error) {
-	if len(s) != 36 {
+	if len(s) != 36 ||
+		s[8] != '-' || s[13] != '-' || s[18] != '-' || s[23] != '-' {
 		return UUID{}, ErrInvalidUUID
 	}
 	u := UUID{}
-
-	n := 0
-	for i := 0; i < 16; i++ {
-		x, err := strconv.ParseUint(s[n:n+2], 16, 8)
-		if err != nil {
-			return UUID{}, ErrInvalidUUID
-		}
-		u[i] = byte(x)
-		n += 2
-		if n == 8 || n == 13 || n == 18 || n == 23 {
-			if s[n] != '-' {
-				return UUID{}, ErrInvalidUUID
-			}
-			n++
-		}
+	src := make([]byte, 32)
+	copy(src[:8], s[:8])
+	copy(src[8:12], s[9:13])
+	copy(src[12:16], s[14:18])
+	copy(src[16:20], s[19:23])
+	copy(src[20:32], s[24:])
+	if _, err := hex.Decode(u[:], src); err != nil {
+		return UUID{}, ErrInvalidUUID
 	}
 	return u, nil
 }
@@ -109,14 +104,17 @@ func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
 type UUID [16]byte
 
 func (u UUID) String() string {
-	return fmt.Sprintf(
-		"%x-%x-%x-%x-%x",
-		u[0:4],
-		u[4:6],
-		u[6:8],
-		u[8:10],
-		u[10:16],
-	)
+	dst := make([]byte, 36, 36)
+	hex.Encode(dst, u[:4])
+	dst[8] = '-'
+	hex.Encode(dst[9:13], u[4:6])
+	dst[13] = '-'
+	hex.Encode(dst[14:18], u[6:8])
+	dst[18] = '-'
+	hex.Encode(dst[19:23], u[8:10])
+	dst[23] = '-'
+	hex.Encode(dst[24:], u[10:])
+	return string(dst)
 }
 
 func (u *UUID) Scan(x interface{}) error {
