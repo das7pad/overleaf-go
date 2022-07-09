@@ -18,8 +18,6 @@ package fileTree
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -47,21 +45,9 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	}
 	*response = doc
 
-	// The new doc has been created.
-	// Failing the request and retrying now would result in duplicates.
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-	{
-		// Notify real-time
-		payload := []interface{}{parentFolderId, doc, projectVersion}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			//goland:noinspection SpellCheckingInspection
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "reciveNewDoc",
-				Payload: b,
-			})
-		}
-	}
+	//goland:noinspection SpellCheckingInspection
+	m.notifyEditor(projectId, "reciveNewDoc",
+		parentFolderId, doc, projectVersion,
+	)
 	return nil
 }

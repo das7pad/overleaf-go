@@ -81,7 +81,7 @@ type refreshMembershipDetails struct {
 	Members bool `json:"members,omitempty"`
 }
 
-func (m *manager) notifyEditorAboutChanges(projectId sharedTypes.UUID, r *refreshMembershipDetails) {
+func (m *manager) notifyEditorAboutChanges(projectId sharedTypes.UUID, r refreshMembershipDetails) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
@@ -157,14 +157,14 @@ func (m *manager) sendEmail(ctx context.Context, d *projectInviteDetails) error 
 				),
 			},
 		},
-		ReplyTo: &email.Identity{
+		ReplyTo: email.Identity{
 			Address: s.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				s.DisplayName(), "Project owner",
 			),
 		},
 		Subject: title,
-		To: &email.Identity{
+		To: email.Identity{
 			Address: u.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				u.DisplayName(), "",

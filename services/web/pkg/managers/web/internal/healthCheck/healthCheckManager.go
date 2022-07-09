@@ -42,7 +42,7 @@ type Manager interface {
 }
 
 func New(options *types.Options, client redis.UniversalClient, um user.Manager, localURL string) (Manager, error) {
-	loginBody, err := json.Marshal(&types.LoginRequest{
+	loginBody, err := json.Marshal(types.LoginRequest{
 		Email:    options.SmokeTest.Email,
 		Password: options.SmokeTest.Password,
 	})

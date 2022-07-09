@@ -57,8 +57,8 @@ func expectAsyncFormWithRedirect(res *http.Response, to string) error {
 			Msg: fmt.Sprintf("non success status %d", res.StatusCode),
 		}
 	}
-	b := &asyncForm.Response{}
-	if err := json.NewDecoder(res.Body).Decode(b); err != nil {
+	b := asyncForm.Response{}
+	if err := json.NewDecoder(res.Body).Decode(&b); err != nil {
 		return errors.Tag(err, "cannot decode body")
 	}
 	if b.Message != nil {
@@ -174,7 +174,7 @@ func (i *insecureJar) Cookies(_ *url.URL) []*http.Cookie {
 func (m *manager) SmokeTestFull(ctx context.Context, response *types.SmokeTestResponse) error {
 	start := time.Now()
 
-	s := &smokeTestSession{
+	s := smokeTestSession{
 		baseURL: m.smokeTestBaseURL,
 		client: &http.Client{
 			Timeout: 3 * time.Second,

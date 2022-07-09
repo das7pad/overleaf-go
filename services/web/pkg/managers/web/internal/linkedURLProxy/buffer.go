@@ -99,7 +99,7 @@ func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*buff
 			err, "cannot open temp file for buffering",
 		)
 	}
-	file := &bufferedFile{
+	file := bufferedFile{
 		fsPath:   f.Name(),
 		tempFile: f,
 	}
@@ -117,5 +117,5 @@ func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*buff
 	if err = path.Validate(); err == nil {
 		file.path = path
 	}
-	return file, nil
+	return &file, nil
 }

@@ -51,9 +51,9 @@ func (r *DocRoom) Handle(raw string) {
 	}
 	var err error
 	if msg.Error != nil {
-		err = r.handleError(&msg)
+		err = r.handleError(msg)
 	} else {
-		err = r.handleUpdate(&msg)
+		err = r.handleUpdate(msg)
 	}
 	if err != nil {
 		log.Println("cannot handle appliedOps message: " + err.Error())
@@ -61,8 +61,8 @@ func (r *DocRoom) Handle(raw string) {
 	}
 }
 
-func (r *DocRoom) handleError(msg *sharedTypes.AppliedOpsMessage) error {
-	blob, err := json.Marshal(&sharedTypes.AppliedOpsMessage{
+func (r *DocRoom) handleError(msg sharedTypes.AppliedOpsMessage) error {
+	blob, err := json.Marshal(sharedTypes.AppliedOpsMessage{
 		DocId: msg.DocId,
 	})
 	if err != nil {
@@ -85,7 +85,7 @@ func (r *DocRoom) handleError(msg *sharedTypes.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
+func (r *DocRoom) handleUpdate(msg sharedTypes.AppliedOpsMessage) error {
 	update := msg.Update
 	latency := sharedTypes.Timed{}
 	if update.Meta.IngestionTime != nil {
@@ -94,7 +94,7 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 		update.Meta.IngestionTime = nil
 	}
 	source := update.Meta.Source
-	blob, err := json.Marshal(&update)
+	blob, err := json.Marshal(update)
 	resp := types.RPCResponse{
 		Name:        "otUpdateApplied",
 		Body:        blob,
@@ -123,7 +123,7 @@ func (r *DocRoom) handleUpdate(msg *sharedTypes.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) sendAckToSender(client *types.Client, msg *sharedTypes.AppliedOpsMessage, latency sharedTypes.Timed) {
+func (r *DocRoom) sendAckToSender(client *types.Client, msg sharedTypes.AppliedOpsMessage, latency sharedTypes.Timed) {
 	minUpdate := sharedTypes.DocumentUpdateAck{
 		DocId:   msg.Update.DocId,
 		Version: msg.Update.Version,

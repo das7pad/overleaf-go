@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -28,7 +27,6 @@ func (m *manager) ResendProjectInvite(ctx context.Context, request *types.Resend
 	projectId := request.ProjectId
 	inviteId := request.InviteId
 
-	pi := &projectInvite.WithToken{}
 	pi, err := m.pim.GetById(ctx, projectId, inviteId, request.ActorId)
 	if err != nil {
 		return errors.Tag(err, "cannot get invite")

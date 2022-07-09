@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -43,8 +43,8 @@ func (m *manager) fetchPage(ctx context.Context, path string) (*pageContent, err
 		return nil, err
 	}
 	defer linkedURLProxy.CleanupResponseBody(body)
-	raw := &pageContentRaw{}
-	if err = json.NewDecoder(body).Decode(raw); err != nil {
+	raw := pageContentRaw{}
+	if err = json.NewDecoder(body).Decode(&raw); err != nil {
 		return nil, errors.Tag(err, "cannot parse api response")
 	}
 	return raw.parse(m.ps), nil

@@ -50,7 +50,7 @@ func (m *manager) genJWTLoggedInUser(userId sharedTypes.UUID) (string, error) {
 	return m.jwtLoggedInUser.SetExpiryAndSign(c)
 }
 
-func (m *manager) genWSBootstrap(projectId sharedTypes.UUID, u *user.WithPublicInfo) (types.WSBootstrap, error) {
+func (m *manager) genWSBootstrap(projectId sharedTypes.UUID, u user.WithPublicInfo) (types.WSBootstrap, error) {
 	c := m.wsBootstrap.New().(*wsBootstrap.Claims)
 	c.ProjectId = projectId
 	c.User.Id = u.Id
@@ -95,7 +95,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		anonymousAccessToken = ""
 	}
 
-	response := &templates.EditorBootstrap{
+	response := templates.EditorBootstrap{
 		Anonymous:            isAnonymous,
 		AnonymousAccessToken: anonymousAccessToken,
 	}
@@ -125,7 +125,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 
 	{
-		b, err := m.genWSBootstrap(projectId, &u.WithPublicInfo)
+		b, err := m.genWSBootstrap(projectId, u.WithPublicInfo)
 		if err != nil {
 			return errors.Tag(err, "cannot get wsBootstrap")
 		}
@@ -192,7 +192,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 				Title:                 string(p.Name),
 			},
 		},
-		EditorBootstrap: response,
+		EditorBootstrap: &response,
 	}
 	go func() {
 		bCtx, done := context.WithTimeout(context.Background(), 3*time.Second)

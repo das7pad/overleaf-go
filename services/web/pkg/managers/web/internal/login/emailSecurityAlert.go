@@ -28,7 +28,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
-func (m *manager) emailSecurityAlert(ctx context.Context, u *user.WithPublicInfo, action, actionDescribed string) error {
+func (m *manager) emailSecurityAlert(ctx context.Context, u user.WithPublicInfo, action, actionDescribed string) error {
 	now := time.Now().Format("Monday 02 January 2006 at 15:04 MST")
 	msg1 := fmt.Sprintf(
 		"We are writing to let you know that %s on %s.",
@@ -59,7 +59,7 @@ func (m *manager) emailSecurityAlert(ctx context.Context, u *user.WithPublicInfo
 			},
 		},
 		Subject: m.options.AppName + " security note: " + action,
-		To: &email.Identity{
+		To: email.Identity{
 			Address: u.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				u.DisplayName(), "",

@@ -34,7 +34,7 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, r *types
 		return errors.Tag(err, "cannot update project member")
 	}
 
-	go m.notifyEditorAboutAccessChanges(r.ProjectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutAccessChanges(r.ProjectId, refreshMembershipDetails{
 		Members: true,
 	})
 	return nil

@@ -52,8 +52,8 @@ func (m *manager) smokeTestRedis(ctx context.Context) error {
 }
 
 func (m *manager) smokeTestPostgres(ctx context.Context) error {
-	u := &user.BetaProgramField{}
-	if err := m.um.GetUser(ctx, m.smokeTestUserId, u); err != nil {
+	u := user.BetaProgramField{}
+	if err := m.um.GetUser(ctx, m.smokeTestUserId, &u); err != nil {
 		return err
 	}
 	return nil

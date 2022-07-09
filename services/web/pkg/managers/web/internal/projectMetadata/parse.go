@@ -29,7 +29,7 @@ var (
 	requirePackageRegex = regexp.MustCompile("\\\\RequirePackage(?:\\[[^]]{0,80}?])?{([^}]{1,80})}")
 )
 
-func (m *manager) parseDoc(snapshot string) *types.LightDocProjectMetadata {
+func (m *manager) parseDoc(snapshot string) types.LightDocProjectMetadata {
 	s := snapshot
 	rawLabels := labelRegex.FindAllStringSubmatch(s, -1)
 	rawUsePackages := usePackageRegex.FindAllStringSubmatch(s, -1)
@@ -58,7 +58,7 @@ func (m *manager) parseDoc(snapshot string) *types.LightDocProjectMetadata {
 	for i, label := range rawLabels {
 		labels[i] = types.LatexLabel(label[1])
 	}
-	return &types.LightDocProjectMetadata{
+	return types.LightDocProjectMetadata{
 		Labels:       labels,
 		PackageNames: packageNames,
 	}

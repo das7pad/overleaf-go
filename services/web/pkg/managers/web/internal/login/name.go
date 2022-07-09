@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,7 +27,7 @@ func (m *manager) SetUserName(ctx context.Context, r *types.SetUserName) error {
 	if err := r.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	u := &user.WithNames{
+	u := user.WithNames{
 		FirstNameField: user.FirstNameField{
 			FirstName: r.FirstName,
 		},

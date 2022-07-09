@@ -48,8 +48,8 @@ type Options struct {
 	Email             struct {
 		CustomFooter     string            `json:"custom_footer"`
 		CustomFooterHTML template.HTML     `json:"custom_footer_html"`
-		From             *email.Identity   `json:"from"`
-		FallbackReplyTo  *email.Identity   `json:"fallback_reply_to"`
+		From             email.Identity    `json:"from"`
+		FallbackReplyTo  email.Identity    `json:"fallback_reply_to"`
 		SMTPAddress      email.SMTPAddress `json:"smtp_address"`
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
@@ -170,10 +170,10 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
 
-	if o.Email.From == nil {
+	if o.Email.From.Address == "" {
 		return &errors.ValidationError{Msg: "email.from is missing"}
 	}
-	if o.Email.FallbackReplyTo == nil {
+	if o.Email.FallbackReplyTo.Address == "" {
 		return &errors.ValidationError{
 			Msg: "email.fallback_reply_to is missing",
 		}
@@ -224,8 +224,8 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func (o *Options) AssetsOptions() *assets.Options {
-	return &assets.Options{
+func (o *Options) AssetsOptions() assets.Options {
+	return assets.Options{
 		CDNURL:        o.CDNURL,
 		ManifestPath:  o.ManifestPath,
 		WatchManifest: o.WatchManifest,
@@ -285,14 +285,14 @@ func (o *Options) PublicSettings() (*templates.PublicSettings, error) {
 		AppName:    o.AppName,
 		AdminEmail: o.AdminEmail,
 		CDNURL:     o.CDNURL,
-		CSPs: csp.Generate(&csp.Options{
+		CSPs: csp.Generate(csp.Options{
 			CDNURL:            o.CDNURL,
 			PdfDownloadDomain: pdfDownloadDomain,
 			ReportURL:         o.CSPReportURL,
 			SentryDSN:         sentryDSN,
 			SiteURL:           o.SiteURL,
 		}),
-		EditorSettings: &templates.EditorSettings{
+		EditorSettings: templates.EditorSettings{
 			MaxDocLength:           sharedTypes.MaxDocLength,
 			MaxEntitiesPerProject:  2000,
 			MaxUploadSize:          MaxUploadSize,

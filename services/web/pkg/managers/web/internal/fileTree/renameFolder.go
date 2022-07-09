@@ -31,12 +31,12 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	}
 	projectId := request.ProjectId
 	userId := request.UserId
-	folder := &project.Folder{}
+	folder := project.Folder{}
 	folder.Id = request.FolderId
 	folder.Name = request.Name
 
 	projectVersion, docs, err := m.pm.RenameFolder(
-		ctx, projectId, userId, folder,
+		ctx, projectId, userId, &folder,
 	)
 	if err != nil {
 		return err

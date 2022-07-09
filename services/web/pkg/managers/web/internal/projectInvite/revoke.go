@@ -28,7 +28,7 @@ func (m *manager) RevokeProjectInvite(ctx context.Context, request *types.Revoke
 		return err
 	}
 
-	go m.notifyEditorAboutChanges(request.ProjectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutChanges(request.ProjectId, refreshMembershipDetails{
 		Invites: true,
 	})
 	return nil

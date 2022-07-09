@@ -29,7 +29,7 @@ import (
 )
 
 type projectFile struct {
-	s *types.OpenInOverleafSnippet
+	s types.OpenInOverleafSnippet
 }
 
 func (f *projectFile) Size() int64 {
@@ -72,8 +72,8 @@ func (m *manager) createFromSnippets(ctx context.Context, request *types.OpenInO
 		}
 	}()
 
-	downloadQueue := make(chan *types.OpenInOverleafSnippet, parallelDownloads)
-	readyQueue := make(chan *types.OpenInOverleafSnippet, parallelDownloads)
+	downloadQueue := make(chan types.OpenInOverleafSnippet, parallelDownloads)
+	readyQueue := make(chan types.OpenInOverleafSnippet, parallelDownloads)
 	eg, pCtx := errgroup.WithContext(ctx)
 	go func() {
 		<-pCtx.Done()

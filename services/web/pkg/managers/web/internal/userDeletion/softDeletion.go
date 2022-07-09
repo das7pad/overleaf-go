@@ -36,16 +36,15 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	userId := request.Session.User.Id
 	ipAddress := request.IPAddress
 
-	u := &user.HashedPasswordField{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
+	u := user.HashedPasswordField{}
+	if err := m.um.GetUser(ctx, userId, &u); err != nil {
 		if errors.IsNotFoundError(err) {
 			m.destroySessionInBackground(request.Session)
 		}
 		return errors.Tag(err, "cannot get user")
 	}
-	errPW := login.CheckPassword(u, request.Password)
-	if errPW != nil {
-		return errPW
+	if err := login.CheckPassword(u, request.Password); err != nil {
+		return err
 	}
 
 	eg, pCtx := errgroup.WithContext(ctx)

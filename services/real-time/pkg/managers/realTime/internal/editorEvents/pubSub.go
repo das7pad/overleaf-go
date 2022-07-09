@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -89,9 +89,9 @@ func (r *ProjectRoom) Handle(raw string) {
 	case ClientTrackingRefresh:
 		err = r.refreshClientPositions()
 	case ClientTrackingClientUpdated:
-		err = r.handleClientTrackingUpdated(&msg)
+		err = r.handleClientTrackingUpdated(msg)
 	default:
-		err = r.handleMessage(&msg)
+		err = r.handleMessage(msg)
 	}
 	if err != nil {
 		log.Println("cannot handle appliedOps message: " + err.Error())
@@ -154,7 +154,7 @@ func (r *ProjectRoom) refreshClientPositions() error {
 	r.nextProjectRefresh = t.Add(clientTracking.RefreshProjectEvery)
 	return nil
 }
-func (r *ProjectRoom) handleClientTrackingUpdated(msg *sharedTypes.EditorEventsMessage) error {
+func (r *ProjectRoom) handleClientTrackingUpdated(msg sharedTypes.EditorEventsMessage) error {
 	var notification types.ClientPositionUpdateNotification
 	if err := json.Unmarshal(msg.Payload, &notification); err != nil {
 		return errors.Tag(err, "cannot decode notification")
@@ -162,11 +162,11 @@ func (r *ProjectRoom) handleClientTrackingUpdated(msg *sharedTypes.EditorEventsM
 	return r.handleMessageFromSource(msg, notification.Source)
 }
 
-func (r *ProjectRoom) handleMessage(msg *sharedTypes.EditorEventsMessage) error {
+func (r *ProjectRoom) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 	return r.handleMessageFromSource(msg, "")
 }
 
-func (r *ProjectRoom) handleMessageFromSource(msg *sharedTypes.EditorEventsMessage, id sharedTypes.PublicId) error {
+func (r *ProjectRoom) handleMessageFromSource(msg sharedTypes.EditorEventsMessage, id sharedTypes.PublicId) error {
 	resp := types.RPCResponse{
 		Name: msg.Message,
 		Body: msg.Payload,

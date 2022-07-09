@@ -40,8 +40,8 @@ func (m *manager) ActivateUserPage(ctx context.Context, request *types.ActivateU
 		userId = id
 	}
 
-	u := &user.ForActivateUserPage{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
+	u := user.ForActivateUserPage{}
+	if err := m.um.GetUser(ctx, userId, &u); err != nil {
 		if errors.IsNotFoundError(err) {
 			return &errors.UnprocessableEntityError{
 				Msg: "user not found",

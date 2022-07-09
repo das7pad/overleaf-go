@@ -44,8 +44,8 @@ type User struct {
 	SessionCreated time.Time         `json:"session_created"`
 }
 
-func (u *User) ToPublicUserInfo() *user.WithPublicInfo {
-	return &user.WithPublicInfo{
+func (u *User) ToPublicUserInfo() user.WithPublicInfo {
+	return user.WithPublicInfo{
 		EmailField:     user.EmailField{Email: u.Email},
 		FirstNameField: user.FirstNameField{FirstName: u.FirstName},
 		IdField:        user.IdField{Id: u.Id},

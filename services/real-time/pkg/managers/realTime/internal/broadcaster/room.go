@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -44,7 +44,7 @@ type Room interface {
 
 type TrackingRoom struct {
 	clients Clients
-	c       chan *roomQueueEntry
+	c       chan roomQueueEntry
 
 	pending pendingOperation.WithCancel
 }
@@ -77,7 +77,7 @@ func (r *TrackingRoom) broadcast(msg string) {
 		// Safeguard for dead room.
 		return
 	}
-	r.c <- &roomQueueEntry{msg: msg}
+	r.c <- roomQueueEntry{msg: msg}
 }
 
 func (r *TrackingRoom) close() {
@@ -126,7 +126,7 @@ func (r *TrackingRoom) remove(client *types.Client) {
 	}
 
 	defer func() {
-		r.c <- &roomQueueEntry{leavingClient: client}
+		r.c <- roomQueueEntry{leavingClient: client}
 	}()
 
 	n := len(r.clients)

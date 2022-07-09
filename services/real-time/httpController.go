@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -72,7 +72,7 @@ func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Clai
 	return genericClaims.(*wsBootstrap.Claims), nil
 }
 
-func sendAndForget(conn *websocket.Conn, entry *types.WriteQueueEntry) {
+func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 	_ = conn.WritePreparedMessage(entry.Msg)
 }
 
@@ -101,7 +101,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 	}
 
 	writerChanges := make(chan bool)
-	writeQueue := make(chan *types.WriteQueueEntry, 10)
+	writeQueue := make(chan types.WriteQueueEntry, 10)
 	go func() {
 		defer close(writeQueue)
 		pendingWriters := 1

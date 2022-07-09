@@ -37,9 +37,8 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 		res.SetCustomFormMessage("invalid-password", err)
 		return err
 	}
-	u := &user.ForPasswordChange{}
-
-	if err := m.um.GetByPasswordResetToken(ctx, r.Token, u); err != nil {
+	u := user.ForPasswordChange{}
+	if err := m.um.GetByPasswordResetToken(ctx, r.Token, &u); err != nil {
 		if errors.IsNotFoundError(err) {
 			res.SetCustomFormMessage("token-expired", err)
 		}
@@ -50,7 +49,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 		return err
 	}
 	{
-		errSamePW := CheckPassword(&u.HashedPasswordField, r.Password)
+		errSamePW := CheckPassword(u.HashedPasswordField, r.Password)
 		if errSamePW == nil {
 			return &errors.ValidationError{
 				Msg: "cannot re-use same password",
@@ -124,8 +123,8 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	u := &user.WithPublicInfo{}
-	if err := m.um.GetUserByEmail(ctx, r.Email, u); err != nil {
+	u := user.WithPublicInfo{}
+	if err := m.um.GetUserByEmail(ctx, r.Email, &u); err != nil {
 		if errors.IsNotFoundError(err) {
 			return &errors.ValidationError{
 				Msg: "That email address is not registered, sorry.",
@@ -138,7 +137,7 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 		return errors.Tag(err, "cannot create one time token")
 	}
 
-	e := &email.Email{
+	e := email.Email{
 		Content: &email.CTAContent{
 			PublicOptions: m.emailOptions.Public,
 			Message: email.Message{
@@ -161,7 +160,7 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 				}),
 		},
 		Subject: "Password Reset - " + m.options.AppName,
-		To: &email.Identity{
+		To: email.Identity{
 			Address:     u.Email,
 			DisplayName: u.DisplayName(),
 		},

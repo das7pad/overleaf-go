@@ -31,7 +31,7 @@ func (m *manager) sendWelcomeEmail(to sharedTypes.Email, confirmEmailURL *shared
 	if spamSafe.IsSafeEmail(to) {
 		withEmailHint = fmt.Sprintf(" with the email address '%s'.", to)
 	}
-	e := &email.Email{
+	e := email.Email{
 		Content: &email.CTAContent{
 			PublicOptions: m.emailOptions.Public,
 			Message: email.Message{
@@ -64,7 +64,7 @@ func (m *manager) sendWelcomeEmail(to sharedTypes.Email, confirmEmailURL *shared
 			Title:   "Welcome to " + m.options.AppName,
 		},
 		Subject: "Welcome to " + m.options.AppName,
-		To: &email.Identity{
+		To: email.Identity{
 			Address: to,
 		},
 	}

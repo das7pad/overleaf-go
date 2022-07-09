@@ -47,13 +47,13 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 		return errors.Tag(err, "cannot transfer ownership")
 	}
 
-	go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutAccessChanges(projectId, refreshMembershipDetails{
 		Members: true,
 		Owner:   true,
 	})
 
 	projectURL := m.options.SiteURL.WithPath("/project/" + projectId.String())
-	details := &transferOwnershipEmailDetails{
+	details := transferOwnershipEmailDetails{
 		previousOwner: previousOwner,
 		newOwner:      newOwner,
 		projectName:   name,
@@ -88,7 +88,7 @@ func spamSafeUser(u *user.WithPublicInfo, placeholder string) string {
 	return spamSafe.GetSafeEmail(u.Email, placeholder)
 }
 
-func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d *transferOwnershipEmailDetails) error {
+func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d transferOwnershipEmailDetails) error {
 	msg := fmt.Sprintf(
 		"%s has made you the owner of %s. You can now manage its sharing settings.",
 		spamSafeUser(d.previousOwner, "A collaborator"),
@@ -107,7 +107,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d *
 			CTAURL:  d.projectURL,
 		},
 		Subject: "Project ownership transfer - " + m.options.AppName,
-		To: &email.Identity{
+		To: email.Identity{
 			Address: d.newOwner.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				d.newOwner.DisplayName(), "",
@@ -120,7 +120,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d *
 	return nil
 }
 
-func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context, d *transferOwnershipEmailDetails) error {
+func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context, d transferOwnershipEmailDetails) error {
 	msg1 := fmt.Sprintf(
 		"As per your request, we have made %s the owner of %s.",
 		spamSafeUser(d.newOwner, "a collaborator"),
@@ -144,7 +144,7 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 			CTAText: "View project",
 		},
 		Subject: "Project ownership transfer - " + m.options.AppName,
-		To: &email.Identity{
+		To: email.Identity{
 			Address: d.previousOwner.Email,
 			DisplayName: spamSafe.GetSafeUserName(
 				d.previousOwner.DisplayName(), "",

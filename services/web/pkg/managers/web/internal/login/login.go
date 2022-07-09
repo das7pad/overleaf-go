@@ -35,14 +35,14 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	u := &user.WithLoginInfo{}
-	if err := m.um.GetUserByEmail(ctx, r.Email, u); err != nil {
+	u := user.WithLoginInfo{}
+	if err := m.um.GetUserByEmail(ctx, r.Email, &u); err != nil {
 		if errors.IsNotFoundError(err) {
 			res.SetCustomFormMessage("user-not-found", err)
 		}
 		return errors.Tag(err, "cannot get user from db")
 	}
-	if err := CheckPassword(&u.HashedPasswordField, r.Password); err != nil {
+	if err := CheckPassword(u.HashedPasswordField, r.Password); err != nil {
 		if errors.IsNotAuthorizedError(err) {
 			res.SetCustomFormMessage("invalid-password", err)
 		}
@@ -71,7 +71,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 	eg.Go(func() error {
 		var err error
 		res.RedirectTo, triggerSessionCleanup, err =
-			r.Session.PrepareLogin(pCtx, &u.ForSession, r.IPAddress)
+			r.Session.PrepareLogin(pCtx, u.ForSession, r.IPAddress)
 		return err
 	})
 	if err := eg.Wait(); err != nil {

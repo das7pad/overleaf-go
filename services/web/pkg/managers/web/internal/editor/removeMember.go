@@ -43,7 +43,7 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId sharedT
 	if err := m.pm.RemoveMember(ctx, projectId, actorId, userId); err != nil {
 		return errors.Tag(err, "cannot remove user from project")
 	}
-	go m.notifyEditorAboutAccessChanges(projectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutAccessChanges(projectId, refreshMembershipDetails{
 		Members: true,
 	})
 	return nil

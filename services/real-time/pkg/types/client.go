@@ -17,7 +17,6 @@
 package types
 
 import (
-	"bytes"
 	secureRand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -62,16 +61,16 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 	return Capabilities(int(c) / int(action))
 }
 
-func PrepareBulkMessage(response *RPCResponse) (*WriteQueueEntry, error) {
+func PrepareBulkMessage(response *RPCResponse) (WriteQueueEntry, error) {
 	blob, err := json.Marshal(response)
 	if err != nil {
-		return nil, err
+		return WriteQueueEntry{}, err
 	}
 	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, blob)
 	if err != nil {
-		return nil, err
+		return WriteQueueEntry{}, err
 	}
-	return &WriteQueueEntry{
+	return WriteQueueEntry{
 		Blob:       blob,
 		Msg:        pm,
 		FatalError: response.FatalError,
@@ -84,7 +83,7 @@ type WriteQueueEntry struct {
 	FatalError bool
 }
 
-type WriteQueue chan<- *WriteQueueEntry
+type WriteQueue chan<- WriteQueueEntry
 
 // generatePublicId yields a secure unique id
 // It contains a 16 hex char long timestamp in ns precision, a hyphen and
@@ -121,7 +120,7 @@ type Client struct {
 	capabilities    Capabilities
 	lockedProjectId sharedTypes.UUID
 
-	DocId     *sharedTypes.UUID
+	DocId     sharedTypes.UUID
 	PublicId  sharedTypes.PublicId
 	ProjectId *sharedTypes.UUID
 	User      User
@@ -200,7 +199,7 @@ func (c *Client) requireJoinedProjectAndDoc() error {
 	if err := c.requireJoinedProject(); err != nil {
 		return err
 	}
-	if c.DocId == nil {
+	if c.DocId == (sharedTypes.UUID{}) {
 		return &errors.InvalidStateError{Msg: "join doc first"}
 	}
 	return nil
@@ -237,7 +236,7 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		if err := c.requireJoinedProject(); err != nil {
 			return err
 		}
-		if c.DocId != nil && !bytes.Equal(c.DocId[:], docId[:]) {
+		if c.DocId != (sharedTypes.UUID{}) && c.DocId != docId {
 			return &errors.InvalidStateError{Msg: "leave other doc first"}
 		}
 		return nil
@@ -245,7 +244,7 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		if err := c.requireJoinedProject(); err != nil {
 			return err
 		}
-		if c.DocId == nil {
+		if c.DocId != docId {
 			// Silently ignore not joined yet.
 			return nil
 		}
@@ -271,7 +270,7 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		if err := c.requireJoinedProject(); err != nil {
 			return err
 		}
-		if c.DocId == nil || docId != *c.DocId {
+		if c.DocId != docId {
 			return &errors.ValidationError{Msg: "stale position update"}
 		}
 		if err := c.capabilities.CheckIncludes(CanSeeOtherClients); err != nil {
@@ -294,7 +293,7 @@ func (c *Client) QueueResponse(response *RPCResponse) error {
 	if err != nil {
 		return err
 	}
-	return c.QueueMessage(&WriteQueueEntry{
+	return c.QueueMessage(WriteQueueEntry{
 		Blob:       blob,
 		FatalError: response.FatalError,
 	})
@@ -309,7 +308,7 @@ func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
 	return true
 }
 
-func (c *Client) QueueMessage(msg *WriteQueueEntry) error {
+func (c *Client) QueueMessage(msg WriteQueueEntry) error {
 	select {
 	case c.writeQueue <- msg:
 		return nil
@@ -318,7 +317,7 @@ func (c *Client) QueueMessage(msg *WriteQueueEntry) error {
 	}
 }
 
-func (c *Client) EnsureQueueMessage(msg *WriteQueueEntry) bool {
+func (c *Client) EnsureQueueMessage(msg WriteQueueEntry) bool {
 	if err := c.QueueMessage(msg); err != nil {
 		// Client is out-of-sync.
 		c.TriggerDisconnect()

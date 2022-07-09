@@ -332,7 +332,7 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 	u += "/user/" + request.UserId.String()
 	u += "/compile"
 
-	blob, err := json.Marshal(&compileRequestBody{Request: requestBody})
+	blob, err := json.Marshal(compileRequestBody{Request: requestBody})
 	if err != nil {
 		return errors.Tag(err, "cannot serialize compile request")
 	}

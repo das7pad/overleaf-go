@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -56,7 +56,7 @@ func main() {
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
 
-	e := &email.Email{
+	e := email.Email{
 		Content: &email.CTAContent{
 			PublicOptions: emailOptions.Public,
 			Message: email.Message{
@@ -67,7 +67,7 @@ func main() {
 			CTAURL:  &o.SiteURL,
 		},
 		Subject: "A Test Email from " + o.AppName,
-		To: &email.Identity{
+		To: email.Identity{
 			Address: to,
 		},
 	}

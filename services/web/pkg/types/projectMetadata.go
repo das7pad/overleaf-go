@@ -28,8 +28,8 @@ type ProjectDocMetadataRequest struct {
 }
 
 type ProjectDocMetadataResponse struct {
-	DocId              sharedTypes.UUID    `json:"docId"`
-	ProjectDocMetadata *ProjectDocMetadata `json:"meta"`
+	DocId              sharedTypes.UUID   `json:"docId"`
+	ProjectDocMetadata ProjectDocMetadata `json:"meta"`
 }
 
 type SuggestedLatexCommand struct {
@@ -54,5 +54,5 @@ type ProjectDocMetadata struct {
 
 // Cannot use ObjectID (bytes array) as key, can only use simple string here.
 
-type LightProjectMetadata map[string]*LightDocProjectMetadata
-type ProjectMetadata map[string]*ProjectDocMetadata
+type LightProjectMetadata map[string]LightDocProjectMetadata
+type ProjectMetadata map[string]ProjectDocMetadata

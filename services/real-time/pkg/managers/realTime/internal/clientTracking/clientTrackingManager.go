@@ -121,7 +121,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 			staleClients = append(staleClients, id)
 			return nil, errors.Tag(err, "cannot deserialize user: "+userRaw)
 		}
-		cc := &types.ConnectedClient{
+		cc := types.ConnectedClient{
 			ClientId: id,
 			User:     user,
 		}

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,12 +36,12 @@ func init() {
 	_packageMappingRaw = nil
 }
 
-func inflate(in *types.LightDocProjectMetadata) *types.ProjectDocMetadata {
+func inflate(in types.LightDocProjectMetadata) types.ProjectDocMetadata {
 	packages := make(types.LatexPackages, len(in.PackageNames))
 	for _, name := range in.PackageNames {
 		packages[name] = packageMapping[name]
 	}
-	return &types.ProjectDocMetadata{
+	return types.ProjectDocMetadata{
 		Labels:   in.Labels,
 		Packages: packages,
 	}

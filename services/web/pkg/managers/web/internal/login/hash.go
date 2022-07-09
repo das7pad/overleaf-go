@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,7 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func CheckPassword(u *user.HashedPasswordField, password types.UserPassword) error {
+func CheckPassword(u user.HashedPasswordField, password types.UserPassword) error {
 	if err := password.Validate(); err != nil {
 		return err
 	}

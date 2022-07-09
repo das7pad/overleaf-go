@@ -48,8 +48,8 @@ func (a SMTPAddress) Validate() error {
 }
 
 type SendOptions struct {
-	From            *Identity
-	FallbackReplyTo *Identity
+	From            Identity
+	FallbackReplyTo Identity
 	SMTPAddress     SMTPAddress
 	SMTPAuth        smtp.Auth
 }
@@ -90,7 +90,7 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 	}
 
 	replyTo := o.FallbackReplyTo
-	if e.ReplyTo != nil {
+	if e.ReplyTo.Address != "" {
 		replyTo = e.ReplyTo
 	}
 

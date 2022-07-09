@@ -118,6 +118,6 @@ type refreshMembershipDetails struct {
 	Owner   bool `json:"owner,omitempty"`
 }
 
-func (m *manager) notifyEditorAboutAccessChanges(projectId sharedTypes.UUID, r *refreshMembershipDetails) {
+func (m *manager) notifyEditorAboutAccessChanges(projectId sharedTypes.UUID, r refreshMembershipDetails) {
 	m.notifyEditor(projectId, "project:membership:changed", r)
 }

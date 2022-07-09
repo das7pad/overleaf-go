@@ -67,7 +67,7 @@ func (s *Session) IsLoggedIn() bool {
 	return s.User.Id != (sharedTypes.UUID{})
 }
 
-func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (string, error) {
+func (s *Session) Login(ctx context.Context, u user.ForSession, ip string) (string, error) {
 	redirect, triggerCleanup, err := s.PrepareLogin(ctx, u, ip)
 	if err != nil {
 		return "", err
@@ -76,7 +76,7 @@ func (s *Session) Login(ctx context.Context, u *user.ForSession, ip string) (str
 	return redirect, nil
 }
 
-func (s *Session) PrepareLogin(ctx context.Context, u *user.ForSession, ip string) (string, func(), error) {
+func (s *Session) PrepareLogin(ctx context.Context, u user.ForSession, ip string) (string, func(), error) {
 	redirect := s.PostLoginRedirect
 	triggerCleanup := s.prepareCleanup()
 	s.noAutoSave = true

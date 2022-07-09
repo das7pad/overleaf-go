@@ -81,7 +81,8 @@ type DocumentUpdateMeta struct {
 	Timestamp        Timestamp        `json:"ts,omitempty"`
 	TrackChangesSeed TrackChangesSeed `json:"tc,omitempty"`
 	UserId           UUID             `json:"user_id,omitempty"`
-	IngestionTime    *time.Time       `json:"ingestion_time,omitempty"`
+	// Ingestion time is tracked internally only. Allow nil for public blob.
+	IngestionTime *time.Time `json:"ingestion_time,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {

@@ -223,7 +223,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	}
 
 	// For cleanup purposes: mark as joined before actually joining.
-	rpc.Client.DocId = &args.DocId
+	rpc.Client.DocId = args.DocId
 
 	if err := m.appliedOps.Join(rpc, rpc.Client, args.DocId); err != nil {
 		return errors.Tag(
@@ -259,18 +259,14 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	return nil
 }
 func (m *manager) leaveDoc(rpc *types.RPC) error {
-	docId := rpc.Client.DocId
-	if docId == nil {
-		// Ignore not yet joined.
-		return nil
-	}
-	err := m.appliedOps.Leave(rpc.Client, *docId)
+	docId := rpc.Request.DocId
+	err := m.appliedOps.Leave(rpc.Client, docId)
 	if err != nil {
 		return errors.Tag(
 			err, "appliedOps.Leave failed for "+docId.String(),
 		)
 	}
-	rpc.Client.DocId = nil
+	rpc.Client.DocId = sharedTypes.UUID{}
 	return nil
 }
 
@@ -322,7 +318,7 @@ func (m *manager) getConnectedUsers(rpc *types.RPC) error {
 	if err != nil {
 		return err
 	}
-	body := &types.GetConnectedUsersResponse{ConnectedClients: clients}
+	body := types.GetConnectedUsersResponse{ConnectedClients: clients}
 	blob, err := json.Marshal(body)
 	if err != nil {
 		return errors.Tag(err, "cannot serialize users")
@@ -371,8 +367,8 @@ func (m *manager) updatePosition(rpc *types.RPC) error {
 func (m *manager) Disconnect(client *types.Client) error {
 	var errAppliedOps, errEditorEvents, errClientTracking error
 	docId := client.DocId
-	if docId != nil {
-		errAppliedOps = m.appliedOps.Leave(client, *docId)
+	if docId != (sharedTypes.UUID{}) {
+		errAppliedOps = m.appliedOps.Leave(client, docId)
 	}
 	projectId := client.ProjectId
 	if projectId != nil {

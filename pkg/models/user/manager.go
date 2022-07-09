@@ -43,9 +43,9 @@ type Manager interface {
 	SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId sharedTypes.UUID, epoch int64, ip string) error
-	ChangeEmailAddress(ctx context.Context, change *ForEmailChange, ip string, newEmail sharedTypes.Email) error
-	SetUserName(ctx context.Context, userId sharedTypes.UUID, u *WithNames) error
-	ChangePassword(ctx context.Context, change *ForPasswordChange, ip, operation string, newHashedPassword string) error
+	ChangeEmailAddress(ctx context.Context, change ForEmailChange, ip string, newEmail sharedTypes.Email) error
+	SetUserName(ctx context.Context, userId sharedTypes.UUID, u WithNames) error
+	ChangePassword(ctx context.Context, change ForPasswordChange, ip, operation string, newHashedPassword string) error
 	DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error
 	LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
 	UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error
@@ -134,7 +134,7 @@ FROM u;
 	return nil
 }
 
-func (m *manager) ChangePassword(ctx context.Context, u *ForPasswordChange, ip, operation string, newHashedPassword string) error {
+func (m *manager) ChangePassword(ctx context.Context, u ForPasswordChange, ip, operation string, newHashedPassword string) error {
 	// TODO: epoch changed error handling?
 	return getErr(m.db.ExecContext(ctx, `
 WITH u AS (
@@ -294,7 +294,7 @@ FROM u;
 `, userId, blob, ip, AuditLogOperationClearSessions))
 }
 
-func (m *manager) ChangeEmailAddress(ctx context.Context, u *ForEmailChange, ip string, newEmail sharedTypes.Email) error {
+func (m *manager) ChangeEmailAddress(ctx context.Context, u ForEmailChange, ip string, newEmail sharedTypes.Email) error {
 	blob, err := json.Marshal(changeEmailAddressAuditLogInfo{
 		OldPrimaryEmail: u.Email,
 		NewPrimaryEmail: newEmail,
@@ -362,7 +362,7 @@ WHERE id = $1
 `, userId, joined))
 }
 
-func (m *manager) SetUserName(ctx context.Context, userId sharedTypes.UUID, u *WithNames) error {
+func (m *manager) SetUserName(ctx context.Context, userId sharedTypes.UUID, u WithNames) error {
 	return getErr(m.db.ExecContext(ctx, `
 UPDATE users
 SET first_name = $2,

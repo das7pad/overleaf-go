@@ -35,8 +35,8 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 	}
 	userId := r.Session.User.Id
 
-	u := &user.ForEmailChange{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
+	u := user.ForEmailChange{}
+	if err := m.um.GetUser(ctx, userId, &u); err != nil {
 		return errors.Tag(err, "cannot get user")
 	}
 	oldEmail := u.Email

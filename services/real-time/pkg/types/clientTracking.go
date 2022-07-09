@@ -40,7 +40,7 @@ type ConnectedClient struct {
 	ClientPosition *ClientPosition `json:"cursorData,omitempty"`
 }
 
-type ConnectedClients []*ConnectedClient
+type ConnectedClients []ConnectedClient
 
 type GetConnectedUsersResponse struct {
 	ConnectedClients ConnectedClients `json:"connectedClients"`

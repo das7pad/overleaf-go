@@ -53,7 +53,8 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 		return errors.Tag(err, "cannot get one time token")
 	}
 
-	e := &email.Email{
+	u := r.Session.User.ToPublicUserInfo()
+	e := email.Email{
 		Content: &email.CTAContent{
 			PublicOptions: m.emailOptions.Public,
 			Message: email.Message{
@@ -78,9 +79,9 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 				}),
 		},
 		Subject: "Confirm Email - " + m.options.AppName,
-		To: &email.Identity{
+		To: email.Identity{
 			Address:     r.Email,
-			DisplayName: r.Session.User.ToPublicUserInfo().DisplayName(),
+			DisplayName: u.DisplayName(),
 		},
 	}
 	if err = e.Send(ctx, m.emailOptions.Send); err != nil {

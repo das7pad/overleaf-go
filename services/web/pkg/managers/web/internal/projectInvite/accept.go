@@ -38,7 +38,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 		return errors.Tag(err, "cannot get invite")
 	}
 
-	go m.notifyEditorAboutChanges(projectId, &refreshMembershipDetails{
+	go m.notifyEditorAboutChanges(projectId, refreshMembershipDetails{
 		Invites: true,
 		Members: true,
 	})

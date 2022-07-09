@@ -28,12 +28,12 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 		return err
 	}
 	projectId := request.ProjectId
-	fileRef := &project.FileRef{}
+	fileRef := project.FileRef{}
 	fileRef.Id = request.FileId
 	fileRef.Name = request.Name
 
 	projectVersion, err := m.pm.RenameFile(
-		ctx, projectId, request.UserId, fileRef,
+		ctx, projectId, request.UserId, &fileRef,
 	)
 	if err != nil {
 		return err

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,7 +31,7 @@ func (m *manager) sendActivateEmail(ctx context.Context, to sharedTypes.Email, s
 	if spamSafe.IsSafeEmail(to) {
 		withEmailHint = fmt.Sprintf(" with the email address '%s'.", to)
 	}
-	e := &email.Email{
+	e := email.Email{
 		Content: &email.CTAContent{
 			PublicOptions: m.emailOptions.Public,
 			HelpLinks: []email.HelpLink{
@@ -66,7 +66,7 @@ func (m *manager) sendActivateEmail(ctx context.Context, to sharedTypes.Email, s
 		Subject: fmt.Sprintf(
 			"Activate your %s Account", m.options.AppName,
 		),
-		To: &email.Identity{
+		To: email.Identity{
 			Address: to,
 		},
 	}

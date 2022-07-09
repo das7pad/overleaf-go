@@ -38,10 +38,10 @@ func (m *manager) GetProjectMessages(ctx context.Context, request *types.GetProj
 }
 
 func (m *manager) SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error {
-	msg := &message.Message{}
+	msg := message.Message{}
 	msg.Content = request.Content
 	msg.User.Id = request.UserId
-	if err := m.mm.SendGlobalMessage(ctx, request.ProjectId, msg); err != nil {
+	if err := m.mm.SendGlobalMessage(ctx, request.ProjectId, &msg); err != nil {
 		return errors.Tag(err, "cannot persist message")
 	}
 	msg.User.IdNoUnderscore = msg.User.Id

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,16 +24,16 @@ import (
 
 type Email struct {
 	Content Content
-	ReplyTo *Identity
+	ReplyTo Identity
 	Subject string
-	To      *Identity
+	To      Identity
 }
 
 func (e *Email) Validate() error {
 	if err := e.Content.Validate(); err != nil {
 		return errors.New("invalid content: " + err.Error())
 	}
-	if e.ReplyTo != nil {
+	if e.ReplyTo.Address != "" {
 		if err := e.ReplyTo.Validate(); err != nil {
 			return errors.New("invalid recipient: " + err.Error())
 		}

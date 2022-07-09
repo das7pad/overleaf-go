@@ -59,11 +59,11 @@ func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLink
 }
 
 func (m *manager) refreshProjectOutputFile(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
-	res := &types.CompileProjectResponse{}
+	res := types.CompileProjectResponse{}
 	err := m.cm.CompileHeadLess(ctx, &types.CompileProjectHeadlessRequest{
 		ProjectId: r.File.LinkedFileData.SourceProjectId,
 		UserId:    r.UserId,
-	}, res)
+	}, &res)
 	if err != nil {
 		return err
 	}

@@ -32,14 +32,14 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 	}
 
 	now := time.Now()
-	pi := &projectInvite.WithToken{}
+	pi := projectInvite.WithToken{}
 	pi.Email = request.Email
 	pi.Expires = now.Add(30 * 24 * time.Hour)
 	pi.PrivilegeLevel = request.PrivilegeLevel
 	pi.ProjectId = request.ProjectId
 	pi.SendingUser.Id = request.SenderUserId
 
-	d, err := m.getDetails(ctx, pi, request.SenderUserId)
+	d, err := m.getDetails(ctx, &pi, request.SenderUserId)
 	if err != nil {
 		return err
 	}
@@ -47,13 +47,13 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 		return err
 	}
 
-	if err = m.pim.Create(ctx, pi); err != nil {
+	if err = m.pim.Create(ctx, &pi); err != nil {
 		return errors.Tag(err, "cannot create invite")
 	}
 
 	// Possible false negative error, request refresh.
 	defer m.notifyEditorAboutChanges(
-		request.ProjectId, &refreshMembershipDetails{Invites: true},
+		request.ProjectId, refreshMembershipDetails{Invites: true},
 	)
 
 	if err = m.sendEmail(ctx, d); err != nil {

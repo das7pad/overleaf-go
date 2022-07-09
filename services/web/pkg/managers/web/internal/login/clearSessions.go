@@ -44,8 +44,8 @@ func (m *manager) ClearSessions(ctx context.Context, request *types.ClearSession
 		return err
 	}
 	userId := request.Session.User.Id
-	u := &user.WithPublicInfo{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
+	u := user.WithPublicInfo{}
+	if err := m.um.GetUser(ctx, userId, &u); err != nil {
 		return errors.Tag(err, "cannot get user")
 	}
 
@@ -91,7 +91,7 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	if len(d.Sessions) == 0 {
 		return errNothingToClear
 	}
-	info := &clearSessionsAuditLogInfo{Sessions: d.Sessions}
+	info := clearSessionsAuditLogInfo{Sessions: d.Sessions}
 
 	// Add audit log entry and bump user epoch.
 	err = m.um.TrackClearSessions(ctx, userId, request.IPAddress, info)

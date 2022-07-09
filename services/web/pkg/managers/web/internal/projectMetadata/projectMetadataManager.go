@@ -110,7 +110,7 @@ func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId share
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get docs from db")
 	}
-	meta := make(types.LightProjectMetadata, len(recentlyEdited))
+	meta := make(types.LightProjectMetadata, len(docs))
 	for _, d := range recentlyEdited {
 		meta[d.Id.String()] = m.parseDoc(d.Snapshot)
 	}

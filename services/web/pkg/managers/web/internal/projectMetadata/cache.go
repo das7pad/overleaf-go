@@ -53,7 +53,7 @@ func (m *manager) getCacheEntry(ctx context.Context, projectId sharedTypes.UUID)
 	return entry, nil
 }
 
-func (m *manager) setCacheEntry(ctx context.Context, projectId sharedTypes.UUID, entry *cacheEntry) error {
+func (m *manager) setCacheEntry(ctx context.Context, projectId sharedTypes.UUID, entry cacheEntry) error {
 	blob, err := json.Marshal(entry)
 	if err != nil {
 		return errors.Tag(err, "cannot serialize cache entry")
@@ -100,7 +100,6 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 		)
 		// fallback to flushed state.
 	}
-	// TODO: check caching behavior
 	projectVersionLive := recentlyEdited.LastUpdatedAt()
 	projectVersion := projectVersionFlushed
 	if projectVersionLive.After(projectVersionFlushed) {
@@ -116,13 +115,13 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 	}
 
 	go func() {
-		cached = &cacheEntry{
-			ProjectVersion: projectVersion,
-			ProjectMeta:    meta,
-		}
 		ctx2, done := context.WithTimeout(context.Background(), time.Second*10)
 		defer done()
-		if err2 := m.setCacheEntry(ctx2, projectId, cached); err2 != nil {
+		err2 := m.setCacheEntry(ctx2, projectId, cacheEntry{
+			ProjectVersion: projectVersion,
+			ProjectMeta:    meta,
+		})
+		if err2 != nil {
 			log.Println(errors.Tag(err2, projectId.String()).Error())
 		}
 	}()

@@ -78,7 +78,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 		}
 	}()
 
-	redirect, err := r.Session.Login(ctx, &u.ForSession, r.IPAddress)
+	redirect, err := r.Session.Login(ctx, u.ForSession, r.IPAddress)
 	if err != nil {
 		return err
 	}

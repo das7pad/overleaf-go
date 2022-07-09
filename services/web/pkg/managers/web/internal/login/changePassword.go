@@ -40,12 +40,12 @@ func (m *manager) ChangePassword(ctx context.Context, r *types.ChangePasswordReq
 	}
 	userId := r.Session.User.Id
 
-	u := &user.ForPasswordChange{}
-	if err := m.um.GetUser(ctx, userId, u); err != nil {
+	u := user.ForPasswordChange{}
+	if err := m.um.GetUser(ctx, userId, &u); err != nil {
 		return errors.Tag(err, "cannot get user")
 	}
 
-	errPW := CheckPassword(&u.HashedPasswordField, r.CurrentPassword)
+	errPW := CheckPassword(u.HashedPasswordField, r.CurrentPassword)
 	if errPW != nil {
 		if errors.IsNotAuthorizedError(errPW) {
 			return &errors.ValidationError{
@@ -72,7 +72,7 @@ func (m *manager) ChangePassword(ctx context.Context, r *types.ChangePasswordReq
 	return nil
 }
 
-func (m *manager) changePassword(ctx context.Context, u *user.ForPasswordChange, ip, action string, password types.UserPassword) error {
+func (m *manager) changePassword(ctx context.Context, u user.ForPasswordChange, ip, action string, password types.UserPassword) error {
 	if err := password.CheckForEmailMatch(u.Email); err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (m *manager) changePassword(ctx context.Context, u *user.ForPasswordChange,
 	return nil
 }
 
-func (m *manager) postProcessPasswordChange(u *user.ForPasswordChange, s *session.Session) {
+func (m *manager) postProcessPasswordChange(u user.ForPasswordChange, s *session.Session) {
 	// We need to clear sessions and email the user. Ignore any request aborts.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
@@ -110,7 +110,7 @@ func (m *manager) postProcessPasswordChange(u *user.ForPasswordChange, s *sessio
 	})
 	eg.Go(func() error {
 		err := m.emailSecurityAlert(
-			ctx, &u.WithPublicInfo, "password changed",
+			ctx, u.WithPublicInfo, "password changed",
 			fmt.Sprintf(
 				"your password has been changed on your account %s",
 				u.Email,

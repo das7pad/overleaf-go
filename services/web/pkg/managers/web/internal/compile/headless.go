@@ -28,7 +28,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 	if err != nil {
 		return err
 	}
-	p := &d.Project
+	p := d.Project
 	if _, err = p.GetPrivilegeLevelAuthenticated(); err != nil {
 		return err
 	}

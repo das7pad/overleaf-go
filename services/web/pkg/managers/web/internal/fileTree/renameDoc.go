@@ -30,12 +30,12 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		return err
 	}
 	projectId := request.ProjectId
-	d := &project.Doc{}
+	d := project.Doc{}
 	d.Id = request.DocId
 	d.Name = request.Name
 
 	projectVersion, path, err := m.pm.RenameDoc(
-		ctx, projectId, request.UserId, d,
+		ctx, projectId, request.UserId, &d,
 	)
 	if err != nil {
 		return err

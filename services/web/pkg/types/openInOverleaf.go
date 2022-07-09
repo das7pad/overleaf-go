@@ -59,11 +59,11 @@ func (s *OpenInOverleafSnippet) Validate() error {
 type OpenInOverleafRequest struct {
 	Session *session.Session `json:"-"`
 
-	Compiler       sharedTypes.Compiler     `json:"compiler"`
-	HasDefaultName bool                     `json:"-"`
-	ProjectName    project.Name             `json:"project_name"`
-	Snippets       []*OpenInOverleafSnippet `json:"snippets"`
-	ZipURL         *sharedTypes.URL         `json:"zip_url"`
+	Compiler       sharedTypes.Compiler    `json:"compiler"`
+	HasDefaultName bool                    `json:"-"`
+	ProjectName    project.Name            `json:"project_name"`
+	Snippets       []OpenInOverleafSnippet `json:"snippets"`
+	ZipURL         *sharedTypes.URL        `json:"zip_url"`
 }
 
 func (r *OpenInOverleafRequest) Preprocess() {
@@ -186,7 +186,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 	}
 	// Snippet based request
 	snippets := make(
-		[]*OpenInOverleafSnippet,
+		[]OpenInOverleafSnippet,
 		0,
 		len(params["snip"])+
 			len(params["snip_uri"])+
@@ -200,12 +200,12 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 			}
 		}
 
-		snippets = append(snippets, &OpenInOverleafSnippet{
+		snippets = append(snippets, OpenInOverleafSnippet{
 			Snapshot: sharedTypes.Snapshot(v),
 		})
 	}
 	for _, raw := range params["snip"] {
-		snippets = append(snippets, &OpenInOverleafSnippet{
+		snippets = append(snippets, OpenInOverleafSnippet{
 			Snapshot: sharedTypes.Snapshot(raw),
 		})
 	}
@@ -216,7 +216,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 				Msg: fmt.Sprintf("snip_uri[%d]: %s", i, err.Error()),
 			}
 		}
-		snippets = append(snippets, &OpenInOverleafSnippet{
+		snippets = append(snippets, OpenInOverleafSnippet{
 			URL: u,
 		})
 	}
