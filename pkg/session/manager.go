@@ -175,6 +175,11 @@ func (m *manager) TouchSession(c *httpUtils.Context, session *Session) {
 	if session.id == "" {
 		return
 	}
+	if time.Now().Sub(session.User.SessionCreated) < time.Minute {
+		// Skip touching of recently created sessions.
+		return
+	}
+
 	m.signedCookie.Set(c, string(session.id))
 
 	// NOTE: The context will get reused by the next request. Do not access.
