@@ -76,11 +76,12 @@ func main() {
 		ctx, done := context.WithTimeout(signalCtx, timeout)
 		defer done()
 
-		dsn := postgresOptions.Parse()
+		dsn, poolSize := postgresOptions.Parse()
 		db, err := sql.Open("postgres", dsn)
 		if err != nil {
 			panic(errors.Tag(err, "cannot talk to postgres"))
 		}
+		db.SetMaxIdleConns(poolSize)
 		if err = db.PingContext(ctx); err != nil {
 			panic(errors.Tag(err, "cannot talk to postgres"))
 		}

@@ -31,11 +31,13 @@ func MustConnectPostgres(timeout time.Duration) *sql.DB {
 	ctx, done := context.WithTimeout(context.Background(), timeout)
 	defer done()
 
-	dsn := postgresOptions.Parse()
+	dsn, poolSize := postgresOptions.Parse()
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
+	db.SetMaxIdleConns(poolSize)
+	db.SetConnMaxIdleTime(30 * time.Second)
 	if err = db.PingContext(ctx); err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}

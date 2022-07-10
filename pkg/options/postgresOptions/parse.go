@@ -20,9 +20,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-func Parse() string {
+func Parse() (string, int) {
 	return utils.GetStringFromEnv(
 		"POSTGRES_DSN",
 		"postgresql://postgres@localhost:5432/postgres?sslmode=disable",
-	)
+	), utils.GetIntFromEnv("POSTGRES_POOL_SIZE", 25)
 }
