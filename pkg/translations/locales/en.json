@@ -192,6 +192,7 @@
   "password": "Password",
   "password_has_been_reset": "Your password has been reset",
   "password_reset": "Password Reset",
+  "password_reset_email_sent": "You have been sent an email to complete your password reset.",
   "password_reset_token_expired": "Your password reset token has expired. Please request a new password reset email and follow the link there.",
   "pdf_viewer": "PDF Viewer",
   "pending": "Pending",
