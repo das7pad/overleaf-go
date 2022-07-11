@@ -135,8 +135,8 @@ FROM u;
 }
 
 func (m *manager) ChangePassword(ctx context.Context, u ForPasswordChange, ip, operation string, newHashedPassword string) error {
-	// TODO: epoch changed error handling?
-	return getErr(m.db.ExecContext(ctx, `
+	ok := false
+	err := m.db.QueryRowContext(ctx, `
 WITH u AS (
     UPDATE users
         SET epoch = epoch + 1, password_hash = $3
@@ -153,15 +153,25 @@ WITH u AS (
                     $5,
                     transaction_timestamp(),
                     u.id
-             FROM u)
-UPDATE one_time_tokens
-SET used_at = transaction_timestamp()
+             FROM u),
+     ott AS (
+         UPDATE one_time_tokens
+             SET used_at = transaction_timestamp()
+             FROM u
+             WHERE user_id = u.id
+                 AND use = $6
+                 AND used_at IS NULL)
+SELECT TRUE
 FROM u
-WHERE user_id = u.id
-  AND use = $6
-  AND used_at IS NULL
 `, u.Id, u.Epoch, newHashedPassword, ip, operation,
-		oneTimeToken.PasswordResetUse))
+		oneTimeToken.PasswordResetUse).Scan(&ok)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ErrEpochChanged
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *manager) UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, e EditorConfig) error {
