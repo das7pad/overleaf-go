@@ -17,51 +17,20 @@
 package compile
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {
-	request.WordCountRequest.CompileGroup =
-		request.SignedCompileProjectRequestOptions.CompileGroup
-	if err := request.Validate(); err != nil {
-		return err
-	}
-	u := m.baseURL
-	u += "/project/" + request.ProjectId.String()
-	u += "/user/" + request.UserId.String()
-	u += "/wordcount"
-
-	request.ImageName = m.getImageName(request.ImageName)
-
-	blob, err := json.Marshal(request.WordCountRequest)
-	if err != nil {
-		return errors.Tag(err, "cannot serialize word count request")
-	}
-	body := bytes.NewReader(blob)
-
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
-	if err != nil {
-		return errors.Tag(err, "cannot create word count request")
-	}
-	res, err := m.doStaticRequest(request.ClsiServerId, r)
-	if err != nil {
-		return errors.Tag(err, "cannot action word count request")
-	}
-	defer func() {
-		_ = res.Body.Close()
-	}()
-
-	switch res.StatusCode {
-	case http.StatusOK:
-		return json.NewDecoder(res.Body).Decode(words)
-	default:
-		return unexpectedStatus(res)
-	}
+	return m.genericPOST(
+		ctx,
+		"/wordcount",
+		request.SignedCompileProjectRequestOptions,
+		request.ClsiServerId,
+		request.ImageName,
+		&request.WordCountRequest,
+		words,
+	)
 }

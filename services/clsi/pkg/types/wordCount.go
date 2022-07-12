@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -33,9 +33,8 @@ type Words struct {
 	Messages    string `json:"messages"`
 }
 type WordCountRequest struct {
-	CompileGroup sharedTypes.CompileGroup `json:"compileGroup"`
-	FileName     sharedTypes.PathName     `json:"fileName"`
-	ImageName    sharedTypes.ImageName    `json:"imageName"`
+	CommonRequestOptions
+	FileName sharedTypes.PathName `json:"fileName"`
 }
 
 func (r *WordCountRequest) Preprocess() error {
@@ -46,13 +45,10 @@ func (r *WordCountRequest) Preprocess() error {
 }
 
 func (r *WordCountRequest) Validate() error {
-	if err := r.CompileGroup.Validate(); err != nil {
+	if err := r.CommonRequestOptions.Validate(); err != nil {
 		return err
 	}
 	if err := r.FileName.Validate(); err != nil {
-		return err
-	}
-	if err := r.ImageName.Validate(); err != nil {
 		return err
 	}
 	return nil

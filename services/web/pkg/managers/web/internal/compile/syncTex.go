@@ -23,36 +23,42 @@ import (
 	"net/http"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
-	request.SyncFromCodeRequest.CompileGroup =
-		request.SignedCompileProjectRequestOptions.CompileGroup
+type genericPOSTRequest interface {
+	SetCompileGroup(sharedTypes.CompileGroup)
+	SetImageName(sharedTypes.ImageName)
+	Validate() error
+}
+
+func (m *manager) genericPOST(ctx context.Context, endpoint string, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, imageName sharedTypes.ImageName, request genericPOSTRequest, response interface{}) error {
+	request.SetCompileGroup(options.CompileGroup)
 	if err := request.Validate(); err != nil {
 		return err
 	}
 	u := m.baseURL
-	u += "/project/" + request.ProjectId.String()
-	u += "/user/" + request.UserId.String()
-	u += "/sync/code"
+	u += "/project/" + options.ProjectId.String()
+	u += "/user/" + options.UserId.String()
+	u += endpoint
 
-	request.ImageName = m.getImageName(request.ImageName)
+	request.SetImageName(m.getImageName(imageName))
 
-	blob, err := json.Marshal(request.SyncFromCodeRequest)
+	blob, err := json.Marshal(request)
 	if err != nil {
-		return errors.Tag(err, "cannot serialize sync from code request")
+		return errors.Tag(err, "cannot serialize request")
 	}
 	body := bytes.NewReader(blob)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
 	if err != nil {
-		return errors.Tag(err, "cannot create sync from code request")
+		return errors.Tag(err, "cannot create request")
 	}
-	res, err := m.doStaticRequest(request.ClsiServerId, r)
+	res, err := m.doStaticRequest(clsiServerId, r)
 	if err != nil {
-		return errors.Tag(err, "cannot action sync from code request")
+		return errors.Tag(err, "cannot action request")
 	}
 	defer func() {
 		_ = res.Body.Close()
@@ -60,47 +66,32 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 
 	switch res.StatusCode {
 	case http.StatusOK:
-		return json.NewDecoder(res.Body).Decode(positions)
+		return json.NewDecoder(res.Body).Decode(response)
 	default:
 		return unexpectedStatus(res)
 	}
 }
 
+func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
+	return m.genericPOST(
+		ctx,
+		"/sync/code",
+		request.SignedCompileProjectRequestOptions,
+		request.ClsiServerId,
+		request.ImageName,
+		&request.SyncFromCodeRequest,
+		positions,
+	)
+}
+
 func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error {
-	request.SyncFromPDFRequest.CompileGroup =
-		request.SignedCompileProjectRequestOptions.CompileGroup
-	if err := request.Validate(); err != nil {
-		return err
-	}
-	u := m.baseURL
-	u += "/project/" + request.ProjectId.String()
-	u += "/user/" + request.UserId.String()
-	u += "/sync/pdf"
-
-	request.ImageName = m.getImageName(request.ImageName)
-
-	blob, err := json.Marshal(request.SyncFromPDFRequest)
-	if err != nil {
-		return errors.Tag(err, "cannot serialize sync from pdf request")
-	}
-	body := bytes.NewReader(blob)
-
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
-	if err != nil {
-		return errors.Tag(err, "cannot create sync from pdf request")
-	}
-	res, err := m.doStaticRequest(request.ClsiServerId, r)
-	if err != nil {
-		return errors.Tag(err, "cannot action sync from pdf request")
-	}
-	defer func() {
-		_ = res.Body.Close()
-	}()
-
-	switch res.StatusCode {
-	case http.StatusOK:
-		return json.NewDecoder(res.Body).Decode(positions)
-	default:
-		return unexpectedStatus(res)
-	}
+	return m.genericPOST(
+		ctx,
+		"/sync/pdf",
+		request.SignedCompileProjectRequestOptions,
+		request.ClsiServerId,
+		request.ImageName,
+		&request.SyncFromPDFRequest,
+		positions,
+	)
 }

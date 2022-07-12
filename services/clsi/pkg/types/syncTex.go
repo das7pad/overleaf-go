@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -65,19 +65,15 @@ type SyncTexRequestCommon interface {
 }
 
 type SyncTexOptions struct {
-	BuildId      BuildId                  `json:"buildId"`
-	CompileGroup sharedTypes.CompileGroup `json:"compileGroup"`
-	ImageName    sharedTypes.ImageName    `json:"imageName"`
+	CommonRequestOptions
+	BuildId BuildId `json:"buildId"`
 }
 
 func (o *SyncTexOptions) Validate() error {
+	if err := o.CommonRequestOptions.Validate(); err != nil {
+		return err
+	}
 	if err := o.BuildId.Validate(); err != nil {
-		return err
-	}
-	if err := o.CompileGroup.Validate(); err != nil {
-		return err
-	}
-	if err := o.ImageName.Validate(); err != nil {
 		return err
 	}
 	return nil
