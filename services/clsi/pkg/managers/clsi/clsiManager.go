@@ -179,8 +179,7 @@ const loadBase = 1 << 16
 
 func (m *manager) refreshGetCapacity() (int64, error) {
 	var info syscall.Sysinfo_t
-	err := syscall.Sysinfo(&info)
-	if err != nil {
+	if err := syscall.Sysinfo(&info); err != nil {
 		return 0, err
 	}
 	load1 := float64(info.Loads[0]) / loadBase

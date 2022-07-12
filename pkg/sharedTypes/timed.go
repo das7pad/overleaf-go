@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -40,7 +40,7 @@ func (t *Timed) End() *Timed {
 	if t.t0 == nil {
 		return t
 	}
-	t.diff = time.Now().Sub(*t.t0)
+	t.diff = time.Since(*t.t0)
 	t.t0 = nil
 	return t
 }

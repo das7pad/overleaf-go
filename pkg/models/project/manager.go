@@ -748,7 +748,7 @@ FROM updated_version,
 	if err != nil {
 		return 0, nil, rewritePostgresErr(err)
 	}
-	var docs []Doc
+	docs := make([]Doc, 0, len(docIds))
 	for i, id := range docIds {
 		d := Doc{}
 		d.Id = id
@@ -852,7 +852,7 @@ FROM updated_version,
 	if err != nil {
 		return 0, nil, rewritePostgresErr(err)
 	}
-	var docs []Doc
+	docs := make([]Doc, 0, len(docIds))
 	for i, id := range docIds {
 		d := Doc{}
 		d.Id = id
@@ -1216,6 +1216,9 @@ ORDER BY t.kind
 			&nodes[i].Id, &nodes[i].Path, &nodes[i].Snapshot,
 			&nodes[i].Version,
 		)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	if err = r.Err(); err != nil {
 		return nil, nil, err
@@ -1577,6 +1580,9 @@ WHERE p.id = $1
   AND pm.access_source = 'invite'
   AND u.deleted_at IS NULL
 `, projectId)
+	if err != nil {
+		return nil, err
+	}
 	defer func() { _ = r.Close() }()
 	c := make([]user.AsProjectMember, 0)
 	for i := 0; r.Next(); i++ {
@@ -1872,7 +1878,7 @@ func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId s
 	if isDoc {
 		return existingId, true, v, nil
 	}
-	v, err = m.deleteTreeLeaf(ctx, projectId, userId, existingId, "file", tx)
+	_, err = m.deleteTreeLeaf(ctx, projectId, userId, existingId, "file", tx)
 	if err != nil {
 		return existingId, false, 0, errors.Tag(err, "delete existing file")
 	}

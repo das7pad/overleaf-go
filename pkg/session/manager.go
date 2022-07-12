@@ -175,7 +175,7 @@ func (m *manager) TouchSession(c *httpUtils.Context, session *Session) {
 	if session.id == "" {
 		return
 	}
-	if time.Now().Sub(session.User.SessionCreated) < time.Minute {
+	if time.Since(session.User.SessionCreated) < time.Minute {
 		// Skip touching of recently created sessions.
 		return
 	}
@@ -183,8 +183,6 @@ func (m *manager) TouchSession(c *httpUtils.Context, session *Session) {
 	m.signedCookie.Set(c, string(session.id))
 
 	// NOTE: The context will get reused by the next request. Do not access.
-	c = nil
-
 	go func() {
 		ctx, done := context.WithTimeout(context.Background(), 3*time.Second)
 		defer done()

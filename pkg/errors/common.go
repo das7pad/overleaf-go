@@ -123,7 +123,7 @@ func Tag(err error, msg string) *TaggedError {
 
 func GetCause(err error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 	if causer, ok := err.(Causer); ok {
 		return GetCause(causer.Cause())

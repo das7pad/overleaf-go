@@ -24,9 +24,9 @@ import (
 )
 
 var (
-	labelRegex          = regexp.MustCompile("\\\\label{([^}]{1,80})}")
-	usePackageRegex     = regexp.MustCompile("\\\\usepackage(?:\\[[^]]{0,80}?])?{([^}]{1,80})}")
-	requirePackageRegex = regexp.MustCompile("\\\\RequirePackage(?:\\[[^]]{0,80}?])?{([^}]{1,80})}")
+	labelRegex          = regexp.MustCompile(`\\label{([^}]{1,80})}`)
+	usePackageRegex     = regexp.MustCompile(`\\usepackage(?:\[[^]]{0,80}?])?{([^}]{1,80})}`)
+	requirePackageRegex = regexp.MustCompile(`\\RequirePackage(?:\[[^]]{0,80}?])?{([^}]{1,80})}`)
 )
 
 func (m *manager) parseDoc(snapshot string) types.LightDocProjectMetadata {

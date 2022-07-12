@@ -115,14 +115,6 @@ func ignoreAbort(err error) error {
 	return nil
 }
 
-func (t *Folder) walkIgnoreAbort(fn TreeWalker, m walkMode) error {
-	err := t.walk(fn, "", m)
-	if err != nil && err != AbortWalk {
-		return err
-	}
-	return nil
-}
-
 func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 	if err := fn(t, parent); err != nil {
 		return err

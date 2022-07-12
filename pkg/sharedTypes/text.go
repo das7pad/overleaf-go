@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -39,7 +39,7 @@ func (h Hash) CheckMatches(other Hash) error {
 
 const (
 	MaxDocLength = 2 * 1024 * 1024
-	// MaxDocSizeBytes allows for 4 bytes per unicode character
+	// MaxDocSizeBytes allows for 4 bytes per unicode character.
 	MaxDocSizeBytes = 4 * MaxDocLength
 )
 

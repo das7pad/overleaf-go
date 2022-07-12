@@ -49,7 +49,7 @@ func (n Name) Validate() error {
 	return nil
 }
 
-var regexNumericSuffix = regexp.MustCompile("\\(\\d{1,3}\\)$")
+var regexNumericSuffix = regexp.MustCompile(`\(\d{1,3}\)$`)
 
 type Names []Name
 

@@ -100,7 +100,7 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {
-		if deadline.Sub(time.Now()) < time.Second {
+		if time.Until(deadline) < time.Second {
 			// Chicken out when we are close to exceeding the deadline.
 			return context.DeadlineExceeded
 		}

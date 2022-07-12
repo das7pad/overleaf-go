@@ -435,7 +435,7 @@ func (p *project) run(ctx context.Context, options *types.CommandOptions) (types
 		}
 
 		deadline, _ := ctx.Deadline()
-		remaining := deadline.Sub(time.Now())
+		remaining := time.Until(deadline)
 		// Bail out if we have got less than half the timeout left.
 		if timeout/remaining > 2 {
 			break
@@ -553,7 +553,7 @@ func (p *project) tryRun(ctx context.Context, options *types.CommandOptions) (ty
 	}
 
 	// Update the timeout
-	options.ComputeTimeout = sharedTypes.ComputeTimeout(deadline.Sub(time.Now()))
+	options.ComputeTimeout = sharedTypes.ComputeTimeout(time.Until(deadline))
 
 	return p.runner.Run(ctx, p.namespace, options)
 }

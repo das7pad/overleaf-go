@@ -275,7 +275,6 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 			Path: f.Path,
 			URL:  &sharedTypes.URL{URL: *url},
 		})
-
 	}
 	if rootDocPath == "" {
 		return nil, "", &errors.ValidationError{Msg: "rootDoc not found"}

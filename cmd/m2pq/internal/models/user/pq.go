@@ -291,7 +291,7 @@ LIMIT 1
 }
 
 func ResolveUsers(ctx context.Context, rTx *sql.Tx, ids map[primitive.ObjectID]bool) (map[primitive.ObjectID]sql.NullString, error) {
-	idsFlat := make([]sharedTypes.UUID, len(ids))
+	idsFlat := make([]sharedTypes.UUID, 0, len(ids))
 	for id := range ids {
 		idsFlat = append(idsFlat, m2pq.ObjectID2UUID(id))
 	}

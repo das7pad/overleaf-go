@@ -64,5 +64,4 @@ func (m *manager) AddAliasDocIfNeeded(request *types.CompileRequest) {
 	}
 	request.Resources = append(request.Resources, aliasDoc)
 	request.RootDocAliasResource = aliasDoc
-	return
 }

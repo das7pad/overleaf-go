@@ -220,6 +220,9 @@ WHERE p.id = $1
 				return err
 			}
 		}
+		if err = r.Err(); err != nil {
+			return err
+		}
 		res.Users = c
 		return nil
 	})
@@ -290,8 +293,11 @@ ORDER BY dh.end_at DESC
 				return err
 			}
 		}
+		if err = r.Err(); err != nil {
+			return err
+		}
 		res.History = h
-		return err
+		return nil
 	})
 	eg.Go(func() error {
 		r, err := m.db.QueryContext(pCtx, `

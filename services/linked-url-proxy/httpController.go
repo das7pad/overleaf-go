@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -93,10 +93,6 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	defer func() {
 		_ = response.Body.Close()
 	}()
-	contentType := response.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
 	if response.ContentLength > maxProxySize {
 		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
 		return

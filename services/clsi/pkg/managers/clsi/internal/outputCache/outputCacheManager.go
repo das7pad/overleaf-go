@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -177,8 +177,7 @@ func (m *manager) Clear(namespace types.Namespace) error {
 //  another 16 hex char long random string.
 func getBuildId() (types.BuildId, error) {
 	buf := make([]byte, 8)
-	_, err := rand.Read(buf)
-	if err != nil {
+	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	now := time.Now().UnixNano()

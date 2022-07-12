@@ -65,7 +65,6 @@ type manager struct {
 	dum             documentUpdater.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager
-	options         *types.Options
 	pm              project.Manager
 	projectMetadata projectMetadata.Manager
 }

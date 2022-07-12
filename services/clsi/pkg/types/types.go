@@ -55,7 +55,7 @@ func (i BuildId) Age() (time.Duration, error) {
 	if err != nil {
 		return 0, err
 	}
-	return time.Now().Sub(time.Unix(0, ns)), nil
+	return time.Since(time.Unix(0, ns)), nil
 }
 
 var anonymousSuffix = "-" + sharedTypes.UUID{}.String()

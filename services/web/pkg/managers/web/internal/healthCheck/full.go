@@ -130,7 +130,7 @@ func (s *smokeTestSession) logout(ctx context.Context) error {
 }
 
 var (
-	regexProjectListTitle      = regexp.MustCompile("<title>\\s*Your Projects - .*,\\s*Online LaTeX Editor\\s*</title>")
+	regexProjectListTitle      = regexp.MustCompile(`<title>\s*Your Projects - .*,\s*Online LaTeX Editor\s*</title>`)
 	regexProjectListController = regexp.MustCompile(`controller="ProjectPageController"`)
 )
 

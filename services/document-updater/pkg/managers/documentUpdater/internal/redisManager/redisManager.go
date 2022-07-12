@@ -500,6 +500,12 @@ func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime
 		getFlushAndDeleteQueueKey(),
 		1,
 	).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return sharedTypes.UUID{}, 0, 0, nil
+		}
+		return sharedTypes.UUID{}, 0, 0, err
+	}
 	if len(entries) == 0 {
 		return sharedTypes.UUID{}, 0, 0, nil
 	}

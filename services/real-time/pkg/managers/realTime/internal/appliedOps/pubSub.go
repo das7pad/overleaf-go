@@ -46,9 +46,6 @@ func (r *DocRoom) Handle(raw string) {
 		log.Println("cannot validate appliedOps message: " + err.Error())
 		return
 	}
-	if msg.HealthCheck {
-		return
-	}
 	var err error
 	if msg.Error != nil {
 		err = r.handleError(msg)
@@ -95,6 +92,9 @@ func (r *DocRoom) handleUpdate(msg sharedTypes.AppliedOpsMessage) error {
 	}
 	source := update.Meta.Source
 	blob, err := json.Marshal(update)
+	if err != nil {
+		return errors.Tag(err, "serialize update")
+	}
 	resp := types.RPCResponse{
 		Name:        "otUpdateApplied",
 		Body:        blob,

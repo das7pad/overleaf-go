@@ -90,8 +90,7 @@ type WriteQueue chan<- WriteQueueEntry
 //  another 16 hex char long random string.
 func generatePublicId() (sharedTypes.PublicId, error) {
 	buf := make([]byte, 8)
-	_, err := secureRand.Read(buf)
-	if err != nil {
+	if _, err := secureRand.Read(buf); err != nil {
 		return "", err
 	}
 	now := time.Now().UnixNano()

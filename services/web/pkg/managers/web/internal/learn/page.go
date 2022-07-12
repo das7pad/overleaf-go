@@ -107,7 +107,7 @@ func (m *manager) LearnPage(ctx context.Context, r *types.LearnPageRequest, resp
 		}
 		pc = content
 		if hit {
-			response.Age = int64(time.Now().Sub(pc.fetchedAt).Seconds())
+			response.Age = int64(time.Since(pc.fetchedAt).Seconds())
 		} else {
 			response.Age = -1
 		}

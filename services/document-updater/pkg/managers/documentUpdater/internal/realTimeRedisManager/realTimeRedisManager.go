@@ -124,7 +124,7 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 
 			_, err := m.c.PublishVia(ctx, p, &sharedTypes.AppliedOpsMessage{
 				DocId:       update.DocId,
-				Update:      &update,
+				Update:      update,
 				ProcessedBy: m.hostname,
 			})
 			if err != nil {

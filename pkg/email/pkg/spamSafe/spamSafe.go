@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,9 +24,9 @@ import (
 )
 
 var (
-	emailRegex = regexp.MustCompile("^[\\p{L}\\p{N}.+_-]+@[\\w.-]+$")
-	hanRegex   = regexp.MustCompile("\\p{Han}")
-	safeRegex  = regexp.MustCompile("^[\\p{L}\\p{N}\\s\\-_!'&()]+$")
+	emailRegex = regexp.MustCompile(`^[\p{L}\p{N}.+_-]+@[\w.-]+$`)
+	hanRegex   = regexp.MustCompile(`\p{Han}`)
+	safeRegex  = regexp.MustCompile(`^[\p{L}\p{N}\s\-_!'&()]+$`)
 )
 
 func GetSafeEmail(email sharedTypes.Email, alternative string) string {

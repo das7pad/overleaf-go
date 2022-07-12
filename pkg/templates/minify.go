@@ -36,7 +36,7 @@ func minifyTemplate(raw *template.Template, funcMap template.FuncMap) (*template
 	s = regexp.MustCompile(`{{""}}`).ReplaceAllString(s, "")
 
 	// Preserve sequence of blocks in tables and similar conditions.
-	blocks := regexp.MustCompile("{{[\\s\\S]*?}}")
+	blocks := regexp.MustCompile(`{{[\s\S]*?}}`)
 	s = blocks.ReplaceAllStringFunc(s, func(m string) string {
 		return "<!--" + html.EscapeString(m) + "-->"
 	})
@@ -55,8 +55,7 @@ func minifyTemplate(raw *template.Template, funcMap template.FuncMap) (*template
 
 	b := &bytes.Buffer{}
 	b.Grow(len(s))
-	errRender := html.Render(b, h)
-	if errRender != nil {
+	if errRender := html.Render(b, h); errRender != nil {
 		return nil, errors.Tag(errRender, "html.Render")
 	}
 	s = b.String()
@@ -66,14 +65,14 @@ func minifyTemplate(raw *template.Template, funcMap template.FuncMap) (*template
 		return nil, errSwap
 	}
 
-	blocksRev := regexp.MustCompile("(<|&lt;)!--{{[\\s\\S]*?}}--(>|&gt;)")
+	blocksRev := regexp.MustCompile(`(<|&lt;)!--{{[\s\S]*?}}--(>|&gt;)`)
 	s = blocksRev.ReplaceAllStringFunc(s, func(m string) string {
 		m = html.UnescapeString(m)
 		return m[4 : len(m)-3]
 	})
 
 	// `{{if foo}}\n  {{bar}}\n  {{end}}` -> `{{if foo}}{{bar}}{{end}}`
-	siblingActions := regexp.MustCompile("}}\\s+{{")
+	siblingActions := regexp.MustCompile(`}}\s+{{`)
 	s = siblingActions.ReplaceAllString(s, "}}{{")
 
 	return template.New(raw.Name()).Funcs(funcMap).Parse(s)

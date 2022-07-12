@@ -213,8 +213,7 @@ type DocumentUpdateAck struct {
 type AppliedOpsMessage struct {
 	DocId       UUID                    `json:"doc_id"`
 	Error       *errors.JavaScriptError `json:"error,omitempty"`
-	HealthCheck bool                    `json:"health_check,omitempty"`
-	Update      *DocumentUpdate         `json:"op,omitempty"`
+	Update      DocumentUpdate          `json:"op,omitempty"`
 	ProcessedBy string                  `json:"processed_by,omitempty"`
 }
 
@@ -223,16 +222,11 @@ func (m *AppliedOpsMessage) ChannelId() UUID {
 }
 
 func (m *AppliedOpsMessage) Validate() error {
-	if m.Update != nil {
-		if err := m.Update.Validate(); err != nil {
-			return err
-		}
+	if m.Error != nil {
 		return nil
-	} else if m.Error != nil {
-		return nil
-	} else if m.HealthCheck {
-		return nil
-	} else {
-		return &errors.ValidationError{Msg: "unknown message type"}
 	}
+	if err := m.Update.Validate(); err != nil {
+		return err
+	}
+	return nil
 }

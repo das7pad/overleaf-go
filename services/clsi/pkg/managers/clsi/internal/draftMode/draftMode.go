@@ -39,10 +39,10 @@ const (
 )
 
 var (
-	withOptions            = regexp.MustCompile("\\\\documentclass\\[")
+	withOptions            = regexp.MustCompile(`\\documentclass\[`)
 	withOptionsReplacement = []byte("\\documentclass[draft,")
 
-	noOptions            = regexp.MustCompile("\\\\documentclass{")
+	noOptions            = regexp.MustCompile(`\\documentclass{`)
 	noOptionsReplacement = []byte("\\documentclass[draft]{")
 )
 

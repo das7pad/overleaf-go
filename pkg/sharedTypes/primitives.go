@@ -104,7 +104,7 @@ func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
 type UUID [16]byte
 
 func (u UUID) String() string {
-	dst := make([]byte, 36, 36)
+	dst := make([]byte, 36)
 	hex.Encode(dst, u[:4])
 	dst[8] = '-'
 	hex.Encode(dst[9:13], u[4:6])

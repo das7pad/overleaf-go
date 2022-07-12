@@ -109,7 +109,6 @@ func deserializeDocArchive(r io.ReadCloser) (sharedTypes.Lines, error) {
 type projectFile struct {
 	ProjectId sharedTypes.UUID
 	FileId    sharedTypes.UUID
-	Size      int64
 }
 
 func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
@@ -151,8 +150,8 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 			for e := range copyQueue {
 				dst := e.ProjectId.String() + "/" + e.FileId.String()
 				{
-					s, err := fo.GetObjectSize(ctx, fBucket, dst)
-					if err == nil && s == e.Size {
+					_, err := fo.GetObjectSize(ctx, fBucket, dst)
+					if err == nil {
 						// already copied in full
 						continue
 					}
@@ -467,8 +466,7 @@ SELECT $1,
 			fileId := m2pq.ObjectID2UUID(f.Id)
 			_, err = q.ExecContext(
 				ctx,
-				f.DeletedAt, fileId, "file", tId, f.Name,
-				pId,
+				f.DeletedAt, fileId, "file", tId, f.Name, pId,
 			)
 			if err != nil {
 				return errors.Tag(err, "queue deleted file tree node")
@@ -477,7 +475,7 @@ SELECT $1,
 		}
 
 		for _, d := range docs {
-			if d.Deleted == false {
+			if !d.Deleted {
 				continue
 			}
 			_, err = q.ExecContext(
