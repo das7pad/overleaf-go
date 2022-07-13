@@ -113,10 +113,8 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 		httpUtils.RespondErr(c, err)
 		return
 	}
-	c.Writer.Header().Set(
-		"Content-Disposition", `attachment; filename="response"`,
-	)
 	if response.ContentLength != -1 {
+		// Not used by client, but used by std lib for identifying de-sync.
 		c.Writer.Header().Set(
 			"Content-Length",
 			strconv.FormatInt(response.ContentLength, 10),
