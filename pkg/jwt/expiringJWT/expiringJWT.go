@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -32,17 +32,11 @@ type ExpiringJWT interface {
 var Expired = errors.New("jwt expired")
 
 type Claims struct {
-	expiresIn time.Duration
 	ExpiresAt int64 `json:"exp"`
 }
 
 func (j *Claims) SetExpiry(expiresIn time.Duration) {
-	j.expiresIn = expiresIn
 	j.ExpiresAt = time.Now().Add(expiresIn).Unix()
-}
-
-func (j Claims) ExpiresIn() time.Duration {
-	return j.expiresIn
 }
 
 // Valid validates the given expiry timestamp.

@@ -28,6 +28,7 @@ import (
 type JWTHandler interface {
 	New() expiringJWT.ExpiringJWT
 	Parse(blob string) (expiringJWT.ExpiringJWT, error)
+	GetExpiresIn() time.Duration
 	SetExpiryAndSign(claims expiringJWT.ExpiringJWT) (string, error)
 }
 
@@ -70,6 +71,10 @@ func (h *handler) Parse(blob string) (expiringJWT.ExpiringJWT, error) {
 		return nil, err
 	}
 	return t.Claims.(expiringJWT.ExpiringJWT), nil
+}
+
+func (h *handler) GetExpiresIn() time.Duration {
+	return h.expiresIn
 }
 
 func (h *handler) SetExpiryAndSign(claims expiringJWT.ExpiringJWT) (string, error) {

@@ -64,7 +64,7 @@ func (m *manager) genWSBootstrap(projectId sharedTypes.UUID, u user.WithPublicIn
 	}
 	return types.WSBootstrap{
 		JWT:       blob,
-		ExpiresIn: int64(c.ExpiresIn().Seconds()),
+		ExpiresIn: int64(m.wsBootstrap.GetExpiresIn().Seconds()),
 	}, nil
 }
 
