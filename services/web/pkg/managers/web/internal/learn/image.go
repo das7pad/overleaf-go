@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,8 +30,8 @@ import (
 )
 
 func (m *manager) fillImageCache() error {
-	m.imageMux.RLock()
-	defer m.imageMux.RUnlock()
+	m.imageMux.Lock()
+	defer m.imageMux.Unlock()
 	root := m.baseImagePath.String()
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -54,8 +54,8 @@ func (m *manager) fillImageCache() error {
 }
 
 func (m *manager) sweepImageCache() error {
-	m.imageMux.RLock()
-	defer m.imageMux.RUnlock()
+	m.imageMux.Lock()
+	defer m.imageMux.Unlock()
 	mergedErr := &errors.MergedError{}
 	now := time.Now()
 	for p, validUntil := range m.imageCache {
