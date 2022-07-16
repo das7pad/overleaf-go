@@ -73,7 +73,7 @@ func (h *httpController) compile(c *httpUtils.Context) {
 		OutputFiles: make(types.OutputFiles, 0),
 	}
 	err := h.cm.Compile(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		&requestBody.Request,
@@ -88,7 +88,7 @@ func (h *httpController) compile(c *httpUtils.Context) {
 
 func (h *httpController) stopCompile(c *httpUtils.Context) {
 	err := h.cm.StopCompile(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 	)
@@ -97,7 +97,7 @@ func (h *httpController) stopCompile(c *httpUtils.Context) {
 
 func (h *httpController) clearCache(c *httpUtils.Context) {
 	err := h.cm.ClearCache(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 	)
@@ -112,7 +112,7 @@ func (h *httpController) syncFromCode(c *httpUtils.Context) {
 
 	body := make(types.PDFPositions, 0)
 	err := h.cm.SyncFromCode(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -129,7 +129,7 @@ func (h *httpController) syncFromPDF(c *httpUtils.Context) {
 
 	body := make(types.CodePositions, 0)
 	err := h.cm.SyncFromPDF(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -146,7 +146,7 @@ func (h *httpController) wordCount(c *httpUtils.Context) {
 
 	var body types.Words
 	err := h.cm.WordCount(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -161,7 +161,7 @@ func (h *httpController) cookieStatus(c *httpUtils.Context) {
 		return
 	}
 	err := h.cm.StartInBackground(
-		c.Request.Context(),
+		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
@@ -170,6 +170,6 @@ func (h *httpController) cookieStatus(c *httpUtils.Context) {
 }
 
 func (h *httpController) healthCheck(c *httpUtils.Context) {
-	err := h.cm.HealthCheck(c.Request.Context())
+	err := h.cm.HealthCheck(c)
 	httpUtils.Respond(c, http.StatusOK, nil, err)
 }

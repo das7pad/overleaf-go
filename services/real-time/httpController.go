@@ -120,7 +120,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		writerChanges <- false
 	}()
 
-	ctx, cancel := context.WithCancel(requestCtx.Request.Context())
+	ctx, cancel := context.WithCancel(requestCtx)
 	defer cancel()
 
 	c, clientErr := types.NewClient(

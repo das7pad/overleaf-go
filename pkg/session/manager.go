@@ -128,7 +128,7 @@ func (m *manager) GetSession(c *httpUtils.Context) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return m.GetSessionById(c.Request.Context(), Id(id))
+	return m.GetSessionById(c, Id(id))
 }
 
 func (m *manager) GetSessionById(c context.Context, id Id) (*Session, error) {
@@ -157,7 +157,7 @@ func (m *manager) GetOrCreateSession(c *httpUtils.Context) (*Session, error) {
 
 func (m *manager) Flush(c *httpUtils.Context, session *Session) error {
 	if !session.noAutoSave {
-		skipped, err := session.Save(c.Request.Context())
+		skipped, err := session.Save(c)
 		if err != nil {
 			return err
 		}

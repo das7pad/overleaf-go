@@ -19,6 +19,8 @@ require (
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 )
 
+replace github.com/gorilla/mux v1.8.0 => github.com/das7pad/mux v1.8.1-0.20220716131946-5aa07c8586d7
+
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

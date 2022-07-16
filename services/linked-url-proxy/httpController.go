@@ -79,7 +79,7 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	}
 
 	request, err := http.NewRequestWithContext(
-		c.Request.Context(), http.MethodGet, url, http.NoBody,
+		c, http.MethodGet, url, http.NoBody,
 	)
 	if err != nil {
 		httpUtils.RespondErr(c, errors.Tag(err, "request creation failed"))
@@ -109,7 +109,7 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	if response.ContentLength == -1 {
 		body = io.LimitReader(response.Body, maxProxySize)
 	}
-	if err = c.Request.Context().Err(); err != nil {
+	if err = c.Err(); err != nil {
 		httpUtils.RespondErr(c, err)
 		return
 	}

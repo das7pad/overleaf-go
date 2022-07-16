@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -66,7 +66,6 @@ func (f HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Writer:        w,
 		Request:       r,
 	}
-	c.Request = r.WithContext(c)
 	w.Header().Set("Cache-Control", "no-store")
 	StartTotalTimer(c)
 	f(c)
@@ -127,6 +126,7 @@ func NewRouter(options *RouterOptions) *Router {
 	router := &Router{
 		Router: mux.NewRouter(),
 	}
+	router.OmitRouteFromContext(true)
 	statusHandler := func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}

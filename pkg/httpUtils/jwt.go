@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,6 +17,8 @@
 package httpUtils
 
 import (
+	"strings"
+
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -59,7 +61,7 @@ func (h *JWTHTTPHandler) Parse(c *Context) (jwt.Claims, error) {
 		blob = c.Request.URL.Query().Get(h.fromQuery)
 	} else {
 		v := c.Request.Header.Get("Authorization")
-		if len(v) > 7 && v[:7] == "Bearer " {
+		if strings.HasPrefix(v, "Bearer ") {
 			blob = v[7:]
 		}
 	}
