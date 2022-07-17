@@ -17,7 +17,7 @@
 package httpUtils
 
 import (
-	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -41,11 +41,16 @@ func EndTimer(key interface{}, label string) HandlerFunc {
 			return
 		}
 		diff := time.Since(t)
-		ms := diff / time.Millisecond
-		micro := diff % time.Millisecond / time.Microsecond
+		ms := int64(diff / time.Millisecond)
+		micro := int64(diff % time.Millisecond / time.Microsecond)
 		c.Writer.Header().Add(
 			"Server-Timing",
-			fmt.Sprintf("%s;dur=%d.%03d", label, ms, micro),
+			// Inline printing of "%s;dur=%d.%03d" % (label, ms, micro)
+			label+";dur="+
+				strconv.FormatInt(ms, 10)+"."+
+				strconv.FormatInt(micro%1000/100, 10)+
+				strconv.FormatInt(micro%100/10, 10)+
+				strconv.FormatInt(micro%10/1, 10),
 		)
 	}
 }
