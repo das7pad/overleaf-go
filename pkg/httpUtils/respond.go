@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -81,7 +81,9 @@ func respondJSON(
 	}
 	EndTotalTimer(c)
 	if body == nil {
-		c.Writer.Header().Set("Content-Length", "0")
+		if code != http.StatusNoContent {
+			c.Writer.Header().Set("Content-Length", "0")
+		}
 		c.Writer.WriteHeader(code)
 		return
 	}
