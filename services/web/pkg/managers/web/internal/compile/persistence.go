@@ -18,7 +18,6 @@ package compile
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -30,12 +29,10 @@ import (
 )
 
 func getPersistenceKey(options types.SignedCompileProjectRequestOptions) string {
-	return fmt.Sprintf(
-		"clsiserver:%s:%s:%s",
-		options.CompileGroup,
-		options.ProjectId.String(),
-		options.UserId.String(),
-	)
+	return "clsiserver" +
+		":" + string(options.CompileGroup) +
+		":" + options.ProjectId.String() +
+		":" + options.UserId.String()
 }
 
 func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options types.SignedCompileProjectRequestOptions) types.ClsiServerId {

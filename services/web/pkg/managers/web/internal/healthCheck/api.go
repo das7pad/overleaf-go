@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -36,7 +35,7 @@ func (m *manager) smokeTestRedis(ctx context.Context) error {
 		return errors.Tag(err, "cannot get random blob")
 	}
 	perRequestRnd := hex.EncodeToString(rawRand)
-	key := fmt.Sprintf("%s:%s", m.randomPrefix, perRequestRnd)
+	key := m.randomPrefix + ":" + perRequestRnd
 	err := m.client.SetEX(ctx, key, perRequestRnd, 10*time.Second).Err()
 	if err != nil {
 		return errors.Tag(err, "cannot write")

@@ -20,9 +20,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -49,15 +49,15 @@ func New(client redis.UniversalClient, namespace string) (Locker, error) {
 		return nil, errors.Tag(err, "cannot get random salt")
 	}
 	rnd := hex.EncodeToString(rawRand)
+	pid := strconv.FormatInt(int64(os.Getpid()), 10)
+	valuePrefix := "locked:host=" + hostname + ":pid=" + pid + ":random=" + rnd
 
 	return &locker{
 		client: client,
 
-		counter:   0,
-		hostname:  hostname,
-		pid:       os.Getpid(),
-		rnd:       rnd,
-		namespace: namespace,
+		counter:     0,
+		valuePrefix: valuePrefix,
+		namespace:   namespace,
 	}, nil
 }
 
@@ -66,11 +66,9 @@ var ErrLocked = errors.New("locked")
 type locker struct {
 	client redis.UniversalClient
 
-	counter   int64
-	hostname  string
-	pid       int
-	rnd       string
-	namespace string
+	counter     int64
+	valuePrefix string
+	namespace   string
 }
 
 const (
@@ -90,12 +88,9 @@ end
 `)
 
 func (l *locker) getUniqueValue() string {
-	now := time.Now().UnixNano()
-	n := atomic.AddInt64(&l.counter, 1)
-	return fmt.Sprintf(
-		"locked:host=%s:pid=%d:random=%s:time=%d:count=%d",
-		l.hostname, l.pid, l.rnd, now, n,
-	)
+	now := strconv.FormatInt(time.Now().UnixNano(), 10)
+	n := strconv.FormatInt(atomic.AddInt64(&l.counter, 1), 10)
+	return l.valuePrefix + ":time=" + now + ":count=" + n
 }
 
 func (l *locker) RunWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner) error {
@@ -107,7 +102,7 @@ func (l *locker) TryRunWithLock(ctx context.Context, docId sharedTypes.UUID, run
 }
 
 func (l *locker) runWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner, poll bool) error {
-	key := fmt.Sprintf("%s:{%s}", l.namespace, docId.String())
+	key := l.namespace + "{" + docId.String() + "}"
 	lockValue := l.getUniqueValue()
 
 	acquireLockDeadline := time.Now().Add(MaxLockWaitTime)

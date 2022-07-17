@@ -72,7 +72,7 @@ func (m *manager) FlushDocInBackground(projectId, docId sharedTypes.UUID) {
 }
 
 func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error {
-	queueKey := fmt.Sprintf("UncompressedHistoryOps:{%s}", docId)
+	queueKey := "UncompressedHistoryOps:{" + docId.String() + "}"
 	projectTracking := getProjectTrackingKey(projectId)
 	for {
 		var err error

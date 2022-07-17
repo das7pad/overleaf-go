@@ -18,7 +18,6 @@ package filestore
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/url"
 
@@ -123,11 +122,11 @@ type manager struct {
 }
 
 func getProjectPrefix(projectId sharedTypes.UUID) string {
-	return fmt.Sprintf("%s/", projectId.String())
+	return projectId.String() + "/"
 }
 
 func getProjectFileKey(projectId, fileId sharedTypes.UUID) string {
-	return fmt.Sprintf("%s/%s", projectId.String(), fileId.String())
+	return projectId.String() + "/" + fileId.String()
 }
 
 func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, options objectStorage.GetOptions) (int64, io.ReadCloser, error) {
