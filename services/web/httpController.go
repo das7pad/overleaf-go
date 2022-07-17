@@ -2145,15 +2145,12 @@ func (h *httpController) smokeTestAPI(c *httpUtils.Context) {
 func (h *httpController) smokeTestFull(c *httpUtils.Context) {
 	res := &types.SmokeTestResponse{}
 	err := h.wm.SmokeTestFull(c, res)
-	if err != nil {
-		httpUtils.GetAndLogErrResponseDetails(c, err)
-	}
 	status := http.StatusOK
 	if err != nil {
 		status = http.StatusInternalServerError
 		httpUtils.GetAndLogErrResponseDetails(c, err)
 	}
-	httpUtils.RespondWithIndent(c, status, res, err)
+	httpUtils.RespondWithIndent(c, status, res, nil)
 }
 
 func (h *httpController) getDictionary(c *httpUtils.Context) {
