@@ -118,11 +118,13 @@ func (u UUID) String() string {
 }
 
 func (u *UUID) Scan(x interface{}) error {
-	b, ok := x.([]byte)
-	if !ok {
+	var s string
+	if b, ok := x.([]byte); ok {
+		s = string(b)
+	} else if s, ok = x.(string); !ok {
 		return errors.New(fmt.Sprintf("unexpected uuid src: %q", x))
 	}
-	u2, err := ParseUUID(string(b))
+	u2, err := ParseUUID(s)
 	if err != nil {
 		return err
 	}
