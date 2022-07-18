@@ -36,7 +36,6 @@ type Manager interface {
 
 func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um user.Manager, lm login.Manager) Manager {
 	return &manager{
-		db:           db,
 		emailOptions: options.EmailOptions(),
 		lm:           lm,
 		options:      options,
@@ -47,7 +46,6 @@ func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um us
 }
 
 type manager struct {
-	db           *sql.DB
 	emailOptions *types.EmailOptions
 	lm           login.Manager
 	options      *types.Options

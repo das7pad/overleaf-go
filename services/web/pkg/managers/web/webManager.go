@@ -151,8 +151,8 @@ func New(options *types.Options, db *sql.DB, client redis.UniversalClient, local
 	pim := projectInvite.New(
 		options, ps, db, editorEvents, pm, um,
 	)
-	ftm := fileTree.New(db, pm, dum, fm, editorEvents, pmm)
-	pum := projectUpload.New(options, db, pm, um, dum, fm)
+	ftm := fileTree.New(pm, dum, fm, editorEvents, pmm)
+	pum := projectUpload.New(options, pm, um, dum, fm)
 	hm, err := history.New(db, client, dum)
 	if err != nil {
 		return nil, err

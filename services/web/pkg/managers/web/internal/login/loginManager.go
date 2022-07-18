@@ -53,7 +53,6 @@ type Manager interface {
 
 func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
-		db:              db,
 		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
 		options:         options,
@@ -65,7 +64,6 @@ func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um us
 }
 
 type manager struct {
-	db              *sql.DB
 	emailOptions    *types.EmailOptions
 	jwtLoggedInUser jwtHandler.JWTHandler
 	options         *types.Options

@@ -18,7 +18,6 @@ package fileTree
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -49,9 +48,8 @@ type Manager interface {
 	UploadFile(ctx context.Context, request *types.UploadFileRequest) error
 }
 
-func New(db *sql.DB, pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
+func New(pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager, editorEvents channel.Writer, pmm projectMetadata.Manager) Manager {
 	return &manager{
-		db:              db,
 		dum:             dum,
 		editorEvents:    editorEvents,
 		fm:              fm,
@@ -61,7 +59,6 @@ func New(db *sql.DB, pm project.Manager, dum documentUpdater.Manager, fm filesto
 }
 
 type manager struct {
-	db              *sql.DB
 	dum             documentUpdater.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager

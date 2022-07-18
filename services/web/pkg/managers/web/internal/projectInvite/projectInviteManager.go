@@ -48,7 +48,6 @@ type Manager interface {
 
 func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
 	return &manager{
-		db:           db,
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),
 		nm:           notification.New(db),
@@ -61,7 +60,6 @@ func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, edito
 }
 
 type manager struct {
-	db           *sql.DB
 	editorEvents channel.Writer
 	emailOptions *types.EmailOptions
 	nm           notification.Manager

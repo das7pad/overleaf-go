@@ -18,7 +18,6 @@ package projectUpload
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -37,9 +36,8 @@ type Manager interface {
 	CreateFromZip(ctx context.Context, request *types.CreateProjectFromZipRequest, response *types.CreateProjectResponse) error
 }
 
-func New(options *types.Options, db *sql.DB, pm project.Manager, um user.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
+func New(options *types.Options, pm project.Manager, um user.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
-		db:      db,
 		dum:     dum,
 		fm:      fm,
 		pm:      pm,
@@ -49,7 +47,6 @@ func New(options *types.Options, db *sql.DB, pm project.Manager, um user.Manager
 }
 
 type manager struct {
-	db      *sql.DB
 	dum     documentUpdater.Manager
 	fm      filestore.Manager
 	pm      project.Manager
