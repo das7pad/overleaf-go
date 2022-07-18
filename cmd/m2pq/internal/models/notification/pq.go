@@ -46,7 +46,7 @@ func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) e
 	ottQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT id
 FROM notifications
 ORDER BY id
@@ -81,8 +81,9 @@ LIMIT 1
 		_ = nC.Close(ctx)
 	}()
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"notifications",
 			"expires_at", "id", "key", "message_options", "template_key", "user_id",
@@ -103,7 +104,7 @@ LIMIT 1
 		}
 		log.Printf("notifications[%d/%d]: %s", i, limit, n.Id.Hex())
 
-		_, err = q.ExecContext(
+		_, err = q.Exec(
 			ctx,
 			n.Expires,                    // expires_at
 			m2pq.ObjectID2UUID(n.Id),     // id
@@ -116,7 +117,7 @@ LIMIT 1
 			return errors.Tag(err, "queue notification")
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush queue")
 	}
 	if err = q.Close(); err != nil {

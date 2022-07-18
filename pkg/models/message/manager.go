@@ -18,8 +18,9 @@ package message
 
 import (
 	"context"
-	"database/sql"
 	"time"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -41,12 +42,12 @@ type Manager interface {
 	) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) GetGlobalMessages(
@@ -62,7 +63,7 @@ func (m *manager) GetGlobalMessages(
 	} else {
 		t = before.ToTime()
 	}
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT cm.id,
        cm.content,
        cm.created_at,
@@ -81,7 +82,7 @@ LIMIT $3
 	if err != nil {
 		return err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 
 	acc := make([]Message, 0)
 	for i := 0; r.Next(); i++ {
@@ -115,7 +116,7 @@ func (m *manager) SendGlobalMessage(
 	if err := checkContent(msg.Content); err != nil {
 		return err
 	}
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 WITH msg AS (
     INSERT INTO chat_messages (id, project_id, content, created_at, user_id)
         VALUES (gen_random_uuid(), $1, $2, now(), $3)

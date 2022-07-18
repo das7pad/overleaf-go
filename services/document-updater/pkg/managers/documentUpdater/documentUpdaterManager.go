@@ -18,9 +18,9 @@ package documentUpdater
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
@@ -49,7 +49,7 @@ type Manager interface {
 	ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, request *types.ProcessProjectUpdatesRequest) error
 }
 
-func New(options *types.Options, db *sql.DB, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}

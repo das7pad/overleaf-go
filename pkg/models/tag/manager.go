@@ -18,7 +18,9 @@ package tag
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -31,20 +33,20 @@ type Manager interface {
 	Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func getErr(_ sql.Result, err error) error {
+func getErr(_ pgconn.CommandTag, err error) error {
 	return err
 }
 
 func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH project AS (SELECT projects.id
                  FROM projects
                           LEFT JOIN project_members pm
@@ -64,7 +66,7 @@ ON CONFLICT (project_id, tag_id) DO NOTHING
 }
 
 func (m *manager) Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 DELETE
 FROM tags
 WHERE id = $1
@@ -74,7 +76,7 @@ WHERE id = $1
 
 func (m *manager) EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error) {
 	t := Full{}
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 INSERT INTO tags (id, name, user_id)
 VALUES (gen_random_uuid(), $2, $1)
 -- Perform a no-op update to get the id back.
@@ -91,7 +93,7 @@ RETURNING id
 }
 
 func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH tag AS (SELECT id FROM tags WHERE id = $1 AND user_id = $2)
 DELETE
 FROM tag_entries
@@ -101,7 +103,7 @@ WHERE tag_id = tag.id
 }
 
 func (m *manager) Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE tags
 SET name = $3
 WHERE id = $1

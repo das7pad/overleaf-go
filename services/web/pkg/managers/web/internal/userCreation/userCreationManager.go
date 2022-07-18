@@ -18,7 +18,8 @@ package userCreation
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -34,7 +35,7 @@ type Manager interface {
 	RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um user.Manager, lm login.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, lm login.Manager) Manager {
 	return &manager{
 		emailOptions: options.EmailOptions(),
 		lm:           lm,

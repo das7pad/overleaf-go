@@ -18,13 +18,13 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"os/signal"
 	"syscall"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/chat"
@@ -44,7 +44,7 @@ import (
 
 type importer struct {
 	name string
-	fn   func(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error
+	fn   func(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error
 }
 
 func main() {
@@ -71,18 +71,17 @@ func main() {
 		done()
 		mDB = mClient.Database(dbName)
 	}
-	var pqDB *sql.DB
+	var pqDB *pgxpool.Pool
 	{
 		ctx, done := context.WithTimeout(signalCtx, timeout)
 		defer done()
 
-		dsn, poolSize := postgresOptions.Parse()
-		db, err := sql.Open("postgres", dsn)
+		dsn := postgresOptions.Parse()
+		db, err := pgxpool.Connect(ctx, dsn)
 		if err != nil {
 			panic(errors.Tag(err, "cannot talk to postgres"))
 		}
-		db.SetMaxIdleConns(poolSize)
-		if err = db.PingContext(ctx); err != nil {
+		if err = db.Ping(ctx); err != nil {
 			panic(errors.Tag(err, "cannot talk to postgres"))
 		}
 		done()
@@ -100,15 +99,15 @@ func main() {
 		{name: "doc_history", fn: docHistory.Import},
 		{name: "chat_messages", fn: chat.Import},
 	}
-	var rTx *sql.Tx
+	var rTx pgx.Tx
 	{
 		var err error
-		rTx, err = pqDB.BeginTx(signalCtx, nil)
+		rTx, err = pqDB.Begin(signalCtx)
 		if err != nil {
 			panic(errors.Tag(err, "open read tx"))
 		}
 	}
-	defer func() { _ = rTx.Rollback() }()
+	defer func() { _ = rTx.Rollback(signalCtx) }()
 
 	for _, task := range queue {
 		name := task.name
@@ -120,13 +119,13 @@ func main() {
 			}
 
 			ctx, done := context.WithTimeout(signalCtx, timeout)
-			tx, err := pqDB.BeginTx(ctx, nil)
+			tx, err := pqDB.Begin(ctx)
 			if err != nil {
 				panic(errors.Tag(err, "start tx"))
 			}
 			err = task.fn(ctx, mDB, rTx, tx, limit)
 			if err == nil || err == status.HitLimit {
-				if err2 := tx.Commit(); err2 != nil {
+				if err2 := tx.Commit(signalCtx); err2 != nil {
 					panic(errors.Tag(err2, "commit tx"))
 				}
 				done()
@@ -138,7 +137,7 @@ func main() {
 			}
 			errCount++
 			log.Printf("%s import failed: %d: %s", name, errCount, err)
-			if err = tx.Rollback(); err != nil {
+			if err = tx.Rollback(signalCtx); err != nil {
 				panic(errors.Tag(err, "rollback tx"))
 			}
 			if errCount > 100 {

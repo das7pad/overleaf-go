@@ -18,7 +18,6 @@ package webApi
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -32,7 +31,7 @@ type Manager interface {
 	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, error)
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{
 		pm: project.New(db),
 	}

@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -52,7 +54,7 @@ type Manager interface {
 	GetByPasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
@@ -62,7 +64,7 @@ var (
 	}
 )
 
-func getErr(_ sql.Result, err error) error {
+func getErr(_ pgconn.CommandTag, err error) error {
 	return err
 }
 
@@ -74,11 +76,11 @@ func rewritePostgresErr(err error) error {
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
-	_, err := m.db.ExecContext(ctx, `
+	_, err := m.db.Exec(ctx, `
 WITH u AS (
     INSERT INTO users
         (beta_program, editor_config, email, email_created_at, epoch, features,
@@ -136,7 +138,7 @@ FROM u;
 
 func (m *manager) ChangePassword(ctx context.Context, u ForPasswordChange, ip, operation string, newHashedPassword string) error {
 	ok := false
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 WITH u AS (
     UPDATE users
         SET epoch = epoch + 1, password_hash = $3
@@ -179,7 +181,7 @@ func (m *manager) UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUI
 	if err != nil {
 		return err
 	}
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET editor_config = $2
 WHERE id = $1
@@ -190,7 +192,7 @@ WHERE id = $1
 var ErrEpochChanged = &errors.InvalidStateError{Msg: "user epoch changed"}
 
 func (m *manager) SoftDelete(ctx context.Context, userId sharedTypes.UUID, ip string) error {
-	r, err := m.db.ExecContext(ctx, `
+	r, err := m.db.Exec(ctx, `
 WITH u AS (
     UPDATE users
         SET deleted_at = transaction_timestamp(),
@@ -217,11 +219,7 @@ FROM u;
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
+	if r.RowsAffected() == 0 {
 		return &errors.UnprocessableEntityError{
 			Msg: "user already deleted or user has owned projects",
 		}
@@ -230,7 +228,7 @@ FROM u;
 }
 
 func (m *manager) HardDelete(ctx context.Context, userId sharedTypes.UUID) error {
-	r, err := m.db.ExecContext(ctx, `
+	r, err := m.db.Exec(ctx, `
 DELETE
 FROM users
 WHERE id = $1
@@ -239,7 +237,7 @@ WHERE id = $1
 	if err != nil {
 		return err
 	}
-	if n, _ := r.RowsAffected(); n == 0 {
+	if r.RowsAffected() == 0 {
 		return &errors.UnprocessableEntityError{
 			Msg: "user missing or not deleted",
 		}
@@ -251,7 +249,7 @@ func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn f
 	ids := make([]sharedTypes.UUID, 0, 100)
 	for {
 		ids = ids[:0]
-		r := m.db.QueryRowContext(ctx, `
+		r := m.db.QueryRow(ctx, `
 WITH ids AS (SELECT id
              FROM users
              WHERE deleted_at <= $1
@@ -283,7 +281,7 @@ func (m *manager) TrackClearSessions(ctx context.Context, userId sharedTypes.UUI
 	if err != nil {
 		return errors.Tag(err, "cannot serialize audit log info")
 	}
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH u AS (
     UPDATE users
         SET epoch = epoch + 1
@@ -312,7 +310,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, u ForEmailChange, ip s
 	if err != nil {
 		return errors.Tag(err, "cannot serialize audit log info")
 	}
-	err = getErr(m.db.ExecContext(ctx, `
+	err = getErr(m.db.Exec(ctx, `
 WITH u AS (
     UPDATE users
         SET
@@ -355,7 +353,7 @@ const (
 )
 
 func (m *manager) BumpEpoch(ctx context.Context, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET epoch = epoch + 1
 WHERE id = $1
@@ -364,7 +362,7 @@ WHERE id = $1
 }
 
 func (m *manager) SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET beta_program = $2
 WHERE id = $1
@@ -373,7 +371,7 @@ WHERE id = $1
 }
 
 func (m *manager) SetUserName(ctx context.Context, userId sharedTypes.UUID, u WithNames) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET first_name = $2,
 	last_name  = $3
@@ -383,7 +381,7 @@ WHERE id = $1
 }
 
 func (m *manager) TrackLogin(ctx context.Context, userId sharedTypes.UUID, epoch int64, ip string) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH u AS (
     UPDATE users
         SET login_count = login_count + 1,
@@ -403,49 +401,49 @@ FROM u;
 func (m *manager) GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error {
 	switch u := target.(type) {
 	case *BetaProgramField:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT beta_program
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
 `, userId).Scan(&u.BetaProgram))
 	case *HashedPasswordField:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT password_hash
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
 `, userId).Scan(&u.HashedPassword))
 	case *LearnedWordsField:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT learned_words
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
 `, userId).Scan(pq.Array(&u.LearnedWords)))
 	case *WithPublicInfo:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, email, first_name, last_name
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
 `, userId).Scan(&u.Id, &u.Email, &u.FirstName, &u.LastName))
 	case *ForActivateUserPage:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT email, login_count
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
 `, userId).Scan(&u.Email, &u.LoginCount))
 	case *ForEmailChange:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT email, epoch, id
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
 `, userId).Scan(&u.Email, &u.Epoch, &u.Id))
 	case *ForPasswordChange:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, email, first_name, last_name, epoch, password_hash
 FROM users
 WHERE id = $1
@@ -455,7 +453,7 @@ WHERE id = $1
 			&u.Epoch, &u.HashedPassword,
 		))
 	case *ForSettingsPage:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, email, first_name, last_name, beta_program
 FROM users
 WHERE id = $1
@@ -470,7 +468,7 @@ WHERE id = $1
 
 func (m *manager) CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error {
 	x := false
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT TRUE
 FROM users
 WHERE email = $1
@@ -487,7 +485,7 @@ WHERE email = $1
 func (m *manager) GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error {
 	switch u := target.(type) {
 	case *WithLoginInfo:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, email, first_name, last_name, epoch, must_reconfirm, password_hash
 FROM users
 WHERE email = $1
@@ -497,7 +495,7 @@ WHERE email = $1
 			&u.Epoch, &u.MustReconfirm, &u.HashedPassword,
 		))
 	case *WithPublicInfo:
-		return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, email, first_name, last_name
 FROM users
 WHERE email = $1
@@ -509,7 +507,7 @@ WHERE email = $1
 }
 
 func (m *manager) GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error) {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 WITH ids AS (SELECT unnest(ARRAY [a, b]) AS id
              FROM contacts
              WHERE a = $1
@@ -527,7 +525,7 @@ WHERE u.id = ids.id
 	}
 
 	c := make([]WithPublicInfoAndNonStandardId, 0)
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	for i := 0; r.Next(); i++ {
 		c = append(c, WithPublicInfoAndNonStandardId{})
 		err = r.Scan(&c[i].Id, &c[i].Email, &c[i].FirstName, &c[i].LastName)
@@ -545,7 +543,7 @@ WHERE u.id = ids.id
 }
 
 func (m *manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET learned_words = ARRAY []::TEXT[]
 WHERE id = $1
@@ -553,7 +551,7 @@ WHERE id = $1
 }
 
 func (m *manager) LearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET learned_words = array_append(learned_words, $2)
 WHERE id = $1
@@ -562,7 +560,7 @@ WHERE id = $1
 }
 
 func (m *manager) UnlearnWord(ctx context.Context, userId sharedTypes.UUID, word string) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE users
 SET learned_words = array_remove(learned_words, $2)
 WHERE id = $1
@@ -570,7 +568,7 @@ WHERE id = $1
 }
 
 func (m *manager) GetByPasswordResetToken(ctx context.Context, token oneTimeToken.OneTimeToken, u *ForPasswordChange) error {
-	return rewritePostgresErr(m.db.QueryRowContext(ctx, `
+	return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, u.email, first_name, last_name, epoch, password_hash
 FROM one_time_tokens ott
          INNER JOIN users u ON ott.user_id = u.id

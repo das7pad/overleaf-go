@@ -18,7 +18,8 @@ package notifications
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -29,7 +30,7 @@ type Manager interface {
 	RemoveNotification(ctx context.Context, request *types.RemoveNotificationRequest) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{
 		nm: notification.New(db),
 	}

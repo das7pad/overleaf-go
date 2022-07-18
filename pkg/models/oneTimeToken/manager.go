@@ -18,9 +18,9 @@ package oneTimeToken
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -33,7 +33,7 @@ type Manager interface {
 	ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
@@ -43,7 +43,7 @@ const (
 )
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) NewForEmailConfirmation(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email) (OneTimeToken, error) {
@@ -62,7 +62,7 @@ func (m *manager) newToken(ctx context.Context, userId sharedTypes.UUID, email s
 			allErrors.Add(err)
 			continue
 		}
-		r, err := m.db.ExecContext(ctx, `
+		r, err := m.db.Exec(ctx, `
 INSERT INTO one_time_tokens
 (created_at, email, expires_at, token, use, user_id)
 SELECT transaction_timestamp(), $2, $3, $4, $5, u.id
@@ -80,11 +80,7 @@ WHERE u.id = $1
 			}
 			return "", err
 		}
-		n, err := r.RowsAffected()
-		if err != nil {
-			return "", err
-		}
-		if n == 0 {
+		if r.RowsAffected() == 0 {
 			return "", &errors.UnprocessableEntityError{
 				Msg: "account does not hold given email",
 			}
@@ -95,7 +91,7 @@ WHERE u.id = $1
 }
 
 func (m *manager) ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error {
-	r, err := m.db.ExecContext(ctx, `
+	r, err := m.db.Exec(ctx, `
 WITH ott AS (
     UPDATE one_time_tokens
         SET used_at = transaction_timestamp()
@@ -111,11 +107,7 @@ WHERE u.email = ott.email
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
+	if r.RowsAffected() == 0 {
 		return &errors.NotFoundError{}
 	}
 	return nil

@@ -56,7 +56,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 	}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT project_id
 FROM chat_messages
 ORDER BY project_id
@@ -101,8 +101,9 @@ LIMIT 1
 	lastMsg := Message{}
 	lastMsgRoom := "ffffffffffffffffffffffff"
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"chat_messages",
 			"id", "project_id", "content", "created_at", "user_id",
@@ -173,7 +174,7 @@ LIMIT 1
 			}
 
 			for _, msg := range pending {
-				_, err = q.ExecContext(
+				_, err = q.Exec(
 					ctx,
 					m2pq.ObjectID2UUID(msg.Id),    // id
 					m2pq.ObjectID2UUID(pId),       // project_id
@@ -218,7 +219,7 @@ LIMIT 1
 	if err = rC.Err(); err != nil {
 		return errors.Tag(err, "iter rooms")
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush messages queue")
 	}
 	if err = q.Close(); err != nil {

@@ -18,7 +18,8 @@ package login
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
@@ -51,7 +52,7 @@ type Manager interface {
 	SettingsPage(ctx context.Context, request *types.SettingsPageRequest, response *types.SettingsPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
 		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,

@@ -25,6 +25,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -72,12 +73,12 @@ func cleanIP(s string) (string, error) {
 	return addr.Addr().String(), nil
 }
 
-func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error {
 	uQuery := bson.M{}
 	spQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT id
 FROM users u
 ORDER BY signup_date
@@ -138,8 +139,9 @@ LIMIT 1
 	}
 	noLw := make([]string, 0)
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"users",
 			"beta_program", "deleted_at", "editor_config", "email", "email_confirmed_at", "email_created_at", "epoch", "features", "first_name", "id", "last_login_at", "last_login_ip", "last_name", "learned_words", "login_count", "must_reconfirm", "password_hash", "signup_date",
@@ -188,7 +190,7 @@ LIMIT 1
 			return errors.Tag(err, "clean login ip")
 		}
 
-		_, err = q.ExecContext(
+		_, err = q.Exec(
 			ctx,
 			u.BetaProgram,           // beta_program
 			nil,                     // deleted_at
@@ -216,7 +218,7 @@ LIMIT 1
 	if err = uC.Err(); err != nil {
 		return errors.Tag(err, "iter users")
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush queue")
 	}
 	if err = q.Close(); err != nil {
@@ -235,8 +237,9 @@ LIMIT 1
 		return errors.Tag(err, "resolve audit log users")
 	}
 
-	q, err = tx.PrepareContext(
+	q, err = tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"user_audit_log",
 			"id", "info", "initiator_id", "ip_address", "operation", "timestamp", "user_id",
@@ -263,7 +266,7 @@ LIMIT 1
 				return errors.Tag(err, "clean audit log ip")
 			}
 
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				ids.Next(),                      // id
 				string(infoBlob),                // info
@@ -278,7 +281,7 @@ LIMIT 1
 			}
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush audit log queue")
 	}
 	if err = q.Close(); err != nil {

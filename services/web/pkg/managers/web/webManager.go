@@ -18,11 +18,11 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
@@ -98,7 +98,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, db *sql.DB, client redis.UniversalClient, localURL string, clsiBundle compile.ClsiManager) (Manager, error) {
+func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, localURL string, clsiBundle compile.ClsiManager) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}

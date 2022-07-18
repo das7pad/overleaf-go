@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -35,16 +37,16 @@ type Manager interface {
 	GetAllForProject(ctx context.Context, projectId, userId sharedTypes.UUID) ([]ForListing, error)
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
-func getErr(_ sql.Result, err error) error {
+func getErr(_ pgconn.CommandTag, err error) error {
 	return err
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) Create(ctx context.Context, pi *WithToken) error {
@@ -59,7 +61,7 @@ func (m *manager) Create(ctx context.Context, pi *WithToken) error {
 			pi.Token = token
 		}
 
-		err := getErr(m.db.ExecContext(ctx, `
+		err := getErr(m.db.Exec(ctx, `
 WITH p AS (SELECT id, name
            FROM projects p
            WHERE id = $1
@@ -121,7 +123,7 @@ WHERE u.deleted_at IS NULL
 }
 
 func (m *manager) Delete(ctx context.Context, projectId, inviteId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH pi AS (
     DELETE FROM project_invites pi USING projects p
         WHERE pi.id = $2
@@ -144,7 +146,7 @@ WHERE key = concat('project-invite-', pi.id::TEXT)
 func (m *manager) GetById(ctx context.Context, projectId, inviteId, actorId sharedTypes.UUID) (*WithToken, error) {
 	pi := WithToken{}
 	pi.ProjectId = projectId
-	return &pi, m.db.QueryRowContext(ctx, `
+	return &pi, m.db.QueryRow(ctx, `
 SELECT created_at, email, expires_at, privilege_level, token
 FROM project_invites pi
          INNER JOIN projects p ON p.id = pi.project_id
@@ -163,7 +165,7 @@ WHERE pi.id = $2
 }
 
 func (m *manager) GetAllForProject(ctx context.Context, projectId, userId sharedTypes.UUID) ([]ForListing, error) {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT pi.email, pi.id, pi.privilege_level
 FROM project_invites pi
          INNER JOIN projects p ON p.id = pi.project_id
@@ -173,7 +175,7 @@ WHERE p.id = $1
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	invites := make([]ForListing, 0)
 	for i := 0; r.Next(); i++ {
 		invites = append(invites, ForListing{})
@@ -193,7 +195,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) Accept(ctx context.Context, projectId, userId sharedTypes.UUID, token Token) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH pi AS (
     DELETE FROM project_invites pi USING projects p
         WHERE token = $3
@@ -250,7 +252,7 @@ WHERE pm.project_id = pi.project_id
 
 func (m *manager) CheckExists(ctx context.Context, projectId sharedTypes.UUID, token Token) error {
 	exists := false
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT TRUE
 FROM project_invites
 WHERE token = $2

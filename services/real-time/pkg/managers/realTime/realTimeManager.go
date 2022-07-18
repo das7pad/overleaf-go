@@ -18,7 +18,6 @@ package realTime
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"log"
 	"time"
@@ -45,7 +44,7 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, db *sql.DB, client redis.UniversalClient) (Manager, error) {
+func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}

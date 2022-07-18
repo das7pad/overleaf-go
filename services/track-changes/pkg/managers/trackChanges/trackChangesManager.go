@@ -17,9 +17,8 @@
 package trackChanges
 
 import (
-	"database/sql"
-
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -34,7 +33,7 @@ type Manager interface {
 	updatesManager
 }
 
-func New(db *sql.DB, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
+func New(db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
 	fm, err := flush.New(db, client)
 	if err != nil {
 		return nil, err

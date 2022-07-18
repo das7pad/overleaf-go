@@ -18,11 +18,11 @@ package docManager
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -56,7 +56,7 @@ type Manager interface {
 	QueueFlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
 }
 
-func New(db *sql.DB, client redis.UniversalClient) (Manager, error) {
+func New(db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
 	rl, err := redisLocker.New(client, "Blocking")
 	if err != nil {
 		return nil, err

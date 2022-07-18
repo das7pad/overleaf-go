@@ -10,6 +10,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/jackc/pgx/v4 v4.16.1
 	github.com/lib/pq v1.10.6
 	github.com/minio/minio-go/v7 v7.0.30
 	github.com/sergi/go-diff v1.2.0
@@ -34,6 +35,14 @@ require (
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
+	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
+	github.com/jackc/pgconn v1.12.1 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
+	github.com/jackc/pgtype v1.11.0 // indirect
+	github.com/jackc/puddle v1.2.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/klauspost/compress v1.13.6 // indirect

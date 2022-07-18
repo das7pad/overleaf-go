@@ -18,10 +18,11 @@ package projectInvite
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/email/pkg/gmailGoToAction"
@@ -46,7 +47,7 @@ type Manager interface {
 	ViewProjectInvite(ctx context.Context, request *types.ViewProjectInvitePageRequest, response *types.ViewProjectInvitePageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, db *sql.DB, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
 	return &manager{
 		editorEvents: editorEvents,
 		emailOptions: options.EmailOptions(),

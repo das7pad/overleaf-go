@@ -22,6 +22,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
@@ -94,11 +97,11 @@ type Manager interface {
 	GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
-func getErr(_ sql.Result, err error) error {
+func getErr(_ pgconn.CommandTag, err error) error {
 	return rewritePostgresErr(err)
 }
 
@@ -117,26 +120,26 @@ func rewritePostgresErr(err error) error {
 }
 
 type queryRunner interface {
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) error {
 	ok := false
-	tx, err := m.db.BeginTx(ctx, nil)
+	tx, err := m.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if !ok {
-			_ = tx.Rollback()
+			_ = tx.Rollback(ctx)
 		}
 	}()
 
-	_, err = tx.ExecContext(
+	_, err = tx.Exec(
 		ctx,
 		`
 WITH p AS (
@@ -176,120 +179,81 @@ FROM p
 	if err != nil {
 		return err
 	}
-	q, err := tx.PrepareContext(
-		ctx,
-		pq.CopyIn(
-			"tree_nodes",
-			"deleted_at", "id", "kind", "parent_id", "path",
-			"project_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare tree")
-	}
-	defer func() {
-		if !ok && q != nil {
-			_ = q.Close()
-		}
-	}()
+
+	// TODO: count
+	tn := make([][]interface{}, 0, 10)
 	deletedAt := "1970-01-01"
 	t := p.RootFolder
-	_, err = q.ExecContext(
-		ctx, deletedAt, t.Id, "folder", nil, "", p.Id,
-	)
-	if err != nil {
-		return errors.Tag(err, "queue root folder")
-	}
-	err = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
+
+	tn = append(tn, []interface{}{deletedAt, t.Id, "folder", nil, "", p.Id})
+	_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 		for _, d := range f.Docs {
-			_, err = q.ExecContext(
-				ctx,
+			tn = append(tn, []interface{}{
 				deletedAt, d.Id, "doc", f.Id, path.Join(d.Name), p.Id,
-			)
-			if err != nil {
-				return err
-			}
+			})
 		}
 		for _, r := range f.FileRefs {
-			_, err = q.ExecContext(
-				ctx,
+			tn = append(tn, []interface{}{
 				deletedAt, r.Id, "file", f.Id, path.Join(r.Name), p.Id,
-			)
-			if err != nil {
-				return err
-			}
+			})
 		}
 		for _, ff := range f.Folders {
-			_, err = q.ExecContext(
-				ctx,
-				deletedAt, ff.Id, "folder", f.Id, ff.Path+"/", p.Id,
-			)
-			if err != nil {
-				return err
-			}
+			tn = append(tn, []interface{}{
+				deletedAt, ff.Id, "folder", f.Id, ff.Path + "/", p.Id,
+			})
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Tag(err, "queue tree")
-	}
-	if _, err = q.ExecContext(ctx); err != nil {
-		return errors.Tag(err, "flush tree")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "close tree")
-	}
-
-	q, err = tx.PrepareContext(
+	_, err = tx.CopyFrom(
 		ctx,
-		pq.CopyIn("docs", "id", "snapshot", "version"),
+		pgx.Identifier{"tree_nodes"},
+		[]string{
+			"deleted_at", "id", "kind", "parent_id", "path", "project_id",
+		},
+		pgx.CopyFromRows(tn),
 	)
 	if err != nil {
-		return errors.Tag(err, "prepare docs")
+		return errors.Tag(err, "insert tree")
 	}
-	err = t.WalkDocs(func(e TreeElement, _ sharedTypes.PathName) error {
+
+	// TODO: count
+	docs := make([][]interface{}, 0, 10)
+	_ = t.WalkDocs(func(e TreeElement, _ sharedTypes.PathName) error {
 		d := e.(*Doc)
-		_, err = q.ExecContext(ctx, d.Id, d.Snapshot, d.Version)
-		return err
+		docs = append(docs, []interface{}{d.Id, d.Snapshot, d.Version})
+		return nil
 	})
-	if err != nil {
-		return errors.Tag(err, "queue docs")
-	}
-	if _, err = q.ExecContext(ctx); err != nil {
-		return errors.Tag(err, "flush docs")
-	}
-	if err = q.Close(); err != nil {
-		return err
-	}
-
-	q, err = tx.PrepareContext(
+	_, err = tx.CopyFrom(
 		ctx,
-		pq.CopyIn(
-			"files",
-			"id", "created_at", "hash", "linked_file_data", "size", "pending",
-		),
+		pgx.Identifier{"docs"},
+		[]string{"id", "snapshot", "version"},
+		pgx.CopyFromRows(docs),
 	)
 	if err != nil {
-		return errors.Tag(err, "prepare files")
-	}
-	err = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
-		d := e.(*FileRef)
-		_, err = q.ExecContext(
-			ctx, d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size, false,
-		)
-		return err
-	})
-	if err != nil {
-		return errors.Tag(err, "queue files")
-	}
-	if _, err = q.ExecContext(ctx); err != nil {
-		return errors.Tag(err, "flush files")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "close files")
+		return errors.Tag(err, "insert docs")
 	}
 
-	if err = tx.Commit(); err != nil {
+	// TODO: count
+	files := make([][]interface{}, 0, 10)
+	_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
+		d := e.(*FileRef)
+		files = append(files, []interface{}{
+			d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size, false,
+		})
+		return nil
+	})
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"files"},
+		[]string{
+			"id", "created_at", "hash", "linked_file_data", "size", "pending",
+		},
+		pgx.CopyFromRows(files),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert files")
+	}
+	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
 	ok = true
@@ -301,7 +265,7 @@ func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) e
 	if p.RootDoc.Id != (sharedTypes.UUID{}) {
 		rootDocId = p.RootDoc.Id
 	}
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects
 SET deleted_at     = NULL,
     name           = $2,
@@ -320,7 +284,7 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTy
 			continue
 		}
 		persisted := Tokens{}
-		err = m.db.QueryRowContext(ctx, `
+		err = m.db.QueryRow(ctx, `
 UPDATE projects
 SET token_ro        = COALESCE(token_ro, $3),
     token_rw        = COALESCE(token_rw, $4),
@@ -352,7 +316,7 @@ RETURNING token_ro, token_rw
 }
 
 func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
 SET compiler = $3
 FROM project_members pm
@@ -365,7 +329,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
 SET image_name = $3
 FROM project_members pm
@@ -378,7 +342,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId, userId sharedTypes.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
 SET spell_check_language = $3
 FROM project_members pm
@@ -391,7 +355,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) SetRootDoc(ctx context.Context, projectId, userId, rootDocId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH d AS (SELECT d.id
            FROM docs d
                     INNER JOIN tree_nodes t ON d.id = t.id
@@ -414,7 +378,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, publicAccessLevel PublicAccessLevel) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects
 SET public_access_level = $3
 WHERE id = $1
@@ -430,7 +394,7 @@ func (m *manager) TransferOwnership(ctx context.Context, projectId, previousOwne
 	newOwner := user.WithPublicInfo{}
 	newOwner.Id = newOwnerId
 	var name Name
-	return &previousOwner, &newOwner, name, m.db.QueryRowContext(ctx, `
+	return &previousOwner, &newOwner, name, m.db.QueryRow(ctx, `
 WITH ctx AS (SELECT p.id     AS project_id,
                     p.name   AS project_name,
                     o_old.id AS old_owner_id,
@@ -512,7 +476,7 @@ FROM swap_member_old,
 }
 
 func (m *manager) Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects
 SET name = $3
 WHERE id = $1
@@ -523,7 +487,7 @@ WHERE id = $1
 
 func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent sharedTypes.UUID, f *Folder) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
-	return treeVersion, m.db.QueryRowContext(ctx, `
+	return treeVersion, m.db.QueryRow(ctx, `
 WITH f AS (
     INSERT INTO tree_nodes
         (deleted_at, id, kind, parent_id, path, project_id)
@@ -555,7 +519,7 @@ RETURNING p.tree_version
 
 func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, runner queryRunner) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
-	return treeVersion, runner.QueryRowContext(ctx,
+	return treeVersion, runner.QueryRow(ctx,
 		/* language=postgresql */ `
 WITH node AS (SELECT t.id
               FROM tree_nodes t
@@ -597,7 +561,7 @@ func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId shar
 
 func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error) {
 	var v sharedTypes.Version
-	return v, rewritePostgresErr(m.db.QueryRowContext(ctx, `
+	return v, rewritePostgresErr(m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
                      t.project_id,
                      t.path
@@ -642,7 +606,7 @@ RETURNING p.tree_version
 func (m *manager) moveTreeLeaf(ctx context.Context, projectId, userId, folderId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, sharedTypes.PathName, error) {
 	var treeVersion sharedTypes.Version
 	var path sharedTypes.PathName
-	return treeVersion, path, m.db.QueryRowContext(ctx, `
+	return treeVersion, path, m.db.QueryRow(ctx, `
 WITH f AS (SELECT t.id, t.path, t.project_id
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -688,7 +652,7 @@ func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolde
 	var v sharedTypes.Version
 	var docIds []sharedTypes.UUID
 	var docPaths []string
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
                      t.project_id,
                      t.path,
@@ -761,7 +725,7 @@ FROM updated_version,
 func (m *manager) renameTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.PathName, error) {
 	var treeVersion sharedTypes.Version
 	var path sharedTypes.PathName
-	return treeVersion, path, m.db.QueryRowContext(ctx, `
+	return treeVersion, path, m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id, f.path AS parent_path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -805,7 +769,7 @@ func (m *manager) RenameFolder(ctx context.Context, projectId, userId sharedType
 	var v sharedTypes.Version
 	var docIds []sharedTypes.UUID
 	var docPaths []string
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
                      t.project_id,
                      t.path,
@@ -863,7 +827,7 @@ FROM updated_version,
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE project_members
 SET archived = TRUE,
     trashed  = FALSE
@@ -873,7 +837,7 @@ WHERE project_id = $1
 }
 
 func (m *manager) UnArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE project_members
 SET archived = FALSE
 WHERE project_id = $1
@@ -882,7 +846,7 @@ WHERE project_id = $1
 }
 
 func (m *manager) TrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE project_members
 SET archived = FALSE,
     trashed  = TRUE
@@ -892,7 +856,7 @@ WHERE project_id = $1
 }
 
 func (m *manager) UnTrashForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE project_members
 SET trashed = FALSE
 WHERE project_id = $1
@@ -904,7 +868,7 @@ var ErrEpochIsNotStable = errors.New("epoch is not stable")
 
 func (m *manager) GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error) {
 	var raw []string
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT array_agg(name)
 FROM projects p
          INNER JOIN project_members pm ON p.id = pm.project_id
@@ -923,7 +887,7 @@ WHERE user_id = $1
 
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
 	p := &ForAuthorizationDetails{}
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.epoch,
@@ -955,7 +919,7 @@ WHERE p.id = $1
 
 func (m *manager) GetForProjectInvite(ctx context.Context, projectId, actorId sharedTypes.UUID, email sharedTypes.Email) (*ForProjectInvite, error) {
 	d := ForProjectInvite{}
-	return &d, m.db.QueryRowContext(ctx, `
+	return &d, m.db.QueryRow(ctx, `
 WITH u AS (SELECT id, email, first_name, last_name FROM users WHERE email = $3)
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
@@ -997,7 +961,7 @@ WHERE p.id = $1
 func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*ForProjectJWT, int64, error) {
 	p := ForProjectJWT{}
 	var userEpoch int64
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.epoch,
@@ -1040,13 +1004,13 @@ func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userI
 	ok := false
 	var err error
 	if userId == (sharedTypes.UUID{}) {
-		err = m.db.QueryRowContext(ctx, `
+		err = m.db.QueryRow(ctx, `
 SELECT TRUE
 FROM projects
 WHERE id = $1 AND epoch = $2
 `, projectId, projectEpoch).Scan(&ok)
 	} else {
-		err = m.db.QueryRowContext(ctx, `
+		err = m.db.QueryRow(ctx, `
 SELECT TRUE
 FROM projects p, users u
 WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
@@ -1063,7 +1027,7 @@ WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
 
 func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error) {
 	d := Doc{}
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT t.path, d.snapshot, d.version
 FROM docs d
          INNER JOIN tree_nodes t ON d.id = t.id
@@ -1084,7 +1048,7 @@ WHERE d.id = $2
 func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.UUID, error) {
 	var v sharedTypes.Version
 	var rootFolderId sharedTypes.UUID
-	return v, rootFolderId, rewritePostgresErr(m.db.QueryRowContext(ctx, `
+	return v, rootFolderId, rewritePostgresErr(m.db.QueryRow(ctx, `
 WITH d AS (SELECT t.id, p.root_folder_id
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -1120,7 +1084,7 @@ RETURNING p.tree_version, restored.parent_id
 func (m *manager) GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error) {
 	f := FileWithParent{}
 	d := LinkedFileData{}
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT t.path, t.parent_id, f.linked_file_data, f.size
 FROM files f
          INNER JOIN tree_nodes t ON f.id = t.id
@@ -1147,10 +1111,10 @@ WHERE f.id = $4
 	return &f, err
 }
 
-func (m *manager) getElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename, tx *sql.Tx) (sharedTypes.UUID, bool, error) {
+func (m *manager) getElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename, tx pgx.Tx) (sharedTypes.UUID, bool, error) {
 	var nodeId sharedTypes.UUID
 	var kind string
-	err := tx.QueryRowContext(ctx, `
+	err := tx.QueryRow(ctx, `
 SELECT t.id, t.kind
 FROM tree_nodes t
          INNER JOIN projects p ON t.project_id = p.id
@@ -1177,7 +1141,7 @@ WHERE t.project_id = $1
 func (m *manager) GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error) {
 	var id sharedTypes.UUID
 	var isDoc bool
-	return id, isDoc, m.db.QueryRowContext(ctx, `
+	return id, isDoc, m.db.QueryRow(ctx, `
 SELECT t.id, t.kind = 'doc'
 FROM tree_nodes t
          INNER JOIN projects p ON (t.project_id = p.id)
@@ -1192,7 +1156,7 @@ WHERE t.project_id = $1
 }
 
 func (m *manager) GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error) {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT t.id, t.path, COALESCE(d.snapshot, ''), COALESCE(d.version, -1)
 FROM tree_nodes t
          INNER JOIN projects p ON t.project_id = p.id
@@ -1208,7 +1172,7 @@ ORDER BY t.kind
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	nodes := make([]Doc, 0)
 	for i := 0; r.Next(); i++ {
 		nodes = append(nodes, Doc{})
@@ -1242,7 +1206,7 @@ ORDER BY t.kind
 
 func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, accessToken AccessToken) (*ForZip, error) {
 	p := ForZip{}
-	return &p, m.db.QueryRowContext(ctx, `
+	return &p, m.db.QueryRow(ctx, `
 WITH tree AS
          (SELECT t.project_id,
                  array_agg(t.id)                     AS ids,
@@ -1290,7 +1254,7 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId s
 	var deletedDocIds []sharedTypes.UUID
 	var deletedDocNames []string
 
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 WITH tree AS
          (SELECT t.project_id,
                  array_agg(t.id)                AS ids,
@@ -1395,7 +1359,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects
 SET last_opened_at = transaction_timestamp()
 WHERE id = $1
@@ -1404,7 +1368,7 @@ WHERE id = $1
 
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
 	d := LoadEditorDetails{}
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.compiler,
@@ -1467,7 +1431,7 @@ WHERE p.id = $1
 }
 func (m *manager) GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error) {
 	at := time.Time{}
-	return at, m.db.QueryRowContext(ctx, `
+	return at, m.db.QueryRow(ctx, `
 SELECT last_updated_at
 FROM projects
 WHERE id = $1 AND deleted_at IS NULL
@@ -1476,7 +1440,7 @@ WHERE id = $1 AND deleted_at IS NULL
 
 func (m *manager) GetForClone(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForClone, error) {
 	p := ForClone{}
-	return &p, m.db.QueryRowContext(ctx, `
+	return &p, m.db.QueryRow(ctx, `
 WITH tree AS
          (SELECT t.project_id,
                  array_agg(t.id)                     AS ids,
@@ -1537,7 +1501,7 @@ type TreeEntity struct {
 }
 
 func (m *manager) GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error) {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT path, kind
 FROM tree_nodes t
          INNER JOIN projects p ON t.project_id = p.id
@@ -1551,7 +1515,7 @@ WHERE t.project_id = $1
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	entries := make([]TreeEntity, 0)
 	for i := 0; r.Next(); i++ {
 		entries = append(entries, TreeEntity{})
@@ -1567,7 +1531,7 @@ WHERE t.project_id = $1
 }
 
 func (m *manager) GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error) {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT u.id,
        u.email,
        u.first_name,
@@ -1584,7 +1548,7 @@ WHERE p.id = $1
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	c := make([]user.AsProjectMember, 0)
 	for i := 0; r.Next(); i++ {
 		c = append(c, user.AsProjectMember{})
@@ -1603,7 +1567,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) GrantMemberAccess(ctx context.Context, projectId, ownerId, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE project_members pm
 SET privilege_level = $4
 FROM projects p
@@ -1621,7 +1585,7 @@ func (m *manager) GetTokenAccessDetails(ctx context.Context, userId sharedTypes.
 	if err != nil {
 		return nil, err
 	}
-	err = m.db.QueryRowContext(ctx, `
+	err = m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.id,
@@ -1650,7 +1614,7 @@ func (m *manager) GrantTokenAccess(ctx context.Context, projectId, userId shared
 	if err != nil {
 		return err
 	}
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 INSERT INTO project_members
 (project_id, user_id, access_source, privilege_level, archived, trashed)
 SELECT p.id, $2, 'token', $5, FALSE, FALSE
@@ -1669,7 +1633,7 @@ SET privilege_level = $5
 }
 
 func (m *manager) RemoveMember(ctx context.Context, projectId sharedTypes.UUID, actor, userId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH pm AS (
     DELETE FROM project_members pm
         USING projects p
@@ -1692,7 +1656,7 @@ func (m *manager) SoftDelete(ctx context.Context, projectIds []sharedTypes.UUID,
 	if err != nil {
 		return err
 	}
-	r, err := m.db.ExecContext(ctx, `
+	r, err := m.db.Exec(ctx, `
 WITH soft_deleted AS (
     UPDATE projects
         SET deleted_at = transaction_timestamp(),
@@ -1714,18 +1678,14 @@ FROM soft_deleted
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n != int64(len(projectIds)) {
+	if r.RowsAffected() != int64(len(projectIds)) {
 		return errors.New("incomplete soft deletion")
 	}
 	return nil
 }
 
 func (m *manager) HardDelete(ctx context.Context, projectId sharedTypes.UUID) error {
-	r, err := m.db.ExecContext(ctx, `
+	r, err := m.db.Exec(ctx, `
 DELETE
 FROM projects
 WHERE id = $1
@@ -1734,11 +1694,7 @@ WHERE id = $1
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
+	if r.RowsAffected() == 0 {
 		return &errors.UnprocessableEntityError{
 			Msg: "user missing or not deleted",
 		}
@@ -1750,7 +1706,7 @@ func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn f
 	ids := make([]sharedTypes.UUID, 0, 100)
 	for {
 		ids = ids[:0]
-		r := m.db.QueryRowContext(ctx, `
+		r := m.db.QueryRow(ctx, `
 WITH ids AS (SELECT id
              FROM projects
              WHERE deleted_at <= $1
@@ -1779,7 +1735,7 @@ FROM ids
 
 func (m *manager) GetDeletedProjectsName(ctx context.Context, projectId, userId sharedTypes.UUID) (Name, error) {
 	var name Name
-	return name, m.db.QueryRowContext(ctx, `
+	return name, m.db.QueryRow(ctx, `
 SELECT p.name
 FROM projects p
          INNER JOIN users u ON p.owner_id = u.id
@@ -1791,7 +1747,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) Restore(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
 SET deleted_at = NULL,
     epoch      = epoch + 1,
@@ -1811,7 +1767,7 @@ func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sha
 
 func (m *manager) createDocVia(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc, runner queryRunner) (sharedTypes.Version, error) {
 	var v sharedTypes.Version
-	return v, rewritePostgresErr(runner.QueryRowContext(ctx,
+	return v, rewritePostgresErr(runner.QueryRow(ctx,
 		/* language=postgresql */ `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
@@ -1857,14 +1813,14 @@ func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId s
 	if errInsert == nil || errInsert != ErrDuplicateNameInFolder {
 		return sharedTypes.UUID{}, false, 0, errInsert
 	}
-	tx, err := m.db.BeginTx(ctx, nil)
+	tx, err := m.db.Begin(ctx)
 	if err != nil {
 		return sharedTypes.UUID{}, false, 0, errors.Tag(err, "start tx")
 	}
 	ok := false
 	defer func() {
 		if !ok {
-			_ = tx.Rollback()
+			_ = tx.Rollback(ctx)
 		}
 	}()
 	existingId, isDoc, err := m.getElementHintForOverwrite(
@@ -1887,7 +1843,7 @@ func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId s
 	if err != nil {
 		return existingId, false, 0, errors.Tag(err, "create doc")
 	}
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return existingId, false, 0, errors.Tag(err, "commit tx")
 	}
 	ok = true
@@ -1895,7 +1851,7 @@ func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId s
 }
 
 func (m *manager) PrepareFileCreation(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, f *FileRef) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
@@ -1934,7 +1890,7 @@ func (m *manager) FinalizeFileCreation(ctx context.Context, projectId, userId sh
 	var nodeId sharedTypes.UUID
 	var kind string
 	var v sharedTypes.Version
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 WITH f AS (SELECT t.id, t.project_id, t.path
            FROM files f
                     INNER JOIN tree_nodes t ON f.id = t.id
@@ -1990,7 +1946,7 @@ RETURNING deleted.id, deleted.kind, p.tree_version
 
 func (m *manager) ProcessStaleFileUploads(ctx context.Context, cutOff time.Time, fn func(projectId, fileId sharedTypes.UUID) bool) error {
 	for {
-		r, err := m.db.QueryContext(ctx, `
+		r, err := m.db.Query(ctx, `
 SELECT p.id, f.id
 FROM files f
          INNER JOIN tree_nodes t ON f.id = t.id
@@ -2022,7 +1978,7 @@ LIMIT 100
 }
 
 func (m *manager) PurgeStaleFileUpload(ctx context.Context, projectId, fileId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 DELETE
 FROM tree_nodes t USING files f
 WHERE t.project_id = $1
@@ -2039,7 +1995,7 @@ type ForProjectList struct {
 }
 
 func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error) {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT access_source,
        archived,
        p.epoch,
@@ -2071,7 +2027,7 @@ WHERE pm.user_id = $1
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	projects := make(List, 0)
 	for i := 0; r.Next(); i++ {
 		projects = append(projects, ListViewPrivate{})
@@ -2110,7 +2066,7 @@ func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		return m.db.QueryRowContext(pCtx, `
+		return m.db.QueryRow(pCtx, `
 WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
            FROM tags
            WHERE user_id = $1)

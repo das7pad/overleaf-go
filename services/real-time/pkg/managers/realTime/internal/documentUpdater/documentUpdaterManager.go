@@ -18,7 +18,6 @@ package documentUpdater
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/go-redis/redis/v8"
 
@@ -34,7 +33,7 @@ type Manager interface {
 	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
 }
 
-func New(options *types.Options, db *sql.DB, client redis.UniversalClient) (Manager, error) {
+func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
 	return documentUpdater.New(
 		options.APIs.DocumentUpdater.Options,
 		db,

@@ -18,7 +18,9 @@ package notification
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -30,20 +32,20 @@ type Manager interface {
 	RemoveById(ctx context.Context, userId sharedTypes.UUID, notificationId sharedTypes.UUID) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
-func getErr(_ sql.Result, err error) error {
+func getErr(_ pgconn.CommandTag, err error) error {
 	return err
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) GetAllForUser(ctx context.Context, userId sharedTypes.UUID, notifications *[]Notification) error {
-	r, err := m.db.QueryContext(ctx, `
+	r, err := m.db.Query(ctx, `
 SELECT id, key, expires_at, template_key, message_options
 FROM notifications
 WHERE user_id = $1
@@ -52,7 +54,7 @@ WHERE user_id = $1
 	if err != nil {
 		return err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 
 	acc := make([]Notification, 0)
 	for i := 0; r.Next(); i++ {
@@ -81,7 +83,7 @@ func (m *manager) Resend(ctx context.Context, n Notification) error {
 			Msg: "cannot add notification: missing key",
 		}
 	}
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE notifications
 SET expires_at      = $3,
     template_key    = $4,
@@ -92,7 +94,7 @@ WHERE id = $1
 }
 
 func (m *manager) RemoveById(ctx context.Context, userId sharedTypes.UUID, notificationId sharedTypes.UUID) error {
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 UPDATE notifications
 SET template_key    = '',
     message_options = '{}'

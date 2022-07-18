@@ -17,12 +17,15 @@
 package postgresOptions
 
 import (
+	"strconv"
+
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-func Parse() (string, int) {
+func Parse() string {
+	poolSize := utils.GetIntFromEnv("POSTGRES_POOL_SIZE", 25)
 	return utils.GetStringFromEnv(
 		"POSTGRES_DSN",
 		"postgresql://postgres@localhost:5432/postgres?sslmode=disable",
-	), utils.GetIntFromEnv("POSTGRES_POOL_SIZE", 25)
+	) + "&pool_max_conns=" + strconv.FormatInt(int64(poolSize), 10)
 }

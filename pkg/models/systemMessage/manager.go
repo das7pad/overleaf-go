@@ -18,7 +18,8 @@ package systemMessage
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type Manager interface {
@@ -27,16 +28,16 @@ type Manager interface {
 	GetAll(ctx context.Context) ([]Full, error)
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) Create(ctx context.Context, content string) error {
-	_, err := m.db.ExecContext(
+	_, err := m.db.Exec(
 		ctx,
 		`
 INSERT INTO system_messages (content, id)
@@ -46,7 +47,7 @@ VALUES ($1, gen_random_uuid())
 }
 
 func (m *manager) DeleteAll(ctx context.Context) error {
-	_, err := m.db.ExecContext(ctx, `
+	_, err := m.db.Exec(ctx, `
 DELETE FROM system_messages
 WHERE TRUE
 `)
@@ -54,7 +55,7 @@ WHERE TRUE
 }
 
 func (m *manager) GetAll(ctx context.Context) ([]Full, error) {
-	r, err := m.db.QueryContext(
+	r, err := m.db.Query(
 		ctx,
 		`
 SELECT id, content FROM system_messages
@@ -62,7 +63,7 @@ SELECT id, content FROM system_messages
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 	out := make([]Full, 0)
 	for r.Next() {
 		out = append(out, Full{})

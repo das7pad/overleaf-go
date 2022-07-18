@@ -18,9 +18,9 @@ package history
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges"
@@ -33,6 +33,6 @@ type Manager interface {
 	RestoreDocVersion(ctx context.Context, request *types.RestoreDocVersionRequest) error
 }
 
-func New(db *sql.DB, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
+func New(db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
 	return trackChanges.New(db, client, dum)
 }

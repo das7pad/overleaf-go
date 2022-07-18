@@ -18,7 +18,8 @@ package admin
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -29,7 +30,7 @@ type Manager interface {
 	AdminManageSitePage(ctx context.Context, request *types.AdminManageSitePageRequest, response *types.AdminManageSitePageResponse) error
 }
 
-func New(ps *templates.PublicSettings, db *sql.DB) Manager {
+func New(ps *templates.PublicSettings, db *pgxpool.Pool) Manager {
 	return &manager{
 		ps:  ps,
 		smm: systemMessage.New(db),

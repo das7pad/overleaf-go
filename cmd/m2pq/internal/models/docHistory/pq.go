@@ -59,7 +59,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 	{
 		var pId, docId sharedTypes.UUID
 		var end time.Time
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT p.id, d.id, end_at
 FROM doc_history
          INNER JOIN docs d ON doc_history.doc_id = d.id
@@ -122,8 +122,9 @@ LIMIT 1
 		_ = dhC.Close(ctx)
 	}()
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"doc_history",
 			"id", "doc_id", "user_id", "version", "op",
@@ -137,7 +138,7 @@ LIMIT 1
 		_ = q.Close()
 	}()
 
-	checkStmt, err := rTx.PrepareContext(ctx, `
+	checkStmt, err := rTx.Prepare(ctx, `
 SELECT TRUE
 FROM docs d
          INNER JOIN tree_nodes tn ON d.id = tn.id
@@ -208,7 +209,7 @@ WHERE d.id = $1
 			if err != nil {
 				return errors.Tag(err, "serialize op")
 			}
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				b.Next(),                          // id
 				m2pq.ObjectID2UUID(dh.DocId),      // doc_id
@@ -224,7 +225,7 @@ WHERE d.id = $1
 			}
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush queue")
 	}
 	if err = q.Close(); err != nil {

@@ -44,7 +44,7 @@ func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) e
 	tQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT user_id
 FROM tags
 ORDER BY user_id
@@ -89,8 +89,9 @@ LIMIT 1
 	}()
 
 	// Part 1: user <-> tag with name
-	q, err = tx.PrepareContext(
+	q, err = tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"tags",
 			"id", "name", "user_id",
@@ -107,7 +108,7 @@ LIMIT 1
 		if err != nil {
 			return errors.Tag(err, "parse user id")
 		}
-		_, err = q.ExecContext(
+		_, err = q.Exec(
 			ctx,
 			m2pq.ObjectID2UUID(t.Id),
 			t.Name,
@@ -117,7 +118,7 @@ LIMIT 1
 			return errors.Tag(err, "queue tag")
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush tags queue")
 	}
 	if err = q.Close(); err != nil {
@@ -125,8 +126,9 @@ LIMIT 1
 	}
 
 	// Part 2: tag <-> project
-	q, err = tx.PrepareContext(
+	q, err = tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"tag_entries",
 			"project_id", "tag_id",
@@ -138,7 +140,7 @@ LIMIT 1
 	for i, t := range tags {
 		log.Printf("tags[%d/%d]: tag_entries: %s", i, limit, t.Id.Hex())
 		for _, projectId := range t.ProjectIds {
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				m2pq.ObjectID2UUID(projectId),
 				m2pq.ObjectID2UUID(t.Id),
@@ -148,7 +150,7 @@ LIMIT 1
 			}
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush tag entries queue")
 	}
 	if err = q.Close(); err != nil {

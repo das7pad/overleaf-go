@@ -18,27 +18,24 @@ package utils
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 )
 
-func MustConnectPostgres(timeout time.Duration) *sql.DB {
+func MustConnectPostgres(timeout time.Duration) *pgxpool.Pool {
 	ctx, done := context.WithTimeout(context.Background(), timeout)
 	defer done()
 
-	dsn, poolSize := postgresOptions.Parse()
-	db, err := sql.Open("postgres", dsn)
+	dsn := postgresOptions.Parse()
+	db, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
-	db.SetMaxIdleConns(poolSize)
-	db.SetConnMaxIdleTime(30 * time.Second)
-	if err = db.PingContext(ctx); err != nil {
+	if err = db.Ping(ctx); err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 	return db

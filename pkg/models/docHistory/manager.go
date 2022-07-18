@@ -21,7 +21,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -36,81 +37,60 @@ type Manager interface {
 	GetForProject(ctx context.Context, projectId, userId sharedTypes.UUID, before time.Time, limit int64, r *GetForProjectResult) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) InsertBulk(ctx context.Context, docId sharedTypes.UUID, dh []ForInsert) error {
 	// NOTE: Leaving out the projectId here relies on a previous call to
 	//        GetLastVersion to flag mismatched ids.
-	tx, err := m.db.BeginTx(ctx, nil)
-	if err != nil {
-		return errors.Tag(err, "start tx")
-	}
-	ok := false
-	defer func() {
-		if !ok {
-			_ = tx.Rollback()
-		}
-	}()
-	q, err := tx.PrepareContext(
-		ctx,
-		pq.CopyIn(
-			"doc_history",
-			"id", "doc_id", "user_id", "version", "op",
-			"has_big_delete", "start_at", "end_at",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare bulk insert")
-	}
-	defer func() {
-		if !ok && q != nil {
-			_ = q.Close()
-		}
-	}()
-
 	b, err := sharedTypes.GenerateUUIDBulk(len(dh))
 	if err != nil {
 		return err
 	}
-	for i := 0; i < len(dh); i++ {
-		for _, component := range dh[i].Op {
-			if len(component.Deletion) > 16 {
-				dh[i].HasBigDelete = true
-				break
-			}
-		}
-		_, err = q.ExecContext(
-			ctx,
-			b.Next(),
-			docId,
-			dh[i].UserId,
-			dh[i].Version,
-			dh[i].Op,
-			dh[i].HasBigDelete,
-			dh[i].StartAt,
-			dh[i].EndAt,
-		)
-		if err != nil {
-			return errors.Tag(err, "queue")
-		}
-	}
-	if _, err = q.ExecContext(ctx); err != nil {
-		return errors.Tag(err, "flush bulk insert")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "close bulk insert")
-	}
 
-	if err = tx.Commit(); err != nil {
+	tx, err := m.db.Begin(ctx)
+	if err != nil {
+		return errors.Tag(err, "start tx")
+	}
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"doc_history"},
+		[]string{
+			"id", "doc_id", "user_id", "version", "op",
+			"has_big_delete", "start_at", "end_at",
+		},
+		pgx.CopyFromSlice(len(dh), func(i int) ([]interface{}, error) {
+			for _, component := range dh[i].Op {
+				if len(component.Deletion) > 16 {
+					dh[i].HasBigDelete = true
+					break
+				}
+			}
+			return []interface{}{
+				b.Next(),
+				docId,
+				dh[i].UserId,
+				dh[i].Version,
+				dh[i].Op,
+				dh[i].HasBigDelete,
+				dh[i].StartAt,
+				dh[i].EndAt,
+			}, nil
+		}),
+	)
+	if err != nil {
+		_ = tx.Rollback(ctx)
+		return errors.Tag(err, "bulk insert")
+	}
+	if err = tx.Commit(ctx); err != nil {
+		_ = tx.Rollback(ctx)
 		return errors.Tag(err, "commit tx")
 	}
-	ok = true
 	return nil
 }
 
@@ -118,7 +98,7 @@ func (m *manager) GetLastVersion(ctx context.Context, projectId, docId sharedTyp
 	var v sharedTypes.Version
 	// NOTE: Going in reverse here allows us to categorize a 404 as actual
 	//        missing doc -- and more importantly: mismatched ids.
-	err := m.db.QueryRowContext(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT coalesce(dh.version, -1)
 FROM projects p
 INNER JOIN tree_nodes t ON p.id = t.project_id
@@ -142,7 +122,7 @@ type GetForDocResult struct {
 func (m *manager) GetForDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, from, to sharedTypes.Version, res *GetForDocResult) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
+		r, err := m.db.Query(pCtx, `
 SELECT dh.version,
        dh.start_at,
        dh.end_at,
@@ -165,7 +145,7 @@ ORDER BY dh.version
 		if err != nil {
 			return err
 		}
-		defer func() { _ = r.Close() }()
+		defer r.Close()
 		h := res.History
 
 		for i := 0; r.Next(); i++ {
@@ -185,7 +165,7 @@ ORDER BY dh.version
 		return err
 	})
 	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
+		r, err := m.db.Query(pCtx, `
 SELECT DISTINCT ON (u.id) u.id, u.email, u.first_name, u.last_name
 FROM doc_history dh
          INNER JOIN docs d ON d.id = dh.doc_id
@@ -205,7 +185,7 @@ WHERE p.id = $1
 		if err != nil {
 			return err
 		}
-		defer func() { _ = r.Close() }()
+		defer r.Close()
 		c := res.Users
 
 		for i := 0; r.Next(); i++ {
@@ -237,7 +217,7 @@ type GetForProjectResult struct {
 func (m *manager) GetForProject(ctx context.Context, projectId, userId sharedTypes.UUID, before time.Time, limit int64, res *GetForProjectResult) error {
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
+		r, err := m.db.Query(pCtx, `
 WITH dh AS (SELECT dh.version,
                    dh.start_at,
                    dh.end_at,
@@ -276,7 +256,7 @@ ORDER BY dh.end_at DESC
 		if err != nil {
 			return err
 		}
-		defer func() { _ = r.Close() }()
+		defer r.Close()
 		h := res.History
 
 		for i := 0; r.Next(); i++ {
@@ -300,7 +280,7 @@ ORDER BY dh.end_at DESC
 		return nil
 	})
 	eg.Go(func() error {
-		r, err := m.db.QueryContext(pCtx, `
+		r, err := m.db.Query(pCtx, `
 WITH dh AS (SELECT dh.*
             FROM doc_history dh
                      INNER JOIN docs d ON d.id = dh.doc_id
@@ -330,7 +310,7 @@ WHERE dh.end_at < $3
 		if err != nil {
 			return err
 		}
-		defer func() { _ = r.Close() }()
+		defer r.Close()
 		c := res.Users
 
 		for i := 0; r.Next(); i++ {

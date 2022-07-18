@@ -187,7 +187,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 	dfQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT id
 FROM projects
 ORDER BY id
@@ -369,7 +369,7 @@ LIMIT 1
 			}
 		}
 
-		_, err = tx.ExecContext(ctx, `
+		_, err = tx.Exec(ctx, `
 INSERT INTO projects
 (compiler, deleted_at, epoch, id, image_name, last_opened_at, last_updated_at,
  last_updated_by, name, owner_id, public_access_level, spell_check_language,
@@ -403,7 +403,7 @@ SELECT $1,
 			return errors.Tag(err, "insert project")
 		}
 
-		q, err = tx.PrepareContext(
+		q, err = tx.Prepare(
 			ctx,
 			pq.CopyIn(
 				"tree_nodes",
@@ -416,7 +416,7 @@ SELECT $1,
 		}
 
 		deletedAt := "1970-01-01"
-		_, err = q.ExecContext(
+		_, err = q.Exec(
 			ctx, deletedAt, tId, "folder", nil, "", pId,
 		)
 		if err != nil {
@@ -426,7 +426,7 @@ SELECT $1,
 		err = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 			fId := m2pq.ObjectID2UUID(f.Id)
 			for _, d := range f.Docs {
-				_, err = q.ExecContext(
+				_, err = q.Exec(
 					ctx,
 					deletedAt, m2pq.ObjectID2UUID(d.Id), "doc", fId,
 					path.Join(d.Name), pId,
@@ -437,7 +437,7 @@ SELECT $1,
 			}
 			for _, r := range f.FileRefs {
 				fileId := m2pq.ObjectID2UUID(r.Id)
-				_, err = q.ExecContext(
+				_, err = q.Exec(
 					ctx,
 					deletedAt, fileId, "file", fId, path.Join(r.Name), pId,
 				)
@@ -447,7 +447,7 @@ SELECT $1,
 				copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 			}
 			for _, ff := range f.Folders {
-				_, err = q.ExecContext(
+				_, err = q.Exec(
 					ctx,
 					deletedAt, m2pq.ObjectID2UUID(ff.Id), "folder", fId,
 					path.Join(ff.Name)+"/", pId,
@@ -464,7 +464,7 @@ SELECT $1,
 
 		for _, f := range deletedFiles {
 			fileId := m2pq.ObjectID2UUID(f.Id)
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				f.DeletedAt, fileId, "file", tId, f.Name, pId,
 			)
@@ -478,7 +478,7 @@ SELECT $1,
 			if !d.Deleted {
 				continue
 			}
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				d.DeletedAt, m2pq.ObjectID2UUID(d.Id), "doc", tId, d.Name, pId,
 			)
@@ -486,14 +486,14 @@ SELECT $1,
 				return errors.Tag(err, "queue deleted doc tree node")
 			}
 		}
-		if _, err = q.ExecContext(ctx); err != nil {
+		if _, err = q.Exec(ctx); err != nil {
 			return errors.Tag(err, "flush tree")
 		}
 		if err = q.Close(); err != nil {
 			return errors.Tag(err, "close tree")
 		}
 
-		q, err = tx.PrepareContext(
+		q, err = tx.Prepare(
 			ctx,
 			pq.CopyIn("docs", "id", "snapshot", "version"),
 		)
@@ -505,7 +505,7 @@ SELECT $1,
 			if d.Id == p.RootDocId {
 				rootDocId = m2pq.ObjectID2UUID(d.Id)
 			}
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				m2pq.ObjectID2UUID(d.Id), strings.Join(d.Lines, "\n"),
 				d.Version,
@@ -514,14 +514,14 @@ SELECT $1,
 				return errors.Tag(err, "queue doc")
 			}
 		}
-		if _, err = q.ExecContext(ctx); err != nil {
+		if _, err = q.Exec(ctx); err != nil {
 			return errors.Tag(err, "flush docs")
 		}
 		if err = q.Close(); err != nil {
 			return err
 		}
 
-		q, err = tx.PrepareContext(
+		q, err = tx.Prepare(
 			ctx,
 			pq.CopyIn(
 				"files",
@@ -533,7 +533,7 @@ SELECT $1,
 		}
 		err = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 			d := e.(*FileRef)
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				m2pq.ObjectID2UUID(d.Id), d.Created, d.Hash, d.LinkedFileData,
 				*d.Size,
@@ -545,7 +545,7 @@ SELECT $1,
 			return errors.Tag(err, "queue files")
 		}
 		for _, f := range deletedFiles {
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
 				*f.Size,
@@ -555,14 +555,14 @@ SELECT $1,
 				return errors.Tag(err, "queue deleted file")
 			}
 		}
-		if _, err = q.ExecContext(ctx); err != nil {
+		if _, err = q.Exec(ctx); err != nil {
 			return errors.Tag(err, "flush files")
 		}
 		if err = q.Close(); err != nil {
 			return errors.Tag(err, "close files")
 		}
 
-		_, err = tx.ExecContext(ctx, `
+		_, err = tx.Exec(ctx, `
 UPDATE projects
 SET deleted_at     = NULL,
     root_doc_id    = $2,
@@ -573,7 +573,7 @@ WHERE id = $1
 			return errors.Tag(err, "finalize project")
 		}
 
-		q, err = tx.PrepareContext(
+		q, err = tx.Prepare(
 			ctx,
 			pq.CopyIn(
 				"project_members",
@@ -622,7 +622,7 @@ WHERE id = $1
 				if seen[userId] {
 					continue
 				}
-				_, err = q.ExecContext(
+				_, err = q.Exec(
 					ctx,
 					pId, m2pq.ObjectID2UUID(userId), a.AccessSource,
 					a.PrivilegeLevel, p.ArchivedBy.Contains(userId),
@@ -635,7 +635,7 @@ WHERE id = $1
 			}
 		}
 
-		if _, err = q.ExecContext(ctx); err != nil {
+		if _, err = q.Exec(ctx); err != nil {
 			return errors.Tag(err, "flush collaborator queue")
 		}
 		if err = q.Close(); err != nil {
@@ -656,8 +656,9 @@ WHERE id = $1
 		return errors.Tag(err, "resolve audit log users")
 	}
 
-	q, err = tx.PrepareContext(
+	q, err = tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"project_audit_log",
 			"id", "info", "initiator_id", "operation", "project_id", "timestamp",
@@ -678,7 +679,7 @@ WHERE id = $1
 			if err != nil {
 				return errors.Tag(err, "serialize audit log")
 			}
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				ids.Next(),                      // id
 				string(infoBlob),                // info
@@ -692,7 +693,7 @@ WHERE id = $1
 			}
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush audit log queue")
 	}
 	if err = q.Close(); err != nil {

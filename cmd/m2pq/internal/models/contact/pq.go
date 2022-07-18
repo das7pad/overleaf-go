@@ -43,7 +43,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 	cQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT b
 FROM contacts
 ORDER BY b
@@ -78,8 +78,9 @@ LIMIT 1
 		_ = uC.Close(ctx)
 	}()
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"contacts",
 			"a", "b", "connections", "last_touched",
@@ -147,7 +148,7 @@ LIMIT 1
 				continue
 			}
 			details := u.Contacts[other.Hex()]
-			_, err = q.ExecContext(
+			_, err = q.Exec(
 				ctx,
 				r.String,                   // a
 				id.String,                  // b
@@ -159,7 +160,7 @@ LIMIT 1
 			}
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush queue")
 	}
 	if err = q.Close(); err != nil {

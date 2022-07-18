@@ -18,9 +18,9 @@ package trackChanges
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/track-changes/pkg/managers/trackChanges/flush"
@@ -31,6 +31,6 @@ type Manager interface {
 	RecordAndFlushHistoryOps(ctx context.Context, projectId, docId sharedTypes.UUID, nUpdates, queueDepth int64) error
 }
 
-func New(db *sql.DB, client redis.UniversalClient) (Manager, error) {
+func New(db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
 	return flush.New(db, client)
 }

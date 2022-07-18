@@ -48,7 +48,7 @@ func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) e
 	piQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT id
 FROM project_invites
 ORDER BY created_at
@@ -83,8 +83,9 @@ LIMIT 1
 		_ = piC.Close(ctx)
 	}()
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"project_invites",
 			"created_at", "email", "expires_at", "id", "privilege_level", "project_id", "sending_user_id", "token",
@@ -105,7 +106,7 @@ LIMIT 1
 		}
 		log.Printf("project_invite[%d/%d]: %s", i, limit, pi.Id.Hex())
 
-		_, err = q.ExecContext(
+		_, err = q.Exec(
 			ctx,
 			pi.CreatedAt,                         //  created_at
 			pi.Email,                             //  email
@@ -120,7 +121,7 @@ LIMIT 1
 			return errors.Tag(err, "queue pi")
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush queue")
 	}
 	if err = q.Close(); err != nil {

@@ -18,7 +18,9 @@ package doc
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -27,16 +29,16 @@ type Manager interface {
 	UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update *ForDocUpdate) error
 }
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
-func getErr(_ sql.Result, err error) error {
+func getErr(_ pgconn.CommandTag, err error) error {
 	return err
 }
 
 type manager struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update *ForDocUpdate) error {
@@ -44,7 +46,7 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UU
 		return err
 	}
 
-	return getErr(m.db.ExecContext(ctx, `
+	return getErr(m.db.Exec(ctx, `
 WITH d AS (UPDATE docs SET snapshot = $2, version = $3 WHERE id = $1)
 
 UPDATE projects

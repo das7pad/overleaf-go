@@ -18,10 +18,11 @@ package systemMessage
 
 import (
 	"context"
-	"database/sql"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -41,7 +42,7 @@ type manager struct {
 
 var noMessages = make([]systemMessage.Full, 0)
 
-func New(db *sql.DB) Manager {
+func New(db *pgxpool.Pool) Manager {
 	return &manager{
 		sm:     systemMessage.New(db),
 		cached: noMessages,

@@ -66,7 +66,7 @@ func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) e
 	ottQuery := bson.M{}
 	{
 		var oldest time.Time
-		err := tx.QueryRowContext(ctx, `
+		err := tx.QueryRow(ctx, `
 SELECT created_at
 FROM one_time_tokens
 ORDER BY created_at
@@ -97,8 +97,9 @@ LIMIT 1
 		_ = ottC.Close(ctx)
 	}()
 
-	q, err := tx.PrepareContext(
+	q, err := tx.Prepare(
 		ctx,
+		"TODO", // TODO
 		pq.CopyIn(
 			"one_time_tokens",
 			"created_at", "email", "expires_at", "token", "use", "used_at", "user_id",
@@ -123,7 +124,7 @@ LIMIT 1
 		if userId, err = ott.Data.GetUserId(); err != nil {
 			return errors.Tag(err, "decode user id")
 		}
-		_, err = q.ExecContext(
+		_, err = q.Exec(
 			ctx,
 			ott.CreatedAt,              // created_at
 			ott.Data.Email,             // email
@@ -137,7 +138,7 @@ LIMIT 1
 			return errors.Tag(err, "queue ott")
 		}
 	}
-	if _, err = q.ExecContext(ctx); err != nil {
+	if _, err = q.Exec(ctx); err != nil {
 		return errors.Tag(err, "flush queue")
 	}
 	if err = q.Close(); err != nil {

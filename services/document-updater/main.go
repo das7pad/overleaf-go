@@ -18,12 +18,11 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -52,14 +51,12 @@ func main() {
 		panic(err)
 	}
 
-	dsn, poolSize := postgresOptions.Parse()
-	db, err := sql.Open("postgres", dsn)
+	dsn := postgresOptions.Parse()
+	db, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
-	db.SetMaxIdleConns(poolSize)
-	db.SetConnMaxIdleTime(30 * time.Second)
-	if err = db.PingContext(ctx); err != nil {
+	if err = db.Ping(ctx); err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
