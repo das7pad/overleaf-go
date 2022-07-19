@@ -18,7 +18,6 @@ package project
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -182,7 +181,7 @@ FROM p
 
 	// TODO: count
 	tn := make([][]interface{}, 0, 10)
-	deletedAt := "1970-01-01"
+	deletedAt := time.Unix(0, 0)
 	t := p.RootFolder
 
 	tn = append(tn, []interface{}{deletedAt, t.Id, "folder", nil, "", p.Id})
@@ -909,7 +908,7 @@ WHERE p.id = $1
 		&p.PublicAccessLevel, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, &errors.NotAuthorizedError{}
 		}
 		return nil, err
@@ -1016,7 +1015,7 @@ FROM projects p, users u
 WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
 `, projectId, projectEpoch, userId, userEpoch).Scan(&ok)
 	}
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && err != pgx.ErrNoRows {
 		return err
 	}
 	if err == nil && ok {
@@ -1037,7 +1036,7 @@ WHERE d.id = $2
   AND t.deleted_at = '1970-01-01'
   AND p.deleted_at IS NULL
 `, projectId, docId).Scan(&d.Path, &d.Snapshot, &d.Version)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil, &errors.ErrorDocNotFound{}
 	}
 	d.Id = docId
@@ -1127,7 +1126,7 @@ WHERE t.project_id = $1
   AND p.deleted_at IS NULL
   AND (t.path = $4 OR t.path LIKE CONCAT('%/', $4::TEXT))
 `, projectId, userId, folderId, name).Scan(&nodeId, &kind)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nodeId, false, nil
 	}
 	if kind == "folder" {

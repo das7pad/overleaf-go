@@ -17,10 +17,10 @@
 package project
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"time"
 
+	"github.com/jackc/pgtype"
 	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -93,19 +93,19 @@ type LinkedFileData struct {
 	URL                  string               `json:"url,omitempty"`
 }
 
-func (d *LinkedFileData) Scan(x interface{}) error {
-	if x == nil {
+func (d *LinkedFileData) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+	if src == nil {
 		return nil
 	}
-	return json.Unmarshal(x.([]byte), d)
+	return json.Unmarshal(src, d)
 }
 
-func (d *LinkedFileData) Value() (driver.Value, error) {
+func (d *LinkedFileData) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
 	if d == nil || d.Provider == "" {
 		return nil, nil
 	}
-	blob, err := json.Marshal(d)
-	return string(blob), err
+	b, err := json.Marshal(d)
+	return append(buf, b...), err
 }
 
 type FileWithParent struct {

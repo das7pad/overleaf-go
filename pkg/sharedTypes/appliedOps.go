@@ -17,10 +17,11 @@
 package sharedTypes
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -118,13 +119,13 @@ func (o Op) Validate() error {
 	return nil
 }
 
-func (o Op) Value() (driver.Value, error) {
-	blob, err := json.Marshal(o)
-	return string(blob), err
+func (o *Op) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+	return json.Unmarshal(src, o)
 }
 
-func (o *Op) Scan(x interface{}) error {
-	return json.Unmarshal(x.([]byte), o)
+func (o Op) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+	b, err := json.Marshal(o)
+	return append(buf, b...), err
 }
 
 type DupIfSource []PublicId

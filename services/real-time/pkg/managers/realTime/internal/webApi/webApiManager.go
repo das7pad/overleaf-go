@@ -19,6 +19,8 @@ package webApi
 import (
 	"context"
 
+	"github.com/jackc/pgx/v4/pgxpool"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"

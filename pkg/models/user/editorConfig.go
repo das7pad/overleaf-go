@@ -17,8 +17,9 @@
 package user
 
 import (
-	"database/sql/driver"
 	"encoding/json"
+
+	"github.com/jackc/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -38,13 +39,13 @@ type EditorConfig struct {
 	Theme              string                           `json:"theme"`
 }
 
-func (e *EditorConfig) Scan(x interface{}) error {
-	return json.Unmarshal(x.([]byte), e)
+func (e *EditorConfig) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+	return json.Unmarshal(src, e)
 }
 
-func (e *EditorConfig) Value() (driver.Value, error) {
-	blob, err := json.Marshal(e)
-	return string(blob), err
+func (e EditorConfig) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+	b, err := json.Marshal(e)
+	return append(buf, b...), err
 }
 
 //goland:noinspection SpellCheckingInspection

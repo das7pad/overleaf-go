@@ -18,9 +18,9 @@ package projectInvite
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lib/pq"
 
@@ -259,7 +259,7 @@ WHERE token = $2
   AND project_id = $1
   AND expires_at > transaction_timestamp()
 `, projectId, token).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return &errors.NotFoundError{}
 	}
 	return err

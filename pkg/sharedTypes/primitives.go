@@ -18,11 +18,11 @@ package sharedTypes
 
 import (
 	"crypto/rand"
-	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strconv"
+
+	"github.com/jackc/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -103,6 +103,15 @@ func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
 
 type UUID [16]byte
 
+func (u *UUID) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+	copy(u[:], src)
+	return nil
+}
+
+func (u *UUID) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+	return append(buf, u[:]...), nil
+}
+
 func (u UUID) String() string {
 	dst := make([]byte, 36)
 	hex.Encode(dst, u[:4])
@@ -115,25 +124,6 @@ func (u UUID) String() string {
 	dst[23] = '-'
 	hex.Encode(dst[24:], u[10:])
 	return string(dst)
-}
-
-func (u *UUID) Scan(x interface{}) error {
-	var s string
-	if b, ok := x.([]byte); ok {
-		s = string(b)
-	} else if s, ok = x.(string); !ok {
-		return errors.New(fmt.Sprintf("unexpected uuid src: %q", x))
-	}
-	u2, err := ParseUUID(s)
-	if err != nil {
-		return err
-	}
-	*u = u2
-	return nil
-}
-
-func (u UUID) Value() (driver.Value, error) {
-	return u.String(), nil
 }
 
 func (u UUID) MarshalJSON() ([]byte, error) {

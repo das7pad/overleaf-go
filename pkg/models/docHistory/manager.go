@@ -18,7 +18,6 @@ package docHistory
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -108,7 +107,7 @@ WHERE p.id = $1 AND t.id = $2
 ORDER BY dh.version DESC
 LIMIT 1
 `, projectId, docId).Scan(&v)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return 0, &errors.NotFoundError{}
 	}
 	return v, err

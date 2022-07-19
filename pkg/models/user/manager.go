@@ -18,11 +18,11 @@ package user
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lib/pq"
 
@@ -69,7 +69,7 @@ func getErr(_ pgconn.CommandTag, err error) error {
 }
 
 func rewritePostgresErr(err error) error {
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return &errors.NotFoundError{}
 	}
 	return err
@@ -168,7 +168,7 @@ FROM u
 `, u.Id, u.Epoch, newHashedPassword, ip, operation,
 		oneTimeToken.PasswordResetUse).Scan(&ok)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return ErrEpochChanged
 		}
 		return err
@@ -340,7 +340,7 @@ FROM u
 		if e, ok := err.(*pq.Error); ok && e.Constraint == "user_email_key" {
 			return ErrEmailAlreadyRegistered
 		}
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return ErrEpochChanged
 		}
 		return err
@@ -473,7 +473,7 @@ SELECT TRUE
 FROM users
 WHERE email = $1
 `, email).Scan(&x)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil
 	}
 	if err != nil {
