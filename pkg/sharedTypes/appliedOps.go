@@ -34,18 +34,6 @@ func (p PublicId) Validate() error {
 	return nil
 }
 
-type TrackChangesSeed string
-
-func (t TrackChangesSeed) Validate() error {
-	if t == "" {
-		return nil
-	}
-	if len(t) != 18 {
-		return &errors.ValidationError{Msg: "tc must be 18 char long if set"}
-	}
-	return nil
-}
-
 type Timestamp int64
 
 func (t Timestamp) Validate() error {
@@ -76,20 +64,16 @@ func (t Timestamp) ToTime() time.Time {
 }
 
 type DocumentUpdateMeta struct {
-	Type             string           `json:"type,omitempty"`
-	Source           PublicId         `json:"source"`
-	Timestamp        Timestamp        `json:"ts,omitempty"`
-	TrackChangesSeed TrackChangesSeed `json:"tc,omitempty"`
-	UserId           UUID             `json:"user_id,omitempty"`
+	Type      string    `json:"type,omitempty"`
+	Source    PublicId  `json:"source"`
+	Timestamp Timestamp `json:"ts,omitempty"`
+	UserId    UUID      `json:"user_id,omitempty"`
 	// Ingestion time is tracked internally only. Allow nil for public blob.
 	IngestionTime *time.Time `json:"ingestion_time,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {
 	if err := d.Source.Validate(); err != nil {
-		return err
-	}
-	if err := d.TrackChangesSeed.Validate(); err != nil {
 		return err
 	}
 	return nil
