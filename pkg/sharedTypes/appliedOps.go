@@ -17,11 +17,8 @@
 package sharedTypes
 
 import (
-	"encoding/json"
 	"strconv"
 	"time"
-
-	"github.com/jackc/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -117,15 +114,6 @@ func (o Op) Validate() error {
 		}
 	}
 	return nil
-}
-
-func (o *Op) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
-	return json.Unmarshal(src, o)
-}
-
-func (o Op) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
-	b, err := json.Marshal(o)
-	return append(buf, b...), err
 }
 
 type DupIfSource []PublicId

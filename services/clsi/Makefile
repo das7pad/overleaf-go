@@ -67,7 +67,7 @@ $(SERVICE):
 .PHONY: execAgent
 execAgent:
 	$(BUILD_IN) golang:1.18 sh -c \
-		'go build -ldflags="-s -w" ./cmd/execAgent \
+		'go build -ldflags="-s -w" -tags noDB ./cmd/execAgent \
 		 && touch -m -d 2021-01-01T00:00Z $@'
 
 docker/build/production: execAgent

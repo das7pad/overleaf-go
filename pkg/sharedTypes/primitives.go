@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/jackc/pgtype"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -102,15 +100,6 @@ func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
 }
 
 type UUID [16]byte
-
-func (u *UUID) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
-	copy(u[:], src)
-	return nil
-}
-
-func (u *UUID) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
-	return append(buf, u[:]...), nil
-}
 
 func (u UUID) String() string {
 	dst := make([]byte, 36)
