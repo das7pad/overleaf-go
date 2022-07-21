@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
@@ -162,7 +164,14 @@ func (m *manager) StartInBackground(ctx context.Context, options types.SignedCom
 	if err != nil {
 		return errors.Tag(err, "cannot create start request")
 	}
-	res, _, err := m.doPersistentRequest(ctx, options, r)
+	clsiServerId, err := m.getServerId(ctx, options)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		log.Printf("cannot get clsi persistence: %s", err)
+	}
+	res, _, err := m.doPersistentRequest(ctx, options, clsiServerId, r)
 	if err != nil {
 		return errors.Tag(err, "cannot action start request")
 	}
@@ -183,6 +192,22 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		return err
 	}
 	request.ImageName = m.getImageName(request.ImageName)
+
+	var clsiServerId types.ClsiServerId
+	var pendingFetchClsiServerId pendingOperation.WithCancel
+	if m.persistenceEnabled() {
+		pendingFetchClsiServerId = pendingOperation.TrackOperationWithCancel(
+			ctx,
+			func(ctx context.Context) error {
+				var err error
+				clsiServerId, err = m.getServerId(
+					ctx, request.SignedCompileProjectRequestOptions,
+				)
+				return err
+			},
+		)
+		defer pendingFetchClsiServerId.Cancel()
+	}
 
 	syncState := request.SyncState
 
@@ -229,7 +254,15 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			RootResourcePath: rootDocPath,
 		}
 
-		err = m.doCompile(ctx, request, clsiRequest, response)
+		if pendingFetchClsiServerId != nil {
+			if err = pendingFetchClsiServerId.Wait(ctx); err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				log.Printf("cannot get clsi persistence: %s", err)
+			}
+		}
+		err = m.doCompile(ctx, request, clsiServerId, clsiRequest, response)
 		if err != nil {
 			if errors.IsInvalidState(err) && !syncType.IsFull() {
 				continue
@@ -325,7 +358,7 @@ type compileResponseBody struct {
 	Response *clsiTypes.CompileResponse `json:"compile"`
 }
 
-func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRequest, requestBody *clsiTypes.CompileRequest, response *types.CompileProjectResponse) error {
+func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRequest, clsiServerId types.ClsiServerId, requestBody *clsiTypes.CompileRequest, response *types.CompileProjectResponse) error {
 	u := m.baseURL
 	u += "/project/" + request.ProjectId.String()
 	u += "/user/" + request.UserId.String()
@@ -343,7 +376,7 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 		return errors.Tag(err, "cannot create compile request")
 	}
 	res, clsiServerId, err := m.doPersistentRequest(
-		ctx, request.SignedCompileProjectRequestOptions, r,
+		ctx, request.SignedCompileProjectRequestOptions, clsiServerId, r,
 	)
 	response.ClsiServerId = clsiServerId
 	if err != nil {

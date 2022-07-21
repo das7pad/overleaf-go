@@ -73,8 +73,12 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 	return clsiServerId
 }
 
+func (m *manager) persistenceEnabled() bool {
+	return m.options.APIs.Clsi.Persistence.CookieName == ""
+}
+
 func (m *manager) getServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
-	if m.options.APIs.Clsi.Persistence.CookieName == "" {
+	if !m.persistenceEnabled() {
 		return "", nil
 	}
 	k := getPersistenceKey(options)
@@ -97,11 +101,7 @@ func (m *manager) clearServerId(ctx context.Context, options types.SignedCompile
 	return nil
 }
 
-func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedCompileProjectRequestOptions, r *http.Request) (*http.Response, types.ClsiServerId, error) {
-	clsiServerId, err := m.getServerId(ctx, options)
-	if err != nil {
-		log.Printf("cannot get clsi persistence: %s", err.Error())
-	}
+func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, types.ClsiServerId, error) {
 	if clsiServerId != "" {
 		r.AddCookie(&http.Cookie{
 			Name:  m.options.APIs.Clsi.Persistence.CookieName,
