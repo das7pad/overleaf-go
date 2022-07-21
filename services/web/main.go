@@ -29,8 +29,8 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
-	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
+	"github.com/das7pad/overleaf-go/services/web/pkg/router"
 )
 
 func waitForRedis(
@@ -84,14 +84,8 @@ func main() {
 		return
 	}
 
-	err = templates.Load(o.options.AppName, o.options.AssetsOptions())
-	if err != nil {
-		panic(err)
-	}
-
-	handler := newHttpController(wm)
-	router := handler.GetRouter(o.corsOptions)
-	if err = http.ListenAndServe(o.address, router); err != nil {
+	r := router.New(wm, o.corsOptions)
+	if err = http.ListenAndServe(o.address, r); err != nil {
 		panic(err)
 	}
 }

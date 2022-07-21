@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
+	"github.com/das7pad/overleaf-go/services/spelling/pkg/router"
 )
 
 func main() {
@@ -28,14 +29,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	handler := newHttpController(sm)
 
-	server := http.Server{
-		Addr:    o.address,
-		Handler: handler.GetRouter(o.corsOptions),
-	}
-	err = server.ListenAndServe()
-	if err != nil {
+	r := router.New(sm, o.corsOptions)
+	if err = http.ListenAndServe(o.address, r); err != nil {
 		panic(err)
 	}
 }

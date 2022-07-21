@@ -33,7 +33,7 @@ type httpController struct {
 	cm clsi.Manager
 }
 
-func (h *httpController) GetRouter() http.Handler {
+func (h *httpController) GetRouter() *httpUtils.Router {
 	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
 	router.GET("/health_check", h.healthCheck)
 	router.HEAD("/health_check", h.healthCheck)

@@ -30,6 +30,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 )
 
 func waitForRedis(
@@ -73,10 +74,9 @@ func main() {
 	}
 	go rtm.PeriodicCleanup(triggerExitCtx)
 
-	handler := newHttpController(rtm, o.jwtOptions)
 	server := http.Server{
 		Addr:    o.address,
-		Handler: handler.GetRouter(),
+		Handler: router.New(rtm, o.jwtOptions),
 	}
 	var errServe error
 	go func() {

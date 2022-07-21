@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package router
 
 import (
 	"fmt"
@@ -41,11 +41,11 @@ const (
 	maxDocSize = sharedTypes.MaxDocSizeBytes
 )
 
-func newHttpController(wm web.Manager) httpController {
-	return httpController{
+func New(wm web.Manager, corsOptions httpUtils.CORSOptions) *httpUtils.Router {
+	return (&httpController{
 		ps: wm.GetPublicSettings(),
 		wm: wm,
-	}
+	}).GetRouter(corsOptions)
 }
 
 type httpController struct {
@@ -55,7 +55,7 @@ type httpController struct {
 
 func (h *httpController) GetRouter(
 	corsOptions httpUtils.CORSOptions,
-) http.Handler {
+) *httpUtils.Router {
 	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
 	{
 		// SECURITY: Attach gateway page before CORS middleware.

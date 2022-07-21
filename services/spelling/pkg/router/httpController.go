@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package router
 
 import (
 	"net/http"
@@ -24,23 +24,23 @@ import (
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
-func newHttpController(cm spelling.Manager) httpController {
-	return httpController{sm: cm}
+func New(cm spelling.Manager, corsOptions httpUtils.CORSOptions) *httpUtils.Router {
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
+	router.Use(httpUtils.CORS(corsOptions))
+	Add(router, cm)
+	return router
+}
+
+func Add(r *httpUtils.Router, cm spelling.Manager) {
+	(&httpController{sm: cm}).addRoutes(r)
 }
 
 type httpController struct {
 	sm spelling.Manager
 }
 
-func (h *httpController) GetRouter(
-	corsOptions httpUtils.CORSOptions,
-) http.Handler {
-	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
-
-	r := router.Group("/spelling/api")
-	r.Use(httpUtils.CORS(corsOptions))
-	r.POST("/check", h.check)
-	return router
+func (h *httpController) addRoutes(router *httpUtils.Router) {
+	router.POST("/spelling/api/check", h.check)
 }
 
 type checkRequestBody struct {

@@ -14,12 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package router
 
 import (
 	"context"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -33,17 +32,26 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func newHttpController(rtm realTime.Manager, jwtOptions jwtOptions.JWTOptions) httpController {
-	handler := httpUtils.NewJWTHandlerFromQuery(
-		wsBootstrap.New(jwtOptions), jwtQueryParameter,
-	)
-	return httpController{
+func New(rtm realTime.Manager, jwtOptions jwtOptions.JWTOptions) *httpUtils.Router {
+	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
+		Ready: func() bool {
+			return !rtm.IsShuttingDown()
+		},
+	})
+	Add(r, rtm, jwtOptions)
+	return r
+}
+
+func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptions jwtOptions.JWTOptions) {
+	(&httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
 			Subprotocols: []string{"v6.real-time.overleaf.com"},
 		},
-		jwt: handler,
-	}
+		jwt: httpUtils.NewJWTHandlerFromQuery(
+			wsBootstrap.New(jwtOptions), jwtQueryParameter,
+		),
+	}).addRoutes(r)
 }
 
 type httpController struct {
@@ -54,14 +62,8 @@ type httpController struct {
 
 const jwtQueryParameter = "bootstrap"
 
-func (h *httpController) GetRouter() http.Handler {
-	router := httpUtils.NewRouter(&httpUtils.RouterOptions{
-		Ready: func() bool {
-			return !h.rtm.IsShuttingDown()
-		},
-	})
+func (h *httpController) addRoutes(router *httpUtils.Router) {
 	router.GET("/socket.io", h.ws)
-	return router
 }
 
 func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Claims, error) {

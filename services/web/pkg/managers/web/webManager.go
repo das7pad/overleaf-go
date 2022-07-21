@@ -102,6 +102,12 @@ func New(options *types.Options, db *sql.DB, client redis.UniversalClient, local
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
+
+	err := templates.Load(options.AppName, options.AssetsOptions())
+	if err != nil {
+		return nil, errors.Tag(err, "load templates")
+	}
+
 	ps, err := options.PublicSettings()
 	if err != nil {
 		return nil, err

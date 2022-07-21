@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,15 +21,13 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 )
 
-func main() {
+func Setup() (clsi.Manager, *httpUtils.Router, *clsiOptions) {
 	o := getOptions()
-	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
-		context.Background(),
-	)
 
 	if o.copyExecAgent {
 		err := copyAgent(o.copyExecAgentSrc, o.copyExecAgentDst)
@@ -42,6 +40,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	handler := newHttpController(cm)
+	return cm, handler.GetRouter(), o
+}
+
+func main() {
+	cm, handler, o := Setup()
+	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
+		context.Background(),
+	)
 	go cm.PeriodicCleanup(backgroundTaskCtx)
 
 	loadAgent, err := startLoadAgent(o, cm)
@@ -49,10 +56,9 @@ func main() {
 		panic(err)
 	}
 
-	handler := newHttpController(cm)
 	server := http.Server{
 		Addr:    o.address,
-		Handler: handler.GetRouter(),
+		Handler: handler,
 	}
 	err = server.ListenAndServe()
 	shutdownBackgroundTasks()
