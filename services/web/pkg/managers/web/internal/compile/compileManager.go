@@ -74,8 +74,9 @@ type Manager interface {
 	) error
 }
 
-func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, fm filestore.Manager, pm project.Manager, um user.Manager) (Manager, error) {
+func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, fm filestore.Manager, pm project.Manager, um user.Manager, bundle ClsiManager) (Manager, error) {
 	return &manager{
+		bundle:  bundle,
 		baseURL: options.APIs.Clsi.URL.String(),
 		options: options,
 		client:  client,
@@ -88,6 +89,7 @@ func New(options *types.Options, client redis.UniversalClient, dum documentUpdat
 }
 
 type manager struct {
+	bundle  ClsiManager
 	baseURL string
 	options *types.Options
 	client  redis.UniversalClient
@@ -113,6 +115,9 @@ func (m *manager) getImageName(raw sharedTypes.ImageName) sharedTypes.ImageName 
 }
 
 func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error {
+	if m.bundle != nil {
+		return m.bundle.ClearCache(ctx, request.ProjectId, request.UserId)
+	}
 	clearPersistenceError := m.clearServerId(
 		ctx, request.SignedCompileProjectRequestOptions,
 	)
@@ -145,16 +150,21 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 }
 
 func (m *manager) StartInBackground(ctx context.Context, options types.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName) error {
+	request := clsiTypes.StartInBackgroundRequest{
+		ImageName: m.getImageName(imageName),
+	}
+	if m.bundle != nil {
+		return m.bundle.StartInBackground(
+			ctx, options.ProjectId, options.UserId, &request,
+		)
+	}
+
 	u := m.baseURL
 	u += "/project/" + options.ProjectId.String()
 	u += "/user/" + options.UserId.String()
 	u += "/status"
 
-	blob, err := json.Marshal(
-		clsiTypes.StartInBackgroundRequest{
-			ImageName: m.getImageName(imageName),
-		},
-	)
+	blob, err := json.Marshal(request)
 	body := bytes.NewReader(blob)
 	if err != nil {
 		return errors.New("cannot serialize start request body")
@@ -262,7 +272,17 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 				log.Printf("cannot get clsi persistence: %s", err)
 			}
 		}
-		err = m.doCompile(ctx, request, clsiServerId, clsiRequest, response)
+		if m.bundle != nil {
+			err = m.bundle.Compile(
+				ctx, request.ProjectId, request.UserId, clsiRequest,
+				&response.CompileResponse,
+			)
+		} else {
+			err = m.doCompile(
+				ctx, request, clsiServerId, clsiRequest, response,
+			)
+			clsiServerId = response.ClsiServerId
+		}
 		if err != nil {
 			if errors.IsInvalidState(err) && !syncType.IsFull() {
 				continue

@@ -24,12 +24,25 @@ import (
 )
 
 func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {
+	err := m.preprocessGenericPOST(
+		request.SignedCompileProjectRequestOptions,
+		request.ImageName,
+		request,
+	)
+	if err != nil {
+		return err
+	}
+	if m.bundle != nil {
+		return m.bundle.WordCount(
+			ctx, request.ProjectId, request.UserId,
+			&request.WordCountRequest, words,
+		)
+	}
 	return m.genericPOST(
 		ctx,
 		"/wordcount",
 		request.SignedCompileProjectRequestOptions,
 		request.ClsiServerId,
-		request.ImageName,
 		&request.WordCountRequest,
 		words,
 	)

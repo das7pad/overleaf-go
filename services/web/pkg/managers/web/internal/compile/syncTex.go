@@ -34,17 +34,20 @@ type genericPOSTRequest interface {
 	Validate() error
 }
 
-func (m *manager) genericPOST(ctx context.Context, endpoint string, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, imageName sharedTypes.ImageName, request genericPOSTRequest, response interface{}) error {
+func (m *manager) preprocessGenericPOST(options types.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName, request genericPOSTRequest) error {
 	request.SetCompileGroup(options.CompileGroup)
 	if err := request.Validate(); err != nil {
 		return err
 	}
+	request.SetImageName(m.getImageName(imageName))
+	return nil
+}
+
+func (m *manager) genericPOST(ctx context.Context, endpoint string, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, request genericPOSTRequest, response interface{}) error {
 	u := m.baseURL
 	u += "/project/" + options.ProjectId.String()
 	u += "/user/" + options.UserId.String()
 	u += endpoint
-
-	request.SetImageName(m.getImageName(imageName))
 
 	blob, err := json.Marshal(request)
 	if err != nil {
@@ -73,24 +76,50 @@ func (m *manager) genericPOST(ctx context.Context, endpoint string, options type
 }
 
 func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
+	err := m.preprocessGenericPOST(
+		request.SignedCompileProjectRequestOptions,
+		request.ImageName,
+		request,
+	)
+	if err != nil {
+		return err
+	}
+	if m.bundle != nil {
+		return m.bundle.SyncFromCode(
+			ctx, request.ProjectId, request.UserId,
+			&request.SyncFromCodeRequest, positions,
+		)
+	}
 	return m.genericPOST(
 		ctx,
 		"/sync/code",
 		request.SignedCompileProjectRequestOptions,
 		request.ClsiServerId,
-		request.ImageName,
 		&request.SyncFromCodeRequest,
 		positions,
 	)
 }
 
 func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error {
+	err := m.preprocessGenericPOST(
+		request.SignedCompileProjectRequestOptions,
+		request.ImageName,
+		request,
+	)
+	if err != nil {
+		return err
+	}
+	if m.bundle != nil {
+		return m.bundle.SyncFromPDF(
+			ctx, request.ProjectId, request.UserId,
+			&request.SyncFromPDFRequest, positions,
+		)
+	}
 	return m.genericPOST(
 		ctx,
 		"/sync/pdf",
 		request.SignedCompileProjectRequestOptions,
 		request.ClsiServerId,
-		request.ImageName,
 		&request.SyncFromPDFRequest,
 		positions,
 	)

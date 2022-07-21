@@ -98,7 +98,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, db *sql.DB, client redis.UniversalClient, localURL string) (Manager, error) {
+func New(options *types.Options, db *sql.DB, client redis.UniversalClient, localURL string, clsiBundle compile.ClsiManager) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
@@ -126,7 +126,7 @@ func New(options *types.Options, db *sql.DB, client redis.UniversalClient, local
 	tm := tagModel.New(db)
 	um := user.New(db)
 	bm := betaProgram.New(ps, um)
-	cm, err := compile.New(options, client, dum, fm, pm, um)
+	cm, err := compile.New(options, client, dum, fm, pm, um, clsiBundle)
 	if err != nil {
 		return nil, err
 	}
