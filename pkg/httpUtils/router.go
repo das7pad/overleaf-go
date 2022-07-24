@@ -116,8 +116,15 @@ func (r *Router) PUT(endpoint string, f HandlerFunc) {
 func (r *Router) Group(partial string) *Router {
 	middlewares := make([]MiddlewareFunc, len(r.middlewares))
 	copy(middlewares, r.middlewares)
+	var r2 *mux.Router
+	if partial == "" {
+		// Skip traversing into an extra sub-router.
+		r2 = r.Router
+	} else {
+		r2 = r.Router.PathPrefix(partial).Subrouter()
+	}
 	return &Router{
-		Router:      r.Router.PathPrefix(partial).Subrouter(),
+		Router:      r2,
 		middlewares: middlewares,
 	}
 }
