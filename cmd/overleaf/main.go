@@ -30,6 +30,8 @@ import (
 	envUtils "github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	realTimeRouter "github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -57,6 +59,13 @@ func main() {
 	clsiManager, err := clsi.New(&clsiOptions)
 	if err != nil {
 		panic(errors.Tag(err, "clsi setup"))
+	}
+
+	dumOptions := documentUpdaterTypes.Options{}
+	envUtils.ParseJSONFromEnv("DOCUMENT_UPDATER_OPTIONS", &dumOptions)
+	dum, err := documentUpdater.New(&dumOptions, db, rClient)
+	if err != nil {
+		panic(errors.Tag(err, "document-updater setup"))
 	}
 
 	realTimeOptions := realTimeTypes.Options{}
@@ -96,7 +105,8 @@ func main() {
 			webManager.Cron(triggerExitCtx, false)
 		}
 	}()
-	clsiManager.PeriodicCleanup(triggerExitCtx)
+	go clsiManager.PeriodicCleanup(triggerExitCtx)
+	go dum.StartBackgroundTasks(triggerExitCtx)
 
 	server := http.Server{
 		Addr:    addr,
