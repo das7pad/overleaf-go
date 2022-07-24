@@ -26,21 +26,22 @@ import (
 
 func New(cm spelling.Manager, corsOptions httpUtils.CORSOptions) *httpUtils.Router {
 	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
-	router.Use(httpUtils.CORS(corsOptions))
-	Add(router, cm)
+	Add(router, cm, corsOptions)
 	return router
 }
 
-func Add(r *httpUtils.Router, cm spelling.Manager) {
-	(&httpController{sm: cm}).addRoutes(r)
+func Add(r *httpUtils.Router, cm spelling.Manager, corsOptions httpUtils.CORSOptions) {
+	(&httpController{sm: cm}).addRoutes(r, corsOptions)
 }
 
 type httpController struct {
 	sm spelling.Manager
 }
 
-func (h *httpController) addRoutes(router *httpUtils.Router) {
-	router.POST("/spelling/api/check", h.check)
+func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUtils.CORSOptions) {
+	r := router.Group("")
+	r.Use(httpUtils.CORS(corsOptions))
+	r.POST("/spelling/api/check", h.check)
 }
 
 type checkRequestBody struct {

@@ -42,10 +42,16 @@ const (
 )
 
 func New(wm web.Manager, corsOptions httpUtils.CORSOptions) *httpUtils.Router {
-	return (&httpController{
+	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
+	Add(router, wm, corsOptions)
+	return router
+}
+
+func Add(r *httpUtils.Router, wm web.Manager, corsOptions httpUtils.CORSOptions) {
+	(&httpController{
 		ps: wm.GetPublicSettings(),
 		wm: wm,
-	}).GetRouter(corsOptions)
+	}).addRoutes(r, corsOptions)
 }
 
 type httpController struct {
@@ -53,10 +59,11 @@ type httpController struct {
 	wm web.Manager
 }
 
-func (h *httpController) GetRouter(
+func (h *httpController) addRoutes(
+	router *httpUtils.Router,
 	corsOptions httpUtils.CORSOptions,
 ) *httpUtils.Router {
-	router := httpUtils.NewRouter(&httpUtils.RouterOptions{})
+	router = router.Group("")
 	{
 		// SECURITY: Attach gateway page before CORS middleware.
 		//           All 3rd parties are allowed to send users to the gw page.

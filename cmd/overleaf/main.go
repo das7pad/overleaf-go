@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/cmd/internal/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	envUtils "github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -79,11 +80,15 @@ func main() {
 		panic(errors.Tag(err, "web setup"))
 	}
 
-	corsOptions := httpUtils.CORSOptions{}
-
-	r := webRouter.New(webManager, corsOptions)
+	co := corsOptions.Parse()
+	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
+		Ready: func() bool {
+			return !rtm.IsShuttingDown()
+		},
+	})
 	realTimeRouter.Add(r, rtm, webOptions.JWT.RealTime)
-	spellingRouter.Add(r, sm)
+	spellingRouter.Add(r, sm, co)
+	webRouter.Add(r, webManager, co)
 
 	t := time.NewTicker(15 * time.Minute)
 	go func() {
