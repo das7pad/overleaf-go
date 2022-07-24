@@ -79,8 +79,6 @@ func main() {
 		panic(errors.Tag(err, "web setup"))
 	}
 
-	webManager.Cron(context.Background(), false)
-
 	corsOptions := httpUtils.CORSOptions{}
 
 	r := webRouter.New(webManager, corsOptions)
