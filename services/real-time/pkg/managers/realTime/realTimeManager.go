@@ -95,9 +95,11 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 }
 
 func (m *manager) GracefulShutdown() {
-	time.Sleep(m.options.GracefulShutdown.Delay)
-
+	// Start returning 500s on /status
 	m.shuttingDown = true
+
+	// Wait for the LB to pick up the 500 and stop sending new traffic to us.
+	time.Sleep(m.options.GracefulShutdown.Delay)
 
 	deadLine := time.Now().Add(m.options.GracefulShutdown.Timeout)
 	for m.editorEvents.TriggerGracefulReconnect() > 0 &&
