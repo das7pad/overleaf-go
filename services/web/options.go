@@ -40,7 +40,7 @@ func getOptions() *webOptions {
 	o := &webOptions{
 		options: &types.Options{},
 	}
-	o.options.FillFromEnv()
+	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
 	o.redisOptions = redisOptions.Parse()

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -37,7 +37,7 @@ type clsiOptions struct {
 func getOptions() *clsiOptions {
 	o := &clsiOptions{}
 
-	utils.ParseJSONFromEnv("OPTIONS", &o.options)
+	utils.MustParseJSONFromEnv(&o.options, "OPTIONS")
 	o.address = listenAddress.Parse(3013)
 
 	loadPort := utils.GetIntFromEnv("LOAD_PORT", 3048)

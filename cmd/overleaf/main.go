@@ -55,35 +55,35 @@ func main() {
 	localUrl := "http://" + addr
 
 	clsiOptions := clsiTypes.Options{}
-	envUtils.ParseJSONFromEnv("CLSI_OPTIONS", &clsiOptions)
+	envUtils.MustParseJSONFromEnv(&clsiOptions, "CLSI_OPTIONS")
 	clsiManager, err := clsi.New(&clsiOptions)
 	if err != nil {
 		panic(errors.Tag(err, "clsi setup"))
 	}
 
 	dumOptions := documentUpdaterTypes.Options{}
-	envUtils.ParseJSONFromEnv("DOCUMENT_UPDATER_OPTIONS", &dumOptions)
+	envUtils.MustParseJSONFromEnv(&dumOptions, "DOCUMENT_UPDATER_OPTIONS")
 	dum, err := documentUpdater.New(&dumOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "document-updater setup"))
 	}
 
 	realTimeOptions := realTimeTypes.Options{}
-	envUtils.ParseJSONFromEnv("REAL_TIME_OPTIONS", &realTimeOptions)
+	envUtils.MustParseJSONFromEnv(&realTimeOptions, "REAL_TIME_OPTIONS")
 	rtm, err := realTime.New(context.Background(), &realTimeOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "realTime setup"))
 	}
 
 	spellingOptions := spellingTypes.Options{}
-	envUtils.ParseJSONFromEnv("SPELLING_OPTIONS", &spellingOptions)
+	envUtils.MustParseJSONFromEnv(&spellingOptions, "SPELLING_OPTIONS")
 	sm, err := spelling.New(&spellingOptions)
 	if err != nil {
 		panic(errors.Tag(err, "spelling setup"))
 	}
 
 	webOptions := webTypes.Options{}
-	envUtils.ParseJSONFromEnv("WEB_OPTIONS", &webOptions)
+	webOptions.FillFromEnv("WEB_OPTIONS")
 	webManager, err := web.New(&webOptions, db, rClient, localUrl, clsiManager)
 	if err != nil {
 		panic(errors.Tag(err, "web setup"))

@@ -104,8 +104,8 @@ type Options struct {
 	SessionCookie signedCookie.Options `json:"session_cookie"`
 }
 
-func (o *Options) FillFromEnv() {
-	utils.ParseJSONFromEnv("OPTIONS", o)
+func (o *Options) FillFromEnv(key string) {
+	utils.MustParseJSONFromEnv(o, key)
 	o.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")

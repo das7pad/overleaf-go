@@ -47,7 +47,7 @@ func main() {
 	}
 
 	o := &types.Options{}
-	o.FillFromEnv()
+	o.FillFromEnv("OPTIONS")
 	if err := o.Validate(); err != nil {
 		panic(errors.Tag(err, "web OPTIONS invalid"))
 	}

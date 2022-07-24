@@ -35,7 +35,7 @@ type realTimeOptions struct {
 
 func getOptions() *realTimeOptions {
 	o := &realTimeOptions{}
-	utils.ParseJSONFromEnv("OPTIONS", &o.options)
+	utils.MustParseJSONFromEnv(&o.options, "OPTIONS")
 	o.address = listenAddress.Parse(3026)
 	o.jwtOptions = jwtOptions.Parse("JWT_REAL_TIME_VERIFY_SECRET")
 	o.redisOptions = redisOptions.Parse()
