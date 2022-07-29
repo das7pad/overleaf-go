@@ -116,7 +116,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 	fBucket := utils.MustGetStringFromEnv("FILESTORE_BUCKET")
 	{
 		o := objectStorage.Options{}
-		utils.ParseJSONFromEnv("FILESTORE_OPTIONS", &o)
+		utils.MustParseJSONFromEnv(&o, "FILESTORE_OPTIONS")
 		m, err := objectStorage.FromOptions(o)
 		if err != nil {
 			panic(errors.Tag(err, "create filestore backend"))
@@ -127,7 +127,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int)
 	dBucket := utils.MustGetStringFromEnv("DOCSTORE_BUCKET")
 	{
 		o := objectStorage.Options{}
-		utils.ParseJSONFromEnv("DOCSTORE_OPTIONS", &o)
+		utils.MustParseJSONFromEnv(&o, "DOCSTORE_OPTIONS")
 		m, err := objectStorage.FromOptions(o)
 		if err != nil {
 			panic(errors.Tag(err, "create docstore backend"))
