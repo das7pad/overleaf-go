@@ -18,15 +18,14 @@ package user
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/netip"
 	"strings"
 
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -84,10 +83,10 @@ FROM users u
 ORDER BY signup_date
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted user")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -139,22 +138,8 @@ LIMIT 1
 	}
 	noLw := make([]string, 0)
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"users",
-			"beta_program", "deleted_at", "editor_config", "email", "email_confirmed_at", "email_created_at", "epoch", "features", "first_name", "id", "last_login_at", "last_login_ip", "last_name", "learned_words", "login_count", "must_reconfirm", "password_hash", "signup_date",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-
 	auditLogs := make(map[sharedTypes.UUID][]AuditLogEntry)
+	users := make([][]interface{}, 0, 10)
 
 	i := 0
 	for i = 0; uC.Next(ctx) && i < limit; i++ {
@@ -190,8 +175,7 @@ LIMIT 1
 			return errors.Tag(err, "clean login ip")
 		}
 
-		_, err = q.Exec(
-			ctx,
+		users = append(users, []interface{}{
 			u.BetaProgram,           // beta_program
 			nil,                     // deleted_at
 			u.EditorConfig,          // editor_config
@@ -205,12 +189,12 @@ LIMIT 1
 			u.LastLoggedIn,          // last_login_at
 			u.LastLoginIp,           // last_login_ip
 			u.LastName,              // last_name
-			pq.Array(lw),            // learned_words
+			lw,                      // learned_words
 			u.LoginCount,            // login_count
 			u.MustReconfirm,         // must_reconfirm
 			u.HashedPassword,        // password_hash
 			u.SignUpDate,            // signup_date
-		)
+		})
 		if err != nil {
 			return errors.Tag(err, "queue user")
 		}
@@ -218,11 +202,14 @@ LIMIT 1
 	if err = uC.Err(); err != nil {
 		return errors.Tag(err, "iter users")
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"users"},
+		[]string{"beta_program", "deleted_at", "editor_config", "email", "email_confirmed_at", "email_created_at", "epoch", "features", "first_name", "id", "last_login_at", "last_login_ip", "last_name", "learned_words", "login_count", "must_reconfirm", "password_hash", "signup_date"},
+		pgx.CopyFromRows(users),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert users")
 	}
 	nAuditLogs := 0
 	initiatorMongoIds := make(map[primitive.ObjectID]bool)
@@ -232,23 +219,12 @@ LIMIT 1
 			initiatorMongoIds[entry.InitiatorId] = true
 		}
 	}
-	initiatorIds, err := ResolveUsers(ctx, rTx, initiatorMongoIds)
+	initiatorIds, err := ResolveUsers(ctx, rTx, initiatorMongoIds, nil)
 	if err != nil {
 		return errors.Tag(err, "resolve audit log users")
 	}
 
-	q, err = tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"user_audit_log",
-			"id", "info", "initiator_id", "ip_address", "operation", "timestamp", "user_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare audit log")
-	}
-
+	ual := make([][]interface{}, 0, nAuditLogs)
 	ids, err := sharedTypes.GenerateUUIDBulk(nAuditLogs)
 	if err != nil {
 		return errors.Tag(err, "audit log ids")
@@ -266,26 +242,25 @@ LIMIT 1
 				return errors.Tag(err, "clean audit log ip")
 			}
 
-			_, err = q.Exec(
-				ctx,
+			ual = append(ual, []interface{}{
 				ids.Next(),                      // id
-				string(infoBlob),                // info
+				infoBlob,                        // info
 				initiatorIds[entry.InitiatorId], // initiator_id
 				entry.IpAddress,                 // ip_address
 				entry.Operation,                 // operation
 				entry.Timestamp,                 // timestamp
 				userId,                          // user_id
-			)
-			if err != nil {
-				return errors.Tag(err, "queue audit log")
-			}
+			})
 		}
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush audit log queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "close audit log queue")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"user_audit_log"},
+		[]string{"id", "info", "initiator_id", "ip_address", "operation", "timestamp", "user_id"},
+		pgx.CopyFromRows(ual),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert audit log")
 	}
 	if i == limit {
 		return status.HitLimit
@@ -293,32 +268,31 @@ LIMIT 1
 	return nil
 }
 
-func ResolveUsers(ctx context.Context, rTx *sql.Tx, ids map[primitive.ObjectID]bool) (map[primitive.ObjectID]sql.NullString, error) {
+func ResolveUsers(ctx context.Context, rTx pgx.Tx, ids map[primitive.ObjectID]bool, m map[primitive.ObjectID]pgtype.UUID) (map[primitive.ObjectID]pgtype.UUID, error) {
 	idsFlat := make([]sharedTypes.UUID, 0, len(ids))
 	for id := range ids {
 		idsFlat = append(idsFlat, m2pq.ObjectID2UUID(id))
 	}
-	r, err := rTx.QueryContext(ctx, `
+	r, err := rTx.Query(ctx, `
 SELECT id
 FROM users
 WHERE id = ANY ($1)
-`, pq.Array(idsFlat))
+`, idsFlat)
 	if err != nil {
 		return nil, errors.Tag(err, "query users")
 	}
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 
-	m := make(map[primitive.ObjectID]sql.NullString, len(ids))
+	if m == nil {
+		m = make(map[primitive.ObjectID]pgtype.UUID, len(ids))
+	}
 	for r.Next() {
-		id := sharedTypes.UUID{}
+		id := pgtype.UUID{}
 		if err = r.Scan(&id); err != nil {
 			return nil, errors.Tag(err, "decode user id")
 		}
-		oId, _ := m2pq.UUID2ObjectID(id)
-		m[oId] = sql.NullString{
-			String: id.String(),
-			Valid:  true,
-		}
+		oId, _ := m2pq.UUID2ObjectID(id.Bytes)
+		m[oId] = id
 	}
 	if err = r.Err(); err != nil {
 		return nil, errors.Tag(err, "iter users")
@@ -328,7 +302,7 @@ WHERE id = ANY ($1)
 		if _, exists := m[id]; exists {
 			continue
 		}
-		m[id] = sql.NullString{}
+		m[id] = pgtype.UUID{Status: pgtype.Null}
 	}
 
 	return m, nil

@@ -22,7 +22,6 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -109,8 +108,8 @@ WHERE u.deleted_at IS NULL
 			pi.SendingUser.DisplayName(),
 		))
 		if err != nil {
-			if e, ok := err.(*pq.Error); ok &&
-				e.Constraint == "project_invites_project_id_token_key" {
+			if e, ok := err.(*pgconn.PgError); ok &&
+				e.ConstraintName == "project_invites_project_id_token_key" {
 				// Duplicate .token
 				allErrors.Add(err)
 				continue

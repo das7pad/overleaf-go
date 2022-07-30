@@ -18,10 +18,9 @@ package projectInvite
 
 import (
 	"context"
-	"database/sql"
 	"log"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -44,7 +43,7 @@ type ForPQ struct {
 	TokenField          `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx pgx.Tx, limit int) error {
 	piQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
@@ -54,10 +53,10 @@ FROM project_invites
 ORDER BY created_at
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted pi")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -83,21 +82,7 @@ LIMIT 1
 		_ = piC.Close(ctx)
 	}()
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"project_invites",
-			"created_at", "email", "expires_at", "id", "privilege_level", "project_id", "sending_user_id", "token",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-
+	piRows := make([][]interface{}, 0, limit)
 	i := 0
 	for i = 0; piC.Next(ctx) && i < limit; i++ {
 		pi := ForPQ{}
@@ -106,8 +91,7 @@ LIMIT 1
 		}
 		log.Printf("project_invite[%d/%d]: %s", i, limit, pi.Id.Hex())
 
-		_, err = q.Exec(
-			ctx,
+		piRows = append(piRows, []interface{}{
 			pi.CreatedAt,                         //  created_at
 			pi.Email,                             //  email
 			pi.Expires,                           //  expires_at
@@ -116,16 +100,16 @@ LIMIT 1
 			m2pq.ObjectID2UUID(pi.ProjectId),     //  project_id
 			m2pq.ObjectID2UUID(pi.SendingUserId), //  sending_user_id
 			pi.Token,                             //  token
-		)
-		if err != nil {
-			return errors.Tag(err, "queue pi")
-		}
+		})
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"project_invites"},
+		[]string{"created_at", "email", "expires_at", "id", "privilege_level", "project_id", "sending_user_id", "token"},
+		pgx.CopyFromRows(piRows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert project invites")
 	}
 
 	if i == limit {

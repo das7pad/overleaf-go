@@ -17,9 +17,11 @@
 package user
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 
+	"github.com/jackc/pgtype"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -32,10 +34,16 @@ type Features struct {
 	TrackChangesVisible bool                       `json:"trackChangesVisible"`
 }
 
-func (f Features) Value() (driver.Value, error) {
+func (f Features) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	blob, err := json.Marshal(map[string]interface{}{
 		"compileGroup":   f.CompileGroup,
 		"compileTimeout": f.CompileTimeout,
 	})
-	return string(blob), err
+	if err != nil {
+		return nil, errors.Tag(err, "serialize Features")
+	}
+	return pgtype.JSONB{
+		Bytes:  blob,
+		Status: pgtype.Present,
+	}.EncodeBinary(ci, buf)
 }

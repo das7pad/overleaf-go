@@ -18,7 +18,6 @@ package projectUpload
 
 import (
 	"context"
-	"database/sql"
 	"io"
 	"time"
 
@@ -71,13 +70,11 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	if errProject != nil {
 		return errProject
 	}
-	p.DeletedAt = sql.NullTime{
-		// Give the project upload 1h until it gets cleaned up by the cron.
-		Time: time.Now().
-			Add(-constants.ExpireProjectsAfter).
-			Add(time.Hour),
-		Valid: true,
-	}
+	// Give the project upload 1h until it gets cleaned up by the cron.
+	scrubInOneHour := time.Now().
+		Add(-constants.ExpireProjectsAfter).
+		Add(time.Hour)
+	p.DeletedAt = &scrubInOneHour
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
 	}

@@ -19,7 +19,11 @@
 package sharedTypes
 
 import (
+	"fmt"
+
 	"github.com/jackc/pgtype"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 func (u *UUID) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
@@ -29,4 +33,60 @@ func (u *UUID) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
 
 func (u *UUID) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
 	return append(buf, u[:]...), nil
+}
+
+func (s *UUIDs) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	if len(src) == 0 {
+		*s = (*s)[:0]
+		return nil
+	}
+	h := pgtype.ArrayHeader{}
+	offset, err := h.DecodeBinary(ci, src)
+	if err != nil {
+		return errors.Tag(err, "decode UUID array header")
+	}
+	n := 0
+	for _, dimension := range h.Dimensions {
+		n = int(dimension.Length)
+	}
+	min := n * (4 + 16)
+	if len(src[offset:]) < min {
+		return errors.New(fmt.Sprintf(
+			"decode UUID array header: too short body: expected >=%d, got %d",
+			min, len(src[offset:]),
+		))
+	}
+	s2 := *s
+	if cap(s2) < n {
+		s2 = make(UUIDs, n)
+	} else {
+		s2 = s2[:n]
+	}
+	for i := 0; i < n; i++ {
+		offset += 4 // UUID length, skip over [0, 0, 0, 16]
+		copy(s2[i][:], src[offset:])
+		offset += 16
+	}
+	*s = s2
+	return nil
+}
+
+func (s UUIDs) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+	h := pgtype.ArrayHeader{
+		ContainsNull: false,
+		ElementOID:   pgtype.UUIDOID,
+		Dimensions:   []pgtype.ArrayDimension{{Length: int32(len(s))}},
+	}
+	buf = h.EncodeBinary(ci, buf)
+	min := len(buf) + len(s)*(16+4)
+	if cap(buf) < min {
+		newBuf = make([]byte, len(buf), min)
+		copy(newBuf, buf)
+		buf = newBuf
+	}
+	for _, u := range s {
+		buf = append(buf, 0, 0, 0, 16) // UUID length
+		buf = append(buf, u[:]...)
+	}
+	return buf, nil
 }

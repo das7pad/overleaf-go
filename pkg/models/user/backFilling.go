@@ -17,7 +17,7 @@
 package user
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx/v4"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -34,7 +34,7 @@ type AsProjectMember struct {
 
 type BulkFetched []WithPublicInfo
 
-func (b *BulkFetched) ScanInto(r *sql.Rows) error {
+func (b *BulkFetched) ScanFrom(r pgx.Rows) error {
 	x := *b
 	for i := 0; r.Next(); i++ {
 		x = append(x, WithPublicInfo{})

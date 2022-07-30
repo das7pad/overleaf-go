@@ -18,7 +18,6 @@ package project
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -111,7 +110,7 @@ type projectFile struct {
 	FileId    sharedTypes.UUID
 }
 
-func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error {
 	var fo objectStorage.Backend
 	fBucket := utils.MustGetStringFromEnv("FILESTORE_BUCKET")
 	{
@@ -193,10 +192,10 @@ FROM projects
 ORDER BY id
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted user")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -258,13 +257,6 @@ LIMIT 1
 	}
 	defer func() {
 		_ = dfC.Close(ctx)
-	}()
-
-	var q *sql.Stmt
-	defer func() {
-		if q != nil {
-			_ = q.Close()
-		}
 	}()
 
 	auditLogs := make(map[sharedTypes.UUID][]AuditLogEntry)
@@ -403,74 +395,49 @@ SELECT $1,
 			return errors.Tag(err, "insert project")
 		}
 
-		q, err = tx.Prepare(
-			ctx,
-			pq.CopyIn(
-				"tree_nodes",
-				"deleted_at", "id", "kind", "parent_id", "path",
-				"project_id",
-			),
-		)
-		if err != nil {
-			return errors.Tag(err, "prepare tree")
+		deletedAt := time.Unix(0, 0)
+		nTreeNodes := t.CountNodes() + len(deletedFiles)
+		for _, d := range docs {
+			if d.Deleted {
+				nTreeNodes++
+			}
 		}
+		rows := make([][]interface{}, 0, nTreeNodes)
 
-		deletedAt := "1970-01-01"
-		_, err = q.Exec(
-			ctx, deletedAt, tId, "folder", nil, "", pId,
-		)
-		if err != nil {
-			return errors.Tag(err, "queue root folder")
-		}
-
-		err = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
+		// tree_nodes
+		rows = append(rows, []interface{}{
+			deletedAt, tId, "folder", nil, "", pId,
+		})
+		_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 			fId := m2pq.ObjectID2UUID(f.Id)
 			for _, d := range f.Docs {
-				_, err = q.Exec(
-					ctx,
+				rows = append(rows, []interface{}{
 					deletedAt, m2pq.ObjectID2UUID(d.Id), "doc", fId,
 					path.Join(d.Name), pId,
-				)
-				if err != nil {
-					return err
-				}
+				})
 			}
 			for _, r := range f.FileRefs {
 				fileId := m2pq.ObjectID2UUID(r.Id)
-				_, err = q.Exec(
-					ctx,
-					deletedAt, fileId, "file", fId, path.Join(r.Name), pId,
-				)
-				if err != nil {
-					return err
-				}
+				rows = append(rows, []interface{}{
+					deletedAt, fileId, "file", fId,
+					path.Join(r.Name), pId,
+				})
 				copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 			}
 			for _, ff := range f.Folders {
-				_, err = q.Exec(
-					ctx,
+				rows = append(rows, []interface{}{
 					deletedAt, m2pq.ObjectID2UUID(ff.Id), "folder", fId,
-					path.Join(ff.Name)+"/", pId,
-				)
-				if err != nil {
-					return err
-				}
+					path.JoinDir(ff.Name) + "/", pId,
+				})
 			}
 			return nil
 		})
-		if err != nil {
-			return errors.Tag(err, "queue tree")
-		}
 
 		for _, f := range deletedFiles {
 			fileId := m2pq.ObjectID2UUID(f.Id)
-			_, err = q.Exec(
-				ctx,
+			rows = append(rows, []interface{}{
 				f.DeletedAt, fileId, "file", tId, f.Name, pId,
-			)
-			if err != nil {
-				return errors.Tag(err, "queue deleted file tree node")
-			}
+			})
 			copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 		}
 
@@ -478,112 +445,82 @@ SELECT $1,
 			if !d.Deleted {
 				continue
 			}
-			_, err = q.Exec(
-				ctx,
+			rows = append(rows, []interface{}{
 				d.DeletedAt, m2pq.ObjectID2UUID(d.Id), "doc", tId, d.Name, pId,
-			)
-			if err != nil {
-				return errors.Tag(err, "queue deleted doc tree node")
-			}
-		}
-		if _, err = q.Exec(ctx); err != nil {
-			return errors.Tag(err, "flush tree")
-		}
-		if err = q.Close(); err != nil {
-			return errors.Tag(err, "close tree")
+			})
 		}
 
-		q, err = tx.Prepare(
+		_, err = tx.CopyFrom(
 			ctx,
-			pq.CopyIn("docs", "id", "snapshot", "version"),
+			pgx.Identifier{"tree_nodes"},
+			[]string{
+				"deleted_at", "id", "kind", "parent_id", "path", "project_id",
+			},
+			pgx.CopyFromRows(rows),
 		)
 		if err != nil {
-			return errors.Tag(err, "prepare docs")
+			return errors.Tag(err, "insert tree")
 		}
+
+		// docs
+		rows = rows[:0]
 		var rootDocId interface{} = nil
 		for _, d := range docs {
+			docId := m2pq.ObjectID2UUID(d.Id)
 			if d.Id == p.RootDocId {
-				rootDocId = m2pq.ObjectID2UUID(d.Id)
+				rootDocId = docId
 			}
-			_, err = q.Exec(
-				ctx,
-				m2pq.ObjectID2UUID(d.Id), strings.Join(d.Lines, "\n"),
-				d.Version,
-			)
-			if err != nil {
-				return errors.Tag(err, "queue doc")
-			}
+			rows = append(rows, []interface{}{
+				docId, strings.Join(d.Lines, "\n"), d.Version,
+			})
 		}
-		if _, err = q.Exec(ctx); err != nil {
-			return errors.Tag(err, "flush docs")
-		}
-		if err = q.Close(); err != nil {
-			return err
-		}
-
-		q, err = tx.Prepare(
+		_, err = tx.CopyFrom(
 			ctx,
-			pq.CopyIn(
-				"files",
-				"id", "created_at", "hash", "linked_file_data", "size", "pending",
-			),
+			pgx.Identifier{"docs"},
+			[]string{"id", "snapshot", "version"},
+			pgx.CopyFromRows(rows),
 		)
 		if err != nil {
-			return errors.Tag(err, "prepare files")
+			return errors.Tag(err, "insert docs")
 		}
-		err = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
+
+		// files
+		rows = rows[:0]
+		_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 			d := e.(*FileRef)
-			_, err = q.Exec(
-				ctx,
-				m2pq.ObjectID2UUID(d.Id), d.Created, d.Hash, d.LinkedFileData,
-				*d.Size,
-				false,
-			)
-			return err
-		})
-		if err != nil {
-			return errors.Tag(err, "queue files")
-		}
-		for _, f := range deletedFiles {
-			_, err = q.Exec(
-				ctx,
-				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
-				*f.Size,
-				false,
-			)
-			if err != nil {
-				return errors.Tag(err, "queue deleted file")
+			if err = d.LinkedFileData.Migrate(); err != nil {
+				return err
 			}
+			rows = append(rows, []interface{}{
+				m2pq.ObjectID2UUID(d.Id), d.Created, d.Hash, d.LinkedFileData,
+				*d.Size, false,
+			})
+			return nil
+		})
+		for _, f := range deletedFiles {
+			if err = f.LinkedFileData.Migrate(); err != nil {
+				return err
+			}
+			rows = append(rows, []interface{}{
+				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
+				*f.Size, false,
+			})
 		}
-		if _, err = q.Exec(ctx); err != nil {
-			return errors.Tag(err, "flush files")
-		}
-		if err = q.Close(); err != nil {
-			return errors.Tag(err, "close files")
-		}
-
-		_, err = tx.Exec(ctx, `
-UPDATE projects
-SET deleted_at     = NULL,
-    root_doc_id    = $2,
-    root_folder_id = $3
-WHERE id = $1
-`, pId, rootDocId, tId)
-		if err != nil {
-			return errors.Tag(err, "finalize project")
-		}
-
-		q, err = tx.Prepare(
+		_, err = tx.CopyFrom(
 			ctx,
-			pq.CopyIn(
-				"project_members",
-				"project_id", "user_id", "access_source", "privilege_level", "archived", "trashed",
-			),
+			pgx.Identifier{"files"},
+			[]string{
+				"id", "created_at", "hash", "linked_file_data", "size",
+				"pending",
+			},
+			pgx.CopyFromRows(rows),
 		)
 		if err != nil {
-			return errors.Tag(err, "prepare collaborators")
+			return errors.Tag(err, "insert files")
 		}
 
+		// project_members
+		rows = rows[:0]
 		access := []struct {
 			AccessSource
 			sharedTypes.PrivilegeLevel
@@ -616,30 +553,49 @@ WHERE id = $1
 			},
 		}
 		seen := make(map[primitive.ObjectID]bool, 0)
-
+		nUsers := 0
+		for _, a := range access {
+			nUsers += len(a.Refs)
+		}
+		if cap(rows) < nUsers {
+			rows = make([][]interface{}, 0, nUsers)
+		}
 		for _, a := range access {
 			for _, userId := range a.Refs {
 				if seen[userId] {
 					continue
 				}
-				_, err = q.Exec(
-					ctx,
+				rows = append(rows, []interface{}{
 					pId, m2pq.ObjectID2UUID(userId), a.AccessSource,
 					a.PrivilegeLevel, p.ArchivedBy.Contains(userId),
 					p.TrashedBy.Contains(userId),
-				)
-				if err != nil {
-					return errors.Tag(err, "queue collaborator")
-				}
+				})
 				seen[userId] = true
 			}
 		}
-
-		if _, err = q.Exec(ctx); err != nil {
-			return errors.Tag(err, "flush collaborator queue")
+		_, err = tx.CopyFrom(
+			ctx,
+			pgx.Identifier{"project_members"},
+			[]string{
+				"project_id", "user_id", "access_source", "privilege_level",
+				"archived", "trashed",
+			},
+			pgx.CopyFromRows(rows),
+		)
+		if err != nil {
+			return errors.Tag(err, "insert collaborators")
 		}
-		if err = q.Close(); err != nil {
-			return errors.Tag(err, "close collaborator queue")
+
+		// All done, mark the project as alive.
+		_, err = tx.Exec(ctx, `
+UPDATE projects
+SET deleted_at     = NULL,
+    root_doc_id    = $2,
+    root_folder_id = $3
+WHERE id = $1
+`, pId, rootDocId, tId)
+		if err != nil {
+			return errors.Tag(err, "finalize project")
 		}
 	}
 
@@ -651,53 +607,57 @@ WHERE id = $1
 			initiatorMongoIds[entry.InitiatorId] = true
 		}
 	}
-	initiatorIds, err := user.ResolveUsers(ctx, rTx, initiatorMongoIds)
+	initiatorIds, err := user.ResolveUsers(ctx, rTx, initiatorMongoIds, nil)
 	if err != nil {
 		return errors.Tag(err, "resolve audit log users")
 	}
 
-	q, err = tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"project_audit_log",
-			"id", "info", "initiator_id", "operation", "project_id", "timestamp",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare audit log")
-	}
-
+	rows := make([][]interface{}, 0, nAuditLogs)
 	ids, err := sharedTypes.GenerateUUIDBulk(nAuditLogs)
 	if err != nil {
 		return errors.Tag(err, "audit log ids")
 	}
 	for projectId, entries := range auditLogs {
 		for _, entry := range entries {
+			for _, s := range []string{"newOwnerId", "previousOwnerId"} {
+				if raw, ok := entry.Info[s]; ok {
+					switch id := raw.(type) {
+					case primitive.ObjectID:
+						entry.Info[s] = m2pq.ObjectID2UUID(id)
+					case string:
+						entry.Info[s], err = m2pq.ParseID(raw.(string))
+						if err != nil {
+							return errors.Tag(err, "migrate audit log id "+s)
+						}
+					}
+				}
+			}
 			var infoBlob []byte
 			infoBlob, err = json.Marshal(entry.Info)
 			if err != nil {
 				return errors.Tag(err, "serialize audit log")
 			}
-			_, err = q.Exec(
-				ctx,
+			rows = append(rows, []interface{}{
 				ids.Next(),                      // id
-				string(infoBlob),                // info
+				infoBlob,                        // info
 				initiatorIds[entry.InitiatorId], // initiator_id
 				entry.Operation,                 // operation
 				projectId,                       // project_id
 				entry.Timestamp,                 // timestamp
-			)
-			if err != nil {
-				return errors.Tag(err, "queue audit log")
-			}
+			})
 		}
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush audit log queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "close audit log queue")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"project_audit_log"},
+		[]string{
+			"id", "info", "initiator_id", "operation", "project_id",
+			"timestamp",
+		},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert audit log")
 	}
 
 	// Upon returning for committing the tx, all copying should have finished.

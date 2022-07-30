@@ -17,14 +17,16 @@
 package project
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgtype"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -58,12 +60,45 @@ type LinkedFileData struct {
 	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
 }
 
-func (d *LinkedFileData) Value() (driver.Value, error) {
+func (d *LinkedFileData) Migrate() error {
+	if d == nil || d.Provider == "" {
+		return nil
+	}
+
+	// The NodeJS implementation stored these as absolute paths.
+	if d.SourceEntityPath != "" {
+		d.SourceEntityPath = strings.TrimPrefix(
+			d.SourceEntityPath, "/",
+		)
+	}
+	if d.SourceOutputFilePath != "" {
+		d.SourceOutputFilePath = strings.TrimPrefix(
+			d.SourceOutputFilePath, "/",
+		)
+	}
+
+	if d.SourceProjectId != "" {
+		id, err := m2pq.ParseID(d.SourceProjectId)
+		if err != nil {
+			return errors.Tag(err, "invalid source project id")
+		}
+		d.SourceProjectId = id.String()
+	}
+	return nil
+}
+
+func (d *LinkedFileData) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	if d == nil || d.Provider == "" {
 		return nil, nil
 	}
 	blob, err := json.Marshal(d)
-	return string(blob), err
+	if err != nil {
+		return nil, errors.Tag(err, "serialize LinkedFileData")
+	}
+	return pgtype.JSON{
+		Bytes:  blob,
+		Status: pgtype.Present,
+	}.EncodeBinary(ci, buf)
 }
 
 type FileRef struct {
@@ -91,6 +126,14 @@ type DirWalker func(folder *Folder, path sharedTypes.DirName) error
 type DirWalkerMongo func(parent, folder *Folder, path sharedTypes.DirName, mongoPath MongoPath) error
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
 type TreeWalkerMongo func(parent *Folder, element TreeElement, path sharedTypes.PathName, mongoPath MongoPath) error
+
+func (t *Folder) CountNodes() int {
+	n := 1 + len(t.Docs) + len(t.FileRefs)
+	for _, f := range t.Folders {
+		n += f.CountNodes()
+	}
+	return n
+}
 
 func (t *Folder) WalkFiles(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, "", walkModeFiles))

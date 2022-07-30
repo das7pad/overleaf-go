@@ -185,25 +185,7 @@ WHERE p.id = $1
 			return err
 		}
 		defer r.Close()
-		c := res.Users
-
-		for i := 0; r.Next(); i++ {
-			c = append(c, user.WithPublicInfo{})
-			err = r.Scan(
-				&c[i].Id,
-				&c[i].Email,
-				&c[i].FirstName,
-				&c[i].LastName,
-			)
-			if err != nil {
-				return err
-			}
-		}
-		if err = r.Err(); err != nil {
-			return err
-		}
-		res.Users = c
-		return nil
+		return res.Users.ScanFrom(r)
 	})
 	return eg.Wait()
 }
@@ -310,22 +292,7 @@ WHERE dh.end_at < $3
 			return err
 		}
 		defer r.Close()
-		c := res.Users
-
-		for i := 0; r.Next(); i++ {
-			c = append(c, user.WithPublicInfo{})
-			err = r.Scan(
-				&c[i].Id,
-				&c[i].Email,
-				&c[i].FirstName,
-				&c[i].LastName,
-			)
-			if err != nil {
-				return err
-			}
-		}
-		res.Users = c
-		return nil
+		return res.Users.ScanFrom(r)
 	})
 	return eg.Wait()
 }

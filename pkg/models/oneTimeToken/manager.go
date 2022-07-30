@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -72,8 +72,8 @@ WHERE u.id = $1
   AND u.deleted_at IS NULL
 `, userId, email, time.Now().Add(expiresIn), token, use)
 		if err != nil {
-			if e, ok := err.(*pq.Error); ok &&
-				e.Constraint == "one_time_tokens_pkey" {
+			if e, ok := err.(*pgconn.PgError); ok &&
+				e.ConstraintName == "one_time_tokens_pkey" {
 				// Duplicate .token
 				allErrors.Add(err)
 				continue

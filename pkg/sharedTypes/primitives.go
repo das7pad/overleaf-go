@@ -131,3 +131,5 @@ func (u *UUID) UnmarshalJSON(b []byte) error {
 	*u = u2
 	return nil
 }
+
+type UUIDs []UUID

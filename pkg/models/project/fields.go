@@ -17,7 +17,6 @@
 package project
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -37,7 +36,7 @@ type CompilerField struct {
 }
 
 type DeletedAtField struct {
-	DeletedAt sql.NullTime
+	DeletedAt *time.Time
 }
 
 type DeletedDocsField struct {

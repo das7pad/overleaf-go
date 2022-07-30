@@ -17,9 +17,11 @@
 package user
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 
+	"github.com/jackc/pgtype"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -37,7 +39,13 @@ type EditorConfig struct {
 	Theme              string                           `json:"theme" bson:"theme"`
 }
 
-func (e EditorConfig) Value() (driver.Value, error) {
+func (e EditorConfig) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	blob, err := json.Marshal(e)
-	return string(blob), err
+	if err != nil {
+		return nil, errors.Tag(err, "serialize EditorConfig")
+	}
+	return pgtype.JSONB{
+		Bytes:  blob,
+		Status: pgtype.Present,
+	}.EncodeBinary(ci, buf)
 }

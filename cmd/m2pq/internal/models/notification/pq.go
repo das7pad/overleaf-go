@@ -18,10 +18,9 @@ package notification
 
 import (
 	"context"
-	"database/sql"
 	"log"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -42,7 +41,7 @@ type ForPQ struct {
 	MessageOptsField `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx pgx.Tx, limit int) error {
 	ottQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
@@ -52,10 +51,10 @@ FROM notifications
 ORDER BY id
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted user")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			lowest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -81,21 +80,7 @@ LIMIT 1
 		_ = nC.Close(ctx)
 	}()
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"notifications",
-			"expires_at", "id", "key", "message_options", "template_key", "user_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-
+	rows := make([][]interface{}, 0, limit)
 	i := 0
 	for i = 0; nC.Next(ctx) && i < limit; i++ {
 		n := ForPQ{}
@@ -104,24 +89,23 @@ LIMIT 1
 		}
 		log.Printf("notifications[%d/%d]: %s", i, limit, n.Id.Hex())
 
-		_, err = q.Exec(
-			ctx,
+		rows = append(rows, []interface{}{
 			n.Expires,                    // expires_at
 			m2pq.ObjectID2UUID(n.Id),     // id
 			n.Key,                        // key
 			n.MessageOptions,             // message_options
 			n.TemplateKey,                // template_key
 			m2pq.ObjectID2UUID(n.UserId), // user_id
-		)
-		if err != nil {
-			return errors.Tag(err, "queue notification")
-		}
+		})
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"notifications"},
+		[]string{"expires_at", "id", "key", "message_options", "template_key", "user_id"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert one time tokens")
 	}
 
 	if i == limit {

@@ -18,12 +18,12 @@ package docHistory
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"log"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -54,7 +54,7 @@ type ForPQ struct {
 	} `bson:"pack"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error {
 	dhQuery := bson.M{}
 	{
 		var pId, docId sharedTypes.UUID
@@ -68,10 +68,10 @@ FROM doc_history
 ORDER BY p.id, d.id, end_at
 LIMIT 1
 `).Scan(&pId, &docId, &end)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted pi")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			lowerProjectId, err2 := m2pq.UUID2ObjectID(pId)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last project id")
@@ -122,36 +122,10 @@ LIMIT 1
 		_ = dhC.Close(ctx)
 	}()
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"doc_history",
-			"id", "doc_id", "user_id", "version", "op",
-			"has_big_delete", "start_at", "end_at",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-
-	checkStmt, err := rTx.Prepare(ctx, `
-SELECT TRUE
-FROM docs d
-         INNER JOIN tree_nodes tn ON d.id = tn.id
-         INNER JOIN projects p ON tn.project_id = p.id
-WHERE d.id = $1
-  AND p.id = $2
-`)
-	if err != nil {
-		return errors.Tag(err, "prepare check statement")
-	}
+	rows := make([][]interface{}, 0, limit)
 	ok := false
 
-	resolved := make(map[primitive.ObjectID]sql.NullString)
+	resolved := make(map[primitive.ObjectID]pgtype.UUID)
 
 	i := 0
 	for i = 0; dhC.Next(ctx) && i < limit; i++ {
@@ -162,8 +136,15 @@ WHERE d.id = $1
 
 		docId := m2pq.ObjectID2UUID(dh.DocId)
 		projectId := m2pq.ObjectID2UUID(dh.ProjectId)
-		err = checkStmt.QueryRowContext(ctx, docId, projectId).Scan(&ok)
-		if err == sql.ErrNoRows {
+		err = rTx.QueryRow(ctx, `
+SELECT TRUE
+FROM docs d
+         INNER JOIN tree_nodes tn ON d.id = tn.id
+         INNER JOIN projects p ON tn.project_id = p.id
+WHERE d.id = $1
+  AND p.id = $2
+`, docId, projectId).Scan(&ok)
+		if err == pgx.ErrNoRows {
 			continue
 		}
 		if err != nil {
@@ -180,13 +161,9 @@ WHERE d.id = $1
 		}
 
 		if len(missing) > 0 {
-			var r map[primitive.ObjectID]sql.NullString
-			r, err = user.ResolveUsers(ctx, rTx, missing)
+			resolved, err = user.ResolveUsers(ctx, rTx, missing, resolved)
 			if err != nil {
 				return errors.Tag(err, "resolve users")
-			}
-			for id, s := range r {
-				resolved[id] = s
 			}
 		}
 
@@ -209,27 +186,29 @@ WHERE d.id = $1
 			if err != nil {
 				return errors.Tag(err, "serialize op")
 			}
-			_, err = q.Exec(
-				ctx,
+			rows = append(rows, []interface{}{
 				b.Next(),                          // id
 				m2pq.ObjectID2UUID(dh.DocId),      // doc_id
 				resolved[pack.Meta.UserId],        // user_id
 				pack.Version,                      // version
-				string(blob),                      // op
+				blob,                              // op
 				hasBigDelete,                      // has_big_delete
 				time.UnixMilli(pack.Meta.StartTs), // start_at
 				time.UnixMilli(pack.Meta.EndTs),   // end_at
-			)
-			if err != nil {
-				return errors.Tag(err, "queue")
-			}
+			})
 		}
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"doc_history"},
+		[]string{
+			"id", "doc_id", "user_id", "version", "op", "has_big_delete",
+			"start_at", "end_at",
+		},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert")
 	}
 
 	if i == limit {

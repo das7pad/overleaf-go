@@ -28,7 +28,7 @@ func (o *Op) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
 	return json.Unmarshal(src, o)
 }
 
-func (o Op) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+func (o Op) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	b, err := json.Marshal(o)
 	return append(buf, b...), err
 }

@@ -18,11 +18,11 @@ package chat
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -48,7 +48,7 @@ type Room struct {
 	ProjectId primitive.ObjectID `bson:"project_id"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error {
 	uQuery := bson.M{
 		"thread_id": bson.M{
 			"$exists": false,
@@ -62,10 +62,10 @@ FROM chat_messages
 ORDER BY project_id
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted project id")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			oldest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -101,22 +101,8 @@ LIMIT 1
 	lastMsg := Message{}
 	lastMsgRoom := "ffffffffffffffffffffffff"
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"chat_messages",
-			"id", "project_id", "content", "created_at", "user_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-
-	resolved := make(map[primitive.ObjectID]sql.NullString)
+	resolved := make(map[primitive.ObjectID]pgtype.UUID)
+	rows := make([][]interface{}, 0, limit)
 
 	i := 0
 	for i = 0; rC.Next(ctx) && i < limit; i++ {
@@ -163,28 +149,32 @@ LIMIT 1
 			}
 
 			if len(missing) > 0 {
-				var users map[primitive.ObjectID]sql.NullString
-				users, err = user.ResolveUsers(ctx, rTx, missing)
+				resolved, err = user.ResolveUsers(ctx, rTx, missing, resolved)
 				if err != nil {
 					return errors.Tag(err, "resolve users")
 				}
-				for id, s := range users {
-					resolved[id] = s
-				}
 			}
 
+			rows = rows[:0]
 			for _, msg := range pending {
-				_, err = q.Exec(
-					ctx,
+				rows = append(rows, []interface{}{
 					m2pq.ObjectID2UUID(msg.Id),    // id
 					m2pq.ObjectID2UUID(pId),       // project_id
 					msg.Content,                   // content
 					time.UnixMilli(msg.Timestamp), // created_at
 					resolved[msg.UserId],          // user_id
-				)
-				if err != nil {
-					return errors.Tag(err, "queue message")
-				}
+				})
+			}
+			_, err = tx.CopyFrom(
+				ctx,
+				pgx.Identifier{"chat_messages"},
+				[]string{
+					"id", "project_id", "content", "created_at", "user_id",
+				},
+				pgx.CopyFromRows(rows),
+			)
+			if err != nil {
+				return errors.Tag(err, "insert chat messages")
 			}
 			pending = pending[:0]
 			return nil
@@ -218,12 +208,6 @@ LIMIT 1
 	}
 	if err = rC.Err(); err != nil {
 		return errors.Tag(err, "iter rooms")
-	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush messages queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
 	}
 	if i == limit {
 		return status.HitLimit

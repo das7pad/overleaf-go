@@ -24,7 +24,6 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -37,7 +36,7 @@ import (
 type Manager interface {
 	PrepareProjectCreation(ctx context.Context, p *ForCreation) error
 	FinalizeProjectCreation(ctx context.Context, p *ForCreation) error
-	SoftDelete(ctx context.Context, projectId []sharedTypes.UUID, userId sharedTypes.UUID, ipAddress string) error
+	SoftDelete(ctx context.Context, projectIds sharedTypes.UUIDs, userId sharedTypes.UUID, ipAddress string) error
 	HardDelete(ctx context.Context, projectId sharedTypes.UUID) error
 	ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId sharedTypes.UUID) bool) error
 	GetDeletedProjectsName(ctx context.Context, projectId, userId sharedTypes.UUID) (Name, error)
@@ -108,11 +107,11 @@ func rewritePostgresErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	e, ok := err.(*pq.Error)
+	e, ok := err.(*pgconn.PgError)
 	if !ok {
 		return err
 	}
-	if e.Constraint == "tree_nodes_project_id_deleted_at_path_key" {
+	if e.ConstraintName == "tree_nodes_project_id_deleted_at_path_key" {
 		return ErrDuplicateNameInFolder
 	}
 	return err
@@ -179,25 +178,26 @@ FROM p
 		return err
 	}
 
-	// TODO: count
-	tn := make([][]interface{}, 0, 10)
-	deletedAt := time.Unix(0, 0)
 	t := p.RootFolder
+	deletedAt := time.Unix(0, 0)
+	rows := make([][]interface{}, 0, t.CountNodes())
 
-	tn = append(tn, []interface{}{deletedAt, t.Id, "folder", nil, "", p.Id})
+	rows = append(rows, []interface{}{
+		deletedAt, t.Id, "folder", nil, "", p.Id,
+	})
 	_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 		for _, d := range f.Docs {
-			tn = append(tn, []interface{}{
+			rows = append(rows, []interface{}{
 				deletedAt, d.Id, "doc", f.Id, path.Join(d.Name), p.Id,
 			})
 		}
 		for _, r := range f.FileRefs {
-			tn = append(tn, []interface{}{
+			rows = append(rows, []interface{}{
 				deletedAt, r.Id, "file", f.Id, path.Join(r.Name), p.Id,
 			})
 		}
 		for _, ff := range f.Folders {
-			tn = append(tn, []interface{}{
+			rows = append(rows, []interface{}{
 				deletedAt, ff.Id, "folder", f.Id, ff.Path + "/", p.Id,
 			})
 		}
@@ -209,34 +209,32 @@ FROM p
 		[]string{
 			"deleted_at", "id", "kind", "parent_id", "path", "project_id",
 		},
-		pgx.CopyFromRows(tn),
+		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
 		return errors.Tag(err, "insert tree")
 	}
 
-	// TODO: count
-	docs := make([][]interface{}, 0, 10)
+	rows = rows[:0]
 	_ = t.WalkDocs(func(e TreeElement, _ sharedTypes.PathName) error {
 		d := e.(*Doc)
-		docs = append(docs, []interface{}{d.Id, d.Snapshot, d.Version})
+		rows = append(rows, []interface{}{d.Id, d.Snapshot, d.Version})
 		return nil
 	})
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"docs"},
 		[]string{"id", "snapshot", "version"},
-		pgx.CopyFromRows(docs),
+		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
 		return errors.Tag(err, "insert docs")
 	}
 
-	// TODO: count
-	files := make([][]interface{}, 0, 10)
+	rows = rows[:0]
 	_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 		d := e.(*FileRef)
-		files = append(files, []interface{}{
+		rows = append(rows, []interface{}{
 			d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size, false,
 		})
 		return nil
@@ -247,7 +245,7 @@ FROM p
 		[]string{
 			"id", "created_at", "hash", "linked_file_data", "size", "pending",
 		},
-		pgx.CopyFromRows(files),
+		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
 		return errors.Tag(err, "insert files")
@@ -297,9 +295,9 @@ RETURNING token_ro, token_rw
 			tokens.ReadOnly, tokens.ReadAndWrite, tokens.ReadAndWritePrefix,
 		).Scan(&persisted.ReadOnly, &persisted.ReadAndWrite)
 		if err != nil {
-			if e, ok := err.(*pq.Error); ok &&
-				(e.Constraint == "projects_token_ro_key" ||
-					e.Constraint == "projects_token_rw_prefix_key") {
+			if e, ok := err.(*pgconn.PgError); ok &&
+				(e.ConstraintName == "projects_token_ro_key" ||
+					e.ConstraintName == "projects_token_rw_prefix_key") {
 				allErrors.Add(err)
 				continue
 			}
@@ -649,7 +647,7 @@ func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fil
 
 func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error) {
 	var v sharedTypes.Version
-	var docIds []sharedTypes.UUID
+	var docIds sharedTypes.UUIDs
 	var docPaths []string
 	err := m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
@@ -707,7 +705,7 @@ SELECT updated_version.tree_version, updated_docs.ids, updated_docs.paths
 FROM updated_version,
      updated_docs
 `, projectId, userId, folderId, targetFolderId).
-		Scan(&v, pq.Array(&docIds), pq.Array(&docPaths))
+		Scan(&v, &docIds, &docPaths)
 	if err != nil {
 		return 0, nil, rewritePostgresErr(err)
 	}
@@ -766,7 +764,7 @@ func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.
 
 func (m *manager) RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error) {
 	var v sharedTypes.Version
-	var docIds []sharedTypes.UUID
+	var docIds sharedTypes.UUIDs
 	var docPaths []string
 	err := m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
@@ -811,7 +809,7 @@ SELECT updated_version.tree_version, updated_docs.ids, updated_docs.paths
 FROM updated_version,
      updated_docs
 `, projectId, userId, f.Id, f.Name).
-		Scan(&v, pq.Array(&docIds), pq.Array(&docPaths))
+		Scan(&v, &docIds, &docPaths)
 	if err != nil {
 		return 0, nil, rewritePostgresErr(err)
 	}
@@ -873,7 +871,7 @@ FROM projects p
          INNER JOIN project_members pm ON p.id = pm.project_id
 WHERE user_id = $1
   AND p.deleted_at IS NULL
-`, userId).Scan(pq.Array(&raw))
+`, userId).Scan(&raw)
 	if err != nil {
 		return nil, err
 	}
@@ -1209,7 +1207,7 @@ func (m *manager) GetForZip(ctx context.Context, projectId sharedTypes.UUID, use
 WITH tree AS
          (SELECT t.project_id,
                  array_agg(t.id)                     AS ids,
-                 array_agg(t.kind)                   AS kinds,
+                 array_agg(t.kind::TEXT)             AS kinds,
                  array_agg(t.path)                   AS paths,
                  array_agg(COALESCE(d.snapshot, '')) AS snapshots
           FROM tree_nodes t
@@ -1237,10 +1235,10 @@ WHERE p.id = $1
     )
 `, projectId, userId, accessToken).Scan(
 		&p.Name,
-		pq.Array(&p.treeIds),
-		pq.Array(&p.treeKinds),
-		pq.Array(&p.treePaths),
-		pq.Array(&p.docSnapshots),
+		&p.treeIds,
+		&p.treeKinds,
+		&p.treePaths,
+		&p.docSnapshots,
 	)
 }
 
@@ -1250,14 +1248,14 @@ func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId s
 	d.Project.RootFolder = NewFolder("")
 	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
 
-	var deletedDocIds []sharedTypes.UUID
+	var deletedDocIds sharedTypes.UUIDs
 	var deletedDocNames []string
 
 	err := m.db.QueryRow(ctx, `
 WITH tree AS
          (SELECT t.project_id,
                  array_agg(t.id)                AS ids,
-                 array_agg(t.kind)              AS kinds,
+                 array_agg(t.kind::TEXT)        AS kinds,
                  array_agg(t.path)              AS paths,
                  array_agg(f.created_at)        AS created_ats,
                  array_agg(f.linked_file_data)  AS linked_file_data,
@@ -1335,14 +1333,14 @@ WHERE p.id = $1
 		&d.Owner.Email,
 		&d.Owner.FirstName,
 		&d.Owner.LastName,
-		pq.Array(&d.Project.treeIds),
-		pq.Array(&d.Project.treeKinds),
-		pq.Array(&d.Project.treePaths),
-		pq.Array(&d.Project.createdAts),
-		pq.Array(&d.Project.linkedFileData),
-		pq.Array(&d.Project.sizes),
-		pq.Array(&deletedDocIds),
-		pq.Array(&deletedDocNames),
+		&d.Project.treeIds,
+		&d.Project.treeKinds,
+		&d.Project.treePaths,
+		&d.Project.createdAts,
+		&d.Project.linkedFileData,
+		&d.Project.sizes,
+		&deletedDocIds,
+		&deletedDocNames,
 	)
 	if err != nil {
 		return nil, err
@@ -1443,7 +1441,7 @@ func (m *manager) GetForClone(ctx context.Context, projectId, userId sharedTypes
 WITH tree AS
          (SELECT t.project_id,
                  array_agg(t.id)                     AS ids,
-                 array_agg(t.kind)                   AS kinds,
+                 array_agg(t.kind::TEXT)             AS kinds,
                  array_agg(t.path)                   AS paths,
                  array_agg(COALESCE(d.snapshot, '')) AS snapshots,
                  array_agg(f.created_at)             AS created_ats,
@@ -1484,13 +1482,13 @@ WHERE p.id = $1
 		&p.ImageName,
 		&p.RootDoc.Id,
 		&p.SpellCheckLanguage,
-		pq.Array(&p.treeIds),
-		pq.Array(&p.treeKinds),
-		pq.Array(&p.treePaths),
-		pq.Array(&p.docSnapshots),
-		pq.Array(&p.createdAts),
-		pq.Array(&p.linkedFileData),
-		pq.Array(&p.sizes),
+		&p.treeIds,
+		&p.treeKinds,
+		&p.treePaths,
+		&p.docSnapshots,
+		&p.createdAts,
+		&p.linkedFileData,
+		&p.sizes,
 	)
 }
 
@@ -1648,7 +1646,7 @@ WHERE id = pm.project_id
 `, projectId, actor, userId))
 }
 
-func (m *manager) SoftDelete(ctx context.Context, projectIds []sharedTypes.UUID, userId sharedTypes.UUID, ipAddress string) error {
+func (m *manager) SoftDelete(ctx context.Context, projectIds sharedTypes.UUIDs, userId sharedTypes.UUID, ipAddress string) error {
 	blob, err := json.Marshal(map[string]string{
 		"ipAddress": ipAddress,
 	})
@@ -1673,7 +1671,7 @@ SELECT gen_random_uuid(),
        id,
        transaction_timestamp()
 FROM soft_deleted
-`, pq.Array(projectIds), userId, string(blob))
+`, projectIds, userId, blob)
 	if err != nil {
 		return err
 	}
@@ -1702,7 +1700,7 @@ WHERE id = $1
 }
 
 func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(projectId sharedTypes.UUID) bool) error {
-	ids := make([]sharedTypes.UUID, 0, 100)
+	ids := make(sharedTypes.UUIDs, 0, 100)
 	for {
 		ids = ids[:0]
 		r := m.db.QueryRow(ctx, `
@@ -1711,10 +1709,10 @@ WITH ids AS (SELECT id
              WHERE deleted_at <= $1
              ORDER BY deleted_at
              LIMIT 100)
-SELECT array_agg(ids)
+SELECT array_agg(ids.id)
 FROM ids
 `, cutOff)
-		if err := r.Scan(pq.Array(&ids)); err != nil {
+		if err := r.Scan(&ids); err != nil {
 			return err
 		}
 		if len(ids) == 0 {
@@ -2048,7 +2046,7 @@ WHERE pm.user_id = $1
 			&projects[i].PrivilegeLevel,
 			&projects[i].PublicAccessLevel,
 			&projects[i].Trashed,
-			pq.Array(&projects[i].TagIds),
+			&projects[i].TagIds,
 		)
 		if err != nil {
 			return nil, err
@@ -2061,7 +2059,7 @@ WHERE pm.user_id = $1
 
 func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
 	var tagNames []string
-	var tagIds []sharedTypes.UUID
+	var tagIds sharedTypes.UUIDs
 
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -2083,7 +2081,7 @@ WHERE u.id = $1
 `, userId).Scan(
 			&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
 			&d.User.FirstName, &d.User.LastName,
-			pq.Array(&tagIds), pq.Array(&tagNames),
+			&tagIds, &tagNames,
 		)
 	})
 	eg.Go(func() error {

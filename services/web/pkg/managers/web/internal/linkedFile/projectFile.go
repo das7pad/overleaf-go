@@ -33,7 +33,7 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 		ctx, sourceProjectId, userId, request.Parameter.SourceEntityPath,
 	)
 	if err != nil {
-		return err
+		return errors.Tag(err, "get source element")
 	}
 
 	f, err := os.CreateTemp("", "linked-file")

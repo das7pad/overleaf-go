@@ -18,10 +18,9 @@ package tag
 
 import (
 	"context"
-	"database/sql"
 	"log"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -40,7 +39,7 @@ type ForPQ struct {
 	UserIdField     `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx pgx.Tx, limit int) error {
 	tQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
@@ -50,10 +49,10 @@ FROM tags
 ORDER BY user_id
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted user")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			lowest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -81,25 +80,8 @@ LIMIT 1
 		return errors.Tag(err, "fetch all tags")
 	}
 
-	var q *sql.Stmt
-	defer func() {
-		if q != nil {
-			_ = q.Close()
-		}
-	}()
-
 	// Part 1: user <-> tag with name
-	q, err = tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"tags",
-			"id", "name", "user_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare tags insert")
-	}
+	tagRows := make([][]interface{}, 0, len(tags))
 	var userId primitive.ObjectID
 	for i, t := range tags {
 		log.Printf("tags[%d/%d]: tags: %s", i, limit, t.Id.Hex())
@@ -108,53 +90,37 @@ LIMIT 1
 		if err != nil {
 			return errors.Tag(err, "parse user id")
 		}
-		_, err = q.Exec(
-			ctx,
-			m2pq.ObjectID2UUID(t.Id),
-			t.Name,
-			m2pq.ObjectID2UUID(userId),
-		)
-		if err != nil {
-			return errors.Tag(err, "queue tag")
-		}
+		tagRows = append(tagRows, []interface{}{
+			m2pq.ObjectID2UUID(t.Id), t.Name, m2pq.ObjectID2UUID(userId),
+		})
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush tags queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize tags statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"tags"},
+		[]string{"id", "name", "user_id"},
+		pgx.CopyFromRows(tagRows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert tags")
 	}
 
 	// Part 2: tag <-> project
-	q, err = tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"tag_entries",
-			"project_id", "tag_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare tag entries insert")
-	}
-	for i, t := range tags {
-		log.Printf("tags[%d/%d]: tag_entries: %s", i, limit, t.Id.Hex())
+	tagEntryRows := make([][]interface{}, 0, len(tags))
+	for _, t := range tags {
 		for _, projectId := range t.ProjectIds {
-			_, err = q.Exec(
-				ctx,
-				m2pq.ObjectID2UUID(projectId),
-				m2pq.ObjectID2UUID(t.Id),
-			)
-			if err != nil {
-				return errors.Tag(err, "queue tag entry")
-			}
+			tagEntryRows = append(tagEntryRows, []interface{}{
+				m2pq.ObjectID2UUID(projectId), m2pq.ObjectID2UUID(t.Id),
+			})
 		}
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush tag entries queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize tag entries statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"tag_entries"},
+		[]string{"project_id", "tag_id"},
+		pgx.CopyFromRows(tagEntryRows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert tags")
 	}
 
 	if len(tags) >= limit {

@@ -33,7 +33,8 @@ func (m *manager) GetUserContacts(ctx context.Context, request *types.GetUserCon
 	}
 	userContacts := make([]types.UserContact, len(users))
 	for i, user := range users {
-		userContacts[i].WithPublicInfoAndNonStandardId = user
+		userContacts[i].WithPublicInfo = user
+		userContacts[i].IdNoUnderscore = user.Id
 		userContacts[i].Type = "user"
 	}
 	response.Contacts = userContacts

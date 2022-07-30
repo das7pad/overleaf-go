@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgtype"
-	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -100,12 +99,18 @@ func (d *LinkedFileData) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
 	return json.Unmarshal(src, d)
 }
 
-func (d *LinkedFileData) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+func (d *LinkedFileData) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	if d == nil || d.Provider == "" {
 		return nil, nil
 	}
-	b, err := json.Marshal(d)
-	return append(buf, b...), err
+	blob, err := json.Marshal(d)
+	if err != nil {
+		return nil, errors.Tag(err, "serialize LinkedFileData")
+	}
+	return pgtype.JSON{
+		Bytes:  blob,
+		Status: pgtype.Present,
+	}.EncodeBinary(ci, buf)
 }
 
 type FileWithParent struct {
@@ -226,6 +231,14 @@ func (t *Folder) GetFile(needle sharedTypes.Filename) *FileRef {
 	return nil
 }
 
+func (t *Folder) CountNodes() int {
+	n := 1 + len(t.Docs) + len(t.FileRefs)
+	for _, f := range t.Folders {
+		n += f.CountNodes()
+	}
+	return n
+}
+
 func (t *Folder) Walk(fn TreeWalker) error {
 	return ignoreAbort(t.walk(fn, t.Path, walkModeAny))
 }
@@ -326,9 +339,8 @@ func (p *ForTree) GetRootFolder() *Folder {
 		case "file":
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
-			if p.createdAts != nil {
-				s := string(p.createdAts[i])
-				e.Created, _ = pq.ParseTimestamp(nil, s)
+			if p.createdAts.Elements != nil {
+				e.Created = p.createdAts.Elements[i].Time
 			}
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])
@@ -368,9 +380,8 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
 			e.Path = path
-			if p.createdAts != nil {
-				s := string(p.createdAts[i])
-				e.Created, _ = pq.ParseTimestamp(nil, s)
+			if p.createdAts.Elements != nil {
+				e.Created = p.createdAts.Elements[i].Time
 			}
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])

@@ -18,12 +18,11 @@ package oneTimeToken
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -62,7 +61,7 @@ type ForPQ struct {
 	UsedAtField    `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, _, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, _, tx pgx.Tx, limit int) error {
 	ottQuery := bson.M{}
 	{
 		var oldest time.Time
@@ -72,10 +71,10 @@ FROM one_time_tokens
 ORDER BY created_at
 LIMIT 1
 `).Scan(&oldest)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted pi")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			ottQuery["createdAt"] = bson.M{
 				"$lt": oldest,
 			}
@@ -97,21 +96,7 @@ LIMIT 1
 		_ = ottC.Close(ctx)
 	}()
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"one_time_tokens",
-			"created_at", "email", "expires_at", "token", "use", "used_at", "user_id",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-
+	rows := make([][]interface{}, 0, limit)
 	i := 0
 	for i = 0; ottC.Next(ctx) && i < limit; i++ {
 		ott := ForPQ{}
@@ -124,8 +109,7 @@ LIMIT 1
 		if userId, err = ott.Data.GetUserId(); err != nil {
 			return errors.Tag(err, "decode user id")
 		}
-		_, err = q.Exec(
-			ctx,
+		rows = append(rows, []interface{}{
 			ott.CreatedAt,              // created_at
 			ott.Data.Email,             // email
 			ott.ExpiresAt,              // expires_at
@@ -133,16 +117,16 @@ LIMIT 1
 			ott.Use,                    // use
 			ott.UsedAt,                 // used_at
 			m2pq.ObjectID2UUID(userId), // user_id
-		)
-		if err != nil {
-			return errors.Tag(err, "queue ott")
-		}
+		})
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"one_time_tokens"},
+		[]string{"created_at", "email", "expires_at", "token", "use", "used_at", "user_id"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert one time tokens")
 	}
 
 	if i == limit {

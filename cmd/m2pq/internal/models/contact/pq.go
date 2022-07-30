@@ -18,10 +18,10 @@ package contact
 
 import (
 	"context"
-	"database/sql"
 	"log"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -39,7 +39,7 @@ type ForPQ struct {
 	UserIdField   `bson:"inline"`
 }
 
-func Import(ctx context.Context, db *mongo.Database, rTx, tx *sql.Tx, limit int) error {
+func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error {
 	cQuery := bson.M{}
 	{
 		var o sharedTypes.UUID
@@ -49,10 +49,10 @@ FROM contacts
 ORDER BY b
 LIMIT 1
 `).Scan(&o)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != pgx.ErrNoRows {
 			return errors.Tag(err, "get last inserted user")
 		}
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			lowest, err2 := m2pq.UUID2ObjectID(o)
 			if err2 != nil {
 				return errors.Tag(err2, "decode last insert id")
@@ -78,22 +78,9 @@ LIMIT 1
 		_ = uC.Close(ctx)
 	}()
 
-	q, err := tx.Prepare(
-		ctx,
-		"TODO", // TODO
-		pq.CopyIn(
-			"contacts",
-			"a", "b", "connections", "last_touched",
-		),
-	)
-	if err != nil {
-		return errors.Tag(err, "prepare insert")
-	}
-	defer func() {
-		_ = q.Close()
-	}()
-	resolved := make(map[primitive.ObjectID]sql.NullString)
+	resolved := make(map[primitive.ObjectID]pgtype.UUID)
 	pending := make([]primitive.ObjectID, 0)
+	rows := make([][]interface{}, 0, limit)
 
 	i := 0
 	for i = 0; uC.Next(ctx) && i < limit; i++ {
@@ -127,47 +114,42 @@ LIMIT 1
 		}
 
 		if len(missing) > 0 {
-			var r map[primitive.ObjectID]sql.NullString
-			r, err = user.ResolveUsers(ctx, rTx, missing)
+			resolved, err = user.ResolveUsers(ctx, rTx, missing, resolved)
 			if err != nil {
 				return errors.Tag(err, "resolve users")
-			}
-			for rId, s := range r {
-				resolved[rId] = s
 			}
 		}
 
 		id := resolved[u.UserId]
-		if !id.Valid {
+		if id.Status != pgtype.Present {
 			continue
 		}
 
 		for _, other := range pending {
 			r := resolved[other]
-			if !r.Valid {
+			if r.Status != pgtype.Present {
 				continue
 			}
 			details := u.Contacts[other.Hex()]
-			_, err = q.Exec(
-				ctx,
-				r.String,                   // a
-				id.String,                  // b
+			rows = append(rows, []interface{}{
+				r,                          // a
+				id,                         // b
 				details.Connections,        // connections
 				details.LastTouched.Time(), // last_touched
-			)
-			if err != nil {
-				return errors.Tag(err, "queue contact")
-			}
+			})
 		}
 	}
-	if _, err = q.Exec(ctx); err != nil {
-		return errors.Tag(err, "flush queue")
-	}
-	if err = q.Close(); err != nil {
-		return errors.Tag(err, "finalize statement")
-	}
 	if err = uC.Err(); err != nil {
-		return errors.Tag(err, "close contacts cur")
+		return errors.Tag(err, "iter contacts cur")
+	}
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"contacts"},
+		[]string{"a", "b", "connections", "last_touched"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return errors.Tag(err, "insert contacts")
 	}
 	if i == limit {
 		return status.HitLimit

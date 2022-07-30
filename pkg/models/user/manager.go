@@ -24,7 +24,6 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/lib/pq"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
@@ -41,7 +40,7 @@ type Manager interface {
 	CheckEmailAlreadyRegistered(ctx context.Context, email sharedTypes.Email) error
 	GetUser(ctx context.Context, userId sharedTypes.UUID, target interface{}) error
 	GetUserByEmail(ctx context.Context, email sharedTypes.Email, target interface{}) error
-	GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error)
+	GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfo, error)
 	SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, joined bool) error
 	UpdateEditorConfig(ctx context.Context, userId sharedTypes.UUID, config EditorConfig) error
 	TrackLogin(ctx context.Context, userId sharedTypes.UUID, epoch int64, ip string) error
@@ -123,8 +122,8 @@ FROM u;
 		u.OneTimeTokenUse,
 	)
 	if err != nil {
-		if e, ok := err.(*pq.Error); ok {
-			switch e.Constraint {
+		if e, ok := err.(*pgconn.PgError); ok {
+			switch e.ConstraintName {
 			case "user_email_key":
 				return ErrEmailAlreadyRegistered
 			case "one_time_tokens_pkey":
@@ -246,7 +245,7 @@ WHERE id = $1
 }
 
 func (m *manager) ProcessSoftDeleted(ctx context.Context, cutOff time.Time, fn func(userId sharedTypes.UUID) bool) error {
-	ids := make([]sharedTypes.UUID, 0, 100)
+	ids := make(sharedTypes.UUIDs, 0, 100)
 	for {
 		ids = ids[:0]
 		r := m.db.QueryRow(ctx, `
@@ -255,10 +254,10 @@ WITH ids AS (SELECT id
              WHERE deleted_at <= $1
              ORDER BY deleted_at
              LIMIT 100)
-SELECT array_agg(ids)
+SELECT array_agg(ids.id)
 FROM ids
 `, cutOff)
-		if err := r.Scan(pq.Array(&ids)); err != nil {
+		if err := r.Scan(&ids); err != nil {
 			return err
 		}
 		if len(ids) == 0 {
@@ -337,7 +336,8 @@ FROM u
 `, u.Id, u.Epoch, newEmail, blob, ip,
 		AuditLogOperationChangePrimaryEmail))
 	if err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Constraint == "user_email_key" {
+		if e, ok := err.(*pgconn.PgError); ok &&
+			e.ConstraintName == "user_email_key" {
 			return ErrEmailAlreadyRegistered
 		}
 		if err == pgx.ErrNoRows {
@@ -420,7 +420,7 @@ SELECT learned_words
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
-`, userId).Scan(pq.Array(&u.LearnedWords)))
+`, userId).Scan(&u.LearnedWords))
 	case *WithPublicInfo:
 		return rewritePostgresErr(m.db.QueryRow(ctx, `
 SELECT id, email, first_name, last_name
@@ -506,7 +506,7 @@ WHERE email = $1
 	}
 }
 
-func (m *manager) GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfoAndNonStandardId, error) {
+func (m *manager) GetContacts(ctx context.Context, userId sharedTypes.UUID) ([]WithPublicInfo, error) {
 	r, err := m.db.Query(ctx, `
 WITH ids AS (SELECT unnest(ARRAY [a, b]) AS id
              FROM contacts
@@ -523,23 +523,9 @@ WHERE u.id = ids.id
 	if err != nil {
 		return nil, err
 	}
-
-	c := make([]WithPublicInfoAndNonStandardId, 0)
 	defer r.Close()
-	for i := 0; r.Next(); i++ {
-		c = append(c, WithPublicInfoAndNonStandardId{})
-		err = r.Scan(&c[i].Id, &c[i].Email, &c[i].FirstName, &c[i].LastName)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err = r.Err(); err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(c); i++ {
-		c[i].IdNoUnderscore = c[i].Id
-	}
-	return c, nil
+	c := make(BulkFetched, 0)
+	return c, c.ScanFrom(r)
 }
 
 func (m *manager) DeleteDictionary(ctx context.Context, userId sharedTypes.UUID) error {

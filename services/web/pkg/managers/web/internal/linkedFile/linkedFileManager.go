@@ -18,7 +18,6 @@ package linkedFile
 
 import (
 	"context"
-	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -90,22 +89,6 @@ func (m *manager) RefreshLinkedFile(ctx context.Context, request *types.RefreshL
 	}
 	if fileRef.LinkedFileData.Provider == "" {
 		return &errors.UnprocessableEntityError{Msg: "file is not linked"}
-	}
-
-	// The NodeJS implementation stored these as absolute paths.
-	if fileRef.LinkedFileData.SourceEntityPath != "" {
-		fileRef.LinkedFileData.SourceEntityPath = sharedTypes.PathName(
-			strings.TrimPrefix(
-				fileRef.LinkedFileData.SourceEntityPath.String(), "/",
-			),
-		)
-	}
-	if fileRef.LinkedFileData.SourceOutputFilePath != "" {
-		fileRef.LinkedFileData.SourceOutputFilePath = sharedTypes.PathName(
-			strings.TrimPrefix(
-				fileRef.LinkedFileData.SourceOutputFilePath.String(), "/",
-			),
-		)
 	}
 
 	request.File = fileRef.FileRef

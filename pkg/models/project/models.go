@@ -17,6 +17,8 @@
 package project
 
 import (
+	"github.com/jackc/pgtype"
+
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -55,7 +57,7 @@ type ListViewPrivate struct {
 
 	LastUpdater user.WithPublicInfo
 	Owner       user.WithPublicInfo
-	TagIds      []sharedTypes.UUID
+	TagIds      sharedTypes.UUIDs
 }
 
 type List []ListViewPrivate
@@ -109,11 +111,11 @@ type ForProjectEntries struct {
 type ForTree struct {
 	RootFolderField
 
-	treeIds        []sharedTypes.UUID
+	treeIds        sharedTypes.UUIDs
 	treeKinds      []string
 	treePaths      []string
 	docSnapshots   []string
-	createdAts     [][]byte
+	createdAts     pgtype.TimestampArray
 	hashes         []string
 	sizes          []int64
 	linkedFileData []LinkedFileData
