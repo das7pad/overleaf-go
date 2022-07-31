@@ -113,6 +113,7 @@ func (m *shard) process(work chan string) {
 		if err != nil {
 			err = errors.Tag(err, "unexpected key '"+key+"'")
 			log.Println(err.Error())
+			continue
 		}
 
 		ctx, cancel := context.WithTimeout(
