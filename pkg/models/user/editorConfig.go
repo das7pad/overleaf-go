@@ -39,13 +39,23 @@ type EditorConfig struct {
 	Theme              string                           `json:"theme"`
 }
 
-func (e *EditorConfig) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
-	return json.Unmarshal(src, e)
+func (e *EditorConfig) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	b := pgtype.JSONB{}
+	if err := b.DecodeBinary(ci, src); err != nil {
+		return errors.Tag(err, "decode EditorConfig")
+	}
+	return json.Unmarshal(b.Bytes, e)
 }
 
-func (e EditorConfig) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
-	b, err := json.Marshal(e)
-	return append(buf, b...), err
+func (e EditorConfig) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+	blob, err := json.Marshal(e)
+	if err != nil {
+		return nil, errors.Tag(err, "serialize EditorConfig")
+	}
+	return pgtype.JSONB{
+		Bytes:  blob,
+		Status: pgtype.Present,
+	}.EncodeBinary(ci, buf)
 }
 
 //goland:noinspection SpellCheckingInspection
