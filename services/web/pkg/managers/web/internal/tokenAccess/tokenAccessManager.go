@@ -94,6 +94,9 @@ func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessP
 		postULR = m.ps.SiteURL.
 			WithPath("/api/grant/ro/" + string(request.Token))
 	} else if request.Token.ValidateReadAndWrite() == nil {
+		if !request.Session.IsLoggedIn() {
+			return &errors.UnauthorizedError{}
+		}
 		postULR = m.ps.SiteURL.
 			WithPath("/api/grant/rw/" + string(request.Token))
 	} else {

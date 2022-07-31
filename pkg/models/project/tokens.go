@@ -50,7 +50,7 @@ func (t AccessToken) toQueryParameters(privilegeLevel sharedTypes.PrivilegeLevel
 		if err := t.ValidateReadAndWrite(); err != nil {
 			return q, err
 		}
-		q.tokenRWPrefix = t
+		q.tokenRWPrefix = t[:lenReadAndWritePrefix]
 	}
 	return q, nil
 }
