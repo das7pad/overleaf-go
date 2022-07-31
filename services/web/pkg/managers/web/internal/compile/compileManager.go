@@ -204,20 +204,17 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	request.ImageName = m.getImageName(request.ImageName)
 
 	var clsiServerId types.ClsiServerId
-	var pendingFetchClsiServerId pendingOperation.WithCancel
-	if m.persistenceEnabled() {
-		pendingFetchClsiServerId = pendingOperation.TrackOperationWithCancel(
-			ctx,
-			func(ctx context.Context) error {
-				var err error
-				clsiServerId, err = m.getServerId(
-					ctx, request.SignedCompileProjectRequestOptions,
-				)
-				return err
-			},
-		)
-		defer pendingFetchClsiServerId.Cancel()
-	}
+	pendingFetchClsiServerId := pendingOperation.TrackOperationWithCancel(
+		ctx,
+		func(ctx context.Context) error {
+			var err error
+			clsiServerId, err = m.getServerId(
+				ctx, request.SignedCompileProjectRequestOptions,
+			)
+			return err
+		},
+	)
+	defer pendingFetchClsiServerId.Cancel()
 
 	syncState := request.SyncState
 
@@ -264,13 +261,11 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			RootResourcePath: rootDocPath,
 		}
 
-		if pendingFetchClsiServerId != nil {
-			if err = pendingFetchClsiServerId.Wait(ctx); err != nil {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-				log.Printf("cannot get clsi persistence: %s", err)
+		if err = pendingFetchClsiServerId.Wait(ctx); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
+			log.Printf("cannot get clsi persistence: %s", err)
 		}
 		if m.bundle != nil {
 			err = m.bundle.Compile(
