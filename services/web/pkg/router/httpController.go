@@ -155,9 +155,10 @@ func (h *httpController) addRoutes(
 		// Notifications routes
 		r := apiRouter.Group("/notifications")
 		r.GET("", h.getUserNotifications)
+
 		rById := apiRouter.Group("/notification/{notificationId}")
 		rById.Use(httpUtils.ValidateAndSetId("notificationId"))
-		r.DELETE("", h.removeNotification)
+		rById.DELETE("", h.removeNotification)
 	}
 	{
 		// Tag routes
