@@ -195,12 +195,16 @@ WHERE p.id = $1
 func (m *manager) Accept(ctx context.Context, projectId, userId sharedTypes.UUID, token Token) error {
 	return getErr(m.db.ExecContext(ctx, `
 WITH pi AS (
-    DELETE FROM project_invites USING projects p
+    DELETE FROM project_invites pi USING projects p
         WHERE token = $3
             AND expires_at > transaction_timestamp()
             AND project_id = p.id
             AND p.deleted_at IS NULL
-        RETURNING project_id, privilege_level, sending_user_id),
+        RETURNING pi.id, project_id, privilege_level, sending_user_id),
+     notification as (
+         DELETE
+             FROM notifications USING pi
+                 WHERE key = concat('project-invite-', pi.id::TEXT)),
      contacts AS (
          WITH sortedIds AS (
              WITH ids AS (SELECT $2::UUID AS x, pi.sending_user_id AS y
