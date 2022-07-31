@@ -1540,12 +1540,13 @@ func (m *manager) GetTreeEntities(ctx context.Context, projectId, userId sharedT
 	r, err := m.db.QueryContext(ctx, `
 SELECT path, kind
 FROM tree_nodes t
-INNER JOIN projects p ON t.project_id = p.id
-INNER JOIN project_members pm ON (p.id = pm.project_id AND
-                                  pm.user_id = $2)
+         INNER JOIN projects p ON t.project_id = p.id
+         INNER JOIN project_members pm ON (p.id = pm.project_id AND
+                                           pm.user_id = $2)
 WHERE t.project_id = $1
   AND p.deleted_at IS NULL
-AND (t.kind = 'doc' OR t.kind = 'file')
+  AND t.deleted_at = '1970-01-01'
+  AND (t.kind = 'doc' OR t.kind = 'file')
 `, projectId, userId)
 	if err != nil {
 		return nil, err
