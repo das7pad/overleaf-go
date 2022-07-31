@@ -44,7 +44,7 @@ type manager struct {
 
 func (m *manager) GetAllForUser(ctx context.Context, userId sharedTypes.UUID, notifications *[]Notification) error {
 	r, err := m.db.QueryContext(ctx, `
-SELECT key, expires_at, template_key, message_options
+SELECT id, key, expires_at, template_key, message_options
 FROM notifications
 WHERE user_id = $1
   AND template_key != ''
@@ -58,6 +58,7 @@ WHERE user_id = $1
 	for i := 0; r.Next(); i++ {
 		acc = append(acc, Notification{})
 		err = r.Scan(
+			&acc[i].Id,
 			&acc[i].Key,
 			&acc[i].Expires,
 			&acc[i].TemplateKey,
