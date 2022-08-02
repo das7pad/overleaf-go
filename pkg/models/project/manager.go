@@ -516,8 +516,7 @@ RETURNING p.tree_version
 
 func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, runner queryRunner) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
-	return treeVersion, runner.QueryRow(ctx,
-		/* language=postgresql */ `
+	return treeVersion, runner.QueryRow(ctx, `
 WITH node AS (SELECT t.id
               FROM tree_nodes t
                        INNER JOIN projects p ON t.project_id = p.id
@@ -1764,8 +1763,7 @@ func (m *manager) CreateDoc(ctx context.Context, projectId, userId, folderId sha
 
 func (m *manager) createDocVia(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, d *Doc, runner queryRunner) (sharedTypes.Version, error) {
 	var v sharedTypes.Version
-	return v, rewritePostgresErr(runner.QueryRow(ctx,
-		/* language=postgresql */ `
+	return v, rewritePostgresErr(runner.QueryRow(ctx, `
 WITH f AS (SELECT t.id, t.path
            FROM tree_nodes t
                     INNER JOIN projects p ON t.project_id = p.id
