@@ -35,8 +35,12 @@ func getPersistenceKey(options types.SignedCompileProjectRequestOptions) string 
 		":" + options.UserId.String()
 }
 
+func (m *manager) persistenceDisabled() bool {
+	return m.options.APIs.Clsi.Persistence.CookieName == ""
+}
+
 func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options types.SignedCompileProjectRequestOptions) types.ClsiServerId {
-	if m.options.APIs.Clsi.Persistence.CookieName == "" {
+	if m.persistenceDisabled() {
 		return ""
 	}
 	var clsiServerId types.ClsiServerId
@@ -73,12 +77,8 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 	return clsiServerId
 }
 
-func (m *manager) persistenceEnabled() bool {
-	return m.options.APIs.Clsi.Persistence.CookieName == ""
-}
-
 func (m *manager) getServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
-	if !m.persistenceEnabled() {
+	if m.persistenceDisabled() {
 		return "", nil
 	}
 	k := getPersistenceKey(options)
@@ -90,7 +90,7 @@ func (m *manager) getServerId(ctx context.Context, options types.SignedCompilePr
 }
 
 func (m *manager) clearServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) error {
-	if m.options.APIs.Clsi.Persistence.CookieName == "" {
+	if m.persistenceDisabled() {
 		return nil
 	}
 	k := getPersistenceKey(options)
