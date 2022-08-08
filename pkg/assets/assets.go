@@ -62,7 +62,9 @@ func Load(options Options) (Manager, error) {
 		return nil, err
 	}
 	if options.WatchManifest {
-		go m.watch()
+		wm := &watchingManager{m: m}
+		go wm.watch()
+		return wm, nil
 	}
 	return m, nil
 }

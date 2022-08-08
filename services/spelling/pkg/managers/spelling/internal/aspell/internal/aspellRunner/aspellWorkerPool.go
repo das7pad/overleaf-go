@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -66,7 +66,9 @@ func (e *workerPoolEntry) Acquire() bool {
 	defer e.l.Unlock()
 	ok := e.TransitionState(Ready, Busy)
 	if ok && e.t != nil {
-		e.t.Stop()
+		if !e.t.Stop() {
+			<-e.t.C
+		}
 		e.t = nil
 	}
 	return ok
@@ -144,10 +146,14 @@ func (wp *workerPool) getWorker(language types.SpellCheckLanguage) (*workerPoolE
 	wp.processPool = append(wp.processPool, w)
 	go func() {
 		<-w.Done()
+		w.l.Lock()
 		if w.t != nil {
-			w.t.Stop()
+			if !w.t.Stop() {
+				<-w.t.C
+			}
 			w.t = nil
 		}
+		w.l.Unlock()
 		wp.removeFromPool(w)
 	}()
 	return w, nil
