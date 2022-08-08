@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -65,7 +66,6 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 	return &manager{
-		shuttingDown:    false,
 		options:         options,
 		appliedOps:      a,
 		clientTracking:  ct,
@@ -77,7 +77,7 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 
 type manager struct {
 	options      *types.Options
-	shuttingDown bool
+	shuttingDown atomic.Bool
 
 	clientTracking  clientTracking.Manager
 	appliedOps      appliedOps.Manager
@@ -87,7 +87,7 @@ type manager struct {
 }
 
 func (m *manager) IsShuttingDown() bool {
-	return m.shuttingDown
+	return m.shuttingDown.Load()
 }
 
 func (m *manager) PeriodicCleanup(ctx context.Context) {
@@ -96,7 +96,7 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 
 func (m *manager) GracefulShutdown() {
 	// Start returning 500s on /status
-	m.shuttingDown = true
+	m.shuttingDown.Store(true)
 
 	// Wait for the LB to pick up the 500 and stop sending new traffic to us.
 	time.Sleep(m.options.GracefulShutdown.Delay)

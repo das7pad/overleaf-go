@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -101,7 +102,6 @@ func newProject(
 	}
 
 	return &project{
-		dead:       false,
 		lastAccess: time.Now(),
 		namespace:  namespace,
 		projectId:  projectId,
@@ -117,7 +117,7 @@ func newProject(
 }
 
 type project struct {
-	dead       bool
+	dead       atomic.Bool
 	lastAccess time.Time
 	namespace  types.Namespace
 	projectId  sharedTypes.UUID
@@ -137,7 +137,7 @@ type project struct {
 }
 
 func (p *project) IsDead() bool {
-	return p.dead
+	return p.dead.Load()
 }
 
 func (p *project) IsHealthy(activeThreshold time.Time) bool {
@@ -145,7 +145,7 @@ func (p *project) IsHealthy(activeThreshold time.Time) bool {
 }
 
 func (p *project) Cleanup() pendingOperation.PendingOperation {
-	p.dead = true
+	p.dead.Store(true)
 	pending := p.triggerCleanup()
 	return pending
 }
@@ -163,7 +163,7 @@ func (p *project) ClearCache(ctx context.Context) error {
 	if err != nil {
 		log.Printf("cleanup failed for %q: %s", p.namespace, err)
 		// Schedule this instance for recycling.
-		p.dead = true
+		p.dead.Store(true)
 		return err
 	}
 
@@ -482,7 +482,7 @@ func (p *project) setupRunner(ctx context.Context, imageName sharedTypes.ImageNa
 	if err != nil {
 		log.Printf("setup failed for %q: %s", p.namespace, err)
 		// Schedule this instance for recycling.
-		p.dead = true
+		p.dead.Store(true)
 		return err
 	}
 
