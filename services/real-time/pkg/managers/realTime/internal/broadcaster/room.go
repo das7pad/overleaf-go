@@ -17,6 +17,8 @@
 package broadcaster
 
 import (
+	"sync/atomic"
+
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
@@ -43,7 +45,7 @@ type Room interface {
 }
 
 type TrackingRoom struct {
-	clients Clients
+	clients atomic.Pointer[Clients]
 	c       chan roomQueueEntry
 
 	pending pendingOperation.WithCancel
@@ -54,7 +56,7 @@ func (r *TrackingRoom) Handle(_ string) {
 }
 
 func (r *TrackingRoom) Clients() Clients {
-	return r.clients
+	return *r.clients.Load()
 }
 
 func (r *TrackingRoom) StartPeriodicTasks() {
@@ -85,36 +87,29 @@ func (r *TrackingRoom) close() {
 }
 
 func (r *TrackingRoom) isEmpty() bool {
-	return len(r.clients) == 0
+	return len(*r.clients.Load()) == 0
 }
 
 func (r *TrackingRoom) add(client *types.Client) {
-	if r.isEmpty() {
-		client.AddWriter()
-		r.clients = Clients{client}
-		return
-	}
-
-	for _, c := range r.clients {
+	clients := *r.clients.Load()
+	for _, c := range clients {
 		if c == client {
 			return
 		}
 	}
 
-	n := len(r.clients) + 1
+	n := len(clients) + 1
 	f := make(Clients, n)
-	copy(f, r.clients)
+	copy(f, clients)
 	f[n-1] = client
 	client.AddWriter()
-	r.clients = f
+	r.clients.Store(&f)
 }
 
 func (r *TrackingRoom) remove(client *types.Client) {
-	if r.isEmpty() {
-		return
-	}
+	clients := *r.clients.Load()
 	idx := -1
-	for i, c := range r.clients {
+	for i, c := range clients {
 		if c == client {
 			idx = i
 			break
@@ -129,16 +124,16 @@ func (r *TrackingRoom) remove(client *types.Client) {
 		r.c <- roomQueueEntry{leavingClient: client}
 	}()
 
-	n := len(r.clients)
+	n := len(clients)
 	if n == 1 {
-		r.clients = noClients
+		r.clients.Store(&noClients)
 		return
 	}
 
 	f := make(Clients, n-1)
-	copy(f, r.clients[:n-1])
+	copy(f, clients[:n-1])
 	if idx != n-1 {
-		f[idx] = r.clients[n-1]
+		f[idx] = clients[n-1]
 	}
-	r.clients = f
+	r.clients.Store(&f)
 }

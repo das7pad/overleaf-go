@@ -169,10 +169,9 @@ type roomQueueEntry struct {
 
 func (b *broadcaster) createNewRoom() Room {
 	c := make(chan roomQueueEntry)
-	r := b.newRoom(&TrackingRoom{
-		c:       c,
-		clients: noClients,
-	})
+	tr := &TrackingRoom{c: c}
+	tr.clients.Store(&noClients)
+	r := b.newRoom(tr)
 	go func() {
 		for entry := range c {
 			if entry.leavingClient != nil {
