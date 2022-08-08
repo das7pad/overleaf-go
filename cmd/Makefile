@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.18-alpine3.14 \
+	$(BUILD_IN) golang:1.19-alpine3.16 \
 		go list -f '{{ join .Deps "\n" }}' $(addprefix ./cmd/,$(BINS)) \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
@@ -61,7 +61,7 @@ check-not-changed:
 
 .PHONY: $(BINS)
 $(BINS):
-	$(BUILD_IN) golang:1.18-alpine3.14 go build ./cmd/$@
+	$(BUILD_IN) golang:1.19-alpine3.16 go build ./cmd/$@
 	touch -m -d 2021-01-01T00:00Z $@
 
 bin.tar: $(BINS)

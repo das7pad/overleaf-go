@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM alpine:3.14
+FROM alpine:3.16
 ENV SERVICE_NAME="linked-url-proxy"
 ENTRYPOINT ["linked-url-proxy"]
 COPY ./linked-url-proxy /usr/local/bin/
