@@ -60,8 +60,8 @@ check-not-changed:
 
 .PHONY: $(SERVICE)
 $(SERVICE):
-	$(BUILD_IN) golang:1.18-alpine3.14 sh -c \
-		'go build && touch -m -d 2021-01-01-00:00:00 $@'
+	$(BUILD_IN) golang:1.18-alpine3.14 go build
+	touch -m -d 2021-01-01T00:00Z $@
 
 docker/build/production: $(SERVICE)
 	docker build \
