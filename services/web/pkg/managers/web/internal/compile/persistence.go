@@ -67,7 +67,7 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 		}()
 	} else {
 		// Race-Condition: Switch backend in foreground.
-		// We want to go to the same backend when re-syncing.
+		// We want to go to the same backend on re-compile.
 		err := m.client.Set(ctx, k, string(clsiServerId), persistenceTTL).Err()
 		if err != nil {
 			// Persistence is a performance optimization and ok to fail.
