@@ -28,6 +28,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 )
@@ -82,8 +83,14 @@ func main() {
 	}()
 
 	<-triggerExitCtx.Done()
-	rtm.GracefulShutdown()
-	errClose := server.Close()
+	rtm.InitiateGracefulShutdown()
+	ctx, done := context.WithTimeout(context.Background(), 15*time.Second)
+	defer done()
+	pendingShutdown := pendingOperation.TrackOperation(func() error {
+		return server.Shutdown(ctx)
+	})
+	rtm.TriggerGracefulReconnect()
+	errClose := pendingShutdown.Wait(context.Background())
 	if errServe != nil && errServe != http.ErrServerClosed {
 		panic(errServe)
 	}

@@ -37,7 +37,8 @@ import (
 )
 
 type Manager interface {
-	GracefulShutdown()
+	InitiateGracefulShutdown()
+	TriggerGracefulReconnect()
 	IsShuttingDown() bool
 
 	PeriodicCleanup(ctx context.Context)
@@ -94,13 +95,15 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func (m *manager) GracefulShutdown() {
+func (m *manager) InitiateGracefulShutdown() {
 	// Start returning 500s on /status
 	m.shuttingDown.Store(true)
 
 	// Wait for the LB to pick up the 500 and stop sending new traffic to us.
 	time.Sleep(m.options.GracefulShutdown.Delay)
+}
 
+func (m *manager) TriggerGracefulReconnect() {
 	deadLine := time.Now().Add(m.options.GracefulShutdown.Timeout)
 	for m.editorEvents.TriggerGracefulReconnect() > 0 &&
 		time.Now().Before(deadLine) {

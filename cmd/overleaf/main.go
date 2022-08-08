@@ -28,6 +28,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	envUtils "github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -120,8 +121,14 @@ func main() {
 
 	<-triggerExitCtx.Done()
 	t.Stop()
-	rtm.GracefulShutdown()
-	errClose := server.Close()
+	rtm.InitiateGracefulShutdown()
+	ctx, done := context.WithTimeout(context.Background(), 15*time.Second)
+	defer done()
+	pendingShutdown := pendingOperation.TrackOperation(func() error {
+		return server.Shutdown(ctx)
+	})
+	rtm.TriggerGracefulReconnect()
+	errClose := pendingShutdown.Wait(ctx)
 	if errServe != nil && errServe != http.ErrServerClosed {
 		panic(errServe)
 	}
