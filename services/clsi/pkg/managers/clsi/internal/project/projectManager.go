@@ -43,11 +43,7 @@ type Manager interface {
 		userId sharedTypes.UUID,
 	) (Project, error)
 
-	CleanupProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-	) error
+	CleanupProject(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
 
 	CleanupOldProjects(
 		ctx context.Context,
@@ -146,7 +142,7 @@ func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.T
 	// Operate on a shadow copy as we would need to lock map access otherwise.
 	for key, p := range m.getUnhealthyProjects(activeThreshold) {
 		// Trigger cleanup on instance.
-		if err := p.CleanupUnlessHealthy(ctx, activeThreshold); err != nil {
+		if err := p.CleanupUnlessHealthy(activeThreshold); err != nil {
 			return errors.Tag(err, "cleanup failed for "+key.String())
 		}
 		if p.IsDead() {
@@ -160,7 +156,7 @@ func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.T
 	return nil
 }
 
-func (m *manager) CleanupProject(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
+func (m *manager) CleanupProject(projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
 	key := projectKey{
 		ProjectId: projectId,
 		UserId:    userId,
@@ -172,7 +168,7 @@ func (m *manager) CleanupProject(ctx context.Context, projectId sharedTypes.UUID
 		return nil
 	}
 
-	if err := p.Cleanup().Wait(ctx); err != nil {
+	if err := p.Cleanup(); err != nil {
 		return err
 	}
 
@@ -205,7 +201,7 @@ func (m *manager) getOrCreateProject(ctx context.Context, projectId sharedTypes.
 			// Return alive project
 			return p, nil
 		} else {
-			if err := p.Cleanup().Wait(ctx); err != nil {
+			if err := p.Cleanup(); err != nil {
 				// Stuck in cleanup :/
 				return nil, err
 			}

@@ -35,14 +35,11 @@ type Project interface {
 	IsDead() bool
 	IsHealthy(activeThreshold time.Time) bool
 
-	Cleanup() pendingOperation.PendingOperation
+	Cleanup() error
 
-	CleanupUnlessHealthy(
-		ctx context.Context,
-		activeThreshold time.Time,
-	) error
+	CleanupUnlessHealthy(activeThreshold time.Time) error
 
-	ClearCache(ctx context.Context) error
+	ClearCache() error
 
 	Compile(
 		ctx context.Context,
@@ -102,9 +99,8 @@ func newProject(
 	}
 
 	return &project{
-		lastAccess: time.Now(),
-		namespace:  namespace,
-		projectId:  projectId,
+		namespace: namespace,
+		projectId: projectId,
 
 		state:                 initialState,
 		stateMux:              sync.RWMutex{},
@@ -118,13 +114,12 @@ func newProject(
 
 type project struct {
 	dead       atomic.Bool
-	lastAccess time.Time
+	lastAccess atomic.Int64
 	namespace  types.Namespace
 	projectId  sharedTypes.UUID
 
-	state          types.SyncState
-	stateMux       sync.RWMutex
-	pendingCleanup pendingOperation.PendingOperation
+	state    types.SyncState
+	stateMux sync.RWMutex
 
 	runnerSetupValidUntil time.Time
 	runnerSetupMux        sync.RWMutex
@@ -141,43 +136,23 @@ func (p *project) IsDead() bool {
 }
 
 func (p *project) IsHealthy(activeThreshold time.Time) bool {
-	return !p.IsDead() && p.lastAccess.After(activeThreshold)
+	return !p.IsDead() && p.lastAccess.Load() > activeThreshold.Unix()
 }
 
-func (p *project) Cleanup() pendingOperation.PendingOperation {
+func (p *project) Cleanup() error {
 	p.dead.Store(true)
-	pending := p.triggerCleanup()
-	return pending
+	return p.triggerCleanup()
 }
 
-func (p *project) CleanupUnlessHealthy(ctx context.Context, activeThreshold time.Time) error {
+func (p *project) CleanupUnlessHealthy(activeThreshold time.Time) error {
 	if p.IsHealthy(activeThreshold) {
 		return nil
 	}
-	return p.Cleanup().Wait(ctx)
+	return p.Cleanup()
 }
 
-func (p *project) ClearCache(ctx context.Context) error {
-	pending := p.triggerCleanup()
-	err := pending.Wait(ctx)
-	if err != nil {
-		log.Printf("cleanup failed for %q: %s", p.namespace, err)
-		// Schedule this instance for recycling.
-		p.dead.Store(true)
-		return err
-	}
-
-	// Take write lock
-	p.stateMux.Lock()
-	defer p.stateMux.Unlock()
-
-	if nextPending := p.pendingCleanup; nextPending != pending {
-		// Someone else won the race.
-		return nil
-	}
-
-	p.pendingCleanup = nil
-	return nil
+func (p *project) ClearCache() error {
+	return p.triggerCleanup()
 }
 
 func (p *project) Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error {
@@ -191,28 +166,34 @@ func (p *project) Compile(ctx context.Context, request *types.CompileRequest, re
 	if err := p.checkSyncState(options.SyncType, options.SyncState); err != nil {
 		return err
 	}
-	// Cheap check. The lock will block one of the racing compile requests.
-	if p.pendingCompile != nil {
-		return &errors.AlreadyCompilingError{}
+	pending, err := p.triggerCompile(ctx, request, response)
+	if err != nil {
+		return err
 	}
+	return pending.Wait(ctx)
+}
 
+func (p *project) triggerCompile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) (pendingOperation.WithCancel, error) {
 	p.compileMux.Lock()
 	defer p.compileMux.Unlock()
-
-	// Double check after acquiring the lock.
-	if p.pendingCompile != nil {
-		return &errors.AlreadyCompilingError{}
+	pending := p.pendingCompile
+	if pending != nil {
+		return nil, &errors.AlreadyCompilingError{}
 	}
 
-	p.pendingCompile = pendingOperation.TrackOperationWithCancel(
+	pending = pendingOperation.TrackOperationWithCancel(
 		ctx,
 		func(compileCtx context.Context) error {
-			return p.doCompile(compileCtx, request, response)
+			err := p.doCompile(compileCtx, request, response)
+			p.compileMux.Lock()
+			defer p.compileMux.Unlock()
+			if p.pendingCompile == pending {
+				p.pendingCompile = nil
+			}
+			return err
 		},
 	)
-	err := p.pendingCompile.Wait(ctx)
-	p.pendingCompile = nil
-	return err
+	return pending, nil
 }
 
 func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error {
@@ -260,22 +241,16 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	return nil
 }
 
-func (p *project) StopCompile(_ context.Context) error {
+func (p *project) StopCompile(ctx context.Context) error {
+	p.compileMux.Lock()
+	defer p.compileMux.Unlock()
+
 	pending := p.pendingCompile
 	if pending == nil {
 		return nil
 	}
 	pending.Cancel()
-	<-pending.Done()
-
-	p.compileMux.Lock()
-	defer p.compileMux.Unlock()
-
-	if nextPending := p.pendingCompile; nextPending == pending {
-		// Someone else won the race.
-		return nil
-	}
-	p.pendingCompile = nil
+	_ = pending.Wait(ctx)
 	return nil
 }
 
@@ -308,7 +283,7 @@ func (p *project) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFReq
 }
 
 func (p *project) Touch() {
-	p.lastAccess = time.Now()
+	p.lastAccess.Store(time.Now().Unix())
 }
 
 func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest, words *types.Words) error {
@@ -374,6 +349,23 @@ func (p *project) checkSyncState(syncType types.SyncType, state types.SyncState)
 }
 
 func (p *project) doCleanup() error {
+	p.compileMux.Lock()
+	if compile := p.pendingCompile; compile != nil {
+		compile.Cancel()
+	}
+	p.compileMux.Unlock()
+
+	p.runnerSetupMux.RLock()
+	if setup := p.pendingRunnerSetup; setup != nil {
+		setup.Cancel()
+	}
+	p.runnerSetupMux.RUnlock()
+
+	// Take write lock
+	p.stateMux.Lock()
+	defer p.stateMux.Unlock()
+	p.state = types.SyncStateCleared
+
 	errRunner := p.runner.Stop(p.namespace)
 	errWriter := p.writer.Clear(p.projectId, p.namespace)
 	errOutputCache := p.outputCache.Clear(p.namespace)
@@ -391,31 +383,15 @@ func (p *project) doCleanup() error {
 	return nil
 }
 
-func (p *project) triggerCleanup() pendingOperation.PendingOperation {
-	pendingBeforeLock := p.pendingCleanup
-	if pendingBeforeLock != nil && pendingBeforeLock.IsPending() {
-		return pendingBeforeLock
+func (p *project) triggerCleanup() error {
+	err := p.doCleanup()
+	if err != nil {
+		log.Printf("cleanup failed for %q: %s", p.namespace, err)
+		// Schedule this instance for recycling.
+		p.dead.Store(true)
+		return err
 	}
-
-	if compile := p.pendingCompile; compile != nil {
-		compile.Cancel()
-	}
-	if setup := p.pendingRunnerSetup; setup != nil {
-		setup.Cancel()
-	}
-
-	// Take write lock
-	p.stateMux.Lock()
-	defer p.stateMux.Unlock()
-	p.state = types.SyncStateCleared
-
-	if nextPending := p.pendingCleanup; nextPending != pendingBeforeLock {
-		// Someone else won the race.
-		return nextPending
-	}
-
-	p.pendingCleanup = pendingOperation.TrackOperation(p.doCleanup)
-	return p.pendingCleanup
+	return nil
 }
 
 func (p *project) run(ctx context.Context, options *types.CommandOptions) (types.ExitCode, error) {
@@ -470,6 +446,12 @@ func (p *project) StartInBackground(imageName sharedTypes.ImageName) {
 }
 
 func (p *project) needsRunnerSetup(deadline time.Time) bool {
+	p.runnerSetupMux.RLock()
+	defer p.runnerSetupMux.RUnlock()
+	return p.needsRunnerSetupLocked(deadline)
+}
+
+func (p *project) needsRunnerSetupLocked(deadline time.Time) bool {
 	return p.runnerSetupValidUntil.Before(deadline)
 }
 
@@ -485,27 +467,10 @@ func (p *project) setupRunner(ctx context.Context, imageName sharedTypes.ImageNa
 		p.dead.Store(true)
 		return err
 	}
-
-	// Take write lock
-	p.runnerSetupMux.Lock()
-	defer p.runnerSetupMux.Unlock()
-
-	if nextPending := p.pendingRunnerSetup; nextPending != pending {
-		// Someone else won the race.
-		return nil
-	}
-
-	p.pendingRunnerSetup = nil
 	return nil
 }
 
 func (p *project) triggerRunnerSetup(ctx context.Context, imageName sharedTypes.ImageName) (pendingOperation.PendingOperation, error) {
-	pendingBeforeLock := p.pendingRunnerSetup
-	if pendingBeforeLock != nil && pendingBeforeLock.IsPending() {
-		return pendingBeforeLock, nil
-	}
-
-	// Take write lock
 	p.runnerSetupMux.Lock()
 	defer p.runnerSetupMux.Unlock()
 
@@ -514,41 +479,47 @@ func (p *project) triggerRunnerSetup(ctx context.Context, imageName sharedTypes.
 		return nil, err
 	}
 
-	nextPending := p.pendingRunnerSetup
-	if nextPending != nil && nextPending != pendingBeforeLock {
-		// Someone else won the race.
-		return nextPending, nil
+	pending := p.pendingRunnerSetup
+	if pending != nil {
+		// Someone else won the race for triggering a new setup operation.
+		return pending, nil
 	}
 
-	p.pendingRunnerSetup = pendingOperation.TrackOperationWithCancel(
+	pending = pendingOperation.TrackOperationWithCancel(
 		ctx,
 		func(setupCtx context.Context) error {
 			validUntil, err := p.runner.Setup(setupCtx, p.namespace, imageName)
-			if err == nil {
-				p.runnerSetupValidUntil = *validUntil
+			p.runnerSetupMux.Lock()
+			defer p.runnerSetupMux.Unlock()
+			if p.pendingRunnerSetup == pending {
+				p.pendingRunnerSetup = nil
+				if err == nil {
+					p.runnerSetupValidUntil = *validUntil
+				}
 			}
 			return err
 		},
 	)
-	return p.pendingRunnerSetup, nil
+	p.pendingRunnerSetup = pending
+	return pending, nil
 }
 
 func (p *project) tryRun(ctx context.Context, options *types.CommandOptions) (types.ExitCode, error) {
+	// Block new setup calls while we use the container.
 	p.runnerSetupMux.RLock()
 	defer p.runnerSetupMux.RUnlock()
 
 	if err := p.checkIsDead(); err != nil {
 		return -1, err
 	}
-	pendingSetup := p.pendingRunnerSetup
-	if pendingSetup != nil {
+	if pendingSetup := p.pendingRunnerSetup; pendingSetup != nil {
 		if err := pendingSetup.Wait(ctx); err != nil {
 			return -1, err
 		}
 	}
 
 	deadline, _ := ctx.Deadline()
-	if p.needsRunnerSetup(deadline) {
+	if p.needsRunnerSetupLocked(deadline) {
 		return -1, errors.New("runner setup expired")
 	}
 

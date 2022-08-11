@@ -116,7 +116,7 @@ func (m *manager) getImageName(raw sharedTypes.ImageName) sharedTypes.ImageName 
 
 func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error {
 	if m.bundle != nil {
-		return m.bundle.ClearCache(ctx, request.ProjectId, request.UserId)
+		return m.bundle.ClearCache(request.ProjectId, request.UserId)
 	}
 	clearPersistenceError := m.clearServerId(
 		ctx, request.SignedCompileProjectRequestOptions,

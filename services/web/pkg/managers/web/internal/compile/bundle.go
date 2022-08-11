@@ -27,11 +27,7 @@ import (
 type ClsiManager interface {
 	CleanupOldProjects(ctx context.Context, threshold time.Time) error
 
-	ClearCache(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-	) error
+	ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
 
 	Compile(
 		ctx context.Context,

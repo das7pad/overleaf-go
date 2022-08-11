@@ -34,11 +34,7 @@ import (
 type Manager interface {
 	CleanupOldProjects(ctx context.Context, threshold time.Time) error
 
-	ClearCache(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-	) error
+	ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
 
 	Compile(
 		ctx context.Context,
@@ -137,8 +133,8 @@ func (m *manager) CleanupOldProjects(ctx context.Context, threshold time.Time) e
 	return m.pm.CleanupOldProjects(ctx, threshold)
 }
 
-func (m *manager) ClearCache(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
-	return m.pm.CleanupProject(ctx, projectId, userId)
+func (m *manager) ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
+	return m.pm.CleanupProject(projectId, userId)
 }
 
 func (m *manager) Compile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.CompileRequest, response *types.CompileResponse) error {

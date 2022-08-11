@@ -97,7 +97,6 @@ func (h *httpController) stopCompile(c *httpUtils.Context) {
 
 func (h *httpController) clearCache(c *httpUtils.Context) {
 	err := h.cm.ClearCache(
-		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 	)
