@@ -17,7 +17,6 @@
 package types
 
 import (
-	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -83,34 +82,6 @@ func (s SyncType) Validate() error {
 		}
 	}
 	return &errors.ValidationError{Msg: "syncType is not allowed"}
-}
-
-type RootResourcePath sharedTypes.PathName
-
-const UnsafeRootResourcePathCharacters = "#&;`|*?~<>^()[]{}$\\\x0A\xFF\x00"
-
-func (r RootResourcePath) ContainsUnsafeCharacters() bool {
-	return strings.ContainsAny(string(r), UnsafeRootResourcePathCharacters)
-}
-
-func (r RootResourcePath) MakeSafe() (RootResourcePath, error) {
-	if r.ContainsUnsafeCharacters() {
-		withSafeCharacters := RootResourcePath(
-			strings.Trim(string(r), UnsafeRootResourcePathCharacters),
-		)
-		return withSafeCharacters, nil
-	}
-	return r, nil
-}
-
-func (r RootResourcePath) Validate() error {
-	if err := sharedTypes.PathName(r).Validate(); err != nil {
-		return err
-	}
-	if r.ContainsUnsafeCharacters() {
-		return &errors.ValidationError{Msg: "blocked characters in file/path"}
-	}
-	return nil
 }
 
 // The Resource is either the inline doc Content, or a file with download URL.
@@ -193,9 +164,9 @@ func (c CompileOptions) Validate() error {
 }
 
 type CompileRequest struct {
-	Options          CompileOptions   `json:"options"`
-	Resources        Resources        `json:"resources"`
-	RootResourcePath RootResourcePath `json:"rootResourcePath"`
+	Options          CompileOptions       `json:"options"`
+	Resources        Resources            `json:"resources"`
+	RootResourcePath sharedTypes.PathName `json:"rootResourcePath"`
 
 	// Internal fields.
 	RootDoc              *Resource `json:"-"`
@@ -214,7 +185,7 @@ func (c *CompileRequest) Preprocess() error {
 		c.Options.Timeout *= sharedTypes.ComputeTimeout(time.Second)
 	}
 
-	rootResourcePath := sharedTypes.PathName(c.RootResourcePath)
+	rootResourcePath := c.RootResourcePath
 	var rootDoc *Resource
 	for _, resource := range c.Resources {
 		if resource.Path == rootResourcePath {
@@ -229,16 +200,6 @@ func (c *CompileRequest) Preprocess() error {
 		return &errors.ValidationError{Msg: "rootDoc is not a doc"}
 	}
 	c.RootDoc = rootDoc
-
-	safe, err := c.RootResourcePath.MakeSafe()
-	if err != nil {
-		return err
-	}
-	if safe != c.RootResourcePath {
-		rootDoc.Path = sharedTypes.PathName(safe)
-		c.RootResourcePath = safe
-	}
-
 	return nil
 }
 

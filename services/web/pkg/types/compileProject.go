@@ -41,15 +41,15 @@ type ClearCompileCacheRequest struct {
 type CompileProjectRequest struct {
 	SignedCompileProjectRequestOptions `json:"-"`
 
-	AutoCompile                bool                       `json:"autoCompile"`
-	CheckMode                  clsiTypes.CheckMode        `json:"checkMode"`
-	Compiler                   sharedTypes.Compiler       `json:"compiler"`
-	Draft                      clsiTypes.DraftModeFlag    `json:"draft"`
-	ImageName                  sharedTypes.ImageName      `json:"imageName"`
-	IncrementalCompilesEnabled bool                       `json:"incrementalCompilesEnabled"`
-	RootDocId                  sharedTypes.UUID           `json:"rootDocId"`
-	RootDocPath                clsiTypes.RootResourcePath `json:"rootDocPath"`
-	SyncState                  clsiTypes.SyncState        `json:"syncState"`
+	AutoCompile                bool                    `json:"autoCompile"`
+	CheckMode                  clsiTypes.CheckMode     `json:"checkMode"`
+	Compiler                   sharedTypes.Compiler    `json:"compiler"`
+	Draft                      clsiTypes.DraftModeFlag `json:"draft"`
+	ImageName                  sharedTypes.ImageName   `json:"imageName"`
+	IncrementalCompilesEnabled bool                    `json:"incrementalCompilesEnabled"`
+	RootDocId                  sharedTypes.UUID        `json:"rootDocId"`
+	RootDocPath                sharedTypes.PathName    `json:"rootDocPath"`
+	SyncState                  clsiTypes.SyncState     `json:"syncState"`
 }
 
 func (r *CompileProjectRequest) Validate() error {

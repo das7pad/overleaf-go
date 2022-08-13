@@ -24,7 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type ProjectTokenAccessData struct {
@@ -138,7 +137,7 @@ type EditorBootstrap struct {
 	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
 	JWTSpelling          string                       `json:"jwtSpelling"`
 	Project              project.LoadEditorViewPublic `json:"project"`
-	RootDocPath          clsiTypes.RootResourcePath   `json:"rootDocPath"`
+	RootDocPath          sharedTypes.PathName         `json:"rootDocPath"`
 	User                 user.WithLoadEditorInfo      `json:"user"`
 	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
 }

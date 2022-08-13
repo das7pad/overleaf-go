@@ -219,7 +219,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	syncState := request.SyncState
 
 	var resources clsiTypes.Resources
-	var rootDocPath clsiTypes.RootResourcePath
+	var rootDocPath sharedTypes.PathName
 	var err error
 	fetchContentPerf := response.Timings.FetchContent
 	if request.IncrementalCompilesEnabled {
@@ -290,7 +290,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	}
 }
 
-func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, clsiTypes.RootResourcePath, error) {
+func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, sharedTypes.PathName, error) {
 	err := m.dum.FlushProject(ctx, request.ProjectId)
 	if err != nil {
 		return nil, "", errors.Tag(err, "cannot flush docs to db")
@@ -304,7 +304,7 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 
 	for _, d := range docs {
 		if d.Id == request.RootDocId {
-			rootDocPath = clsiTypes.RootResourcePath(d.Path)
+			rootDocPath = d.Path
 		}
 		s := d.Snapshot
 		resources = append(resources, &clsiTypes.Resource{
@@ -330,7 +330,7 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 	return resources, rootDocPath, nil
 }
 
-func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, clsiTypes.RootResourcePath, error) {
+func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, sharedTypes.PathName, error) {
 	docs, err := m.dum.GetProjectDocsAndFlushIfOldSnapshot(
 		ctx,
 		request.ProjectId,
@@ -353,7 +353,7 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 			}
 		}
 		if doc.Id == request.RootDocId {
-			rootDocPath = clsiTypes.RootResourcePath(p)
+			rootDocPath = p
 		}
 		resources[i] = &clsiTypes.Resource{
 			Path:    p,

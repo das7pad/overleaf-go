@@ -36,14 +36,13 @@ type manager struct {
 
 //goland:noinspection SpellCheckingInspection
 const (
-	usesTikzExternalize      = "\\tikzexternalize"
-	usesPsTool               = "{pstool}"
-	AliasDocFileName         = sharedTypes.PathName("output.tex")
-	aliasDocRootResourcePath = types.RootResourcePath(AliasDocFileName)
+	usesTikzExternalize = "\\tikzexternalize"
+	usesPsTool          = "{pstool}"
+	AliasDocFileName    = sharedTypes.PathName("output.tex")
 )
 
 func (m *manager) AddAliasDocIfNeeded(request *types.CompileRequest) {
-	if request.RootResourcePath == aliasDocRootResourcePath {
+	if request.RootResourcePath == AliasDocFileName {
 		// Very happy path
 		return
 	}

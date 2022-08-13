@@ -29,7 +29,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -175,7 +174,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()
 	response.Project = p.LoadEditorViewPublic
 	response.Project.RootDocId = p.RootDoc.Id
-	response.RootDocPath = clsiTypes.RootResourcePath(p.RootDoc.Path)
+	response.RootDocPath = p.RootDoc.Path
 	response.User = *u
 	if u.IsAdmin {
 		response.AllowedImageNames = m.options.AllowedImageNames

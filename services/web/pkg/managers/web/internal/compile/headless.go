@@ -47,7 +47,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 		ImageName:                  p.ImageName,
 		IncrementalCompilesEnabled: true,
 		RootDocId:                  p.RootDoc.Id,
-		RootDocPath:                clsiTypes.RootResourcePath(p.RootDoc.Path),
+		RootDocPath:                p.RootDoc.Path,
 		SyncState:                  clsiTypes.SyncState(p.Version.String()),
 	}, response)
 }
