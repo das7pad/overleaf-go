@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -113,9 +114,13 @@ func main() {
 		Addr:    addr,
 		Handler: r,
 	}
+	var errServeMux sync.Mutex
 	var errServe error
 	go func() {
-		errServe = server.ListenAndServe()
+		err2 := server.ListenAndServe()
+		errServeMux.Lock()
+		errServe = err2
+		errServeMux.Unlock()
 		triggerExit()
 	}()
 
@@ -129,6 +134,8 @@ func main() {
 	})
 	rtm.TriggerGracefulReconnect()
 	errClose := pendingShutdown.Wait(ctx)
+	errServeMux.Lock()
+	defer errServeMux.Unlock()
 	if errServe != nil && errServe != http.ErrServerClosed {
 		panic(errServe)
 	}
