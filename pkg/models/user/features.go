@@ -27,11 +27,11 @@ import (
 
 type Features struct {
 	Collaborators       int                        `json:"collaborators"`
-	Versioning          bool                       `json:"versioning"`
 	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout"`
 	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup"`
 	TrackChanges        bool                       `json:"trackChanges"`
 	TrackChangesVisible bool                       `json:"trackChangesVisible"`
+	Versioning          bool                       `json:"versioning"`
 }
 
 func (f *Features) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {

@@ -54,27 +54,27 @@ type Options struct {
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
-	EmailConfirmationDisabled bool                  `json:"email_confirmation_disabled"`
-	I18n                      templates.I18nOptions `json:"i18n"`
-	LearnCacheDuration        time.Duration         `json:"learn_cache_duration"`
-	LearnImageCacheBase       sharedTypes.DirName   `json:"learn_image_cache_base"`
-	ManifestPath              string                `json:"manifest_path"`
-	Nav                       templates.NavOptions  `json:"nav"`
-	PDFDownloadDomain         PDFDownloadDomain     `json:"pdf_download_domain"`
-	ProjectsInactiveAfter     time.Duration         `json:"projects_inactive_after"`
-	RegistrationDisabled      bool                  `json:"registration_disabled"`
-	RobotsNoindex             bool                  `json:"robots_noindex"`
-	Sentry                    SentryOptions         `json:"sentry"`
-	SiteURL                   sharedTypes.URL       `json:"site_url"`
-	SmokeTest                 struct {
+	I18n                  templates.I18nOptions `json:"i18n"`
+	LearnCacheDuration    time.Duration         `json:"learn_cache_duration"`
+	LearnImageCacheBase   sharedTypes.DirName   `json:"learn_image_cache_base"`
+	ManifestPath          string                `json:"manifest_path"`
+	Nav                   templates.NavOptions  `json:"nav"`
+	PDFDownloadDomain     PDFDownloadDomain     `json:"pdf_download_domain"`
+	ProjectsInactiveAfter time.Duration         `json:"projects_inactive_after"`
+	Sentry                SentryOptions         `json:"sentry"`
+	SiteURL               sharedTypes.URL       `json:"site_url"`
+	SmokeTest             struct {
 		Email     sharedTypes.Email `json:"email"`
 		Password  UserPassword      `json:"password"`
 		ProjectId sharedTypes.UUID  `json:"projectId"`
 		UserId    sharedTypes.UUID  `json:"userId"`
 	} `json:"smoke_test"`
-	StatusPageURL            sharedTypes.URL       `json:"status_page_url"`
-	TeXLiveImageNameOverride sharedTypes.ImageName `json:"texlive_image_name_override"`
-	WatchManifest            bool                  `json:"watch_manifest"`
+	StatusPageURL             sharedTypes.URL       `json:"status_page_url"`
+	TeXLiveImageNameOverride  sharedTypes.ImageName `json:"texlive_image_name_override"`
+	EmailConfirmationDisabled bool                  `json:"email_confirmation_disabled"`
+	RegistrationDisabled      bool                  `json:"registration_disabled"`
+	RobotsNoindex             bool                  `json:"robots_noindex"`
+	WatchManifest             bool                  `json:"watch_manifest"`
 
 	APIs struct {
 		Clsi struct {

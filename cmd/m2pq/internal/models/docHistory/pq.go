@@ -46,8 +46,8 @@ type ForPQ struct {
 			Position  int    `bson:"p" json:"p"`
 		} `bson:"op"`
 		Meta struct {
-			StartTs int64              `bson:"start_ts"`
-			EndTs   int64              `bson:"end_ts"`
+			StartTS int64              `bson:"start_ts"`
+			EndTS   int64              `bson:"end_ts"`
 			UserId  primitive.ObjectID `bson:"user_id"`
 		}
 		Version sharedTypes.Version `bson:"v"`
@@ -193,8 +193,8 @@ WHERE d.id = $1
 				pack.Version,                      // version
 				blob,                              // op
 				hasBigDelete,                      // has_big_delete
-				time.UnixMilli(pack.Meta.StartTs), // start_at
-				time.UnixMilli(pack.Meta.EndTs),   // end_at
+				time.UnixMilli(pack.Meta.StartTS), // start_at
+				time.UnixMilli(pack.Meta.EndTS),   // end_at
 			})
 		}
 	}
@@ -212,7 +212,7 @@ WHERE d.id = $1
 	}
 
 	if i == limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

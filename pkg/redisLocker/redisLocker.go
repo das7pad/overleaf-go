@@ -158,8 +158,7 @@ func (l *locker) tryGetLock(ctx context.Context, key string, lockValue string) (
 
 	ok, err := l.client.SetNX(getLockCtx, key, lockValue, LockTTL).Result()
 	if err != nil {
-		attemptTimedOut :=
-			err == context.DeadlineExceeded && ctx.Err() == nil
+		attemptTimedOut := err == context.DeadlineExceeded && ctx.Err() == nil
 		return false, attemptTimedOut, err
 	}
 	return ok, false, nil
@@ -172,11 +171,10 @@ func (l *locker) releaseLock(key string, lockValue string, lockExpiredAfter time
 	}
 
 	keys := []string{key}
-	argv := []interface{}{lockValue}
 
 	ctx, done := context.WithDeadline(context.Background(), lockExpiredAfter)
 	defer done()
-	res, err := unlockScript.Run(ctx, l.client, keys, argv).Result()
+	res, err := unlockScript.Run(ctx, l.client, keys, lockValue).Result()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			// Release request timed out, but the redis value expired as well.

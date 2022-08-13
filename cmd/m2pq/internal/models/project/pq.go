@@ -157,10 +157,9 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 				}
 				pId, _ := m2pq.UUID2ObjectID(e.ProjectId)
 				fId, _ := m2pq.UUID2ObjectID(e.FileId)
-				src :=
-					primitive.ObjectID(pId).Hex() +
-						"/" +
-						primitive.ObjectID(fId).Hex()
+				src := primitive.ObjectID(pId).Hex() +
+					"/" +
+					primitive.ObjectID(fId).Hex()
 				if err := fo.CopyObject(ctx, fBucket, src, dst); err != nil {
 					err = errors.Tag(
 						err,
@@ -668,7 +667,7 @@ WHERE id = $1
 	}
 
 	if i == limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

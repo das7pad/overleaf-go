@@ -49,7 +49,9 @@ func New(db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Man
 }
 
 type diffManager = diff.Manager
+
 type flushManager = flush.Manager
+
 type updatesManager = updates.Manager
 
 type manager struct {

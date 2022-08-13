@@ -70,8 +70,9 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 	var triggerSessionCleanup func()
 	eg.Go(func() error {
 		var err error
-		res.RedirectTo, triggerSessionCleanup, err =
-			r.Session.PrepareLogin(pCtx, u.ForSession, r.IPAddress)
+		res.RedirectTo, triggerSessionCleanup, err = r.Session.PrepareLogin(
+			pCtx, u.ForSession, r.IPAddress,
+		)
 		return err
 	})
 	if err := eg.Wait(); err != nil {

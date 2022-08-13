@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -39,10 +39,13 @@ type Worker interface {
 	CheckWords(ctx context.Context, words []string) ([]string, error)
 	Kill(reason error)
 	Shutdown(reason error)
-	TransitionState(old, new string) bool
+	TransitionState(from, to string) bool
 }
 
 func newAspellWorker(language types.SpellCheckLanguage) (Worker, error) {
+	if err := language.Validate(); err != nil {
+		return nil, err
+	}
 	cmd := exec.Command(
 		"aspell",
 		"pipe", "--mode=tex", "--encoding=utf-8", "--master", string(language),
@@ -207,11 +210,11 @@ func (w *worker) Shutdown(reason error) {
 	_ = w.stdin.Close()
 }
 
-func (w *worker) TransitionState(old, new string) bool {
-	if w.state != old {
+func (w *worker) TransitionState(from, to string) bool {
+	if w.state != from {
 		return false
 	}
-	w.updateState(new, nil)
+	w.updateState(to, nil)
 	return true
 }
 
@@ -246,7 +249,7 @@ func (w *worker) startBatch() error {
 }
 
 func (w *worker) sendWords(words []string) error {
-	w.count += 1
+	w.count++
 	return w.write("^" + strings.Join(words, " "))
 }
 

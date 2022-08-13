@@ -50,7 +50,7 @@ func New(options *types.Options, finder outputFileFinder.Finder) (ResourceWriter
 		return nil, err
 	}
 	cacheDir := string(options.CacheBaseDir)
-	if err = os.MkdirAll(cacheDir, 0755); err != nil {
+	if err = os.MkdirAll(cacheDir, 0o700); err != nil {
 		return nil, err
 	}
 
@@ -84,17 +84,18 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 	dir := r.options.CompileBaseDir.CompileDir(namespace)
 	var cache ResourceCache
 	var err error
-	if request.Options.SyncType == types.SyncTypeFull {
+	switch {
+	case request.Options.SyncType == types.SyncTypeFull:
 		cache, err = r.fullSync(ctx, projectId, request, dir)
-	} else if request.Options.SyncType == types.SyncTypeFullIncremental {
+	case request.Options.SyncType == types.SyncTypeFullIncremental:
 		cache, err = r.fullSyncIncremental(
 			ctx, projectId, namespace, request, dir,
 		)
-	} else {
+	default:
 		cache, err = r.incrementalSync(ctx, projectId, namespace, request, dir)
 	}
 	if err != nil {
-		if err != outputFileFinder.ProjectHasTooManyFilesAndDirectories {
+		if err != outputFileFinder.ErrProjectHasTooManyFilesAndDirectories {
 			return nil, err
 		}
 		// Clear all the contents.
@@ -105,13 +106,15 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 			return nil, err
 		}
 		// Retry once when doing a fully sync.
-		if request.Options.SyncType == types.SyncTypeFull {
+		switch request.Options.SyncType {
+		case types.SyncTypeFull:
 			cache, err = r.fullSync(ctx, projectId, request, dir)
-		} else if request.Options.SyncType == types.SyncTypeFullIncremental {
+		case types.SyncTypeFullIncremental:
 			cache, err = r.fullSyncIncremental(
 				ctx, projectId, namespace, request, dir,
 			)
-		} else {
+		case types.SyncTypeIncremental:
+			// Let web try with a full sync request again.
 			return nil, err
 		}
 		if err != nil {
@@ -222,7 +225,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, r
 				continue
 			}
 			if _, foundResource := allResources[fileName]; foundResource {
-				foundResources += 1
+				foundResources++
 				continue
 			}
 			if !resourceCleanup.ShouldDelete(fileName) {
@@ -286,9 +289,8 @@ func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, r
 func (r *resourceWriter) writeResource(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, compileDir types.CompileDir) error {
 	if resource.IsDoc() {
 		return r.writeDoc(resource, compileDir)
-	} else {
-		return r.writeFile(ctx, projectId, resource, compileDir)
 	}
+	return r.writeFile(ctx, projectId, resource, compileDir)
 }
 
 func (r *resourceWriter) writeDoc(resource *types.Resource, compileDir types.CompileDir) error {
@@ -296,7 +298,7 @@ func (r *resourceWriter) writeDoc(resource *types.Resource, compileDir types.Com
 	//  will either get recreated on re-compile, or deleted as part of output
 	//  scrubbing in case it were to be deleted from the projects resources.
 	blob := []byte((*resource.Content))
-	return os.WriteFile(compileDir.Join(resource.Path), blob, 0644)
+	return os.WriteFile(compileDir.Join(resource.Path), blob, 0o600)
 }
 
 func (r *resourceWriter) writeFile(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, compileDir types.CompileDir) error {

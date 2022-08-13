@@ -117,9 +117,7 @@ const (
 	DocOpsMaxLength = 100
 )
 
-var (
-	updateRangeNotAvailable = &errors.UpdateRangeNotAvailableError{}
-)
+var ErrUpdateRangeNotAvailable = &errors.UpdateRangeNotAvailableError{}
 
 type manager struct {
 	rClient redis.UniversalClient
@@ -128,25 +126,32 @@ type manager struct {
 func getDocsInProjectKey(projectId sharedTypes.UUID) string {
 	return "DocsIn:{" + projectId.String() + "}"
 }
+
 func getDocCoreKey(docId sharedTypes.UUID) string {
 	return "docCore:{" + docId.String() + "}"
 }
+
 func getDocVersionKey(docId sharedTypes.UUID) string {
 	return "DocVersion:{" + docId.String() + "}"
 }
+
 func getUnFlushedTimeKey(docId sharedTypes.UUID) string {
 	//goland:noinspection SpellCheckingInspection
 	return "UnflushedTime:{" + docId.String() + "}"
 }
+
 func getLastUpdatedCtxKey(docId sharedTypes.UUID) string {
 	return "lastUpdatedCtx:{" + docId.String() + "}"
 }
+
 func getDocUpdatesKey(docId sharedTypes.UUID) string {
 	return "DocOps:{" + docId.String() + "}"
 }
+
 func getUncompressedHistoryOpsKey(docId sharedTypes.UUID) string {
 	return "UncompressedHistoryOps:{" + docId.String() + "}"
 }
+
 func getFlushAndDeleteQueueKey() string {
 	return "DocUpdaterFlushAndDeleteQueue"
 }
@@ -292,14 +297,12 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId sharedTypes.U
 		getDocUpdatesKey(docId),
 		getDocVersionKey(docId),
 	}
-	argv := []interface{}{
-		start.String(),
-		end.String(),
-	}
-	res, err := scriptGetPreviousDocUpdates.Run(ctx, m.rClient, keys, argv).Result()
+	res, err := scriptGetPreviousDocUpdates.
+		Run(ctx, m.rClient, keys, start.String(), end.String()).
+		Result()
 	if err != nil {
 		if strings.Contains(err.Error(), "overleaf:") {
-			return nil, updateRangeNotAvailable
+			return nil, ErrUpdateRangeNotAvailable
 		}
 		return nil, errors.Tag(err, "cannot get previous updates from redis")
 	}
@@ -333,13 +336,14 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId shar
 	offset := int64(docVersion - end)
 	start := -n - offset
 	stop := -1 - offset
-	raw, err :=
-		m.rClient.LRange(ctx, getDocUpdatesKey(docId), start, stop).Result()
+	raw, err := m.rClient.LRange(
+		ctx, getDocUpdatesKey(docId), start, stop,
+	).Result()
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get previous updates from redis")
 	}
 	if len(raw) != int(n) {
-		return nil, updateRangeNotAvailable
+		return nil, ErrUpdateRangeNotAvailable
 	}
 	return m.parseDocumentUpdates(begin, raw)
 }
@@ -352,7 +356,7 @@ func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) 
 			return nil, errors.Tag(err, "cannot parse update")
 		}
 		if i == 0 && start != update.Version {
-			return nil, updateRangeNotAvailable
+			return nil, ErrUpdateRangeNotAvailable
 		}
 		updates[i] = update
 	}

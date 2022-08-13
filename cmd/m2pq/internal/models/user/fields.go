@@ -72,8 +72,8 @@ type LastLoggedInField struct {
 	LastLoggedIn *time.Time `bson:"lastLoggedIn"`
 }
 
-type LastLoginIpField struct {
-	LastLoginIp string `bson:"lastLoginIp"`
+type LastLoginIPField struct {
+	LastLoginIP string `bson:"lastLoginIp"`
 }
 
 type LastNameField struct {

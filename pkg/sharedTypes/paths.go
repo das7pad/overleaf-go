@@ -24,6 +24,7 @@ import (
 )
 
 // NOTE: When updating ValidRootDocExtensions, update project.Manager too.
+//
 //goland:noinspection SpellCheckingInspection
 var (
 	ValidRootDocExtensions = []FileType{
@@ -212,7 +213,7 @@ func (p PathName) Type() FileType {
 		return ""
 	}
 	// Drop the dot.
-	idx += 1
+	idx++
 	return FileType(strings.ToLower(string(p[idx:])))
 }
 

@@ -31,8 +31,7 @@ func New() Manager {
 	return &manager{}
 }
 
-type manager struct {
-}
+type manager struct{}
 
 //goland:noinspection SpellCheckingInspection
 const (

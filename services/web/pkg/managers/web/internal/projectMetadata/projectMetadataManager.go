@@ -102,7 +102,7 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId shared
 	if err != nil {
 		return nil, errors.Tag(err, "cannot publish meta")
 	}
-	return nil, nil
+	return &types.ProjectDocMetadataResponse{DocId: docId}, nil
 }
 
 func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId sharedTypes.UUID, recentlyEdited []*documentUpdaterTypes.DocContentSnapshot) (types.LightProjectMetadata, error) {

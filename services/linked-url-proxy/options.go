@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,15 +23,15 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
-type linkedUrlProxyOptions struct {
+type linkedURLProxyOptions struct {
 	address        string
 	timeout        time.Duration
 	proxyToken     string
 	allowRedirects bool
 }
 
-func getOptions() *linkedUrlProxyOptions {
-	o := &linkedUrlProxyOptions{}
+func getOptions() *linkedURLProxyOptions {
+	o := &linkedURLProxyOptions{}
 	o.address = listenAddress.Parse(8080)
 	o.proxyToken = utils.MustGetStringFromEnv("PROXY_TOKEN")
 	o.timeout = utils.GetDurationFromEnv(

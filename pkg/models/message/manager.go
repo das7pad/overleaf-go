@@ -135,20 +135,21 @@ WHERE users.id = msg.user_id
 	return err
 }
 
+const MaxMessageLength = 10 * 1024
+
 var (
-	NoContentProvided = &errors.ValidationError{Msg: "no content provided"}
-	MaxMessageLength  = 10 * 1024
-	ContentTooLong    = &errors.ValidationError{
+	ErrNoContentProvided = &errors.ValidationError{Msg: "no content provided"}
+	ErrContentTooLong    = &errors.ValidationError{
 		Msg: "content too long (> 10240 bytes)",
 	}
 )
 
 func checkContent(content string) error {
 	if content == "" {
-		return NoContentProvided
+		return ErrNoContentProvided
 	}
 	if len(content) > MaxMessageLength {
-		return ContentTooLong
+		return ErrContentTooLong
 	}
 	return nil
 }

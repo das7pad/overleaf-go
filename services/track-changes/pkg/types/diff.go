@@ -27,8 +27,8 @@ import (
 type DiffMeta struct {
 	User user.WithPublicInfoAndNonStandardId `json:"user,omitempty"`
 
-	StartTs sharedTypes.Timestamp `json:"start_ts"`
-	EndTs   sharedTypes.Timestamp `json:"end_ts"`
+	StartTS sharedTypes.Timestamp `json:"start_ts"`
+	EndTS   sharedTypes.Timestamp `json:"end_ts"`
 }
 
 type DiffEntry struct {

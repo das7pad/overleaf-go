@@ -232,9 +232,10 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	var syncType clsiTypes.SyncType
 
 	for {
-		if err == nil {
+		switch {
+		case err == nil:
 			syncType = clsiTypes.SyncTypeIncremental
-		} else if errors.IsInvalidState(err) {
+		case errors.IsInvalidState(err):
 			syncType = clsiTypes.SyncTypeFullIncremental
 			fetchContentPerf.Begin()
 			resources, rootDocPath, err = m.fromDB(ctx, request)
@@ -242,7 +243,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			if err != nil {
 				return errors.Tag(err, "cannot get docs from db")
 			}
-		} else {
+		default:
 			return errors.Tag(err, "cannot get docs from redis")
 		}
 

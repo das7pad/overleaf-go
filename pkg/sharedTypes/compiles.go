@@ -24,25 +24,37 @@ import (
 )
 
 const (
-	Latex    = Compiler("latex")
-	LuaLatex = Compiler("lualatex")
-	PDFLatex = Compiler("pdflatex")
-	XeLatex  = Compiler("xelatex")
+	LaTeX    = Compiler("latex")
+	LuaLaTeX = Compiler("lualatex")
+	PDFLaTeX = Compiler("pdflatex")
+	XeLaTeX  = Compiler("xelatex")
 )
-
-var validCompilers = []Compiler{
-	Latex, LuaLatex, PDFLatex, XeLatex,
-}
 
 type Compiler string
 
 func (c Compiler) Validate() error {
-	for _, compiler := range validCompilers {
-		if c == compiler {
-			return nil
-		}
+	switch c {
+	case LaTeX, LuaLaTeX, PDFLaTeX, XeLaTeX:
+		return nil
+	default:
+		return &errors.ValidationError{Msg: "compiler not allowed"}
 	}
-	return &errors.ValidationError{Msg: "compiler not allowed"}
+}
+
+func (c Compiler) LaTeXmkFlag() string {
+	switch c {
+	case LaTeX:
+		//goland:noinspection SpellCheckingInspection
+		return "-pdfdvi"
+	case LuaLaTeX:
+		return "-lualatex"
+	case PDFLaTeX:
+		return "-pdf"
+	case XeLaTeX:
+		return "-xelatex"
+	default:
+		return ""
+	}
 }
 
 const (

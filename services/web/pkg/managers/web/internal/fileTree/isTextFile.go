@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,7 +35,7 @@ func IsTextFile(fileName sharedTypes.Filename, size int64, reader io.Reader) (sh
 		return nil, false, true, errors.Tag(err, "cannot read file")
 	}
 	s := sharedTypes.Snapshot(string(blob))
-	if err := s.Validate(); err != nil {
+	if editable := s.Validate() == nil; !editable {
 		return nil, false, true, nil
 	}
 	return s, true, true, nil

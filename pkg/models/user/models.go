@@ -38,11 +38,11 @@ type WithPublicInfoAndFeatures struct {
 }
 
 type WithLoadEditorInfo struct {
+	EditorConfigField
 	AlphaProgramField
 	BetaProgramField
-	EditorConfigField
-	EpochField
 	IsAdminField
+	EpochField
 	WithPublicInfoAndFeatures
 }
 

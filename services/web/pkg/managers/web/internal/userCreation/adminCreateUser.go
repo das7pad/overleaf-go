@@ -58,7 +58,7 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 	u.AuditLog = []user.AuditLogEntry{
 		{
 			InitiatorId: r.Session.User.Id,
-			IpAddress:   r.IPAddress,
+			IPAddress:   r.IPAddress,
 			Operation:   user.AuditLogOperationCreateAccount,
 			Timestamp:   u.SignUpDate,
 		},

@@ -198,7 +198,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		// Populate ids
 		nElements := 1
 		t.WalkFull(func(_ project.TreeElement) {
-			nElements += 1
+			nElements++
 		})
 		b, err := sharedTypes.GenerateUUIDBulk(nElements)
 		if err != nil {

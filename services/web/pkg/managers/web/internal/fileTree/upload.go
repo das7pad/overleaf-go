@@ -81,8 +81,9 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		if err = sharedTypes.PopulateUUID(&doc.Id); err != nil {
 			return err
 		}
-		existingId, existingIsDoc, v, err =
-			m.pm.EnsureIsDoc(ctx, projectId, userId, folderId, &doc)
+		existingId, existingIsDoc, v, err = m.pm.EnsureIsDoc(
+			ctx, projectId, userId, folderId, &doc,
+		)
 		if err != nil {
 			return errors.Tag(err, "cannot create populated doc")
 		}
@@ -134,8 +135,9 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		if err != nil {
 			return errors.Tag(err, "cannot upload new file")
 		}
-		existingId, existingIsDoc, v, err =
-			m.pm.FinalizeFileCreation(uploadCtx, projectId, userId, &file)
+		existingId, existingIsDoc, v, err = m.pm.FinalizeFileCreation(
+			uploadCtx, projectId, userId, &file,
+		)
 		if err != nil {
 			return errors.Tag(err, "finalize file creation")
 		}

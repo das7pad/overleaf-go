@@ -68,7 +68,8 @@ func main() {
 			flag.PrintDefaults()
 			panic(errors.New("specify word or number of words to delete"))
 		}
-		if word != "" {
+		switch {
+		case word != "":
 			found := false
 			for _, learnedWord := range u.LearnedWords {
 				if learnedWord == word {
@@ -84,12 +85,12 @@ func main() {
 			if err = um.UnlearnWord(ctx, userId, word); err != nil {
 				panic(errors.Tag(err, "cannot unlearn word"))
 			}
-		} else if *deleteN == len(u.LearnedWords) {
+		case *deleteN == len(u.LearnedWords):
 			log.Printf("Deleting all %d words.", len(u.LearnedWords))
 			if err = um.DeleteDictionary(ctx, userId); err != nil {
 				panic(errors.Tag(err, "cannot unlearn word"))
 			}
-		} else {
+		default:
 			log.Printf("Consider listing words first: %s list", os.Args[0])
 			panic(errors.New("number of words to delete does not match"))
 		}

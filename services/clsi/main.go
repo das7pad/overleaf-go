@@ -40,7 +40,7 @@ func Setup() (clsi.Manager, *httpUtils.Router, *clsiOptions) {
 	if err != nil {
 		panic(err)
 	}
-	handler := newHttpController(cm)
+	handler := newHTTPController(cm)
 	return cm, handler.GetRouter(), o
 }
 

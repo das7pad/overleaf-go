@@ -44,33 +44,6 @@ const (
 	ClientTrackingClientUpdated = "clientTracking.clientUpdated"
 )
 
-//goland:noinspection SpellCheckingInspection
-var nonRestrictedMessages = []string{
-	// File Tree events
-	// NOTE: The actual event names have a typo.
-	"reciveNewDoc",
-	"reciveNewFile",
-	"reciveNewFolder",
-	"reciveEntityMove",
-	"reciveEntityRename",
-	"removeEntity",
-
-	// Core project details
-	"projectNameUpdated",
-	"rootDocUpdated",
-	"toggle-track-changes",
-
-	// Project deleted
-	"projectRenamedOrDeletedByExternalSource",
-
-	// Auth
-	"project:publicAccessLevel:changed",
-
-	// System
-	"forceDisconnect",
-	"unregisterServiceWorker",
-}
-
 func (r *ProjectRoom) Handle(raw string) {
 	var msg sharedTypes.EditorEventsMessage
 	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
@@ -97,8 +70,7 @@ func (r *ProjectRoom) Handle(raw string) {
 }
 
 func (r *ProjectRoom) StopPeriodicTasks() {
-	t := r.periodicRefresh
-	if t != nil {
+	if t := r.periodicRefresh; t != nil {
 		t.Stop()
 	}
 }
@@ -151,6 +123,7 @@ func (r *ProjectRoom) refreshClientPositions() error {
 	r.nextProjectRefresh = t.Add(clientTracking.RefreshProjectEvery)
 	return nil
 }
+
 func (r *ProjectRoom) handleClientTrackingUpdated(msg sharedTypes.EditorEventsMessage) error {
 	var notification types.ClientPositionUpdateNotification
 	if err := json.Unmarshal(msg.Payload, &notification); err != nil {
@@ -186,18 +159,41 @@ func (r *ProjectRoom) handleMessageFromSource(msg sharedTypes.EditorEventsMessag
 }
 
 func isNonRestrictedMessage(message string) bool {
-	for _, nonRestrictedMessage := range nonRestrictedMessages {
-		if message == nonRestrictedMessage {
-			return true
-		}
+	switch message {
+	//goland:noinspection SpellCheckingInspection
+	case
+		// File Tree events
+		// NOTE: The actual event names have a typo.
+		"reciveNewDoc",
+		"reciveNewFile",
+		"reciveNewFolder",
+		"reciveEntityMove",
+		"reciveEntityRename",
+		"removeEntity",
+
+		// Core project details
+		"projectNameUpdated",
+		"rootDocUpdated",
+		"toggle-track-changes",
+
+		// Project deleted
+		"projectRenamedOrDeletedByExternalSource",
+
+		// Auth
+		"project:publicAccessLevel:changed",
+
+		// System
+		"forceDisconnect",
+		"unregisterServiceWorker":
+		return true
+	default:
+		return false
 	}
-	return false
 }
 
 func clientCanSeeMessage(client *types.Client, nonRestrictedMessage bool) bool {
 	if nonRestrictedMessage {
 		return client.HasCapability(types.CanSeeNonRestrictedEvents)
-	} else {
-		return client.HasCapability(types.CanSeeAllEditorEvents)
 	}
+	return client.HasCapability(types.CanSeeAllEditorEvents)
 }

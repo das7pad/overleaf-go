@@ -46,7 +46,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 	u.AuditLog = []user.AuditLogEntry{
 		{
 			InitiatorId: u.Id,
-			IpAddress:   r.IPAddress,
+			IPAddress:   r.IPAddress,
 			Operation:   user.AuditLogOperationLogin,
 			Timestamp:   u.SignUpDate,
 		},

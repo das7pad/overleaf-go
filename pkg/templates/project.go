@@ -118,27 +118,27 @@ type EditorSettings struct {
 	MaxDocLength           int64                  `json:"max_doc_length"`
 	MaxEntitiesPerProject  int64                  `json:"maxEntitiesPerProject"`
 	MaxUploadSize          int64                  `json:"maxUploadSize"`
-	WikiEnabled            bool                   `json:"wikiEnabled"`
 	WsURL                  string                 `json:"wsUrl"`
 	WsRetryHandshake       int64                  `json:"wsRetryHandshake"`
-	EnablePdfCaching       bool                   `json:"enablePdfCaching"`
-	ResetServiceWorker     bool                   `json:"resetServiceWorker"`
 	EditorThemes           []string               `json:"editorThemes"`
 	TextExtensions         []sharedTypes.FileType `json:"textExtensions"`
 	ValidRootDocExtensions []sharedTypes.FileType `json:"validRootDocExtensions"`
+	WikiEnabled            bool                   `json:"wikiEnabled"`
+	EnablePdfCaching       bool                   `json:"enablePdfCaching"`
+	ResetServiceWorker     bool                   `json:"resetServiceWorker"`
 }
 
 type EditorBootstrap struct {
 	AllowedImageNames    []AllowedImageName           `json:"allowedImageNames"`
-	Anonymous            bool                         `json:"anonymous"`
 	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
-	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
 	JWTProject           string                       `json:"jwtCompile"`
 	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
 	JWTSpelling          string                       `json:"jwtSpelling"`
 	Project              project.LoadEditorViewPublic `json:"project"`
 	RootDocPath          sharedTypes.PathName         `json:"rootDocPath"`
 	User                 user.WithLoadEditorInfo      `json:"user"`
+	Anonymous            bool                         `json:"anonymous"`
+	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
 	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
 }
 

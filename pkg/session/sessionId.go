@@ -29,8 +29,10 @@ import (
 
 const sessionIdSizeBytes = 24
 
-var b64 = base64.RawURLEncoding
-var sessionIdSizeEncoded = b64.EncodedLen(sessionIdSizeBytes)
+var (
+	b64                  = base64.RawURLEncoding
+	sessionIdSizeEncoded = b64.EncodedLen(sessionIdSizeBytes)
+)
 
 type Id string
 

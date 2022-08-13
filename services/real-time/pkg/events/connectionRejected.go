@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,43 +21,39 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-var ConnectionRejectedBadWsBootstrapResponse = &types.RPCResponse{
-	Name: "connectionRejected",
-	Error: &errors.JavaScriptError{
-		Message: "bad wsBootstrap blob",
-		Code:    "BadWsBootstrapBlob",
-	},
-	FatalError: true,
-}
 var ConnectionRejectedBadWsBootstrapPrepared = prepareBulkMessageOffline(
-	ConnectionRejectedBadWsBootstrapResponse,
+	&types.RPCResponse{
+		Name: "connectionRejected",
+		Error: &errors.JavaScriptError{
+			Message: "bad wsBootstrap blob",
+			Code:    "BadWsBootstrapBlob",
+		},
+		FatalError: true,
+	},
 )
 
-var ConnectionRejectedInternalErrorResponse = &types.RPCResponse{
-	Name: "connectionRejected",
-	Error: &errors.JavaScriptError{
-		Message: "internal error",
-	},
-	FatalError: true,
-}
 var ConnectionRejectedInternalErrorPrepared = prepareBulkMessageOffline(
-	ConnectionRejectedInternalErrorResponse,
-)
-
-var ConnectionRejectedRetryResponse = &types.RPCResponse{
-	Name: "connectionRejected",
-	Error: &errors.JavaScriptError{
-		Message: "retry",
+	&types.RPCResponse{
+		Name: "connectionRejected",
+		Error: &errors.JavaScriptError{
+			Message: "internal error",
+		},
+		FatalError: true,
 	},
-	FatalError: true,
-}
-var ConnectionRejectedRetryPrepared = prepareBulkMessageOffline(
-	ConnectionRejectedRetryResponse,
 )
 
-var ReconnectGracefullyResponse = &types.RPCResponse{
-	Name: "reconnectGracefully",
-}
+var ConnectionRejectedRetryPrepared = prepareBulkMessageOffline(
+	&types.RPCResponse{
+		Name: "connectionRejected",
+		Error: &errors.JavaScriptError{
+			Message: "retry",
+		},
+		FatalError: true,
+	},
+)
+
 var ReconnectGracefullyPrepared = prepareBulkMessageOffline(
-	ReconnectGracefullyResponse,
+	&types.RPCResponse{
+		Name: "reconnectGracefully",
+	},
 )

@@ -99,6 +99,8 @@ func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
 	return &UUIDBatch{buf: buf}, nil
 }
 
+const AllZeroUUID = "00000000-0000-0000-0000-000000000000"
+
 type UUID [16]byte
 
 func (u UUID) String() string {

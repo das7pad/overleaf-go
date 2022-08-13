@@ -97,8 +97,8 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 						Users: []user.WithPublicInfoAndNonStandardId{
 							batch.Users.GetUserNonStandardId(update.UserId),
 						},
-						StartTs: startAt,
-						EndTs:   endAt,
+						StartTS: startAt,
+						EndTS:   endAt,
 					},
 					Docs: map[string]types.DocUpdateBounds{
 						docId: {
@@ -136,11 +136,11 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 					batch.Users.GetUserNonStandardId(update.UserId),
 				)
 			}
-			if lastUpdate.Meta.StartTs.ToTime().After(update.StartAt) {
-				lastUpdate.Meta.StartTs = startAt
+			if lastUpdate.Meta.StartTS.ToTime().After(update.StartAt) {
+				lastUpdate.Meta.StartTS = startAt
 			}
 			lastRawUpdateHasBigDelete = update.HasBigDelete
-			lastUpdateEndAt = lastUpdate.Meta.EndTs
+			lastUpdateEndAt = lastUpdate.Meta.EndTS
 		}
 
 		if len(batch.History) < fetchAtLeastNUpdates {

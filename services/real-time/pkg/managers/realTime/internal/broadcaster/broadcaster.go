@@ -42,7 +42,7 @@ func New(c channel.Manager, newRoom NewRoom) Broadcaster {
 	b := &broadcaster{
 		c:        c,
 		newRoom:  newRoom,
-		allQueue: make(chan *channel.PubSubMessage),
+		allQueue: make(chan string),
 		queue:    make(chan action),
 		mux:      sync.RWMutex{},
 		rooms:    make(map[sharedTypes.UUID]Room),
@@ -53,7 +53,7 @@ func New(c channel.Manager, newRoom NewRoom) Broadcaster {
 type broadcaster struct {
 	c channel.Manager
 
-	allQueue chan *channel.PubSubMessage
+	allQueue chan string
 
 	newRoom NewRoom
 	queue   chan action
@@ -301,9 +301,10 @@ func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {
 
 func (b *broadcaster) processAllMessages() {
 	for message := range b.allQueue {
+		msg := message
 		b.pauseQueueFor(func() {
 			for _, r := range b.rooms {
-				r.broadcast(message.Msg)
+				r.broadcast(msg)
 			}
 		})
 	}
@@ -328,7 +329,7 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 				}
 			case channel.IncomingMessage:
 				if raw.Channel == (sharedTypes.UUID{}) {
-					b.allQueue <- raw
+					b.allQueue <- raw.Msg
 				} else {
 					b.handleMessage(raw)
 				}

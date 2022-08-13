@@ -210,7 +210,7 @@ LIMIT 1
 		return errors.Tag(err, "iter rooms")
 	}
 	if i == limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

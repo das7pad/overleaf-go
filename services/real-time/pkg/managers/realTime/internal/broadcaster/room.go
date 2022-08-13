@@ -62,6 +62,7 @@ func (r *TrackingRoom) Clients() Clients {
 func (r *TrackingRoom) StartPeriodicTasks() {
 	// Noop
 }
+
 func (r *TrackingRoom) StopPeriodicTasks() {
 	// Noop
 }

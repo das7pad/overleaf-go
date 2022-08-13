@@ -71,7 +71,7 @@ type Manager interface {
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
 	GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error
 	GrantMemberAccess(ctx context.Context, projectId, ownerId, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel) error
-	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error)
+	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, bool, error)
 	GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error)
 	SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error
@@ -272,7 +272,7 @@ WHERE id = $1
 `, p.Id, p.Name, rootDocId, p.RootFolder.Id))
 }
 
-func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
+func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, bool, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		tokens, err := generateTokens()
@@ -301,15 +301,15 @@ RETURNING token_ro, token_rw
 				allErrors.Add(err)
 				continue
 			}
-			return nil, err
+			return nil, false, err
 		}
-		if tokens.ReadOnly == persisted.ReadOnly {
-			return &persisted, nil
-		}
-		// tokens are already populated
-		return nil, nil
+		// Technically we do not need a timing safe comparison, but doing so
+		//  keeps code audits simple -- all token comparisons are timing safe!
+		changed := tokens.ReadOnly.EqualsTimingSafe(persisted.ReadOnly) &&
+			tokens.ReadAndWrite.EqualsTimingSafe(persisted.ReadAndWrite)
+		return &persisted, changed, nil
 	}
-	return nil, errors.Tag(allErrors, "bad random source")
+	return nil, false, errors.Tag(allErrors, "bad random source")
 }
 
 func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
@@ -1034,7 +1034,7 @@ WHERE d.id = $2
   AND p.deleted_at IS NULL
 `, projectId, docId).Scan(&d.Path, &d.Snapshot, &d.Version)
 	if err == pgx.ErrNoRows {
-		return nil, &errors.ErrorDocNotFound{}
+		return nil, &errors.DocNotFoundError{}
 	}
 	d.Id = docId
 	d.Name = d.Path.Filename()
@@ -1425,6 +1425,7 @@ WHERE p.id = $1
 	d.User.Id = userId
 	return &d, err
 }
+
 func (m *manager) GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error) {
 	at := time.Time{}
 	return at, m.db.QueryRow(ctx, `

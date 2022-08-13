@@ -118,13 +118,14 @@ type Folder struct {
 	Folders  []*Folder  `json:"folders" bson:"folders"`
 }
 
-var AbortWalk = errors.New("abort walk")
-
 type MongoPath string
 
 type DirWalker func(folder *Folder, path sharedTypes.DirName) error
+
 type DirWalkerMongo func(parent, folder *Folder, path sharedTypes.DirName, mongoPath MongoPath) error
+
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
+
 type TreeWalkerMongo func(parent *Folder, element TreeElement, path sharedTypes.PathName, mongoPath MongoPath) error
 
 func (t *Folder) CountNodes() int {
@@ -136,11 +137,11 @@ func (t *Folder) CountNodes() int {
 }
 
 func (t *Folder) WalkFiles(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, "", walkModeFiles))
+	return t.walk(fn, "", walkModeFiles)
 }
 
 func (t *Folder) WalkFolders(fn DirWalker) error {
-	return ignoreAbort(t.walkDirs(fn, ""))
+	return t.walkDirs(fn, "")
 }
 
 type walkMode int
@@ -150,13 +151,6 @@ const (
 	walkModeFiles
 	walkModeAny
 )
-
-func ignoreAbort(err error) error {
-	if err != nil && err != AbortWalk {
-		return err
-	}
-	return nil
-}
 
 func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 	if err := fn(t, parent); err != nil {

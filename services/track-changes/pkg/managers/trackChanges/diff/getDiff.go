@@ -71,8 +71,8 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 				Unchanged: sharedTypes.Snippet(s),
 				Meta: types.DiffMeta{
 					User:    dh.Users.GetUserNonStandardId(sharedTypes.UUID{}),
-					StartTs: 0,
-					EndTs:   0,
+					StartTS: 0,
+					EndTS:   0,
 				},
 			},
 		},
@@ -81,8 +81,8 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 	for _, history := range dh.History {
 		meta := types.DiffMeta{
 			User:    dh.Users.GetUserNonStandardId(history.UserId),
-			StartTs: sharedTypes.Timestamp(history.StartAt.UnixMilli()),
-			EndTs:   sharedTypes.Timestamp(history.EndAt.UnixMilli()),
+			StartTS: sharedTypes.Timestamp(history.StartAt.UnixMilli()),
+			EndTS:   sharedTypes.Timestamp(history.EndAt.UnixMilli()),
 		}
 		for _, component := range history.Op {
 			p := 0
@@ -158,24 +158,25 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 		if q.Meta.User.Id != q.next.Meta.User.Id {
 			continue
 		}
-		if len(q.Insertion) > 0 && len(q.next.Insertion) > 0 {
+		switch {
+		case len(q.Insertion) > 0 && len(q.next.Insertion) > 0:
 			// The underlying snippet may be re-used from splitting the entry.
 			// We need to copy it before appending.
 			q.Insertion = text.Inject(
 				q.Insertion, len(q.Insertion), q.next.Insertion,
 			)
-		} else if len(q.Deletion) > 0 && len(q.next.Deletion) > 0 {
+		case len(q.Deletion) > 0 && len(q.next.Deletion) > 0:
 			q.Deletion = text.Inject(
 				q.Deletion, len(q.Deletion), q.next.Deletion,
 			)
-		} else {
+		default:
 			continue
 		}
-		if q.next.Meta.StartTs < q.Meta.StartTs {
-			q.Meta.StartTs = q.next.Meta.StartTs
+		if q.next.Meta.StartTS < q.Meta.StartTS {
+			q.Meta.StartTS = q.next.Meta.StartTS
 		}
-		if q.next.Meta.EndTs > q.Meta.EndTs {
-			q.Meta.EndTs = q.next.Meta.EndTs
+		if q.next.Meta.EndTS > q.Meta.EndTS {
+			q.Meta.EndTS = q.next.Meta.EndTS
 		}
 		n--
 		q.next = q.next.next

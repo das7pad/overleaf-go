@@ -124,7 +124,7 @@ LIMIT 1
 	}
 
 	if len(tags) >= limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

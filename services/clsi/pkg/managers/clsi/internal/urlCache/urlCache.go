@@ -49,7 +49,7 @@ type URLCache interface {
 
 func New(options *types.Options) (URLCache, error) {
 	cacheDir := options.CacheBaseDir
-	if err := os.MkdirAll(string(cacheDir), 0755); err != nil {
+	if err := os.MkdirAll(string(cacheDir), 0o700); err != nil {
 		return nil, err
 	}
 
@@ -71,7 +71,7 @@ type urlCache struct {
 }
 
 func (u *urlCache) SetupForProject(_ context.Context, projectId sharedTypes.UUID) error {
-	err := os.Mkdir(string(u.projectDir(projectId)), 0755)
+	err := os.Mkdir(string(u.projectDir(projectId)), 0o700)
 	if err == nil || os.IsExist(err) {
 		return nil
 	}

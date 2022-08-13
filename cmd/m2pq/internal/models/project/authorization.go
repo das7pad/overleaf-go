@@ -21,6 +21,7 @@ import (
 )
 
 type AccessSource string
+
 type PublicAccessLevel string
 
 const (

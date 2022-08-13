@@ -25,11 +25,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-var (
-	anonymousUser = &User{
-		Epoch: user.AnonymousUserEpoch,
-	}
-)
+var anonymousUser = &User{
+	Epoch: user.AnonymousUserEpoch,
+}
 
 //goland:noinspection SpellCheckingInspection
 type User struct {

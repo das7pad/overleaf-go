@@ -107,8 +107,9 @@ func (s *Session) PrepareLogin(ctx context.Context, u user.ForSession, ip string
 		}
 		// Session cleanup can happen in the background; Ignore errors as well.
 		go func() {
-			delCtx, done :=
-				context.WithTimeout(context.Background(), 10*time.Second)
+			delCtx, done := context.WithTimeout(
+				context.Background(), 10*time.Second,
+			)
 			defer done()
 			_ = triggerCleanup(delCtx)
 		}()
@@ -140,8 +141,9 @@ func (s *Session) prepareCleanup() func(ctx context.Context) error {
 		//  (e.g. retry logging out) as the actual session data has been
 		//  cleared already.
 		go func() {
-			bCtx, done :=
-				context.WithTimeout(context.Background(), 3*time.Second)
+			bCtx, done := context.WithTimeout(
+				context.Background(), 3*time.Second,
+			)
 			defer done()
 			s.client.SRem(bCtx, userSessionsKey(userId), id.toKey())
 		}()

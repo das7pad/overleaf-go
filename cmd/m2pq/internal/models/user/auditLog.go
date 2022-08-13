@@ -26,7 +26,7 @@ import (
 type AuditLogEntry struct {
 	Info        bson.M             `bson:"info,omitempty"`
 	InitiatorId primitive.ObjectID `bson:"initiatorId"`
-	IpAddress   string             `bson:"ipAddress"`
+	IPAddress   string             `bson:"ipAddress"`
 	Operation   string             `bson:"operation"`
 	Timestamp   time.Time          `bson:"timestamp"`
 }

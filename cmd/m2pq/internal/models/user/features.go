@@ -27,11 +27,11 @@ import (
 
 type Features struct {
 	Collaborators       int                        `json:"collaborators" bson:"collaborators"`
-	Versioning          bool                       `json:"versioning" bson:"versioning"`
 	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" bson:"compileTimeout"`
 	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" bson:"compileGroup"`
 	TrackChanges        bool                       `json:"trackChanges" bson:"trackChanges"`
 	TrackChangesVisible bool                       `json:"trackChangesVisible"`
+	Versioning          bool                       `json:"versioning" bson:"versioning"`
 }
 
 func (f Features) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {

@@ -39,17 +39,13 @@ const (
 	ValidateCheck = CheckMode("validate")
 )
 
-var ValidCheckModes = []CheckMode{
-	NoCheck, SilentCheck, ErrorCheck, ValidateCheck,
-}
-
 func (c CheckMode) Validate() error {
-	for _, checkMode := range ValidCheckModes {
-		if c == checkMode {
-			return nil
-		}
+	switch c {
+	case NoCheck, SilentCheck, ErrorCheck, ValidateCheck:
+		return nil
+	default:
+		return &errors.ValidationError{Msg: "checkMode is not allowed"}
 	}
-	return &errors.ValidationError{Msg: "checkMode is not allowed"}
 }
 
 type SyncState string
@@ -63,25 +59,23 @@ func (s SyncState) Validate() error {
 
 type SyncType string
 
-const SyncTypeFull = SyncType("")
-const SyncTypeFullIncremental = SyncType("full")
-const SyncTypeIncremental = SyncType("incremental")
-
-var ValidSyncTypes = []SyncType{
-	SyncTypeFull, SyncTypeFullIncremental, SyncTypeIncremental,
-}
+const (
+	SyncTypeFull            = SyncType("")
+	SyncTypeFullIncremental = SyncType("full")
+	SyncTypeIncremental     = SyncType("incremental")
+)
 
 func (s SyncType) IsFull() bool {
 	return s == SyncTypeFull || s == SyncTypeFullIncremental
 }
 
 func (s SyncType) Validate() error {
-	for _, syncType := range ValidSyncTypes {
-		if s == syncType {
-			return nil
-		}
+	switch s {
+	case SyncTypeFull, SyncTypeFullIncremental, SyncTypeIncremental:
+		return nil
+	default:
+		return &errors.ValidationError{Msg: "syncType is not allowed"}
 	}
-	return &errors.ValidationError{Msg: "syncType is not allowed"}
 }
 
 // The Resource is either the inline doc Content, or a file with download URL.
@@ -178,7 +172,7 @@ func (c *CompileRequest) Preprocess() error {
 		c.RootResourcePath = "main.tex"
 	}
 	if c.Options.Compiler == "" {
-		c.Options.Compiler = sharedTypes.PDFLatex
+		c.Options.Compiler = sharedTypes.PDFLaTeX
 	}
 	if c.Options.Timeout < 1000 {
 		// timeout is likely in seconds.
@@ -257,7 +251,9 @@ type Timings struct {
 }
 
 type CompileStatus string
+
 type CompileError string
+
 type CompileResponse struct {
 	Status      CompileStatus `json:"status,omitempty"`
 	Error       CompileError  `json:"error,omitempty"`

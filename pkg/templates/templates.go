@@ -40,6 +40,7 @@ type Renderer interface {
 var _fs embed.FS
 
 var templates map[string]*template.Template
+
 var resourceHints assets.ResourceHintsManager
 
 func render(p string, estimate int, data interface{}) ([]byte, error) {
@@ -59,7 +60,7 @@ func Load(appName string, assetsOptions assets.Options) error {
 		if err != nil {
 			return errors.Tag(err, "cannot load translations")
 		}
-		funcMap["getTranslationUrl"] = tm.GetTranslationUrl
+		funcMap["getTranslationUrl"] = tm.GetTranslationURL
 		funcMap["translate"] = tm.Translate
 	}
 	{
@@ -129,13 +130,14 @@ func Load(appName string, assetsOptions assets.Options) error {
 		}
 		s := string(blob)
 		var c *template.Template
-		if strings.Contains(s, `{{ template "layout-angular" . }}`) {
+		switch {
+		case strings.Contains(s, `{{ template "layout-angular" . }}`):
 			c, err = angularLayout.Clone()
-		} else if strings.Contains(s, `{{ template "layout-marketing" . }}`) {
+		case strings.Contains(s, `{{ template "layout-marketing" . }}`):
 			c, err = marketingLayout.Clone()
-		} else if strings.Contains(s, `{{ template "layout-no-js" . }}`) {
+		case strings.Contains(s, `{{ template "layout-no-js" . }}`):
 			c, err = noJsLayout.Clone()
-		} else {
+		default:
 			return errors.New("missing parent template for " + p)
 		}
 		if err != nil {

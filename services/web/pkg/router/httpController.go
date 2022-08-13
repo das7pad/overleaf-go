@@ -313,9 +313,7 @@ func (h *httpController) addRoutes(
 	return router
 }
 
-var (
-	err403 = &errors.NotAuthorizedError{}
-)
+var err403 = &errors.NotAuthorizedError{}
 
 func blockRestrictedUsers(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
 	return func(c *httpUtils.Context) {
@@ -417,8 +415,7 @@ func (h *httpController) clearProjectCache(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions =
-		mustGetSignedCompileProjectOptionsFromJwt(c)
+	request.SignedCompileProjectRequestOptions = mustGetSignedCompileProjectOptionsFromJwt(c)
 	err := h.wm.ClearCache(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -428,8 +425,7 @@ func (h *httpController) compileProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions =
-		mustGetSignedCompileProjectOptionsFromJwt(c)
+	request.SignedCompileProjectRequestOptions = mustGetSignedCompileProjectOptionsFromJwt(c)
 	response := &types.CompileProjectResponse{}
 	err := h.wm.Compile(
 		c,
@@ -444,8 +440,7 @@ func (h *httpController) syncFromCode(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions =
-		mustGetSignedCompileProjectOptionsFromJwt(c)
+	request.SignedCompileProjectRequestOptions = mustGetSignedCompileProjectOptionsFromJwt(c)
 
 	response := &clsiTypes.PDFPositions{}
 	err := h.wm.SyncFromCode(c, request, response)
@@ -457,8 +452,7 @@ func (h *httpController) syncFromPDF(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions =
-		mustGetSignedCompileProjectOptionsFromJwt(c)
+	request.SignedCompileProjectRequestOptions = mustGetSignedCompileProjectOptionsFromJwt(c)
 
 	response := &clsiTypes.CodePositions{}
 	err := h.wm.SyncFromPDF(c, request, response)
@@ -470,8 +464,7 @@ func (h *httpController) wordCount(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.SignedCompileProjectRequestOptions =
-		mustGetSignedCompileProjectOptionsFromJwt(c)
+	request.SignedCompileProjectRequestOptions = mustGetSignedCompileProjectOptionsFromJwt(c)
 
 	response := &clsiTypes.Words{}
 	err := h.wm.WordCount(c, request, response)

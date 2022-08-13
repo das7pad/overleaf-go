@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -43,42 +43,30 @@ type latexRunner struct {
 	options *types.Options
 }
 
-//goland:noinspection SpellCheckingInspection
-var (
-	compilerFlag = map[sharedTypes.Compiler]string{
-		sharedTypes.Latex:    "-pdfdvi",
-		sharedTypes.LuaLatex: "-lualatex",
-		sharedTypes.PDFLatex: "-pdf",
-		sharedTypes.XeLatex:  "-xelatex",
-	}
-
-	preProcessedFileTypes = []sharedTypes.FileType{
-		"md",
-		"Rtx",
-		"Rmd",
-	}
-)
+var preProcessedFileTypes = []sharedTypes.FileType{
+	"md",
+	"Rtx",
+	"Rmd",
+}
 
 func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.CompileRequest, response *types.CompileResponse) error {
-	cmd, err := r.composeCommandOptions(request, response)
-	if err != nil {
-		return err
-	}
+	cmd := r.composeCommandOptions(request, response)
 
 	code, err := run(ctx, cmd)
-	status := response.Status
-	if err == nil {
+	var status types.CompileStatus
+	switch err {
+	case nil:
 		// NOTE: This is mimicking the NodeJS implementation.
 		if code == 1 {
 			status = constants.Failure
 		} else {
 			status = constants.Success
 		}
-	} else if err == context.DeadlineExceeded {
+	case context.DeadlineExceeded:
 		status = constants.TimedOut
-	} else if err == context.Canceled {
+	case context.Canceled:
 		status = constants.Terminated
-	} else {
+	default:
 		cmd.CommandOutputFiles.Cleanup(
 			r.options.CompileBaseDir.CompileDir(namespace),
 		)
@@ -99,7 +87,7 @@ func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, 
 	return nil
 }
 
-func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, response *types.CompileResponse) (*types.CommandOptions, error) {
+func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, response *types.CompileResponse) *types.CommandOptions {
 	mainFile := string(request.RootResourcePath)
 	fileType := sharedTypes.PathName(mainFile).Type()
 	for _, preProcessedFileType := range preProcessedFileTypes {
@@ -118,13 +106,13 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 		"-outdir=" + constants.CompileDirPlaceHolder,
 		"-synctex=1",
 		"-interaction=batchmode",
-		compilerFlag[request.Options.Compiler],
+		request.Options.Compiler.LaTeXmkFlag(),
 		constants.CompileDirPlaceHolder + "/" + mainFile,
 	}
 
 	env := r.options.LatexBaseEnv
 
-	isTexFile := sharedTypes.PathName(request.RootResourcePath).Type() == "tex"
+	isTexFile := request.RootResourcePath.Type() == "tex"
 	checkMode := request.Options.Check
 	if checkMode != types.NoCheck && isTexFile {
 		//goland:noinspection SpellCheckingInspection
@@ -154,5 +142,5 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 		CompileGroup:       request.Options.CompileGroup,
 		CommandOutputFiles: files,
 		Timed:              &response.Timings.Compile,
-	}, nil
+	}
 }

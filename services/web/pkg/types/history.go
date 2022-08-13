@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,9 +21,11 @@ import (
 )
 
 type GetProjectHistoryUpdatesRequest = trackChangesTypes.GetProjectHistoryUpdatesRequest
+
 type GetProjectHistoryUpdatesResponse = trackChangesTypes.GetProjectHistoryUpdatesResponse
 
 type GetDocDiffRequest = trackChangesTypes.GetDocDiffRequest
+
 type GetDocDiffResponse = trackChangesTypes.GetDocDiffResponse
 
 type RestoreDocVersionRequest = trackChangesTypes.RestoreDocVersionRequest

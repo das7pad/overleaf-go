@@ -215,29 +215,53 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 }
 
 type adminManager = admin.Manager
+
 type betaProgramManager = betaProgram.Manager
+
 type compileManager = compile.Manager
+
 type editorManager = editor.Manager
+
 type fileTreeManager = fileTree.Manager
+
 type healthCheckManager = healthCheck.Manager
+
 type historyManager = history.Manager
+
 type learnManager = learn.Manager
+
 type linkedFileManager = linkedFile.Manager
+
 type loginManager = login.Manager
+
 type notificationsManager = notifications.Manager
+
 type openInOverleafManager = openInOverleaf.Manager
+
 type projectDeletionManager = projectDeletion.Manager
+
 type projectDownloadManager = projectDownload.Manager
+
 type projectInviteManager = projectInvite.Manager
+
 type projectListManager = projectList.Manager
+
 type projectMetadataManager = projectMetadata.Manager
+
 type projectUploadManager = projectUpload.Manager
+
 type sessionManager = session.Manager
+
 type spellingManager = spelling.Manager
+
 type systemMessageManager = systemMessage.Manager
+
 type tagManager = tag.Manager
+
 type tokenAccessManager = tokenAccess.Manager
+
 type userCreationManager = userCreation.Manager
+
 type userDeletionManager = userDeletion.Manager
 
 type manager struct {

@@ -41,13 +41,14 @@ func main() {
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
 	var err error
-	if *clear {
+	switch {
+	case *clear:
 		log.Println("Deleting all system messages.")
 		err = smm.DeleteAll(ctx)
-	} else if *msg != "" {
+	case *msg != "":
 		log.Println("Creating new system message.")
 		err = smm.Create(ctx, *msg)
-	} else {
+	default:
 		var messages []systemMessage.Full
 		messages, err = smm.GetAll(ctx)
 		if err == nil {

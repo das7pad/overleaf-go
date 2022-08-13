@@ -39,7 +39,8 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 	valid := true
 	{
 		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
-		if err == nil {
+		switch {
+		case err == nil:
 			// The user may have redeemed the invitation already.
 			// Allow them to click on the link in the email again.
 			if d.AccessSource == project.AccessSourceInvite ||
@@ -48,23 +49,25 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 				response.Redirect = "/project/" + projectId.String()
 				return nil
 			}
-		} else if errors.IsNotAuthorizedError(err) {
+		case errors.IsNotAuthorizedError(err):
 			// The invitation might change this :)
-		} else if errors.IsNotFoundError(err) {
+		case errors.IsNotFoundError(err):
 			// The project has been deleted. Invitations are not deleted
 			//  when soft/hard deleting a project as they expire after 30days,
 			//  which is less than the 90days soft-deletion delay.
 			valid = false
-		} else {
+		default:
 			return err
 		}
 	}
 	{
-		if err := m.pim.CheckExists(ctx, projectId, r.Token); err == nil {
+		err := m.pim.CheckExists(ctx, projectId, r.Token)
+		switch {
+		case err == nil:
 			// Happy path
-		} else if errors.IsNotFoundError(err) {
+		case errors.IsNotFoundError(err):
 			valid = false
-		} else {
+		default:
 			return errors.Tag(err, "cannot get invite")
 		}
 	}

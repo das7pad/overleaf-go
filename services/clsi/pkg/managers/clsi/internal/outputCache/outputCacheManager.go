@@ -174,7 +174,7 @@ func (m *manager) Clear(namespace types.Namespace) error {
 
 // getBuildId yields a secure unique id
 // It contains a 16 hex char long timestamp in ns precision, a hyphen and
-//  another 16 hex char long random string.
+// another 16 hex char long random string.
 func getBuildId() (types.BuildId, error) {
 	buf := make([]byte, 8)
 	if _, err := rand.Read(buf); err != nil {

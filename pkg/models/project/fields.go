@@ -25,9 +25,9 @@ import (
 )
 
 type Member struct {
-	Archived       bool
 	AccessSource   AccessSource
 	PrivilegeLevel sharedTypes.PrivilegeLevel
+	Archived       bool
 	Trashed        bool
 }
 

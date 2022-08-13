@@ -68,7 +68,7 @@ func NewManager(options *types.Options) (Manager, error) {
 		string(options.CompileBaseDir),
 	}
 	for _, path := range createPaths {
-		if err := os.MkdirAll(path, 0755); err != nil {
+		if err := os.MkdirAll(path, 0o755); err != nil {
 			return nil, err
 		}
 	}
@@ -200,13 +200,12 @@ func (m *manager) getOrCreateProject(ctx context.Context, projectId sharedTypes.
 		if !p.IsDead() {
 			// Return alive project
 			return p, nil
-		} else {
-			if err := p.Cleanup(); err != nil {
-				// Stuck in cleanup :/
-				return nil, err
-			}
-			// Replace the dead instance with a new one.
 		}
+		if err := p.Cleanup(); err != nil {
+			// Stuck in cleanup :/
+			return nil, err
+		}
+		// Replace the dead instance with a new one.
 	}
 	deadProject := p
 
@@ -239,8 +238,7 @@ func (m *manager) cleanupIfStillDead(key projectKey, deadProject Project) {
 	m.l.Lock()
 	defer m.l.Unlock()
 
-	p := m.projects[key]
-	if p == deadProject {
+	if p := m.projects[key]; p == deadProject {
 		// Nobody replaced the project yet.
 		delete(m.projects, key)
 	}

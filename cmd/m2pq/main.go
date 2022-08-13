@@ -124,12 +124,12 @@ func main() {
 				panic(errors.Tag(err, "start tx"))
 			}
 			err = task.fn(ctx, mDB, rTx, tx, limit)
-			if err == nil || err == status.HitLimit {
+			if err == nil || err == status.ErrHitLimit {
 				if err2 := tx.Commit(signalCtx); err2 != nil {
 					panic(errors.Tag(err2, "commit tx"))
 				}
 				done()
-				if err == status.HitLimit {
+				if err == status.ErrHitLimit {
 					errCount = 0
 					continue
 				}

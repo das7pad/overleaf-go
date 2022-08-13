@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,6 +17,7 @@
 package outputFileFinder
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"sort"
@@ -29,6 +30,7 @@ import (
 )
 
 type dirEntriesMap map[string]sharedTypes.DirEntry
+
 type fileStatsMap map[sharedTypes.PathName]fs.DirEntry
 
 type AllFilesAndDirs struct {
@@ -84,17 +86,19 @@ func (a *AllFilesAndDirs) EnsureIsDir(name sharedTypes.DirName, compileDir types
 	}
 
 	// Step 1: action on what already exists in the in-memory view of the fs.
-	if entry, exists := a.DirEntries[s]; exists && entry.IsDir() {
+	entry, exists := a.DirEntries[s]
+	switch {
+	case exists && entry.IsDir():
 		// Happy path, already exists as directory.
 		return nil
-	} else if exists {
+	case exists:
 		// Entry is a file instead of a directory, delete it first.
 		// Case A: The last compile has replaced the directory with a file.
 		// Case B: The user has restructured the tree since the last compile.
 		if err := a.Delete(entry, compileDir); err != nil {
 			return err
 		}
-	} else {
+	default:
 		// New directory, create parent directories first.
 		if err := a.EnsureIsDir(name.Dir(), compileDir); err != nil {
 			return err
@@ -103,8 +107,8 @@ func (a *AllFilesAndDirs) EnsureIsDir(name sharedTypes.DirName, compileDir types
 
 	// Step 2: create the directory.
 	p := compileDir.Join(name)
-	if err := os.Mkdir(p, 0755); err != nil {
-		return errors.Tag(err, "cannot create directory "+p)
+	if err := os.Mkdir(p, 0o755); err != nil {
+		return errors.Tag(err, fmt.Sprintf("cannot create directory %q", p))
 	}
 
 	// Step 3: persist new state in the in-memory view of the fs.
@@ -117,17 +121,19 @@ func (a *AllFilesAndDirs) EnsureIsWritable(name sharedTypes.PathName, compileDir
 	s := name.String()
 
 	// Step 0: action on what already exists in the in-memory view of the fs.
-	if entry, exists := a.DirEntries[s]; exists && !entry.IsDir() {
+	entry, exists := a.DirEntries[s]
+	switch {
+	case exists && !entry.IsDir():
 		// Happy path, let the call-site overwrite the file.
 		return nil
-	} else if exists {
+	case exists:
 		// Entry is a directory instead of a file, delete it recursively.
 		// Case A: The last compile has replaced the file with a directory.
 		// Case B: The user has restructured the tree since the last compile.
 		if err := a.DropTree(name, compileDir); err != nil {
 			return err
 		}
-	} else {
+	default:
 		// Make sure all the parents exist and are directories.
 		if err := a.EnsureIsDir(name.Dir(), compileDir); err != nil {
 			return err

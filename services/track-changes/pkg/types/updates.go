@@ -32,8 +32,8 @@ type DocUpdateBounds struct {
 type DocUpdateMeta struct {
 	UserIds []sharedTypes.UUID                    `json:"user_ids,omitempty"`
 	Users   []user.WithPublicInfoAndNonStandardId `json:"users,omitempty"`
-	StartTs sharedTypes.Timestamp                 `json:"start_ts"`
-	EndTs   sharedTypes.Timestamp                 `json:"end_ts"`
+	StartTS sharedTypes.Timestamp                 `json:"start_ts"`
+	EndTS   sharedTypes.Timestamp                 `json:"end_ts"`
 }
 
 type Update struct {

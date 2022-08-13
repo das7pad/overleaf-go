@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -44,11 +44,9 @@ type finder struct {
 	options *types.Options
 }
 
-var (
-	ProjectHasTooManyFilesAndDirectories = &errors.InvalidStateError{
-		Msg: "project has too many files/directories",
-	}
-)
+var ErrProjectHasTooManyFilesAndDirectories = &errors.InvalidStateError{
+	Msg: "project has too many files/directories",
+}
 
 func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAndDirs, error) {
 	dirEntries := make(dirEntriesMap)
@@ -63,7 +61,7 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 		}
 		nEntries++
 		if nEntries > maxEntries {
-			return ProjectHasTooManyFilesAndDirectories
+			return ErrProjectHasTooManyFilesAndDirectories
 		}
 		if nEntries%100 == 0 {
 			if err = ctx.Err(); err != nil {

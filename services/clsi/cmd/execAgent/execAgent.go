@@ -30,8 +30,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-var containerEnv = os.Environ()
-
 const (
 	compileDir = types.CompileDir(constants.CompileDirContainer)
 	outputDir  = types.OutputDir(constants.OutputDirContainer)
@@ -51,7 +49,7 @@ func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, timed *
 
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = string(compileDir)
-	cmd.Env = append(containerEnv, options.Environment...)
+	cmd.Env = append(os.Environ(), options.Environment...)
 
 	if options.CommandOutputFiles.StdErr != "" {
 		stdErr, err := os.Create(compileDir.Join(options.StdErr))
@@ -101,13 +99,14 @@ func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 	})
 	code, err := doExec(ctx, &options, timed)
 	t.Stop()
-	if err == nil {
+	switch err {
+	case nil:
 		return code, ""
-	} else if err == context.Canceled {
+	case context.Canceled:
 		return code, constants.Cancelled
-	} else if err == context.DeadlineExceeded {
+	case context.DeadlineExceeded:
 		return code, constants.TimedOut
-	} else {
+	default:
 		return code, err.Error()
 	}
 }

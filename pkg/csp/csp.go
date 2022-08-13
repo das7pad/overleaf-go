@@ -27,10 +27,10 @@ import (
 )
 
 type csp struct {
-	omitProtocol     bool
 	reportURL        *sharedTypes.URL
-	reportViolations bool
 	siteURL          sharedTypes.URL
+	omitProtocol     bool
+	reportViolations bool
 	trimPolicy       bool
 
 	baseURI        []string

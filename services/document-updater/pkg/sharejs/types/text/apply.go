@@ -17,6 +17,8 @@
 package text
 
 import (
+	"fmt"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
@@ -34,11 +36,10 @@ func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snaps
 		deletionActual := snapshot.Slice(start, end)
 		if string(op.Deletion) != string(deletionActual) {
 			return nil, &errors.CodedError{
-				Description: "Delete component '" +
-					string(op.Deletion) +
-					"' does not match deleted text '" +
-					string(deletionActual) +
-					"'",
+				Description: fmt.Sprintf(
+					"Delete component %q does not match deleted text %q",
+					string(op.Deletion), string(deletionActual),
+				),
 			}
 		}
 		s := snapshot[:]

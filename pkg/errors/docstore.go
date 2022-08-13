@@ -16,12 +16,16 @@
 
 package errors
 
-type BodyTooLargeError struct {
-	ValidationError
-}
+type BodyTooLargeError struct{}
 
 func (e BodyTooLargeError) Error() string {
 	return "body too large"
+}
+
+func (e BodyTooLargeError) Public() *JavaScriptError {
+	return &JavaScriptError{
+		Message: e.Error(),
+	}
 }
 
 func IsBodyTooLargeError(err error) bool {
@@ -38,13 +42,12 @@ func IsDocNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	_, isNotFoundErr := err.(*ErrorDocNotFound)
+	_, isNotFoundErr := err.(*DocNotFoundError)
 	return isNotFoundErr
 }
 
-type ErrorDocNotFound struct {
-}
+type DocNotFoundError struct{}
 
-func (e ErrorDocNotFound) Error() string {
+func (e DocNotFoundError) Error() string {
 	return "doc not found"
 }

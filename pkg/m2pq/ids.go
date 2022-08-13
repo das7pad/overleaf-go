@@ -23,9 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-var (
-	ErrInvalidID = &errors.ValidationError{Msg: "invalid id"}
-)
+var ErrInvalidID = &errors.ValidationError{Msg: "invalid id"}
 
 func ObjectID2UUID(id [12]byte) sharedTypes.UUID {
 	if id == [12]byte{} {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -255,8 +255,8 @@ func TestIsSafeUserName(t *testing.T) {
 		{
 			name: "too long",
 			args: args{
-				name: "hey come buy this product im selling it's really" +
-					" good for you and it'll make your latex 10x guaranteed"},
+				name: "hey come buy this product im selling it's really good for you and it'll make your latex 10x guaranteed",
+			},
 			want: false,
 		},
 		{
@@ -272,8 +272,8 @@ func TestIsSafeUserName(t *testing.T) {
 		{
 			name: "special chars and too long",
 			args: args{
-				name: "加美汝VX：hihi661，金沙2001005com the first deposit" +
-					" will be _100%_"},
+				name: "加美汝VX：hihi661，金沙2001005com the first deposit will be _100%_",
+			},
 			want: false,
 		},
 	}

@@ -198,14 +198,15 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 		for _, secondC := range update.Op {
 			tail := &dhSingle[len(dhSingle)-1]
 			firstC := tail.Op[0]
-			if tail.UserId != update.Meta.UserId ||
-				tail.EndAt.Sub(t) > time.Minute {
+			switch {
+			case tail.UserId != update.Meta.UserId ||
+				tail.EndAt.Sub(t) > time.Minute:
 				// we need to create a new element
-			} else if firstC.IsInsertion() &&
+			case firstC.IsInsertion() &&
 				secondC.IsInsertion() &&
 				firstC.Position <= secondC.Position &&
 				secondC.Position <= firstC.Position+len(firstC.Insertion) &&
-				len(firstC.Insertion)+len(secondC.Insertion) < maxMergeSize {
+				len(firstC.Insertion)+len(secondC.Insertion) < maxMergeSize:
 				// merge the two overlapping insertions
 				tail.EndAt = t
 				tail.Version = update.Version
@@ -215,11 +216,11 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 					secondC.Insertion,
 				)
 				continue
-			} else if firstC.IsDeletion() &&
+			case firstC.IsDeletion() &&
 				secondC.IsDeletion() &&
 				firstC.Position <= secondC.Position &&
 				firstC.Position <= secondC.Position+len(secondC.Deletion) &&
-				len(firstC.Deletion)+len(secondC.Deletion) < maxMergeSize {
+				len(firstC.Deletion)+len(secondC.Deletion) < maxMergeSize:
 				// merge the two overlapping deletions
 				tail.EndAt = t
 				tail.Version = update.Version
@@ -229,20 +230,21 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 					firstC.Deletion,
 				)
 				continue
-			} else if firstC.Position == secondC.Position &&
+			case firstC.Position == secondC.Position &&
 				(firstC.IsInsertion() &&
 					string(firstC.Insertion) == string(secondC.Deletion) ||
 					firstC.IsDeletion() &&
-						string(firstC.Deletion) == string(secondC.Insertion)) {
+						string(firstC.Deletion) == string(secondC.Insertion)):
 				// noop: insert + delete or delete + insert of the same text
 				tail.EndAt = t
 				tail.Version = update.Version
 				tail.Op[0] = sharedTypes.Component{Position: firstC.Position}
 				continue
-			} else if firstC.IsInsertion() &&
+			case firstC.IsInsertion() &&
 				secondC.IsDeletion() &&
 				firstC.Position <= secondC.Position &&
-				secondC.Position+len(secondC.Deletion) <= firstC.Position+len(firstC.Insertion) {
+				secondC.Position+len(secondC.Deletion) <=
+					firstC.Position+len(firstC.Insertion):
 				// merge the insert followed by a deletion
 				offset := secondC.Position - firstC.Position
 				tail.EndAt = t
@@ -252,9 +254,9 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 				copy(s[offset:], firstC.Insertion[offset+nDeleted:])
 				tail.Op[0].Insertion = s
 				continue
-			} else if firstC.IsDeletion() &&
+			case firstC.IsDeletion() &&
 				secondC.IsInsertion() &&
-				firstC.Position == secondC.Position {
+				firstC.Position == secondC.Position:
 				// merge the (partial) overlap
 				diff := text.Diff(firstC.Deletion, secondC.Insertion)
 				dhSingle = dhSingle[:len(dhSingle)-1]

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DefaultCompiler = sharedTypes.PDFLatex
+	DefaultCompiler = sharedTypes.PDFLaTeX
 )
 
 func NewProject(ownerId sharedTypes.UUID) (*ForCreation, error) {

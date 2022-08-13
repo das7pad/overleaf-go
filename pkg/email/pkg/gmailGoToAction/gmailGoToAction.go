@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,7 +26,7 @@ import (
 type potentialAction struct {
 	Type   string `json:"@type"`
 	Target string `json:"target"`
-	Url    string `json:"url"`
+	URL    string `json:"url"`
 	Name   string `json:"name"`
 }
 
@@ -51,7 +51,7 @@ func (g *GmailGoToAction) MarshalJSON() ([]byte, error) {
 			Name:   g.Name,
 			Target: g.Target.String(),
 			Type:   "ViewAction",
-			Url:    g.Target.String(),
+			URL:    g.Target.String(),
 		},
 		Type: "EmailMessage",
 	}

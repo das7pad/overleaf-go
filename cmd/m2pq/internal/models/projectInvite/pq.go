@@ -113,7 +113,7 @@ LIMIT 1
 	}
 
 	if i == limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

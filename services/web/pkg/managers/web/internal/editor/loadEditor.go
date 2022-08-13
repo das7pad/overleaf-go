@@ -32,16 +32,14 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-var (
-	defaultUser = &user.WithLoadEditorInfo{
-		EpochField: user.EpochField{
-			Epoch: user.AnonymousUserEpoch,
-		},
-		EditorConfigField: user.EditorConfigField{
-			EditorConfig: user.DefaultEditorConfig,
-		},
-	}
-)
+var defaultUser = &user.WithLoadEditorInfo{
+	EpochField: user.EpochField{
+		Epoch: user.AnonymousUserEpoch,
+	},
+	EditorConfigField: user.EditorConfigField{
+		EditorConfig: user.DefaultEditorConfig,
+	},
+}
 
 func (m *manager) genJWTLoggedInUser(userId sharedTypes.UUID) (string, error) {
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)

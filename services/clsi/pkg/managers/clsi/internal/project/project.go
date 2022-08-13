@@ -88,7 +88,7 @@ func newProject(
 	}
 	for _, path := range createPaths {
 		// Any parent directories have been created during manager init.
-		if err := os.Mkdir(path, 0755); err != nil && !os.IsExist(err) {
+		if err := os.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
@@ -302,15 +302,13 @@ func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest
 	)
 }
 
-var (
-	IsDeadError = &errors.InvalidStateError{
-		Msg: "project is dead",
-	}
-)
+var ErrIsDead = &errors.InvalidStateError{
+	Msg: "project is dead",
+}
 
 func (p *project) checkIsDead() error {
 	if p.IsDead() {
-		return IsDeadError
+		return ErrIsDead
 	}
 	return nil
 }
@@ -384,8 +382,7 @@ func (p *project) doCleanup() error {
 }
 
 func (p *project) triggerCleanup() error {
-	err := p.doCleanup()
-	if err != nil {
+	if err := p.doCleanup(); err != nil {
 		log.Printf("cleanup failed for %q: %s", p.namespace, err)
 		// Schedule this instance for recycling.
 		p.dead.Store(true)
@@ -424,12 +421,12 @@ func (p *project) run(ctx context.Context, options *types.CommandOptions) (types
 				continue
 			}
 		}
-		if code, err := p.tryRun(ctx, options); err == nil {
+		code, err := p.tryRun(ctx, options)
+		if err == nil {
 			return code, nil
-		} else {
-			lastErr = err
-			continue
 		}
+		lastErr = err
+		continue
 	}
 	return -1, lastErr
 }

@@ -35,7 +35,7 @@ const (
 type AuditLogEntry struct {
 	Info        interface{}
 	InitiatorId sharedTypes.UUID
-	IpAddress   string
+	IPAddress   string
 	Operation   string
 	Timestamp   time.Time
 }

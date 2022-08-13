@@ -42,10 +42,11 @@ type agentRunner struct {
 	dockerClient *client.Client
 	d            *net.Dialer
 
-	options       *types.Options
-	o             types.DockerContainerOptions
-	seccompPolicy string
-	tries         int64
+	options                 *types.Options
+	o                       types.DockerContainerOptions
+	seccompPolicy           string
+	currentClsiProcessEpoch string
+	tries                   int64
 }
 
 func containerName(namespace types.Namespace) string {
@@ -84,10 +85,11 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 
 	o := options.DockerContainerOptions
 	runner := agentRunner{
-		dockerClient: dockerClient,
-		d:            &net.Dialer{},
-		options:      options,
-		tries:        1 + o.AgentRestartAttempts,
+		dockerClient:            dockerClient,
+		d:                       &net.Dialer{},
+		options:                 options,
+		tries:                   1 + o.AgentRestartAttempts,
+		currentClsiProcessEpoch: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
 	if o.AgentPathContainer == "" {
@@ -108,11 +110,11 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	}
 
 	if o.SeccompPolicyPath != "" && o.SeccompPolicyPath != "-" {
-		if policy, err := loadSeccompPolicy(o.SeccompPolicyPath); err != nil {
+		policy, err := loadSeccompPolicy(o.SeccompPolicyPath)
+		if err != nil {
 			return nil, errors.Tag(err, "seccomp policy invalid")
-		} else {
-			runner.seccompPolicy = policy
 		}
+		runner.seccompPolicy = policy
 	}
 
 	runner.o = o
@@ -120,21 +122,22 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	return &runner, nil
 }
 
-const defaultAgentContainerLifeSpan = 15 * time.Minute
-const defaultAgentPathContainer = "/opt/exec-agent"
-const memoryLimitInBytes = 1024 * 1024 * 1024 * 1024
-const clsiProcessEpochLabel = "com.overleaf.clsi.process.epoch"
-
-var currentClsiProcessEpoch = time.Now().UTC().Format(time.RFC3339Nano)
+const (
+	defaultAgentContainerLifeSpan = 15 * time.Minute
+	defaultAgentPathContainer     = "/opt/exec-agent"
+	memoryLimitInBytes            = 1024 * 1024 * 1024 * 1024
+	clsiProcessEpochLabel         = "com.overleaf.clsi.process.epoch"
+)
 
 func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
 	validUntil, err := a.createContainer(ctx, namespace, imageName)
-	if err == nil {
+	switch {
+	case err == nil:
 		// Happy path.
-	} else if errdefs.IsConflict(err) {
+	case errdefs.IsConflict(err):
 		// Handle conflict error.
 		epoch, _ := a.getContainerEpoch(ctx, namespace)
-		if epoch != currentClsiProcessEpoch {
+		if epoch != a.currentClsiProcessEpoch {
 			// The container is from previous version/cycle, replace it.
 			// - version: options may have changed.
 			// - cycle: we lost track of expected/max container life-time.
@@ -157,9 +160,10 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 		} else {
 			// The container is running, but expired. Reset it.
 			validUntil, err = a.restartContainer(ctx, namespace)
-			if err == nil {
+			switch {
+			case err == nil:
 				// Happy path
-			} else if errdefs.IsNotFound(err) {
+			case errdefs.IsNotFound(err):
 				// The container just died. Recreate it.
 				validUntil, err = a.createContainer(ctx, namespace, imageName)
 				if err != nil {
@@ -167,13 +171,13 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 						err, "cannot re-create expired container",
 					)
 				}
-			} else {
+			default:
 				return nil, errors.Tag(
 					err, "cannot restart expired container",
 				)
 			}
 		}
-	} else {
+	default:
 		// Bail out on low-level errors.
 		return nil, errors.Tag(err, "low level error while creating container")
 	}
@@ -277,7 +281,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 			User:            a.o.User,
 			WorkingDir:      constants.CompileDirContainer,
 			Labels: map[string]string{
-				clsiProcessEpochLabel: currentClsiProcessEpoch,
+				clsiProcessEpochLabel: a.currentClsiProcessEpoch,
 			},
 		},
 		&hostConfig,

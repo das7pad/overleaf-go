@@ -17,6 +17,7 @@
 package appliedOps
 
 import (
+	"context"
 	"encoding/json"
 	"math/rand"
 
@@ -32,7 +33,7 @@ import (
 
 type Manager interface {
 	broadcaster.Broadcaster
-	QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate) error
+	QueueUpdate(ctx context.Context, rpc *types.RPC, update *sharedTypes.DocumentUpdate) error
 }
 
 func New(options *types.Options, client redis.UniversalClient) Manager {
@@ -59,7 +60,7 @@ func (m *manager) getPendingUpdatesListKey() string {
 	return documentUpdaterTypes.PendingUpdatesListKey(shard).String()
 }
 
-func (m *manager) QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate) error {
+func (m *manager) QueueUpdate(ctx context.Context, rpc *types.RPC, update *sharedTypes.DocumentUpdate) error {
 	blob, err := json.Marshal(update)
 	if err != nil {
 		return errors.Tag(err, "cannot encode update")
@@ -67,13 +68,13 @@ func (m *manager) QueueUpdate(rpc *types.RPC, update *sharedTypes.DocumentUpdate
 
 	docId := rpc.Client.DocId
 	pendingUpdateKey := "PendingUpdates:{" + docId.String() + "}"
-	if err = m.client.RPush(rpc, pendingUpdateKey, blob).Err(); err != nil {
+	if err = m.client.RPush(ctx, pendingUpdateKey, blob).Err(); err != nil {
 		return errors.Tag(err, "cannot queue update")
 	}
 
 	shardKey := m.getPendingUpdatesListKey()
 	docKey := rpc.Client.ProjectId.String() + ":" + docId.String()
-	if err = m.client.RPush(rpc, shardKey, docKey).Err(); err != nil {
+	if err = m.client.RPush(ctx, shardKey, docKey).Err(); err != nil {
 		return errors.Tag(
 			err,
 			"cannot notify shard about new queue entry",

@@ -29,7 +29,7 @@ type ExpiringJWT interface {
 	SetExpiry(expiresIn time.Duration)
 }
 
-var Expired = errors.New("jwt expired")
+var ErrExpired = &errors.UnauthorizedError{Reason: "jwt expired"}
 
 type Claims struct {
 	ExpiresAt int64 `json:"exp"`
@@ -45,7 +45,7 @@ func (j *Claims) Valid() error {
 	now := time.Now()
 	expiresAt := time.Unix(j.ExpiresAt, 0)
 	if now.After(expiresAt) {
-		return Expired
+		return ErrExpired
 	}
 	return nil
 }

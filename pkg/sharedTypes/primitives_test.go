@@ -30,7 +30,7 @@ func TestUUID_String(t *testing.T) {
 		{
 			name: "zero",
 			u:    UUID{},
-			want: "00000000-0000-0000-0000-000000000000",
+			want: AllZeroUUID,
 		},
 		{
 			name: "seq",
@@ -60,7 +60,7 @@ func TestParseUUID(t *testing.T) {
 		{
 			name: "zero",
 			args: args{
-				s: "00000000-0000-0000-0000-000000000000",
+				s: AllZeroUUID,
 			},
 			want:    UUID{},
 			wantErr: false,

@@ -42,17 +42,14 @@ func getOptions() *clsiOptions {
 
 	loadPort := utils.GetIntFromEnv("LOAD_PORT", 3048)
 	o.loadAddress = listenAddress.Parse(loadPort)
-	o.loadShedding =
-		utils.GetStringFromEnv("LOAD_SHEDDING", "false") == "true"
+	o.loadShedding = utils.GetStringFromEnv("LOAD_SHEDDING", "false") == "true"
 
 	o.copyExecAgentSrc = utils.GetStringFromEnv("COPY_EXEC_AGENT_SRC", "")
 	o.copyExecAgentDst = utils.GetStringFromEnv("COPY_EXEC_AGENT_DST", "")
-	o.copyExecAgent =
-		utils.GetStringFromEnv("COPY_EXEC_AGENT", "false") == "true"
+	o.copyExecAgent = utils.GetStringFromEnv("COPY_EXEC_AGENT", "false") == "true"
 
 	if o.options.DockerContainerOptions.SeccompPolicyPath == "" {
-		o.options.DockerContainerOptions.SeccompPolicyPath =
-			utils.GetStringFromEnv("SECCOMP_POLICY_PATH", "-")
+		o.options.DockerContainerOptions.SeccompPolicyPath = utils.GetStringFromEnv("SECCOMP_POLICY_PATH", "-")
 	}
 
 	return o

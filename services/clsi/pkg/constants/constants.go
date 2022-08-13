@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -16,23 +16,25 @@
 
 package constants
 
-const AgentSocketName = ".agent-socket"
-const AgentSocketPathContainer = CompileDirContainer + "/" + AgentSocketName
-
-const CompileDirContainer = "/compile"
-const OutputDirContainer = "/output"
-
-const CompileDirPlaceHolder = "$COMPILE_DIR"
-const OutputDirPlaceHolder = "$OUTPUT_DIR"
-
-const CompileOutputLabel = "compile-output"
-const ProjectSyncStateFilename = ".project-sync-state"
-
 //goland:noinspection SpellCheckingInspection
-const TimedOut = "timedout"
-const Cancelled = "cancelled"
-const Terminated = "terminated"
-const Success = "success"
-const Failure = "failure"
-const ValidationPass = "validation-pass"
-const ValidationFail = "validation-fail"
+const (
+	AgentSocketName          = ".agent-socket"
+	AgentSocketPathContainer = CompileDirContainer + "/" + AgentSocketName
+
+	CompileDirContainer = "/compile"
+	OutputDirContainer  = "/output"
+
+	CompileDirPlaceHolder = "$COMPILE_DIR"
+	OutputDirPlaceHolder  = "$OUTPUT_DIR"
+
+	CompileOutputLabel       = "compile-output"
+	ProjectSyncStateFilename = ".project-sync-state"
+
+	TimedOut       = "timedout"
+	Cancelled      = "cancelled"
+	Terminated     = "terminated"
+	Success        = "success"
+	Failure        = "failure"
+	ValidationPass = "validation-pass"
+	ValidationFail = "validation-fail"
+)

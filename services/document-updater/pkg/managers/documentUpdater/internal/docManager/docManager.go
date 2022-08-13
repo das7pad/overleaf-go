@@ -30,7 +30,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/redisLocker"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/redisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/trackChanges"
@@ -130,8 +129,9 @@ func (m *manager) GetDocAndRecentUpdates(ctx context.Context, projectId, docId s
 	if err != nil {
 		return nil, nil, err
 	}
-	updates, err :=
-		m.rm.GetPreviousDocUpdates(ctx, docId, fromVersion, d.Version)
+	updates, err := m.rm.GetPreviousDocUpdates(
+		ctx, docId, fromVersion, d.Version,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -329,9 +329,7 @@ const (
 	maxCacheSize                       = 100
 )
 
-var (
-	errPartialFlush = errors.New("partial flush")
-)
+var errPartialFlush = errors.New("partial flush")
 
 func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
 	d, err := m.getDoc(ctx, projectId, docId)
@@ -355,7 +353,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sha
 		}
 	}
 
-	transformUpdatesCache := make([]sharedTypes.DocumentUpdate, 0)
+	transformCache := make([]sharedTypes.DocumentUpdate, 0)
 	var processed []sharedTypes.DocumentUpdate
 	var updateErr error
 
@@ -364,10 +362,9 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sha
 			// Processing timed out.
 			return nil, err
 		}
-		processed, transformUpdatesCache, updateErr =
-			m.u.ProcessOutstandingUpdates(
-				ctx, docId, d, transformUpdatesCache,
-			)
+		processed, transformCache, updateErr = m.u.ProcessOutstandingUpdates(
+			ctx, docId, d, transformCache,
+		)
 
 		if err = ctx.Err(); err != nil {
 			// Processing timed out.
@@ -387,8 +384,8 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sha
 			return nil, err
 		}
 
-		if n := len(transformUpdatesCache); n > maxCacheSize {
-			transformUpdatesCache = transformUpdatesCache[n-maxCacheSize:]
+		if n := len(transformCache); n > maxCacheSize {
+			transformCache = transformCache[n-maxCacheSize:]
 		}
 	}
 	return nil, errPartialFlush
@@ -490,13 +487,13 @@ func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId shared
 	return m.flushAndMaybeDeleteDoc(ctx, projectId, docId, true)
 }
 
-func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID, delete bool) error {
+func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID, deleteFromRedis bool) error {
 	var err error
 
 	for {
 		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
 			if m.tryCheckDocNotLoadedOrFlushed(ctx, docId) {
-				if delete {
+				if deleteFromRedis {
 					m.tc.FlushDocInBackground(projectId, docId)
 				}
 				return
@@ -507,7 +504,7 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId s
 				return
 			}
 			err = m.doFlushAndMaybeDelete(
-				ctx, projectId, docId, d, delete,
+				ctx, projectId, docId, d, deleteFromRedis,
 			)
 			if err != nil {
 				return

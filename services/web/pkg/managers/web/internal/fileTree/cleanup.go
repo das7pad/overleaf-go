@@ -26,8 +26,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-const fileUploadsStaleAfter = 15 * time.Minute
-const purgeFileUploadsAfter = fileUploadsStaleAfter + time.Minute
+const (
+	fileUploadsStaleAfter = 15 * time.Minute
+	purgeFileUploadsAfter = fileUploadsStaleAfter + time.Minute
+)
 
 func (m *manager) CleanupStaleFileUploads(ctx context.Context, dryRun bool, start time.Time) error {
 	nFailed := 0

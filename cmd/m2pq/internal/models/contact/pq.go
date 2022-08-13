@@ -152,7 +152,7 @@ LIMIT 1
 		return errors.Tag(err, "insert contacts")
 	}
 	if i == limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

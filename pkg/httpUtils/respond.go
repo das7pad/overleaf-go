@@ -111,29 +111,30 @@ func respondJSON(
 func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
 	code := 500
 	errMessage := err.Error()
-	if errors.IsValidationError(err) {
+	switch {
+	case errors.IsValidationError(err):
 		code = http.StatusBadRequest
-	} else if errors.IsUnauthorizedError(err) {
+	case errors.IsUnauthorizedError(err):
 		code = http.StatusUnauthorized
-	} else if errors.IsNotAuthorizedError(err) {
+	case errors.IsNotAuthorizedError(err):
 		code = http.StatusForbidden
-	} else if errors.IsDocNotFoundError(err) {
+	case errors.IsDocNotFoundError(err):
 		code = http.StatusNotFound
-	} else if errors.IsMissingOutputFileError(err) {
+	case errors.IsMissingOutputFileError(err):
 		code = http.StatusNotFound
-	} else if errors.IsNotFoundError(err) {
+	case errors.IsNotFoundError(err):
 		code = http.StatusNotFound
-	} else if errors.IsInvalidState(err) {
+	case errors.IsInvalidState(err):
 		code = http.StatusConflict
-	} else if errors.IsBodyTooLargeError(err) {
+	case errors.IsBodyTooLargeError(err):
 		code = http.StatusRequestEntityTooLarge
-	} else if errors.IsUnprocessableEntity(err) {
+	case errors.IsUnprocessableEntity(err):
 		code = http.StatusUnprocessableEntity
-	} else if errors.IsUpdateRangeNotAvailableError(err) {
+	case errors.IsUpdateRangeNotAvailableError(err):
 		code = http.StatusUnprocessableEntity
-	} else if errors.IsAlreadyCompiling(err) {
+	case errors.IsAlreadyCompiling(err):
 		code = http.StatusLocked
-	} else {
+	default:
 		log.Printf(
 			"%s %s: %s",
 			c.Request.Method, c.Request.URL.Path, errMessage,

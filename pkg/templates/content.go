@@ -69,13 +69,14 @@ func (m metaEntry) TypeAsString() (string, error) {
 type CommonData struct {
 	Settings *PublicSettings
 
+	SessionUser   *session.User
+	ThemeModifier string
+	Title         string
+	TitleLocale   string
+
 	HideFooter            bool
 	HideNavBar            bool
 	RobotsNoindexNofollow bool
-	SessionUser           *session.User
-	ThemeModifier         string
-	Title                 string
-	TitleLocale           string
 	Viewport              bool
 }
 

@@ -252,8 +252,7 @@ func IsUnauthorizedError(err error) bool {
 	return ok
 }
 
-type NotAuthorizedError struct {
-}
+type NotAuthorizedError struct{}
 
 func (e *NotAuthorizedError) Error() string {
 	return "not authorized"
@@ -278,8 +277,7 @@ func IsNotAuthorizedError(err error) bool {
 	return ok
 }
 
-type NotFoundError struct {
-}
+type NotFoundError struct{}
 
 func (e *NotFoundError) Error() string {
 	return "not found"
@@ -316,5 +314,5 @@ func (e *CodedError) Public() *JavaScriptError {
 	}
 }
 
-// New is a re-export of the built-in errors.New function
+// New is a re-export of the built-in errors.New function.
 var New = errors.New

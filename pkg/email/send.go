@@ -74,12 +74,12 @@ func writePart(m *multipart.Writer, contentType string, gen generator) error {
 	}
 	q := quotedprintable.NewWriter(p)
 	err = gen(q)
-	err2 := q.Close()
+	errClose := q.Close()
 	if err != nil {
 		return errors.Tag(err, "cannot generate content")
 	}
-	if err2 != nil {
-		return errors.Tag(err2, "cannot finalize part")
+	if errClose != nil {
+		return errors.Tag(errClose, "cannot finalize part")
 	}
 	return nil
 }

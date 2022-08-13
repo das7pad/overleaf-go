@@ -102,8 +102,7 @@ func swapScriptNodeType(s string) (string, error) {
 					return err
 				}
 				// tree -> html -> head -> body -> actual node
-				node.FirstChild =
-					hn.FirstChild.FirstChild.NextSibling.FirstChild
+				node.FirstChild = hn.FirstChild.FirstChild.NextSibling.FirstChild
 			} else {
 				node.Data = "script"
 				node.DataAtom = atom.Script

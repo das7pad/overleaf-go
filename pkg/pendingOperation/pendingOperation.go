@@ -23,7 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-var OperationStillPending = errors.New("operation is still pending")
+var errOperationStillPending = errors.New("operation is still pending")
 
 type PendingOperation interface {
 	Done() <-chan struct{}
@@ -52,13 +52,13 @@ func (c *pendingOperation) Err() error {
 func (c *pendingOperation) IsPending() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.err == OperationStillPending
+	return c.err == errOperationStillPending
 }
 
 func (c *pendingOperation) Failed() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.err != nil && c.err != OperationStillPending
+	return c.err != nil && c.err != errOperationStillPending
 }
 
 func (c *pendingOperation) Wait(ctx context.Context) error {
@@ -84,7 +84,7 @@ func newPendingOperation() (PendingOperation, func(err error)) {
 	c := make(chan struct{})
 	pending := &pendingOperation{
 		c:   c,
-		err: OperationStillPending,
+		err: errOperationStillPending,
 	}
 	return pending, pending.setErr
 }

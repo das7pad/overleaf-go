@@ -96,11 +96,12 @@ func (r *OpenInOverleafRequest) Preprocess() {
 			snippet.Path = "main.tex"
 		}
 		if snippet.Path.Type() == "" {
-			if nInlinedDocs == 1 && !hasMainTex {
+			switch {
+			case nInlinedDocs == 1 && !hasMainTex:
 				snippet.Path = "main.tex"
-			} else if snippet.Path != "" {
+			case snippet.Path != "":
 				snippet.Path += ".tex"
-			} else {
+			default:
 				untitledDocNum++
 				snippet.Path = sharedTypes.PathName(
 					fmt.Sprintf("untitled-doc-%d.tex", untitledDocNum),
@@ -168,7 +169,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 		c := sharedTypes.Compiler(s)
 		//goland:noinspection SpellCheckingInspection
 		if c == "latex_dvipdf" {
-			c = sharedTypes.Latex
+			c = sharedTypes.LaTeX
 		}
 		if err := c.Validate(); err != nil {
 			return errors.Tag(err, "engine")

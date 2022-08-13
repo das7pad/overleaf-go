@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,9 +24,9 @@ import (
 )
 
 func Parse() httpUtils.CORSOptions {
-	siteUrl := utils.GetStringFromEnv("PUBLIC_URL", "http://localhost:3000")
+	siteURL := utils.GetStringFromEnv("PUBLIC_URL", "http://localhost:3000")
 	allowOrigins := strings.Split(
-		utils.GetStringFromEnv("ALLOWED_ORIGINS", siteUrl),
+		utils.GetStringFromEnv("ALLOWED_ORIGINS", siteURL),
 		",",
 	)
 

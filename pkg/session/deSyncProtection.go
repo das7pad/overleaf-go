@@ -29,13 +29,11 @@ type sessionDataWithDeSyncProtection struct {
 	Data
 }
 
-var (
-	RedisConnectionDeSyncErr = errors.New("redis connection de-synced")
-)
+var ErrRedisConnectionDeSync = errors.New("redis connection de-synced")
 
 func (s sessionValidationToken) Validate(id Id) error {
 	if s != id.toSessionValidationToken() {
-		return RedisConnectionDeSyncErr
+		return ErrRedisConnectionDeSync
 	}
 	return nil
 }
@@ -48,7 +46,7 @@ func serializeSession(id Id, data Data) ([]byte, error) {
 }
 
 func deSerializeSession(id Id, blob []byte) (*Data, error) {
-	dst := sessionDataWithDeSyncProtection{}
+	var dst sessionDataWithDeSyncProtection
 	if err := json.Unmarshal(blob, &dst); err != nil {
 		return nil, err
 	}

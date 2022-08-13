@@ -31,7 +31,7 @@ func (u *UUID) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
 	return nil
 }
 
-func (u *UUID) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+func (u *UUID) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	return append(buf, u[:]...), nil
 }
 
@@ -71,7 +71,7 @@ func (s *UUIDs) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	return nil
 }
 
-func (s UUIDs) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+func (s UUIDs) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	h := pgtype.ArrayHeader{
 		ContainsNull: false,
 		ElementOID:   pgtype.UUIDOID,
@@ -80,9 +80,7 @@ func (s UUIDs) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) (newBuf []byte, err
 	buf = h.EncodeBinary(ci, buf)
 	min := len(buf) + len(s)*(16+4)
 	if cap(buf) < min {
-		newBuf = make([]byte, len(buf), min)
-		copy(newBuf, buf)
-		buf = newBuf
+		buf = append(make([]byte, 0, min), buf...)
 	}
 	for _, u := range s {
 		buf = append(buf, 0, 0, 0, 16) // UUID length

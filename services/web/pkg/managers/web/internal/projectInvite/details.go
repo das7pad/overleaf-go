@@ -57,8 +57,9 @@ func (d *projectInviteDetails) ValidateForCreation() error {
 		return &errors.ValidationError{Msg: "cannot_invite_self"}
 	}
 	authorizationDetails, err := d.project.GetPrivilegeLevelAuthenticated()
-	if err != nil {
-		// This user is not a member yet.
+	alreadyAMember := err == nil
+	if !alreadyAMember {
+		// This user is not a member yet and the invitation will change that.
 		return nil
 	}
 	if authorizationDetails.IsTokenMember() {

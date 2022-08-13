@@ -26,17 +26,17 @@ import (
 )
 
 type EditorConfig struct {
-	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
-	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
 	FontFamily         string                           `json:"fontFamily" bson:"fontFamily"`
-	FontSize           int                              `json:"fontSize" bson:"fontSize"`
+	FontSize           int64                            `json:"fontSize" bson:"fontSize"`
 	LineHeight         string                           `json:"lineHeight" bson:"lineHeight"`
 	Mode               string                           `json:"mode" bson:"mode"`
 	OverallTheme       string                           `json:"overallTheme" bson:"overallTheme"`
 	PDFViewer          string                           `json:"pdfViewer" bson:"pdfViewer"`
-	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
 	Theme              string                           `json:"theme" bson:"theme"`
+	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
+	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
+	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
 }
 
 func (e EditorConfig) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {

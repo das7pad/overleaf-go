@@ -86,18 +86,21 @@ type Component struct {
 func (o *Component) IsDeletion() bool {
 	return len(o.Deletion) != 0
 }
+
 func (o *Component) IsInsertion() bool {
 	return len(o.Insertion) != 0
 }
+
 func (o *Component) Validate() error {
 	if o.Position < 0 {
 		return &errors.ValidationError{Msg: "position is negative"}
 	}
-	if o.IsDeletion() {
+	switch {
+	case o.IsDeletion():
 		return nil
-	} else if o.IsInsertion() {
+	case o.IsInsertion():
 		return Snapshot(o.Insertion).Validate()
-	} else {
+	default:
 		return &errors.ValidationError{Msg: "unknown op type"}
 	}
 }

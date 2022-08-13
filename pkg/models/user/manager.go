@@ -57,11 +57,9 @@ func New(db *pgxpool.Pool) Manager {
 	return &manager{db: db}
 }
 
-var (
-	ErrEmailAlreadyRegistered = &errors.InvalidStateError{
-		Msg: "email already registered",
-	}
-)
+var ErrEmailAlreadyRegistered = &errors.InvalidStateError{
+	Msg: "email already registered",
+}
 
 func getErr(_ pgconn.CommandTag, err error) error {
 	return err
@@ -115,7 +113,7 @@ FROM u;
 		u.LoginCount,
 		u.HashedPassword,
 		u.AuditLog[0].InitiatorId,
-		u.AuditLog[0].IpAddress,
+		u.AuditLog[0].IPAddress,
 		u.AuditLog[0].Operation,
 		u.SignUpDate.Add(7*24*time.Hour),
 		u.OneTimeToken,

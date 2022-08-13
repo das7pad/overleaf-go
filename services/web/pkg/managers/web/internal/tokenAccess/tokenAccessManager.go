@@ -45,6 +45,9 @@ type manager struct {
 }
 
 func (m *manager) GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
 	return m.grantTokenAccess(
 		ctx, request, response,
 		sharedTypes.PrivilegeLevelReadAndWrite,
@@ -68,7 +71,7 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 	fromToken, err := p.GetPrivilegeLevelAnonymous(token)
 	if err != nil {
 		response.RedirectTo = "/restricted"
-		return nil
+		return &errors.NotAuthorizedError{}
 	}
 	projectId := p.Id
 	if request.Session.IsLoggedIn() {
@@ -90,16 +93,17 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 
 func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error {
 	var postULR *sharedTypes.URL
-	if request.Token.ValidateReadOnly() == nil {
+	switch {
+	case request.Token.ValidateReadOnly() == nil:
 		postULR = m.ps.SiteURL.
 			WithPath("/api/grant/ro/" + string(request.Token))
-	} else if request.Token.ValidateReadAndWrite() == nil {
-		if !request.Session.IsLoggedIn() {
-			return &errors.UnauthorizedError{}
+	case request.Token.ValidateReadAndWrite() == nil:
+		if err := request.Session.CheckIsLoggedIn(); err != nil {
+			return err
 		}
 		postULR = m.ps.SiteURL.
 			WithPath("/api/grant/rw/" + string(request.Token))
-	} else {
+	default:
 		return &errors.NotFoundError{}
 	}
 

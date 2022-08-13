@@ -50,7 +50,7 @@ type ForPQ struct {
 	IdField             `bson:"inline"`
 	HashedPasswordField `bson:"inline"`
 	LastLoggedInField   `bson:"inline"`
-	LastLoginIpField    `bson:"inline"`
+	LastLoginIPField    `bson:"inline"`
 	LastNameField       `bson:"inline"`
 	LoginCountField     `bson:"inline"`
 	MustReconfirmField  `bson:"inline"`
@@ -170,7 +170,7 @@ LIMIT 1
 		if idS == lastLW.Token {
 			lw = lastLW.LearnedWords
 		}
-		u.LastLoginIp, err = cleanIP(u.LastLoginIp)
+		u.LastLoginIP, err = cleanIP(u.LastLoginIP)
 		if err != nil {
 			return errors.Tag(err, "clean login ip")
 		}
@@ -187,7 +187,7 @@ LIMIT 1
 			u.FirstName,             // first_name
 			uId,                     // id
 			u.LastLoggedIn,          // last_login_at
-			u.LastLoginIp,           // last_login_ip
+			u.LastLoginIP,           // last_login_ip
 			u.LastName,              // last_name
 			lw,                      // learned_words
 			u.LoginCount,            // login_count
@@ -237,7 +237,7 @@ LIMIT 1
 				return errors.Tag(err, "serialize audit log")
 			}
 
-			entry.IpAddress, err = cleanIP(entry.IpAddress)
+			entry.IPAddress, err = cleanIP(entry.IPAddress)
 			if err != nil {
 				return errors.Tag(err, "clean audit log ip")
 			}
@@ -246,7 +246,7 @@ LIMIT 1
 				ids.Next(),                      // id
 				infoBlob,                        // info
 				initiatorIds[entry.InitiatorId], // initiator_id
-				entry.IpAddress,                 // ip_address
+				entry.IPAddress,                 // ip_address
 				entry.Operation,                 // operation
 				entry.Timestamp,                 // timestamp
 				userId,                          // user_id
@@ -263,7 +263,7 @@ LIMIT 1
 		return errors.Tag(err, "insert audit log")
 	}
 	if i == limit {
-		return status.HitLimit
+		return status.ErrHitLimit
 	}
 	return nil
 }

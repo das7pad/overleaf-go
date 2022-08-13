@@ -19,6 +19,7 @@ package channel
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"math"
 	"time"
 
@@ -59,6 +60,7 @@ type Manager interface {
 }
 
 type BaseChannel string
+
 type channel string
 
 func (c BaseChannel) join(id sharedTypes.UUID) channel {
@@ -134,6 +136,9 @@ func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
 					return
 				}
 				nFailed++
+				log.Printf(
+					"pubsub receive: nFailed=%d, %q", nFailed, err.Error(),
+				)
 				time.Sleep(time.Duration(math.Min(
 					float64(5*time.Second),
 					math.Pow(2, float64(nFailed))*float64(time.Millisecond),

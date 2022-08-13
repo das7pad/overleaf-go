@@ -210,13 +210,12 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		}
 		tCtx, finishedRPC := context.WithTimeout(ctx, time.Second*10)
 		rpc := types.RPC{
-			Context:  tCtx,
 			Client:   c,
 			Request:  &request,
 			Response: &response,
 		}
 		response.Latency.Begin()
-		h.rtm.RPC(&rpc)
+		h.rtm.RPC(tCtx, &rpc)
 		finishedRPC()
 		if rpc.Response != nil {
 			rpc.Response.Latency.End()

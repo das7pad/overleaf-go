@@ -18,6 +18,7 @@ package dispatchManager
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -85,7 +86,7 @@ func (m *shard) run(ctx context.Context) {
 			break
 		}
 		if err != nil {
-			err = errors.Tag(err, "cannot get work in queue "+m.queue)
+			err = errors.Tag(err, "cannot get work from queue "+m.queue)
 			log.Println(err.Error())
 			continue
 		}
@@ -94,24 +95,28 @@ func (m *shard) run(ctx context.Context) {
 	}
 }
 
-func parseKey(key string) (projectId, docId sharedTypes.UUID, err error) {
+func parseKey(key string) (sharedTypes.UUID, sharedTypes.UUID, error) {
 	if len(key) != 36+36+1 {
-		err = &errors.ValidationError{Msg: "unexpected length"}
-		return
+		return sharedTypes.UUID{}, sharedTypes.UUID{}, &errors.ValidationError{
+			Msg: "unexpected length",
+		}
 	}
-	projectId, err = sharedTypes.ParseUUID(key[:36])
+	projectId, err := sharedTypes.ParseUUID(key[:36])
 	if err != nil {
-		return
+		return sharedTypes.UUID{}, sharedTypes.UUID{}, err
 	}
-	docId, err = sharedTypes.ParseUUID(key[36+1:])
-	return
+	docId, err := sharedTypes.ParseUUID(key[36+1:])
+	if err != nil {
+		return sharedTypes.UUID{}, sharedTypes.UUID{}, err
+	}
+	return projectId, docId, nil
 }
 
 func (m *shard) process(work chan string) {
 	for key := range work {
 		projectId, docId, err := parseKey(key)
 		if err != nil {
-			err = errors.Tag(err, "unexpected key '"+key+"'")
+			err = errors.Tag(err, fmt.Sprintf("unexpected key %q", key))
 			log.Println(err.Error())
 			continue
 		}

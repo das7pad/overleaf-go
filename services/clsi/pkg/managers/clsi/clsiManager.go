@@ -214,7 +214,7 @@ Hello world
 		Options: types.CompileOptions{
 			Check:        types.NoCheck,
 			CompileGroup: sharedTypes.StandardCompileGroup,
-			Compiler:     sharedTypes.PDFLatex,
+			Compiler:     sharedTypes.PDFLaTeX,
 			ImageName:    m.options.AllowedImages[0],
 			SyncType:     types.SyncTypeFull,
 			Timeout:      sharedTypes.ComputeTimeout(10 * time.Second),
@@ -357,7 +357,7 @@ func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId sh
 	for i := 0; i < 3; i++ {
 		p, err := m.pm.GetProject(ctx, projectId, userId)
 		if err != nil {
-			if err == project.IsDeadError {
+			if err == project.ErrIsDead {
 				lastErr = err
 				continue
 			}
@@ -365,7 +365,7 @@ func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId sh
 		}
 		err = fn(p)
 		if err != nil {
-			if err == project.IsDeadError {
+			if err == project.ErrIsDead {
 				lastErr = err
 				continue
 			}

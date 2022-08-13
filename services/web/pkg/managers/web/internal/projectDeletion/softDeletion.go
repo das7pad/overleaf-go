@@ -30,7 +30,13 @@ func (m *manager) DeleteUsersOwnedProjects(ctx context.Context, userId sharedTyp
 	if err != nil {
 		return errors.Tag(err, "cannot get projects")
 	}
-	var ownedProjectIds []sharedTypes.UUID
+	n := 0
+	for _, p := range projects {
+		if p.OwnerId == userId {
+			n++
+		}
+	}
+	ownedProjectIds := make([]sharedTypes.UUID, 0, n)
 	for _, p := range projects {
 		if p.OwnerId != userId {
 			continue

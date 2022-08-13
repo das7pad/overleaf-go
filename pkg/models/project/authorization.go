@@ -22,6 +22,7 @@ import (
 )
 
 type AccessSource string
+
 type PublicAccessLevel string
 
 func (l PublicAccessLevel) Validate() error {
@@ -89,19 +90,24 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAnonymous(accessToken AccessT
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated() (*AuthorizationDetails, error) {
-	if p.PrivilegeLevel == "" {
-		// This user has not joined yet.
-	} else if p.AccessSource == AccessSourceToken &&
-		p.PublicAccessLevel != TokenBasedAccess {
-		// The owner turned off link sharing.
-	} else {
+	switch {
+	case
+		p.AccessSource == AccessSourceOwner,
+		p.AccessSource == AccessSourceInvite,
+		p.AccessSource == AccessSourceToken &&
+			// Access details remain as is in db when disabling link sharing,
+			//  we need to check in app code for validity.
+			p.PublicAccessLevel == TokenBasedAccess:
 		return &AuthorizationDetails{
 			Epoch:          p.Epoch,
 			AccessSource:   p.Member.AccessSource,
 			PrivilegeLevel: p.Member.PrivilegeLevel,
 		}, nil
+	default:
+		return &AuthorizationDetails{
+			Epoch: p.Epoch,
+		}, &errors.NotAuthorizedError{}
 	}
-	return &AuthorizationDetails{Epoch: p.Epoch}, &errors.NotAuthorizedError{}
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {

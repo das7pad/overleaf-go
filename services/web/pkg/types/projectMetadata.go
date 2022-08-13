@@ -40,7 +40,9 @@ type SuggestedLatexCommand struct {
 }
 
 type LatexLabel string
+
 type LatexPackageName string
+
 type LatexPackages map[LatexPackageName][]SuggestedLatexCommand
 
 type LightDocProjectMetadata struct {
@@ -55,4 +57,5 @@ type ProjectDocMetadata struct {
 // Cannot use ObjectID (bytes array) as key, can only use simple string here.
 
 type LightProjectMetadata map[string]LightDocProjectMetadata
+
 type ProjectMetadata map[string]ProjectDocMetadata

@@ -72,16 +72,16 @@ type PublicSettings struct {
 	CDNURL                    sharedTypes.URL
 	CSPs                      csp.CSPs
 	EditorSettings            EditorSettings
-	EmailConfirmationDisabled bool
 	I18n                      I18nOptions
 	Nav                       NavOptions
-	RegistrationDisabled      bool
-	RobotsNoindex             bool
 	Sentry                    PublicSentryOptions
 	SiteURL                   sharedTypes.URL
 	StatusPageURL             sharedTypes.URL
 	TranslatedLanguages       map[string]string
 	ZipFileSizeLimit          int64
+	EmailConfirmationDisabled bool
+	RegistrationDisabled      bool
+	RobotsNoindex             bool
 }
 
 func (s *PublicSettings) ShowLanguagePicker() bool {

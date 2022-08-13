@@ -85,9 +85,9 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, userId, docId share
 			rev = rev[:n]
 		}
 		for j := 0; j <= n/2+n%2 && j < n; j++ {
-			rev[n-1-j].Position = op[j].Position
-			rev[n-1-j].Deletion, rev[n-1-j].Insertion =
-				op[j].Insertion, op[j].Deletion
+			k := n - 1 - j
+			rev[k].Position = op[j].Position
+			rev[k].Deletion, rev[k].Insertion = op[j].Insertion, op[j].Deletion
 		}
 		if s, err = text.Apply(s, rev); err != nil {
 			return nil, nil, errors.Tag(err, "broken history")

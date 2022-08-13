@@ -32,6 +32,7 @@ import (
 )
 
 type Capabilities int
+
 type CapabilityComponent int
 
 const (
@@ -87,7 +88,7 @@ type WriteQueue chan<- WriteQueueEntry
 
 // generatePublicId yields a secure unique id
 // It contains a 16 hex char long timestamp in ns precision, a hyphen and
-//  another 16 hex char long random string.
+// another 16 hex char long random string.
 func generatePublicId() (sharedTypes.PublicId, error) {
 	buf := make([]byte, 8)
 	if _, err := secureRand.Read(buf); err != nil {

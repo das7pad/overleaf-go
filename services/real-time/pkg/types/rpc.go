@@ -17,7 +17,6 @@
 package types
 
 import (
-	"context"
 	"encoding/json"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -57,8 +56,6 @@ type RPCResponse struct {
 }
 
 type RPC struct {
-	context.Context
-
 	Client   *Client
 	Request  *RPCRequest
 	Response *RPCResponse

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,7 +42,7 @@ func New(options *types.Options, ps *templates.PublicSettings, proxy linkedURLPr
 		return nil, err
 	}
 
-	err = os.MkdirAll(options.LearnImageCacheBase.String(), 0755)
+	err = os.MkdirAll(options.LearnImageCacheBase.String(), 0o755)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot create image cache")
 	}

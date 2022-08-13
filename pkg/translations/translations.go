@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,7 +28,7 @@ import (
 )
 
 type Manager interface {
-	GetTranslationUrl(lng string) template.URL
+	GetTranslationURL(lng string) (template.URL, error)
 	Translate(key string, data languageGetter) (template.HTML, error)
 }
 
@@ -37,11 +37,14 @@ type manager struct {
 	siteURL           sharedTypes.URL
 }
 
-func (m *manager) GetTranslationUrl(lng string) template.URL {
+func (m *manager) GetTranslationURL(lng string) (template.URL, error) {
+	if _, ok := m.localesByLanguage[lng]; !ok {
+		return "", &errors.InvalidStateError{Msg: "unknown language specified"}
+	}
 	u := m.siteURL.WithQuery(url.Values{
 		"setGlobalLng": {lng},
 	})
-	return template.URL(u.String())
+	return template.URL(u.String()), nil
 }
 
 func (m *manager) Translate(key string, data languageGetter) (template.HTML, error) {

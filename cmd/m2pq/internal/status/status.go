@@ -20,4 +20,4 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-var HitLimit = &errors.CodedError{}
+var ErrHitLimit = &errors.CodedError{}

@@ -26,17 +26,17 @@ import (
 )
 
 type EditorConfig struct {
-	AutoComplete       bool                             `json:"autoComplete"`
-	AutoPairDelimiters bool                             `json:"autoPairDelimiters"`
 	FontFamily         string                           `json:"fontFamily"`
 	FontSize           int64                            `json:"fontSize"`
 	LineHeight         string                           `json:"lineHeight"`
 	Mode               string                           `json:"mode"`
 	OverallTheme       string                           `json:"overallTheme"`
 	PDFViewer          string                           `json:"pdfViewer"`
-	SyntaxValidation   bool                             `json:"syntaxValidation"`
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
 	Theme              string                           `json:"theme"`
+	SyntaxValidation   bool                             `json:"syntaxValidation"`
+	AutoComplete       bool                             `json:"autoComplete"`
+	AutoPairDelimiters bool                             `json:"autoPairDelimiters"`
 }
 
 func (e *EditorConfig) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
@@ -92,49 +92,49 @@ var DefaultEditorConfig = EditorConfig{
 	Theme:              "textmate",
 }
 
-var (
-	//goland:noinspection SpellCheckingInspection
-	EditorThemes = []string{
-		"ambiance",
-		"chaos",
-		"chrome",
-		"clouds",
-		"clouds_midnight",
-		"cobalt",
-		"crimson_editor",
-		"dawn",
-		"dracula",
-		"dreamweaver",
-		"eclipse",
-		"github",
-		"gob",
-		"gruvbox",
-		"idle_fingers",
-		"iplastic",
-		"katzenmilch",
-		"kr_theme",
-		"kuroir",
-		"merbivore",
-		"merbivore_soft",
-		"mono_industrial",
-		"monokai",
-		"overleaf",
-		"pastel_on_dark",
-		"solarized_dark",
-		"solarized_light",
-		"sqlserver",
-		"terminal",
-		"textmate",
-		"tomorrow",
-		"tomorrow_night",
-		"tomorrow_night_blue",
-		"tomorrow_night_bright",
-		"tomorrow_night_eighties",
-		"twilight",
-		"vibrant_ink",
-		"xcode",
-	}
-)
+// EditorThemes lists all the available theme names for the editor.
+//
+//goland:noinspection SpellCheckingInspection
+var EditorThemes = []string{
+	"ambiance",
+	"chaos",
+	"chrome",
+	"clouds",
+	"clouds_midnight",
+	"cobalt",
+	"crimson_editor",
+	"dawn",
+	"dracula",
+	"dreamweaver",
+	"eclipse",
+	"github",
+	"gob",
+	"gruvbox",
+	"idle_fingers",
+	"iplastic",
+	"katzenmilch",
+	"kr_theme",
+	"kuroir",
+	"merbivore",
+	"merbivore_soft",
+	"mono_industrial",
+	"monokai",
+	"overleaf",
+	"pastel_on_dark",
+	"solarized_dark",
+	"solarized_light",
+	"sqlserver",
+	"terminal",
+	"textmate",
+	"tomorrow",
+	"tomorrow_night",
+	"tomorrow_night_blue",
+	"tomorrow_night_bright",
+	"tomorrow_night_eighties",
+	"twilight",
+	"vibrant_ink",
+	"xcode",
+}
 
 func (e *EditorConfig) Validate() error {
 	switch e.FontFamily {

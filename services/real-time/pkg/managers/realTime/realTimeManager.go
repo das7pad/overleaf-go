@@ -43,7 +43,7 @@ type Manager interface {
 
 	PeriodicCleanup(ctx context.Context)
 
-	RPC(rpc *types.RPC)
+	RPC(ctx context.Context, rpc *types.RPC)
 	Disconnect(client *types.Client) error
 }
 
@@ -112,8 +112,8 @@ func (m *manager) TriggerGracefulReconnect() {
 	}
 }
 
-func (m *manager) RPC(rpc *types.RPC) {
-	err := m.rpc(rpc)
+func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
+	err := m.rpc(ctx, rpc)
 	if err == nil {
 		return
 	}
@@ -134,7 +134,7 @@ func (m *manager) RPC(rpc *types.RPC) {
 	}
 }
 
-func (m *manager) joinProject(rpc *types.RPC) error {
+func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
 	var args types.JoinProjectRequest
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
@@ -143,7 +143,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		return err
 	}
 
-	r, err := m.webApi.JoinProject(rpc, rpc.Client, &args)
+	r, err := m.webApi.JoinProject(ctx, rpc.Client, &args)
 	rpc.Response.ProcessedBy = "self"
 	if err != nil {
 		return errors.Tag(
@@ -158,7 +158,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	// Fetch connected users in the background.
 	var connectedClients types.ConnectedClients
 	fetchUsersCtx, doneFetchingUsers := context.WithTimeout(
-		rpc, time.Second*10,
+		ctx, time.Second*10,
 	)
 	if rpc.Client.CanDo(types.GetConnectedUsers, rpc.Request.DocId) == nil {
 		defer doneFetchingUsers()
@@ -180,7 +180,7 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 		m.clientTracking.InitializeClientPosition(rpc.Client)
 	}()
 
-	if err = m.editorEvents.Join(rpc, rpc.Client, args.ProjectId); err != nil {
+	if err = m.editorEvents.Join(ctx, rpc.Client, args.ProjectId); err != nil {
 		return errors.Tag(
 			err, "editorEvents.Join failed for "+args.ProjectId.String(),
 		)
@@ -205,7 +205,8 @@ func (m *manager) joinProject(rpc *types.RPC) error {
 	rpc.Response.Body = body
 	return nil
 }
-func (m *manager) joinDoc(rpc *types.RPC) error {
+
+func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	var args types.JoinDocRequest
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
@@ -214,7 +215,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 
 	if !rpc.Client.IsKnownDoc(rpc.Request.DocId) {
 		err := m.documentUpdater.CheckDocExists(
-			rpc,
+			ctx,
 			*rpc.Client.ProjectId,
 			args.DocId,
 		)
@@ -230,14 +231,14 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	// For cleanup purposes: mark as joined before actually joining.
 	rpc.Client.DocId = args.DocId
 
-	if err := m.appliedOps.Join(rpc, rpc.Client, args.DocId); err != nil {
+	if err := m.appliedOps.Join(ctx, rpc.Client, args.DocId); err != nil {
 		return errors.Tag(
 			err, "appliedOps.Join failed for "+args.DocId.String(),
 		)
 	}
 
 	r, err := m.documentUpdater.GetDoc(
-		rpc,
+		ctx,
 		*rpc.Client.ProjectId,
 		args.DocId,
 		args.FromVersion,
@@ -263,6 +264,7 @@ func (m *manager) joinDoc(rpc *types.RPC) error {
 	rpc.Response.Body = blob
 	return nil
 }
+
 func (m *manager) leaveDoc(rpc *types.RPC) error {
 	docId := rpc.Request.DocId
 	err := m.appliedOps.Leave(rpc.Client, docId)
@@ -279,7 +281,7 @@ const (
 	maxUpdateSize = 7*1024*1024 + 64*1024
 )
 
-func (m *manager) applyUpdate(rpc *types.RPC) error {
+func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	if len(rpc.Request.Body) > maxUpdateSize {
 		// Accept the update RPC at first, keep going on error.
 		_ = rpc.Client.QueueResponse(&types.RPCResponse{
@@ -315,11 +317,11 @@ func (m *manager) applyUpdate(rpc *types.RPC) error {
 	if err := args.Validate(); err != nil {
 		return err
 	}
-	return m.appliedOps.QueueUpdate(rpc, &args)
+	return m.appliedOps.QueueUpdate(ctx, rpc, &args)
 }
 
-func (m *manager) getConnectedUsers(rpc *types.RPC) error {
-	clients, err := m.clientTracking.GetConnectedClients(rpc, rpc.Client)
+func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
+	clients, err := m.clientTracking.GetConnectedClients(ctx, rpc.Client)
 	if err != nil {
 		return err
 	}
@@ -332,7 +334,7 @@ func (m *manager) getConnectedUsers(rpc *types.RPC) error {
 	return nil
 }
 
-func (m *manager) updatePosition(rpc *types.RPC) error {
+func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	var args types.ClientPosition
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
@@ -340,7 +342,7 @@ func (m *manager) updatePosition(rpc *types.RPC) error {
 	// Hard code document identifier.
 	args.DocId = rpc.Request.DocId
 
-	err := m.clientTracking.UpdateClientPosition(rpc, rpc.Client, &args)
+	err := m.clientTracking.UpdateClientPosition(ctx, rpc.Client, &args)
 	if err != nil {
 		return errors.Tag(err, "cannot persist position update")
 	}
@@ -360,7 +362,7 @@ func (m *manager) updatePosition(rpc *types.RPC) error {
 		Message: editorEvents.ClientTrackingClientUpdated,
 		Payload: body,
 	}
-	if err = m.editorEvents.Publish(rpc, msg); err != nil {
+	if err = m.editorEvents.Publish(ctx, msg); err != nil {
 		return errors.Tag(err, "cannot send notification")
 	}
 	if rpc.Request.Callback == 0 {
@@ -433,7 +435,7 @@ func (m *manager) backgroundFlush(client *types.Client) {
 	}
 }
 
-func (m *manager) rpc(rpc *types.RPC) error {
+func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {
 	if err := rpc.Validate(); err != nil {
 		return err
 	}
@@ -442,17 +444,17 @@ func (m *manager) rpc(rpc *types.RPC) error {
 	case types.Ping:
 		return nil
 	case types.JoinProject:
-		return m.joinProject(rpc)
+		return m.joinProject(ctx, rpc)
 	case types.JoinDoc:
-		return m.joinDoc(rpc)
+		return m.joinDoc(ctx, rpc)
 	case types.LeaveDoc:
 		return m.leaveDoc(rpc)
 	case types.ApplyUpdate:
-		return m.applyUpdate(rpc)
+		return m.applyUpdate(ctx, rpc)
 	case types.GetConnectedUsers:
-		return m.getConnectedUsers(rpc)
+		return m.getConnectedUsers(ctx, rpc)
 	case types.UpdatePosition:
-		return m.updatePosition(rpc)
+		return m.updatePosition(ctx, rpc)
 	default:
 		return &errors.ValidationError{
 			Msg: "unknown action: " + string(rpc.Request.Action),

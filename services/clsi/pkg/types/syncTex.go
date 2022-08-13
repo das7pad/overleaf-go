@@ -48,6 +48,7 @@ type CodePosition struct {
 type CodePositions []*CodePosition
 
 type Height float64
+
 type Width float64
 
 type PDFPosition struct {

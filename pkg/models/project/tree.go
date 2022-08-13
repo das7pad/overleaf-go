@@ -179,16 +179,13 @@ func NewFolder(name sharedTypes.Filename) Folder {
 	}
 }
 
-var AbortWalk = errors.New("abort walk")
-
 type DirWalker func(folder *Folder, path sharedTypes.DirName) error
+
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
 
-var (
-	ErrDuplicateNameInFolder = &errors.InvalidStateError{
-		Msg: "folder already has entry with given name",
-	}
-)
+var ErrDuplicateNameInFolder = &errors.InvalidStateError{
+	Msg: "folder already has entry with given name",
+}
 
 func (t *Folder) HasEntry(needle sharedTypes.Filename) bool {
 	return t.GetEntry(needle) != nil
@@ -240,19 +237,19 @@ func (t *Folder) CountNodes() int {
 }
 
 func (t *Folder) Walk(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, t.Path, walkModeAny))
+	return t.walk(fn, t.Path, walkModeAny)
 }
 
 func (t *Folder) WalkDocs(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, t.Path, walkModeDoc))
+	return t.walk(fn, t.Path, walkModeDoc)
 }
 
 func (t *Folder) WalkFiles(fn TreeWalker) error {
-	return ignoreAbort(t.walk(fn, t.Path, walkModeFiles))
+	return t.walk(fn, t.Path, walkModeFiles)
 }
 
 func (t *Folder) WalkFolders(fn DirWalker) error {
-	return ignoreAbort(t.walkDirs(fn, t.Path))
+	return t.walkDirs(fn, t.Path)
 }
 
 func (t *Folder) WalkFull(fn func(e TreeElement)) {
@@ -275,13 +272,6 @@ const (
 	walkModeFiles
 	walkModeAny
 )
-
-func ignoreAbort(err error) error {
-	if err != nil && err != AbortWalk {
-		return err
-	}
-	return nil
-}
 
 func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 	if err := fn(t, parent); err != nil {
