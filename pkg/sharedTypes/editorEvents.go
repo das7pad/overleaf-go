@@ -23,10 +23,9 @@ import (
 )
 
 type EditorEventsMessage struct {
-	HealthCheck bool            `json:"health_check,omitempty"`
-	RoomId      UUID            `json:"room_id"`
-	Message     string          `json:"message"`
-	Payload     json.RawMessage `json:"payload"`
+	RoomId  UUID            `json:"room_id"`
+	Message string          `json:"message"`
+	Payload json.RawMessage `json:"payload"`
 }
 
 func (m *EditorEventsMessage) ChannelId() UUID {
@@ -34,9 +33,6 @@ func (m *EditorEventsMessage) ChannelId() UUID {
 }
 
 func (m *EditorEventsMessage) Validate() error {
-	if m.HealthCheck {
-		return nil
-	}
 	if m.Message == "" {
 		return &errors.ValidationError{Msg: "missing message"}
 	}

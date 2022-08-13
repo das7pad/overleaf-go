@@ -81,9 +81,6 @@ func (r *ProjectRoom) Handle(raw string) {
 		log.Println("cannot validate editorEvents message: " + err.Error())
 		return
 	}
-	if msg.HealthCheck {
-		return
-	}
 	var err error
 	switch msg.Message {
 	case ClientTrackingRefresh:
