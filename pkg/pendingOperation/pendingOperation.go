@@ -91,6 +91,8 @@ func newPendingOperation() (PendingOperation, func(err error)) {
 
 func TrackOperation(fn func() error) PendingOperation {
 	p, setErr := newPendingOperation()
-	go setErr(fn())
+	go func() {
+		setErr(fn())
+	}()
 	return p
 }
