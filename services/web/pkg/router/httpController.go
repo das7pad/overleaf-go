@@ -472,8 +472,8 @@ func (h *httpController) wordCount(c *httpUtils.Context) {
 }
 
 func (h *httpController) getSystemMessages(c *httpUtils.Context) {
-	m := h.wm.GetAllCached(c, httpUtils.GetId(c, "userId"))
-	httpUtils.Respond(c, http.StatusOK, m, nil)
+	m, err := h.wm.GetAllCached(c, httpUtils.GetId(c, "userId"))
+	httpUtils.Respond(c, http.StatusOK, m, err)
 }
 
 func (h *httpController) getUserProjects(c *httpUtils.Context) {

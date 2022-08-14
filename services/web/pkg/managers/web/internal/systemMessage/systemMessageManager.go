@@ -25,17 +25,19 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
+	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Manager interface {
-	GetAllCached(ctx context.Context, userId sharedTypes.UUID) []systemMessage.Full
+	GetAllCached(ctx context.Context, userId sharedTypes.UUID) ([]systemMessage.Full, error)
 }
 
 type manager struct {
 	sm systemMessage.Manager
 
-	l       sync.Mutex
+	l       sync.RWMutex
+	pending pendingOperation.PendingOperation
 	expires time.Time
 	cached  []systemMessage.Full
 }
@@ -49,28 +51,64 @@ func New(db *pgxpool.Pool) Manager {
 	}
 }
 
-func (m *manager) GetAllCached(ctx context.Context, userId sharedTypes.UUID) []systemMessage.Full {
+func (m *manager) GetAllCached(ctx context.Context, userId sharedTypes.UUID) ([]systemMessage.Full, error) {
 	if userId == (sharedTypes.UUID{}) {
 		// Hide messages for logged out users.
-		return noMessages
+		return noMessages, nil
 	}
+	if messages, ok := m.fast(); ok {
+		return messages, nil
+	}
+	return m.slow(ctx)
+}
+
+func (m *manager) fast() ([]systemMessage.Full, bool) {
+	m.l.RLock()
+	defer m.l.RUnlock()
 	if m.expires.After(time.Now()) {
-		// Happy path
-		return m.cached
+		return m.cached, true
 	}
+	return nil, false
+}
+
+func (m *manager) slow(ctx context.Context) ([]systemMessage.Full, error) {
+	m.l.Lock()
+	if m.expires.After(time.Now()) {
+		defer m.l.Unlock()
+		// Another goroutine refreshed the cache already.
+		return m.cached, nil
+	}
+	pending := m.pending
+	if pending == nil {
+		pending = pendingOperation.TrackOperation(m.refresh)
+		m.pending = pending
+	}
+	m.l.Unlock()
+
+	err := pending.Wait(ctx)
+
 	m.l.Lock()
 	defer m.l.Unlock()
-	if m.expires.After(time.Now()) {
-		// Another goroutine refreshed the cache already.
-		return m.cached
+	if m.pending == pending {
+		m.pending = nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	return m.cached, nil
+}
+
+func (m *manager) refresh() error {
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
 	messages, err := m.sm.GetAll(ctx)
 	if err != nil {
-		// Ignore refresh errors.
-		return m.cached
+		return err
 	}
-	m.cached = messages
 	jitter := time.Duration(rand.Int63n(int64(2 * time.Second)))
+	m.l.Lock()
+	defer m.l.Unlock()
+	m.cached = messages
 	m.expires = time.Now().Add(10*time.Second + jitter)
-	return messages
+	return nil
 }
