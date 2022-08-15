@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,6 +27,12 @@ type UploadDetails struct {
 	File     multipart.File
 	FileName sharedTypes.Filename
 	Size     int64
+}
+
+func (d *UploadDetails) Cleanup() {
+	if f := d.File; f != nil {
+		_ = f.Close()
+	}
 }
 
 const multipartHeaderOverhead = 5 * 1024
