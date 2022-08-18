@@ -361,7 +361,6 @@
           <hotkeys-modal
             handle-hide="handleHide"
             show="show"
-            track-changes-visible="trackChangesVisible"
             is-mac="isMac"
           ></hotkeys-modal>
         </li>
@@ -608,8 +607,6 @@
           >
             <div
               class="ui-layout-center"
-              ng-controller="ReviewPanelController"
-              ng-class="{'rp-unsupported': editor.showRichText,'rp-state-current-file': (reviewPanel.subView === SubViews.CUR_FILE),'rp-state-current-file-expanded': (reviewPanel.subView === SubViews.CUR_FILE && ui.reviewPanelOpen),'rp-state-current-file-mini': (reviewPanel.subView === SubViews.CUR_FILE && !ui.reviewPanelOpen),'rp-state-overview': (reviewPanel.subView === SubViews.OVERVIEW),'rp-size-mini': ui.miniReviewPanelVisible,'rp-size-expanded': ui.reviewPanelOpen,'rp-layout-left': reviewPanel.layoutToLeft,'rp-loading-threads': reviewPanel.loadingThreads,}"
             >
               <div
                 class="editor-container full-size"
@@ -636,13 +633,6 @@
                     <div
                       class="toolbar toolbar-editor"
                     >
-                      <button
-                        class="btn btn-warning symbol-palette-toggle"
-                        ng-click="editor.toggleSymbolPalette()"
-                        ng-if="permissions.write"
-                        title="Symbol Palette"
-                      >Σ
-                      </button>
                       <div class="toolbar-right"><a
                           href="#"
                           ng-click="switchToFlatLayout('editor')"
@@ -672,7 +662,6 @@
                   <div
                     id="editor"
                     ace-editor="editor"
-                    ng-if="!editor.showRichText"
                     ng-show="!!editor.sharejs_doc && !editor.opening && multiSelectedCount === 0 && !editor.error_state"
                     theme="settings.theme"
                     keybindings="settings.mode"
@@ -693,27 +682,11 @@
                     file-name="editor.open_doc_name"
                     on-ctrl-enter="recompileViaKey"
                     on-save="recompileViaKey"
-                    on-ctrl-j="toggleReviewPanel"
-                    on-ctrl-shift-c="addNewCommentFromKbdShortcut"
-                    on-ctrl-shift-a="toggleTrackChangesFromKbdShortcut"
                     syntax-validation="settings.syntaxValidation"
-                    review-panel="reviewPanel"
-                    events-bridge="reviewPanelEventsBridge"
-                    track-changes="editor.trackChanges"
                     doc-id="editor.open_doc_id"
-                    renderer-data="reviewPanel.rendererData"
                     font-family="settings.fontFamily"
                     line-height="settings.lineHeight"
                   ></div>
-                </div>
-                <div
-                  class="div"
-                  vertical-resizable-bottom="vertical-resizable-bottom"
-                >
-                  <symbol-palette
-                    show="editor.showSymbolPalette"
-                    handle-select="editor.insertSymbol"
-                  ></symbol-palette>
                 </div>
               </div>
             </div>
