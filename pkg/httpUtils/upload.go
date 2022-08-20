@@ -37,7 +37,7 @@ func (d *UploadDetails) Cleanup() {
 
 const multipartHeaderOverhead = 5 * 1024
 
-func ProcessFileUpload(c *Context, sizeLimit, memoryLimit int64, d *UploadDetails) bool {
+func ProcessFileUpload(d *UploadDetails, c *Context, sizeLimit, memoryLimit int64) bool {
 	if c.Request.ContentLength > sizeLimit+multipartHeaderOverhead {
 		RespondErr(c, &errors.BodyTooLargeError{})
 		return false

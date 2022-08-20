@@ -924,7 +924,7 @@ func (h *httpController) addFolderToProject(c *httpUtils.Context) {
 func (h *httpController) uploadFile(c *httpUtils.Context) {
 	j := projectJWT.MustGet(c)
 	d := &httpUtils.UploadDetails{}
-	if !httpUtils.ProcessFileUpload(c, types.MaxUploadSize, maxDocSize, d) {
+	if !httpUtils.ProcessFileUpload(d, c, types.MaxUploadSize, maxDocSize) {
 		return
 	}
 	defer d.Cleanup()
@@ -1321,7 +1321,7 @@ func (h *httpController) createFromZip(c *httpUtils.Context) {
 	}
 
 	d := &httpUtils.UploadDetails{}
-	if !httpUtils.ProcessFileUpload(c, types.MaxUploadSize, maxDocSize, d) {
+	if !httpUtils.ProcessFileUpload(d, c, types.MaxUploadSize, maxDocSize) {
 		return
 	}
 	defer d.Cleanup()
