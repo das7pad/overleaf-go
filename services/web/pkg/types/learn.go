@@ -22,16 +22,15 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type LearnPageRequest struct {
-	Session         *session.Session `form:"-"`
-	Section         string           `form:"-"`
-	Page            string           `form:"-"`
-	HasQuestionMark bool             `form:"-"`
+	WithSession
+	Section         string `form:"-"`
+	Page            string `form:"-"`
+	HasQuestionMark bool   `form:"-"`
 }
 
 func (r *LearnPageRequest) Preprocess() {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,20 +17,19 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type OptInBetaProgramRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type OptOutBetaProgramRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type BetaProgramParticipatePageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 }
 
 type BetaProgramParticipatePageResponse struct {

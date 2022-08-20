@@ -364,31 +364,34 @@ func (h *httpController) flushSession(c *httpUtils.Context, s *session.Session, 
 	return err
 }
 
-func (h *httpController) mustGetOrCreateSession(c *httpUtils.Context, resp interface{}) (*session.Session, bool) {
+func (h *httpController) mustGetOrCreateSession(c *httpUtils.Context, request interface{ SetSession(s *session.Session) }, resp interface{}) bool {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, resp, err)
-		return nil, false
+		return false
 	}
-	return s, true
+	request.SetSession(s)
+	return true
 }
 
-func (h *httpController) mustGetOrCreateSessionHTML(c *httpUtils.Context) (*session.Session, bool) {
+func (h *httpController) mustGetOrCreateSessionHTML(c *httpUtils.Context, request interface{ SetSession(s *session.Session) }) bool {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
-		return nil, false
+		return false
 	}
-	return s, true
+	request.SetSession(s)
+	return true
 }
 
-func (h *httpController) mustRequireLoggedInSession(c *httpUtils.Context) (*session.Session, bool) {
+func (h *httpController) mustRequireLoggedInSession(c *httpUtils.Context, request interface{ SetSession(s *session.Session) }) bool {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
-		return nil, false
+		return false
 	}
-	return s, true
+	request.SetSession(s)
+	return true
 }
 
 func (h *httpController) mustProcessQuery(request interface{ FromQuery(values url.Values) error }, c *httpUtils.Context) bool {
@@ -525,12 +528,11 @@ func (h *httpController) getSystemMessages(c *httpUtils.Context) {
 }
 
 func (h *httpController) getUserProjects(c *httpUtils.Context) {
+	request := &types.GetUserProjectsRequest{}
 	resp := &types.GetUserProjectsResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.GetUserProjectsRequest{Session: s}
 	err := h.wm.GetUserProjects(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
@@ -553,72 +555,62 @@ func (h *httpController) getMetadataForDoc(c *httpUtils.Context) {
 }
 
 func (h *httpController) login(c *httpUtils.Context) {
+	request := &types.LoginRequest{}
 	resp := &types.LoginResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.LoginRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.IPAddress = c.ClientIP()
 	err := h.wm.Login(c, request, resp)
-	err = h.flushSession(c, s, err)
+	err = h.flushSession(c, request.Session, err)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) logout(c *httpUtils.Context) {
+	request := &types.LogoutRequest{}
 	resp := &types.LogoutResponse{
 		RedirectTo: "/login",
 	}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.LogoutRequest{Session: s}
 	err := h.wm.Logout(c, request)
-	err = h.flushSession(c, s, err)
+	err = h.flushSession(c, request.Session, err)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) getLoggedInUserJWT(c *httpUtils.Context) {
+	request := &types.GetLoggedInUserJWTRequest{}
 	resp := types.GetLoggedInUserJWTResponse("")
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
-	}
-	request := &types.GetLoggedInUserJWTRequest{
-		Session: s,
 	}
 	err := h.wm.GetLoggedInUserJWT(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) getProjectJWT(c *httpUtils.Context) {
-	resp := types.GetProjectJWTResponse("")
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
-		return
-	}
 	request := &types.GetProjectJWTRequest{
 		ProjectId: httpUtils.GetId(c, "projectId"),
-		Session:   s,
+	}
+	resp := types.GetProjectJWTResponse("")
+	if !h.mustGetOrCreateSession(c, request, resp) {
+		return
 	}
 	err := h.wm.GetProjectJWT(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) getWSBootstrap(c *httpUtils.Context) {
-	resp := types.GetWSBootstrapResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
-		return
-	}
 	request := &types.GetWSBootstrapRequest{
 		ProjectId: httpUtils.GetId(c, "projectId"),
-		Session:   s,
+	}
+	resp := types.GetWSBootstrapResponse{}
+	if !h.mustGetOrCreateSession(c, request, resp) {
+		return
 	}
 	err := h.wm.GetWSBootstrap(c, request, &resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
@@ -647,198 +639,171 @@ func (h *httpController) sendProjectMessage(c *httpUtils.Context) {
 }
 
 func (h *httpController) optInBetaProgram(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
+	request := &types.OptInBetaProgramRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
 		return
 	}
-	request := &types.OptInBetaProgramRequest{Session: s}
 	err := h.wm.OptInBetaProgram(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) optOutBetaProgram(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
+	request := &types.OptOutBetaProgramRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
 		return
 	}
-	request := &types.OptOutBetaProgramRequest{Session: s}
 	err := h.wm.OptOutBetaProgram(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) getProjectEntities(c *httpUtils.Context) {
-	resp := &types.GetProjectEntitiesResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
-		return
-	}
 	request := &types.GetProjectEntitiesRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	resp := &types.GetProjectEntitiesResponse{}
+	if !h.mustGetOrCreateSession(c, request, resp) {
+		return
 	}
 	err := h.wm.GetProjectEntities(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) grantTokenAccessReadAndWrite(c *httpUtils.Context) {
+	request := &types.GrantTokenAccessRequest{
+		Token: project.AccessToken(c.Param("token")),
+	}
 	resp := &types.GrantTokenAccessResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.GrantTokenAccessRequest{
-		Session: s,
-		Token:   project.AccessToken(c.Param("token")),
-	}
 	err := h.wm.GrantTokenAccessReadAndWrite(c, request, resp)
-	err = h.flushSession(c, s, err)
+	err = h.flushSession(c, request.Session, err)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) grantTokenAccessReadOnly(c *httpUtils.Context) {
+	request := &types.GrantTokenAccessRequest{
+		Token: project.AccessToken(c.Param("token")),
+	}
 	resp := &types.GrantTokenAccessResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.GrantTokenAccessRequest{
-		Session: s,
-		Token:   project.AccessToken(c.Param("token")),
-	}
 	err := h.wm.GrantTokenAccessReadOnly(c, request, resp)
-	err = h.flushSession(c, s, err)
+	err = h.flushSession(c, request.Session, err)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) addProjectToTag(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.AddProjectToTagRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		TagId:     httpUtils.GetId(c, "tagId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.AddProjectToTag(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) createTag(c *httpUtils.Context) {
+	request := &types.CreateTagRequest{}
 	resp := &types.CreateTagResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.CreateTagRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	err := h.wm.CreateTag(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) deleteTag(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.DeleteTagRequest{
-		Session: s,
-		TagId:   httpUtils.GetId(c, "tagId"),
+		TagId: httpUtils.GetId(c, "tagId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.DeleteTag(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) renameTag(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
+	request := &types.RenameTagRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
 		return
 	}
-	request := &types.RenameTagRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	request.TagId = httpUtils.GetId(c, "tagId")
-	request.Session = s
 	err := h.wm.RenameTag(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) removeProjectToTag(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.RemoveProjectToTagRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		TagId:     httpUtils.GetId(c, "tagId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.RemoveProjectFromTag(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) getUserContacts(c *httpUtils.Context) {
+	request := &types.GetUserContactsRequest{}
 	resp := &types.GetUserContactsResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.GetUserContactsRequest{Session: s}
 	err := h.wm.GetUserContacts(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) archiveProject(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.ArchiveProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.ArchiveProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) unArchiveProject(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.UnArchiveProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.UnArchiveProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) trashProject(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.TrashProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.TrashProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) unTrashProject(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.UnTrashProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.UnTrashProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -858,14 +823,12 @@ func prepareFileResponse(
 }
 
 func (h *httpController) getProjectFile(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.GetProjectFileRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		FileId:    httpUtils.GetId(c, "fileId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	response := &types.GetProjectFileResponse{}
 	if err := h.wm.GetProjectFile(c, request, response); err != nil {
@@ -878,14 +841,12 @@ func (h *httpController) getProjectFile(c *httpUtils.Context) {
 }
 
 func (h *httpController) getProjectFileSize(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.GetProjectFileSizeRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		FileId:    httpUtils.GetId(c, "fileId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	response := &types.GetProjectFileSizeResponse{}
 	if err := h.wm.GetProjectFileSize(c, request, response); err != nil {
@@ -1074,30 +1035,26 @@ func (h *httpController) restoreDeletedDocInProject(c *httpUtils.Context) {
 }
 
 func (h *httpController) renameProject(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
+	request := &types.RenameProjectRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
 		return
 	}
-	request := &types.RenameProjectRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.ProjectId = httpUtils.GetId(c, "projectId")
 	err := h.wm.RenameProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) acceptProjectInvite(c *httpUtils.Context) {
-	resp := &types.AcceptProjectInviteResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
-		return
-	}
 	request := &types.AcceptProjectInviteRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		Token:     projectInvite.Token(c.Param("token")),
+	}
+	resp := &types.AcceptProjectInviteResponse{}
+	if !h.mustGetOrCreateSession(c, request, resp) {
+		return
 	}
 	err := h.wm.AcceptProjectInvite(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
@@ -1194,13 +1151,11 @@ func (h *httpController) transferProjectOwnership(c *httpUtils.Context) {
 }
 
 func (h *httpController) leaveProject(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.LeaveProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.LeaveProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1268,28 +1223,24 @@ func (h *httpController) setPublicAccessLevel(c *httpUtils.Context) {
 }
 
 func (h *httpController) clearSessions(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.ClearSessionsRequest{
-		Session:   s,
 		IPAddress: c.ClientIP(),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	err := h.wm.ClearSessions(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) cloneProject(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.CloneProjectRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.CloneProjectRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.ProjectId = httpUtils.GetId(c, "projectId")
 	response := &types.CloneProjectResponse{}
 	err := h.wm.CloneProject(c, request, response)
@@ -1297,15 +1248,13 @@ func (h *httpController) cloneProject(c *httpUtils.Context) {
 }
 
 func (h *httpController) createExampleProject(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.CreateExampleProjectRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.CreateExampleProjectRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	response := &types.CreateExampleProjectResponse{}
 	err := h.wm.CreateExampleProject(c, request, response)
 	if err != nil && errors.IsValidationError(err) {
@@ -1315,8 +1264,8 @@ func (h *httpController) createExampleProject(c *httpUtils.Context) {
 }
 
 func (h *httpController) createFromZip(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.CreateProjectFromZipRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
 
@@ -1324,15 +1273,12 @@ func (h *httpController) createFromZip(c *httpUtils.Context) {
 	if !httpUtils.ProcessFileUpload(d, c, types.MaxUploadSize, maxDocSize) {
 		return
 	}
-	defer d.Cleanup()
-	request := &types.CreateProjectFromZipRequest{
-		Session: s,
-		UploadDetails: types.UploadDetails{
-			File:     d.File,
-			FileName: d.FileName,
-			Size:     d.Size,
-		},
+	request.UploadDetails = types.UploadDetails{
+		File:     d.File,
+		FileName: d.FileName,
+		Size:     d.Size,
 	}
+	defer d.Cleanup()
 	response := &types.CreateProjectResponse{}
 	err := h.wm.CreateFromZip(c, request, response)
 	if err != nil && errors.IsValidationError(err) {
@@ -1342,12 +1288,9 @@ func (h *httpController) createFromZip(c *httpUtils.Context) {
 }
 
 func (h *httpController) getUserNotifications(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.GetNotificationsRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
-	}
-	request := &types.GetNotificationsRequest{
-		Session: s,
 	}
 	response := &types.GetNotificationsResponse{}
 	err := h.wm.GetUserNotifications(c, request, response)
@@ -1355,24 +1298,21 @@ func (h *httpController) getUserNotifications(c *httpUtils.Context) {
 }
 
 func (h *httpController) removeNotification(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
-		return
-	}
 	request := &types.RemoveNotificationRequest{
-		Session:        s,
 		NotificationId: httpUtils.GetId(c, "notificationId"),
+	}
+	if !h.mustRequireLoggedInSession(c, request) {
+		return
 	}
 	err := h.wm.RemoveNotification(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) openInOverleaf(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.OpenInOverleafRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.OpenInOverleafRequest{}
 	if c.Request.Header.Get("Content-Type") == "application/json" {
 		if !httpUtils.MustParseJSON(request, c) {
 			return
@@ -1387,7 +1327,6 @@ func (h *httpController) openInOverleaf(c *httpUtils.Context) {
 			return
 		}
 	}
-	request.Session = s
 	response := &types.CreateProjectResponse{}
 	err := h.wm.OpenInOverleaf(c, request, response)
 	if err != nil && errors.IsValidationError(err) {
@@ -1397,14 +1336,13 @@ func (h *httpController) openInOverleaf(c *httpUtils.Context) {
 }
 
 func (h *httpController) compileProjectHeadless(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
-		return
-	}
 	request := &types.CompileProjectHeadlessRequest{
 		ProjectId: httpUtils.GetId(c, "projectId"),
-		UserId:    s.User.Id,
 	}
+	if !h.mustRequireLoggedInSession(c, request) {
+		return
+	}
+	request.UserId = request.Session.User.Id
 	response := &types.CompileProjectResponse{}
 	err := h.wm.CompileHeadLess(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
@@ -1434,13 +1372,11 @@ func (h *httpController) refreshLinkedFile(c *httpUtils.Context) {
 }
 
 func (h *httpController) createProjectZIP(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
-		return
-	}
 	request := &types.CreateProjectZIPRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
 	}
 	response := &types.CreateProjectZIPResponse{}
 	defer response.Cleanup()
@@ -1456,15 +1392,13 @@ func (h *httpController) createProjectZIP(c *httpUtils.Context) {
 }
 
 func (h *httpController) createMultiProjectZIP(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.CreateMultiProjectZIPRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.CreateMultiProjectZIPRequest{}
 	if !h.mustProcessQuery(request, c) {
 		return
 	}
-	request.Session = s
 	response := &types.CreateProjectZIPResponse{}
 	defer response.Cleanup()
 
@@ -1479,103 +1413,89 @@ func (h *httpController) createMultiProjectZIP(c *httpUtils.Context) {
 }
 
 func (h *httpController) deleteProject(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
-		return
-	}
 	request := &types.DeleteProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
 		IPAddress: c.ClientIP(),
+	}
+	if !h.mustRequireLoggedInSession(c, request) {
+		return
 	}
 	err := h.wm.DeleteProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) undeleteProject(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
-		return
-	}
 	request := &types.UnDeleteProjectRequest{
-		Session:   s,
 		ProjectId: httpUtils.GetId(c, "projectId"),
+	}
+	if !h.mustRequireLoggedInSession(c, request) {
+		return
 	}
 	err := h.wm.UnDeleteProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) deleteUser(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.DeleteUserRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.DeleteUserRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.IPAddress = c.ClientIP()
 	err := h.wm.DeleteUser(c, request)
-	_ = h.wm.Flush(c, s)
+	_ = h.wm.Flush(c, request.Session)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) updateEditorConfig(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.UpdateEditorConfigRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.UpdateEditorConfigRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	err := h.wm.UpdateEditorConfig(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) changeEmailAddress(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.ChangeEmailAddressRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.ChangeEmailAddressRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.IPAddress = c.ClientIP()
 	err := h.wm.ChangeEmailAddress(c, request)
-	_ = h.wm.Flush(c, s)
+	_ = h.wm.Flush(c, request.Session)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) setUserName(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.SetUserName{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.SetUserName{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	err := h.wm.SetUserName(c, request)
-	_ = h.wm.Flush(c, s)
+	_ = h.wm.Flush(c, request.Session)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) changePassword(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.ChangePasswordRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.ChangePasswordRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.IPAddress = c.ClientIP()
 	res := &types.ChangePasswordResponse{}
 	err := h.wm.ChangePassword(c, request, res)
@@ -1592,15 +1512,13 @@ func (h *httpController) requestPasswordReset(c *httpUtils.Context) {
 }
 
 func (h *httpController) setPassword(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSession(c, nil)
-	if !ok {
+	request := &types.SetPasswordRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
 		return
 	}
-	request := &types.SetPasswordRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.IPAddress = c.ClientIP()
 	res := &types.SetPasswordResponse{}
 	err := h.wm.SetPassword(c, request, res)
@@ -1617,15 +1535,13 @@ func (h *httpController) confirmEmail(c *httpUtils.Context) {
 }
 
 func (h *httpController) resendEmailConfirmation(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.ResendEmailConfirmationRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.ResendEmailConfirmationRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	err := h.wm.ResendEmailConfirmation(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1676,45 +1592,41 @@ func (h *httpController) restoreDocVersion(c *httpUtils.Context) {
 
 func (h *httpController) registerUser(c *httpUtils.Context) {
 	resp := &types.RegisterUserResponse{}
-	s, ok := h.mustGetOrCreateSession(c, resp)
-	if !ok {
+	request := &types.RegisterUserRequest{}
+	if !h.mustGetOrCreateSession(c, request, resp) {
 		return
 	}
-	request := &types.RegisterUserRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	request.IPAddress = c.ClientIP()
 	err := h.wm.RegisterUser(c, request, resp)
-	if err2 := h.wm.Flush(c, s); err == nil && err2 != nil {
+	if err2 := h.wm.Flush(c, request.Session); err == nil && err2 != nil {
 		resp.RedirectTo = "/login"
 	}
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) adminCreateUser(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.AdminCreateUserRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.AdminCreateUserRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	request.IPAddress = c.ClientIP()
-	request.Session = s
 	resp := &types.AdminCreateUserResponse{}
 	err := h.wm.AdminCreateUser(c, request, resp)
 	httpUtils.Respond(c, http.StatusOK, resp, err)
 }
 
 func (h *httpController) homePage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.HomepageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	if s.IsLoggedIn() {
+	if request.Session.IsLoggedIn() {
 		httpUtils.Redirect(c, "/project")
 	} else {
 		httpUtils.Redirect(c, "/login")
@@ -1722,24 +1634,21 @@ func (h *httpController) homePage(c *httpUtils.Context) {
 }
 
 func (h *httpController) betaProgramParticipatePage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.BetaProgramParticipatePageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.BetaProgramParticipatePageRequest{Session: s}
 	res := &types.BetaProgramParticipatePageResponse{}
 	err := h.wm.BetaProgramParticipatePage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) loginPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.LoginPageRequest{
-		Session:  s,
 		Referrer: c.Request.Referer(),
+	}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
+		return
 	}
 	res := &types.LoginPageResponse{}
 	err := h.wm.LoginPage(c, request, res)
@@ -1748,193 +1657,175 @@ func (h *httpController) loginPage(c *httpUtils.Context) {
 		return
 	}
 	if err == nil {
-		err = h.wm.Flush(c, s)
+		err = h.wm.Flush(c, request.Session)
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) logoutPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.LogoutPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.LogoutPageRequest{Session: s}
 	res := &types.LogoutPageResponse{}
 	err := h.wm.LogoutPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) confirmEmailPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.ConfirmEmailPageRequest{}
-	if !h.mustProcessQueryHTML(request, c, s) {
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request.Session = s
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
+		return
+	}
 	res := &types.ConfirmEmailPageResponse{}
 	err := h.wm.ConfirmEmailPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) reconfirmAccountPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.ReconfirmAccountPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.ReconfirmAccountPageRequest{Session: s}
 	res := &types.ReconfirmAccountPageResponse{}
 	err := h.wm.ReconfirmAccountPage(c, request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) registerUserPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.RegisterUserPageRequest{}
-	if !h.mustProcessQueryHTML(request, c, s) {
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request.Session = s
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
+		return
+	}
 	res := &types.RegisterUserPageResponse{}
 	err := h.wm.RegisterUserPage(c, request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) restrictedPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.RestrictedPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
 	err := &errors.NotAuthorizedError{}
-	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) setPasswordPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.SetPasswordPageRequest{}
-	if !h.mustProcessQueryHTML(request, c, s) {
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request.Session = s
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
+		return
+	}
 	res := &types.SetPasswordPageResponse{}
 	err := h.wm.SetPasswordPage(c, request, res)
 	if err == nil && res.Redirect != "" {
-		if err = h.wm.Flush(c, s); err == nil {
+		if err = h.wm.Flush(c, request.Session); err == nil {
 			httpUtils.Redirect(c, res.Redirect)
 			return
 		}
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) requestPasswordResetPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.RequestPasswordResetPageRequest{}
-	if !h.mustProcessQueryHTML(request, c, s) {
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request.Session = s
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
+		return
+	}
 	res := &types.RequestPasswordResetPageResponse{}
 	err := h.wm.RequestPasswordResetPage(c, request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) activateUserPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.ActivateUserPageRequest{}
-	if !h.mustProcessQueryHTML(request, c, s) {
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request.Session = s
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
+		return
+	}
 	res := &types.ActivateUserPageResponse{}
 	err := h.wm.ActivateUserPage(c, request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) sessionsPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.SessionsPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.SessionsPageRequest{Session: s}
 	res := &types.SessionsPageResponse{}
 	err := h.wm.SessionsPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) settingsPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.SettingsPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.SettingsPageRequest{Session: s}
 	res := &types.SettingsPageResponse{}
 	err := h.wm.SettingsPage(c, request, res)
-	h.wm.TouchSession(c, s)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	h.wm.TouchSession(c, request.Session)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) tokenAccessPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
-		return
-	}
 	request := &types.TokenAccessPageRequest{
-		Session: s,
-		Token:   project.AccessToken(c.Param("token")),
+		Token: project.AccessToken(c.Param("token")),
+	}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
+		return
 	}
 	res := &types.TokenAccessPageResponse{}
 	err := h.wm.TokenAccessPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) openInOverleafDocumentationPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.OpenInOverleafDocumentationPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.OpenInOverleafDocumentationPageRequest{Session: s}
 	res := &types.OpenInOverleafDocumentationPageResponse{}
 	err := h.wm.OpenInOverleafDocumentationPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.OpenInOverleafGatewayPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.OpenInOverleafGatewayPageRequest{Session: s}
 	switch c.Request.Method {
 	case http.MethodGet:
 		request.Query = c.Request.URL.Query()
@@ -1957,75 +1848,69 @@ func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
 			err = &errors.UnprocessableEntityError{
 				Msg: "cannot read POST body",
 			}
-			templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+			templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 			return
 		}
 	default:
 		err := &errors.ValidationError{Msg: "GET / POST allowed only"}
-		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 		return
 	}
 	res := &types.OpenInOverleafGatewayPageResponse{}
 	err := h.wm.OpenInOverleafGatewayPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) projectListPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.ProjectListPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.ProjectListPageRequest{Session: s}
 	res := &types.ProjectListPageResponse{}
 	err := h.wm.ProjectListPage(c, request, res)
-	h.wm.TouchSession(c, s)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	h.wm.TouchSession(c, request.Session)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) projectEditorPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.ProjectEditorPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
 	projectId, err := httpUtils.ParseAndValidateId(c, "projectId")
 	if err != nil {
-		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 		return
 	}
-	request := &types.ProjectEditorPageRequest{
-		Session:   s,
-		ProjectId: projectId,
-	}
+	request.ProjectId = projectId
 	res := &types.ProjectEditorPageResponse{}
 	err = h.wm.ProjectEditorPage(c, request, res)
-	h.wm.TouchSession(c, s)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	h.wm.TouchSession(c, request.Session)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) viewProjectInvitePage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.ViewProjectInvitePageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
 	projectId, err := httpUtils.ParseAndValidateId(c, "projectId")
 	if err != nil {
-		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 		return
 	}
-	request := &types.ViewProjectInvitePageRequest{}
-	if !h.mustProcessQueryHTML(request, c, s) {
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
 		return
 	}
 	request.ProjectId = projectId
 	request.Token = projectInvite.Token(c.Param("token"))
-	request.Session = s
 	res := &types.ViewProjectInvitePageResponse{}
 	err = h.wm.ViewProjectInvite(c, request, res)
 	if err == nil && res.Redirect != "" {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) learn(c *httpUtils.Context) {
@@ -2038,11 +1923,9 @@ func (h *httpController) learn(c *httpUtils.Context) {
 		httpUtils.Redirect(c, t)
 		return
 	}
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request.Session = s
 	res := &types.LearnPageResponse{}
 	err := h.wm.LearnPage(c, request, res)
 	httpUtils.Age(c, res.Age)
@@ -2050,8 +1933,8 @@ func (h *httpController) learn(c *httpUtils.Context) {
 		httpUtils.Redirect(c, res.Redirect)
 		return
 	}
-	h.wm.TouchSession(c, s)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	h.wm.TouchSession(c, request.Session)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) proxyLearnImage(c *httpUtils.Context) {
@@ -2070,25 +1953,23 @@ func (h *httpController) proxyLearnImage(c *httpUtils.Context) {
 }
 
 func (h *httpController) adminManageSitePage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.AdminManageSitePageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.AdminManageSitePageRequest{Session: s}
 	res := &types.AdminManageSitePageResponse{}
 	err := h.wm.AdminManageSitePage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) adminRegisterUsersPage(c *httpUtils.Context) {
-	s, ok := h.mustGetOrCreateSessionHTML(c)
-	if !ok {
+	request := &types.AdminRegisterUsersPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}
-	request := &types.AdminRegisterUsersPageRequest{Session: s}
 	res := &types.AdminRegisterUsersPageResponse{}
 	err := h.wm.AdminRegisterUsersPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, s, h.ps, h.wm.Flush)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) smokeTestAPI(c *httpUtils.Context) {
@@ -2108,26 +1989,23 @@ func (h *httpController) smokeTestFull(c *httpUtils.Context) {
 }
 
 func (h *httpController) getDictionary(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.GetDictionaryRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.GetDictionaryRequest{Session: s}
 	res := &types.GetDictionaryResponse{}
 	err := h.wm.GetDictionary(c, request, res)
 	httpUtils.Respond(c, http.StatusOK, res, err)
 }
 
 func (h *httpController) learnWord(c *httpUtils.Context) {
-	s, ok := h.mustRequireLoggedInSession(c)
-	if !ok {
+	request := &types.LearnWordRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
 		return
 	}
-	request := &types.LearnWordRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	request.Session = s
 	err := h.wm.LearnWord(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

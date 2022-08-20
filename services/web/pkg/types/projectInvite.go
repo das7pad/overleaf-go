@@ -20,13 +20,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type AcceptProjectInviteRequest struct {
-	Session   *session.Session    `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID    `json:"-"`
 	Token     projectInvite.Token `json:"-"`
 }
@@ -80,7 +79,7 @@ type ListProjectInvitesResponse struct {
 }
 
 type ViewProjectInvitePageRequest struct {
-	Session   *session.Session    `form:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID    `form:"-"`
 	Token     projectInvite.Token `form:"-"`
 	templates.SharedProjectData

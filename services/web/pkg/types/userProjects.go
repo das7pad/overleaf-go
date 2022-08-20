@@ -18,12 +18,11 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetUserProjectsRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type GetUserProjectsEntry struct {

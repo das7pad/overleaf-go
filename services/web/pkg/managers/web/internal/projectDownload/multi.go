@@ -42,8 +42,8 @@ func (m *manager) CreateMultiProjectZIP(ctx context.Context, request *types.Crea
 
 	for _, projectId := range request.ProjectIds {
 		err = m.createProjectZIP(ctx, &types.CreateProjectZIPRequest{
-			Session:   request.Session,
-			ProjectId: projectId,
+			WithSession: types.WithSession{Session: request.Session},
+			ProjectId:   projectId,
 		}, func(filename sharedTypes.Filename) (io.Writer, error) {
 			return f.Create(string(filename))
 		})

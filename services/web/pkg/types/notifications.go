@@ -18,17 +18,16 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetNotificationsRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type GetNotificationsResponse = []notification.Notification
 
 type RemoveNotificationRequest struct {
-	Session        *session.Session `json:"-"`
+	WithSession
 	NotificationId sharedTypes.UUID `json:"-"`
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,19 +21,18 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type LogoutRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type LogoutResponse = asyncForm.Response
 
 type LogoutPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 }
 
 type LogoutPageResponse struct {
@@ -60,7 +59,7 @@ func (p UserPassword) CheckForEmailMatch(email sharedTypes.Email) error {
 }
 
 type LoginRequest struct {
-	Session   *session.Session  `json:"-"`
+	WithSession
 	IPAddress string            `json:"-"`
 	Email     sharedTypes.Email `json:"email"`
 	Password  UserPassword      `json:"password"`
@@ -83,8 +82,8 @@ func (r *LoginRequest) Validate() error {
 type LoginResponse = asyncForm.Response
 
 type LoginPageRequest struct {
-	Session  *session.Session `form:"-"`
-	Referrer string           `form:"-"`
+	WithSession
+	Referrer string `form:"-"`
 }
 
 type LoginPageResponse struct {
@@ -93,18 +92,18 @@ type LoginPageResponse struct {
 }
 
 type GetLoggedInUserJWTRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type GetLoggedInUserJWTResponse string
 
 type ClearSessionsRequest struct {
-	Session   *session.Session `json:"-"`
-	IPAddress string           `json:"-"`
+	WithSession
+	IPAddress string `json:"-"`
 }
 
 type SessionsPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 }
 
 type SessionsPageResponse struct {
@@ -112,8 +111,8 @@ type SessionsPageResponse struct {
 }
 
 type ChangeEmailAddressRequest struct {
-	Session   *session.Session `json:"-"`
-	IPAddress string           `json:"-"`
+	WithSession
+	IPAddress string `json:"-"`
 
 	Email sharedTypes.Email `json:"email"`
 }
@@ -130,14 +129,14 @@ func (r *ChangeEmailAddressRequest) Validate() error {
 }
 
 type SetUserName struct {
-	Session *session.Session `json:"-"`
+	WithSession
 
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 }
 
 type SettingsPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 }
 
 type SettingsPageResponse struct {

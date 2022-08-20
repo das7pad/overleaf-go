@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,17 +17,13 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/pkg/templates"
+	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
-type ProjectEditorPageRequest struct {
-	ProjectId sharedTypes.UUID `form:"-"`
-	WithSession
+type WithSession struct {
+	Session *session.Session `json:"-"`
 }
 
-type ProjectEditorPageResponse struct {
-	Data *templates.ProjectEditorData
+func (w *WithSession) SetSession(s *session.Session) {
+	w.Session = s
 }
-
-type WSBootstrap templates.WSBootstrap

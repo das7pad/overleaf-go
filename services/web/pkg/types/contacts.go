@@ -18,11 +18,10 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
 type GetUserContactsRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type UserContact struct {

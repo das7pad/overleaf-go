@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,19 +19,18 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type GrantTokenAccessRequest struct {
-	Session *session.Session    `json:"-"`
-	Token   project.AccessToken `json:"-"`
+	WithSession
+	Token project.AccessToken `json:"-"`
 }
 
 type GrantTokenAccessResponse = asyncForm.Response
 
 type TokenAccessPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 
 	Token project.AccessToken
 }

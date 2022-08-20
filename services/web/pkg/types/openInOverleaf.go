@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
@@ -57,7 +56,7 @@ func (s *OpenInOverleafSnippet) Validate() error {
 }
 
 type OpenInOverleafRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 
 	Compiler       sharedTypes.Compiler    `json:"compiler"`
 	HasDefaultName bool                    `json:"-"`
@@ -246,7 +245,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 }
 
 type OpenInOverleafDocumentationPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 }
 
 type OpenInOverleafDocumentationPageResponse struct {
@@ -254,9 +253,9 @@ type OpenInOverleafDocumentationPageResponse struct {
 }
 
 type OpenInOverleafGatewayPageRequest struct {
-	Session *session.Session `form:"-"`
-	Query   url.Values       `form:"-"`
-	Body    json.RawMessage  `form:"-"`
+	WithSession
+	Query url.Values      `form:"-"`
+	Body  json.RawMessage `form:"-"`
 }
 
 type OpenInOverleafGatewayPageResponse struct {

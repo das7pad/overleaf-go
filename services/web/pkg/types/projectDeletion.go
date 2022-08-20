@@ -17,18 +17,17 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type DeleteProjectRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	IPAddress string           `json:"-"`
 	EpochHint *int64           `json:"-"`
 }
 
 type UnDeleteProjectRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 }

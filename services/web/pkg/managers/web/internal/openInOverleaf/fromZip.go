@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,7 +36,7 @@ func (m *manager) createFromZip(ctx context.Context, request *types.OpenInOverle
 	}
 	return m.pum.CreateFromZip(ctx, &types.CreateProjectFromZipRequest{
 		AddHeader:      m.addHeader,
-		Session:        request.Session,
+		WithSession:    types.WithSession{Session: request.Session},
 		HasDefaultName: request.HasDefaultName,
 		Name:           request.ProjectName,
 		UploadDetails:  f.ToUploadDetails(),

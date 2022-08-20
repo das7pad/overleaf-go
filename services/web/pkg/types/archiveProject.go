@@ -17,16 +17,16 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type ArchiveProjectRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
+
 	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type UnArchiveProjectRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 }

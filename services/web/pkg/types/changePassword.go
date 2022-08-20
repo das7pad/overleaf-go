@@ -23,14 +23,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type ChangePasswordRequest struct {
-	Session   *session.Session `json:"-"`
-	IPAddress string           `json:"-"`
+	WithSession
+	IPAddress string `json:"-"`
 
 	CurrentPassword    UserPassword `json:"currentPassword"`
 	NewPassword        UserPassword `json:"newPassword1"`
@@ -55,8 +54,8 @@ func (r *ChangePasswordRequest) Validate() error {
 type ChangePasswordResponse = asyncForm.Response
 
 type SetPasswordRequest struct {
-	Session   *session.Session `json:"-"`
-	IPAddress string           `json:"-"`
+	WithSession
+	IPAddress string `json:"-"`
 
 	Token    oneTimeToken.OneTimeToken `json:"passwordResetToken"`
 	Password UserPassword              `json:"password"`
@@ -65,9 +64,9 @@ type SetPasswordRequest struct {
 type SetPasswordResponse = asyncForm.Response
 
 type SetPasswordPageRequest struct {
-	Session *session.Session          `form:"-"`
-	Email   sharedTypes.Email         `form:"email"`
-	Token   oneTimeToken.OneTimeToken `form:"passwordResetToken"`
+	WithSession
+	Email sharedTypes.Email         `form:"email"`
+	Token oneTimeToken.OneTimeToken `form:"passwordResetToken"`
 }
 
 func (r *SetPasswordPageRequest) FromQuery(q url.Values) error {
@@ -97,8 +96,8 @@ func (r *RequestPasswordResetRequest) Validate() error {
 }
 
 type RequestPasswordResetPageRequest struct {
-	Session *session.Session  `form:"-"`
-	Email   sharedTypes.Email `form:"email"`
+	WithSession
+	Email sharedTypes.Email `form:"email"`
 }
 
 func (r *RequestPasswordResetPageRequest) FromQuery(q url.Values) error {
@@ -112,7 +111,7 @@ type RequestPasswordResetPageResponse struct {
 }
 
 type ActivateUserPageRequest struct {
-	Session   *session.Session          `form:"-"`
+	WithSession
 	UserIdHex string                    `form:"user_id"`
 	Token     oneTimeToken.OneTimeToken `form:"token"`
 }

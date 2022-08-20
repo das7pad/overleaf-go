@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types/internal/conflictChecker"
@@ -47,10 +46,10 @@ type UploadFileRequest struct {
 }
 
 type CreateProjectFromZipRequest struct {
-	Session        *session.Session `json:"-"`
-	AddHeader      AddHeaderFn      `json:"-"`
-	HasDefaultName bool             `json:"-"`
-	Name           project.Name     `json:"-"`
+	WithSession
+	AddHeader      AddHeaderFn  `json:"-"`
+	HasDefaultName bool         `json:"-"`
+	Name           project.Name `json:"-"`
 	UploadDetails
 }
 

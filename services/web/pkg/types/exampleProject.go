@@ -18,13 +18,12 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
 type CreateExampleProjectRequest struct {
-	Session  *session.Session `json:"-"`
-	Name     project.Name     `json:"projectName"`
-	Template string           `json:"template"`
+	WithSession
+	Name     project.Name `json:"projectName"`
+	Template string       `json:"template"`
 }
 
 type CreateExampleProjectResponse = CreateProjectResponse

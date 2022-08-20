@@ -29,6 +29,7 @@ type SignedCompileProjectRequestOptions struct {
 }
 
 type CompileProjectHeadlessRequest struct {
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	UserId    sharedTypes.UUID `json:"-"`
 }

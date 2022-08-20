@@ -17,16 +17,15 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type TrashProjectRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 }
 
 type UnTrashProjectRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 }

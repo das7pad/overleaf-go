@@ -18,36 +18,35 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type AddProjectToTagRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	TagId     sharedTypes.UUID `json:"-"`
 }
 
 type CreateTagRequest struct {
-	Session *session.Session `json:"-"`
-	Name    string           `json:"name"`
+	WithSession
+	Name string `json:"name"`
 }
 
 type CreateTagResponse = tag.Full
 
 type DeleteTagRequest struct {
-	Session *session.Session `json:"-"`
-	TagId   sharedTypes.UUID `json:"-"`
+	WithSession
+	TagId sharedTypes.UUID `json:"-"`
 }
 
 type RemoveProjectToTagRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	TagId     sharedTypes.UUID `json:"-"`
 }
 
 type RenameTagRequest struct {
-	Session *session.Session `json:"-"`
-	TagId   sharedTypes.UUID `json:"-"`
-	Name    string           `json:"name"`
+	WithSession
+	TagId sharedTypes.UUID `json:"-"`
+	Name  string           `json:"name"`
 }

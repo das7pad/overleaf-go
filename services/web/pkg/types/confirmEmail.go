@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +20,6 @@ import (
 	"net/url"
 
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
@@ -37,8 +36,8 @@ func (r *ConfirmEmailRequest) Validate() error {
 }
 
 type ConfirmEmailPageRequest struct {
-	Session *session.Session          `form:"-"`
-	Token   oneTimeToken.OneTimeToken `form:"token"`
+	WithSession
+	Token oneTimeToken.OneTimeToken `form:"token"`
 }
 
 func (r *ConfirmEmailPageRequest) FromQuery(q url.Values) error {
@@ -58,7 +57,7 @@ type ConfirmEmailPageResponse struct {
 }
 
 type ResendEmailConfirmationRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 
 	Email sharedTypes.Email `json:"email"`
 }
@@ -75,7 +74,7 @@ func (r *ResendEmailConfirmationRequest) Validate() error {
 }
 
 type ReconfirmAccountPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 }
 
 type ReconfirmAccountPageResponse struct {

@@ -19,12 +19,11 @@ package types
 import (
 	"io"
 
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type GetProjectFileSizeRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	FileId    sharedTypes.UUID `json:"-"`
 }
@@ -35,7 +34,7 @@ type GetProjectFileSizeResponse struct {
 }
 
 type GetProjectFileRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	FileId    sharedTypes.UUID `json:"-"`
 }

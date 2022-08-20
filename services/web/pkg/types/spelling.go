@@ -18,11 +18,10 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
 type GetDictionaryRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type GetDictionaryResponse struct {
@@ -30,8 +29,8 @@ type GetDictionaryResponse struct {
 }
 
 type LearnWordRequest struct {
-	Session *session.Session `json:"-"`
-	Word    string           `json:"word"`
+	WithSession
+	Word string `json:"word"`
 }
 
 func (r *LearnWordRequest) Validate() error {

@@ -19,13 +19,12 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type UpdateEditorConfigRequest struct {
-	Session      *session.Session  `json:"-"`
+	WithSession
 	EditorConfig user.EditorConfig `json:"editorConfig"`
 }
 

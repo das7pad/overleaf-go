@@ -18,14 +18,13 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
 type AdminCreateUserRequest struct {
-	Session   *session.Session `json:"-"`
-	IPAddress string           `json:"-"`
+	WithSession
+	IPAddress string `json:"-"`
 
 	Email sharedTypes.Email `json:"email"`
 }
@@ -46,7 +45,7 @@ type AdminCreateUserResponse struct {
 }
 
 type AdminRegisterUsersPageRequest struct {
-	Session *session.Session `json:"-"`
+	WithSession
 }
 
 type AdminRegisterUsersPageResponse struct {
@@ -54,8 +53,8 @@ type AdminRegisterUsersPageResponse struct {
 }
 
 type RegisterUserRequest struct {
-	Session   *session.Session `json:"-"`
-	IPAddress string           `json:"-"`
+	WithSession
+	IPAddress string `json:"-"`
 
 	Email    sharedTypes.Email `json:"email"`
 	Password UserPassword      `json:"password"`
@@ -81,7 +80,7 @@ func (r *RegisterUserRequest) Validate() error {
 type RegisterUserResponse = asyncForm.Response
 
 type RegisterUserPageRequest struct {
-	Session *session.Session `form:"-"`
+	WithSession
 	templates.SharedProjectData
 }
 

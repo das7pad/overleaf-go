@@ -23,12 +23,11 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
-	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type CreateMultiProjectZIPRequest struct {
-	Session    *session.Session   `json:"-"`
+	WithSession
 	ProjectIds []sharedTypes.UUID `json:"-"`
 }
 
@@ -53,7 +52,7 @@ func (r *CreateMultiProjectZIPRequest) Validate() error {
 }
 
 type CreateProjectZIPRequest struct {
-	Session   *session.Session `json:"-"`
+	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 }
 
