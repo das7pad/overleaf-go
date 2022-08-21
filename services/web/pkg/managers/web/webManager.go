@@ -56,6 +56,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectList"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectMetadata"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/projectUpload"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/siteLanguage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/spelling"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/tag"
@@ -90,6 +91,7 @@ type Manager interface {
 	projectMetadataManager
 	projectUploadManager
 	sessionManager
+	siteLanguageManager
 	spellingManager
 	systemMessageManager
 	tagManager
@@ -182,6 +184,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		return nil, err
 	}
 	spm := spelling.New(um)
+	slm := siteLanguage.New(options)
 	return &manager{
 		adminManager:           am,
 		betaProgramManager:     bm,
@@ -205,6 +208,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		projectUploadManager:   pum,
 		ps:                     ps,
 		sessionManager:         sm,
+		siteLanguageManager:    slm,
 		spellingManager:        spm,
 		systemMessageManager:   smm,
 		tagManager:             tagM,
@@ -260,6 +264,8 @@ type tagManager = tag.Manager
 
 type tokenAccessManager = tokenAccess.Manager
 
+type siteLanguageManager = siteLanguage.Manager
+
 type userCreationManager = userCreation.Manager
 
 type userDeletionManager = userDeletion.Manager
@@ -284,6 +290,7 @@ type manager struct {
 	projectMetadataManager
 	projectUploadManager
 	sessionManager
+	siteLanguageManager
 	spellingManager
 	systemMessageManager
 	tagManager

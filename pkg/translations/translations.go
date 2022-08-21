@@ -41,8 +41,8 @@ func (m *manager) GetTranslationURL(lng string) (template.URL, error) {
 	if _, ok := m.localesByLanguage[lng]; !ok {
 		return "", &errors.InvalidStateError{Msg: "unknown language specified"}
 	}
-	u := m.siteURL.WithQuery(url.Values{
-		"setGlobalLng": {lng},
+	u := m.siteURL.WithPath("/switch-language").WithQuery(url.Values{
+		"lng": {lng},
 	})
 	return template.URL(u.String()), nil
 }

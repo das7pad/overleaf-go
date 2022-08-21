@@ -103,6 +103,7 @@ func (h *httpController) addRoutes(
 		r.GET("/project", h.projectListPage)
 		r.GET("/register", h.registerUserPage)
 		r.GET("/restricted", h.restrictedPage)
+		r.GET("/switch-language", h.switchLanguage)
 		r.GET("/user/activate", h.activateUserPage)
 		r.GET("/user/emails/confirm", h.confirmEmailPage)
 		r.GET("/user/password/reset", h.requestPasswordResetPage)
@@ -469,6 +470,23 @@ func (h *httpController) notFound(c *httpUtils.Context) {
 	}
 	s, _ := h.wm.GetOrCreateSession(c)
 	templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) switchLanguage(c *httpUtils.Context) {
+	request := &types.SwitchLanguageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
+		return
+	}
+	if !h.mustProcessQueryHTML(request, c, request.Session) {
+		return
+	}
+	request.Referrer = c.Request.Referer()
+	response := &types.SwitchLanguageResponse{}
+	if err := h.wm.SwitchLanguage(c, request, response); err != nil {
+		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
+		return
+	}
+	httpUtils.Redirect(c, response.Redirect)
 }
 
 func (h *httpController) clearProjectCache(c *httpUtils.Context) {
