@@ -84,11 +84,10 @@ func (m *manager) refreshProjectOutputFile(ctx context.Context, r *types.Refresh
 	}
 
 	return m.fromProjectOutputFile(ctx, &types.CreateLinkedFileRequest{
-		UserId:         r.UserId,
-		ProjectId:      r.ProjectId,
-		ParentFolderId: r.ParentFolderId,
-		Name:           r.File.Name,
-		Provider:       r.File.LinkedFileData.Provider,
+		WithProjectIdAndUserId: r.WithProjectIdAndUserId,
+		ParentFolderId:         r.ParentFolderId,
+		Name:                   r.File.Name,
+		Provider:               r.File.LinkedFileData.Provider,
 		Parameter: types.CreateLinkedFileProviderParameter{
 			BuildId:              buildId,
 			ClsiServerId:         res.ClsiServerId,

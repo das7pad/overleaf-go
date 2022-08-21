@@ -27,7 +27,7 @@ type LeaveProjectRequest struct {
 }
 
 type ListProjectMembersRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
 }
 
 type ListProjectMembersResponse struct {
@@ -35,20 +35,17 @@ type ListProjectMembersResponse struct {
 }
 
 type RemoveProjectMemberRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	ActorId   sharedTypes.UUID `json:"-"`
-	UserId    sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	MemberId sharedTypes.UUID `json:"-"`
 }
 
 type SetMemberPrivilegeLevelInProjectRequest struct {
-	ProjectId      sharedTypes.UUID           `json:"-"`
-	ActorId        sharedTypes.UUID           `json:"-"`
-	UserId         sharedTypes.UUID           `json:"-"`
+	WithProjectIdAndUserId
+	MemberId       sharedTypes.UUID           `json:"-"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 }
 
 type TransferProjectOwnershipRequest struct {
-	ProjectId       sharedTypes.UUID `json:"-"`
-	PreviousOwnerId sharedTypes.UUID `json:"-"`
-	NewOwnerId      sharedTypes.UUID `json:"user_id"`
+	WithProjectIdAndUserId
+	NewOwnerId sharedTypes.UUID `json:"user_id"`
 }

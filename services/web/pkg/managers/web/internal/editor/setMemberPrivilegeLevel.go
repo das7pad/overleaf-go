@@ -28,7 +28,7 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, r *types
 		return err
 	}
 	err := m.pm.GrantMemberAccess(
-		ctx, r.ProjectId, r.ActorId, r.UserId, r.PrivilegeLevel,
+		ctx, r.ProjectId, r.UserId, r.MemberId, r.PrivilegeLevel,
 	)
 	if err != nil {
 		return errors.Tag(err, "cannot update project member")

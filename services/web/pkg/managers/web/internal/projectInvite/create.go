@@ -37,9 +37,9 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 	pi.Expires = now.Add(30 * 24 * time.Hour)
 	pi.PrivilegeLevel = request.PrivilegeLevel
 	pi.ProjectId = request.ProjectId
-	pi.SendingUser.Id = request.SenderUserId
+	pi.SendingUser.Id = request.UserId
 
-	d, err := m.getDetails(ctx, &pi, request.SenderUserId)
+	d, err := m.getDetails(ctx, &pi, request.UserId)
 	if err != nil {
 		return err
 	}

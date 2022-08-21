@@ -88,11 +88,10 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 
 func (m *manager) refreshProjectFile(ctx context.Context, r *types.RefreshLinkedFileRequest) error {
 	return m.fromProjectFile(ctx, &types.CreateLinkedFileRequest{
-		UserId:         r.UserId,
-		ProjectId:      r.ProjectId,
-		ParentFolderId: r.ParentFolderId,
-		Name:           r.File.Name,
-		Provider:       r.File.LinkedFileData.Provider,
+		WithProjectIdAndUserId: r.WithProjectIdAndUserId,
+		ParentFolderId:         r.ParentFolderId,
+		Name:                   r.File.Name,
+		Provider:               r.File.LinkedFileData.Provider,
 		Parameter: types.CreateLinkedFileProviderParameter{
 			SourceProjectId:  r.File.LinkedFileData.SourceProjectId,
 			SourceEntityPath: r.File.LinkedFileData.SourceEntityPath,

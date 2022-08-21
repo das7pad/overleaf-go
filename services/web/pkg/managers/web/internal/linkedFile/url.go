@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -48,11 +48,10 @@ func (m *manager) refreshURL(ctx context.Context, r *types.RefreshLinkedFileRequ
 		return errors.Tag(err, "invalid URL")
 	}
 	return m.fromURL(ctx, &types.CreateLinkedFileRequest{
-		UserId:         r.UserId,
-		ProjectId:      r.ProjectId,
-		ParentFolderId: r.ParentFolderId,
-		Name:           r.File.Name,
-		Provider:       r.File.LinkedFileData.Provider,
+		WithProjectIdAndUserId: r.WithProjectIdAndUserId,
+		ParentFolderId:         r.ParentFolderId,
+		Name:                   r.File.Name,
+		Provider:               r.File.LinkedFileData.Provider,
 		Parameter: types.CreateLinkedFileProviderParameter{
 			URL: uri,
 		},

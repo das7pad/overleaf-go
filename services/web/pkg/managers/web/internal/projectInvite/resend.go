@@ -27,12 +27,12 @@ func (m *manager) ResendProjectInvite(ctx context.Context, request *types.Resend
 	projectId := request.ProjectId
 	inviteId := request.InviteId
 
-	pi, err := m.pim.GetById(ctx, projectId, inviteId, request.ActorId)
+	pi, err := m.pim.GetById(ctx, projectId, inviteId, request.UserId)
 	if err != nil {
 		return errors.Tag(err, "cannot get invite")
 	}
 
-	d, err := m.getDetails(ctx, pi, request.ActorId)
+	d, err := m.getDetails(ctx, pi, request.UserId)
 	if err != nil {
 		return err
 	}

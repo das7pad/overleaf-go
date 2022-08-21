@@ -18,7 +18,18 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
+
+type WithProjectIdAndUserId struct {
+	ProjectId sharedTypes.UUID `json:"-"`
+	UserId    sharedTypes.UUID `json:"-"`
+}
+
+func (w *WithProjectIdAndUserId) FromSignedOptions(o SignedCompileProjectRequestOptions) {
+	w.ProjectId = o.ProjectId
+	w.UserId = o.UserId
+}
 
 type WithSession struct {
 	Session *session.Session `json:"-"`

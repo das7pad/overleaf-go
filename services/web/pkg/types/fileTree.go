@@ -22,8 +22,7 @@ import (
 )
 
 type AddDocRequest struct {
-	ProjectId      sharedTypes.UUID     `json:"-"`
-	UserId         sharedTypes.UUID     `json:"-"`
+	WithProjectIdAndUserId
 	Name           sharedTypes.Filename `json:"name"`
 	ParentFolderId sharedTypes.UUID     `json:"parent_folder_id"`
 }
@@ -31,8 +30,7 @@ type AddDocRequest struct {
 type AddDocResponse = project.Doc
 
 type AddFolderRequest struct {
-	ProjectId      sharedTypes.UUID `json:"-"`
-	UserId         sharedTypes.UUID
+	WithProjectIdAndUserId
 	Name           sharedTypes.Filename `json:"name"`
 	ParentFolderId sharedTypes.UUID     `json:"parent_folder_id"`
 }
@@ -40,70 +38,60 @@ type AddFolderRequest struct {
 type AddFolderResponse = project.Folder
 
 type DeleteDocRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	UserId    sharedTypes.UUID `json:"-"`
-	DocId     sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	DocId sharedTypes.UUID `json:"-"`
 }
 
 type DeleteFileRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	UserId    sharedTypes.UUID `json:"-"`
-	FileId    sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	FileId sharedTypes.UUID `json:"-"`
 }
 
 type DeleteFolderRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	UserId    sharedTypes.UUID `json:"-"`
-	FolderId  sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	FolderId sharedTypes.UUID `json:"-"`
 }
 
 type MoveDocRequest struct {
-	ProjectId      sharedTypes.UUID `json:"-"`
-	UserId         sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
 	DocId          sharedTypes.UUID `json:"-"`
 	TargetFolderId sharedTypes.UUID `json:"folder_id"`
 }
 
 type MoveFileRequest struct {
-	ProjectId      sharedTypes.UUID `json:"-"`
-	UserId         sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
 	FileId         sharedTypes.UUID `json:"-"`
 	TargetFolderId sharedTypes.UUID `json:"folder_id"`
 }
 
 type MoveFolderRequest struct {
-	ProjectId      sharedTypes.UUID `json:"-"`
-	UserId         sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
 	FolderId       sharedTypes.UUID `json:"-"`
 	TargetFolderId sharedTypes.UUID `json:"folder_id"`
 }
 
 type RenameDocRequest struct {
-	ProjectId sharedTypes.UUID     `json:"-"`
-	UserId    sharedTypes.UUID     `json:"-"`
-	DocId     sharedTypes.UUID     `json:"-"`
-	Name      sharedTypes.Filename `json:"name"`
+	WithProjectIdAndUserId
+	DocId sharedTypes.UUID     `json:"-"`
+	Name  sharedTypes.Filename `json:"name"`
 }
 
 type RenameFileRequest struct {
-	ProjectId sharedTypes.UUID     `json:"-"`
-	UserId    sharedTypes.UUID     `json:"-"`
-	FileId    sharedTypes.UUID     `json:"-"`
-	Name      sharedTypes.Filename `json:"name"`
+	WithProjectIdAndUserId
+	FileId sharedTypes.UUID     `json:"-"`
+	Name   sharedTypes.Filename `json:"name"`
 }
 
 type RenameFolderRequest struct {
-	ProjectId sharedTypes.UUID     `json:"-"`
-	UserId    sharedTypes.UUID     `json:"-"`
-	FolderId  sharedTypes.UUID     `json:"-"`
-	Name      sharedTypes.Filename `json:"name"`
+	WithProjectIdAndUserId
+	FolderId sharedTypes.UUID     `json:"-"`
+	Name     sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocRequest struct {
-	ProjectId sharedTypes.UUID     `json:"-"`
-	UserId    sharedTypes.UUID     `json:"-"`
-	DocId     sharedTypes.UUID     `json:"-"`
-	Name      sharedTypes.Filename `json:"name"`
+	WithProjectIdAndUserId
+	DocId sharedTypes.UUID     `json:"-"`
+	Name  sharedTypes.Filename `json:"name"`
 }
 
 type RestoreDeletedDocResponse struct {

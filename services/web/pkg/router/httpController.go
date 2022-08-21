@@ -410,6 +410,12 @@ func (h *httpController) mustProcessQueryHTML(request interface{ FromQuery(value
 	return true
 }
 
+func (h *httpController) mustProcessSignedOptions(request interface {
+	FromSignedOptions(o types.SignedCompileProjectRequestOptions)
+}, c *httpUtils.Context) {
+	request.FromSignedOptions(mustGetSignedCompileProjectOptionsFromJwt(c))
+}
+
 func (h *httpController) addApiCSP(c *httpUtils.Context) {
 	c.Writer.Header().Set("Content-Security-Policy", h.ps.CSPs.API)
 }
@@ -866,9 +872,7 @@ func (h *httpController) addDocToProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	response := &types.AddDocResponse{}
 	err := h.wm.AddDocToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
@@ -879,9 +883,7 @@ func (h *httpController) addFolderToProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	response := &types.AddFolderResponse{}
 	err := h.wm.AddFolderToProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
@@ -913,9 +915,7 @@ func (h *httpController) deleteDocFromProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.DeleteDocFromProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -926,9 +926,7 @@ func (h *httpController) deleteFileFromProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.DeleteFileFromProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -939,9 +937,7 @@ func (h *httpController) deleteFolderFromProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.DeleteFolderFromProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -952,9 +948,7 @@ func (h *httpController) moveDocInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.MoveDocInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -965,9 +959,7 @@ func (h *httpController) moveFileInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.MoveFileInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -978,9 +970,7 @@ func (h *httpController) moveFolderInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.MoveFolderInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -991,9 +981,7 @@ func (h *httpController) renameDocInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.DocId = httpUtils.GetId(c, "docId")
 	err := h.wm.RenameDocInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1004,9 +992,7 @@ func (h *httpController) renameFileInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.FileId = httpUtils.GetId(c, "fileId")
 	err := h.wm.RenameFileInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1017,9 +1003,7 @@ func (h *httpController) renameFolderInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.FolderId = httpUtils.GetId(c, "folderId")
 	err := h.wm.RenameFolderInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1030,9 +1014,7 @@ func (h *httpController) restoreDeletedDocInProject(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.DocId = httpUtils.GetId(c, "docId")
 	response := &types.RestoreDeletedDocResponse{}
 	err := h.wm.RestoreDeletedDocInProject(c, request, response)
@@ -1070,62 +1052,50 @@ func (h *httpController) createProjectInvite(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.SenderUserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.CreateProjectInvite(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) resendProjectInvite(c *httpUtils.Context) {
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.ResendProjectInviteRequest{
-		ProjectId: o.ProjectId,
-		ActorId:   o.UserId,
-		InviteId:  httpUtils.GetId(c, "inviteId"),
+		InviteId: httpUtils.GetId(c, "inviteId"),
 	}
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.ResendProjectInvite(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) revokeProjectInvite(c *httpUtils.Context) {
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RevokeProjectInviteRequest{
-		ProjectId: o.ProjectId,
-		InviteId:  httpUtils.GetId(c, "inviteId"),
+		InviteId: httpUtils.GetId(c, "inviteId"),
 	}
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.RevokeProjectInvite(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) listProjectInvites(c *httpUtils.Context) {
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request := &types.ListProjectInvitesRequest{
-		ProjectId: o.ProjectId,
-		UserId:    o.UserId,
-	}
+	request := &types.ListProjectInvitesRequest{}
+	h.mustProcessSignedOptions(request, c)
 	response := &types.ListProjectInvitesResponse{}
 	err := h.wm.ListProjectInvites(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) listProjectMembers(c *httpUtils.Context) {
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request := &types.ListProjectMembersRequest{
-		ProjectId: o.ProjectId,
-	}
+	request := &types.ListProjectMembersRequest{}
+	h.mustProcessSignedOptions(request, c)
 	response := &types.ListProjectMembersResponse{}
 	err := h.wm.ListProjectMembers(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) removeMemberFromProject(c *httpUtils.Context) {
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RemoveProjectMemberRequest{
-		ProjectId: o.ProjectId,
-		ActorId:   o.UserId,
-		UserId:    httpUtils.GetId(c, "userId"),
+		MemberId: httpUtils.GetId(c, "userId"),
 	}
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.RemoveMemberFromProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1135,10 +1105,8 @@ func (h *httpController) setMemberPrivilegeLevelInProject(c *httpUtils.Context) 
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.ActorId = o.UserId
-	request.UserId = httpUtils.GetId(c, "userId")
+	h.mustProcessSignedOptions(request, c)
+	request.MemberId = httpUtils.GetId(c, "userId")
 	err := h.wm.SetMemberPrivilegeLevelInProject(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1148,9 +1116,7 @@ func (h *httpController) transferProjectOwnership(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.PreviousOwnerId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.TransferProjectOwnership(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1171,9 +1137,7 @@ func (h *httpController) setCompiler(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.SetCompiler(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1183,9 +1147,7 @@ func (h *httpController) setImageName(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.SetImageName(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1195,9 +1157,7 @@ func (h *httpController) setSpellCheckLanguage(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.SetSpellCheckLanguage(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1207,9 +1167,7 @@ func (h *httpController) setRootDocId(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.SetRootDocId(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
@@ -1219,9 +1177,7 @@ func (h *httpController) setPublicAccessLevel(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.ProjectId = o.ProjectId
-	request.UserId = o.UserId
+	h.mustProcessSignedOptions(request, c)
 	request.Epoch = projectJWT.MustGet(c).Epoch
 	err := h.wm.SetPublicAccessLevel(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
@@ -1358,20 +1314,16 @@ func (h *httpController) createLinkedFile(c *httpUtils.Context) {
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
-	request.UserId = o.UserId
-	request.ProjectId = o.ProjectId
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.CreateLinkedFile(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) refreshLinkedFile(c *httpUtils.Context) {
-	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request := &types.RefreshLinkedFileRequest{
-		UserId:    o.UserId,
-		ProjectId: o.ProjectId,
-		FileId:    httpUtils.GetId(c, "fileId"),
+		FileId: httpUtils.GetId(c, "fileId"),
 	}
+	h.mustProcessSignedOptions(request, c)
 	err := h.wm.RefreshLinkedFile(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }

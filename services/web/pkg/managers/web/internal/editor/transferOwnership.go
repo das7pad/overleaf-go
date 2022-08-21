@@ -32,7 +32,7 @@ import (
 func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.TransferProjectOwnershipRequest) error {
 	projectId := request.ProjectId
 	newOwnerId := request.NewOwnerId
-	previousOwnerId := request.PreviousOwnerId
+	previousOwnerId := request.UserId
 
 	if previousOwnerId == newOwnerId {
 		return &errors.ValidationError{

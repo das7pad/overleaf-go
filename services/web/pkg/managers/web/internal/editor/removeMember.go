@@ -35,8 +35,8 @@ func (m *manager) LeaveProject(ctx context.Context, request *types.LeaveProjectR
 
 func (m *manager) RemoveMemberFromProject(ctx context.Context, request *types.RemoveProjectMemberRequest) error {
 	projectId := request.ProjectId
-	userId := request.UserId
-	return m.removeMemberFromProject(ctx, projectId, request.ActorId, userId)
+	memberId := request.MemberId
+	return m.removeMemberFromProject(ctx, projectId, request.UserId, memberId)
 }
 
 func (m *manager) removeMemberFromProject(ctx context.Context, projectId sharedTypes.UUID, actorId, userId sharedTypes.UUID) error {

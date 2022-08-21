@@ -33,8 +33,7 @@ type AcceptProjectInviteRequest struct {
 type AcceptProjectInviteResponse = asyncForm.Response
 
 type CreateProjectInviteRequest struct {
-	ProjectId      sharedTypes.UUID           `json:"-"`
-	SenderUserId   sharedTypes.UUID           `json:"-"`
+	WithProjectIdAndUserId
 	Email          sharedTypes.Email          `json:"email"`
 	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges"`
 }
@@ -59,19 +58,17 @@ func (r *CreateProjectInviteRequest) Validate() error {
 }
 
 type ResendProjectInviteRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	InviteId  sharedTypes.UUID `json:"-"`
-	ActorId   sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	InviteId sharedTypes.UUID `json:"-"`
 }
 
 type RevokeProjectInviteRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	InviteId  sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	InviteId sharedTypes.UUID `json:"-"`
 }
 
 type ListProjectInvitesRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	UserId    sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
 }
 
 type ListProjectInvitesResponse struct {

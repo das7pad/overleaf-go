@@ -33,8 +33,7 @@ type CreateLinkedFileProviderParameter struct {
 }
 
 type CreateLinkedFileRequest struct {
-	UserId         sharedTypes.UUID                  `json:"-"`
-	ProjectId      sharedTypes.UUID                  `json:"-"`
+	WithProjectIdAndUserId
 	ParentFolderId sharedTypes.UUID                  `json:"parent_folder_id"`
 	Name           sharedTypes.Filename              `json:"name"`
 	Provider       project.LinkedFileProvider        `json:"provider"`
@@ -42,9 +41,8 @@ type CreateLinkedFileRequest struct {
 }
 
 type RefreshLinkedFileRequest struct {
-	UserId    sharedTypes.UUID `json:"-"`
-	ProjectId sharedTypes.UUID `json:"-"`
-	FileId    sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
+	FileId sharedTypes.UUID `json:"-"`
 
 	ParentFolderId sharedTypes.UUID `json:"-"`
 	File           project.FileRef  `json:"-"`

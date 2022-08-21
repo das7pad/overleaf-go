@@ -29,32 +29,27 @@ type UpdateEditorConfigRequest struct {
 }
 
 type SetCompilerRequest struct {
-	ProjectId sharedTypes.UUID     `json:"-"`
-	UserId    sharedTypes.UUID     `json:"-"`
-	Compiler  sharedTypes.Compiler `json:"compiler"`
+	WithProjectIdAndUserId
+	Compiler sharedTypes.Compiler `json:"compiler"`
 }
 
 type SetImageNameRequest struct {
-	ProjectId sharedTypes.UUID      `json:"-"`
-	UserId    sharedTypes.UUID      `json:"-"`
+	WithProjectIdAndUserId
 	ImageName sharedTypes.ImageName `json:"imageName"`
 }
 
 type SetSpellCheckLanguageRequest struct {
-	ProjectId          sharedTypes.UUID                 `json:"-"`
-	UserId             sharedTypes.UUID                 `json:"-"`
+	WithProjectIdAndUserId
 	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage"`
 }
 
 type SetRootDocIdRequest struct {
-	ProjectId sharedTypes.UUID `json:"-"`
-	UserId    sharedTypes.UUID `json:"-"`
+	WithProjectIdAndUserId
 	RootDocId sharedTypes.UUID `json:"rootDocId"`
 }
 
 type SetPublicAccessLevelRequest struct {
-	ProjectId         sharedTypes.UUID          `json:"-"`
-	UserId            sharedTypes.UUID          `json:"-"`
+	WithProjectIdAndUserId
 	Epoch             int64                     `json:"-"`
 	PublicAccessLevel project.PublicAccessLevel `json:"publicAccessLevel"`
 }
