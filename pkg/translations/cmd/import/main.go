@@ -21,17 +21,20 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 )
 
 func main() {
-	in := flag.String("in", "", "input en.json")
-	out := flag.String("out", "", "output en.json")
+	in := flag.String("in", "", "source locales/")
+	out := flag.String("out", "", "destination locales/")
 	flag.Parse()
 	if *in == "" || *out == "" {
 		flag.Usage()
@@ -42,9 +45,72 @@ func main() {
 		fmt.Println("ERR: must specify at least one source directory")
 		os.Exit(101)
 	}
-	inLocales := make(map[string]string)
+	src := *in
+	dst := *out
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		panic(errors.Tag(err, "iter source dir"))
+	}
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		importLng(
+			path.Join(src, entry.Name()),
+			path.Join(src, "en.json"),
+			path.Join(dst, entry.Name()),
+			sourceDirs,
+		)
+		if entry.Name() != "en.json" {
+			err = copyFile.NonAtomic(
+				path.Join(dst, "en.json.license"),
+				path.Join(dst, entry.Name()+".license"),
+			)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+func importLng(in, inEn, out string, sourceDirs []string) {
 	{
-		f, err := os.Open(*in)
+		inStat, err := os.Stat(in)
+		if err != nil {
+			panic(errors.Tag(err, "stat in"))
+		}
+		inEnStat, err := os.Stat(inEn)
+		if err != nil {
+			panic(errors.Tag(err, "stat inEn"))
+		}
+		outStat, err := os.Stat(out)
+		switch {
+		case err == nil:
+			if outStat.ModTime().After(inStat.ModTime()) &&
+				outStat.ModTime().After(inEnStat.ModTime()) {
+				log.Printf("%s: Skipping, already up-to-date", in)
+				return
+			}
+		case os.IsNotExist(err):
+			// We will create the file soon.
+		default:
+			panic(errors.Tag(err, "stat out"))
+		}
+	}
+	log.Printf("%s: Importing", in)
+
+	inLocales := make(map[string]string)
+	if in != inEn {
+		f, err := os.Open(inEn)
+		if err != nil {
+			panic(errors.Tag(err, "cannot open input en file"))
+		}
+		if err = json.NewDecoder(f).Decode(&inLocales); err != nil {
+			panic(errors.Tag(err, "cannot decode input en file"))
+		}
+	}
+	{
+		f, err := os.Open(in)
 		if err != nil {
 			panic(errors.Tag(err, "cannot open input file"))
 		}
@@ -92,7 +158,7 @@ func main() {
 		outLocales[key] = processLocale(key, inLocales[key])
 	}
 	{
-		f, err := os.Create(*out)
+		f, err := os.Create(out)
 		if err != nil {
 			panic(errors.Tag(err, "cannot open output file"))
 		}
