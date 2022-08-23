@@ -51,7 +51,21 @@ type I18nSubDomainLang struct {
 }
 
 type I18nOptions struct {
+	DefaultLang   string              `json:"default_lang"`
 	SubdomainLang []I18nSubDomainLang `json:"subdomain_lang"`
+}
+
+func (o *I18nOptions) Languages() []string {
+	allowed := make(map[string]bool, len(o.SubdomainLang))
+	allowed[o.DefaultLang] = true
+	for _, lang := range o.SubdomainLang {
+		allowed[lang.LngCode] = true
+	}
+	flat := make([]string, 0, len(allowed))
+	for s := range allowed {
+		flat = append(flat, s)
+	}
+	return flat
 }
 
 type SentryFrontendOptions struct {

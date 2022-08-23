@@ -105,7 +105,9 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		return nil, errors.Tag(err, "invalid options")
 	}
 
-	err := templates.Load(options.AppName, options.AssetsOptions())
+	err := templates.Load(
+		options.AppName, options.AssetsOptions(), options.I18n,
+	)
 	if err != nil {
 		return nil, errors.Tag(err, "load templates")
 	}

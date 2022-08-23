@@ -84,7 +84,7 @@ func (d *CommonData) CurrentLngCode() string {
 	if u := d.SessionUser; u != nil && u.Language != "" {
 		return u.Language
 	}
-	return "en"
+	return d.Settings.I18n.DefaultLang
 }
 
 func (d *CommonData) IsAdmin() bool {

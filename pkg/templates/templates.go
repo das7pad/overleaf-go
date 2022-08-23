@@ -53,10 +53,10 @@ func render(p string, estimate int, data interface{}) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func Load(appName string, assetsOptions assets.Options) error {
+func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions) error {
 	funcMap := make(template.FuncMap)
 	{
-		tm, err := translations.Load(appName)
+		tm, err := translations.Load(appName, i18nOptions.Languages())
 		if err != nil {
 			return errors.Tag(err, "cannot load translations")
 		}

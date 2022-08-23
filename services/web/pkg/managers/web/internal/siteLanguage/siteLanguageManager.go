@@ -29,12 +29,8 @@ type Manager interface {
 }
 
 func New(options *types.Options) Manager {
-	allowed := make([]string, 0, len(options.I18n.SubdomainLang))
-	for _, lang := range options.I18n.SubdomainLang {
-		allowed = append(allowed, lang.LngCode)
-	}
 	return &manager{
-		allowed: allowed,
+		allowed: options.I18n.Languages(),
 		siteURL: options.SiteURL,
 	}
 }

@@ -19,6 +19,7 @@ package translations
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/url"
 	"strings"
@@ -80,7 +81,7 @@ func (l *templateLocale) Render(data interface{}) (template.HTML, error) {
 //go:embed locales/*.json
 var _locales embed.FS
 
-func Load(appName string) (Manager, error) {
+func Load(appName string, languages []string) (Manager, error) {
 	dirEntries, errListing := _locales.ReadDir("locales")
 	if errListing != nil {
 		return nil, errors.Tag(errListing, "cannot list locales")
@@ -88,6 +89,17 @@ func Load(appName string) (Manager, error) {
 	byLanguage := make(map[string]map[string]renderer, len(dirEntries))
 	for _, dirEntry := range dirEntries {
 		language := strings.TrimSuffix(dirEntry.Name(), ".json")
+		skip := true
+		for _, s := range languages {
+			if language == s {
+				skip = false
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+
 		f, errOpen := _locales.Open("locales/" + dirEntry.Name())
 		if errOpen != nil {
 			return nil, errors.Tag(errOpen, "cannot open: "+language)
@@ -102,6 +114,15 @@ func Load(appName string) (Manager, error) {
 		}
 		byLanguage[language] = d
 	}
+
+	for _, s := range languages {
+		if _, ok := byLanguage[s]; !ok {
+			return nil, &errors.ValidationError{
+				Msg: fmt.Sprintf("missing locales for language=%q", s),
+			}
+		}
+	}
+
 	_locales = embed.FS{}
 	return &manager{localesByLanguage: byLanguage}, nil
 }
