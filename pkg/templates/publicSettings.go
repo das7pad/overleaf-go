@@ -22,36 +22,36 @@ import (
 )
 
 type NavOptions struct {
-	HeaderExtras []NavElementWithDropDown
-	LeftFooter   []NavElement
-	RightFooter  []NavElement
-	Title        string
+	HeaderExtras []NavElementWithDropDown `json:"header_extras"`
+	LeftFooter   []NavElement             `json:"left_footer"`
+	RightFooter  []NavElement             `json:"right_footer"`
+	Title        string                   `json:"title"`
 }
 
 type NavElement struct {
-	Class string
-	Label string
-	Text  string
-	URL   string
+	Class string `json:"class"`
+	Label string `json:"label"`
+	Text  string `json:"text"`
+	URL   string `json:"url"`
 }
 
 type NavElementWithDivider struct {
 	NavElement
-	Divider bool
+	Divider bool `json:"divider"`
 }
 
 type NavElementWithDropDown struct {
 	NavElement
-	Dropdown []NavElementWithDivider
+	Dropdown []NavElementWithDivider `json:"dropdown"`
 }
 
 type I18nSubDomainLang struct {
-	Hide    bool
-	LngCode string
+	Hide    bool   `json:"hide"`
+	LngCode string `json:"lng_code"`
 }
 
 type I18nOptions struct {
-	SubdomainLang []I18nSubDomainLang
+	SubdomainLang []I18nSubDomainLang `json:"subdomain_lang"`
 }
 
 type SentryFrontendOptions struct {
@@ -63,7 +63,7 @@ type SentryFrontendOptions struct {
 }
 
 type PublicSentryOptions struct {
-	Frontend SentryFrontendOptions
+	Frontend SentryFrontendOptions `json:"frontend"`
 }
 
 type PublicSettings struct {
