@@ -54,6 +54,9 @@ func render(p string, estimate int, data interface{}) ([]byte, error) {
 }
 
 func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions) error {
+	if err := i18nOptions.Validate(); err != nil {
+		return err
+	}
 	funcMap := make(template.FuncMap)
 	{
 		tm, err := translations.Load(appName, i18nOptions.Languages())

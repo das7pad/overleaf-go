@@ -81,26 +81,51 @@ func (l *templateLocale) Render(data interface{}) (template.HTML, error) {
 //go:embed locales/*.json
 var _locales embed.FS
 
-func Load(appName string, languages []string) (Manager, error) {
+var validLanguages Languages
+
+func init() {
 	dirEntries, errListing := _locales.ReadDir("locales")
 	if errListing != nil {
-		return nil, errors.Tag(errListing, "cannot list locales")
+		panic(errors.Tag(errListing, "cannot list locales"))
 	}
-	byLanguage := make(map[string]map[string]renderer, len(dirEntries))
 	for _, dirEntry := range dirEntries {
 		language := strings.TrimSuffix(dirEntry.Name(), ".json")
-		skip := true
-		for _, s := range languages {
-			if language == s {
-				skip = false
-				break
+		validLanguages = append(validLanguages, language)
+	}
+}
+
+type Languages []string
+
+func (l Languages) Validate() error {
+	if len(l) == 0 {
+		return &errors.ValidationError{Msg: "no languages provided"}
+	}
+	for _, s := range l {
+		if !validLanguages.Has(s) {
+			return &errors.ValidationError{
+				Msg: fmt.Sprintf("%q is not a valid language", s),
 			}
 		}
-		if skip {
-			continue
-		}
+	}
+	return nil
+}
 
-		f, errOpen := _locales.Open("locales/" + dirEntry.Name())
+func (l Languages) Has(other string) bool {
+	for _, s := range l {
+		if s == other {
+			return true
+		}
+	}
+	return false
+}
+
+func Load(appName string, languages Languages) (Manager, error) {
+	if err := languages.Validate(); err != nil {
+		return nil, err
+	}
+	byLanguage := make(map[string]map[string]renderer, len(languages))
+	for _, language := range languages {
+		f, errOpen := _locales.Open("locales/" + language + ".json")
 		if errOpen != nil {
 			return nil, errors.Tag(errOpen, "cannot open: "+language)
 		}
@@ -114,15 +139,6 @@ func Load(appName string, languages []string) (Manager, error) {
 		}
 		byLanguage[language] = d
 	}
-
-	for _, s := range languages {
-		if _, ok := byLanguage[s]; !ok {
-			return nil, &errors.ValidationError{
-				Msg: fmt.Sprintf("missing locales for language=%q", s),
-			}
-		}
-	}
-
 	_locales = embed.FS{}
 	return &manager{localesByLanguage: byLanguage}, nil
 }

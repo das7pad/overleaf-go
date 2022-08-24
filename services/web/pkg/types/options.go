@@ -134,6 +134,9 @@ func (o *Options) Validate() error {
 	if len(o.DefaultImage) == 0 {
 		return &errors.ValidationError{Msg: "default_image is missing"}
 	}
+	if err := o.I18n.Validate(); err != nil {
+		return errors.Tag(err, "i18n is invalid")
+	}
 	if o.LearnCacheDuration < time.Second {
 		return &errors.ValidationError{Msg: "learn_cache_duration is too low"}
 	}

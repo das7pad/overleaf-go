@@ -18,7 +18,9 @@ package templates
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/csp"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/translations"
 )
 
 type NavOptions struct {
@@ -55,13 +57,23 @@ type I18nOptions struct {
 	SubdomainLang []I18nSubDomainLang `json:"subdomain_lang"`
 }
 
-func (o *I18nOptions) Languages() []string {
+func (o *I18nOptions) Validate() error {
+	if err := (translations.Languages{o.DefaultLang}).Validate(); err != nil {
+		return errors.Tag(err, "invalid default_lang")
+	}
+	if err := o.Languages().Validate(); err != nil {
+		return errors.Tag(err, "subdomain_lang contains invalid entry")
+	}
+	return nil
+}
+
+func (o *I18nOptions) Languages() translations.Languages {
 	allowed := make(map[string]bool, len(o.SubdomainLang))
 	allowed[o.DefaultLang] = true
 	for _, lang := range o.SubdomainLang {
 		allowed[lang.LngCode] = true
 	}
-	flat := make([]string, 0, len(allowed))
+	flat := make(translations.Languages, 0, len(allowed))
 	for s := range allowed {
 		flat = append(flat, s)
 	}

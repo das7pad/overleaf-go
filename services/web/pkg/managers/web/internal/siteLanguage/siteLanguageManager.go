@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/translations"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -36,19 +37,12 @@ func New(options *types.Options) Manager {
 }
 
 type manager struct {
-	allowed []string
+	allowed translations.Languages
 	siteURL sharedTypes.URL
 }
 
 func (m *manager) SwitchLanguage(ctx context.Context, request *types.SwitchLanguageRequest, response *types.SwitchLanguageResponse) error {
-	allowed := false
-	for _, s := range m.allowed {
-		if request.Lng == s {
-			allowed = true
-			break
-		}
-	}
-	if !allowed {
+	if !m.allowed.Has(request.Lng) {
 		return &errors.ValidationError{Msg: "invalid lng"}
 	}
 	request.Session.User.Language = request.Lng
