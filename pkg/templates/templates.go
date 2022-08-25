@@ -32,7 +32,7 @@ import (
 
 type Renderer interface {
 	CSP() string
-	Render() ([]byte, error)
+	Render() ([]byte, string, error)
 	ResourceHints() string
 }
 
@@ -43,14 +43,16 @@ var templates map[string]*template.Template
 
 var resourceHints assets.ResourceHintsManager
 
-func render(p string, estimate int, data interface{}) ([]byte, error) {
+func render(p string, estimate int, data Renderer) ([]byte, string, error) {
+	resourceHints.RenderingStart()
+	defer resourceHints.RenderingEnd()
 	buffer := &bytes.Buffer{}
 	buffer.Bytes()
 	buffer.Grow(estimate)
 	if err := templates[p].Execute(buffer, data); err != nil {
-		return nil, errors.Tag(err, "cannot render "+p)
+		return nil, "", errors.Tag(err, "cannot render "+p)
 	}
-	return buffer.Bytes(), nil
+	return buffer.Bytes(), data.ResourceHints(), nil
 }
 
 func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions) error {

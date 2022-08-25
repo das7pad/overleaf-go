@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,7 +25,7 @@ type General400Data struct {
 	Message string
 }
 
-func (d *General400Data) Render() ([]byte, error) {
+func (d *General400Data) Render() ([]byte, string, error) {
 	return render("general/400.gohtml", 3*1024, d)
 }
 
@@ -33,7 +33,7 @@ type General404Data struct {
 	MarketingLayoutData
 }
 
-func (d *General404Data) Render() ([]byte, error) {
+func (d *General404Data) Render() ([]byte, string, error) {
 	return render("general/404.gohtml", 5*1024, d)
 }
 
@@ -41,7 +41,7 @@ type General500Data struct {
 	NoJsLayoutData
 }
 
-func (d *General500Data) Render() ([]byte, error) {
+func (d *General500Data) Render() ([]byte, string, error) {
 	return render("general/500.gohtml", 3*1024, d)
 }
 
@@ -50,6 +50,6 @@ type GeneralUnsupportedBrowserData struct {
 	FromURL *sharedTypes.URL
 }
 
-func (d *GeneralUnsupportedBrowserData) Render() ([]byte, error) {
+func (d *GeneralUnsupportedBrowserData) Render() ([]byte, string, error) {
 	return render("general/unsupported-browser.gohtml", 4*1024, d)
 }

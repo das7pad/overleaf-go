@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,6 +36,6 @@ func (d *BetaProgramParticipate) Meta() []metaEntry {
 	return m
 }
 
-func (d *BetaProgramParticipate) Render() ([]byte, error) {
+func (d *BetaProgramParticipate) Render() ([]byte, string, error) {
 	return render("betaProgram/participate.gohtml", 6*1024, d)
 }

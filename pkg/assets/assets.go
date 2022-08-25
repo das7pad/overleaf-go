@@ -39,6 +39,8 @@ type Manager interface {
 }
 
 type ResourceHintsManager interface {
+	RenderingStart()
+	RenderingEnd()
 	ResourceHintsDefault() string
 	ResourceHintsEditorDefault() string
 	ResourceHintsEditorLight() string
@@ -62,7 +64,7 @@ func Load(options Options) (Manager, error) {
 		return nil, err
 	}
 	if options.WatchManifest {
-		wm := &watchingManager{m: m}
+		wm := &watchingManager{manager: m}
 		go wm.watch()
 		return wm, nil
 	}
@@ -103,13 +105,15 @@ func (m *manager) load() error {
 	for s, url := range raw.Assets {
 		assets[s] = m.base + url
 	}
-	// NOTE: In theory, a template could use a mix of stale/fresh data.
-	//       In praxis, this code path is hit at boot-time and in dev only.
 	m.assets = assets
 	m.entrypointChunks = entrypointChunks
 	m.generateResourceHints()
 	return nil
 }
+
+func (m *manager) RenderingStart() {}
+
+func (m *manager) RenderingEnd() {}
 
 func (m *manager) BuildCssPath(theme string) template.URL {
 	return m.assets["frontend/stylesheets/"+theme+"style.less"]

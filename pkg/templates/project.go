@@ -42,7 +42,7 @@ func (d *ProjectTokenAccessData) Meta() []metaEntry {
 	return out
 }
 
-func (d *ProjectTokenAccessData) Render() ([]byte, error) {
+func (d *ProjectTokenAccessData) Render() ([]byte, string, error) {
 	return render("project/tokenAccess.gohtml", 6*1024, d)
 }
 
@@ -55,7 +55,7 @@ type ProjectViewInviteData struct {
 	Valid             bool
 }
 
-func (d *ProjectViewInviteData) Render() ([]byte, error) {
+func (d *ProjectViewInviteData) Render() ([]byte, string, error) {
 	return render("project/viewInvite.gohtml", 6*1024, d)
 }
 
@@ -109,7 +109,7 @@ func (d *ProjectListData) Meta() []metaEntry {
 	return out
 }
 
-func (d *ProjectListData) Render() ([]byte, error) {
+func (d *ProjectListData) Render() ([]byte, string, error) {
 	n := 1024 * (38 + len(d.Projects)*3/4 + len(d.Tags)/10)
 	return render("project/list.gohtml", n, d)
 }
@@ -182,7 +182,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 	return out
 }
 
-func (d *ProjectEditorData) Render() ([]byte, error) {
+func (d *ProjectEditorData) Render() ([]byte, string, error) {
 	d.HideFooter = true
 	d.HideNavBar = true
 	return render("project/editor.gohtml", 43*1024, d)

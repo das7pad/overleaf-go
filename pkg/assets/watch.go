@@ -18,88 +18,26 @@ package assets
 
 import (
 	"bufio"
-	"html/template"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 )
 
+// watchingManager is safe for concurrent rendering and watching.
+//
+// "safe" in regard to simple data-races (read vs write on .assets during load)
+// and logic data-races (read vs read on .assets before/after it was rewritten
+// during the processing of a single HTTP request).
 type watchingManager struct {
 	mu sync.RWMutex
-	m  *manager
-}
-
-func (wm *watchingManager) BuildCssPath(theme string) template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.BuildCssPath(theme)
-}
-
-func (wm *watchingManager) BuildFontPath(path string) template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.BuildFontPath(path)
-}
-
-func (wm *watchingManager) BuildImgPath(path string) template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.BuildImgPath(path)
-}
-
-func (wm *watchingManager) BuildJsPath(path string) template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.BuildJsPath(path)
-}
-
-func (wm *watchingManager) BuildMathJaxEntrypoint() template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.BuildMathJaxEntrypoint()
-}
-
-func (wm *watchingManager) BuildTPath(lng string) template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.BuildTPath(lng)
-}
-
-func (wm *watchingManager) GetEntrypointChunks(path string) []template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.GetEntrypointChunks(path)
-}
-
-func (wm *watchingManager) StaticPath(path string) template.URL {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.StaticPath(path)
-}
-
-func (wm *watchingManager) ResourceHintsDefault() string {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.ResourceHintsDefault()
-}
-
-func (wm *watchingManager) ResourceHintsEditorDefault() string {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.ResourceHintsEditorDefault()
-}
-
-func (wm *watchingManager) ResourceHintsEditorLight() string {
-	wm.mu.RLock()
-	defer wm.mu.RUnlock()
-	return wm.m.ResourceHintsEditorLight()
+	*manager
 }
 
 func (wm *watchingManager) watch() {
 	log.Println("assets: watch: waiting for rebuilds")
 	for {
-		res, err := http.Get(string(wm.m.base) + "/event-source")
+		res, err := http.Get(string(wm.base) + "/event-source")
 		if err != nil {
 			time.Sleep(time.Second)
 			log.Printf(
@@ -134,7 +72,7 @@ func (wm *watchingManager) watch() {
 			}
 			log.Println("assets: watch: reloading")
 			wm.mu.Lock()
-			err = wm.m.load()
+			err = wm.load()
 			wm.mu.Unlock()
 			if err != nil {
 				log.Printf(
@@ -148,4 +86,12 @@ func (wm *watchingManager) watch() {
 		)
 		_ = res.Body.Close()
 	}
+}
+
+func (wm *watchingManager) RenderingStart() {
+	wm.mu.RLock()
+}
+
+func (wm *watchingManager) RenderingEnd() {
+	wm.mu.RUnlock()
 }

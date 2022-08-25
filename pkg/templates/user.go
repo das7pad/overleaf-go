@@ -33,7 +33,7 @@ type UserConfirmEmailData struct {
 	Token oneTimeToken.OneTimeToken
 }
 
-func (d *UserConfirmEmailData) Render() ([]byte, error) {
+func (d *UserConfirmEmailData) Render() ([]byte, string, error) {
 	return render("user/confirmEmail.gohtml", 5*1024, d)
 }
 
@@ -41,7 +41,7 @@ type UserLoginData struct {
 	MarketingLayoutData
 }
 
-func (d *UserLoginData) Render() ([]byte, error) {
+func (d *UserLoginData) Render() ([]byte, string, error) {
 	return render("user/login.gohtml", 5*1024, d)
 }
 
@@ -49,7 +49,7 @@ type UserLogoutData struct {
 	MarketingLayoutData
 }
 
-func (d *UserLogoutData) Render() ([]byte, error) {
+func (d *UserLogoutData) Render() ([]byte, string, error) {
 	return render("user/logout.gohtml", 6*1024, d)
 }
 
@@ -58,7 +58,7 @@ type UserReconfirmData struct {
 	Email sharedTypes.Email
 }
 
-func (d *UserReconfirmData) Render() ([]byte, error) {
+func (d *UserReconfirmData) Render() ([]byte, string, error) {
 	return render("user/reconfirm.gohtml", 5*1024, d)
 }
 
@@ -93,7 +93,7 @@ type UserRegisterData struct {
 	SharedProjectData SharedProjectData
 }
 
-func (d *UserRegisterData) Render() ([]byte, error) {
+func (d *UserRegisterData) Render() ([]byte, string, error) {
 	return render("user/register.gohtml", 5*1024, d)
 }
 
@@ -101,7 +101,7 @@ type UserRestrictedData struct {
 	MarketingLayoutData
 }
 
-func (d *UserRestrictedData) Render() ([]byte, error) {
+func (d *UserRestrictedData) Render() ([]byte, string, error) {
 	return render("user/restricted.gohtml", 6*1024, d)
 }
 
@@ -111,7 +111,7 @@ type UserSessionsData struct {
 	OtherSessions  []session.OtherSessionData
 }
 
-func (d *UserSessionsData) Render() ([]byte, error) {
+func (d *UserSessionsData) Render() ([]byte, string, error) {
 	n := 1024 * (7 + len(d.OtherSessions)/14)
 	return render("user/sessions.gohtml", n, d)
 }
@@ -122,7 +122,7 @@ type UserSetPasswordData struct {
 	PasswordResetToken oneTimeToken.OneTimeToken
 }
 
-func (d *UserSetPasswordData) Render() ([]byte, error) {
+func (d *UserSetPasswordData) Render() ([]byte, string, error) {
 	return render("user/setPassword.gohtml", 7*1024, d)
 }
 
@@ -132,7 +132,7 @@ type UserActivateData struct {
 	Token oneTimeToken.OneTimeToken
 }
 
-func (d *UserActivateData) Render() ([]byte, error) {
+func (d *UserActivateData) Render() ([]byte, string, error) {
 	return render("user/activate.gohtml", 7*1024, d)
 }
 
@@ -141,7 +141,7 @@ type UserPasswordResetData struct {
 	Email sharedTypes.Email
 }
 
-func (d *UserPasswordResetData) Render() ([]byte, error) {
+func (d *UserPasswordResetData) Render() ([]byte, string, error) {
 	return render("user/passwordReset.gohtml", 6*1024, d)
 }
 
@@ -150,7 +150,7 @@ type UserSettingsData struct {
 	User *user.ForSettingsPage
 }
 
-func (d *UserSettingsData) Render() ([]byte, error) {
+func (d *UserSettingsData) Render() ([]byte, string, error) {
 	n := 1024 * (11 +
 		(len(d.User.FirstName)+len(d.User.LastName)+3*len(d.User.Email))/1024)
 	return render("user/settings.gohtml", n, d)

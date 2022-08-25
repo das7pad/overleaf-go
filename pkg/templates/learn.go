@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,7 +27,7 @@ type LearnPageData struct {
 	ContentsContent template.HTML
 }
 
-func (d *LearnPageData) Render() ([]byte, error) {
+func (d *LearnPageData) Render() ([]byte, string, error) {
 	n := 6*1024 +
 		len(d.PageContent) +
 		len(d.ContentsContent) +

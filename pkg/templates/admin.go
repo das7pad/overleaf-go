@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,7 +26,7 @@ type AdminManageSiteData struct {
 	SystemMessages []systemMessage.Full
 }
 
-func (d *AdminManageSiteData) Render() ([]byte, error) {
+func (d *AdminManageSiteData) Render() ([]byte, string, error) {
 	return render("admin/manageSite.gohtml", 7*1024, d)
 }
 
@@ -34,6 +34,6 @@ type AdminRegisterUsersData struct {
 	AngularLayoutData
 }
 
-func (d *AdminRegisterUsersData) Render() ([]byte, error) {
+func (d *AdminRegisterUsersData) Render() ([]byte, string, error) {
 	return render("admin/registerUsers.gohtml", 7*1024, d)
 }

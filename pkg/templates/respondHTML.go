@@ -142,8 +142,9 @@ func RespondHTMLCustomStatus(
 		}
 	}
 	var blob []byte
+	var hints string
 	timerStartRender(c)
-	blob, err = body.Render()
+	blob, hints, err = body.Render()
 	timerEndRender(c)
 	if err != nil {
 		if code == http.StatusInternalServerError {
@@ -160,7 +161,7 @@ func RespondHTMLCustomStatus(
 	h.Set("Content-Length", strconv.FormatInt(int64(len(blob)), 10))
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	h.Set("Content-Security-Policy", body.CSP())
-	h.Set("Link", body.ResourceHints())
+	h.Set("Link", hints)
 	httpUtils.EndTotalTimer(c)
 	c.Writer.WriteHeader(code)
 	_, _ = c.Writer.Write(blob)
