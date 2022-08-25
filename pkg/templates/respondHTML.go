@@ -111,6 +111,7 @@ func RespondHTMLCustomStatus(
 						RobotsNoindexNofollow: true,
 						SessionUser:           s.User,
 						TitleLocale:           "restricted",
+						Viewport:              true,
 					},
 				},
 			}
@@ -122,6 +123,7 @@ func RespondHTMLCustomStatus(
 						RobotsNoindexNofollow: true,
 						SessionUser:           s.User,
 						TitleLocale:           "page_not_found",
+						Viewport:              true,
 					},
 				},
 			}
@@ -133,7 +135,7 @@ func RespondHTMLCustomStatus(
 						RobotsNoindexNofollow: true,
 						SessionUser:           s.User,
 						TitleLocale:           "server_error",
-						Viewport:              false,
+						Viewport:              true,
 					},
 				},
 			}

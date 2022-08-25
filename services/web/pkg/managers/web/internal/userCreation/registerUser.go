@@ -99,6 +99,7 @@ func (m *manager) RegisterUserPage(_ context.Context, request *types.RegisterUse
 				Settings:    m.ps,
 				SessionUser: request.Session.User,
 				TitleLocale: "register",
+				Viewport:    true,
 			},
 		},
 		SharedProjectData: request.SharedProjectData,
