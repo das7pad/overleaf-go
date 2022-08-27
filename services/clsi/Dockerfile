@@ -1,5 +1,5 @@
 # Golang port of Overleaf
-# Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+# Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -18,9 +18,7 @@ FROM alpine:3.16
 ENV SERVICE_NAME="clsi"
 ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
 ENV COPY_EXEC_AGENT_DST="/mount/execAgent"
-ENV SECCOMP_POLICY_PATH="/seccomp/policy.json"
 ENTRYPOINT ["clsi"]
-COPY ./seccomp /seccomp
 COPY ./clsi /usr/local/bin/
 COPY ./execAgent /usr/local/bin/
 

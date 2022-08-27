@@ -48,9 +48,5 @@ func getOptions() *clsiOptions {
 	o.copyExecAgentDst = utils.GetStringFromEnv("COPY_EXEC_AGENT_DST", "")
 	o.copyExecAgent = utils.GetStringFromEnv("COPY_EXEC_AGENT", "false") == "true"
 
-	if o.options.DockerContainerOptions.SeccompPolicyPath == "" {
-		o.options.DockerContainerOptions.SeccompPolicyPath = utils.GetStringFromEnv("SECCOMP_POLICY_PATH", "-")
-	}
-
 	return o
 }

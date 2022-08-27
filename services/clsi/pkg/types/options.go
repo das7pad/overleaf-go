@@ -24,22 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-//goland:noinspection SpellCheckingInspection
-type SeccompPolicy struct {
-	DefaultAction string   `json:"defaultAction"`
-	Architectures []string `json:"architectures"`
-	SysCalls      []struct {
-		Name   string `json:"name"`
-		Action string `json:"action"`
-		Args   []struct {
-			Index    int    `json:"index"`
-			Value    int    `json:"value"`
-			ValueTwo int    `json:"valueTwo"`
-			Op       string `json:"op"`
-		} `json:"args"`
-	} `json:"syscalls"`
-}
-
 type DockerContainerOptions struct {
 	User                   string        `json:"user"`
 	Env                    Environment   `json:"env"`

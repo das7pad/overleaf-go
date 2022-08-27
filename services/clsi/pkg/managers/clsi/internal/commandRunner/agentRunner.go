@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
@@ -35,6 +34,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner/internal/seccomp"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -56,23 +56,6 @@ func containerName(namespace types.Namespace) string {
 
 func (a *agentRunner) Stop(namespace types.Namespace) error {
 	return a.stopContainer(namespace)
-}
-
-func loadSeccompPolicy(path string) (string, error) {
-	blob, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	var policy types.SeccompPolicy
-	if err = json.Unmarshal(blob, &policy); err != nil {
-		return "", err
-	}
-	// Round trip the policy through the schema
-	normalizedBlob, err := json.Marshal(policy)
-	if err != nil {
-		return "", err
-	}
-	return string(normalizedBlob), nil
 }
 
 func newAgentRunner(options *types.Options) (Runner, error) {
@@ -111,8 +94,8 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 		o.Env = make(types.Environment, 0)
 	}
 
-	if o.SeccompPolicyPath != "" && o.SeccompPolicyPath != "-" {
-		policy, err := loadSeccompPolicy(o.SeccompPolicyPath)
+	if o.SeccompPolicyPath != "-" {
+		policy, err := seccomp.Load(o.SeccompPolicyPath)
 		if err != nil {
 			return nil, errors.Tag(err, "seccomp policy invalid")
 		}
