@@ -17,7 +17,6 @@
 FROM alpine:3.16
 ENV SERVICE_NAME="clsi"
 ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
-ENV COPY_EXEC_AGENT_DST="/mount/execAgent"
 ENTRYPOINT ["clsi"]
 COPY ./clsi /usr/local/bin/
 COPY ./execAgent /usr/local/bin/

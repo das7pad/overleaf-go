@@ -19,22 +19,13 @@ package main
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 )
 
 func Setup() (clsi.Manager, *httpUtils.Router, *clsiOptions) {
 	o := getOptions()
-
-	if o.copyExecAgent {
-		err := copyAgent(o.copyExecAgentSrc, o.copyExecAgentDst)
-		if err != nil {
-			panic(err)
-		}
-	}
 
 	cm, err := clsi.New(&o.options)
 	if err != nil {
@@ -66,15 +57,4 @@ func main() {
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
-}
-
-func copyAgent(src, dest string) error {
-	agent, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = agent.Close()
-	}()
-	return copyFile.Atomic(agent, dest, true)
 }

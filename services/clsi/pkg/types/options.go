@@ -42,6 +42,9 @@ type DockerContainerOptions struct {
 type Options struct {
 	AllowedImages []sharedTypes.ImageName `json:"allowed_images"`
 
+	CopyExecAgentSrc string `json:"copy_exec_agent_src"`
+	CopyExecAgentDst string `json:"copy_exec_agent_dst"`
+
 	ProjectCacheDuration    time.Duration `json:"project_cache_duration_ns"`
 	RefreshCapacityEvery    time.Duration `json:"get_capacity_refresh_every_ns"`
 	RefreshHealthCheckEvery time.Duration `json:"health_check_refresh_every_ns"`
@@ -63,6 +66,10 @@ type Options struct {
 
 func (o *Options) FillFromEnv(key string) {
 	utils.MustParseJSONFromEnv(o, key)
+
+	if o.CopyExecAgentSrc == "" {
+		o.CopyExecAgentSrc = utils.GetStringFromEnv("COPY_EXEC_AGENT_SRC", "")
+	}
 }
 
 func (o *Options) Validate() error {

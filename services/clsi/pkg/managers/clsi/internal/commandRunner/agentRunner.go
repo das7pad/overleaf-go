@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner/internal/seccomp"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
@@ -54,8 +56,22 @@ func containerName(namespace types.Namespace) string {
 	return "project-" + string(namespace)
 }
 
-func (a *agentRunner) Stop(namespace types.Namespace) error {
-	return a.stopContainer(namespace)
+func copyAgent(dst, src string) error {
+	if src == "" || src == "-" || dst == "" || dst == "-" {
+		// copying of the agent is not configured or explicitly disabled
+		return nil
+	}
+	agent, err := os.Open(src)
+	if err != nil {
+		return errors.Tag(err, "open agent for copying")
+	}
+	defer func() {
+		_ = agent.Close()
+	}()
+	if err = copyFile.Atomic(agent, dst, true); err != nil {
+		return errors.Tag(err, "copy agent")
+	}
+	return nil
 }
 
 func newAgentRunner(options *types.Options) (Runner, error) {
@@ -68,6 +84,13 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	}
 
 	o := options.DockerContainerOptions
+	{
+		err := copyAgent(options.CopyExecAgentDst, options.CopyExecAgentSrc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	runner := agentRunner{
 		dockerClient:            dockerClient,
 		d:                       &net.Dialer{},
@@ -113,6 +136,10 @@ const (
 	memoryLimitInBytes            = 1024 * 1024 * 1024 * 1024
 	clsiProcessEpochLabel         = "com.overleaf.clsi.process.epoch"
 )
+
+func (a *agentRunner) Stop(namespace types.Namespace) error {
+	return a.stopContainer(namespace)
+}
 
 func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
 	validUntil, err := a.createContainer(ctx, namespace, imageName)
