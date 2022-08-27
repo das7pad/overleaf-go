@@ -37,7 +37,7 @@ func (m *manager) emailSecurityAlert(ctx context.Context, u user.WithPublicInfo,
 	msg2 := "If this was you, you can ignore this email."
 	msg3 := fmt.Sprintf(
 		"If this was not you, we recommend getting in touch with our support team at %s to report this as potentially suspicious activity on your account.",
-		m.options.AdminEmail,
+		m.adminEmail,
 	)
 	e := email.Email{
 		Content: &email.NoCTAContent{
@@ -47,18 +47,18 @@ func (m *manager) emailSecurityAlert(ctx context.Context, u user.WithPublicInfo,
 			HelpLinks: []email.HelpLink{
 				{
 					Before: "We also encourage you to read our ",
-					URL: m.options.SiteURL.WithPath(
+					URL: m.siteURL.WithPath(
 						"/learn/how-to/Keeping_your_account_secure",
 					),
 					Label: "quick guide",
 					After: fmt.Sprintf(
 						" to keeping your %s account safe.",
-						m.options.AppName,
+						m.appName,
 					),
 				},
 			},
 		},
-		Subject: m.options.AppName + " security note: " + action,
+		Subject: m.appName + " security note: " + action,
 		To: email.Identity{
 			Address: u.Email,
 			DisplayName: spamSafe.GetSafeUserName(

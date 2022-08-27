@@ -42,7 +42,8 @@ type agentRunner struct {
 	dockerClient *client.Client
 	d            *net.Dialer
 
-	options                 *types.Options
+	allowedImages           []sharedTypes.ImageName
+	compileBaseDir          types.CompileDirBase
 	o                       types.DockerContainerOptions
 	seccompPolicy           string
 	currentClsiProcessEpoch string
@@ -87,7 +88,8 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	runner := agentRunner{
 		dockerClient:            dockerClient,
 		d:                       &net.Dialer{},
-		options:                 options,
+		allowedImages:           options.AllowedImages,
+		compileBaseDir:          options.CompileBaseDir,
 		tries:                   1 + o.AgentRestartAttempts,
 		currentClsiProcessEpoch: time.Now().UTC().Format(time.RFC3339Nano),
 	}
@@ -257,7 +259,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 
 	env := a.o.Env
 
-	if err := imageName.CheckIsAllowed(a.options.AllowedImages); err != nil {
+	if err := imageName.CheckIsAllowed(a.allowedImages); err != nil {
 		return nil, err
 	}
 	year := imageName.Year()
@@ -371,7 +373,7 @@ func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, op
 		Environment:        options.Environment,
 		ComputeTimeout:     options.ComputeTimeout,
 	}
-	socketPath := a.options.CompileBaseDir.
+	socketPath := a.compileBaseDir.
 		CompileDir(namespace).
 		Join(sharedTypes.PathName(constants.AgentSocketName))
 

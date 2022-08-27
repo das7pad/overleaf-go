@@ -27,8 +27,7 @@ import (
 
 func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
 	return r.
-		options.
-		CacheBaseDir.
+		cacheBaseDir.
 		NamespacedCacheDir(namespace).
 		Join(constants.ProjectSyncStateFilename)
 }

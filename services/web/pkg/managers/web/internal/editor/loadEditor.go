@@ -153,7 +153,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		}
 		response.JWTProject = s
 	}
-	if userId != m.options.SmokeTest.UserId {
+	if userId != m.smokeTestUserId {
 		go func() {
 			bCtx, done := context.WithTimeout(
 				context.Background(), 10*time.Second,
@@ -174,11 +174,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	response.Project.RootDocId = p.RootDoc.Id
 	response.RootDocPath = p.RootDoc.Path
 	response.User = *u
-	if u.IsAdmin {
-		response.AllowedImageNames = m.options.AllowedImageNames
-	} else {
-		response.AllowedImageNames = m.publicImageNames
-	}
+	response.AllowedImageNames = m.frontendAllowedImageNames
 	res.Data = &templates.ProjectEditorData{
 		AngularLayoutData: templates.AngularLayoutData{
 			CommonData: templates.CommonData{

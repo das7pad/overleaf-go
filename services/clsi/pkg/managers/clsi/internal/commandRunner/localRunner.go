@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,11 +29,11 @@ import (
 )
 
 func newLocalRunner(options *types.Options) (Runner, error) {
-	return &localRunner{options: options}, nil
+	return &localRunner{paths: options.Paths}, nil
 }
 
 type localRunner struct {
-	options *types.Options
+	paths types.Paths
 }
 
 func (l *localRunner) Stop(_ types.Namespace) error {
@@ -47,8 +47,8 @@ func (l *localRunner) Setup(_ context.Context, _ types.Namespace, _ sharedTypes.
 }
 
 func (l *localRunner) Run(ctx context.Context, namespace types.Namespace, options *types.CommandOptions) (types.ExitCode, error) {
-	compileDir := l.options.CompileBaseDir.CompileDir(namespace)
-	outputDir := l.options.OutputBaseDir.OutputDir(namespace)
+	compileDir := l.paths.CompileBaseDir.CompileDir(namespace)
+	outputDir := l.paths.OutputBaseDir.OutputDir(namespace)
 	args := make([]string, len(options.CommandLine))
 	for i, s := range options.CommandLine {
 		args[i] = ResolveTemplatePath(s, compileDir, outputDir)
@@ -84,11 +84,11 @@ func (l *localRunner) Run(ctx context.Context, namespace types.Namespace, option
 }
 
 func (l *localRunner) Resolve(path string, namespace types.Namespace) (sharedTypes.PathName, error) {
-	compileDir := string(l.options.CompileBaseDir.CompileDir(namespace))
+	compileDir := string(l.paths.CompileBaseDir.CompileDir(namespace))
 	if strings.HasPrefix(path, compileDir+"/") {
 		return sharedTypes.PathName(path[len(compileDir)+1:]), nil
 	}
-	outputDir := string(l.options.OutputBaseDir.OutputDir(namespace))
+	outputDir := string(l.paths.OutputBaseDir.OutputDir(namespace))
 	if strings.HasPrefix(path, outputDir+"/") {
 		return sharedTypes.PathName(path[len(outputDir)+1:]), nil
 	}

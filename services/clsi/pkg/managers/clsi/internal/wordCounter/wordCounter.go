@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,18 +42,18 @@ type Counter interface {
 
 func New(options *types.Options) Counter {
 	return &counter{
-		options: options,
+		compileBaseDir: options.CompileBaseDir,
 	}
 }
 
 type counter struct {
-	options *types.Options
+	compileBaseDir types.CompileDirBase
 }
 
 const timeout = 60 * time.Second
 
 func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.WordCountRequest, words *types.Words) error {
-	compileDir := c.options.CompileBaseDir.CompileDir(namespace)
+	compileDir := c.compileBaseDir.CompileDir(namespace)
 	doc := constants.CompileDirPlaceHolder + "/" + string(request.FileName)
 
 	files, err := commandRunner.CreateCommandOutput(compileDir)

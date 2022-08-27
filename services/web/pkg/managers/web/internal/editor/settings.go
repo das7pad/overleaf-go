@@ -56,7 +56,7 @@ func (m *manager) SetImageName(ctx context.Context, request *types.SetImageNameR
 	if err := request.ImageName.Validate(); err != nil {
 		return err
 	}
-	err := request.ImageName.CheckIsAllowed(m.options.AllowedImages)
+	err := request.ImageName.CheckIsAllowed(m.allowedImageNames)
 	if err != nil {
 		return err
 	}

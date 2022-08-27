@@ -24,6 +24,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 
@@ -76,28 +77,34 @@ type Manager interface {
 
 func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, fm filestore.Manager, pm project.Manager, um user.Manager, bundle ClsiManager) (Manager, error) {
 	return &manager{
-		bundle:  bundle,
-		baseURL: options.APIs.Clsi.URL.String(),
-		options: options,
-		client:  client,
-		dum:     dum,
-		fm:      fm,
-		pm:      pm,
-		pool:    &http.Client{},
-		um:      um,
+		bundle:                   bundle,
+		baseURL:                  options.APIs.Clsi.URL.String(),
+		persistenceCookieName:    options.APIs.Clsi.Persistence.CookieName,
+		persistenceTTL:           options.APIs.Clsi.Persistence.TTL,
+		pdfDownloadDomain:        options.PDFDownloadDomain,
+		teXLiveImageNameOverride: options.TeXLiveImageNameOverride,
+		client:                   client,
+		dum:                      dum,
+		fm:                       fm,
+		pm:                       pm,
+		pool:                     &http.Client{},
+		um:                       um,
 	}, nil
 }
 
 type manager struct {
-	bundle  ClsiManager
-	baseURL string
-	options *types.Options
-	client  redis.UniversalClient
-	dum     documentUpdater.Manager
-	fm      filestore.Manager
-	pm      project.Manager
-	pool    *http.Client
-	um      user.Manager
+	bundle                   ClsiManager
+	baseURL                  string
+	persistenceCookieName    string
+	persistenceTTL           time.Duration
+	pdfDownloadDomain        types.PDFDownloadDomain
+	teXLiveImageNameOverride sharedTypes.ImageName
+	client                   redis.UniversalClient
+	dum                      documentUpdater.Manager
+	fm                       filestore.Manager
+	pm                       project.Manager
+	pool                     *http.Client
+	um                       user.Manager
 }
 
 func unexpectedStatus(res *http.Response) error {
@@ -107,11 +114,11 @@ func unexpectedStatus(res *http.Response) error {
 }
 
 func (m *manager) getImageName(raw sharedTypes.ImageName) sharedTypes.ImageName {
-	if m.options.TeXLiveImageNameOverride == "" {
+	if m.teXLiveImageNameOverride == "" {
 		return raw
 	}
 	idx := strings.LastIndexByte(string(raw), '/')
-	return m.options.TeXLiveImageNameOverride + "/" + raw[idx+1:]
+	return m.teXLiveImageNameOverride + "/" + raw[idx+1:]
 }
 
 func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error {
@@ -286,7 +293,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			return errors.Tag(err, "cannot compile")
 		}
 		response.Timings.FetchContent = fetchContentPerf
-		response.PDFDownloadDomain = m.options.PDFDownloadDomain
+		response.PDFDownloadDomain = m.pdfDownloadDomain
 		return nil
 	}
 }

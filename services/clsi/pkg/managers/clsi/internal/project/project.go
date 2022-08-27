@@ -76,15 +76,15 @@ func newProject(
 	projectId sharedTypes.UUID,
 	userId sharedTypes.UUID,
 	m *managers,
-	options *types.Options,
+	paths types.Paths,
 ) (Project, error) {
 	namespace := types.Namespace(projectId.String() + "-" + userId.String())
 
 	createPaths := []string{
-		string(options.CacheBaseDir.NamespacedCacheDir(namespace)),
-		string(options.CompileBaseDir.CompileDir(namespace)),
-		string(options.OutputBaseDir.OutputDir(namespace)),
-		options.OutputBaseDir.OutputDir(namespace).CompileOutput(),
+		string(paths.CacheBaseDir.NamespacedCacheDir(namespace)),
+		string(paths.CompileBaseDir.CompileDir(namespace)),
+		string(paths.OutputBaseDir.OutputDir(namespace)),
+		paths.OutputBaseDir.OutputDir(namespace).CompileOutput(),
 	}
 	for _, path := range createPaths {
 		// Any parent directories have been created during manager init.

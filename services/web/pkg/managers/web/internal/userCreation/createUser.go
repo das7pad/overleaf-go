@@ -35,7 +35,7 @@ func (m *manager) createUser(ctx context.Context, u *user.ForCreation, pw types.
 		// go the long way and potentially fail again on insert.
 	}
 
-	hashedPw, err := login.HashPassword(pw, m.options.BcryptCost)
+	hashedPw, err := login.HashPassword(pw, m.bcryptCost)
 	if err != nil {
 		return err
 	}

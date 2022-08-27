@@ -52,13 +52,13 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 		Owner:   true,
 	})
 
-	projectURL := m.options.SiteURL.WithPath("/project/" + projectId.String())
+	projectURL := m.siteURL.WithPath("/project/" + projectId.String())
 	details := transferOwnershipEmailDetails{
 		previousOwner: previousOwner,
 		newOwner:      newOwner,
 		projectName:   name,
 		projectURL:    projectURL,
-		emailOptions:  m.options.EmailOptions(),
+		emailOptions:  m.emailOptions,
 	}
 	previousOwnerErr := m.ownershipTransferConfirmationPreviousOwner(
 		ctx, details,
@@ -106,7 +106,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d t
 			CTAText: "View project",
 			CTAURL:  d.projectURL,
 		},
-		Subject: "Project ownership transfer - " + m.options.AppName,
+		Subject: "Project ownership transfer - " + m.appName,
 		To: email.Identity{
 			Address: d.newOwner.Email,
 			DisplayName: spamSafe.GetSafeUserName(
@@ -129,7 +129,7 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 	msg2 := fmt.Sprintf(
 		"If you haven't asked to change the owner of %s, please get in touch with us via %s.",
 		spamSafe.GetSafeProjectName(d.projectName, "your project"),
-		m.options.AdminEmail,
+		m.adminEmail,
 	)
 
 	e := email.Email{
@@ -143,7 +143,7 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 			CTAURL:  d.projectURL,
 			CTAText: "View project",
 		},
-		Subject: "Project ownership transfer - " + m.options.AppName,
+		Subject: "Project ownership transfer - " + m.appName,
 		To: email.Identity{
 			Address: d.previousOwner.Email,
 			DisplayName: spamSafe.GetSafeUserName(

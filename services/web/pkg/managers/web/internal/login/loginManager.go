@@ -25,6 +25,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -54,22 +55,30 @@ type Manager interface {
 
 func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
 	return &manager{
-		emailOptions:    options.EmailOptions(),
 		jwtLoggedInUser: jwtLoggedInUser,
-		options:         options,
 		oTTm:            oneTimeToken.New(db),
-		ps:              ps,
 		sm:              sm,
 		um:              um,
+
+		adminEmail:   options.AdminEmail,
+		appName:      options.AppName,
+		bcryptCost:   options.BcryptCost,
+		emailOptions: options.EmailOptions(),
+		ps:           ps,
+		siteURL:      options.SiteURL,
 	}
 }
 
 type manager struct {
-	emailOptions    *types.EmailOptions
 	jwtLoggedInUser jwtHandler.JWTHandler
-	options         *types.Options
 	oTTm            oneTimeToken.Manager
-	ps              *templates.PublicSettings
 	sm              session.Manager
 	um              user.Manager
+
+	adminEmail   sharedTypes.Email
+	appName      string
+	bcryptCost   int
+	emailOptions *types.EmailOptions
+	ps           *templates.PublicSettings
+	siteURL      sharedTypes.URL
 }

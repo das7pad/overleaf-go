@@ -29,7 +29,7 @@ import (
 )
 
 func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest, response *types.RegisterUserResponse) error {
-	if m.options.RegistrationDisabled {
+	if m.registrationDisabled {
 		return &errors.UnprocessableEntityError{
 			Msg: "registration is disabled",
 		}
@@ -64,7 +64,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 	}
 
 	go func() {
-		errEmail := m.sendWelcomeEmail(r.Email, m.options.SiteURL.
+		errEmail := m.sendWelcomeEmail(r.Email, m.siteURL.
 			WithPath("/user/emails/confirm").
 			WithQuery(url.Values{
 				"token": {string(u.OneTimeToken)},

@@ -38,20 +38,20 @@ type Manager interface {
 
 func New(options *types.Options, pm project.Manager, um user.Manager, dum documentUpdater.Manager, fm filestore.Manager) Manager {
 	return &manager{
-		dum:     dum,
-		fm:      fm,
-		pm:      pm,
-		um:      um,
-		options: options,
+		dum:          dum,
+		fm:           fm,
+		pm:           pm,
+		um:           um,
+		defaultImage: options.DefaultImage,
 	}
 }
 
 type manager struct {
-	dum     documentUpdater.Manager
-	fm      filestore.Manager
-	pm      project.Manager
-	um      user.Manager
-	options *types.Options
+	dum          documentUpdater.Manager
+	fm           filestore.Manager
+	pm           project.Manager
+	um           user.Manager
+	defaultImage sharedTypes.ImageName
 }
 
 func (m *manager) purgeFilestoreData(projectId sharedTypes.UUID) error {

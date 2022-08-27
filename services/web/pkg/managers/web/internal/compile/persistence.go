@@ -36,7 +36,7 @@ func getPersistenceKey(options types.SignedCompileProjectRequestOptions) string 
 }
 
 func (m *manager) persistenceDisabled() bool {
-	return m.options.APIs.Clsi.Persistence.CookieName == ""
+	return m.persistenceCookieName == ""
 }
 
 func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options types.SignedCompileProjectRequestOptions) types.ClsiServerId {
@@ -45,13 +45,13 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 	}
 	var clsiServerId types.ClsiServerId
 	for _, cookie := range res.Cookies() {
-		if cookie.Name == m.options.APIs.Clsi.Persistence.CookieName {
+		if cookie.Name == m.persistenceCookieName {
 			clsiServerId = types.ClsiServerId(cookie.Value)
 			break
 		}
 	}
 	k := getPersistenceKey(options)
-	persistenceTTL := m.options.APIs.Clsi.Persistence.TTL
+	persistenceTTL := m.persistenceTTL
 	if clsiServerId == "" {
 		// Bump expiry of persistence in the background.
 		// It's ok to switch the backend occasionally.
@@ -104,7 +104,7 @@ func (m *manager) clearServerId(ctx context.Context, options types.SignedCompile
 func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, types.ClsiServerId, error) {
 	if clsiServerId != "" {
 		r.AddCookie(&http.Cookie{
-			Name:  m.options.APIs.Clsi.Persistence.CookieName,
+			Name:  m.persistenceCookieName,
 			Value: string(clsiServerId),
 		})
 	}

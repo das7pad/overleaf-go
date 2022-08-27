@@ -71,7 +71,7 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 		return err
 	}
 
-	setPasswordURL := m.options.SiteURL.
+	setPasswordURL := m.siteURL.
 		WithPath("/user/activate").
 		WithQuery(url.Values{
 			"token":   {string(u.OneTimeToken)},
@@ -79,10 +79,7 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 		})
 
 	response.SetNewPasswordURL = setPasswordURL
-	if err := m.sendActivateEmail(ctx, r.Email, setPasswordURL); err != nil {
-		return err
-	}
-	return nil
+	return m.sendActivateEmail(ctx, r.Email, setPasswordURL)
 }
 
 func (m *manager) AdminRegisterUsersPage(_ context.Context, request *types.AdminRegisterUsersPageRequest, response *types.AdminRegisterUsersPageResponse) error {

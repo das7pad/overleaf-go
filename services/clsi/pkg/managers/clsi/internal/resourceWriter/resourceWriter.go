@@ -55,14 +55,18 @@ func New(options *types.Options, finder outputFileFinder.Finder) (ResourceWriter
 	}
 
 	return &resourceWriter{
-		options:  options,
-		finder:   finder,
-		urlCache: c,
+		cacheBaseDir:          options.CacheBaseDir,
+		compileBaseDir:        options.CompileBaseDir,
+		parallelResourceWrite: options.ParallelResourceWrite,
+		finder:                finder,
+		urlCache:              c,
 	}, nil
 }
 
 type resourceWriter struct {
-	options *types.Options
+	cacheBaseDir          types.CacheBaseDir
+	compileBaseDir        types.CompileDirBase
+	parallelResourceWrite int64
 
 	finder outputFileFinder.Finder
 
@@ -81,7 +85,7 @@ func (r *resourceWriter) GetState(namespace types.Namespace) (types.SyncState, e
 }
 
 func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
-	dir := r.options.CompileBaseDir.CompileDir(namespace)
+	dir := r.compileBaseDir.CompileDir(namespace)
 	var cache ResourceCache
 	var err error
 	switch {
@@ -128,7 +132,7 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 }
 
 func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Namespace) error {
-	compileDir := r.options.CompileBaseDir.CompileDir(namespace)
+	compileDir := r.compileBaseDir.CompileDir(namespace)
 	errClearCompileDir := os.RemoveAll(string(compileDir))
 	errClearCache := r.urlCache.ClearForProject(projectId)
 
@@ -192,7 +196,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, r
 	}
 
 	eg, workCtx := errgroup.WithContext(ctx)
-	concurrency := r.options.ParallelResourceWrite
+	concurrency := r.parallelResourceWrite
 
 	work := make(chan *types.Resource, concurrency*3)
 	eg.Go(func() error {

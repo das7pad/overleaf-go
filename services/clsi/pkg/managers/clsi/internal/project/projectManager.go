@@ -100,7 +100,7 @@ func NewManager(options *types.Options) (Manager, error) {
 			writer:       writer,
 		},
 
-		options: options,
+		paths: options.Paths,
 	}, nil
 }
 
@@ -119,7 +119,7 @@ type manager struct {
 	l        sync.RWMutex
 	projects projectsMap
 
-	options *types.Options
+	paths types.Paths
 
 	*managers
 }
@@ -209,7 +209,7 @@ func (m *manager) getOrCreateProject(ctx context.Context, projectId sharedTypes.
 	}
 	deadProject := p
 
-	newP, err := newProject(projectId, userId, m.managers, m.options)
+	newP, err := newProject(projectId, userId, m.managers, m.paths)
 	if err != nil {
 		return nil, err
 	}

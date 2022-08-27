@@ -36,20 +36,20 @@ func (m *manager) sendWelcomeEmail(to sharedTypes.Email, confirmEmailURL *shared
 			PublicOptions: m.emailOptions.Public,
 			Message: email.Message{
 				fmt.Sprintf(
-					"Thanks for signing up to %s!", m.options.AppName,
+					"Thanks for signing up to %s!", m.appName,
 				),
 			},
 			HelpLinks: []email.HelpLink{
 				{
 					Before: "If you ever get lost, you can ",
-					URL:    m.options.SiteURL.WithPath("/login"),
+					URL:    m.siteURL.WithPath("/login"),
 					Label:  "log in again",
 					After:  withEmailHint,
 				},
 				{
 					Before: "If you're new to LaTeX, take a look at our ",
 					Label:  "Help Guides",
-					URL: m.options.SiteURL.WithPath(
+					URL: m.siteURL.WithPath(
 						"/learn",
 					),
 					After: ".",
@@ -57,13 +57,13 @@ func (m *manager) sendWelcomeEmail(to sharedTypes.Email, confirmEmailURL *shared
 			},
 			CTAIntro: fmt.Sprintf(
 				"Please also take a moment to confirm your email address for %s:",
-				m.options.AppName,
+				m.appName,
 			),
 			CTAURL:  confirmEmailURL,
 			CTAText: "Confirm Email",
-			Title:   "Welcome to " + m.options.AppName,
+			Title:   "Welcome to " + m.appName,
 		},
-		Subject: "Welcome to " + m.options.AppName,
+		Subject: "Welcome to " + m.appName,
 		To: email.Identity{
 			Address: to,
 		},

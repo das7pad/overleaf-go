@@ -60,25 +60,25 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 			Message: email.Message{
 				fmt.Sprintf(
 					"Please confirm that you have added a new email, %s, to your %s account.",
-					r.Email, m.options.AppName,
+					r.Email, m.appName,
 				),
 			},
 			SecondaryMessage: email.Message{
 				"If you did not request this, you can simply ignore this message.",
 				fmt.Sprintf(
 					"If you have any questions or trouble confirming your email address, please get in touch with our support team at %s.",
-					m.options.AdminEmail,
+					m.adminEmail,
 				),
 			},
 			Title:   "Confirm Email",
 			CTAText: "Confirm Email",
-			CTAURL: m.options.SiteURL.
+			CTAURL: m.siteURL.
 				WithPath("/user/emails/confirm").
 				WithQuery(url.Values{
 					"token": {string(token)},
 				}),
 		},
-		Subject: "Confirm Email - " + m.options.AppName,
+		Subject: "Confirm Email - " + m.appName,
 		To: email.Identity{
 			Address:     r.Email,
 			DisplayName: u.DisplayName(),

@@ -100,8 +100,11 @@ func New(options *types.Options) (Manager, error) {
 	}
 
 	return &manager{
-		options:       options,
-		maxSystemLoad: maxSystemLoad,
+		refreshCapacityEvery:    options.RefreshCapacityEvery,
+		refreshHealthCheckEvery: options.RefreshHealthCheckEvery,
+		projectCacheDuration:    options.ProjectCacheDuration,
+		healthCheckImageName:    options.AllowedImages[0],
+		maxSystemLoad:           maxSystemLoad,
 
 		healthCheckMux:       sync.Mutex{},
 		healthCheckExpiresAt: time.Now(),
@@ -114,8 +117,11 @@ func New(options *types.Options) (Manager, error) {
 }
 
 type manager struct {
-	options       *types.Options
-	maxSystemLoad float64
+	refreshHealthCheckEvery time.Duration
+	refreshCapacityEvery    time.Duration
+	projectCacheDuration    time.Duration
+	healthCheckImageName    sharedTypes.ImageName
+	maxSystemLoad           float64
 
 	healthCheckMux       sync.Mutex
 	healthCheckErr       error
@@ -167,7 +173,7 @@ func (m *manager) GetCapacity() (int64, error) {
 	capacity, err := m.refreshGetCapacity()
 	m.getCapacityCapacity = capacity
 	m.getCapacityErr = err
-	m.getCapacityExpiresAt = time.Now().Add(m.options.GetCapacityRefreshEvery)
+	m.getCapacityExpiresAt = time.Now().Add(m.refreshCapacityEvery)
 	return capacity, err
 }
 
@@ -199,7 +205,7 @@ func (m *manager) HealthCheck(ctx context.Context) error {
 		return err
 	}
 	m.healthCheckErr = err
-	m.healthCheckExpiresAt = time.Now().Add(m.options.HealthCheckRefreshEvery)
+	m.healthCheckExpiresAt = time.Now().Add(m.refreshHealthCheckEvery)
 	return err
 }
 
@@ -215,7 +221,7 @@ Hello world
 			Check:        types.NoCheck,
 			CompileGroup: sharedTypes.StandardCompileGroup,
 			Compiler:     sharedTypes.PDFLaTeX,
-			ImageName:    m.options.AllowedImages[0],
+			ImageName:    m.healthCheckImageName,
 			SyncType:     types.SyncTypeFull,
 			Timeout:      sharedTypes.ComputeTimeout(10 * time.Second),
 		},
@@ -264,10 +270,10 @@ Hello world
 
 func (m *manager) PeriodicCleanup(ctx context.Context) {
 	for {
-		nextCleanup := time.NewTimer(m.options.ProjectCacheDuration / 2)
+		nextCleanup := time.NewTimer(m.projectCacheDuration / 2)
 		err := m.CleanupOldProjects(
 			ctx,
-			time.Now().Add(-m.options.ProjectCacheDuration),
+			time.Now().Add(-m.projectCacheDuration),
 		)
 		if err != nil && err != ctx.Err() {
 			log.Printf("cleanup failed: %s", err)

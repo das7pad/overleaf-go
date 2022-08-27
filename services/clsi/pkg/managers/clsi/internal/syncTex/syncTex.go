@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -50,14 +50,14 @@ type Manager interface {
 
 func New(options *types.Options, runner commandRunner.Runner) Manager {
 	return &manager{
-		options: options,
-		runner:  runner,
+		paths:  options.Paths,
+		runner: runner,
 	}
 }
 
 type manager struct {
-	options *types.Options
-	runner  commandRunner.Runner
+	paths  types.Paths
+	runner commandRunner.Runner
 }
 
 func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
@@ -153,8 +153,8 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 const timeout = sharedTypes.ComputeTimeout(60 * time.Second)
 
 func (m *manager) runSyncTex(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request types.SyncTexRequestCommon) ([]string, error) {
-	compileDir := m.options.CompileBaseDir.CompileDir(namespace)
-	outputDir := m.options.OutputBaseDir.OutputDir(namespace)
+	compileDir := m.paths.CompileBaseDir.CompileDir(namespace)
+	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
 	syncTexOptions := request.Options()
 
 	p := commandRunner.ResolveTemplatePath(

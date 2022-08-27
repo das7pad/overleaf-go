@@ -37,24 +37,26 @@ type Manager interface {
 
 func New(options *types.Options, client redis.UniversalClient, dm docManager.Manager) Manager {
 	return &manager{
-		client: client,
-		dm:     dm,
-		o:      options,
+		client:                       client,
+		dm:                           dm,
+		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
+		workersPerShard:              options.WorkersPerShard,
 	}
 }
 
 type manager struct {
-	client redis.UniversalClient
-	dm     docManager.Manager
-	o      *types.Options
+	client                       redis.UniversalClient
+	dm                           docManager.Manager
+	pendingUpdatesListShardCount int
+	workersPerShard              int
 }
 
 func (m *manager) Start(ctx context.Context) {
-	for i := 0; i < m.o.PendingUpdatesListShardCount; i++ {
+	for i := 0; i < m.pendingUpdatesListShardCount; i++ {
 		queue := types.PendingUpdatesListKey(i).String()
 		s := &shard{
 			queue:   queue,
-			workers: m.o.WorkersPerShard,
+			workers: m.workersPerShard,
 			client:  m.client,
 			dm:      m.dm,
 		}

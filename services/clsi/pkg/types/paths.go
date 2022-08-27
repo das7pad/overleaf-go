@@ -80,3 +80,9 @@ func (d CompileOutputDir) Join(name sharedTypes.PathName) string {
 func (d CompileOutputDir) JoinDir(name sharedTypes.DirName) string {
 	return string(d) + "/" + string(name)
 }
+
+type Paths struct {
+	CacheBaseDir   CacheBaseDir   `json:"cache_base_dir"`
+	CompileBaseDir CompileDirBase `json:"compile_base_dir"`
+	OutputBaseDir  OutputBaseDir  `json:"output_base_dir"`
+}

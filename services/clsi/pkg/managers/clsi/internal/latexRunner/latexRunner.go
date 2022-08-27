@@ -36,11 +36,16 @@ type LatexRunner interface {
 }
 
 func New(options *types.Options) LatexRunner {
-	return &latexRunner{options: options}
+	n := len(options.LatexBaseEnv)
+	return &latexRunner{
+		baseEnv:        options.LatexBaseEnv[0:n:n],
+		compileBaseDir: options.CompileBaseDir,
+	}
 }
 
 type latexRunner struct {
-	options *types.Options
+	baseEnv        types.Environment
+	compileBaseDir types.CompileDirBase
 }
 
 var preProcessedFileTypes = []sharedTypes.FileType{
@@ -68,7 +73,7 @@ func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, 
 		status = constants.Terminated
 	default:
 		cmd.CommandOutputFiles.Cleanup(
-			r.options.CompileBaseDir.CompileDir(namespace),
+			r.compileBaseDir.CompileDir(namespace),
 		)
 		return err
 	}
@@ -110,7 +115,7 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 		constants.CompileDirPlaceHolder + "/" + mainFile,
 	}
 
-	env := r.options.LatexBaseEnv
+	env := r.baseEnv
 
 	isTexFile := request.RootResourcePath.Type() == "tex"
 	checkMode := request.Options.Check

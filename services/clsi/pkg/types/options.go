@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -58,8 +58,8 @@ type Options struct {
 	AllowedImages []sharedTypes.ImageName `json:"allowed_images"`
 
 	ProjectCacheDuration    time.Duration `json:"project_cache_duration_ns"`
-	GetCapacityRefreshEvery time.Duration `json:"get_capacity_refresh_every_ns"`
-	HealthCheckRefreshEvery time.Duration `json:"health_check_refresh_every_ns"`
+	RefreshCapacityEvery    time.Duration `json:"get_capacity_refresh_every_ns"`
+	RefreshHealthCheckEvery time.Duration `json:"health_check_refresh_every_ns"`
 
 	ParallelOutputWrite       int64 `json:"parallel_output_write"`
 	ParallelResourceWrite     int64 `json:"parallel_resource_write"`
@@ -68,14 +68,12 @@ type Options struct {
 	URLDownloadRetries int64         `json:"url_download_retries"`
 	URLDownloadTimeout time.Duration `json:"url_download_timeout_ns"`
 
-	CacheBaseDir   CacheBaseDir   `json:"cache_base_dir"`
-	CompileBaseDir CompileDirBase `json:"compile_base_dir"`
-	OutputBaseDir  OutputBaseDir  `json:"output_base_dir"`
+	Paths
 
 	LatexBaseEnv Environment `json:"latex_base_env"`
 
-	Runner                 string `json:"runner"`
-	DockerContainerOptions `json:"docker_container_options"`
+	Runner                 string                 `json:"runner"`
+	DockerContainerOptions DockerContainerOptions `json:"docker_container_options"`
 }
 
 func (o *Options) Validate() error {
@@ -131,12 +129,12 @@ func (o *Options) Validate() error {
 				maxComputeTime.String(),
 		}
 	}
-	if o.GetCapacityRefreshEvery < 1 {
+	if o.RefreshCapacityEvery < 1 {
 		return &errors.ValidationError{
 			Msg: "get_capacity_refresh_every_ns cannot be lower than 1",
 		}
 	}
-	if o.HealthCheckRefreshEvery < 1 {
+	if o.RefreshHealthCheckEvery < 1 {
 		return &errors.ValidationError{
 			Msg: "health_check_refresh_every_ns cannot be lower than 1",
 		}

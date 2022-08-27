@@ -76,7 +76,7 @@ func (m *manager) changePassword(ctx context.Context, u user.ForPasswordChange, 
 	if err := password.CheckForEmailMatch(u.Email); err != nil {
 		return err
 	}
-	hashedPassword, err := HashPassword(password, m.options.BcryptCost)
+	hashedPassword, err := HashPassword(password, m.bcryptCost)
 	if err != nil {
 		return err
 	}

@@ -67,17 +67,17 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 	return &manager{
-		options:         options,
-		appliedOps:      a,
-		clientTracking:  ct,
-		editorEvents:    e,
-		documentUpdater: d,
-		webApi:          w,
+		appliedOps:              a,
+		clientTracking:          ct,
+		editorEvents:            e,
+		documentUpdater:         d,
+		webApi:                  w,
+		gracefulShutdownDelay:   options.GracefulShutdown.Delay,
+		gracefulShutdownTimeout: options.GracefulShutdown.Timeout,
 	}, nil
 }
 
 type manager struct {
-	options      *types.Options
 	shuttingDown atomic.Bool
 
 	clientTracking  clientTracking.Manager
@@ -85,6 +85,9 @@ type manager struct {
 	editorEvents    editorEvents.Manager
 	documentUpdater documentUpdater.Manager
 	webApi          webApi.Manager
+
+	gracefulShutdownDelay   time.Duration
+	gracefulShutdownTimeout time.Duration
 }
 
 func (m *manager) IsShuttingDown() bool {
@@ -100,11 +103,11 @@ func (m *manager) InitiateGracefulShutdown() {
 	m.shuttingDown.Store(true)
 
 	// Wait for the LB to pick up the 500 and stop sending new traffic to us.
-	time.Sleep(m.options.GracefulShutdown.Delay)
+	time.Sleep(m.gracefulShutdownDelay)
 }
 
 func (m *manager) TriggerGracefulReconnect() {
-	deadLine := time.Now().Add(m.options.GracefulShutdown.Timeout)
+	deadLine := time.Now().Add(m.gracefulShutdownTimeout)
 	for m.editorEvents.TriggerGracefulReconnect() > 0 &&
 		time.Now().Before(deadLine) {
 

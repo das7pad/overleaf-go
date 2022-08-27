@@ -36,12 +36,12 @@ type Finder interface {
 
 func New(options *types.Options) Finder {
 	return &finder{
-		options: options,
+		maxFilesAndDirsPerProject: options.MaxFilesAndDirsPerProject,
 	}
 }
 
 type finder struct {
-	options *types.Options
+	maxFilesAndDirsPerProject int64
 }
 
 var ErrProjectHasTooManyFilesAndDirectories = &errors.InvalidStateError{
@@ -53,7 +53,7 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 	fileStats := make(fileStatsMap)
 	parent := string(dir)
 	parentLength := len(parent) + 1
-	maxEntries := f.options.MaxFilesAndDirsPerProject
+	maxEntries := f.maxFilesAndDirsPerProject
 	nEntries := int64(0)
 	err := filepath.WalkDir(parent, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

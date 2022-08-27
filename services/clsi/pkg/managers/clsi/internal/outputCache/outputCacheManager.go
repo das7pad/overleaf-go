@@ -48,14 +48,16 @@ type Manager interface {
 
 func New(options *types.Options, finder outputFileFinder.Finder) Manager {
 	return &manager{
-		finder:  finder,
-		options: options,
+		finder:              finder,
+		paths:               options.Paths,
+		parallelOutputWrite: options.ParallelOutputWrite,
 	}
 }
 
 type manager struct {
-	finder  outputFileFinder.Finder
-	options *types.Options
+	finder              outputFileFinder.Finder
+	paths               types.Paths
+	parallelOutputWrite int64
 }
 
 type HasOutputPDF bool
@@ -65,8 +67,8 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 	if err != nil {
 		return nil, false, err
 	}
-	compileDir := m.options.CompileBaseDir.CompileDir(namespace)
-	outputDir := m.options.OutputBaseDir.OutputDir(namespace)
+	compileDir := m.paths.CompileBaseDir.CompileDir(namespace)
+	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
 	compileOutputDir := outputDir.CompileOutputDir(buildId)
 	dirHelper := createdDirs{
 		base:  compileOutputDir,
@@ -82,7 +84,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 	}
 
 	eg, pCtx := errgroup.WithContext(ctx)
-	concurrency := m.options.ParallelOutputWrite
+	concurrency := m.parallelOutputWrite
 	work := make(chan sharedTypes.PathName, 3*concurrency)
 	outputFiles := make(types.OutputFiles, 0)
 	hasOutputPDF := HasOutputPDF(false)
@@ -168,7 +170,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 }
 
 func (m *manager) Clear(namespace types.Namespace) error {
-	outputDir := m.options.OutputBaseDir.OutputDir(namespace)
+	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
 	return os.RemoveAll(string(outputDir))
 }
 

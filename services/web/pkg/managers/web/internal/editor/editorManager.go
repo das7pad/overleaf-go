@@ -59,43 +59,55 @@ type Manager interface {
 }
 
 func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler, cm compile.Manager) Manager {
-	publicImageNames := make([]templates.AllowedImageName, 0)
+	frontendAllowedImageNames := make([]templates.AllowedImageName, 0)
 	for _, allowedImageName := range options.AllowedImageNames {
 		if !allowedImageName.AdminOnly {
-			publicImageNames = append(publicImageNames, allowedImageName)
+			frontendAllowedImageNames = append(frontendAllowedImageNames, allowedImageName)
 		}
 	}
 	return &manager{
-		client:           client,
-		cm:               cm,
-		mm:               mm,
-		editorEvents:     editorEvents,
-		fm:               fm,
-		jwtProject:       projectJWTHandler,
-		jwtLoggedInUser:  loggedInUserJWTHandler,
-		options:          options,
-		pm:               pm,
-		ps:               ps,
-		publicImageNames: publicImageNames,
-		um:               um,
-		wsBootstrap:      wsBootstrap.New(options.JWT.RealTime),
+		client:          client,
+		cm:              cm,
+		mm:              mm,
+		editorEvents:    editorEvents,
+		fm:              fm,
+		jwtProject:      projectJWTHandler,
+		jwtLoggedInUser: loggedInUserJWTHandler,
+		pm:              pm,
+		um:              um,
+		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
+
+		adminEmail:                options.AdminEmail,
+		appName:                   options.AppName,
+		allowedImageNames:         options.AllowedImages,
+		emailOptions:              options.EmailOptions(),
+		frontendAllowedImageNames: frontendAllowedImageNames,
+		ps:                        ps,
+		siteURL:                   options.SiteURL,
+		smokeTestUserId:           options.SmokeTest.UserId,
 	}
 }
 
 type manager struct {
-	client           redis.UniversalClient
-	cm               compile.Manager
-	mm               message.Manager
-	editorEvents     channel.Writer
-	fm               filestore.Manager
-	jwtProject       jwtHandler.JWTHandler
-	jwtLoggedInUser  jwtHandler.JWTHandler
-	options          *types.Options
-	pm               project.Manager
-	ps               *templates.PublicSettings
-	publicImageNames []templates.AllowedImageName
-	um               user.Manager
-	wsBootstrap      jwtHandler.JWTHandler
+	client          redis.UniversalClient
+	cm              compile.Manager
+	mm              message.Manager
+	editorEvents    channel.Writer
+	fm              filestore.Manager
+	jwtProject      jwtHandler.JWTHandler
+	jwtLoggedInUser jwtHandler.JWTHandler
+	pm              project.Manager
+	um              user.Manager
+	wsBootstrap     jwtHandler.JWTHandler
+
+	adminEmail                sharedTypes.Email
+	appName                   string
+	allowedImageNames         []sharedTypes.ImageName
+	emailOptions              *types.EmailOptions
+	frontendAllowedImageNames []templates.AllowedImageName
+	ps                        *templates.PublicSettings
+	siteURL                   sharedTypes.URL
+	smokeTestUserId           sharedTypes.UUID
 }
 
 func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, args ...interface{}) {

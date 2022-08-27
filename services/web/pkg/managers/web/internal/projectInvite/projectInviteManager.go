@@ -50,25 +50,29 @@ type Manager interface {
 func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, editorEvents channel.Writer, pm project.Manager, um user.Manager) Manager {
 	return &manager{
 		editorEvents: editorEvents,
-		emailOptions: options.EmailOptions(),
 		nm:           notification.New(db),
-		options:      options,
 		pim:          projectInvite.New(db),
 		pm:           pm,
-		ps:           ps,
 		um:           um,
+
+		appName:      options.AppName,
+		emailOptions: options.EmailOptions(),
+		ps:           ps,
+		siteURL:      options.SiteURL,
 	}
 }
 
 type manager struct {
 	editorEvents channel.Writer
-	emailOptions *types.EmailOptions
 	nm           notification.Manager
-	options      *types.Options
 	pim          projectInvite.Manager
 	pm           project.Manager
-	ps           *templates.PublicSettings
 	um           user.Manager
+
+	appName      string
+	emailOptions *types.EmailOptions
+	ps           *templates.PublicSettings
+	siteURL      sharedTypes.URL
 }
 
 func getKey(inviteId sharedTypes.UUID) string {
@@ -123,7 +127,7 @@ func (m *manager) resendNotification(ctx context.Context, d *projectInviteDetail
 }
 
 func (m *manager) sendEmail(ctx context.Context, d *projectInviteDetails) error {
-	inviteURL := d.GetInviteURL(m.options.SiteURL)
+	inviteURL := d.GetInviteURL(m.siteURL)
 	p := d.project
 	s := d.sender
 	u := d.user
@@ -152,7 +156,7 @@ func (m *manager) sendEmail(ctx context.Context, d *projectInviteDetails) error 
 				Description: fmt.Sprintf(
 					"Join %s at %s",
 					spamSafe.GetSafeProjectName(p.Name, "project"),
-					m.options.AppName,
+					m.appName,
 				),
 			},
 		},

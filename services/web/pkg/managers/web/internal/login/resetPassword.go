@@ -86,7 +86,7 @@ func (m *manager) SetPasswordPage(_ context.Context, request *types.SetPasswordP
 		q = url.Values{"email": {string(e)}}
 	}
 	if request.Token == "" && request.Session.PasswordResetToken == "" {
-		response.Redirect = m.options.SiteURL.
+		response.Redirect = m.siteURL.
 			WithPath("/user/password/reset").
 			WithQuery(q).
 			String()
@@ -96,7 +96,7 @@ func (m *manager) SetPasswordPage(_ context.Context, request *types.SetPasswordP
 			return err
 		}
 		request.Session.PasswordResetToken = request.Token
-		response.Redirect = m.options.SiteURL.
+		response.Redirect = m.siteURL.
 			WithPath("/user/password/set").
 			WithQuery(q).
 			String()
@@ -143,7 +143,7 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 			Message: email.Message{
 				fmt.Sprintf(
 					"We got a request to reset your %s password.",
-					m.options.AppName,
+					m.appName,
 				),
 			},
 			SecondaryMessage: email.Message{
@@ -152,14 +152,14 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 			},
 			Title:   "Password Reset",
 			CTAText: "Reset password",
-			CTAURL: m.options.SiteURL.
+			CTAURL: m.siteURL.
 				WithPath("/user/password/set").
 				WithQuery(url.Values{
 					"passwordResetToken": {string(token)},
 					"email":              {string(u.Email)},
 				}),
 		},
-		Subject: "Password Reset - " + m.options.AppName,
+		Subject: "Password Reset - " + m.appName,
 		To: email.Identity{
 			Address:     u.Email,
 			DisplayName: u.DisplayName(),

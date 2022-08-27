@@ -37,14 +37,14 @@ func (m *manager) sendActivateEmail(ctx context.Context, to sharedTypes.Email, s
 			HelpLinks: []email.HelpLink{
 				{
 					Before: "Congratulations, you've just had an account created for you on ",
-					Label:  m.options.AppName,
-					URL:    &m.options.SiteURL,
+					Label:  m.appName,
+					URL:    &m.siteURL,
 					After:  withEmailHint,
 				},
 				{
 					Before: "If you're new to LaTeX, take a look at our ",
 					Label:  "Help Guides",
-					URL: m.options.SiteURL.WithPath(
+					URL: m.siteURL.WithPath(
 						"/learn",
 					),
 					After: ".",
@@ -56,15 +56,15 @@ func (m *manager) sendActivateEmail(ctx context.Context, to sharedTypes.Email, s
 			SecondaryMessage: email.Message{
 				fmt.Sprintf(
 					"If you have any questions or problems, please contact %s.",
-					m.options.AdminEmail,
+					m.adminEmail,
 				),
 			},
 			Title: fmt.Sprintf(
-				"Activate your %s Account", m.options.AppName,
+				"Activate your %s Account", m.appName,
 			),
 		},
 		Subject: fmt.Sprintf(
-			"Activate your %s Account", m.options.AppName,
+			"Activate your %s Account", m.appName,
 		),
 		To: email.Identity{
 			Address: to,
