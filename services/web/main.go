@@ -61,7 +61,7 @@ func main() {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
-	wm, err := web.New(o.options, db, redisClient, "http://"+o.address, nil)
+	wm, err := web.New(&o.options, db, redisClient, "http://"+o.address, nil)
 	if err != nil {
 		panic(err)
 	}

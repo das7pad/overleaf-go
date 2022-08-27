@@ -31,15 +31,13 @@ type webOptions struct {
 	address      string
 	corsOptions  httpUtils.CORSOptions
 	redisOptions *redis.UniversalOptions
-	options      *types.Options
+	options      types.Options
 
 	dryRunCron bool
 }
 
 func getOptions() *webOptions {
-	o := &webOptions{
-		options: &types.Options{},
-	}
+	o := &webOptions{}
 	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()

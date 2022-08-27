@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,10 +18,15 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
 type Options struct {
 	LRUSize int `json:"lru_size"`
+}
+
+func (o *Options) FillFromEnv(key string) {
+	utils.MustParseJSONFromEnv(o, key)
 }
 
 func (o *Options) Validate() error {

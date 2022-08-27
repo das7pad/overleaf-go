@@ -28,7 +28,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
-	envUtils "github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -57,28 +56,28 @@ func main() {
 	localUrl := "http://" + addr
 
 	clsiOptions := clsiTypes.Options{}
-	envUtils.MustParseJSONFromEnv(&clsiOptions, "CLSI_OPTIONS")
+	clsiOptions.FillFromEnv("CLSI_OPTIONS")
 	clsiManager, err := clsi.New(&clsiOptions)
 	if err != nil {
 		panic(errors.Tag(err, "clsi setup"))
 	}
 
 	dumOptions := documentUpdaterTypes.Options{}
-	envUtils.MustParseJSONFromEnv(&dumOptions, "DOCUMENT_UPDATER_OPTIONS")
+	dumOptions.FillFromEnv("DOCUMENT_UPDATER_OPTIONS")
 	dum, err := documentUpdater.New(&dumOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "document-updater setup"))
 	}
 
 	realTimeOptions := realTimeTypes.Options{}
-	envUtils.MustParseJSONFromEnv(&realTimeOptions, "REAL_TIME_OPTIONS")
+	realTimeOptions.FillFromEnv("REAL_TIME_OPTIONS")
 	rtm, err := realTime.New(context.Background(), &realTimeOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "realTime setup"))
 	}
 
 	spellingOptions := spellingTypes.Options{}
-	envUtils.MustParseJSONFromEnv(&spellingOptions, "SPELLING_OPTIONS")
+	spellingOptions.FillFromEnv("SPELLING_OPTIONS")
 	sm, err := spelling.New(&spellingOptions)
 	if err != nil {
 		panic(errors.Tag(err, "spelling setup"))
@@ -97,7 +96,7 @@ func main() {
 			return !rtm.IsShuttingDown()
 		},
 	})
-	realTimeRouter.Add(r, rtm, webOptions.JWT.RealTime)
+	realTimeRouter.Add(r, rtm, realTimeOptions.JWT.RealTime)
 	spellingRouter.Add(r, sm, co)
 	webRouter.Add(r, webManager, co)
 

@@ -67,7 +67,7 @@ func main() {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
-	rtm, err := realTime.New(context.Background(), o.options, db, redisClient)
+	rtm, err := realTime.New(context.Background(), &o.options, db, redisClient)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    o.address,
-		Handler: router.New(rtm, o.jwtOptions),
+		Handler: router.New(rtm, o.options.JWT.RealTime),
 	}
 	var errServeMux sync.Mutex
 	var errServe error

@@ -24,7 +24,7 @@ import (
 
 type clsiOptions struct {
 	address string
-	options *types.Options
+	options types.Options
 
 	loadAddress  string
 	loadShedding bool
@@ -37,7 +37,7 @@ type clsiOptions struct {
 func getOptions() *clsiOptions {
 	o := &clsiOptions{}
 
-	utils.MustParseJSONFromEnv(&o.options, "OPTIONS")
+	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(3013)
 
 	loadPort := utils.GetIntFromEnv("LOAD_PORT", 3048)

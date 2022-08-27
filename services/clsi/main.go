@@ -36,7 +36,7 @@ func Setup() (clsi.Manager, *httpUtils.Router, *clsiOptions) {
 		}
 	}
 
-	cm, err := clsi.New(o.options)
+	cm, err := clsi.New(&o.options)
 	if err != nil {
 		panic(err)
 	}

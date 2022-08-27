@@ -20,19 +20,18 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type spellingOptions struct {
 	address     string
 	corsOptions httpUtils.CORSOptions
-	options     *types.Options
+	options     types.Options
 }
 
 func getOptions() *spellingOptions {
 	o := &spellingOptions{}
-	utils.MustParseJSONFromEnv(&o.options, "OPTIONS")
+	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(3005)
 	o.corsOptions = corsOptions.Parse()
 	return o

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -74,6 +75,10 @@ type Options struct {
 
 	Runner                 string                 `json:"runner"`
 	DockerContainerOptions DockerContainerOptions `json:"docker_container_options"`
+}
+
+func (o *Options) FillFromEnv(key string) {
+	utils.MustParseJSONFromEnv(o, key)
 }
 
 func (o *Options) Validate() error {

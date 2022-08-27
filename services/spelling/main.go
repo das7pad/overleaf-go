@@ -25,7 +25,7 @@ import (
 
 func main() {
 	o := getOptions()
-	sm, err := spelling.New(o.options)
+	sm, err := spelling.New(&o.options)
 	if err != nil {
 		panic(err)
 	}

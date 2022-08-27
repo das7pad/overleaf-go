@@ -19,25 +19,21 @@ package main
 import (
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type realTimeOptions struct {
 	address      string
-	jwtOptions   jwtOptions.JWTOptions
 	redisOptions *redis.UniversalOptions
-	options      *types.Options
+	options      types.Options
 }
 
 func getOptions() *realTimeOptions {
 	o := &realTimeOptions{}
-	utils.MustParseJSONFromEnv(&o.options, "OPTIONS")
+	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(3026)
-	o.jwtOptions = jwtOptions.Parse("JWT_REAL_TIME_VERIFY_SECRET")
 	o.redisOptions = redisOptions.Parse()
 	return o
 }

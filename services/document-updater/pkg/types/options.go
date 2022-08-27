@@ -18,11 +18,16 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
 type Options struct {
 	WorkersPerShard              int `json:"workers_per_shard"`
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
+}
+
+func (o *Options) FillFromEnv(key string) {
+	utils.MustParseJSONFromEnv(o, key)
 }
 
 func (o *Options) Validate() error {

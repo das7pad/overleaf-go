@@ -60,7 +60,7 @@ func main() {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
-	dum, err := documentUpdater.New(o.options, db, redisClient)
+	dum, err := documentUpdater.New(&o.options, db, redisClient)
 	if err != nil {
 		panic(err)
 	}
