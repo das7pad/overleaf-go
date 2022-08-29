@@ -14,11 +14,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM alpine:3.16
+ARG IMAGE_ASPELL_CACHE
+FROM $IMAGE_ASPELL_CACHE
 ENV SERVICE_NAME="cmd"
+ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
 ENTRYPOINT []
 ADD ./bin.tar /usr/local/bin/
-USER nobody
+
+RUN adduser --uid 1000 --disabled-password tex \
+&&  mkdir         /cache /compiles /output \
+&&  chown tex:tex /cache /compiles /output
+USER tex
 
 ARG DATE
 ARG RELEASE

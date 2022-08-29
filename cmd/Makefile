@@ -14,8 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-BINS = $(filter-out internal Makefile Dockerfile bin.tar,$(wildcard *))
-PWD ?= $(realpath .)
+CMDs = $(filter-out internal Makefile Dockerfile bin.tar,$(wildcard *))
+BINS = $(CMDs) execAgent
+PWD = $(realpath .)
 ROOT = $(abspath $(PWD)/../)
 PACKAGE ?= github.com/das7pad/overleaf-go
 ROOT_DOCKER = /go/src/$(PACKAGE)
@@ -29,6 +30,7 @@ DOCKER_REGISTRY ?= localhost:5000
 
 IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/cmd
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
+IMAGE_ASPELL_CACHE = $(DOCKER_REGISTRY)/sharelatex/spelling:go-aspell-cache
 
 BUILD_IN = \
 	docker run \
@@ -50,7 +52,7 @@ run-ci:
 
 check-not-changed:
 	$(BUILD_IN) golang:1.19-alpine3.16 \
-		go list -f '{{ join .Deps "\n" }}' $(addprefix ./cmd/,$(BINS)) \
+		go list -f '{{ join .Deps "\n" }}' $(addprefix ./cmd/,$(CMDs)) \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
 		go.mod \
@@ -58,25 +60,34 @@ check-not-changed:
 		cmd/ \
 	| sort | uniq \
 	| xargs git -C ../ diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
+	$(MAKE) -C ../services/clsi check-not-changed
 
 .PHONY: $(BINS)
-$(BINS):
-	$(BUILD_IN) golang:1.19-alpine3.16 go build ./cmd/$@
+$(CMDs):
+	$(BUILD_IN) golang:1.19 go build ./cmd/$@
 	touch -m -d 2021-01-01T00:00Z $@
+
+execAgent:
+	$(MAKE) -C ../services/clsi execAgent
+	mv ../services/clsi/execAgent ../
 
 bin.tar: $(BINS)
 	tar  --sort=name --mtime=2021-01-01T00:00Z -C ../ -f $@ -c $(BINS)
 
 docker/build/production: bin.tar
+	$(MAKE) -C ../services/spelling docker/build/aspell-cache
 	docker build \
 		--tag $(IMAGE) \
 		--build-arg COMMIT=$(GIT_COMMIT) \
 		--build-arg DATE=$(shell date --rfc-3339=s | sed 's/ /T/') \
 		--build-arg RELEASE=$(RELEASE) \
+		--build-arg IMAGE_ASPELL_CACHE=$(IMAGE_ASPELL_CACHE) \
+		--cache-from $(IMAGE_ASPELL_CACHE) \
 		--file Dockerfile \
 		.
 
 docker/push:
+	docker push $(IMAGE_ASPELL_CACHE)
 	docker push $(IMAGE)
 	$(MAKE) log_image_digest
 
@@ -90,3 +101,4 @@ docker/clean:
 	docker rmi \
 		$(IMAGE) \
 		--force
+	$(MAKE) -C ../services/spelling docker/clean

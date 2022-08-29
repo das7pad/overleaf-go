@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-PWD ?= $(realpath .)
+PWD = $(realpath .)
 ROOT = $(abspath $(PWD)/../../)
 SERVICE = $(notdir $(PWD))
 PACKAGE ?= github.com/das7pad/overleaf-go
@@ -68,8 +68,7 @@ docker/pull/apell-cache:
 	docker pull $(IMAGE_ASPELL_CACHE) || true
 	docker tag $(IMAGE_ASPELL_CACHE) $(IMAGE)-aspell-cache || true
 
-docker/build/production: docker/pull/apell-cache
-docker/build/production: $(SERVICE)
+docker/build/aspell-cache: docker/pull/apell-cache
 	docker build \
 		--tag $(IMAGE_ASPELL_CACHE) \
 		--cache-from $(IMAGE)-aspell-cache \
@@ -77,6 +76,8 @@ docker/build/production: $(SERVICE)
 		--file Dockerfile \
 		.
 
+docker/build/production: docker/build/aspell-cache
+docker/build/production: $(SERVICE)
 	docker build \
 		--tag $(IMAGE) \
 		--cache-from $(IMAGE) \
