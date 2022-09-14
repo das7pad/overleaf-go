@@ -154,7 +154,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 						)
 					}
 				} else {
-					if err2 := copyFile.NonAtomic(src, dest); err2 != nil {
+					if err2 := copyFile.NonAtomic(dest, src); err2 != nil {
 						return errors.Tag(err2, "cannot copy "+src+" -> "+dest)
 					}
 				}

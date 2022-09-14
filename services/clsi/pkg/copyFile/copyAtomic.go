@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,7 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func Atomic(reader io.Reader, dest string, copyMode bool) error {
+func Atomic(dest string, reader io.Reader, copyMode bool) error {
 	readerAsFile, readerIsFile := reader.(*os.File)
 	var stat os.FileInfo
 	if readerIsFile {

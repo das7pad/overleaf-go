@@ -78,8 +78,8 @@ func (u *urlCache) SetupForProject(_ context.Context, projectId sharedTypes.UUID
 	return err
 }
 
-func atomicWrite(reader io.Reader, dest string) error {
-	return copyFile.Atomic(reader, dest, false)
+func atomicWrite(dest string, reader io.Reader) error {
+	return copyFile.Atomic(dest, reader, false)
 }
 
 func (u *urlCache) projectDir(projectId sharedTypes.UUID) types.ProjectCacheDir {
@@ -108,7 +108,7 @@ func (u *urlCache) downloadIntoCache(ctx context.Context, url sharedTypes.URL, c
 			"file download returned non success: status " + response.Status,
 		)
 	}
-	return atomicWrite(response.Body, cachePath)
+	return atomicWrite(cachePath, response.Body)
 }
 
 func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedTypes.URL, cachePath string) error {
@@ -134,7 +134,7 @@ func (u *urlCache) Download(ctx context.Context, projectId sharedTypes.UUID, res
 	//  will either get recreated on re-compile, or deleted as part of output
 	//  scrubbing in case it were to be deleted from the projects resources for
 	//  the next compile.
-	if err := copyFile.NonAtomic(cachePath, dest); err == nil {
+	if err := copyFile.NonAtomic(dest, cachePath); err == nil {
 		// Happy path
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -147,7 +147,7 @@ func (u *urlCache) Download(ctx context.Context, projectId sharedTypes.UUID, res
 	}
 
 	// See the note above why we do not need atomic copying here.
-	if err = copyFile.NonAtomic(cachePath, dest); err != nil {
+	if err = copyFile.NonAtomic(dest, cachePath); err != nil {
 		return err
 	}
 	return nil

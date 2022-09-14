@@ -63,8 +63,8 @@ func main() {
 		)
 		if entry.Name() != "en.json" {
 			err = copyFile.NonAtomic(
-				path.Join(dst, "en.json.license"),
 				path.Join(dst, entry.Name()+".license"),
+				path.Join(dst, "en.json.license"),
 			)
 			if err != nil {
 				panic(err)
