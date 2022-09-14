@@ -65,7 +65,7 @@ func New(options *types.Options, finder outputFileFinder.Finder) (ResourceWriter
 
 type resourceWriter struct {
 	cacheBaseDir          types.CacheBaseDir
-	compileBaseDir        types.CompileDirBase
+	compileBaseDir        types.CompileBaseDir
 	parallelResourceWrite int64
 
 	finder outputFileFinder.Finder

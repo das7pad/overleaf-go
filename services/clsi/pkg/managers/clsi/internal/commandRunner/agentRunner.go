@@ -45,7 +45,7 @@ type agentRunner struct {
 	d            *net.Dialer
 
 	allowedImages           []sharedTypes.ImageName
-	compileBaseDir          types.CompileDirBase
+	compileBaseDir          types.CompileBaseDir
 	o                       types.DockerContainerOptions
 	seccompPolicy           string
 	currentClsiProcessEpoch string

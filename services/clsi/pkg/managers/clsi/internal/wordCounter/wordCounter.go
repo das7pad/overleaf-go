@@ -47,7 +47,7 @@ func New(options *types.Options) Counter {
 }
 
 type counter struct {
-	compileBaseDir types.CompileDirBase
+	compileBaseDir types.CompileBaseDir
 }
 
 const timeout = 60 * time.Second

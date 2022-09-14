@@ -43,9 +43,9 @@ func (d ProjectCacheDir) Join(name sharedTypes.PathName) string {
 	return string(d) + "/" + string(name)
 }
 
-type CompileDirBase string
+type CompileBaseDir string
 
-func (d CompileDirBase) CompileDir(namespace Namespace) CompileDir {
+func (d CompileBaseDir) CompileDir(namespace Namespace) CompileDir {
 	return CompileDir(string(d) + "/" + string(namespace))
 }
 
@@ -83,6 +83,6 @@ func (d CompileOutputDir) JoinDir(name sharedTypes.DirName) string {
 
 type Paths struct {
 	CacheBaseDir   CacheBaseDir   `json:"cache_base_dir"`
-	CompileBaseDir CompileDirBase `json:"compile_base_dir"`
+	CompileBaseDir CompileBaseDir `json:"compile_base_dir"`
 	OutputBaseDir  OutputBaseDir  `json:"output_base_dir"`
 }

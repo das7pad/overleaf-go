@@ -45,7 +45,7 @@ func New(options *types.Options) LatexRunner {
 
 type latexRunner struct {
 	baseEnv        types.Environment
-	compileBaseDir types.CompileDirBase
+	compileBaseDir types.CompileBaseDir
 }
 
 var preProcessedFileTypes = []sharedTypes.FileType{
