@@ -47,15 +47,21 @@ func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UU
 	}
 
 	return getErr(m.db.Exec(ctx, `
-WITH d AS (UPDATE docs SET snapshot = $2, version = $3 WHERE id = $1)
+WITH d AS (
+    UPDATE docs d
+        SET snapshot = $3, version = $4
+        FROM tree_nodes t
+        WHERE d.id = $2 AND d.id = t.id AND t.project_id = $1
+        RETURNING t.project_id)
 
 UPDATE projects
 SET last_updated_at = $5,
     last_updated_by = $6
-WHERE id = $4
+FROM d
+WHERE id = d.project_id
   AND last_updated_at < $5;
 `,
-		docId, string(update.Snapshot), int64(update.Version),
-		projectId, update.LastUpdatedAt, update.LastUpdatedBy,
+		projectId, docId, string(update.Snapshot), int64(update.Version),
+		update.LastUpdatedAt, update.LastUpdatedBy,
 	))
 }
