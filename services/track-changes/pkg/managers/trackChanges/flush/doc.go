@@ -144,13 +144,11 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 		return nil
 	}
 
-	// validate updates
-	totalComponents := len(updates[0].Op)
+	// validate update sequence
 	for i := 1; i < len(updates); i++ {
 		if updates[i].Version <= updates[i-1].Version {
 			return &errors.InvalidStateError{Msg: "non linear versions"}
 		}
-		totalComponents += len(updates[i].Op)
 	}
 
 	// validate sync status between db and redis
@@ -159,18 +157,12 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 		return err
 	}
 	if v >= updates[0].Version {
-		// pop from queue errored.
-		skipUntil := 1
-		for i := 1; i < len(updates); i++ {
-			if updates[i].Version > v {
-				break
-			}
-			skipUntil++
+		// The last batch faced an error when removing updates from redis after
+		//  they were persisted to postgres. Do not process them again.
+		for len(updates) > 0 && v >= updates[0].Version {
+			updates = updates[1:]
 		}
-		// drop what has been persisted already.
-		updates = updates[skipUntil:]
 		if len(updates) == 0 {
-			// all applied
 			return nil
 		}
 	}
@@ -181,7 +173,22 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 		)
 	}
 
-	// merge ops
+	// merge updates
+	dh := mergeUpdates(mergeOps(updates))
+
+	// insert
+	if err = m.dhm.InsertBulk(ctx, docId, dh); err != nil {
+		return errors.Tag(err, "cannot insert history into db")
+	}
+	return nil
+}
+
+func mergeOps(updates []sharedTypes.DocumentUpdate) []docHistory.ForInsert {
+	totalComponents := 0
+	for i := 0; i < len(updates); i++ {
+		totalComponents += len(updates[i].Op)
+	}
+
 	dhSingle := make([]docHistory.ForInsert, 0, totalComponents)
 	dhSingle = append(dhSingle, docHistory.ForInsert{
 		UserId:  updates[0].Meta.UserId,
@@ -200,7 +207,7 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 			firstC := tail.Op[0]
 			switch {
 			case tail.UserId != update.Meta.UserId ||
-				tail.EndAt.Sub(t) > time.Minute:
+				t.Sub(tail.EndAt) > time.Minute:
 				// we need to create a new element
 			case firstC.IsInsertion() &&
 				secondC.IsInsertion() &&
@@ -282,24 +289,43 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 			})
 		}
 	}
+	return dhSingle
+}
 
-	// merge updates
+func mergeUpdates(dhSingle []docHistory.ForInsert) []docHistory.ForInsert {
 	dh := make([]docHistory.ForInsert, 0, len(dhSingle))
-	dh = append(dh, dhSingle[0])
-	tail := 0
-	for _, update := range dhSingle[1:] {
-		if update.Version == dh[tail].Version {
-			dh[tail].EndAt = update.EndAt
-			dh[tail].Op = append(dh[tail].Op, update.Op[0])
+	var maxVersion sharedTypes.Version
+	for _, update := range dhSingle {
+		maxVersion = update.Version
+		if update.Op[0].IsNoOp() {
+			continue
+		}
+		if len(dh) == 0 {
+			dh = append(dh, update)
+			continue
+		}
+		tail := &dh[len(dh)-1]
+		if update.UserId == tail.UserId &&
+			(update.Version == tail.Version ||
+				update.StartAt.Sub(tail.EndAt) <= time.Minute) {
+			tail.EndAt = update.EndAt
+			tail.Version = update.Version
+			tail.Op = append(tail.Op, update.Op[0])
 		} else {
 			dh = append(dh, update)
-			tail++
 		}
 	}
 
-	// insert
-	if err = m.dhm.InsertBulk(ctx, docId, dh); err != nil {
-		return errors.Tag(err, "cannot insert history into db")
+	// Ensure that we have at least one entry for transporting the maxVersion.
+	// We need to persist the maxVersion for detecting history jumps.
+	if len(dh) == 0 {
+		for _, update := range dhSingle {
+			if update.Op[0].IsNoOp() {
+				dh = dh[:1]
+				dh[0] = update
+			}
+		}
 	}
-	return nil
+	dh[len(dh)-1].Version = maxVersion
+	return dh
 }

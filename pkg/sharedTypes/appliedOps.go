@@ -91,6 +91,10 @@ func (o *Component) IsInsertion() bool {
 	return len(o.Insertion) != 0
 }
 
+func (o *Component) IsNoOp() bool {
+	return len(o.Deletion) == 0 && len(o.Insertion) == 0
+}
+
 func (o *Component) Validate() error {
 	if o.Position < 0 {
 		return &errors.ValidationError{Msg: "position is negative"}
