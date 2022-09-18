@@ -15,8 +15,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 FROM debian:buster-slim as aspell-cache
-COPY ./install_deps.sh /
-RUN /install_deps.sh
+COPY install_aspell.sh /
+RUN /install_aspell.sh
 
 FROM aspell-cache
 ENV SERVICE_NAME="spelling"
