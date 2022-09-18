@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-CMDs = $(filter-out internal Makefile Dockerfile bin.tar,$(wildcard *))
-BINS = $(CMDs) execAgent
 PWD = $(realpath .)
 ROOT = $(abspath $(PWD)/../)
 PACKAGE ?= github.com/das7pad/overleaf-go
@@ -62,17 +60,18 @@ check-not-changed:
 	| xargs git -C ../ diff --exit-code --name-only $(GIT_PREVIOUS_SUCCESSFUL_COMMIT)
 	$(MAKE) -C ../services/clsi check-not-changed
 
-.PHONY: $(BINS)
-$(CMDs):
-	$(BUILD_IN) golang:1.19 go build ./cmd/$@
-	touch -m -d 2021-01-01T00:00Z $@
+bin.tar: build_cmds_in_bulk
+build_cmds_in_bulk:
+	rm -rf ../.cache/target/ && mkdir ../.cache/target/
+	$(BUILD_IN) golang:1.19 go build -o .cache/target/ ./cmd/...
 
+bin.tar: execAgent
 execAgent:
 	$(MAKE) -C ../services/clsi execAgent
-	mv ../services/clsi/execAgent ../
+	mv ../services/clsi/execAgent ../.cache/target/
 
-bin.tar: $(BINS)
-	tar  --sort=name --mtime=2021-01-01T00:00Z -C ../ -f $@ -c $(BINS)
+bin.tar:
+	tar -c -f $@ --sort=name --mtime=2021-01-01T00:00Z -C ../.cache/target/ .
 
 docker/build/production: bin.tar
 	$(MAKE) -C ../services/spelling docker/build/aspell-cache
@@ -97,7 +96,7 @@ log_image_digest:
 	> docker-image.digest.txt
 
 docker/clean:
-	rm -f bin.tar $(addprefix ../,$(BINS))
+	rm -rf bin.tar ../.cache/target/
 	docker rmi \
 		$(IMAGE) \
 		--force
