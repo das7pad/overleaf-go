@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,8 +24,18 @@ import (
 
 func Test_parseLocales(t *testing.T) {
 	data := struct {
+		Settings struct {
+			AppName string
+		}
 		Lng string
-	}{Lng: "English"}
+	}{
+		Lng: "English",
+		Settings: struct {
+			AppName string
+		}{
+			AppName: "OverleafFromData",
+		},
+	}
 	type args struct {
 		raw     map[string]string
 		appName string
@@ -44,7 +54,7 @@ func Test_parseLocales(t *testing.T) {
 		{
 			name: "works",
 			args: args{
-				appName: "Overleaf",
+				appName: "OverleafFromBoot",
 				raw: map[string]string{
 					"no_var":           "Hello World!",
 					"app_name":         "Golang port of {{ .Settings.AppName }}",
@@ -61,7 +71,7 @@ func Test_parseLocales(t *testing.T) {
 				{
 					key:  "app_name",
 					data: nil,
-					want: "Golang port of Overleaf",
+					want: "Golang port of OverleafFromBoot",
 				},
 				{
 					key:  "var",
@@ -71,7 +81,7 @@ func Test_parseLocales(t *testing.T) {
 				{
 					key:  "var_and_app_name",
 					data: data,
-					want: "Overleaf in English",
+					want: "OverleafFromData in English",
 				},
 			},
 		},
