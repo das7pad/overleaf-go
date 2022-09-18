@@ -102,3 +102,6 @@ docker/clean:
 		$(IMAGE) \
 		--force
 	$(MAKE) -C ../services/spelling docker/clean
+
+test:
+	$(BUILD_IN) golang:1.19 go test ./...

@@ -20,6 +20,16 @@ pipeline {
   stages {
     stage('Fan out') {
       parallel {
+        stage('Test') {
+          agent {
+            label 'docker_builder'
+          }
+          steps {
+            dir('cmd') {
+              sh 'make test'
+            }
+          }
+        }
         stage('clsi') {
           agent {
             label 'docker_builder'
