@@ -83,27 +83,27 @@ type Component struct {
 	Position  int     `json:"p"`
 }
 
-func (o *Component) IsDeletion() bool {
-	return len(o.Deletion) != 0
+func (c Component) IsDeletion() bool {
+	return len(c.Deletion) != 0
 }
 
-func (o *Component) IsInsertion() bool {
-	return len(o.Insertion) != 0
+func (c Component) IsInsertion() bool {
+	return len(c.Insertion) != 0
 }
 
-func (o *Component) IsNoOp() bool {
-	return len(o.Deletion) == 0 && len(o.Insertion) == 0
+func (c Component) IsNoOp() bool {
+	return len(c.Deletion) == 0 && len(c.Insertion) == 0
 }
 
-func (o *Component) Validate() error {
-	if o.Position < 0 {
+func (c Component) Validate() error {
+	if c.Position < 0 {
 		return &errors.ValidationError{Msg: "position is negative"}
 	}
 	switch {
-	case o.IsDeletion():
+	case c.IsDeletion():
 		return nil
-	case o.IsInsertion():
-		return Snapshot(o.Insertion).Validate()
+	case c.IsInsertion():
+		return Snapshot(c.Insertion).Validate()
 	default:
 		return &errors.ValidationError{Msg: "unknown op type"}
 	}

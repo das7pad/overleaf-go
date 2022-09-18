@@ -34,7 +34,7 @@ func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snaps
 		start := op.Position
 		end := op.Position + len(op.Deletion)
 		deletionActual := snapshot.Slice(start, end)
-		if string(op.Deletion) != string(deletionActual) {
+		if !op.Deletion.Equals(deletionActual) {
 			return nil, &errors.CodedError{
 				Description: fmt.Sprintf(
 					"Delete component %q does not match deleted text %q",

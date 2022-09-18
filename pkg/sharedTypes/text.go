@@ -112,6 +112,18 @@ func (s Snapshot) Slice(start, end int) Snippet {
 
 type Snippet []rune
 
+func (s Snippet) Equals(other Snippet) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	for i, r := range s {
+		if other[i] != r {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Snippet) UnmarshalJSON(bytes []byte) error {
 	var raw string
 	if err := json.Unmarshal(bytes, &raw); err != nil {

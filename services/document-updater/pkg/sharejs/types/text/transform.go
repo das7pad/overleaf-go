@@ -116,7 +116,7 @@ func transformComponent(op sharedTypes.Op, c, otherC sharedTypes.Component, side
 	cIntersect := c.Deletion[intersectStart-c.Position : intersectEnd-c.Position]
 	otherCIntersect := otherC.Deletion[intersectStart-otherC.Position : intersectEnd-otherC.Position]
 
-	if string(cIntersect) != string(otherCIntersect) {
+	if !cIntersect.Equals(otherCIntersect) {
 		return nil, deleteOpsDeleteDifferentText
 	}
 
