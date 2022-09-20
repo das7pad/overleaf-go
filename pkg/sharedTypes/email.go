@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -55,8 +55,11 @@ func (e Email) Normalize() Email {
 }
 
 func (e Email) Validate() error {
-	_, err := mail.ParseAddress(string(e))
+	a, err := mail.ParseAddress(string(e))
 	if err != nil {
+		return &errors.ValidationError{Msg: "invalid email address"}
+	}
+	if a.Address != string(e) {
 		return &errors.ValidationError{Msg: "invalid email address"}
 	}
 	return nil

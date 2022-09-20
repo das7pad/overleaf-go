@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -90,6 +90,16 @@ func TestEmail_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name:    "ok",
+			e:       "foo@bar.comm",
+			wantErr: false,
+		},
+		{
+			name:    "ignore case",
+			e:       "foO@baR.com",
+			wantErr: false,
+		},
+		{
 			name:    "no at",
 			e:       "foo",
 			wantErr: true,
@@ -102,6 +112,11 @@ func TestEmail_Validate(t *testing.T) {
 		{
 			name:    "space",
 			e:       "foo @bar.com",
+			wantErr: true,
+		},
+		{
+			name:    "name and email",
+			e:       "name <foo@bar.com>",
 			wantErr: true,
 		},
 	}
