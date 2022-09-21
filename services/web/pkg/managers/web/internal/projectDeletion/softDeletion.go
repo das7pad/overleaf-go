@@ -26,30 +26,19 @@ import (
 )
 
 func (m *manager) DeleteUsersOwnedProjects(ctx context.Context, userId sharedTypes.UUID, ipAddress string) error {
-	projects, err := m.pm.ListProjects(ctx, userId)
+	projects, err := m.pm.GetOwnedProjects(ctx, userId)
 	if err != nil {
 		return errors.Tag(err, "cannot get projects")
 	}
-	n := 0
-	for _, p := range projects {
-		if p.OwnerId == userId {
-			n++
-		}
-	}
-	ownedProjectIds := make([]sharedTypes.UUID, 0, n)
-	for _, p := range projects {
-		if p.OwnerId != userId {
-			continue
-		}
-		ownedProjectIds = append(ownedProjectIds, p.Id)
-		if err = m.dum.FlushAndDeleteProject(ctx, p.Id); err != nil {
+	for _, pId := range projects {
+		if err = m.dum.FlushAndDeleteProject(ctx, pId); err != nil {
 			return errors.Tag(
-				err, "cannot flush project "+p.Id.String(),
+				err, "cannot flush project "+pId.String(),
 			)
 		}
 	}
-	// Only soft delete projects that were flushed.
-	err = m.pm.SoftDelete(ctx, ownedProjectIds, userId, ipAddress)
+	// Only soft delete projects after flushing.
+	err = m.pm.SoftDelete(ctx, projects, userId, ipAddress)
 	if err != nil {
 		return errors.Tag(err, "soft deleted owned projects")
 	}

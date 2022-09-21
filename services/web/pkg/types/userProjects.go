@@ -26,9 +26,8 @@ type GetUserProjectsRequest struct {
 }
 
 type GetUserProjectsEntry struct {
-	Id             sharedTypes.UUID           `json:"_id"`
-	Name           project.Name               `json:"name"`
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"accessLevel"`
+	Id   sharedTypes.UUID `json:"_id"`
+	Name project.Name     `json:"name"`
 }
 
 type GetUserProjectsResponse struct {

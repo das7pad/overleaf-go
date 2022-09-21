@@ -91,7 +91,8 @@ type Manager interface {
 	FinalizeFileCreation(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.UUID, bool, sharedTypes.Version, error)
 	ProcessStaleFileUploads(ctx context.Context, cutOff time.Time, fn func(projectId, fileId sharedTypes.UUID) bool) error
 	PurgeStaleFileUpload(ctx context.Context, projectId, fileId sharedTypes.UUID) error
-	ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error)
+	ListProjectsWithName(ctx context.Context, userId sharedTypes.UUID) ([]WithIdAndName, error)
+	GetOwnedProjects(ctx context.Context, userId sharedTypes.UUID) ([]sharedTypes.UUID, error)
 	GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
 }
 
@@ -1982,6 +1983,39 @@ WHERE t.project_id = $1
   AND t.id = f.id
   AND f.pending = TRUE
 `, projectId, fileId))
+}
+
+func (m *manager) GetOwnedProjects(ctx context.Context, userId sharedTypes.UUID) ([]sharedTypes.UUID, error) {
+	ids := make([]sharedTypes.UUID, 0)
+	return ids, m.db.QueryRow(ctx, `
+SELECT array_agg(p.id)
+FROM projects p
+         INNER JOIN project_members pm ON p.id = pm.project_id
+WHERE pm.user_id = $1
+  AND p.deleted_at IS NULL
+`, userId).Scan(&ids)
+}
+
+func (m *manager) ListProjectsWithName(ctx context.Context, userId sharedTypes.UUID) ([]WithIdAndName, error) {
+	r, err := m.db.Query(ctx, `
+SELECT p.id, name
+FROM projects p
+         INNER JOIN project_members pm ON p.id = pm.project_id
+WHERE pm.user_id = $1
+  AND p.deleted_at IS NULL
+`, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	projects := make([]WithIdAndName, 0)
+	for i := 0; r.Next(); i++ {
+		projects = append(projects, WithIdAndName{})
+		if err = r.Scan(&projects[i].Id, &projects[i].Name); err != nil {
+			return nil, err
+		}
+	}
+	return projects, r.Err()
 }
 
 type ForProjectList struct {

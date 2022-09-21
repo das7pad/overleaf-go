@@ -66,22 +66,16 @@ func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserPro
 	}
 
 	userId := request.Session.User.Id
-	l, err := m.pm.ListProjects(ctx, userId)
+	l, err := m.pm.ListProjectsWithName(ctx, userId)
 	if err != nil {
 		return errors.Tag(err, "cannot get projects")
 	}
 
 	projects := make([]types.GetUserProjectsEntry, len(l))
-	var d *project.AuthorizationDetails
 	for i, p := range l {
-		d, err = p.GetPrivilegeLevelAuthenticated()
-		if err != nil {
-			return errors.New("listed project w/o access: " + p.Id.String())
-		}
 		projects[i] = types.GetUserProjectsEntry{
-			Id:             p.Id,
-			Name:           p.Name,
-			PrivilegeLevel: d.PrivilegeLevel,
+			Id:   p.Id,
+			Name: p.Name,
 		}
 	}
 	response.Projects = projects

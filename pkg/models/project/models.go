@@ -62,6 +62,11 @@ type ListViewPrivate struct {
 
 type List []ListViewPrivate
 
+type WithIdAndName struct {
+	IdField
+	NameField
+}
+
 type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic
 	ForAuthorizationDetails
