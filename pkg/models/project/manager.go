@@ -24,7 +24,6 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
@@ -2024,8 +2023,13 @@ type ForProjectList struct {
 	Projects List
 }
 
-func (m *manager) ListProjects(ctx context.Context, userId sharedTypes.UUID) (List, error) {
-	r, err := m.db.Query(ctx, `
+func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
+	var tagNames []string
+	var tagIds sharedTypes.UUIDs
+
+	b := pgx.Batch{}
+
+	b.Queue(`
 SELECT access_source,
        archived,
        p.epoch,
@@ -2054,8 +2058,30 @@ FROM projects p
 WHERE pm.user_id = $1
   AND p.deleted_at IS NULL
 `, userId)
+
+	b.Queue(`
+WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
+           FROM tags
+           WHERE user_id = $1)
+SELECT u.id,
+       email,
+       email_confirmed_at,
+       first_name,
+       last_name,
+       t.ids,
+       t.names
+FROM users u,
+     t
+WHERE u.id = $1
+  AND u.deleted_at IS NULL
+`, userId)
+
+	br := m.db.SendBatch(ctx, &b)
+	defer func() { _ = br.Close() }()
+
+	r, err := br.Query()
 	if err != nil {
-		return nil, err
+		return errors.Tag(err, "wait for projects listing")
 	}
 	defer r.Close()
 	projects := make(List, 0)
@@ -2082,53 +2108,26 @@ WHERE pm.user_id = $1
 			&projects[i].TagIds,
 		)
 		if err != nil {
-			return nil, err
+			return errors.Tag(err, "scan projects")
 		}
 		projects[i].Owner.Id = projects[i].OwnerId
 		projects[i].LastUpdater.Id = projects[i].LastUpdatedBy
 	}
-	return projects, r.Err()
-}
+	if err = r.Err(); err != nil {
+		return errors.Tag(err, "iter projects cursor")
+	}
+	d.Projects = projects
 
-func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
-	var tagNames []string
-	var tagIds sharedTypes.UUIDs
-
-	eg, pCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return m.db.QueryRow(pCtx, `
-WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
-           FROM tags
-           WHERE user_id = $1)
-SELECT u.id,
-       email,
-       email_confirmed_at,
-       first_name,
-       last_name,
-       t.ids,
-       t.names
-FROM users u,
-     t
-WHERE u.id = $1
-  AND u.deleted_at IS NULL
-`, userId).Scan(
-			&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
-			&d.User.FirstName, &d.User.LastName,
-			&tagIds, &tagNames,
-		)
-	})
-	eg.Go(func() error {
-		var err error
-		d.Projects, err = m.ListProjects(ctx, userId)
-		if err != nil {
-			return errors.Tag(err, "list projects")
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return err
+	err = br.QueryRow().Scan(
+		&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
+		&d.User.FirstName, &d.User.LastName,
+		&tagIds, &tagNames,
+	)
+	if err != nil {
+		return errors.Tag(err, "query user and tags")
 	}
 
+	d.Tags = make([]tag.Full, 0, len(tagIds))
 	for i, id := range tagIds {
 		t := tag.Full{
 			Id:   id,
