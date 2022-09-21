@@ -76,7 +76,8 @@ func (r *OpenInOverleafRequest) Preprocess() {
 
 	hasMainTex := false
 	nInlinedDocs := 0
-	for _, snippet := range r.Snippets {
+	for i := range r.Snippets {
+		snippet := &r.Snippets[i]
 		if snippet.URL == nil {
 			nInlinedDocs++
 		} else if snippet.Path == "" {
@@ -87,12 +88,14 @@ func (r *OpenInOverleafRequest) Preprocess() {
 		}
 	}
 	untitledDocNum := 0
-	for _, snippet := range r.Snippets {
+	for i := range r.Snippets {
+		snippet := &r.Snippets[i]
 		if snippet.URL != nil {
 			continue
 		}
 		if snippet.Path == "" && !hasMainTex && untitledDocNum == 0 {
 			snippet.Path = "main.tex"
+			hasMainTex = true
 		}
 		if snippet.Path.Type() == "" {
 			switch {
@@ -220,7 +223,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 			URL: u,
 		})
 	}
-	for i, snippet := range snippets {
+	for i := range snippets {
 		if len(params["snip_name"]) > i {
 			path := sharedTypes.PathName(params["snip_name"][i])
 			if err := path.Validate(); err != nil {
@@ -228,7 +231,7 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 					Msg: fmt.Sprintf("snip_name[%d]: %s", i, err.Error()),
 				}
 			}
-			snippet.Path = path
+			snippets[i].Path = path
 		}
 	}
 	r.Snippets = snippets
