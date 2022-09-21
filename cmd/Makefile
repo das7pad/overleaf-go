@@ -50,7 +50,7 @@ run-ci:
 
 check-not-changed:
 	$(BUILD_IN) golang:1.19-alpine3.16 \
-		go list -f '{{ join .Deps "\n" }}' $(addprefix ./cmd/,$(CMDs)) \
+		go list -f '{{ join .Deps "\n" }}' ./cmd/... \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
 		go.mod \
