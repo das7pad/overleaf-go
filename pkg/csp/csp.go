@@ -101,6 +101,10 @@ func (c csp) render() string {
 			items: c.manifestSrc,
 		},
 		{
+			name:  "media-src",
+			items: c.mediaSrc,
+		},
+		{
 			name:  "script-src",
 			items: c.scriptSrc,
 		},
@@ -248,7 +252,7 @@ func Generate(o Options) CSPs {
 	learn := marketing
 	// Media files and Tutorial videos.
 	learn.frameSrc = append(learn.frameSrc, "www.youtube.com")
-	learn.imgSrc = append(learn.imgSrc, siteOrigin, "wikimedia.org", "www.filepicker.io")
+	learn.imgSrc = append(learn.imgSrc, siteOrigin, "images.ctfassets.net", "wikimedia.org", "www.filepicker.io")
 	learn.mediaSrc = append(learn.mediaSrc, "videos.ctfassets.net")
 	// Too many inline styles to put on an allow-list.
 	learn.styleSrc = append(learn.styleSrc, "'unsafe-inline'")
