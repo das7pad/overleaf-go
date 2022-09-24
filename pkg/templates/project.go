@@ -19,6 +19,7 @@ package templates
 import (
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
@@ -81,6 +82,7 @@ type ProjectListData struct {
 	Projects         []*ProjectListProjectView
 	Tags             []tag.Full
 	JWTLoggedInUser  string
+	Notifications    notification.Notifications
 	UserEmails       []user.EmailDetailsWithDefaultFlag
 	SuggestedLngCode string
 	SystemMessages   []systemMessage.Full
@@ -107,6 +109,11 @@ func (d *ProjectListData) Meta() []metaEntry {
 		Name:    "ol-jwtLoggedInUser",
 		Content: d.JWTLoggedInUser,
 		Type:    stringContentType,
+	})
+	out = append(out, metaEntry{
+		Name:    "ol-notifications",
+		Content: d.Notifications,
+		Type:    jsonContentType,
 	})
 	out = append(out, metaEntry{
 		Name:    "ol-systemMessages",

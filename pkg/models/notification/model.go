@@ -31,3 +31,5 @@ type Notification struct {
 	TemplateKey    string           `json:"templateKey,omitempty"`
 	MessageOptions json.RawMessage  `json:"messageOpts,omitempty"`
 }
+
+type Notifications []Notification

@@ -152,6 +152,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			},
 		},
 		Projects:        projects,
+		Notifications:   u.Notifications,
 		SystemMessages:  cachedSystemMessages,
 		Tags:            u.Tags,
 		JWTLoggedInUser: jwtLoggedInUser,

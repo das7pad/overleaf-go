@@ -26,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -2018,15 +2019,13 @@ WHERE pm.user_id = $1
 }
 
 type ForProjectList struct {
-	User     user.ProjectListViewCaller
-	Tags     []tag.Full
-	Projects List
+	User          user.ProjectListViewCaller
+	Tags          []tag.Full
+	Notifications notification.Notifications
+	Projects      List
 }
 
 func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, d *ForProjectList) error {
-	var tagNames []string
-	var tagIds sharedTypes.UUIDs
-
 	b := pgx.Batch{}
 
 	b.Queue(`
@@ -2062,16 +2061,30 @@ WHERE pm.user_id = $1
 	b.Queue(`
 WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
            FROM tags
-           WHERE user_id = $1)
+           WHERE user_id = $1),
+     n AS (SELECT array_agg(id)              as ids,
+                  array_agg(key)             as keys,
+                  array_agg(template_key)    as template_keys,
+                  array_agg(message_options) as message_options
+           FROM notifications
+           WHERE user_id = $1
+             AND template_key != ''
+             AND expires_at > transaction_timestamp())
+
 SELECT u.id,
        email,
        email_confirmed_at,
        first_name,
        last_name,
        t.ids,
-       t.names
+       t.names,
+       n.ids,
+       n.keys,
+       n.template_keys,
+       n.message_options
 FROM users u,
-     t
+     t,
+     n
 WHERE u.id = $1
   AND u.deleted_at IS NULL
 `, userId)
@@ -2116,12 +2129,23 @@ WHERE u.id = $1
 	if err = r.Err(); err != nil {
 		return errors.Tag(err, "iter projects cursor")
 	}
+	r.Close()
 	d.Projects = projects
+
+	var tagNames []string
+	var tagIds sharedTypes.UUIDs
+
+	var notificationIds sharedTypes.UUIDs
+	var notificationKeys []string
+	var notificationTemplateKeys []string
+	var notificationMessageOptions []json.RawMessage
 
 	err = br.QueryRow().Scan(
 		&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
 		&d.User.FirstName, &d.User.LastName,
 		&tagIds, &tagNames,
+		&notificationIds, &notificationKeys, &notificationTemplateKeys,
+		&notificationMessageOptions,
 	)
 	if err != nil {
 		return errors.Tag(err, "query user and tags")
@@ -2145,6 +2169,16 @@ WHERE u.id = $1
 			t.ProjectIds = make([]sharedTypes.UUID, 0)
 		}
 		d.Tags = append(d.Tags, t)
+	}
+
+	d.Notifications = make(notification.Notifications, 0, len(notificationIds))
+	for i, id := range notificationIds {
+		d.Notifications = append(d.Notifications, notification.Notification{
+			Id:             id,
+			Key:            notificationKeys[i],
+			TemplateKey:    notificationTemplateKeys[i],
+			MessageOptions: notificationMessageOptions[i],
+		})
 	}
 	return nil
 }
