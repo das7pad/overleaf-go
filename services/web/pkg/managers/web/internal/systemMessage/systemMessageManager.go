@@ -31,6 +31,7 @@ import (
 
 type Manager interface {
 	GetAllCached(ctx context.Context, userId sharedTypes.UUID) ([]systemMessage.Full, error)
+	GetAllCachedOnly(userId sharedTypes.UUID) ([]systemMessage.Full, bool)
 }
 
 type manager struct {
@@ -60,6 +61,17 @@ func (m *manager) GetAllCached(ctx context.Context, userId sharedTypes.UUID) ([]
 		return messages, nil
 	}
 	return m.slow(ctx)
+}
+
+func (m *manager) GetAllCachedOnly(userId sharedTypes.UUID) ([]systemMessage.Full, bool) {
+	if userId == (sharedTypes.UUID{}) {
+		// Hide messages for logged out users.
+		return noMessages, true
+	}
+	if messages, ok := m.fast(); ok {
+		return messages, true
+	}
+	return nil, false
 }
 
 func (m *manager) fast() ([]systemMessage.Full, bool) {

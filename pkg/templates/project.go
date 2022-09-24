@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
+	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -82,6 +83,7 @@ type ProjectListData struct {
 	JWTLoggedInUser  string
 	UserEmails       []user.EmailDetailsWithDefaultFlag
 	SuggestedLngCode string
+	SystemMessages   []systemMessage.Full
 }
 
 func (d *ProjectListData) Meta() []metaEntry {
@@ -105,6 +107,11 @@ func (d *ProjectListData) Meta() []metaEntry {
 		Name:    "ol-jwtLoggedInUser",
 		Content: d.JWTLoggedInUser,
 		Type:    stringContentType,
+	})
+	out = append(out, metaEntry{
+		Name:    "ol-systemMessages",
+		Content: d.SystemMessages,
+		Type:    jsonContentType,
 	})
 	return out
 }

@@ -154,7 +154,9 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		cm,
 	)
 	lm := login.New(options, ps, db, um, loggedInUserJWTHandler, sm)
-	plm := projectList.New(ps, editorEvents, pm, tm, um, loggedInUserJWTHandler)
+	plm := projectList.New(
+		ps, editorEvents, pm, tm, um, loggedInUserJWTHandler, smm,
+	)
 	pmm := projectMetadata.New(client, editorEvents, pm, dum)
 	tagM := tag.New(tm)
 	tam := tokenAccess.New(ps, pm)

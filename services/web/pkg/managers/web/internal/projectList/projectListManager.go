@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -40,7 +41,7 @@ type Manager interface {
 	RenameProject(ctx context.Context, request *types.RenameProjectRequest) error
 }
 
-func New(ps *templates.PublicSettings, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler) Manager {
+func New(ps *templates.PublicSettings, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, smm systemMessage.Manager) Manager {
 	return &manager{
 		editorEvents:    editorEvents,
 		pm:              pm,
@@ -48,6 +49,7 @@ func New(ps *templates.PublicSettings, editorEvents channel.Writer, pm project.M
 		tm:              tm,
 		um:              um,
 		jwtLoggedInUser: jwtLoggedInUser,
+		smm:             smm,
 	}
 }
 
@@ -58,6 +60,7 @@ type manager struct {
 	tm              tag.Manager
 	um              user.Manager
 	jwtLoggedInUser jwtHandler.JWTHandler
+	smm             systemMessage.Manager
 }
 
 func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserProjectsRequest, response *types.GetUserProjectsResponse) error {
@@ -91,11 +94,8 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		Tags:     make([]tag.Full, 0),
 		Projects: make(project.List, 0),
 	}
-	{
-		err := m.pm.GetProjectListDetails(ctx, userId, &u)
-		if err != nil {
-			return errors.Tag(err, "cannot get user with projects")
-		}
+	if err := m.pm.GetProjectListDetails(ctx, userId, &u); err != nil {
+		return errors.Tag(err, "cannot get user with projects")
 	}
 
 	projects := make([]*templates.ProjectListProjectView, len(u.Projects))
@@ -141,6 +141,8 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		jwtLoggedInUser = b
 	}
 
+	cachedSystemMessages, _ := m.smm.GetAllCachedOnly(userId)
+
 	response.Data = &templates.ProjectListData{
 		AngularLayoutData: templates.AngularLayoutData{
 			CommonData: templates.CommonData{
@@ -150,6 +152,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			},
 		},
 		Projects:        projects,
+		SystemMessages:  cachedSystemMessages,
 		Tags:            u.Tags,
 		JWTLoggedInUser: jwtLoggedInUser,
 		UserEmails:      u.User.ToUserEmails(),
