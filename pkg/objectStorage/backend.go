@@ -29,6 +29,7 @@ type Options struct {
 	Bucket          string        `json:"bucket"`
 	Provider        string        `json:"provider"`
 	Endpoint        string        `json:"endpoint"`
+	Region          string        `json:"region"`
 	Secure          bool          `json:"secure"`
 	Key             string        `json:"key"`
 	Secret          string        `json:"secret"`

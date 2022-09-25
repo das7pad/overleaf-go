@@ -31,6 +31,7 @@ import (
 func initMinioBackend(o Options) (Backend, error) {
 	mc, err := minio.New(o.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(o.Key, o.Secret, ""),
+		Region: o.Region,
 		Secure: o.Secure,
 	})
 	if err != nil {
