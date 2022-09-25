@@ -132,6 +132,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					parent.FileRefs = append(parent.FileRefs, el)
 					openReader[path] = uploadQueueEntry{
 						sourceFileId: el.Id,
+						ref:          &parent.FileRefs[len(parent.FileRefs)-1],
 					}
 				}
 				continue
