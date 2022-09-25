@@ -26,7 +26,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -128,9 +127,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			projectId,
 			file.Id,
 			request.File,
-			objectStorage.SendOptions{
-				ContentSize: request.Size,
-			},
+			request.Size,
 		)
 		if err != nil {
 			return errors.Tag(err, "cannot upload new file")

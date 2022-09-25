@@ -56,10 +56,6 @@ func (o Options) Validate() error {
 	return nil
 }
 
-type SendOptions struct {
-	ContentSize int64
-}
-
 type Backend interface {
 	CopyObject(ctx context.Context, src string, dest string) error
 	DeleteObject(ctx context.Context, key string) error
@@ -67,7 +63,7 @@ type Backend interface {
 	GetObjectSize(ctx context.Context, key string) (int64, error)
 	GetReadStream(ctx context.Context, key string) (int64, io.ReadCloser, error)
 	GetRedirectURLForGET(ctx context.Context, key string) (*url.URL, error)
-	SendFromStream(ctx context.Context, key string, reader io.Reader, options SendOptions) error
+	SendFromStream(ctx context.Context, key string, reader io.Reader, size int64) error
 }
 
 func FromOptions(options Options) (Backend, error) {

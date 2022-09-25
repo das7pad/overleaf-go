@@ -61,8 +61,8 @@ func rewriteError(err error) error {
 	return err
 }
 
-func (m *minioBackend) SendFromStream(ctx context.Context, key string, reader io.Reader, options SendOptions) error {
-	_, err := m.mc.PutObject(ctx, m.bucket, key, reader, options.ContentSize, minio.PutObjectOptions{
+func (m *minioBackend) SendFromStream(ctx context.Context, key string, reader io.Reader, size int64) error {
+	_, err := m.mc.PutObject(ctx, m.bucket, key, reader, size, minio.PutObjectOptions{
 		SendContentMd5: true,
 	})
 	return err

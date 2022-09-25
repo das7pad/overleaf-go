@@ -32,7 +32,7 @@ type Manager interface {
 	DeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
 	GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadCloser, error)
 	GetRedirectURLForGETOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error)
-	SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, options objectStorage.SendOptions) error
+	SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, size int64) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -83,11 +83,11 @@ func (m *manager) DeleteProject(ctx context.Context, projectId sharedTypes.UUID)
 	return m.b.DeletePrefix(ctx, getProjectPrefix(projectId))
 }
 
-func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, options objectStorage.SendOptions) error {
+func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, size int64) error {
 	return m.b.SendFromStream(
 		ctx,
 		getProjectFileKey(projectId, fileId),
 		reader,
-		options,
+		size,
 	)
 }
