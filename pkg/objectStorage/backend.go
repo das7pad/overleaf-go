@@ -26,6 +26,7 @@ import (
 )
 
 type Options struct {
+	Bucket          string        `json:"bucket"`
 	Provider        string        `json:"provider"`
 	Endpoint        string        `json:"endpoint"`
 	Secure          bool          `json:"secure"`
@@ -34,58 +35,44 @@ type Options struct {
 	SignedURLExpiry time.Duration `json:"signed_url_expiry_in_ns"`
 }
 
+func (o Options) Validate() error {
+	switch o.Provider {
+	case "minio":
+		if o.Bucket == "" {
+			return &errors.ValidationError{Msg: "missing bucket"}
+		}
+		if o.Endpoint == "" {
+			return &errors.ValidationError{Msg: "missing endpoint"}
+		}
+		if o.SignedURLExpiry == 0 {
+			return &errors.ValidationError{
+				Msg: "missing signed_url_expiry_in_ns",
+			}
+		}
+	default:
+		return &errors.ValidationError{Msg: "unknown provider: " + o.Provider}
+	}
+	return nil
+}
+
 type SendOptions struct {
 	ContentSize int64
 }
 
 type Backend interface {
-	SendFromStream(
-		ctx context.Context,
-		bucket string,
-		key string,
-		reader io.Reader,
-		options SendOptions,
-	) error
-
-	GetReadStream(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) (int64, io.ReadCloser, error)
-
-	GetRedirectURLForGET(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) (*url.URL, error)
-
-	GetObjectSize(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) (int64, error)
-
-	DeleteObject(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) error
-
-	DeletePrefix(
-		ctx context.Context,
-		bucket string,
-		prefix string,
-	) error
-
-	CopyObject(
-		ctx context.Context,
-		bucket string,
-		src string,
-		dest string,
-	) error
+	CopyObject(ctx context.Context, src string, dest string) error
+	DeleteObject(ctx context.Context, key string) error
+	DeletePrefix(ctx context.Context, prefix string) error
+	GetObjectSize(ctx context.Context, key string) (int64, error)
+	GetReadStream(ctx context.Context, key string) (int64, io.ReadCloser, error)
+	GetRedirectURLForGET(ctx context.Context, key string) (*url.URL, error)
+	SendFromStream(ctx context.Context, key string, reader io.Reader, options SendOptions) error
 }
 
 func FromOptions(options Options) (Backend, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
 	switch options.Provider {
 	case "minio":
 		return initMinioBackend(options)

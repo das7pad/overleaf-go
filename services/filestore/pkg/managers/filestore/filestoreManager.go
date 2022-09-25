@@ -27,44 +27,12 @@ import (
 )
 
 type Manager interface {
-	GetReadStreamForProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) (int64, io.ReadCloser, error)
-
-	GetRedirectURLForGETOnProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) (*url.URL, error)
-
-	CopyProjectFile(
-		ctx context.Context,
-		srcProjectId sharedTypes.UUID,
-		srcFileId sharedTypes.UUID,
-		destProjectId sharedTypes.UUID,
-		destFileId sharedTypes.UUID,
-	) error
-
-	DeleteProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) error
-
-	DeleteProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-	) error
-
-	SendStreamForProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-		reader io.Reader,
-		options objectStorage.SendOptions,
-	) error
+	CopyProjectFile(ctx context.Context, srcProjectId sharedTypes.UUID, srcFileId sharedTypes.UUID, destProjectId sharedTypes.UUID, destFileId sharedTypes.UUID) error
+	DeleteProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) error
+	DeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
+	GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadCloser, error)
+	GetRedirectURLForGETOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error)
+	SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, options objectStorage.SendOptions) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -76,15 +44,11 @@ func New(options *types.Options) (Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &manager{
-		b:       b,
-		buckets: options.Buckets,
-	}, nil
+	return &manager{b: b}, nil
 }
 
 type manager struct {
-	b       objectStorage.Backend
-	buckets types.Buckets
+	b objectStorage.Backend
 }
 
 func getProjectPrefix(projectId sharedTypes.UUID) string {
@@ -96,50 +60,32 @@ func getProjectFileKey(projectId, fileId sharedTypes.UUID) string {
 }
 
 func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadCloser, error) {
-	return m.b.GetReadStream(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
+	return m.b.GetReadStream(ctx, getProjectFileKey(projectId, fileId))
 }
 
 func (m *manager) GetRedirectURLForGETOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error) {
-	return m.b.GetRedirectURLForGET(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
+	return m.b.GetRedirectURLForGET(ctx, getProjectFileKey(projectId, fileId))
 }
 
 func (m *manager) CopyProjectFile(ctx context.Context, srcProjectId sharedTypes.UUID, srcFileId sharedTypes.UUID, destProjectId sharedTypes.UUID, destFileId sharedTypes.UUID) error {
 	return m.b.CopyObject(
 		ctx,
-		m.buckets.UserFiles,
 		getProjectFileKey(srcProjectId, srcFileId),
 		getProjectFileKey(destProjectId, destFileId),
 	)
 }
 
 func (m *manager) DeleteProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) error {
-	return m.b.DeleteObject(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
+	return m.b.DeleteObject(ctx, getProjectFileKey(projectId, fileId))
 }
 
 func (m *manager) DeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
-	return m.b.DeletePrefix(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectPrefix(projectId),
-	)
+	return m.b.DeletePrefix(ctx, getProjectPrefix(projectId))
 }
 
 func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, options objectStorage.SendOptions) error {
 	return m.b.SendFromStream(
 		ctx,
-		m.buckets.UserFiles,
 		getProjectFileKey(projectId, fileId),
 		reader,
 		options,

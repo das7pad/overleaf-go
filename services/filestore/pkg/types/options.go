@@ -21,20 +21,13 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 )
 
-type Buckets struct {
-	UserFiles string `json:"user_files"`
-}
-
 type Options struct {
 	BackendOptions objectStorage.Options `json:"backend_options"`
-	Buckets        Buckets               `json:"buckets"`
 }
 
 func (o *Options) Validate() error {
-	if o.Buckets.UserFiles == "" {
-		return &errors.ValidationError{
-			Msg: "missing buckets.user_files",
-		}
+	if err := o.BackendOptions.Validate(); err != nil {
+		return errors.Tag(err, "invalid backend_options")
 	}
 	return nil
 }

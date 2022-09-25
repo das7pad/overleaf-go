@@ -37,12 +37,14 @@ func initMinioBackend(o Options) (Backend, error) {
 		return nil, err
 	}
 	return &minioBackend{
+		bucket:          o.Bucket,
 		mc:              mc,
 		signedURLExpiry: o.SignedURLExpiry,
 	}, nil
 }
 
 type minioBackend struct {
+	bucket          string
 	mc              *minio.Client
 	signedURLExpiry time.Duration
 }
@@ -58,15 +60,15 @@ func rewriteError(err error) error {
 	return err
 }
 
-func (m *minioBackend) SendFromStream(ctx context.Context, bucket string, key string, reader io.Reader, options SendOptions) error {
-	_, err := m.mc.PutObject(ctx, bucket, key, reader, options.ContentSize, minio.PutObjectOptions{
+func (m *minioBackend) SendFromStream(ctx context.Context, key string, reader io.Reader, options SendOptions) error {
+	_, err := m.mc.PutObject(ctx, m.bucket, key, reader, options.ContentSize, minio.PutObjectOptions{
 		SendContentMd5: true,
 	})
 	return err
 }
 
-func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key string) (int64, io.ReadCloser, error) {
-	r, err := m.mc.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+func (m *minioBackend) GetReadStream(ctx context.Context, key string) (int64, io.ReadCloser, error) {
+	r, err := m.mc.GetObject(ctx, m.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return 0, nil, errors.Tag(rewriteError(err), "get")
 	}
@@ -92,37 +94,37 @@ func (m *minioBackend) GetReadStream(ctx context.Context, bucket string, key str
 	return s.Size, r, nil
 }
 
-func (m *minioBackend) GetRedirectURLForGET(ctx context.Context, bucket string, key string) (*url.URL, error) {
+func (m *minioBackend) GetRedirectURLForGET(ctx context.Context, key string) (*url.URL, error) {
 	params := make(url.Values)
 	params.Set("Response-Content-Disposition", "attachment")
 	params.Set("Response-Content-Type", "application/octet-stream")
 	return m.mc.PresignedGetObject(
 		ctx,
-		bucket,
+		m.bucket,
 		key,
 		m.signedURLExpiry,
 		params,
 	)
 }
 
-func (m *minioBackend) GetObjectSize(ctx context.Context, bucket string, key string) (int64, error) {
-	o, err := m.mc.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
+func (m *minioBackend) GetObjectSize(ctx context.Context, key string) (int64, error) {
+	o, err := m.mc.StatObject(ctx, m.bucket, key, minio.StatObjectOptions{})
 	if err != nil {
 		return 0, rewriteError(err)
 	}
 	return o.Size, nil
 }
 
-func (m *minioBackend) DeleteObject(ctx context.Context, bucket string, key string) error {
-	err := m.mc.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+func (m *minioBackend) DeleteObject(ctx context.Context, key string) error {
+	err := m.mc.RemoveObject(ctx, m.bucket, key, minio.RemoveObjectOptions{})
 	return rewriteError(err)
 }
 
-func (m *minioBackend) DeletePrefix(ctx context.Context, bucket string, prefix string) error {
-	objects := m.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+func (m *minioBackend) DeletePrefix(ctx context.Context, prefix string) error {
+	objects := m.mc.ListObjects(ctx, m.bucket, minio.ListObjectsOptions{
 		Prefix: prefix,
 	})
-	objectErrors := m.mc.RemoveObjects(ctx, bucket, objects, minio.RemoveObjectsOptions{})
+	objectErrors := m.mc.RemoveObjects(ctx, m.bucket, objects, minio.RemoveObjectsOptions{})
 
 	for objectError := range objectErrors {
 		return rewriteError(objectError.Err)
@@ -130,15 +132,15 @@ func (m *minioBackend) DeletePrefix(ctx context.Context, bucket string, prefix s
 	return nil
 }
 
-func (m *minioBackend) CopyObject(ctx context.Context, bucket string, src string, dest string) error {
+func (m *minioBackend) CopyObject(ctx context.Context, src string, dest string) error {
 	_, err := m.mc.CopyObject(
 		ctx,
 		minio.CopyDestOptions{
-			Bucket: bucket,
+			Bucket: m.bucket,
 			Object: dest,
 		},
 		minio.CopySrcOptions{
-			Bucket: bucket,
+			Bucket: m.bucket,
 			Object: src,
 		},
 	)

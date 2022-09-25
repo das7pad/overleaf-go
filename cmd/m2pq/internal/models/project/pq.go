@@ -112,7 +112,6 @@ type projectFile struct {
 
 func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) error {
 	var fo objectStorage.Backend
-	fBucket := utils.MustGetStringFromEnv("FILESTORE_BUCKET")
 	{
 		o := objectStorage.Options{}
 		utils.MustParseJSONFromEnv(&o, "FILESTORE_OPTIONS")
@@ -123,7 +122,6 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 		fo = m
 	}
 	var do objectStorage.Backend
-	dBucket := utils.MustGetStringFromEnv("DOCSTORE_BUCKET")
 	{
 		o := objectStorage.Options{}
 		utils.MustParseJSONFromEnv(&o, "DOCSTORE_OPTIONS")
@@ -148,19 +146,16 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 			var lastErr error
 			for e := range copyQueue {
 				dst := e.ProjectId.String() + "/" + e.FileId.String()
-				{
-					_, err := fo.GetObjectSize(ctx, fBucket, dst)
-					if err == nil {
-						// already copied in full
-						continue
-					}
+				if _, err := fo.GetObjectSize(ctx, dst); err == nil {
+					// already copied in full
+					continue
 				}
 				pId, _ := m2pq.UUID2ObjectID(e.ProjectId)
 				fId, _ := m2pq.UUID2ObjectID(e.FileId)
 				src := primitive.ObjectID(pId).Hex() +
 					"/" +
 					primitive.ObjectID(fId).Hex()
-				if err := fo.CopyObject(ctx, fBucket, src, dst); err != nil {
+				if err := fo.CopyObject(ctx, src, dst); err != nil {
 					err = errors.Tag(
 						err,
 						fmt.Sprintf("copy %s -> %s", src, dst),
@@ -302,7 +297,7 @@ LIMIT 1
 				return nil
 			}
 			key := idS + "/" + f.Id.Hex()
-			s, err2 := fo.GetObjectSize(ctx, fBucket, key)
+			s, err2 := fo.GetObjectSize(ctx, key)
 			if err2 != nil {
 				return errors.Tag(err2, key)
 			}
@@ -317,7 +312,7 @@ LIMIT 1
 		for idS == lastDoc.ProjectId.Hex() {
 			if lastDoc.InS3 {
 				key := idS + "/" + lastDoc.Id.Hex()
-				_, r, err2 := do.GetReadStream(ctx, dBucket, key)
+				_, r, err2 := do.GetReadStream(ctx, key)
 				if err2 != nil {
 					return errors.Tag(err2, "get doc archive: "+key)
 				}
@@ -341,7 +336,7 @@ LIMIT 1
 		for idS == lastDeletedFile.ProjectId.Hex() {
 			if lastDeletedFile.Size == nil {
 				key := idS + "/" + lastDeletedFile.Id.Hex()
-				s, err2 := fo.GetObjectSize(ctx, fBucket, key)
+				s, err2 := fo.GetObjectSize(ctx, key)
 				if err2 != nil {
 					return errors.Tag(err2, "get deleted file size: "+key)
 				}
