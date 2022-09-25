@@ -40,22 +40,10 @@ type GetOptions struct {
 }
 
 type SendOptions struct {
-	ContentSize     int64
-	ContentType     string
-	ContentEncoding string
+	ContentSize int64
 }
 
-type FormData map[string]string
-
 type Backend interface {
-	SendFromFile(
-		ctx context.Context,
-		bucket string,
-		key string,
-		filePath string,
-		options SendOptions,
-	) error
-
 	SendFromStream(
 		ctx context.Context,
 		bucket string,
@@ -77,34 +65,10 @@ type Backend interface {
 		key string,
 	) (*url.URL, error)
 
-	GetRedirectURLForHEAD(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) (*url.URL, error)
-
-	GetRedirectURLForPOST(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) (*url.URL, FormData, error)
-
-	GetRedirectURLForPUT(
-		ctx context.Context,
-		bucket string,
-		key string,
-	) (*url.URL, error)
-
 	GetObjectSize(
 		ctx context.Context,
 		bucket string,
 		key string,
-	) (int64, error)
-
-	GetDirectorySize(
-		ctx context.Context,
-		bucket string,
-		prefix string,
 	) (int64, error)
 
 	DeleteObject(

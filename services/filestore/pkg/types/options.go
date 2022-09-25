@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,6 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Buckets struct {
@@ -27,10 +26,8 @@ type Buckets struct {
 }
 
 type Options struct {
-	AllowRedirects bool                  `json:"allow_redirects"`
 	BackendOptions objectStorage.Options `json:"backend_options"`
 	Buckets        Buckets               `json:"buckets"`
-	UploadBase     sharedTypes.DirName   `json:"upload_base"`
 }
 
 func (o *Options) Validate() error {
@@ -38,9 +35,6 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "missing buckets.user_files",
 		}
-	}
-	if len(o.UploadBase) == 0 {
-		return &errors.ValidationError{Msg: "missing upload_base"}
 	}
 	return nil
 }

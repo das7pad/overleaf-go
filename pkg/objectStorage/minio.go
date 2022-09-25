@@ -58,20 +58,9 @@ func rewriteError(err error) error {
 	return err
 }
 
-func (m *minioBackend) SendFromFile(ctx context.Context, bucket string, key string, filePath string, options SendOptions) error {
-	_, err := m.mc.FPutObject(ctx, bucket, key, filePath, minio.PutObjectOptions{
-		SendContentMd5:  true,
-		ContentEncoding: options.ContentEncoding,
-		ContentType:     options.ContentType,
-	})
-	return err
-}
-
 func (m *minioBackend) SendFromStream(ctx context.Context, bucket string, key string, reader io.Reader, options SendOptions) error {
 	_, err := m.mc.PutObject(ctx, bucket, key, reader, options.ContentSize, minio.PutObjectOptions{
-		ContentType:     options.ContentType,
-		ContentEncoding: options.ContentEncoding,
-		SendContentMd5:  true,
+		SendContentMd5: true,
 	})
 	return err
 }
@@ -123,61 +112,12 @@ func (m *minioBackend) GetRedirectURLForGET(ctx context.Context, bucket string, 
 	)
 }
 
-func (m *minioBackend) GetRedirectURLForHEAD(ctx context.Context, bucket string, key string) (*url.URL, error) {
-	return m.mc.PresignedHeadObject(
-		ctx,
-		bucket,
-		key,
-		m.signedURLExpiry,
-		nil,
-	)
-}
-
-func (m *minioBackend) GetRedirectURLForPOST(ctx context.Context, bucket string, key string) (*url.URL, FormData, error) {
-	policy := minio.NewPostPolicy()
-	if err := policy.SetBucket(bucket); err != nil {
-		return nil, nil, err
-	}
-	if err := policy.SetKey(key); err != nil {
-		return nil, nil, err
-	}
-	err := policy.SetExpires(time.Now().Add(m.signedURLExpiry))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return m.mc.PresignedPostPolicy(ctx, policy)
-}
-
-func (m *minioBackend) GetRedirectURLForPUT(ctx context.Context, bucket string, key string) (*url.URL, error) {
-	return m.mc.PresignedPutObject(
-		ctx,
-		bucket,
-		key,
-		m.signedURLExpiry,
-	)
-}
-
 func (m *minioBackend) GetObjectSize(ctx context.Context, bucket string, key string) (int64, error) {
 	o, err := m.mc.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
 	if err != nil {
 		return 0, rewriteError(err)
 	}
 	return o.Size, nil
-}
-
-func (m *minioBackend) GetDirectorySize(ctx context.Context, bucket string, prefix string) (int64, error) {
-	c := m.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{
-		Prefix: prefix,
-	})
-	var sum int64
-	for info := range c {
-		if err := info.Err; err != nil {
-			return 0, rewriteError(err)
-		}
-		sum += info.Size
-	}
-	return sum, nil
 }
 
 func (m *minioBackend) DeleteObject(ctx context.Context, bucket string, key string) error {

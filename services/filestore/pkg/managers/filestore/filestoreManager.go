@@ -40,35 +40,6 @@ type Manager interface {
 		fileId sharedTypes.UUID,
 	) (*url.URL, error)
 
-	GetRedirectURLForHEADOnProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) (*url.URL, error)
-
-	GetRedirectURLForPOSTOnProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) (*url.URL, objectStorage.FormData, error)
-
-	GetRedirectURLForPUTOnProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) (*url.URL, error)
-
-	GetSizeOfProjectFile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		fileId sharedTypes.UUID,
-	) (int64, error)
-
-	GetSizeOfProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-	) (int64, error)
-
 	CopyProjectFile(
 		ctx context.Context,
 		srcProjectId sharedTypes.UUID,
@@ -87,8 +58,6 @@ type Manager interface {
 		ctx context.Context,
 		projectId sharedTypes.UUID,
 	) error
-
-	SendProjectFileFromFS(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, path sharedTypes.PathName, options objectStorage.SendOptions) error
 
 	SendStreamForProjectFile(
 		ctx context.Context,
@@ -109,16 +78,14 @@ func New(options *types.Options) (Manager, error) {
 		return nil, err
 	}
 	return &manager{
-		b:          b,
-		buckets:    options.Buckets,
-		uploadBase: options.UploadBase,
+		b:       b,
+		buckets: options.Buckets,
 	}, nil
 }
 
 type manager struct {
-	b          objectStorage.Backend
-	buckets    types.Buckets
-	uploadBase sharedTypes.DirName
+	b       objectStorage.Backend
+	buckets types.Buckets
 }
 
 func getProjectPrefix(projectId sharedTypes.UUID) string {
@@ -143,46 +110,6 @@ func (m *manager) GetRedirectURLForGETOnProjectFile(ctx context.Context, project
 		ctx,
 		m.buckets.UserFiles,
 		getProjectFileKey(projectId, fileId),
-	)
-}
-
-func (m *manager) GetRedirectURLForHEADOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error) {
-	return m.b.GetRedirectURLForHEAD(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
-}
-
-func (m *manager) GetRedirectURLForPOSTOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, objectStorage.FormData, error) {
-	return m.b.GetRedirectURLForPOST(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
-}
-
-func (m *manager) GetRedirectURLForPUTOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error) {
-	return m.b.GetRedirectURLForPUT(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
-}
-
-func (m *manager) GetSizeOfProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, error) {
-	return m.b.GetObjectSize(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-	)
-}
-
-func (m *manager) GetSizeOfProject(ctx context.Context, projectId sharedTypes.UUID) (int64, error) {
-	return m.b.GetDirectorySize(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectPrefix(projectId),
 	)
 }
 
@@ -217,19 +144,6 @@ func (m *manager) SendStreamForProjectFile(ctx context.Context, projectId shared
 		m.buckets.UserFiles,
 		getProjectFileKey(projectId, fileId),
 		reader,
-		options,
-	)
-}
-
-func (m *manager) SendProjectFileFromFS(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, path sharedTypes.PathName, options objectStorage.SendOptions) error {
-	if err := path.Validate(); err != nil {
-		return err
-	}
-	return m.b.SendFromFile(
-		ctx,
-		m.buckets.UserFiles,
-		getProjectFileKey(projectId, fileId),
-		string(m.uploadBase.JoinPath(path)),
 		options,
 	)
 }
