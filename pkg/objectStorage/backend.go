@@ -34,11 +34,6 @@ type Options struct {
 	SignedURLExpiry time.Duration `json:"signed_url_expiry_in_ns"`
 }
 
-type GetOptions struct {
-	Start int64
-	End   int64
-}
-
 type SendOptions struct {
 	ContentSize int64
 }
@@ -56,7 +51,6 @@ type Backend interface {
 		ctx context.Context,
 		bucket string,
 		key string,
-		options GetOptions,
 	) (int64, io.ReadCloser, error)
 
 	GetRedirectURLForGET(

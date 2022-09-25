@@ -24,7 +24,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -109,7 +108,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 		case *project.FileRef:
 			var reader io.ReadCloser
 			_, reader, err = m.fm.GetReadStreamForProjectFile(
-				ctx, projectId, el.Id, objectStorage.GetOptions{},
+				ctx, projectId, el.Id,
 			)
 			if err != nil {
 				return errors.Tag(err, "get file: "+el.Id.String())

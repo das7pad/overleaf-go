@@ -317,9 +317,7 @@ LIMIT 1
 		for idS == lastDoc.ProjectId.Hex() {
 			if lastDoc.InS3 {
 				key := idS + "/" + lastDoc.Id.Hex()
-				_, r, err2 := do.GetReadStream(
-					ctx, dBucket, key, objectStorage.GetOptions{},
-				)
+				_, r, err2 := do.GetReadStream(ctx, dBucket, key)
 				if err2 != nil {
 					return errors.Tag(err2, "get doc archive: "+key)
 				}

@@ -31,7 +31,6 @@ type Manager interface {
 		ctx context.Context,
 		projectId sharedTypes.UUID,
 		fileId sharedTypes.UUID,
-		options objectStorage.GetOptions,
 	) (int64, io.ReadCloser, error)
 
 	GetRedirectURLForGETOnProjectFile(
@@ -96,12 +95,11 @@ func getProjectFileKey(projectId, fileId sharedTypes.UUID) string {
 	return projectId.String() + "/" + fileId.String()
 }
 
-func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, options objectStorage.GetOptions) (int64, io.ReadCloser, error) {
+func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadCloser, error) {
 	return m.b.GetReadStream(
 		ctx,
 		m.buckets.UserFiles,
 		getProjectFileKey(projectId, fileId),
-		options,
 	)
 }
 

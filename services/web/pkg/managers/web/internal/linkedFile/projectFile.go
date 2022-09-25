@@ -22,7 +22,6 @@ import (
 	"os"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -58,7 +57,7 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 		size = int64(n)
 	} else {
 		_, reader, err2 := m.fm.GetReadStreamForProjectFile(
-			ctx, sourceProjectId, elementId, objectStorage.GetOptions{},
+			ctx, sourceProjectId, elementId,
 		)
 		if err2 != nil {
 			return errors.Tag(err2, "cannot get file")

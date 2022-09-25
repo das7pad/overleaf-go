@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -33,8 +32,7 @@ func (m *manager) GetProjectFile(ctx context.Context, request *types.GetProjectF
 	if err != nil {
 		return errors.Tag(err, "cannot get file tree")
 	}
-	o := objectStorage.GetOptions{}
-	s, r, err := m.fm.GetReadStreamForProjectFile(ctx, projectId, fileId, o)
+	s, r, err := m.fm.GetReadStreamForProjectFile(ctx, projectId, fileId)
 	if err != nil {
 		return errors.Tag(err, "cannot get filestream")
 	}
