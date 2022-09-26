@@ -71,34 +71,30 @@ func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUI
 	queueKey := "UncompressedHistoryOps:{" + docId.String() + "}"
 	projectTracking := getProjectTrackingKey(projectId)
 	for {
-		var err error
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-			rawUpdates, errGetUpdates := m.client.LRange(
+		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
+			rawUpdates, err := m.client.LRange(
 				ctx,
 				queueKey,
 				0,
 				batchSizeProcessUpdates,
 			).Result()
-			if errGetUpdates != nil {
-				err = errors.Tag(errGetUpdates, "cannot get updates from redis")
-				return
+			if err != nil {
+				return errors.Tag(err, "cannot get updates from redis")
 			}
 			updates := make([]sharedTypes.DocumentUpdate, len(rawUpdates))
 			for i, update := range rawUpdates {
 				err = json.Unmarshal([]byte(update), &updates[i])
 				if err != nil {
-					err = errors.Tag(
+					return errors.Tag(
 						err,
 						fmt.Sprintf("cannot decode update %d", i),
 					)
-					return
 				}
 			}
 
 			err = m.persistUpdates(ctx, projectId, docId, updates)
 			if err != nil {
-				err = errors.Tag(err, "cannot persist updates")
-				return
+				return errors.Tag(err, "cannot persist updates")
 			}
 
 			var queueDepthCmd *redis.IntCmd
@@ -110,26 +106,23 @@ func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUI
 				return nil
 			})
 			if err != nil {
-				err = errors.Tag(err, "cannot pop from redis queue")
-				return
+				return errors.Tag(err, "cannot pop from redis queue")
 			}
 
 			if d, _ := queueDepthCmd.Result(); d != 0 {
-				err = errPartialFlush
-				return
+				return errPartialFlush
 			}
 
 			// The queue is empty. Bonus: cleanup the project tracking.
 			_ = m.client.SRem(ctx, projectTracking, docId.String()).Err()
+
+			return nil
 		})
 		if err == errPartialFlush {
 			continue
 		}
 		if err != nil {
 			return err
-		}
-		if lockErr != nil {
-			return lockErr
 		}
 		return nil
 	}

@@ -32,7 +32,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type Runner func(ctx context.Context)
+type Runner func(ctx context.Context) error
 
 type Locker interface {
 	RunWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner) error
@@ -147,9 +147,13 @@ func (l *locker) runWithLock(ctx context.Context, docId sharedTypes.UUID, runner
 
 	workCtx, workDone := context.WithDeadline(ctx, workDeadline)
 	defer workDone()
-	runner(workCtx)
+	runnerErr := runner(workCtx)
 
-	return l.releaseLock(key, lockValue, lockExpiredAfter)
+	lockErr := l.releaseLock(key, lockValue, lockExpiredAfter)
+	if runnerErr != nil {
+		return runnerErr
+	}
+	return lockErr
 }
 
 func (l *locker) tryGetLock(ctx context.Context, key string, lockValue string) (bool, bool, error) {

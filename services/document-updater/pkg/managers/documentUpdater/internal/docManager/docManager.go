@@ -94,31 +94,26 @@ type manager struct {
 func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, update *types.RenameDocUpdate) error {
 	docId := update.Id
 	for {
-		var err error
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-			if _, err = m.rm.GetDocVersion(ctx, docId); err != nil {
+		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
+			if _, err := m.rm.GetDocVersion(ctx, docId); err != nil {
 				if errors.IsNotFoundError(err) {
 					// Fast path: Doc is not loaded in redis yet.
-					err = nil
+					return nil
 				}
-				return
+				return err
 			}
 
-			var d *types.Doc
-			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			d, err := m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
-				return
+				return err
 			}
-			err = m.rm.RenameDoc(ctx, projectId, docId, d, update)
+			return m.rm.RenameDoc(ctx, projectId, docId, d, update)
 		})
 		if err == errPartialFlush {
 			continue
 		}
 		if err != nil {
 			return err
-		}
-		if lockErr != nil {
-			return lockErr
 		}
 		return nil
 	}
@@ -146,15 +141,12 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 	if !errors.IsNotFoundError(err) {
 		return nil, err
 	}
-	err = nil
-	lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+	err = m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
 		d, err = m.getDoc(ctx, projectId, docId)
+		return err
 	})
 	if err != nil {
 		return nil, err
-	}
-	if lockErr != nil {
-		return nil, lockErr
 	}
 	return d, nil
 }
@@ -183,24 +175,22 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 		return err
 	}
 	for {
-		var err error
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
-			var d *types.Doc
-			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
+		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
+			d, err := m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
-				return
+				return err
 			}
 
 			if err = ctx.Err(); err != nil {
 				// Processing timed out.
-				return
+				return err
 			}
 
 			op := text.Diff(d.Snapshot, request.GetSnapshot())
 
 			if err = ctx.Err(); err != nil {
 				// Processing timed out.
-				return
+				return err
 			}
 
 			if len(op) > 0 {
@@ -223,7 +213,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 					ctx, docId, d, updates, nil,
 				)
 				if err != nil {
-					return
+					return err
 				}
 
 				err = m.persistProcessedUpdates(
@@ -233,7 +223,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 					updates, nil,
 				)
 				if err != nil {
-					return
+					return err
 				}
 			}
 
@@ -242,8 +232,9 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 				ctx, projectId, docId, d, deleteFromRedis,
 			)
 			if err != nil {
-				return
+				return err
 			}
+			return nil
 		})
 		if err == errPartialFlush {
 			continue
@@ -251,37 +242,29 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 		if err != nil {
 			return err
 		}
-		if lockErr != nil {
-			return lockErr
-		}
 		return nil
 	}
 }
 
 func (m *manager) ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId sharedTypes.UUID) error {
-	var err error
 	for {
-		err = nil
-		lockErr := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) {
-			_, err = m.processUpdatesForDoc(ctx, projectId, docId)
+		err := m.rl.TryRunWithLock(ctx, docId, func(ctx context.Context) error {
+			_, err := m.processUpdatesForDoc(ctx, projectId, docId)
+			return err
 		})
-		if lockErr == redisLocker.ErrLocked {
+		if err == redisLocker.ErrLocked {
 			// Someone else is processing updates already.
 			return nil
 		}
 		if err == errPartialFlush {
 			continue
 		}
-		if err == nil && lockErr != nil {
-			err = lockErr
+		if err != nil && !errors.IsAlreadyReported(err) {
+			m.reportError(projectId, docId, err)
+			err = errors.MarkAsReported(err)
 		}
-		break
+		return err
 	}
-	if err != nil && !errors.IsAlreadyReported(err) {
-		m.reportError(projectId, docId, err)
-		err = errors.MarkAsReported(err)
-	}
-	return err
 }
 
 const (
@@ -290,13 +273,13 @@ const (
 
 func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
 	var d *types.Doc
-	var err error
 
 	for {
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
+			var err error
 			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
-				return
+				return err
 			}
 			if d.UnFlushedTime != 0 {
 				maxAge := types.UnFlushedTime(
@@ -306,18 +289,18 @@ func (m *manager) processUpdatesForDocAndFlushOld(ctx context.Context, projectId
 					err = m.doFlushAndMaybeDelete(
 						ctx, projectId, docId, d, false,
 					)
+					if err != nil {
+						return err
+					}
 				}
 			}
+			return nil
 		})
 		if err == errPartialFlush {
-			err = nil
 			continue
 		}
 		if err != nil {
 			return nil, err
-		}
-		if lockErr != nil {
-			return nil, lockErr
 		}
 		return d, nil
 	}
@@ -488,37 +471,31 @@ func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId shared
 }
 
 func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID, deleteFromRedis bool) error {
-	var err error
-
 	for {
-		lockErr := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) {
+		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
 			if m.tryCheckDocNotLoadedOrFlushed(ctx, docId) {
 				if deleteFromRedis {
 					m.tc.FlushDocInBackground(projectId, docId)
 				}
-				return
+				return nil
 			}
-			var d *types.Doc
-			d, err = m.processUpdatesForDoc(ctx, projectId, docId)
+			d, err := m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {
-				return
+				return err
 			}
 			err = m.doFlushAndMaybeDelete(
 				ctx, projectId, docId, d, deleteFromRedis,
 			)
 			if err != nil {
-				return
+				return err
 			}
+			return nil
 		})
 		if err == errPartialFlush {
-			err = nil
 			continue
 		}
 		if err != nil {
 			return err
-		}
-		if lockErr != nil {
-			return lockErr
 		}
 		return nil
 	}
