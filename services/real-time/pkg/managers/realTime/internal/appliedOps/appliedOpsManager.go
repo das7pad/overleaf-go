@@ -39,11 +39,12 @@ type Manager interface {
 func New(options *types.Options, client redis.UniversalClient) Manager {
 	c := channel.New(client, "applied-ops")
 	b := broadcaster.New(c, newRoom)
+	n := options.APIs.DocumentUpdater.Options.PendingUpdatesListShardCount
 	return &manager{
 		Broadcaster:                  b,
 		channel:                      c,
 		client:                       client,
-		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
+		pendingUpdatesListShardCount: n,
 	}
 }
 
@@ -52,11 +53,11 @@ type manager struct {
 
 	channel                      channel.Manager
 	client                       redis.UniversalClient
-	pendingUpdatesListShardCount int64
+	pendingUpdatesListShardCount int
 }
 
 func (m *manager) getPendingUpdatesListKey() string {
-	shard := rand.Int63n(m.pendingUpdatesListShardCount)
+	shard := rand.Intn(m.pendingUpdatesListShardCount)
 	return documentUpdaterTypes.PendingUpdatesListKey(shard).String()
 }
 
