@@ -20,12 +20,12 @@ import (
 	"context"
 	"net/http"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
@@ -71,37 +71,41 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go rtm.PeriodicCleanup(triggerExitCtx)
 
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	eg.Go(func() error {
+		rtm.PeriodicCleanup(triggerExitCtx)
+		return nil
+	})
 	server := http.Server{
 		Addr:    o.address,
 		Handler: router.New(rtm, o.options.JWT.RealTime),
 	}
-	var errServeMux sync.Mutex
 	var errServe error
-	go func() {
-		err2 := server.ListenAndServe()
-		errServeMux.Lock()
-		errServe = err2
-		errServeMux.Unlock()
+	eg.Go(func() error {
+		errServe = server.ListenAndServe()
 		triggerExit()
-	}()
-
-	<-triggerExitCtx.Done()
-	rtm.InitiateGracefulShutdown()
-	ctx, done := context.WithTimeout(context.Background(), 15*time.Second)
-	defer done()
-	pendingShutdown := pendingOperation.TrackOperation(func() error {
-		return server.Shutdown(ctx)
+		if errServe == http.ErrServerClosed {
+			errServe = nil
+		}
+		return errServe
 	})
-	rtm.TriggerGracefulReconnect()
-	errClose := pendingShutdown.Wait(context.Background())
-	errServeMux.Lock()
-	defer errServeMux.Unlock()
-	if errServe != nil && errServe != http.ErrServerClosed {
+	eg.Go(func() error {
+		<-ctx.Done()
+		rtm.InitiateGracefulShutdown()
+		ctx2, done := context.WithTimeout(context.Background(), 15*time.Second)
+		defer done()
+		pendingShutdown := pendingOperation.TrackOperation(func() error {
+			return server.Shutdown(ctx2)
+		})
+		rtm.TriggerGracefulReconnect()
+		return pendingShutdown.Wait(ctx2)
+	})
+	err = eg.Wait()
+	if errServe != nil {
 		panic(errServe)
 	}
-	if errClose != nil {
-		panic(errClose)
+	if err != nil {
+		panic(err)
 	}
 }

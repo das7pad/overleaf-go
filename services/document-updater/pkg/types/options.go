@@ -22,7 +22,7 @@ import (
 )
 
 type Options struct {
-	WorkersPerShard              int `json:"workers_per_shard"`
+	Workers                      int `json:"workers"`
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
 }
 
@@ -36,9 +36,9 @@ func (o *Options) Validate() error {
 			Msg: "pending_updates_list_shard_count must be greater than 0",
 		}
 	}
-	if o.WorkersPerShard <= 0 {
+	if o.Workers <= 0 {
 		return &errors.ValidationError{
-			Msg: "workers_per_shard must be greater than 0",
+			Msg: "workers must be greater than 0",
 		}
 	}
 	return nil

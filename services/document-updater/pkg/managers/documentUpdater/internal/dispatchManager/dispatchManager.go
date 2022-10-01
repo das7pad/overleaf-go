@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -32,15 +33,19 @@ import (
 )
 
 type Manager interface {
-	Start(ctx context.Context)
+	ProcessDocumentUpdates(ctx context.Context)
 }
+
+const (
+	maxProcessingTime = 30 * time.Second
+)
 
 func New(options *types.Options, client redis.UniversalClient, dm docManager.Manager) Manager {
 	return &manager{
 		client:                       client,
 		dm:                           dm,
 		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
-		workersPerShard:              options.WorkersPerShard,
+		workersPerShard:              options.Workers,
 	}
 }
 
@@ -51,49 +56,46 @@ type manager struct {
 	workersPerShard              int
 }
 
-func (m *manager) Start(ctx context.Context) {
+func (m *manager) ProcessDocumentUpdates(ctx context.Context) {
+	queue := make(chan string, m.pendingUpdatesListShardCount)
+
+	workerWg := sync.WaitGroup{}
+	for i := 0; i < m.workersPerShard; i++ {
+		workerWg.Add(1)
+		go func() {
+			m.worker(queue)
+			workerWg.Done()
+		}()
+	}
+
+	producerWg := sync.WaitGroup{}
 	for i := 0; i < m.pendingUpdatesListShardCount; i++ {
-		queue := types.PendingUpdatesListKey(i).String()
-		s := &shard{
-			queue:   queue,
-			workers: m.workersPerShard,
-			client:  m.client,
-			dm:      m.dm,
-		}
-		go s.run(ctx)
+		key := types.PendingUpdatesListKey(i).String()
+		producerWg.Add(1)
+		go func() {
+			m.producer(ctx, queue, key)
+			producerWg.Done()
+		}()
 	}
+	producerWg.Wait()
+	close(queue)
+	workerWg.Wait()
 }
 
-type shard struct {
-	queue   string
-	workers int
-	client  redis.UniversalClient
-	dm      docManager.Manager
-}
-
-const (
-	maxProcessingTime = 30 * time.Second
-)
-
-func (m *shard) run(ctx context.Context) {
-	work := make(chan string)
-	defer close(work)
-
-	for i := 0; i < m.workers; i++ {
-		go m.process(work)
-	}
+func (m *manager) producer(ctx context.Context, queue chan<- string, key string) {
 	for {
-		res, err := m.client.BLPop(ctx, 0, m.queue).Result()
+		res, err := m.client.BLPop(ctx, 0, key).Result()
 		if err == context.Canceled {
 			break
 		}
 		if err != nil {
-			err = errors.Tag(err, "cannot get work from queue "+m.queue)
+			err = errors.Tag(err, "cannot get work from redis list "+key)
 			log.Println(err.Error())
 			continue
 		}
-		key := res[1]
-		work <- key
+		// res[0] is the key we popped from, aka `key`
+		// res[1] is the value we popped
+		queue <- res[1]
 	}
 }
 
@@ -114,8 +116,8 @@ func parseKey(key string) (sharedTypes.UUID, sharedTypes.UUID, error) {
 	return projectId, docId, nil
 }
 
-func (m *shard) process(work chan string) {
-	for key := range work {
+func (m *manager) worker(queue <-chan string) {
+	for key := range queue {
 		projectId, docId, err := parseKey(key)
 		if err != nil {
 			err = errors.Tag(err, fmt.Sprintf("unexpected key %q", key))

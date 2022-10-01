@@ -19,6 +19,7 @@ package web
 import (
 	"context"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -67,7 +68,8 @@ import (
 )
 
 type Manager interface {
-	Cron(ctx context.Context, dryRun bool) bool
+	Cron(ctx context.Context, dryRun bool)
+	CronOnce(ctx context.Context, dryRun bool) bool
 	GetPublicSettings() *templates.PublicSettings
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
@@ -318,7 +320,25 @@ func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {
 	return m.loggedInUserJWTHandler
 }
 
-func (m *manager) Cron(ctx context.Context, dryRun bool) bool {
+func (m *manager) Cron(ctx context.Context, dryRun bool) {
+	for {
+		t := time.NewTimer(
+			15*time.Minute - time.Duration(rand.Int63n(int64(time.Minute))),
+		)
+		select {
+		case <-ctx.Done():
+			if !t.Stop() {
+				<-t.C
+			}
+			return
+		case <-t.C:
+		}
+
+		m.CronOnce(ctx, dryRun)
+	}
+}
+
+func (m *manager) CronOnce(ctx context.Context, dryRun bool) bool {
 	start := time.Now()
 	ok := true
 	if err := m.HardDeleteExpiredProjects(ctx, dryRun, start); err != nil {

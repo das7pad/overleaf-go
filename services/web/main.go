@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -44,6 +45,7 @@ func waitForRedis(
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	o := getOptions()
 	ctx := context.Background()
 
@@ -67,13 +69,14 @@ func main() {
 	}
 
 	go func() {
-		if !wm.Cron(ctx, false) {
+		time.Sleep(time.Duration(rand.Int63n(int64(time.Hour))))
+		if !wm.CronOnce(ctx, false) {
 			log.Println("cron failed")
 		}
 	}()
 
 	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "cron" {
-		if !wm.Cron(ctx, o.dryRunCron) {
+		if !wm.CronOnce(ctx, o.dryRunCron) {
 			os.Exit(42)
 		} else {
 			os.Exit(0)

@@ -19,10 +19,13 @@ package main
 import (
 	"context"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -42,21 +45,24 @@ func waitForRedis(
 }
 
 func main() {
+	triggerExitCtx, triggerExit := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
+	)
+	defer triggerExit()
 	o := getOptions()
-	ctx := context.Background()
 	redisClient := redis.NewUniversalClient(o.redisOptions)
 
-	err := waitForRedis(ctx, redisClient)
+	err := waitForRedis(triggerExitCtx, redisClient)
 	if err != nil {
 		panic(err)
 	}
 
 	dsn := postgresOptions.Parse()
-	db, err := pgxpool.Connect(ctx, dsn)
+	db, err := pgxpool.Connect(triggerExitCtx, dsn)
 	if err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
-	if err = db.Ping(ctx); err != nil {
+	if err = db.Ping(triggerExitCtx); err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 
@@ -65,17 +71,23 @@ func main() {
 		panic(err)
 	}
 
-	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
-		context.Background(),
-	)
-	dum.StartBackgroundTasks(backgroundTaskCtx)
-
 	server := http.Server{
 		Addr:    o.address,
 		Handler: httpUtils.NewRouter(&httpUtils.RouterOptions{}),
 	}
-	err = server.ListenAndServe()
-	shutdownBackgroundTasks()
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	eg.Go(func() error {
+		dum.ProcessDocumentUpdates(ctx)
+		return nil
+	})
+	eg.Go(func() error {
+		return server.ListenAndServe()
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		return server.Shutdown(context.Background())
+	})
+	err = eg.Wait()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}

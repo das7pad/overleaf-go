@@ -20,9 +20,10 @@ import (
 	"context"
 	"net/http"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/cmd/internal/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -100,45 +101,59 @@ func main() {
 	spellingRouter.Add(r, sm, co)
 	webRouter.Add(r, webManager, co)
 
-	t := time.NewTicker(15 * time.Minute)
-	go func() {
-		for range t.C {
-			webManager.Cron(triggerExitCtx, false)
-		}
-	}()
-	go clsiManager.PeriodicCleanup(triggerExitCtx)
-	go dum.StartBackgroundTasks(triggerExitCtx)
-
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	processDocumentUpdatesCtx, stopProcessingDocumentUpdates :=
+		context.WithCancel(context.Background())
+	eg.Go(func() error {
+		webManager.Cron(ctx, false)
+		return nil
+	})
+	eg.Go(func() error {
+		clsiManager.PeriodicCleanup(ctx)
+		return nil
+	})
+	eg.Go(func() error {
+		dum.ProcessDocumentUpdates(processDocumentUpdatesCtx)
+		return nil
+	})
 	server := http.Server{
 		Addr:    addr,
 		Handler: r,
 	}
-	var errServeMux sync.Mutex
 	var errServe error
-	go func() {
-		err2 := server.ListenAndServe()
-		errServeMux.Lock()
-		errServe = err2
-		errServeMux.Unlock()
+	eg.Go(func() error {
+		errServe = server.ListenAndServe()
 		triggerExit()
-	}()
-
-	<-triggerExitCtx.Done()
-	t.Stop()
-	rtm.InitiateGracefulShutdown()
-	ctx, done := context.WithTimeout(context.Background(), 15*time.Second)
-	defer done()
-	pendingShutdown := pendingOperation.TrackOperation(func() error {
-		return server.Shutdown(ctx)
+		if errServe == http.ErrServerClosed {
+			errServe = nil
+		}
+		return errServe
 	})
-	rtm.TriggerGracefulReconnect()
-	errClose := pendingShutdown.Wait(ctx)
-	errServeMux.Lock()
-	defer errServeMux.Unlock()
-	if errServe != nil && errServe != http.ErrServerClosed {
+	eg.Go(func() error {
+		<-ctx.Done()
+		// Shutdown sequence:
+		// - Stop accepting new websocket connections
+		rtm.InitiateGracefulShutdown()
+		// - Stop accepting new HTTP requests
+		ctx2, done := context.WithTimeout(context.Background(), 15*time.Second)
+		defer done()
+		pendingShutdown := pendingOperation.TrackOperation(func() error {
+			return server.Shutdown(ctx2)
+		})
+		// - Ask clients to tear down websocket connections
+		rtm.TriggerGracefulReconnect()
+		// - Stop processing of document-updates -- keep going until after all
+		//    editor sessions had time to flush ahead of disconnecting their
+		//    websocket connection.
+		stopProcessingDocumentUpdates()
+		// - Wait for existing HTTP requests to finish processing
+		return pendingShutdown.Wait(ctx2)
+	})
+	err = eg.Wait()
+	if errServe != nil {
 		panic(errServe)
 	}
-	if errClose != nil {
-		panic(errClose)
+	if err != nil {
+		panic(err)
 	}
 }

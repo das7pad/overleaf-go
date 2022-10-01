@@ -29,7 +29,7 @@ import (
 )
 
 type Manager interface {
-	StartBackgroundTasks(ctx context.Context)
+	ProcessDocumentUpdates(ctx context.Context)
 	CheckDocExists(
 		ctx context.Context,
 		projectId sharedTypes.UUID,
@@ -69,8 +69,8 @@ type manager struct {
 	dm         docManager.Manager
 }
 
-func (m *manager) StartBackgroundTasks(ctx context.Context) {
-	m.dispatcher.Start(ctx)
+func (m *manager) ProcessDocumentUpdates(ctx context.Context) {
+	m.dispatcher.ProcessDocumentUpdates(ctx)
 }
 
 func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, request *types.ProcessProjectUpdatesRequest) error {
