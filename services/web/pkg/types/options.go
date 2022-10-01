@@ -54,16 +54,15 @@ type Options struct {
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
-	I18n                  templates.I18nOptions `json:"i18n"`
-	LearnCacheDuration    time.Duration         `json:"learn_cache_duration"`
-	LearnImageCacheBase   sharedTypes.DirName   `json:"learn_image_cache_base"`
-	ManifestPath          string                `json:"manifest_path"`
-	Nav                   templates.NavOptions  `json:"nav"`
-	PDFDownloadDomain     PDFDownloadDomain     `json:"pdf_download_domain"`
-	ProjectsInactiveAfter time.Duration         `json:"projects_inactive_after"`
-	Sentry                SentryOptions         `json:"sentry"`
-	SiteURL               sharedTypes.URL       `json:"site_url"`
-	SmokeTest             struct {
+	I18n                templates.I18nOptions `json:"i18n"`
+	LearnCacheDuration  time.Duration         `json:"learn_cache_duration"`
+	LearnImageCacheBase sharedTypes.DirName   `json:"learn_image_cache_base"`
+	ManifestPath        string                `json:"manifest_path"`
+	Nav                 templates.NavOptions  `json:"nav"`
+	PDFDownloadDomain   PDFDownloadDomain     `json:"pdf_download_domain"`
+	Sentry              SentryOptions         `json:"sentry"`
+	SiteURL             sharedTypes.URL       `json:"site_url"`
+	SmokeTest           struct {
 		Email     sharedTypes.Email `json:"email"`
 		Password  UserPassword      `json:"password"`
 		ProjectId sharedTypes.UUID  `json:"projectId"`
@@ -147,11 +146,6 @@ func (o *Options) Validate() error {
 	}
 	if o.ManifestPath == "" {
 		return &errors.ValidationError{Msg: "manifest_path is missing"}
-	}
-	if o.ProjectsInactiveAfter < 24*time.Hour {
-		return &errors.ValidationError{
-			Msg: "projects_inactive_after is mis-configured, expected O(days)",
-		}
 	}
 	if err := o.SiteURL.Validate(); err != nil {
 		return errors.Tag(err, "site_url is invalid")
