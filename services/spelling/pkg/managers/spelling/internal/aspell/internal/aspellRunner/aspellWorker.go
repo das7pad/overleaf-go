@@ -18,11 +18,11 @@ package aspellRunner
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"math"
 	"os/exec"
-	"strings"
 
 	"golang.org/x/sync/errgroup"
 
@@ -220,7 +220,7 @@ func (w *worker) TransitionState(from, to string) bool {
 
 func (w *worker) endBatch() error {
 	// Emit language as delimiter for batches
-	return w.write("$$l")
+	return w.write([]byte("$$l\n"))
 }
 
 func (w *worker) start() error {
@@ -245,16 +245,29 @@ func (w *worker) start() error {
 
 func (w *worker) startBatch() error {
 	// Enter terse mode
-	return w.write("!")
+	return w.write([]byte("!\n"))
 }
 
 func (w *worker) sendWords(words []string) error {
 	w.count++
-	return w.write("^" + strings.Join(words, " "))
+	var b bytes.Buffer
+	n := 1 + len(words) - 1 + 1 // ^ + spaces between words + \n
+	for _, item := range words {
+		n += len(item)
+	}
+	b.Grow(n)
+	b.WriteString("^")
+	b.WriteString(words[0])
+	for _, item := range words[1:] {
+		b.WriteString(" ")
+		b.WriteString(item)
+	}
+	b.WriteString("\n")
+	return w.write(b.Bytes())
 }
 
-func (w *worker) write(line string) error {
-	_, err := w.stdin.Write([]byte(line + "\n"))
+func (w *worker) write(p []byte) error {
+	_, err := w.stdin.Write(p)
 	return err
 }
 
