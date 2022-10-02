@@ -34,10 +34,10 @@ type WorkerPool interface {
 }
 
 const (
-	MaxRequests    = 100 * 1024
-	MaxWorkers     = 32
-	MaxIdleTime    = 1 * time.Second
-	MaxRequestTime = 1 * time.Minute
+	MaxRequests        = 100 * 1024
+	MaxWorkers         = 32
+	MaxIdleTime        = 1 * time.Second
+	MaxRequestDuration = 1 * time.Minute
 )
 
 var (
@@ -103,7 +103,7 @@ func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckL
 	}
 	defer wp.returnWorker(w)
 
-	ctx, cancel := context.WithTimeout(ctx, MaxRequestTime)
+	ctx, cancel := context.WithTimeout(ctx, MaxRequestDuration)
 	defer cancel()
 
 	go func() {
