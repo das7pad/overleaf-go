@@ -37,15 +37,16 @@ const (
 	MaxRequestDuration = 10 * time.Second
 )
 
-var (
-	errPoolFull = errors.New("maximum number of workers already running")
-)
-
 func newWorkerPool() WorkerPool {
 	t := time.NewTicker(MaxIdleTime / 2)
+	sem := make(chan struct{}, MaxWorkers)
+	for i := 0; i < MaxWorkers; i++ {
+		sem <- struct{}{}
+	}
 	wp := workerPool{
 		slots:         make([]Worker, MaxWorkers),
 		freeSlots:     MaxWorkers,
+		sem:           sem,
 		cleanupTicker: t,
 	}
 	go func() {
@@ -58,12 +59,15 @@ func newWorkerPool() WorkerPool {
 
 type workerPool struct {
 	l             sync.Mutex
+	sem           chan struct{}
 	slots         []Worker
 	freeSlots     int8
 	cleanupTicker *time.Ticker
 }
 
 func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]string, error) {
+	<-wp.sem
+	defer func() { wp.sem <- struct{}{} }()
 	w, err := wp.getWorker(language)
 	if err != nil {
 		return nil, err
@@ -117,11 +121,27 @@ func (wp *workerPool) getWorker(language types.SpellCheckLanguage) (Worker, erro
 		}
 	}
 	if wp.freeSlots == 0 {
+		// Steal a slot from another language.
+		// NOTE: wp.sem guarantees that at least one slot is populated.
+		var takeOverAt int
+		var oldest time.Time
+		for i, w := range wp.slots {
+			if w == nil {
+				continue
+			}
+			if oldest.IsZero() || w.LastUsed().Before(oldest) {
+				oldest = w.LastUsed()
+				takeOverAt = i
+			}
+		}
+		w := wp.slots[takeOverAt]
+		wp.slots[takeOverAt] = nil
 		wp.l.Unlock()
-		return nil, errPoolFull
+		w.Kill()
+	} else {
+		wp.freeSlots--
+		wp.l.Unlock()
 	}
-	wp.freeSlots--
-	wp.l.Unlock()
 	w, err := newAspellWorker(language)
 	if err != nil {
 		wp.l.Lock()

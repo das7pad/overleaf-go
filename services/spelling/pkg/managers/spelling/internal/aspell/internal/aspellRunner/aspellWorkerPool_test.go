@@ -19,6 +19,7 @@ package aspellRunner
 import (
 	"context"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -26,12 +27,13 @@ import (
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
-func BenchmarkWorkerPool_CheckWords(b *testing.B) {
+func benchmarkWorkerPoolCheckWords(b *testing.B, p int) {
 	wp := newWorkerPool()
 	defer wp.Close()
 	eg, ctx := errgroup.WithContext(context.Background())
 
-	for j := 0; j < MaxWorkers; j++ {
+	t0 := time.Now()
+	for j := 0; j < p; j++ {
 		lng := types.SpellCheckLanguage("en")
 		switch {
 		case j%2 == 0:
@@ -62,8 +64,39 @@ func BenchmarkWorkerPool_CheckWords(b *testing.B) {
 	if err := eg.Wait(); err != nil {
 		b.Fatal(err)
 	}
-	wp.(*workerPool).l.Lock()
-	b.Log(wp.(*workerPool).freeSlots)
-	b.Log(wp.(*workerPool).slots)
-	wp.(*workerPool).l.Unlock()
+	perReq := time.Since(t0) / time.Duration(p*b.N)
+	b.ReportMetric(float64(perReq), "ns/req")
+	b.ReportMetric(float64(time.Second/perReq), "req/s")
+}
+
+func BenchmarkWorkerPool_CheckWords1(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, 1)
+}
+
+func BenchmarkWorkerPool_CheckWords2(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, 2)
+}
+
+func BenchmarkWorkerPool_CheckWords3(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, 3)
+}
+
+func BenchmarkWorkerPool_CheckWords10(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, 10)
+}
+
+func BenchmarkWorkerPool_CheckWords17(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, 17)
+}
+
+func BenchmarkWorkerPool_CheckWords32(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, MaxWorkers)
+}
+
+func BenchmarkWorkerPool_CheckWords42(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, MaxWorkers+10)
+}
+
+func BenchmarkWorkerPool_CheckWords100(b *testing.B) {
+	benchmarkWorkerPoolCheckWords(b, 100)
 }
