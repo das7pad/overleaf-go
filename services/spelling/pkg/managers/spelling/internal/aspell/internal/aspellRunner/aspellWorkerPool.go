@@ -36,8 +36,8 @@ type WorkerPool interface {
 const (
 	MaxRequests        = 100 * 1024
 	MaxWorkers         = 32
-	MaxIdleTime        = 1 * time.Second
-	MaxRequestDuration = 1 * time.Minute
+	MaxIdleTime        = 30 * time.Second
+	MaxRequestDuration = 10 * time.Second
 )
 
 var (
