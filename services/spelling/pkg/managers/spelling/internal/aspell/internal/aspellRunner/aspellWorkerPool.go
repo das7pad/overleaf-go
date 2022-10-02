@@ -26,11 +26,8 @@ import (
 )
 
 type WorkerPool interface {
-	CheckWords(
-		ctx context.Context,
-		language types.SpellCheckLanguage,
-		words []string,
-	) ([]string, error)
+	CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]string, error)
+	Close()
 }
 
 const (
@@ -41,59 +38,29 @@ const (
 )
 
 var (
-	errIdleWorker    = errors.New("idle worker")
-	errTimedOut      = errors.New("spell check timed out")
-	errPoolFull      = errors.New("maximum number of workers already running")
-	errCannotAcquire = errors.New("cannot acquire worker")
-	errMaxAgeHit     = errors.New("too many requests")
+	errPoolFull = errors.New("maximum number of workers already running")
 )
 
 func newWorkerPool() WorkerPool {
-	return &workerPool{
-		createWorker: newAspellWorker,
-		l:            &sync.Mutex{},
+	t := time.NewTicker(MaxIdleTime / 2)
+	wp := workerPool{
+		slots:         make([]Worker, MaxWorkers),
+		freeSlots:     MaxWorkers,
+		cleanupTicker: t,
 	}
-}
-
-type workerPoolEntry struct {
-	Worker
-	l *sync.Mutex
-	t *time.Timer
-}
-
-func (e *workerPoolEntry) Acquire() bool {
-	e.l.Lock()
-	defer e.l.Unlock()
-	ok := e.TransitionState(Ready, Busy)
-	if ok && e.t != nil {
-		if !e.t.Stop() {
-			<-e.t.C
+	go func() {
+		for now := range t.C {
+			wp.killIdleWorkersOnce(now.Add(-MaxIdleTime))
 		}
-		e.t = nil
-	}
-	return ok
-}
-
-func (e *workerPoolEntry) Release() bool {
-	e.l.Lock()
-	defer e.l.Unlock()
-	e.t = time.AfterFunc(MaxIdleTime*10, func() {
-		e.l.Lock()
-		defer e.l.Unlock()
-		if !e.TransitionState(Ready, Closing) {
-			// Worker is back in use as we acquired the lock.
-			return
-		}
-		e.Shutdown(errIdleWorker)
-		e.t = nil
-	})
-	return e.TransitionState(Busy, Ready)
+	}()
+	return &wp
 }
 
 type workerPool struct {
-	createWorker func(language types.SpellCheckLanguage) (Worker, error)
-	processPool  []*workerPoolEntry
-	l            *sync.Mutex
+	l             sync.Mutex
+	slots         []Worker
+	freeSlots     int8
+	cleanupTicker *time.Ticker
 }
 
 func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]string, error) {
@@ -101,85 +68,86 @@ func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckL
 	if err != nil {
 		return nil, err
 	}
-	defer wp.returnWorker(w)
-
-	ctx, cancel := context.WithTimeout(ctx, MaxRequestDuration)
-	defer cancel()
-
-	go func() {
-		<-ctx.Done()
-		if ctx.Err() == context.Canceled {
-			return
-		}
-		w.Kill(errTimedOut)
-	}()
-
-	return w.CheckWords(ctx, words)
+	lines, err := w.CheckWords(ctx, words)
+	wp.returnWorker(w, err)
+	return lines, err
 }
 
-func (wp *workerPool) getWorker(language types.SpellCheckLanguage) (*workerPoolEntry, error) {
-	wp.l.Lock()
-	defer wp.l.Unlock()
+func (wp *workerPool) Close() {
+	wp.cleanupTicker.Stop()
+	for {
+		wp.killIdleWorkersOnce(time.Now())
+		wp.l.Lock()
+		if wp.freeSlots == MaxWorkers {
+			break
+		}
+		wp.l.Unlock()
+	}
+}
 
-	for _, w := range wp.processPool {
-		if w.Language() == language && w.Acquire() {
+func (wp *workerPool) killIdleWorkersOnce(threshold time.Time) {
+	idle := make([]Worker, 0, MaxWorkers)
+	wp.l.Lock()
+	for i, w := range wp.slots {
+		if w == nil {
+			continue
+		}
+		if w.LastUsed().Before(threshold) {
+			idle = append(idle, w)
+			wp.slots[i] = nil
+			wp.freeSlots++
+		}
+	}
+	wp.l.Unlock()
+	for _, w := range idle {
+		w.Kill()
+	}
+}
+
+func (wp *workerPool) getWorker(language types.SpellCheckLanguage) (Worker, error) {
+	wp.l.Lock()
+	for i, w := range wp.slots {
+		if w == nil {
+			continue
+		}
+		if w.Language() == language {
+			wp.slots[i] = nil
+			wp.l.Unlock()
 			return w, nil
 		}
 	}
-	if len(wp.processPool) == MaxWorkers {
+	if wp.freeSlots == 0 {
+		wp.l.Unlock()
 		return nil, errPoolFull
 	}
-	var w *workerPoolEntry
-	actualWorker, err := wp.createWorker(language)
+	wp.freeSlots--
+	wp.l.Unlock()
+	w, err := newAspellWorker(language)
 	if err != nil {
+		wp.l.Lock()
+		wp.freeSlots++
+		wp.l.Unlock()
 		return nil, errors.Tag(err, "cannot create worker")
 	}
-	w = &workerPoolEntry{Worker: actualWorker, l: &sync.Mutex{}}
-
-	if !w.Acquire() {
-		err = w.Error()
-		if err == nil {
-			return nil, errCannotAcquire
-		}
-		return nil, errors.Tag(w.Error(), "worker died before use")
-	}
-	wp.processPool = append(wp.processPool, w)
-	go func() {
-		<-w.Done()
-		w.l.Lock()
-		if w.t != nil {
-			if !w.t.Stop() {
-				<-w.t.C
-			}
-			w.t = nil
-		}
-		w.l.Unlock()
-		wp.removeFromPool(w)
-	}()
 	return w, nil
 }
 
-func (wp *workerPool) removeFromPool(w *workerPoolEntry) {
+func (wp *workerPool) returnWorker(w Worker, err error) {
+	alive := err == nil
+	keep := alive && w.Count() < MaxRequests
 	wp.l.Lock()
-	defer wp.l.Unlock()
-
-	var idx int
-	for i, poolEntry := range wp.processPool {
-		if w == poolEntry {
-			idx = i
-			break
+	if keep {
+		for i, slot := range wp.slots {
+			if slot == nil {
+				wp.slots[i] = w
+				break
+			}
 		}
+	} else {
+		wp.freeSlots++
 	}
-	poolSize := len(wp.processPool)
-	lastPoolEntry := wp.processPool[poolSize-1]
-	wp.processPool[idx] = lastPoolEntry
-	wp.processPool = wp.processPool[:poolSize-1]
-}
-
-func (wp *workerPool) returnWorker(w *workerPoolEntry) {
-	if w.Count() > MaxRequests {
-		w.Shutdown(errMaxAgeHit)
-		return
+	wp.l.Unlock()
+	if !keep && alive {
+		w.Kill()
 	}
-	w.Release()
 }

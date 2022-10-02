@@ -20,9 +20,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"os/exec"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -32,14 +34,10 @@ import (
 
 type Worker interface {
 	Count() int
-	Done() <-chan error
-	Error() error
-	IsReady() bool
+	LastUsed() time.Time
 	Language() types.SpellCheckLanguage
 	CheckWords(ctx context.Context, words []string) ([]string, error)
-	Kill(reason error)
-	Shutdown(reason error)
-	TransitionState(from, to string) bool
+	Kill()
 }
 
 func newAspellWorker(language types.SpellCheckLanguage) (Worker, error) {
@@ -64,33 +62,23 @@ func newAspellWorker(language types.SpellCheckLanguage) (Worker, error) {
 	cmd.Stderr = nil
 
 	scanner := bufio.NewScanner(stdoutPipe)
-	done := make(chan error)
 
 	w := worker{
-		state:    Ready,
 		cmd:      cmd,
 		count:    0,
 		language: language,
 		stdin:    stdinPipe,
 		scanner:  scanner,
-		done:     done,
+		done:     make(chan error),
 	}
 
 	if err = w.start(); err != nil {
-		close(done)
 		return nil, err
 	}
 	return &w, nil
 }
 
 const (
-	Busy    = "busy"
-	Closing = "closing"
-	End     = "end"
-	Error   = "error"
-	Killed  = "killed"
-	Ready   = "ready"
-
 	// BatchSize Send words in chunks of n.
 	BatchSize = 100
 )
@@ -101,37 +89,34 @@ var (
 )
 
 type worker struct {
-	cmd      *exec.Cmd
+	language types.SpellCheckLanguage
+	lastUsed time.Time
 	count    int
 	done     chan error
-	err      error
-	language types.SpellCheckLanguage
+	cmd      *exec.Cmd
 	scanner  *bufio.Scanner
-	state    string
 	stdin    io.WriteCloser
+}
+
+func (w *worker) String() string {
+	return fmt.Sprintf("%s:%d", w.language, w.count)
 }
 
 func (w *worker) Count() int {
 	return w.count
 }
 
-func (w *worker) Done() <-chan error {
-	return w.done
-}
-
-func (w *worker) Error() error {
-	return w.err
-}
-
 func (w *worker) Language() types.SpellCheckLanguage {
 	return w.language
 }
 
-func (w *worker) IsReady() bool {
-	return w.state == Ready
+func (w *worker) LastUsed() time.Time {
+	return w.lastUsed
 }
 
 func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, MaxRequestDuration)
+	defer cancel()
 	// Cancel the context once any sub-task errored or the parent ctx errored.
 	eg, writerContext := errgroup.WithContext(ctx)
 
@@ -141,8 +126,7 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 		}
 		// Write until we are done or something errored.
 		for len(words) > 0 && writerContext.Err() == nil {
-			sizeOfWords := len(words)
-			sliceAt := int(math.Min(float64(sizeOfWords), BatchSize))
+			sliceAt := int(math.Min(float64(len(words)), BatchSize))
 			chunk := words[:sliceAt]
 			words = words[sliceAt:]
 
@@ -157,12 +141,12 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 	})
 
 	out := make([]string, 0)
-	hasReadEndOfBatchMarker := make(chan bool)
+	hasReadEndOfBatchMarker := make(chan struct{})
 	eg.Go(func() error {
+		defer close(hasReadEndOfBatchMarker)
 		for w.scanner.Scan() {
 			line := w.scanner.Text()
 			if line == string(w.language) {
-				hasReadEndOfBatchMarker <- true
 				return nil
 			}
 			out = append(out, line)
@@ -177,6 +161,9 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 
 	eg.Go(func() error {
 		select {
+		case <-writerContext.Done():
+			w.Kill()
+			return writerContext.Err()
 		case processError := <-w.done:
 			return processError
 		case <-hasReadEndOfBatchMarker:
@@ -185,37 +172,15 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 	})
 
 	if err := eg.Wait(); err != nil {
-		w.updateState(Error, err)
-		w.Kill(err)
 		return nil, err
 	}
-	if err := ctx.Err(); err != nil {
-		// Check the parent context for cancelled state.
-		return nil, err
-	}
+	w.lastUsed = time.Now()
 	return out, nil
 }
 
-func (w *worker) Kill(reason error) {
-	w.updateState(Killed, reason)
-
-	// Force-fully exit.
+func (w *worker) Kill() {
 	_ = w.cmd.Process.Kill()
-}
-
-func (w *worker) Shutdown(reason error) {
-	w.updateState(Closing, reason)
-
-	// Gracefully exit in closing the pipe.
-	_ = w.stdin.Close()
-}
-
-func (w *worker) TransitionState(from, to string) bool {
-	if w.state != from {
-		return false
-	}
-	w.updateState(to, nil)
-	return true
+	<-w.done
 }
 
 func (w *worker) endBatch() error {
@@ -225,19 +190,15 @@ func (w *worker) endBatch() error {
 
 func (w *worker) start() error {
 	if err := w.cmd.Start(); err != nil {
+		close(w.done)
 		return err
 	}
 	go func() {
-		exitError := w.cmd.Wait()
-		var state string
-		if exitError == nil {
-			state = End
-			exitError = errProcessExisted
-		} else {
-			state = Killed
+		err := w.cmd.Wait()
+		if err == nil {
+			err = errProcessExisted
 		}
-		w.updateState(state, exitError)
-		w.done <- w.err
+		w.done <- err
 		close(w.done)
 	}()
 	return nil
@@ -269,11 +230,4 @@ func (w *worker) sendWords(words []string) error {
 func (w *worker) write(p []byte) error {
 	_, err := w.stdin.Write(p)
 	return err
-}
-
-func (w *worker) updateState(state string, err error) {
-	if w.err == nil {
-		w.state = state
-		w.err = err
-	}
 }

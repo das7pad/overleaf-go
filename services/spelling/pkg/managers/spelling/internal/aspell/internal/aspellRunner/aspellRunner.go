@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,11 +31,7 @@ type SuggestionKey struct {
 type Suggestions map[SuggestionKey][]string
 
 type Runner interface {
-	CheckWords(
-		ctx context.Context,
-		language types.SpellCheckLanguage,
-		words []string,
-	) (Suggestions, error)
+	CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) (Suggestions, error)
 }
 
 func NewRunner() Runner {
