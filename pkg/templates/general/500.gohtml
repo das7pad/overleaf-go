@@ -28,12 +28,15 @@
       <div class="error-details">
         <p class="error-status">Something went wrong, sorry.</p>
         <p class="error-description">
-          Our staff are probably looking into this, but if it continues,
-          please check our status page at
-          <a
-            href="{{ .Settings.StatusPageURL.String }}"
-          >{{ .Settings.StatusPageURL.String }}</a>
-          or contact us at <a
+          Our staff are probably looking into this, but if it continues, please
+            {{ if .Settings.StatusPageURL.String }}
+              check our status page at
+              <a
+                href="{{ .Settings.StatusPageURL.String }}"
+              >{{ .Settings.StatusPageURL.String }}</a>
+              or
+            {{ end }}
+          contact us at <a
             href="mailto:{{ .Settings.AdminEmail }}"
           >{{ .Settings.AdminEmail }}</a>.
         </p>

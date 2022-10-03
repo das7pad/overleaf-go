@@ -150,9 +150,6 @@ func (o *Options) Validate() error {
 	if err := o.SiteURL.Validate(); err != nil {
 		return errors.Tag(err, "site_url is invalid")
 	}
-	if err := o.StatusPageURL.Validate(); err != nil {
-		return errors.Tag(err, "status_page_url is invalid")
-	}
 
 	if err := o.SmokeTest.Email.Validate(); err != nil {
 		return errors.Tag(err, "smoke_test.email is invalid")
@@ -161,7 +158,7 @@ func (o *Options) Validate() error {
 		return errors.Tag(err, "smoke_test.password is invalid")
 	}
 	if o.SmokeTest.ProjectId == (sharedTypes.UUID{}) {
-		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
+		return &errors.ValidationError{Msg: "smoke_test.projectId is missing"}
 	}
 	if o.SmokeTest.UserId == (sharedTypes.UUID{}) {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}

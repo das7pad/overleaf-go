@@ -16,6 +16,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */ -}}
+{{- /*gotype: github.com/das7pad/overleaf-go/pkg/templates.NoJsLayoutData */ -}}
 {{ template "layout-no-js" . }}
 {{ define "content" }}
   <main
@@ -29,10 +30,10 @@
           <h1>Maintenance</h1>
         </div>
         <p>
-            {{ if .Settings.StatusPageURL }}
+            {{ if .Settings.StatusPageURL.String }}
                 {{ .Settings.AppName }} is currently down for maintenance.
                 Please check our <a
-                  href="{{ .Settings.StatusPageURL }}"
+                  href="{{ .Settings.StatusPageURL.String }}"
                 >status page</a> for updates.
             {{ else }}
                 {{ .Settings.AppName }} is currently down for maintenance.
