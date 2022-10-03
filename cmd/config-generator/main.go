@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/term"
+
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
@@ -84,13 +86,11 @@ func main() {
 		ExpiresIn: time.Hour,
 	}
 
-	sessionKey := genSecret(32)
-
 	dockerSocket := "unix:///var/run/docker.sock"
 	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
 
-	dockerUser := "tex"
-	flag.StringVar(&dockerUser, "docker-user", dockerUser, "user inside the docker container")
+	dockerContainerUser := "tex"
+	flag.StringVar(&dockerContainerUser, "texlive-container-user", dockerContainerUser, "user inside the docker container running texlive")
 
 	dockerRootless := false
 	flag.BoolVar(&dockerRootless, "docker-rootless", dockerRootless, "run in rootless docker environment")
@@ -122,7 +122,26 @@ func main() {
 	sessionCookieName := "ol.go"
 	flag.StringVar(&sessionCookieName, "session-cookie-name", sessionCookieName, "session cookie name")
 
+	smtpAddress := ""
+	flag.StringVar(&smtpAddress, "email-smtp-address", smtpAddress, "address:port of email provider")
+
+	smtpUser := ""
+	flag.StringVar(&smtpUser, "email-smtp-user", smtpUser, "login user name at email provider")
+
+	smtpPassword := "-"
+	flag.StringVar(&smtpPassword, "email-smtp-password", smtpPassword, "login password at email provider, use '-' for prompt")
+
 	flag.Parse()
+
+	if smtpPassword != "-" {
+		_, _ = fmt.Fprintf(os.Stderr, "Enter SMTP Password: ")
+		s, err := term.ReadPassword(int(os.Stdin.Fd()))
+		_, _ = fmt.Fprintln(os.Stderr, "")
+		if err != nil {
+			panic(errors.Tag(err, "read smtp password"))
+		}
+		smtpPassword = string(s)
+	}
 
 	var siteURL sharedTypes.URL
 	{
@@ -152,7 +171,7 @@ func main() {
 	}
 
 	if dockerRootless && dockerSocket == "unix:///var/run/docker.sock" {
-		dockerUser = "root"
+		dockerContainerUser = "root"
 		dockerSocket = fmt.Sprintf(
 			"unix:///run/user/%d/docker.sock", os.Getuid(),
 		)
@@ -184,9 +203,20 @@ func main() {
 			CompileBaseDir: clsiTypes.CompileBaseDir(path.Join(tmpDir, "compiles")),
 			OutputBaseDir:  clsiTypes.OutputBaseDir(path.Join(tmpDir, "output")),
 		},
-		LatexBaseEnv:           nil,
-		Runner:                 "agent",
-		DockerContainerOptions: clsiTypes.DockerContainerOptions{},
+		LatexBaseEnv: nil,
+		Runner:       "agent",
+		DockerContainerOptions: clsiTypes.DockerContainerOptions{
+			User:                   dockerContainerUser,
+			Env:                    nil,
+			AgentPathContainer:     agentPathHost,
+			AgentPathHost:          agentPathHost,
+			AgentContainerLifeSpan: time.Hour,
+			AgentRestartAttempts:   3,
+			Runtime:                "",
+			SeccompPolicyPath:      "",
+			CompileBaseDir:         clsiTypes.CompileBaseDir(path.Join(tmpDir, "compiles")),
+			OutputBaseDir:          clsiTypes.OutputBaseDir(path.Join(tmpDir, "output")),
+		},
 	}
 	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(clsiOptions, "clsi options"))
 
@@ -224,12 +254,12 @@ func main() {
 	fmt.Printf("REAL_TIME_OPTIONS=%s\n", serialize(realTimeOptions, "realtime options"))
 
 	spellingOptions := spellingTypes.Options{
-		LRUSize: 10000,
+		LRUSize: 10_000,
 	}
 	fmt.Printf("SPELLING_OPTIONS=%s\n", serialize(spellingOptions, "spelling options"))
 
 	webOptions := webTypes.Options{
-		AdminEmail:        "",
+		AdminEmail:        sharedTypes.Email("support@" + siteURL.Host),
 		AllowedImages:     allowedImages,
 		AllowedImageNames: allowedImageNames,
 		AppName:           "Overleaf Go",
@@ -245,7 +275,17 @@ func main() {
 			SMTPAddress      email.SMTPAddress `json:"smtp_address"`
 			SMTPUser         string            `json:"smtp_user"`
 			SMTPPassword     string            `json:"smtp_password"`
-		}{},
+		}{
+			From: email.Identity{
+				Address: sharedTypes.Email("no-reply@" + siteURL.Host),
+			},
+			FallbackReplyTo: email.Identity{
+				Address: sharedTypes.Email("support@" + siteURL.Host),
+			},
+			SMTPAddress:  email.SMTPAddress(smtpAddress),
+			SMTPUser:     smtpUser,
+			SMTPPassword: smtpPassword,
+		},
 		I18n: templates.I18nOptions{
 			DefaultLang: "en",
 			SubdomainLang: []templates.I18nSubDomainLang{
@@ -267,7 +307,12 @@ func main() {
 			Password  webTypes.UserPassword `json:"password"`
 			ProjectId sharedTypes.UUID      `json:"projectId"`
 			UserId    sharedTypes.UUID      `json:"userId"`
-		}{},
+		}{
+			Email:     sharedTypes.Email("smoke-test@" + siteURL.Host),
+			Password:  webTypes.UserPassword(genSecret(72 / 2)),
+			ProjectId: sharedTypes.UUID{42},
+			UserId:    sharedTypes.UUID{42},
+		},
 		StatusPageURL:             sharedTypes.URL{},
 		TeXLiveImageNameOverride:  "",
 		EmailConfirmationDisabled: false,
@@ -334,7 +379,7 @@ func main() {
 			Expiry:  7 * 24 * time.Hour,
 			Name:    sessionCookieName,
 			Path:    siteURL.Path,
-			Secrets: []string{sessionKey},
+			Secrets: []string{genSecret(32)},
 		},
 	}
 
