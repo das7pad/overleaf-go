@@ -134,6 +134,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 			return errors.Tag(err, "cannot get LoggedInUserJWT")
 		}
 		response.JWTLoggedInUser = s
+		response.SystemMessages, _ = m.smm.GetAllCachedOnly(userId)
 	}
 	signedOptions := types.SignedCompileProjectRequestOptions{
 		CompileGroup: p.OwnerFeatures.CompileGroup,

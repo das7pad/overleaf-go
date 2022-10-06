@@ -33,6 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
+	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -58,7 +59,7 @@ type Manager interface {
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler, cm compile.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler jwtHandler.JWTHandler, loggedInUserJWTHandler jwtHandler.JWTHandler, cm compile.Manager, smm systemMessage.Manager) Manager {
 	frontendAllowedImageNames := make([]templates.AllowedImageName, 0)
 	for _, allowedImageName := range options.AllowedImageNames {
 		if !allowedImageName.AdminOnly {
@@ -74,6 +75,7 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 		jwtProject:      projectJWTHandler,
 		jwtLoggedInUser: loggedInUserJWTHandler,
 		pm:              pm,
+		smm:             smm,
 		um:              um,
 		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
 
@@ -97,6 +99,7 @@ type manager struct {
 	jwtProject      jwtHandler.JWTHandler
 	jwtLoggedInUser jwtHandler.JWTHandler
 	pm              project.Manager
+	smm             systemMessage.Manager
 	um              user.Manager
 	wsBootstrap     jwtHandler.JWTHandler
 

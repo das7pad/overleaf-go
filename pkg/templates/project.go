@@ -145,6 +145,7 @@ type EditorSettings struct {
 type EditorBootstrap struct {
 	AllowedImageNames    []AllowedImageName           `json:"allowedImageNames"`
 	AnonymousAccessToken project.AccessToken          `json:"anonymousAccessToken"`
+	SystemMessages       []systemMessage.Full         `json:"systemMessages"`
 	JWTProject           string                       `json:"jwtCompile"`
 	JWTLoggedInUser      string                       `json:"jwtLoggedInUser"`
 	JWTSpelling          string                       `json:"jwtSpelling"`
