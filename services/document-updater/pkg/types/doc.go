@@ -17,9 +17,6 @@
 package types
 
 import (
-	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"time"
 
@@ -140,58 +137,16 @@ func (l DocContentSnapshots) LastUpdatedAt() time.Time {
 	return max
 }
 
-func deserializeDocCoreV0(core *DocCore, blob []byte) error {
-	var err error
-	parts := bytes.Split(blob, []byte{0})
-	if len(parts) != 6 {
-		n := sharedTypes.Int(len(parts)).String()
-		return errors.New("expected 6 doc core parts, got " + n)
-	}
-
-	d := sha1.New()
-	d.Write(parts[0])
-	hash := sharedTypes.Hash(hex.EncodeToString(d.Sum(nil)))
-
-	if err = hash.CheckMatches(sharedTypes.Hash(parts[1])); err != nil {
-		return err
-	}
-
-	var lines sharedTypes.Lines
-	if err = json.Unmarshal(parts[0], &lines); err != nil {
-		return errors.Tag(err, "cannot parse lines")
-	}
-	core.Snapshot = lines.ToSnapshot()
-
-	// parts[2] are Ranges
-
-	core.ProjectId, err = sharedTypes.ParseUUID(string(parts[3]))
-	if err != nil {
-		return errors.Tag(err, "cannot parse projectId")
-	}
-
-	if err = json.Unmarshal(parts[4], &core.PathName); err != nil {
-		return errors.Tag(err, "cannot parse pathName")
-	}
-
-	return nil
-}
-
 func (core *DocCore) DoUnmarshalJSON(bytes []byte) error {
 	if len(bytes) == 0 {
 		return errors.New("empty doc core blob")
 	}
-	if bytes[0] == '{' {
-		if err := json.Unmarshal(bytes, &core); err != nil {
-			return err
-		}
-		hash := core.Snapshot.Hash()
-		if err := core.Hash.CheckMatches(hash); err != nil {
-			return err
-		}
-	} else {
-		if err := deserializeDocCoreV0(core, bytes); err != nil {
-			return err
-		}
+	if err := json.Unmarshal(bytes, &core); err != nil {
+		return err
+	}
+	hash := core.Snapshot.Hash()
+	if err := core.Hash.CheckMatches(hash); err != nil {
+		return err
 	}
 	return nil
 }
