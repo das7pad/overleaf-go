@@ -24,7 +24,7 @@ import (
 )
 
 func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snapshot, error) {
-	for _, op := range ops {
+	for i, op := range ops {
 		if op.IsInsertion() {
 			snapshot = InjectInPlace(snapshot, op.Position, op.Insertion)
 			continue
@@ -37,8 +37,8 @@ func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snaps
 		if !op.Deletion.Equals(deletionActual) {
 			return nil, &errors.CodedError{
 				Description: fmt.Sprintf(
-					"Delete component %q does not match deleted text %q",
-					string(op.Deletion), string(deletionActual),
+					"%d: delete component %q does not match deleted text %q",
+					i, string(op.Deletion), string(deletionActual),
 				),
 			}
 		}

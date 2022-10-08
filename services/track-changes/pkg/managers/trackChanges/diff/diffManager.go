@@ -18,6 +18,7 @@ package diff
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
@@ -84,13 +85,16 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, userId, docId share
 		} else {
 			rev = rev[:n]
 		}
-		for j := 0; j <= n/2+n%2 && j < n; j++ {
+		for j := 0; j < n; j++ {
 			k := n - 1 - j
 			rev[k].Position = op[j].Position
 			rev[k].Deletion, rev[k].Insertion = op[j].Insertion, op[j].Deletion
 		}
 		if s, err = text.Apply(s, rev); err != nil {
-			return nil, nil, errors.Tag(err, "broken history")
+			return nil, nil, errors.Tag(
+				err,
+				fmt.Sprintf("broken history at %d", dh.History[i].Version),
+			)
 		}
 		if dh.History[i].Version > to {
 			dropFrom = i
