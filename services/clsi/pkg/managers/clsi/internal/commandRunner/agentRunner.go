@@ -207,11 +207,6 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 	return nil, probeErr
 }
 
-func (a *agentRunner) getExpectedEndOfAgentLife() *time.Time {
-	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
-	return &validUntil
-}
-
 func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
 	compileDir := a.o.CompileBaseDir.CompileDir(namespace)
 	outputDir := a.o.OutputBaseDir.OutputDir(namespace)
@@ -352,12 +347,12 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) erro
 func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Namespace) (*time.Time, error) {
 	restartTimeout := time.Duration(0)
 	name := containerName(namespace)
-	validUntil := a.getExpectedEndOfAgentLife()
+	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
 	err := a.dockerClient.ContainerRestart(ctx, name, &restartTimeout)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot restart container")
 	}
-	return validUntil, nil
+	return &validUntil, nil
 }
 
 func (a *agentRunner) stopContainer(namespace types.Namespace) error {

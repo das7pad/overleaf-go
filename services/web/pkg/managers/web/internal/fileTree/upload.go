@@ -90,7 +90,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			// This a text file upload on a doc. Just upsert the content.
 			err = m.dum.SetDoc(
 				ctx, projectId, existingId,
-				&documentUpdaterTypes.SetDocRequest{
+				documentUpdaterTypes.SetDocRequest{
 					Snapshot: s,
 					Source:   source,
 					UserId:   userId,

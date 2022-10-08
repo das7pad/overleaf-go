@@ -228,7 +228,7 @@ Hello world
 		Resources: types.Resources{
 			&types.Resource{
 				Path:    "main.tex",
-				Content: &content,
+				Content: content,
 			},
 		},
 		RootResourcePath: "main.tex",

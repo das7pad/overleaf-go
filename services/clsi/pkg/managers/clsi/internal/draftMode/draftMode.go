@@ -46,20 +46,18 @@ var (
 )
 
 func (m *manager) InjectDraftMode(rootDoc *types.Resource) error {
-	blob := *rootDoc.Content
-	if strings.Contains(blob, draftModePresent) {
+	if strings.Contains(rootDoc.Content, draftModePresent) {
 		return nil
 	}
 
-	content := string(
+	rootDoc.Content = string(
 		noOptions.ReplaceAll(
 			withOptions.ReplaceAll(
-				[]byte(blob),
+				[]byte(rootDoc.Content),
 				withOptionsReplacement,
 			),
 			noOptionsReplacement,
 		),
 	)
-	rootDoc.Content = &content
 	return nil
 }

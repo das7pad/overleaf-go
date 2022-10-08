@@ -43,20 +43,14 @@ func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFo
 	defer done()
 	if len(docs) > 0 {
 		// Notify document-updater
-		updates := make(
-			[]*documentUpdaterTypes.GenericProjectUpdate, len(docs),
-		)
+		updates := make([]documentUpdaterTypes.RenameDocUpdate, len(docs))
 		for i, doc := range docs {
-			updates[i] = documentUpdaterTypes.NewRenameDocUpdate(
-				doc.Id,
-				doc.Path,
-			).ToGeneric()
+			updates[i] = documentUpdaterTypes.RenameDocUpdate{
+				DocId:   doc.Id,
+				NewPath: doc.Path,
+			}
 		}
-		p := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: projectVersion,
-			Updates:        updates,
-		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, p)
+		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
 	{
 		// Notify real-time

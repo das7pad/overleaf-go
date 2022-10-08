@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -145,13 +145,13 @@ func TestURL_Validate(t *testing.T) {
 }
 
 func TestURL_WithPath(t *testing.T) {
-	buildBase := func() *url.URL {
+	buildBase := func() url.URL {
 		u, _ := url.Parse("http://foo.bar/baz?bazz=barr")
-		return u
+		return *u
 	}
 
 	t.Run("value base", func(t *testing.T) {
-		u := URL{URL: *buildBase()}
+		u := URL{URL: buildBase()}
 		x := u.WithPath("/other")
 		if got := x.Path; got != "/other" {
 			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
@@ -162,7 +162,7 @@ func TestURL_WithPath(t *testing.T) {
 	})
 
 	t.Run("pointer base", func(t *testing.T) {
-		u := &URL{URL: *buildBase()}
+		u := &URL{URL: buildBase()}
 		x := u.WithPath("/other")
 		if got := x.Path; got != "/other" {
 			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
@@ -174,13 +174,13 @@ func TestURL_WithPath(t *testing.T) {
 }
 
 func TestURL_WithQuery(t *testing.T) {
-	buildBase := func() *url.URL {
+	buildBase := func() url.URL {
 		u, _ := url.Parse("http://foo.bar/baz?key=old")
-		return u
+		return *u
 	}
 
 	t.Run("value base", func(t *testing.T) {
-		u := URL{URL: *buildBase()}
+		u := URL{URL: buildBase()}
 		x := u.WithQuery(url.Values{"key": {"new"}})
 		if got := x.Query().Get("key"); got != "new" {
 			t.Errorf("Query().Query().Get() = %v, want %v", got, "new")
@@ -191,7 +191,7 @@ func TestURL_WithQuery(t *testing.T) {
 	})
 
 	t.Run("pointer base", func(t *testing.T) {
-		u := &URL{URL: *buildBase()}
+		u := &URL{URL: buildBase()}
 		x := u.WithPath("/other")
 		if got := x.Path; got != "/other" {
 			t.Errorf("WithPath().Path = %v, want %v", got, "/other")

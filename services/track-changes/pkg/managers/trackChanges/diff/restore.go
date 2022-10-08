@@ -33,7 +33,7 @@ func (m *manager) RestoreDocVersion(ctx context.Context, r *types.RestoreDocVers
 		return errors.Tag(err, "cannot get old doc version")
 	}
 
-	err = m.dum.SetDoc(ctx, projectId, docId, &documentUpdaterTypes.SetDocRequest{
+	err = m.dum.SetDoc(ctx, projectId, docId, documentUpdaterTypes.SetDocRequest{
 		Snapshot: s,
 		Source:   "restore",
 		UserId:   r.UserId,

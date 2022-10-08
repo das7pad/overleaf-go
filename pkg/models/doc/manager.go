@@ -26,7 +26,7 @@ import (
 )
 
 type Manager interface {
-	UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update *ForDocUpdate) error
+	UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update ForDocUpdate) error
 }
 
 func New(db *pgxpool.Pool) Manager {
@@ -41,7 +41,7 @@ type manager struct {
 	db *pgxpool.Pool
 }
 
-func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update *ForDocUpdate) error {
+func (m *manager) UpdateDoc(ctx context.Context, projectId, docId sharedTypes.UUID, update ForDocUpdate) error {
 	if err := update.Snapshot.Validate(); err != nil {
 		return err
 	}

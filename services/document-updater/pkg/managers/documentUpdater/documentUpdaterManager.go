@@ -22,6 +22,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v4/pgxpool"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
@@ -45,8 +46,8 @@ type Manager interface {
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
 	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
 	FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
-	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error
-	ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, request *types.ProcessProjectUpdatesRequest) error
+	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error
+	ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, updates types.RenameDocUpdates) error
 }
 
 func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
@@ -73,28 +74,15 @@ func (m *manager) ProcessDocumentUpdates(ctx context.Context) {
 	m.dispatcher.ProcessDocumentUpdates(ctx)
 }
 
-func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, request *types.ProcessProjectUpdatesRequest) error {
-	if err := request.Validate(); err != nil {
+func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, updates types.RenameDocUpdates) error {
+	if err := updates.Validate(); err != nil {
 		return err
 	}
 
-	subVersion := sharedTypes.Version(0)
-	base := request.ProjectVersion.String()
-	for _, update := range request.Updates {
-		subVersion += 1
-		update.Version = base + "." + subVersion.String()
-		switch update.Type {
-		case "rename-doc":
-			err := m.dm.RenameDoc(ctx, projectId, update.RenameDocUpdate())
-			if err != nil {
-				return err
-			}
-		case "rename-file":
-			// noop
-		case "add-doc":
-			// noop
-		case "add-file":
-			// noop
+	for _, update := range updates {
+		err := m.dm.RenameDoc(ctx, projectId, update.DocId, update.NewPath)
+		if err != nil {
+			return errors.Tag(err, update.DocId.String())
 		}
 	}
 	return nil
@@ -141,7 +129,7 @@ func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, proje
 	return docContentsSnapshot, nil
 }
 
-func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error {
+func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error {
 	return m.dm.SetDoc(ctx, projectId, docId, request)
 }
 

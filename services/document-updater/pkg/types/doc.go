@@ -50,14 +50,14 @@ type Doc struct {
 }
 
 func DocFromFlushedDoc(flushedDoc *project.Doc, projectId, docId sharedTypes.UUID) *Doc {
-	d := &Doc{}
+	d := Doc{}
 	d.DocId = docId
 	d.JustLoadedIntoRedis = true
 	d.PathName = flushedDoc.Path
 	d.ProjectId = projectId
 	d.Snapshot = sharedTypes.Snapshot(flushedDoc.Snapshot)
 	d.Version = flushedDoc.Version
-	return d
+	return &d
 }
 
 type SetDocRequest struct {
@@ -74,8 +74,8 @@ func (s *SetDocRequest) Validate() error {
 	return nil
 }
 
-func (d *Doc) ToSetDocDetails() *doc.ForDocUpdate {
-	return &doc.ForDocUpdate{
+func (d *Doc) ToForDocUpdate() doc.ForDocUpdate {
+	return doc.ForDocUpdate{
 		Snapshot:      d.Snapshot,
 		Version:       d.Version,
 		LastUpdatedAt: d.LastUpdatedCtx.At,
@@ -91,8 +91,8 @@ type DocContentSnapshot struct {
 	LastUpdatedAt time.Time            `json:"-"`
 }
 
-func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
-	return &DocContentSnapshot{
+func (d *Doc) ToDocContentSnapshot() DocContentSnapshot {
+	return DocContentSnapshot{
 		Id:            d.DocId,
 		Snapshot:      string(d.Snapshot),
 		PathName:      d.PathName,
@@ -101,7 +101,7 @@ func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {
 	}
 }
 
-type DocContentSnapshots []*DocContentSnapshot
+type DocContentSnapshots []DocContentSnapshot
 
 func (l DocContentSnapshots) LastUpdatedAt() time.Time {
 	max := time.Time{}

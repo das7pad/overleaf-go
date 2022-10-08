@@ -21,76 +21,27 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type coreProjectUpdate struct {
-	Id      sharedTypes.UUID `json:"id"`
-	Version string           `json:"version"`
-	Type    string           `json:"type"`
-}
-
 type RenameDocUpdate struct {
-	coreProjectUpdate
-	NewPathName sharedTypes.PathName `json:"newPathname"`
+	DocId   sharedTypes.UUID
+	NewPath sharedTypes.PathName
 }
 
-func (r *RenameDocUpdate) Validate() error {
-	if r.NewPathName == "" {
+func (r RenameDocUpdate) Validate() error {
+	if r.NewPath == "" {
 		return &errors.ValidationError{Msg: "missing new path"}
 	}
 	return nil
 }
 
-func (r *RenameDocUpdate) ToGeneric() *GenericProjectUpdate {
-	return &GenericProjectUpdate{
-		coreProjectUpdate: r.coreProjectUpdate,
-		NewPathName:       r.NewPathName,
-	}
-}
+type RenameDocUpdates []RenameDocUpdate
 
-func NewRenameDocUpdate(id sharedTypes.UUID, newPath sharedTypes.PathName) *RenameDocUpdate {
-	return &RenameDocUpdate{
-		coreProjectUpdate: coreProjectUpdate{
-			Id:   id,
-			Type: "rename-doc",
-		},
-		NewPathName: newPath,
-	}
-}
-
-type GenericProjectUpdate struct {
-	coreProjectUpdate
-	NewPathName sharedTypes.PathName `json:"newPathname"`
-	URL         string               `json:"url"`
-}
-
-func (g *GenericProjectUpdate) RenameDocUpdate() *RenameDocUpdate {
-	return &RenameDocUpdate{
-		coreProjectUpdate: g.coreProjectUpdate,
-		NewPathName:       g.NewPathName,
-	}
-}
-
-type ProcessProjectUpdatesRequest struct {
-	ProjectVersion sharedTypes.Version     `json:"version"`
-	Updates        []*GenericProjectUpdate `json:"updates"`
-}
-
-func (p *ProcessProjectUpdatesRequest) Validate() error {
-	if p.ProjectVersion < 0 {
-		return &errors.ValidationError{Msg: "version must be greater 0"}
-	}
-	if len(p.Updates) == 0 {
+func (p RenameDocUpdates) Validate() error {
+	if len(p) == 0 {
 		return &errors.ValidationError{Msg: "missing updates"}
 	}
-	for _, update := range p.Updates {
-		switch update.Type {
-		case "rename-doc":
-			if err := update.RenameDocUpdate().Validate(); err != nil {
-				return err
-			}
-		default:
-			return &errors.ValidationError{
-				Msg: "unknown update type: " + update.Type,
-			}
+	for _, update := range p {
+		if err := update.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil

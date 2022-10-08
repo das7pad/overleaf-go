@@ -314,10 +314,9 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 		if d.Id == request.RootDocId {
 			rootDocPath = d.Path
 		}
-		s := d.Snapshot
 		resources = append(resources, &clsiTypes.Resource{
 			Path:    d.Path,
-			Content: &s,
+			Content: d.Snapshot,
 		})
 	}
 	for _, f := range files {
@@ -365,7 +364,7 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 		}
 		resources[i] = &clsiTypes.Resource{
 			Path:    p,
-			Content: &doc.Snapshot,
+			Content: doc.Snapshot,
 		}
 	}
 	if rootDocPath == "" {

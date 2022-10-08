@@ -43,9 +43,9 @@ type Manager interface {
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error)
 
-	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error
+	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error
 
-	RenameDoc(ctx context.Context, projectId sharedTypes.UUID, update *types.RenameDocUpdate) error
+	RenameDoc(ctx context.Context, projectId, docId sharedTypes.UUID, newPath sharedTypes.PathName) error
 
 	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId sharedTypes.UUID) error
 
@@ -91,8 +91,7 @@ type manager struct {
 	pm   project.Manager
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, update *types.RenameDocUpdate) error {
-	docId := update.Id
+func (m *manager) RenameDoc(ctx context.Context, projectId, docId sharedTypes.UUID, newPath sharedTypes.PathName) error {
 	for {
 		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
 			if _, err := m.rm.GetDocVersion(ctx, docId); err != nil {
@@ -107,7 +106,7 @@ func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, upd
 			if err != nil {
 				return err
 			}
-			return m.rm.RenameDoc(ctx, projectId, docId, d, update)
+			return m.rm.RenameDoc(ctx, projectId, docId, d, newPath)
 		})
 		if err == errPartialFlush {
 			continue
@@ -170,7 +169,7 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 	return d, nil
 }
 
-func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.SetDocRequest) error {
+func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -506,9 +505,7 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId sh
 		m.tc.FlushDocInBackground(projectId, docId)
 	}
 	if doc.UnFlushedTime != 0 {
-		err := m.dm.UpdateDoc(
-			ctx, projectId, docId, doc.ToSetDocDetails(),
-		)
+		err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ToForDocUpdate())
 		if err != nil {
 			return errors.Tag(err, "cannot persist doc in db")
 		}

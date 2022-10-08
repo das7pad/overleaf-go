@@ -81,12 +81,12 @@ func (s SyncType) Validate() error {
 // The Resource is either the inline doc Content, or a file with download URL.
 type Resource struct {
 	Path    sharedTypes.PathName `json:"path"`
-	Content *string              `json:"content,omitempty"`
+	Content string               `json:"content,omitempty"`
 	URL     *sharedTypes.URL     `json:"url,omitempty"`
 }
 
 func (r *Resource) IsDoc() bool {
-	return r.Content != nil
+	return r.URL == nil
 }
 
 func (r *Resource) Validate() error {

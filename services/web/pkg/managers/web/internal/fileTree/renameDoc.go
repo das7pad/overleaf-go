@@ -47,16 +47,13 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	defer done()
 	{
 		// Notify document-updater
-		n := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: projectVersion,
-			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
-				documentUpdaterTypes.NewRenameDocUpdate(
-					d.Id,
-					path,
-				).ToGeneric(),
+		updates := []documentUpdaterTypes.RenameDocUpdate{
+			{
+				DocId:   d.Id,
+				NewPath: path,
 			},
 		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, n)
+		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
 	{
 		// Notify real-time

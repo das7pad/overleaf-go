@@ -79,13 +79,7 @@ type Manager interface {
 		appliedUpdates []sharedTypes.DocumentUpdate,
 	) (int64, error)
 
-	RenameDoc(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		docId sharedTypes.UUID,
-		doc *types.Doc,
-		update *types.RenameDocUpdate,
-	) error
+	RenameDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc, newPath sharedTypes.PathName) error
 
 	ClearUnFlushedTime(
 		ctx context.Context,
@@ -436,8 +430,8 @@ func (m *manager) UpdateDocument(ctx context.Context, docId sharedTypes.UUID, do
 	return -1, nil
 }
 
-func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc, update *types.RenameDocUpdate) error {
-	doc.PathName = update.NewPathName
+func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc, newPath sharedTypes.PathName) error {
+	doc.PathName = newPath
 	if err := m.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
 		return errors.Tag(err, "cannot rewrite doc in redis")
 	}

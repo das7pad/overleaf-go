@@ -43,16 +43,13 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 	defer done()
 	{
 		// Notify document-updater
-		n := &documentUpdaterTypes.ProcessProjectUpdatesRequest{
-			ProjectVersion: projectVersion,
-			Updates: []*documentUpdaterTypes.GenericProjectUpdate{
-				documentUpdaterTypes.NewRenameDocUpdate(
-					docId,
-					newFsPath,
-				).ToGeneric(),
+		updates := []documentUpdaterTypes.RenameDocUpdate{
+			{
+				DocId:   docId,
+				NewPath: newFsPath,
 			},
 		}
-		_ = m.dum.ProcessProjectUpdates(ctx, projectId, n)
+		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
 	{
 		// Notify real-time

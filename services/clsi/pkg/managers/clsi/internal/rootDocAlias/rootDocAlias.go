@@ -51,9 +51,8 @@ func (m *manager) AddAliasDocIfNeeded(request *types.CompileRequest) {
 			return
 		}
 	}
-	blob := *request.RootDoc.Content
-	if !strings.Contains(blob, usesTikzExternalize) &&
-		!strings.Contains(blob, usesPsTool) {
+	if !strings.Contains(request.RootDoc.Content, usesTikzExternalize) &&
+		!strings.Contains(request.RootDoc.Content, usesPsTool) {
 		return
 	}
 	aliasDoc := &types.Resource{
