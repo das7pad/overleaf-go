@@ -61,22 +61,14 @@ func DocFromFlushedDoc(flushedDoc *project.Doc, projectId, docId sharedTypes.UUI
 }
 
 type SetDocRequest struct {
-	Lines    sharedTypes.Lines    `json:"lines"`
 	Snapshot sharedTypes.Snapshot `json:"snapshot"`
 	Source   string               `json:"source"`
 	UserId   sharedTypes.UUID     `json:"user_id"`
 	Undoing  bool                 `json:"undoing"`
 }
 
-func (s *SetDocRequest) GetSnapshot() sharedTypes.Snapshot {
-	if s.Snapshot == nil {
-		s.Snapshot = s.Lines.ToSnapshot()
-	}
-	return s.Snapshot
-}
-
 func (s *SetDocRequest) Validate() error {
-	if err := s.GetSnapshot().Validate(); err != nil {
+	if err := s.Snapshot.Validate(); err != nil {
 		return err
 	}
 	return nil
@@ -91,28 +83,12 @@ func (d *Doc) ToSetDocDetails() *doc.ForDocUpdate {
 	}
 }
 
-type DocContentLines struct {
-	Id       sharedTypes.UUID     `json:"_id"`
-	Lines    sharedTypes.Lines    `json:"lines"`
-	PathName sharedTypes.PathName `json:"pathname"`
-	Version  sharedTypes.Version  `json:"v"`
-}
-
 type DocContentSnapshot struct {
 	Id            sharedTypes.UUID     `json:"_id"`
 	Snapshot      string               `json:"snapshot"`
 	PathName      sharedTypes.PathName `json:"pathname"`
 	Version       sharedTypes.Version  `json:"v"`
 	LastUpdatedAt time.Time            `json:"-"`
-}
-
-func (d *Doc) ToDocContentLines() *DocContentLines {
-	return &DocContentLines{
-		Id:       d.DocId,
-		Lines:    d.Snapshot.ToLines(),
-		PathName: d.PathName,
-		Version:  d.Version,
-	}
 }
 
 func (d *Doc) ToDocContentSnapshot() *DocContentSnapshot {

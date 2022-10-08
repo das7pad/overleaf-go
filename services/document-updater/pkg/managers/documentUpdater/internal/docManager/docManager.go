@@ -186,7 +186,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 				return err
 			}
 
-			op := text.Diff(d.Snapshot, request.GetSnapshot())
+			op := text.Diff(d.Snapshot, request.Snapshot)
 
 			if err = ctx.Err(); err != nil {
 				// Processing timed out.
@@ -198,7 +198,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 				updates := []sharedTypes.DocumentUpdate{{
 					Version: d.Version,
 					DocId:   docId,
-					Hash:    request.GetSnapshot().Hash(),
+					Hash:    request.Snapshot.Hash(),
 					Op:      op,
 					Meta: sharedTypes.DocumentUpdateMeta{
 						Type:          "external",
