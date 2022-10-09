@@ -47,93 +47,45 @@ func main() {
 	}
 	src := *in
 	dst := *out
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		panic(errors.Tag(err, "iter source dir"))
+
+	sourceBlob := loadSource(sourceDirs)
+	filteredLocales := findLocales(src, sourceBlob)
+
+	entries, errIterSourceDir := os.ReadDir(src)
+	if errIterSourceDir != nil {
+		panic(errors.Tag(errIterSourceDir, "iter source dir"))
 	}
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		importLng(
+		err := importLng(
 			path.Join(src, entry.Name()),
 			path.Join(src, "en.json"),
 			path.Join(dst, entry.Name()),
-			sourceDirs,
+			filteredLocales,
 		)
+		if err != nil {
+			panic(errors.Tag(err, entry.Name()))
+		}
 		if entry.Name() != "en.json" {
 			err = copyFile.NonAtomic(
 				path.Join(dst, entry.Name()+".license"),
 				path.Join(dst, "en.json.license"),
 			)
 			if err != nil {
-				panic(err)
+				panic(errors.Tag(err, "license for "+entry.Name()))
 			}
 		}
 	}
 }
 
-func importLng(in, inEn, out string, sourceDirs []string) {
-	{
-		inStat, err := os.Stat(in)
-		if err != nil {
-			panic(errors.Tag(err, "stat in"))
-		}
-		inEnStat, err := os.Stat(inEn)
-		if err != nil {
-			panic(errors.Tag(err, "stat inEn"))
-		}
-		outStat, err := os.Stat(out)
-		switch {
-		case err == nil:
-			if outStat.ModTime().After(inStat.ModTime()) &&
-				outStat.ModTime().After(inEnStat.ModTime()) {
-				log.Printf("%s: Skipping, already up-to-date", in)
-				return
-			}
-		case os.IsNotExist(err):
-			// We will create the file soon.
-		default:
-			panic(errors.Tag(err, "stat out"))
-		}
-	}
-	log.Printf("%s: Importing", in)
-
-	inLocales := make(map[string]string)
-	if in != inEn {
-		f, err := os.Open(inEn)
-		if err != nil {
-			panic(errors.Tag(err, "cannot open input en file"))
-		}
-		if err = json.NewDecoder(f).Decode(&inLocales); err != nil {
-			panic(errors.Tag(err, "cannot decode input en file"))
-		}
-	}
-	{
-		f, err := os.Open(in)
-		if err != nil {
-			panic(errors.Tag(err, "cannot open input file"))
-		}
-		if err = json.NewDecoder(f).Decode(&inLocales); err != nil {
-			panic(errors.Tag(err, "cannot decode input file"))
-		}
-	}
-	var inLocalesMatcher *regexp.Regexp
-	{
-		flat := make([]string, 0, len(inLocales))
-		for key := range inLocales {
-			flat = append(flat, key)
-		}
-		inLocalesMatcher = regexp.MustCompile(
-			`"` + strings.Join(flat, `"|"`) + `"`,
-		)
-	}
-
-	matches := make(map[string]bool, len(inLocales))
+func loadSource(sourceDirs []string) []byte {
+	sourceBlob := make([]byte, 0, 20_000_000)
 	for _, src := range sourceDirs {
 		err := filepath.Walk(src, func(path string, f fs.FileInfo, err error) error {
 			if err != nil {
-				panic(errors.Tag(err, "cannot walk past "+path))
+				return errors.Tag(err, "cannot walk past "+path)
 			}
 			if !strings.HasSuffix(path, ".go") &&
 				!strings.HasSuffix(path, ".gohtml") {
@@ -141,34 +93,116 @@ func importLng(in, inEn, out string, sourceDirs []string) {
 			}
 			blob, err := os.ReadFile(path)
 			if err != nil {
-				panic(errors.Tag(err, "cannot read "+path))
+				return errors.Tag(err, "cannot read "+path)
 			}
-			for _, m := range inLocalesMatcher.FindAllString(string(blob), -1) {
-				matches[m] = true
-			}
+			sourceBlob = append(sourceBlob, blob...)
 			return nil
 		})
 		if err != nil {
 			panic(errors.Tag(err, "cannot walk "+src))
 		}
 	}
-	outLocales := make(map[string]string, len(matches))
-	for m := range matches {
-		key := m[1 : len(m)-1]
+	return sourceBlob
+}
+
+func loadLocalesInto(inLocales *map[string]string, from string) error {
+	f, err := os.Open(from)
+	if err != nil {
+		return errors.Tag(err, "cannot open input file "+from)
+	}
+	if err = json.NewDecoder(f).Decode(inLocales); err != nil {
+		return errors.Tag(err, "cannot decode input file "+from)
+	}
+	_ = f.Close()
+	return nil
+}
+
+func findLocales(src string, sourceCodeBlob []byte) []string {
+	inLocales := make(map[string]string)
+	err := loadLocalesInto(&inLocales, path.Join(src, "en.json"))
+	if err != nil {
+		panic(errors.Tag(err, "load en locales"))
+	}
+	flat := make([]string, 0, len(inLocales))
+	for key := range inLocales {
+		flat = append(flat, key)
+	}
+	localesMatcher := regexp.MustCompile(
+		`"` + strings.Join(flat, `"|"`) + `"`,
+	)
+	matches := make(map[string]struct{}, len(inLocales))
+	for _, m := range localesMatcher.FindAll(sourceCodeBlob, -1) {
+		matches[string(m)] = struct{}{}
+	}
+	found := make([]string, 0, len(matches))
+	for s := range matches {
+		found = append(found, s[1:len(s)-1])
+	}
+	return found
+}
+
+func writeLocales(out string, locales map[string]string) error {
+	f, err := os.Create(out)
+	if err != nil {
+		return errors.Tag(err, "cannot open output file")
+	}
+	e := json.NewEncoder(f)
+	e.SetIndent("", "  ")
+	e.SetEscapeHTML(false)
+	if err = e.Encode(locales); err != nil {
+		return errors.Tag(err, "cannot write locales")
+	}
+	_ = f.Close()
+	return nil
+}
+
+func importLng(in, inEn, out string, localeKeys []string) error {
+	{
+		inStat, err := os.Stat(in)
+		if err != nil {
+			return errors.Tag(err, "stat in")
+		}
+		inEnStat, err := os.Stat(inEn)
+		if err != nil {
+			return errors.Tag(err, "stat inEn")
+		}
+		outStat, err := os.Stat(out)
+		switch {
+		case err == nil:
+			if outStat.ModTime().After(inStat.ModTime()) &&
+				outStat.ModTime().After(inEnStat.ModTime()) {
+				log.Printf(
+					"%s: Skipping, already up-to-date (%s > %s / %s)",
+					in,
+					outStat.ModTime(), inStat.ModTime(), inEnStat.ModTime(),
+				)
+				return nil
+			}
+		case os.IsNotExist(err):
+			// We will create the file soon.
+		default:
+			return errors.Tag(err, "stat out")
+		}
+	}
+	log.Printf("%s: Importing", in)
+
+	inLocales := make(map[string]string)
+	if in != inEn {
+		if err := loadLocalesInto(&inLocales, inEn); err != nil {
+			return errors.Tag(err, "en file")
+		}
+	}
+	if err := loadLocalesInto(&inLocales, in); err != nil {
+		return errors.Tag(err, "target lng file")
+	}
+	outLocales := make(map[string]string, len(localeKeys))
+	for _, key := range localeKeys {
 		outLocales[key] = processLocale(key, inLocales[key])
 	}
-	{
-		f, err := os.Create(out)
-		if err != nil {
-			panic(errors.Tag(err, "cannot open output file"))
-		}
-		e := json.NewEncoder(f)
-		e.SetIndent("", "  ")
-		e.SetEscapeHTML(false)
-		if err = e.Encode(outLocales); err != nil {
-			panic(errors.Tag(err, "cannot write locales"))
-		}
+	if err := writeLocales(out, outLocales); err != nil {
+		return errors.Tag(err, "write out")
 	}
+	return nil
 }
 
 func processLocale(key, v string) string {
