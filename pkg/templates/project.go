@@ -194,6 +194,11 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 		Content: d.Settings.EditorSettings,
 		Type:    jsonContentType,
 	})
+	out = append(out, metaEntry{
+		Name:    "ol-siteURL",
+		Content: d.Settings.SiteURL.String(),
+		Type:    stringContentType,
+	})
 	return out
 }
 
