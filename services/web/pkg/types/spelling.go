@@ -39,3 +39,15 @@ func (r *LearnWordRequest) Validate() error {
 	}
 	return nil
 }
+
+type UnlearnWordRequest struct {
+	WithSession
+	Word string `json:"word"`
+}
+
+func (r *UnlearnWordRequest) Validate() error {
+	if r.Word == "" {
+		return &errors.ValidationError{Msg: "must set non empty word"}
+	}
+	return nil
+}

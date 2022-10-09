@@ -26,6 +26,7 @@ import (
 type Manager interface {
 	GetDictionary(ctx context.Context, request *types.GetDictionaryRequest, response *types.GetDictionaryResponse) error
 	LearnWord(ctx context.Context, request *types.LearnWordRequest) error
+	UnlearnWord(ctx context.Context, request *types.UnlearnWordRequest) error
 }
 
 func New(um user.Manager) Manager {
@@ -56,4 +57,14 @@ func (m *manager) LearnWord(ctx context.Context, request *types.LearnWordRequest
 		return err
 	}
 	return m.um.LearnWord(ctx, request.Session.User.Id, request.Word)
+}
+
+func (m *manager) UnlearnWord(ctx context.Context, request *types.UnlearnWordRequest) error {
+	if err := request.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	if err := request.Validate(); err != nil {
+		return err
+	}
+	return m.um.UnlearnWord(ctx, request.Session.User.Id, request.Word)
 }

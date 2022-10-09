@@ -132,6 +132,7 @@ func (h *httpController) addRoutes(
 	apiRouter.POST("/register", h.registerUser)
 	apiRouter.GET("/spelling/dict", h.getDictionary)
 	apiRouter.POST("/spelling/learn", h.learnWord)
+	apiRouter.POST("/spelling/unlearn", h.unlearnWord)
 	apiRouter.GET("/user/contacts", h.getUserContacts)
 	apiRouter.POST("/user/delete", h.deleteUser)
 	apiRouter.POST("/user/emails/confirm", h.confirmEmail)
@@ -1982,5 +1983,17 @@ func (h *httpController) learnWord(c *httpUtils.Context) {
 		return
 	}
 	err := h.wm.LearnWord(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) unlearnWord(c *httpUtils.Context) {
+	request := &types.UnlearnWordRequest{}
+	if !h.mustRequireLoggedInSession(c, request) {
+		return
+	}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	err := h.wm.UnlearnWord(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
