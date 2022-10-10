@@ -208,6 +208,11 @@ func processLocale(key, v string) string {
 		v = strings.ReplaceAll(v, "__date__", "{{ `{{ diff.start_ts | formatDate }}` }}")
 		v = strings.ReplaceAll(v, "<0>", "<strong>")
 		v = strings.ReplaceAll(v, "</0>", "</strong>")
+	case "select_project":
+		v = strings.ReplaceAll(v, "__project__", "{{ `'{{ project.name }}'` }}")
+	case "delete_account_warning_message_3":
+		v = strings.ReplaceAll(v, "<0>", "<strong>")
+		v = strings.ReplaceAll(v, "</0>", "</strong>")
 	}
 	if strings.Contains(v, "__") || strings.Contains(v, "<0>") {
 		panic(key + " needs processing: " + v)
