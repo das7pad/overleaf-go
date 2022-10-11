@@ -319,6 +319,7 @@ WITH u AS (
      tokens AS (
          UPDATE one_time_tokens
              SET used_at = transaction_timestamp()
+             FROM u
              WHERE user_id = u.id AND used_at IS NULL)
 INSERT
 INTO user_audit_log
