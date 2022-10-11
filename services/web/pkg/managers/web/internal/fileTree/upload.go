@@ -99,11 +99,14 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			if err != nil {
 				return errors.Tag(err, "cannot upsert doc")
 			}
-			_ = m.projectMetadata.BroadcastMetadataForDoc(
-				projectId, existingId,
+			_ = m.projectMetadata.BroadcastMetadataForDocFromSnapshot(
+				projectId, existingId, doc.Snapshot,
 			)
 			return nil
 		}
+		_ = m.projectMetadata.BroadcastMetadataForDocFromSnapshot(
+			projectId, doc.Id, doc.Snapshot,
+		)
 		uploadedDoc = &doc
 	} else {
 		if err = request.SeekFileToStart(); err != nil {

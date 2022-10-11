@@ -34,6 +34,7 @@ import (
 
 type Manager interface {
 	BroadcastMetadataForDoc(projectId, docId sharedTypes.UUID) error
+	BroadcastMetadataForDocFromSnapshot(projectId, docId sharedTypes.UUID, snapshot string) error
 	GetMetadataForProject(ctx context.Context, projectId sharedTypes.UUID) (*types.ProjectMetadataResponse, error)
 	GetMetadataForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
 }
@@ -74,6 +75,15 @@ func (m *manager) BroadcastMetadataForDoc(projectId, docId sharedTypes.UUID) err
 	return err
 }
 
+func (m *manager) BroadcastMetadataForDocFromSnapshot(projectId, docId sharedTypes.UUID, snapshot string) error {
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	return m.broadcast(ctx, projectId, &types.ProjectDocMetadataResponse{
+		DocId:              docId,
+		ProjectDocMetadata: inflate(m.parseDoc(snapshot)),
+	})
+}
+
 func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error) {
 	d, err := m.dum.GetDoc(ctx, projectId, docId, -1)
 	if err != nil {
@@ -90,9 +100,16 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId shared
 		return resp, nil
 	}
 
+	if err = m.broadcast(ctx, projectId, resp); err != nil {
+		return nil, errors.Tag(err, "cannot broadcast meta")
+	}
+	return &types.ProjectDocMetadataResponse{DocId: docId}, nil
+}
+
+func (m *manager) broadcast(ctx context.Context, projectId sharedTypes.UUID, resp *types.ProjectDocMetadataResponse) error {
 	blob, err := json.Marshal(resp)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot serialize meta")
+		return errors.Tag(err, "cannot serialize meta")
 	}
 	err = m.c.Publish(ctx, &sharedTypes.EditorEventsMessage{
 		RoomId:  projectId,
@@ -100,9 +117,9 @@ func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId shared
 		Payload: blob,
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "cannot publish meta")
+		return errors.Tag(err, "cannot publish meta")
 	}
-	return &types.ProjectDocMetadataResponse{DocId: docId}, nil
+	return nil
 }
 
 func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId sharedTypes.UUID, recentlyEdited documentUpdaterTypes.DocContentSnapshots) (types.LightProjectMetadata, error) {
