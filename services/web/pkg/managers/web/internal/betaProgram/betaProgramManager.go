@@ -66,7 +66,7 @@ func (m *manager) BetaProgramParticipatePage(ctx context.Context, request *types
 		return errors.Tag(err, "cannot get user")
 	}
 	response.Data = &templates.BetaProgramParticipate{
-		AngularLayoutData: templates.AngularLayoutData{
+		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
 				SessionUser: request.Session.User,

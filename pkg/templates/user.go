@@ -146,8 +146,22 @@ func (d *UserPasswordResetData) Render() ([]byte, string, error) {
 }
 
 type UserSettingsData struct {
-	AngularLayoutData
+	MarketingLayoutData
 	User *user.ForSettingsPage
+}
+
+func (d *UserSettingsData) Meta() []metaEntry {
+	m := d.MarketingLayoutData.Meta()
+	m = append(m, metaEntry{
+		Name:    "ol-user",
+		Type:    jsonContentType,
+		Content: d.User,
+	})
+	return m
+}
+
+func (d *UserSettingsData) Entrypoint() string {
+	return "frontend/js/pages/user/settings.js"
 }
 
 func (d *UserSettingsData) Render() ([]byte, string, error) {

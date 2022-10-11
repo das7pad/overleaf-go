@@ -17,7 +17,7 @@
 package templates
 
 type BetaProgramParticipate struct {
-	AngularLayoutData
+	MarketingLayoutData
 
 	AlreadyInBetaProgram bool
 }
@@ -27,7 +27,7 @@ func (d *BetaProgramParticipate) Entrypoint() string {
 }
 
 func (d *BetaProgramParticipate) Meta() []metaEntry {
-	m := d.AngularLayoutData.Meta()
+	m := d.MarketingLayoutData.Meta()
 	m = append(m, metaEntry{
 		Name:    "ol-participatesBetaProgram",
 		Type:    jsonContentType,
