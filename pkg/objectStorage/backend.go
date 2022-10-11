@@ -61,7 +61,7 @@ type Backend interface {
 	DeleteObject(ctx context.Context, key string) error
 	DeletePrefix(ctx context.Context, prefix string) error
 	GetObjectSize(ctx context.Context, key string) (int64, error)
-	GetReadStream(ctx context.Context, key string) (int64, io.ReadCloser, error)
+	GetReadStream(ctx context.Context, key string) (int64, io.ReadSeekCloser, error)
 	GetRedirectURLForGET(ctx context.Context, key string) (*url.URL, error)
 	SendFromStream(ctx context.Context, key string, reader io.Reader, size int64) error
 }

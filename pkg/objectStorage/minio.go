@@ -68,7 +68,7 @@ func (m *minioBackend) SendFromStream(ctx context.Context, key string, reader io
 	return err
 }
 
-func (m *minioBackend) GetReadStream(ctx context.Context, key string) (int64, io.ReadCloser, error) {
+func (m *minioBackend) GetReadStream(ctx context.Context, key string) (int64, io.ReadSeekCloser, error) {
 	r, err := m.mc.GetObject(ctx, m.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return 0, nil, errors.Tag(rewriteError(err), "get")

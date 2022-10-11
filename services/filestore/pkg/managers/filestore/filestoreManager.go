@@ -30,7 +30,7 @@ type Manager interface {
 	CopyProjectFile(ctx context.Context, srcProjectId sharedTypes.UUID, srcFileId sharedTypes.UUID, destProjectId sharedTypes.UUID, destFileId sharedTypes.UUID) error
 	DeleteProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) error
 	DeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
-	GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadCloser, error)
+	GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadSeekCloser, error)
 	GetRedirectURLForGETOnProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (*url.URL, error)
 	SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, size int64) error
 }
@@ -59,7 +59,7 @@ func getProjectFileKey(projectId, fileId sharedTypes.UUID) string {
 	return projectId.String() + "/" + fileId.String()
 }
 
-func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadCloser, error) {
+func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadSeekCloser, error) {
 	return m.b.GetReadStream(ctx, getProjectFileKey(projectId, fileId))
 }
 

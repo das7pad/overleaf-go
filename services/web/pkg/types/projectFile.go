@@ -41,6 +41,6 @@ type GetProjectFileRequest struct {
 
 type GetProjectFileResponse struct {
 	Filename sharedTypes.Filename `json:"-"`
-	Reader   io.ReadCloser        `json:"-"`
+	Reader   io.ReadSeekCloser    `json:"-"`
 	Size     int64                `json:"-"`
 }

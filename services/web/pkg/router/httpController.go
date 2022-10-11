@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -849,7 +850,6 @@ func prepareFileResponse(
 	c.Writer.Header().Set(
 		"Content-Length", strconv.FormatInt(size, 10),
 	)
-	c.Writer.WriteHeader(http.StatusOK)
 }
 
 func (h *httpController) getProjectFile(c *httpUtils.Context) {
@@ -866,7 +866,10 @@ func (h *httpController) getProjectFile(c *httpUtils.Context) {
 		return
 	}
 	prepareFileResponse(c, response.Filename, response.Size)
-	_, _ = io.Copy(c.Writer, response.Reader)
+	http.ServeContent(
+		c.Writer, c.Request, string(response.Filename), time.Time{},
+		response.Reader,
+	)
 	_ = response.Reader.Close()
 }
 
@@ -884,6 +887,7 @@ func (h *httpController) getProjectFileSize(c *httpUtils.Context) {
 		return
 	}
 	prepareFileResponse(c, response.Filename, response.Size)
+	c.Writer.WriteHeader(http.StatusOK)
 }
 
 func (h *httpController) addDocToProject(c *httpUtils.Context) {
