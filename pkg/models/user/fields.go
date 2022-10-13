@@ -87,7 +87,7 @@ type LastNameField struct {
 }
 
 type LearnedWordsField struct {
-	LearnedWords []string
+	LearnedWords []string `json:"learnedWords"`
 }
 
 type LoginCountField struct {

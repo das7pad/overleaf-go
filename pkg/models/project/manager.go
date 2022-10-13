@@ -1383,7 +1383,8 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(u.email, ''),
        coalesce(u.epoch, 0),
        coalesce(u.first_name, ''),
-       coalesce(u.last_name, '')
+       coalesce(u.last_name, ''),
+       coalesce(u.learned_words, ARRAY []::TEXT[])
 FROM projects p
          INNER JOIN users o ON p.owner_id = o.id
          LEFT JOIN tree_nodes d ON p.root_doc_id = d.id
@@ -1418,6 +1419,7 @@ WHERE p.id = $1
 		&d.User.Epoch,
 		&d.User.FirstName,
 		&d.User.LastName,
+		&d.User.LearnedWords,
 	)
 	if err != nil {
 		return nil, err

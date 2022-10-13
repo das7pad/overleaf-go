@@ -43,6 +43,7 @@ type WithLoadEditorInfo struct {
 	BetaProgramField
 	IsAdminField
 	EpochField
+	LearnedWordsField
 	WithPublicInfoAndFeatures
 }
 
