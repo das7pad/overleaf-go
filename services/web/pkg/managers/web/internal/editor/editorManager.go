@@ -47,6 +47,7 @@ type Manager interface {
 	SetMemberPrivilegeLevelInProject(ctx context.Context, request *types.SetMemberPrivilegeLevelInProjectRequest) error
 	TransferProjectOwnership(ctx context.Context, request *types.TransferProjectOwnershipRequest) error
 	ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, response *types.ProjectEditorPageResponse) error
+	ProjectEditorDetached(ctx context.Context, request *types.ProjectEditorDetachedPageRequest, res *types.ProjectEditorDetachedPageResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
 	GetWSBootstrap(ctx context.Context, request *types.GetWSBootstrapRequest, response *types.GetWSBootstrapResponse) error

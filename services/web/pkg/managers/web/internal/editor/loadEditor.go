@@ -196,3 +196,49 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}()
 	return nil
 }
+
+func (m *manager) ProjectEditorDetached(ctx context.Context, request *types.ProjectEditorDetachedPageRequest, res *types.ProjectEditorDetachedPageResponse) error {
+	projectId := request.ProjectId
+	userId := request.Session.User.Id
+	isAnonymous := userId == (sharedTypes.UUID{})
+	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
+
+	d, err := m.pm.GetLoadEditorDetails(
+		ctx, projectId, userId, anonymousAccessToken,
+	)
+	if err != nil {
+		return errors.Tag(err, "cannot get project/user details")
+	}
+	if isAnonymous {
+		d.User = *defaultUser
+	}
+
+	authorizationDetails, err := d.Project.GetPrivilegeLevel(
+		userId, anonymousAccessToken,
+	)
+	if err != nil {
+		return err
+	}
+
+	res.Data = &templates.ProjectEditorDetachedData{
+		MarketingLayoutData: templates.MarketingLayoutData{
+			CommonData: templates.CommonData{
+				Settings:              m.ps,
+				RobotsNoindexNofollow: true,
+				SessionUser:           request.Session.User,
+				ThemeModifier:         d.User.EditorConfig.OverallTheme,
+				Title:                 string(d.Project.Name),
+			},
+		},
+		EditorBootstrap: &templates.EditorBootstrap{
+			AllowedImageNames:    m.frontendAllowedImageNames,
+			Anonymous:            isAnonymous,
+			AnonymousAccessToken: anonymousAccessToken,
+			IsRestrictedUser:     authorizationDetails.IsRestrictedUser(),
+			Project:              d.Project.LoadEditorViewPublic,
+			RootDocPath:          d.Project.RootDoc.Path,
+			User:                 d.User,
+		},
+	}
+	return nil
+}

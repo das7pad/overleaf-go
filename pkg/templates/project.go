@@ -218,3 +218,38 @@ func (d *ProjectEditorData) ResourceHints() string {
 	}
 	return resourceHints.ResourceHintsEditorDefault()
 }
+
+type ProjectEditorDetachedData struct {
+	MarketingLayoutData
+	EditorBootstrap *EditorBootstrap
+}
+
+func (d *ProjectEditorDetachedData) Entrypoint() string {
+	return "frontend/js/pages/project/pdf-preview-detached.js"
+}
+
+func (d *ProjectEditorDetachedData) Meta() []metaEntry {
+	return (&ProjectEditorData{
+		AngularLayoutData: AngularLayoutData{
+			CommonData: d.CommonData,
+		},
+		EditorBootstrap: d.EditorBootstrap,
+	}).Meta()
+}
+
+func (d *ProjectEditorDetachedData) Render() ([]byte, string, error) {
+	d.HideFooter = true
+	d.HideNavBar = true
+	return render("project/editorDetached.gohtml", 5*1024, d)
+}
+
+func (d *ProjectEditorDetachedData) CSP() string {
+	return d.Settings.CSPs.Editor
+}
+
+func (d *ProjectEditorDetachedData) ResourceHints() string {
+	if d.ThemeModifier == "light-" {
+		return resourceHints.ResourceHintsEditorLight()
+	}
+	return resourceHints.ResourceHintsEditorDefault()
+}

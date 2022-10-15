@@ -30,4 +30,13 @@ type ProjectEditorPageResponse struct {
 	Data *templates.ProjectEditorData
 }
 
+type ProjectEditorDetachedPageRequest struct {
+	ProjectId sharedTypes.UUID `form:"-"`
+	WithSession
+}
+
+type ProjectEditorDetachedPageResponse struct {
+	Data *templates.ProjectEditorDetachedData
+}
+
 type WSBootstrap templates.WSBootstrap
