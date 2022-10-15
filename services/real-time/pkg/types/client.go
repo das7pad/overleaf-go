@@ -72,7 +72,6 @@ func PrepareBulkMessage(response *RPCResponse) (WriteQueueEntry, error) {
 		return WriteQueueEntry{}, err
 	}
 	return WriteQueueEntry{
-		Blob:       blob,
 		Msg:        pm,
 		FatalError: response.FatalError,
 	}, nil
