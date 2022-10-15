@@ -1426,6 +1426,7 @@ WHERE p.id = $1
 	}
 	d.Project.Id = projectId
 	d.User.Id = userId
+	d.Project.RootDocId = d.Project.RootDoc.Id
 	return &d, err
 }
 

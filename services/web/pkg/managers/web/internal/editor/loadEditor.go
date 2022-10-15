@@ -168,7 +168,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 
 	response.IsRestrictedUser = authorizationDetails.IsRestrictedUser()
 	response.Project = p.LoadEditorViewPublic
-	response.Project.RootDocId = p.RootDoc.Id
 	response.RootDocPath = p.RootDoc.Path
 	response.User = *u
 	response.AllowedImageNames = m.frontendAllowedImageNames
