@@ -87,10 +87,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	userId := request.Session.User.Id
 	isAnonymous := userId == (sharedTypes.UUID{})
 	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
-	if !isAnonymous {
-		// Logged-in users must go through the join process first
-		anonymousAccessToken = ""
-	}
 
 	response := templates.EditorBootstrap{
 		Anonymous:            isAnonymous,
