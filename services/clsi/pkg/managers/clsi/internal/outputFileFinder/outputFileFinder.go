@@ -76,6 +76,9 @@ func (f *finder) FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAn
 		if relativePath == constants.AgentSocketName {
 			return nil
 		}
+		if relativePath == constants.AgentErrorName {
+			return nil
+		}
 		if d.IsDir() {
 			dirEntries[relativePath] = sharedTypes.DirName(relativePath)
 		} else {

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -124,33 +125,40 @@ func serve(conn net.Conn) {
 	_ = conn.Close()
 }
 
-func run() int {
+func run() (int, error) {
 	if len(os.Args) < 2 {
-		return 100
+		return 101, &errors.ValidationError{Msg: "missing socket"}
 	}
 	parts := strings.Split(os.Args[1], "://")
 	if len(parts) != 2 {
-		return 101
+		return 102, &errors.ValidationError{Msg: "missing proto/spec"}
 	}
 	proto, address := parts[0], parts[1]
 	if proto == "unix" {
 		if err := os.Remove(address); err != nil && !os.IsNotExist(err) {
-			return 1
+			return 103, errors.Tag(err, "remove unix socket")
 		}
 	}
 	socket, err := net.Listen(proto, address)
 	if err != nil {
-		return 2
+		return 104, errors.Tag(err, "listen")
 	}
 	for {
 		conn, err2 := socket.Accept()
 		if err2 != nil {
-			return 3
+			return 105, errors.Tag(err, "accept")
 		}
 		go serve(conn)
 	}
 }
 
 func main() {
-	os.Exit(run())
+	code, err := run()
+	writeErr := os.WriteFile(
+		constants.AgentErrorPathContainer, []byte(err.Error()), 0o600,
+	)
+	if writeErr != nil {
+		code += 100
+	}
+	os.Exit(code)
 }

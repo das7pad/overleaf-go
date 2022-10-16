@@ -18,7 +18,9 @@ package constants
 
 //goland:noinspection SpellCheckingInspection
 const (
+	AgentErrorName           = ".agent-error"
 	AgentSocketName          = ".agent-socket"
+	AgentErrorPathContainer  = CompileDirContainer + "/" + AgentErrorName
 	AgentSocketPathContainer = CompileDirContainer + "/" + AgentSocketName
 
 	CompileDirContainer = "/compile"
