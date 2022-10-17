@@ -115,6 +115,7 @@ func (h *httpController) addRoutes(
 
 		rp := r.Group("/project/{projectId}")
 		rp.GET("", h.projectEditorPage)
+		rp.GET("/detacher", h.projectEditorDetacherPage)
 		rp.GET("/detached", h.projectEditorDetachedPage)
 		rp.GET("/invite/token/{token}", h.viewProjectInvitePage)
 	}
@@ -1862,6 +1863,25 @@ func (h *httpController) projectListPage(c *httpUtils.Context) {
 
 func (h *httpController) projectEditorPage(c *httpUtils.Context) {
 	request := &types.ProjectEditorPageRequest{}
+	if !h.mustGetOrCreateSessionHTML(c, request) {
+		return
+	}
+	projectId, err := httpUtils.ParseAndValidateId(c, "projectId")
+	if err != nil {
+		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
+		return
+	}
+	request.ProjectId = projectId
+	res := &types.ProjectEditorPageResponse{}
+	err = h.wm.ProjectEditorPage(c, request, res)
+	h.wm.TouchSession(c, request.Session)
+	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
+}
+
+func (h *httpController) projectEditorDetacherPage(c *httpUtils.Context) {
+	request := &types.ProjectEditorPageRequest{
+		DetachRole: "detacher",
+	}
 	if !h.mustGetOrCreateSessionHTML(c, request) {
 		return
 	}

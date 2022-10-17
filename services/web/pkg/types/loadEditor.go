@@ -22,8 +22,16 @@ import (
 )
 
 type ProjectEditorPageRequest struct {
-	ProjectId sharedTypes.UUID `form:"-"`
+	ProjectId  sharedTypes.UUID     `form:"-"`
+	DetachRole templates.DetachRole `json:"detachRole"`
 	WithSession
+}
+
+func (r *ProjectEditorPageRequest) Validate() error {
+	if err := r.DetachRole.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 type ProjectEditorPageResponse struct {

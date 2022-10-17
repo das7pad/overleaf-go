@@ -19,6 +19,7 @@ package templates
 import (
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/notification"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -155,6 +156,18 @@ type EditorBootstrap struct {
 	Anonymous            bool                         `json:"anonymous"`
 	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
 	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
+	DetachRole           DetachRole                   `json:"detachRole"`
+}
+
+type DetachRole string
+
+func (r DetachRole) Validate() error {
+	switch r {
+	case "detacher", "detached", "":
+		return nil
+	default:
+		return &errors.ValidationError{Msg: "invalid detach role"}
+	}
 }
 
 type WSBootstrap struct {

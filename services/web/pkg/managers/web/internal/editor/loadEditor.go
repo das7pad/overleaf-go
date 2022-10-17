@@ -83,6 +83,9 @@ func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootst
 }
 
 func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, res *types.ProjectEditorPageResponse) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
 	isAnonymous := userId == (sharedTypes.UUID{})
@@ -91,6 +94,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	response := templates.EditorBootstrap{
 		Anonymous:            isAnonymous,
 		AnonymousAccessToken: anonymousAccessToken,
+		DetachRole:           request.DetachRole,
 	}
 	var p *project.LoadEditorViewPrivate
 	var u *user.WithLoadEditorInfo
@@ -238,6 +242,7 @@ func (m *manager) ProjectEditorDetached(ctx context.Context, request *types.Proj
 			Project:              d.Project.LoadEditorViewPublic,
 			RootDocPath:          d.Project.RootDoc.Path,
 			User:                 d.User,
+			DetachRole:           "detached",
 		},
 	}
 	return nil
