@@ -55,8 +55,8 @@ type ListViewPrivate struct {
 	NameField
 	OwnerIdField
 
-	LastUpdater user.WithPublicInfo
-	Owner       user.WithPublicInfo
+	LastUpdater user.WithPublicInfoAndNonStandardId
+	Owner       user.WithPublicInfoAndNonStandardId
 	TagIds      sharedTypes.UUIDs
 }
 

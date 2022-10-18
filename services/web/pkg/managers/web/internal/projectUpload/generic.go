@@ -324,5 +324,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 
 	response.Success = true
 	response.ProjectId = &p.Id
+	response.Name = p.Name
 	return nil
 }

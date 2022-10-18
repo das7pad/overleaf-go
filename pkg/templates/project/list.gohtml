@@ -1,7 +1,7 @@
 {{/*
     Golang port of Overleaf
     Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
-    Copyright (C) 2021 Overleaf <team@overleaf.com>
+    Copyright (C) 2021-2022 Overleaf <team@overleaf.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
@@ -17,11 +17,11 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */ -}}
 {{- /*gotype: github.com/das7pad/overleaf-go/pkg/templates.ProjectListData */ -}}
-{{ template "layout-angular" . }}
+{{ template "layout-marketing" . }}
 {{ define "content" }}
   <main
-    class="content content-alt project-list-page"
-    ng-controller="ProjectPageController"
+    class="content content-alt project-list-react"
+    id="project-list-root"
     role="main"
   >
   <div

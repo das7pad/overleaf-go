@@ -63,37 +63,45 @@ func (d *ProjectViewInviteData) Render() ([]byte, string, error) {
 }
 
 type ProjectListProjectView struct {
-	Id                  sharedTypes.UUID           `json:"id"`
-	Name                project.Name               `json:"name"`
-	LastUpdatedAt       *time.Time                 `json:"lastUpdated"`
-	LastUpdatedByUserId sharedTypes.UUID           `json:"-"`
-	LastUpdatedBy       user.WithPublicInfo        `json:"lastUpdatedBy"`
-	PublicAccessLevel   project.PublicAccessLevel  `json:"publicAccessLevel"`
-	AccessLevel         sharedTypes.PrivilegeLevel `json:"accessLevel"`
-	AccessSource        project.AccessSource       `json:"source"`
-	Archived            bool                       `json:"archived"`
-	Trashed             bool                       `json:"trashed"`
-	OwnerRef            sharedTypes.UUID           `json:"owner_ref"`
-	Owner               user.WithPublicInfo        `json:"owner"`
+	Id                sharedTypes.UUID                    `json:"id"`
+	Name              project.Name                        `json:"name"`
+	LastUpdatedAt     *time.Time                          `json:"lastUpdated"`
+	LastUpdatedBy     user.WithPublicInfoAndNonStandardId `json:"lastUpdatedBy"`
+	PublicAccessLevel project.PublicAccessLevel           `json:"publicAccessLevel"`
+	AccessLevel       sharedTypes.PrivilegeLevel          `json:"accessLevel"`
+	AccessSource      project.AccessSource                `json:"source"`
+	Archived          bool                                `json:"archived"`
+	Trashed           bool                                `json:"trashed"`
+	OwnerRef          sharedTypes.UUID                    `json:"owner_ref"`
+	Owner             user.WithPublicInfoAndNonStandardId `json:"owner"`
+}
+
+type PrefetchedProjectsBlob struct {
+	TotalSize int                      `json:"totalSize"`
+	Projects  []ProjectListProjectView `json:"projects"`
 }
 
 type ProjectListData struct {
 	AngularLayoutData
 
-	Projects         []*ProjectListProjectView
-	Tags             []tag.Full
-	JWTLoggedInUser  string
-	Notifications    notification.Notifications
-	UserEmails       []user.EmailDetailsWithDefaultFlag
-	SuggestedLngCode string
-	SystemMessages   []systemMessage.Full
+	PrefetchedProjectsBlob PrefetchedProjectsBlob
+	Tags                   []tag.Full
+	JWTLoggedInUser        string
+	Notifications          notification.Notifications
+	UserEmails             []user.EmailDetailsWithDefaultFlag
+	SuggestedLngCode       string
+	SystemMessages         []systemMessage.Full
+}
+
+func (d *ProjectListData) Entrypoint() string {
+	return "frontend/js/pages/project/list.js"
 }
 
 func (d *ProjectListData) Meta() []metaEntry {
 	out := d.AngularLayoutData.Meta()
 	out = append(out, metaEntry{
-		Name:    "ol-projects",
-		Content: d.Projects,
+		Name:    "ol-prefetchedProjectsBlob",
+		Content: d.PrefetchedProjectsBlob,
 		Type:    jsonContentType,
 	})
 	out = append(out, metaEntry{
@@ -121,11 +129,16 @@ func (d *ProjectListData) Meta() []metaEntry {
 		Content: d.SystemMessages,
 		Type:    jsonContentType,
 	})
+	out = append(out, metaEntry{
+		Name:    "ol-emailConfirmationDisabled",
+		Content: d.Settings.EmailConfirmationDisabled,
+		Type:    jsonContentType,
+	})
 	return out
 }
 
 func (d *ProjectListData) Render() ([]byte, string, error) {
-	n := 1024 * (38 + len(d.Projects)*3/4 + len(d.Tags)/10)
+	n := 1024 * (38 + d.PrefetchedProjectsBlob.TotalSize*3/4 + len(d.Tags)/10)
 	return render("project/list.gohtml", n, d)
 }
 

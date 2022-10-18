@@ -145,6 +145,7 @@ type CreateProjectResponse struct {
 	Success   bool              `json:"success"`
 	Error     string            `json:"error,omitempty"`
 	ProjectId *sharedTypes.UUID `json:"project_id,omitempty"`
+	Name      project.Name      `json:"name,omitempty"`
 }
 
 type UploadDetails struct {

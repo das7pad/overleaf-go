@@ -2080,8 +2080,7 @@ WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
              AND template_key != ''
              AND expires_at > transaction_timestamp())
 
-SELECT u.id,
-       email,
+SELECT email,
        email_confirmed_at,
        first_name,
        last_name,
@@ -2133,7 +2132,9 @@ WHERE u.id = $1
 			return errors.Tag(err, "scan projects")
 		}
 		projects[i].Owner.Id = projects[i].OwnerId
+		projects[i].Owner.IdNoUnderscore = projects[i].OwnerId
 		projects[i].LastUpdater.Id = projects[i].LastUpdatedBy
+		projects[i].LastUpdater.IdNoUnderscore = projects[i].LastUpdatedBy
 	}
 	if err = r.Err(); err != nil {
 		return errors.Tag(err, "iter projects cursor")
@@ -2150,7 +2151,7 @@ WHERE u.id = $1
 	var notificationMessageOptions []json.RawMessage
 
 	err = br.QueryRow().Scan(
-		&d.User.Id, &d.User.Email, &d.User.EmailConfirmedAt,
+		&d.User.Email, &d.User.EmailConfirmedAt,
 		&d.User.FirstName, &d.User.LastName,
 		&tagIds, &tagNames,
 		&notificationIds, &notificationKeys, &notificationTemplateKeys,
@@ -2159,6 +2160,7 @@ WHERE u.id = $1
 	if err != nil {
 		return errors.Tag(err, "query user and tags")
 	}
+	d.User.IdNoUnderscore = userId
 
 	d.Tags = make([]tag.Full, 0, len(tagIds))
 	for i, id := range tagIds {

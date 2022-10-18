@@ -21,7 +21,7 @@ import (
 )
 
 type ProjectListViewCaller struct {
-	WithPublicInfo
+	WithPublicInfoAndNonStandardId
 	EmailConfirmedAtField
 }
 

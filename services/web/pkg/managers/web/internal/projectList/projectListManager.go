@@ -98,13 +98,13 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		return errors.Tag(err, "cannot get user with projects")
 	}
 
-	projects := make([]*templates.ProjectListProjectView, len(u.Projects))
+	projects := make([]templates.ProjectListProjectView, len(u.Projects))
 	for i, p := range u.Projects {
 		authorizationDetails, err := p.GetPrivilegeLevelAuthenticated()
 		if err != nil {
 			return errors.New("listed project w/o access: " + p.Id.String())
 		}
-		projects[i] = &templates.ProjectListProjectView{
+		projects[i] = templates.ProjectListProjectView{
 			Id:                p.Id,
 			Name:              p.Name,
 			LastUpdatedAt:     p.LastUpdatedAt,
@@ -117,13 +117,11 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		}
 		if authorizationDetails.IsRestrictedUser() {
 			if p.LastUpdatedBy == userId {
-				projects[i].LastUpdatedBy = u.User.WithPublicInfo
+				projects[i].LastUpdatedBy.IdNoUnderscore = userId
 			} else {
-				projects[i].LastUpdatedBy = user.WithPublicInfo{}
-				projects[i].LastUpdatedBy.Id = p.LastUpdatedBy
+				projects[i].LastUpdatedBy.IdNoUnderscore = p.LastUpdatedBy
 			}
-			projects[i].Owner = user.WithPublicInfo{}
-			projects[i].Owner.Id = p.OwnerId
+			projects[i].Owner.IdNoUnderscore = p.OwnerId
 		} else {
 			projects[i].LastUpdatedBy = p.LastUpdater
 			projects[i].Owner = p.Owner
@@ -151,7 +149,10 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 				TitleLocale: "your_projects",
 			},
 		},
-		Projects:        projects,
+		PrefetchedProjectsBlob: templates.PrefetchedProjectsBlob{
+			Projects:  projects,
+			TotalSize: len(projects),
+		},
 		Notifications:   u.Notifications,
 		SystemMessages:  cachedSystemMessages,
 		Tags:            u.Tags,
