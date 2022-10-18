@@ -26,10 +26,10 @@ import (
 )
 
 type Manager interface {
-	AddProject(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error
+	AddProjects(ctx context.Context, userId, tagId sharedTypes.UUID, projectIds sharedTypes.UUIDs) error
 	Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error
 	EnsureExists(ctx context.Context, userId sharedTypes.UUID, name string) (*Full, error)
-	RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error
+	RemoveProjectsFromTag(ctx context.Context, userId, tagId sharedTypes.UUID, projectIds sharedTypes.UUIDs) error
 	Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error
 }
 
@@ -45,16 +45,15 @@ func getErr(_ pgconn.CommandTag, err error) error {
 	return err
 }
 
-func (m *manager) AddProject(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
+func (m *manager) AddProjects(ctx context.Context, userId, tagId sharedTypes.UUID, projectIds sharedTypes.UUIDs) error {
 	return getErr(m.db.Exec(ctx, `
 WITH project AS (SELECT projects.id
                  FROM projects
                           LEFT JOIN project_members pm
                                     ON projects.id = pm.project_id
-                 WHERE projects.id = $3
+                 WHERE projects.id = ANY ($3)
                    AND projects.deleted_at IS NULL
-                   AND (projects.owner_id = $2 OR pm.user_id = $2)
-                 LIMIT 1),
+                   AND pm.user_id = $2),
      tag AS (SELECT id FROM tags WHERE id = $1 AND user_id = $2)
 INSERT
 INTO tag_entries (project_id, tag_id)
@@ -62,7 +61,7 @@ SELECT project.id, tag.id
 FROM project,
      tag
 ON CONFLICT (project_id, tag_id) DO NOTHING
-`, tagId, userId, projectId))
+`, tagId, userId, projectIds))
 }
 
 func (m *manager) Delete(ctx context.Context, userId, tagId sharedTypes.UUID) error {
@@ -92,14 +91,15 @@ RETURNING id
 	return &t, nil
 }
 
-func (m *manager) RemoveProjectFromTag(ctx context.Context, userId, tagId, projectId sharedTypes.UUID) error {
+func (m *manager) RemoveProjectsFromTag(ctx context.Context, userId, tagId sharedTypes.UUID, projectIds sharedTypes.UUIDs) error {
 	return getErr(m.db.Exec(ctx, `
 WITH tag AS (SELECT id FROM tags WHERE id = $1 AND user_id = $2)
 DELETE
 FROM tag_entries
+    USING tag
 WHERE tag_id = tag.id
-  AND project_id = $3
-`, tagId, userId, projectId))
+  AND project_id = ANY ($3)
+`, tagId, userId, projectIds))
 }
 
 func (m *manager) Rename(ctx context.Context, userId, tagId sharedTypes.UUID, newName string) error {

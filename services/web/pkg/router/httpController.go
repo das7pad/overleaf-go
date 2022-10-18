@@ -174,6 +174,8 @@ func (h *httpController) addRoutes(
 		rt.Use(httpUtils.ValidateAndSetId("tagId"))
 		rt.DELETE("", h.deleteTag)
 		rt.POST("/rename", h.renameTag)
+		rt.POST("/projects", h.addProjectsToTag)
+		rt.DELETE("/projects", h.removeProjectsToTag)
 
 		rtp := rt.Group("/project/{projectId}")
 		rtp.Use(httpUtils.ValidateAndSetId("projectId"))
@@ -737,6 +739,19 @@ func (h *httpController) addProjectToTag(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
+func (h *httpController) addProjectsToTag(c *httpUtils.Context) {
+	request := &types.AddProjectsToTagRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
+	}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.TagId = httpUtils.GetId(c, "tagId")
+	err := h.wm.AddProjectsToTag(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
 func (h *httpController) createTag(c *httpUtils.Context) {
 	request := &types.CreateTagRequest{}
 	response := &types.CreateTagResponse{}
@@ -783,6 +798,19 @@ func (h *httpController) removeProjectToTag(c *httpUtils.Context) {
 		return
 	}
 	err := h.wm.RemoveProjectFromTag(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+}
+
+func (h *httpController) removeProjectsToTag(c *httpUtils.Context) {
+	request := &types.RemoveProjectsToTagRequest{}
+	if !h.mustGetOrCreateSession(c, request, nil) {
+		return
+	}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	request.TagId = httpUtils.GetId(c, "tagId")
+	err := h.wm.RemoveProjectsFromTag(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 

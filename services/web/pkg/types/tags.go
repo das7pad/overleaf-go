@@ -27,6 +27,12 @@ type AddProjectToTagRequest struct {
 	TagId     sharedTypes.UUID `json:"-"`
 }
 
+type AddProjectsToTagRequest struct {
+	WithSession
+	ProjectIds []sharedTypes.UUID `json:"projectIds"`
+	TagId      sharedTypes.UUID   `json:"-"`
+}
+
 type CreateTagRequest struct {
 	WithSession
 	Name string `json:"name"`
@@ -43,6 +49,12 @@ type RemoveProjectToTagRequest struct {
 	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
 	TagId     sharedTypes.UUID `json:"-"`
+}
+
+type RemoveProjectsToTagRequest struct {
+	WithSession
+	ProjectIds []sharedTypes.UUID `json:"projectIds"`
+	TagId      sharedTypes.UUID   `json:"-"`
 }
 
 type RenameTagRequest struct {

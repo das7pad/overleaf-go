@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,15 +19,19 @@ package tag
 import (
 	"context"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
 	AddProjectToTag(ctx context.Context, request *types.AddProjectToTagRequest) error
+	AddProjectsToTag(ctx context.Context, r *types.AddProjectsToTagRequest) error
 	CreateTag(ctx context.Context, request *types.CreateTagRequest, response *types.CreateTagResponse) error
 	DeleteTag(ctx context.Context, request *types.DeleteTagRequest) error
 	RemoveProjectFromTag(ctx context.Context, request *types.RemoveProjectToTagRequest) error
+	RemoveProjectsFromTag(ctx context.Context, r *types.RemoveProjectsToTagRequest) error
 	RenameTag(ctx context.Context, request *types.RenameTagRequest) error
 }
 
@@ -43,7 +47,19 @@ func (m *manager) AddProjectToTag(ctx context.Context, r *types.AddProjectToTagR
 	if err := r.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	return m.tm.AddProject(ctx, r.Session.User.Id, r.TagId, r.ProjectId)
+	return m.tm.AddProjects(
+		ctx, r.Session.User.Id, r.TagId, sharedTypes.UUIDs{r.ProjectId},
+	)
+}
+
+func (m *manager) AddProjectsToTag(ctx context.Context, r *types.AddProjectsToTagRequest) error {
+	if err := r.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	if len(r.ProjectIds) == 0 {
+		return &errors.ValidationError{Msg: "missing projectIds"}
+	}
+	return m.tm.AddProjects(ctx, r.Session.User.Id, r.TagId, r.ProjectIds)
 }
 
 func (m *manager) CreateTag(ctx context.Context, r *types.CreateTagRequest, response *types.CreateTagResponse) error {
@@ -69,7 +85,21 @@ func (m *manager) RemoveProjectFromTag(ctx context.Context, r *types.RemoveProje
 	if err := r.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	return m.tm.RemoveProjectFromTag(ctx, r.Session.User.Id, r.TagId, r.ProjectId)
+	return m.tm.RemoveProjectsFromTag(
+		ctx, r.Session.User.Id, r.TagId, sharedTypes.UUIDs{r.ProjectId},
+	)
+}
+
+func (m *manager) RemoveProjectsFromTag(ctx context.Context, r *types.RemoveProjectsToTagRequest) error {
+	if err := r.Session.CheckIsLoggedIn(); err != nil {
+		return err
+	}
+	if len(r.ProjectIds) == 0 {
+		return &errors.ValidationError{Msg: "missing projectIds"}
+	}
+	return m.tm.RemoveProjectsFromTag(
+		ctx, r.Session.User.Id, r.TagId, r.ProjectIds,
+	)
 }
 
 func (m *manager) RenameTag(ctx context.Context, r *types.RenameTagRequest) error {
