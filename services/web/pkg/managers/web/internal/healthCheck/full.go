@@ -130,8 +130,8 @@ func (s *smokeTestSession) logout(ctx context.Context) error {
 }
 
 var (
-	regexProjectListTitle      = regexp.MustCompile(`<title>\s*Your Projects - .*,\s*Online LaTeX Editor\s*</title>`)
-	regexProjectListController = regexp.MustCompile(`controller="ProjectPageController"`)
+	regexProjectListTitle = regexp.MustCompile(`<title>\s*Your Projects - .*,\s*Online LaTeX Editor\s*</title>`)
+	regexProjectListRoot  = regexp.MustCompile(`id="project-list-root"`)
 )
 
 func (s *smokeTestSession) projectList(ctx context.Context) error {
@@ -142,8 +142,8 @@ func (s *smokeTestSession) projectList(ctx context.Context) error {
 	if !regexProjectListTitle.Match(blob) {
 		return &failure{Msg: "mismatching title"}
 	}
-	if !regexProjectListController.Match(blob) {
-		return &failure{Msg: "missing angular controller"}
+	if !regexProjectListRoot.Match(blob) {
+		return &failure{Msg: "missing root container"}
 	}
 	return nil
 }
