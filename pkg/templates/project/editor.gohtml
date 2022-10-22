@@ -21,7 +21,11 @@
 {{ define "headScripts" }}
   <meta
     name="ol-ide-css"
-    content="{{ buildJsPath "ide.js.css" }}"
+    content="{{ getBundlePath "frontend/js/ide.js.css" }}"
+  />
+  <meta
+    name="ol-pdf-js-viewer-css"
+    content="{{ getBundlePath "frontend/js/features/pdf-preview/components/pdf-js-viewer.js.css" }}"
   />
   <meta
     name="ol-theme-default"

@@ -33,9 +33,9 @@ type Manager interface {
 	BuildCssPath(theme string) template.URL
 	BuildFontPath(path string) template.URL
 	BuildImgPath(path string) template.URL
-	BuildJsPath(path string) template.URL
 	BuildMathJaxEntrypoint() template.URL
 	BuildTPath(lng string) template.URL
+	GetBundlePath(path string) template.URL
 	GetEntrypointChunks(path string) []template.URL
 	StaticPath(path string) template.URL
 	ResourceHintsManager
@@ -141,6 +141,10 @@ func (m *manager) RenderingStart() {}
 
 func (m *manager) RenderingEnd() {}
 
+func (m *manager) GetBundlePath(path string) template.URL {
+	return m.assets[path]
+}
+
 func (m *manager) BuildCssPath(theme string) template.URL {
 	return m.assets["frontend/stylesheets/"+theme+"style.less"]
 }
@@ -153,12 +157,8 @@ func (m *manager) BuildImgPath(path string) template.URL {
 	return m.assets["public/img/"+path]
 }
 
-func (m *manager) BuildJsPath(path string) template.URL {
-	return m.assets["frontend/js/"+path]
-}
-
 func (m *manager) BuildMathJaxEntrypoint() template.URL {
-	return m.BuildJsPath("MathJaxBundle.js")
+	return m.GetBundlePath("frontend/js/MathJaxBundle.js")
 }
 
 func (m *manager) BuildTPath(lng string) template.URL {
