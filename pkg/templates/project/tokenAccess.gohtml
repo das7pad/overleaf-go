@@ -33,7 +33,10 @@
     >
       <i class="fa fa-arrow-left"></i>
     </a>
-    <div class="loading-screen">
+    <div
+      class="loading-screen"
+      ng-show="mode == 'accessAttempt'"
+    >
       <div class="loading-screen-brand-container">
         <div
           id="loadingScreen"
@@ -58,7 +61,22 @@
             <div ng-switch-when="not_found">
               <h4 aria-live="assertive">Project not found</h4>
             </div>
-            <div ng-switch-default="ng-switch-default">
+            <div ng-switch-when="rate_limited">
+              <h4 aria-live="assertive">
+                  {{ translate "too_many_requests" . }}
+              </h4>
+              <p>
+                <button
+                  class="btn btn-ln btn-primary"
+                  type="submit"
+                  ng-click="postConfirmedByUser()"
+                  ng-disabled="retryBlocked"
+                >
+                    {{ translate "retry" . }}
+                </button>
+              </p>
+            </div>
+            <div ng-switch-when="error">
               <div
                 class="alert alert-danger"
                 aria-live="assertive"
@@ -66,6 +84,45 @@
               <p>
                 <a href="/">{{ translate "home" . }}</a>
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="loading-screen"
+      ng-show="mode == 'requireAccept'"
+    >
+      <div class="container">
+        <div class="row">
+          <div class="col-md-8 col-md-offset-2">
+            <div class="card">
+              <div class="page-header text-centered">
+                <h1>
+                    {{ translate "invited_to_join" . }}
+                  <br/>
+                  <em>{{ .ProjectName }}</em>
+                </h1>
+              </div>
+              <div class="row text-center">
+                <div class="col-md-12">
+                  <p>
+                      {{ translate "accepting_invite_as" . }}
+                    <b>{{ ` {{ usersEmail }}` }}</b>
+                  </p>
+                </div>
+              </div>
+              <div class="row text-center">
+                <div class="col-md-12">
+                  <button
+                    class="btn btn-ln btn-primary"
+                    type="submit"
+                    ng-click="postConfirmedByUser()"
+                  >
+                      {{ translate "join_project" . }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

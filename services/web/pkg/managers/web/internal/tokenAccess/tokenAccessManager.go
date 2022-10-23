@@ -100,20 +100,32 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 	return nil
 }
 
-func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error {
+func (m *manager) TokenAccessPage(ctx context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error {
+	userId := request.Session.User.Id
 	var postULR *sharedTypes.URL
+	var privilegeLevel sharedTypes.PrivilegeLevel
 	switch {
 	case request.Token.ValidateReadOnly() == nil:
+		privilegeLevel = sharedTypes.PrivilegeLevelReadOnly
 		postULR = m.ps.SiteURL.
 			WithPath("/api/grant/ro/" + string(request.Token))
 	case request.Token.ValidateReadAndWrite() == nil:
 		if err := request.Session.CheckIsLoggedIn(); err != nil {
 			return err
 		}
+		privilegeLevel = sharedTypes.PrivilegeLevelReadAndWrite
 		postULR = m.ps.SiteURL.
 			WithPath("/api/grant/rw/" + string(request.Token))
 	default:
 		return &errors.NotFoundError{}
+	}
+
+	p, _, err := m.lookupProjectByToken(
+		ctx, userId, privilegeLevel, request.Token, 500*time.Millisecond,
+	)
+	if err != nil {
+		p = &project.ForTokenAccessDetails{}
+		p.Name = "this project"
 	}
 
 	response.Data = &templates.ProjectTokenAccessData{
@@ -125,7 +137,8 @@ func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessP
 				Viewport:    true,
 			},
 		},
-		PostURL: postULR,
+		PostURL:     postULR,
+		ProjectName: p.Name,
 	}
 	return nil
 }

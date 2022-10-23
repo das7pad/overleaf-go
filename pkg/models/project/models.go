@@ -97,6 +97,7 @@ type ForAuthorizationDetails struct {
 
 type ForTokenAccessDetails struct {
 	IdField
+	NameField
 	ForAuthorizationDetails
 }
 

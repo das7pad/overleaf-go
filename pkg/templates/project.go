@@ -32,7 +32,8 @@ import (
 type ProjectTokenAccessData struct {
 	AngularLayoutData
 
-	PostURL *sharedTypes.URL
+	PostURL     *sharedTypes.URL
+	ProjectName project.Name
 }
 
 func (d *ProjectTokenAccessData) Meta() []metaEntry {

@@ -1591,6 +1591,7 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.id,
        p.epoch,
+       p.name,
        COALESCE(p.token_ro, ''),
        COALESCE(p.token_rw, '')
 FROM projects p
@@ -1601,7 +1602,7 @@ WHERE (p.token_ro = $2 OR p.token_rw_prefix = $3)
   AND p.deleted_at IS NULL
 `, userId, q.tokenRO, q.tokenRWPrefix).Scan(
 		&p.Member.AccessSource, &p.Member.PrivilegeLevel,
-		&p.Id, &p.Epoch, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
+		&p.Id, &p.Epoch, &p.Name, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
 	)
 	if err != nil {
 		return nil, nil, err
