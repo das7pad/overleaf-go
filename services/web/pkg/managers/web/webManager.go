@@ -161,7 +161,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	)
 	pmm := projectMetadata.New(client, editorEvents, pm, dum)
 	tagM := tag.New(tm)
-	tam := tokenAccess.New(ps, pm)
+	tam := tokenAccess.New(options, ps, pm)
 	pim := projectInvite.New(
 		options, ps, db, editorEvents, pm, um,
 	)

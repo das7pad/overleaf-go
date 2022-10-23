@@ -101,6 +101,10 @@ type Options struct {
 	} `json:"jwt"`
 
 	SessionCookie signedCookie.Options `json:"session_cookie"`
+
+	RateLimits struct {
+		LinkSharingTokenLookupConcurrency int64 `json:"link_sharing_token_lookup_concurrency"`
+	} `json:"rate_limits"`
 }
 
 func (o *Options) FillFromEnv(key string) {
@@ -214,6 +218,12 @@ func (o *Options) Validate() error {
 
 	if err := o.SessionCookie.Validate(); err != nil {
 		return errors.Tag(err, "session_cookie is invalid")
+	}
+
+	if o.RateLimits.LinkSharingTokenLookupConcurrency < 1 {
+		return errors.Tag(&errors.ValidationError{
+			Msg: "link_sharing_token_lookup_concurrency must be at least 1",
+		}, "rate_limits is invalid")
 	}
 	return nil
 }

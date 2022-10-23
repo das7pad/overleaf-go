@@ -19,6 +19,7 @@ package errors
 import (
 	"errors"
 	"strings"
+	"time"
 )
 
 type PublicError interface {
@@ -173,6 +174,23 @@ func IsValidationError(err error) bool {
 	}
 	_, isValidationError := err.(*ValidationError)
 	return isValidationError
+}
+
+type RateLimitedError struct {
+	RetryIn time.Duration
+}
+
+func (e RateLimitedError) Error() string {
+	return "rate limited, try again in " + e.RetryIn.String()
+}
+
+func IsRateLimitedError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, isRateLimitedError := err.(*RateLimitedError)
+	return isRateLimitedError
 }
 
 type UnprocessableEntityError struct {

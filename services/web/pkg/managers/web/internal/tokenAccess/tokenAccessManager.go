@@ -18,6 +18,7 @@ package tokenAccess
 
 import (
 	"context"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -32,16 +33,23 @@ type Manager interface {
 	TokenAccessPage(ctx context.Context, request *types.TokenAccessPageRequest, response *types.TokenAccessPageResponse) error
 }
 
-func New(ps *templates.PublicSettings, pm project.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, pm project.Manager) Manager {
+	n := options.RateLimits.LinkSharingTokenLookupConcurrency
+	lookupSlots := make(chan struct{}, n)
+	for i := int64(0); i < n; i++ {
+		lookupSlots <- struct{}{}
+	}
 	return &manager{
-		pm: pm,
-		ps: ps,
+		pm:          pm,
+		ps:          ps,
+		lookupSlots: lookupSlots,
 	}
 }
 
 type manager struct {
-	pm project.Manager
-	ps *templates.PublicSettings
+	pm          project.Manager
+	ps          *templates.PublicSettings
+	lookupSlots chan struct{}
 }
 
 func (m *manager) GrantTokenAccessReadAndWrite(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse) error {
@@ -64,8 +72,8 @@ func (m *manager) GrantTokenAccessReadOnly(ctx context.Context, request *types.G
 func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, privilegeLevel sharedTypes.PrivilegeLevel) error {
 	userId := request.Session.User.Id
 	token := request.Token
-	p, fromToken, err := m.pm.GetTokenAccessDetails(
-		ctx, userId, privilegeLevel, token,
+	p, fromToken, err := m.lookupProjectByToken(
+		ctx, userId, privilegeLevel, token, 3*time.Second,
 	)
 	if err != nil {
 		if errors.IsNotAuthorizedError(err) {
@@ -120,4 +128,26 @@ func (m *manager) TokenAccessPage(_ context.Context, request *types.TokenAccessP
 		PostURL: postULR,
 	}
 	return nil
+}
+
+func (m *manager) lookupProjectByToken(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, token project.AccessToken, maxWait time.Duration) (*project.ForTokenAccessDetails, *project.AuthorizationDetails, error) {
+	waitCtx, done := context.WithTimeout(ctx, maxWait)
+	defer done()
+	select {
+	case <-waitCtx.Done():
+		if err := ctx.Err(); err != nil {
+			// Parent context cancelled.
+			return nil, nil, err
+		}
+		return nil, nil, &errors.RateLimitedError{
+			RetryIn: maxWait * 2,
+		}
+	case <-m.lookupSlots:
+	}
+	defer func() { m.lookupSlots <- struct{}{} }()
+	p, d, err := m.pm.GetTokenAccessDetails(ctx, userId, privilegeLevel, token)
+	if err != nil {
+		return nil, nil, errors.Tag(err, "cannot get project")
+	}
+	return p, d, nil
 }

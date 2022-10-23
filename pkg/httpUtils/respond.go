@@ -19,6 +19,7 @@ package httpUtils
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -78,6 +79,14 @@ func respondJSON(
 				Type: asyncForm.Error,
 			}
 		}
+		if code == http.StatusTooManyRequests {
+			if e, ok := errors.GetCause(err).(*errors.RateLimitedError); ok {
+				s := int64(math.Ceil(e.RetryIn.Seconds()))
+				c.Writer.Header().Set(
+					"Retry-After", strconv.FormatInt(s, 10),
+				)
+			}
+		}
 	}
 	EndTotalTimer(c)
 	if body == nil {
@@ -134,6 +143,8 @@ func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
 		code = http.StatusUnprocessableEntity
 	case errors.IsAlreadyCompiling(err):
 		code = http.StatusLocked
+	case errors.IsRateLimitedError(err):
+		code = http.StatusTooManyRequests
 	default:
 		log.Printf(
 			"%s %s: %s",

@@ -90,7 +90,10 @@ func RespondHTMLCustomStatus(
 		var errMessage string
 		code, errMessage = httpUtils.GetAndLogErrResponseDetails(c, err)
 		switch code {
-		case http.StatusBadRequest, http.StatusConflict, http.StatusUnprocessableEntity:
+		case http.StatusBadRequest,
+			http.StatusConflict,
+			http.StatusUnprocessableEntity,
+			http.StatusTooManyRequests:
 			body = &General400Data{
 				NoJsLayoutData: NoJsLayoutData{
 					CommonData: CommonData{
