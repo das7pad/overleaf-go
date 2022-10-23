@@ -157,33 +157,6 @@ func writeLocales(out string, locales map[string]string) error {
 }
 
 func importLng(in, inEn, out string, localeKeys []string) error {
-	{
-		inStat, err := os.Stat(in)
-		if err != nil {
-			return errors.Tag(err, "stat in")
-		}
-		inEnStat, err := os.Stat(inEn)
-		if err != nil {
-			return errors.Tag(err, "stat inEn")
-		}
-		outStat, err := os.Stat(out)
-		switch {
-		case err == nil:
-			if outStat.ModTime().After(inStat.ModTime()) &&
-				outStat.ModTime().After(inEnStat.ModTime()) {
-				log.Printf(
-					"%s: Skipping, already up-to-date (%s > %s / %s)",
-					in,
-					outStat.ModTime(), inStat.ModTime(), inEnStat.ModTime(),
-				)
-				return nil
-			}
-		case os.IsNotExist(err):
-			// We will create the file soon.
-		default:
-			return errors.Tag(err, "stat out")
-		}
-	}
 	log.Printf("%s: Importing", in)
 
 	inLocales := make(map[string]string)
