@@ -64,14 +64,15 @@ func (m *manager) GrantTokenAccessReadOnly(ctx context.Context, request *types.G
 func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantTokenAccessRequest, response *types.GrantTokenAccessResponse, privilegeLevel sharedTypes.PrivilegeLevel) error {
 	userId := request.Session.User.Id
 	token := request.Token
-	p, err := m.pm.GetTokenAccessDetails(ctx, userId, privilegeLevel, token)
+	p, fromToken, err := m.pm.GetTokenAccessDetails(
+		ctx, userId, privilegeLevel, token,
+	)
 	if err != nil {
-		return errors.Tag(err, "cannot get project")
-	}
-	fromToken, err := p.GetPrivilegeLevelAnonymous(token)
-	if err != nil {
-		response.RedirectTo = "/restricted"
-		return &errors.NotAuthorizedError{}
+		if errors.IsNotAuthorizedError(err) {
+			response.RedirectTo = "/restricted"
+			return &errors.NotAuthorizedError{}
+		}
+		return err
 	}
 	projectId := p.Id
 	if request.Session.IsLoggedIn() {

@@ -66,7 +66,7 @@ type Manager interface {
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
-	GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, error)
+	GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, *AuthorizationDetails, error)
 	GetTreeEntities(ctx context.Context, projectId, userId sharedTypes.UUID) ([]TreeEntity, error)
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
 	GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error
@@ -1580,11 +1580,11 @@ WHERE p.id = $1
 `, projectId, ownerId, userId, privilegeLevel))
 }
 
-func (m *manager) GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, error) {
+func (m *manager) GetTokenAccessDetails(ctx context.Context, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel, accessToken AccessToken) (*ForTokenAccessDetails, *AuthorizationDetails, error) {
 	p := ForTokenAccessDetails{}
 	q, err := accessToken.toQueryParameters(privilegeLevel)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
@@ -1604,10 +1604,16 @@ WHERE (p.token_ro = $2 OR p.token_rw_prefix = $3)
 		&p.Id, &p.Epoch, &p.Tokens.ReadOnly, &p.Tokens.ReadAndWrite,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	p.PublicAccessLevel = TokenBasedAccess
-	return &p, nil
+	// Ensure that the token_rw is compared in full as the db lookup is by
+	//  token_rw_prefix only.
+	d, err := p.GetPrivilegeLevelAnonymous(accessToken)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &p, d, nil
 }
 
 func (m *manager) GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error {
