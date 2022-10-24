@@ -80,8 +80,6 @@ func (h *httpController) addRoutes(
 		r := router.Group("")
 		r.Use(h.blockUnsupportedBrowser)
 		r.GET("/", h.homePage)
-		r.GET("/admin", h.adminManageSitePage)
-		r.GET("/admin/register", h.adminRegisterUsersPage)
 		r.GET("/beta/participate", h.betaProgramParticipatePage)
 		r.GET("/devs", h.openInOverleafDocumentationPage)
 		r.GET("/health_check", h.smokeTestFull)
@@ -151,11 +149,6 @@ func (h *httpController) addRoutes(
 	apiRouter.POST("/login", h.login)
 	apiRouter.POST("/logout", h.logout)
 
-	{
-		// admin endpoints
-		r := apiRouter.Group("/admin")
-		r.POST("/register", h.adminCreateUser)
-	}
 	{
 		// Notifications routes
 		r := apiRouter.Group("/notifications")
@@ -1615,20 +1608,6 @@ func (h *httpController) registerUser(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
-func (h *httpController) adminCreateUser(c *httpUtils.Context) {
-	request := &types.AdminCreateUserRequest{}
-	if !h.mustRequireLoggedInSession(c, request) {
-		return
-	}
-	if !httpUtils.MustParseJSON(request, c) {
-		return
-	}
-	request.IPAddress = c.ClientIP()
-	response := &types.AdminCreateUserResponse{}
-	err := h.wm.AdminCreateUser(c, request, response)
-	httpUtils.Respond(c, http.StatusOK, response, err)
-}
-
 func (h *httpController) homePage(c *httpUtils.Context) {
 	request := &types.HomepageRequest{}
 	if !h.mustGetOrCreateSessionHTML(c, request) {
@@ -1958,26 +1937,6 @@ func (h *httpController) proxyLearnImage(c *httpUtils.Context) {
 	httpUtils.Age(c, res.Age)
 	httpUtils.EndTotalTimer(c)
 	http.ServeFile(c.Writer, c.Request, res.FSPath)
-}
-
-func (h *httpController) adminManageSitePage(c *httpUtils.Context) {
-	request := &types.AdminManageSitePageRequest{}
-	if !h.mustGetOrCreateSessionHTML(c, request) {
-		return
-	}
-	res := &types.AdminManageSitePageResponse{}
-	err := h.wm.AdminManageSitePage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
-}
-
-func (h *httpController) adminRegisterUsersPage(c *httpUtils.Context) {
-	request := &types.AdminRegisterUsersPageRequest{}
-	if !h.mustGetOrCreateSessionHTML(c, request) {
-		return
-	}
-	res := &types.AdminRegisterUsersPageResponse{}
-	err := h.wm.AdminRegisterUsersPage(c, request, res)
-	templates.RespondHTML(c, res.Data, err, request.Session, h.ps, h.wm.Flush)
 }
 
 func (h *httpController) smokeTestAPI(c *httpUtils.Context) {

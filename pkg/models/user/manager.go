@@ -94,7 +94,8 @@ WITH u AS (
          INSERT INTO user_audit_log
              (id, info, initiator_id, ip_address, operation, timestamp,
               user_id)
-             VALUES (gen_random_uuid(), '{}', $10, $11, $12, $2, $5)
+             SELECT gen_random_uuid(), '{}', $10, $11, $12, $2, $5
+             WHERE $10 != '00000000-0000-0000-0000-000000000000'::UUID
              RETURNING FALSE)
 
 INSERT

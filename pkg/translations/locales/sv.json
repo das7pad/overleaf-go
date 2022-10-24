@@ -207,7 +207,6 @@
   "please_confirm_email": "Vänligen bekräfta din e-postadress {{ `{{ userEmail.email }}` }} genom att klicka på länken i bekräftelse-e-posten",
   "please_enter_email": "Vänligen ange din e-postadress",
   "please_set_a_password": "Vänligen välj ett lösenord",
-  "presentation": "Presentation",
   "private": "Privat",
   "processing": "behandlar",
   "project_name": "Projekt namn",

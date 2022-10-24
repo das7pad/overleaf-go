@@ -207,7 +207,6 @@
   "please_confirm_email": "请点击电子邮件中的链接确认您的电子邮件地址 {{ `{{ userEmail.email }}` }} ",
   "please_enter_email": "请输入您的电邮地址",
   "please_set_a_password": "请设置密码",
-  "presentation": "幻灯片",
   "private": "私有",
   "processing": "处理中",
   "project_name": "项目名称",

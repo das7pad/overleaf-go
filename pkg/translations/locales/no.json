@@ -207,7 +207,6 @@
   "please_confirm_email": "Please confirm your email {{ `{{ userEmail.email }}` }} by clicking on the link in the confirmation email ",
   "please_enter_email": "Vennligst fyll inn epostadressen din",
   "please_set_a_password": "Vennligst velg et passord",
-  "presentation": "Presentasjon",
   "private": "Privat",
   "processing": "Jobber",
   "project_name": "Prosjektnavn",

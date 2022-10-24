@@ -207,7 +207,6 @@
   "please_confirm_email": "Please confirm your email {{ `{{ userEmail.email }}` }} by clicking on the link in the confirmation email ",
   "please_enter_email": "メールアドレスを入力してください",
   "please_set_a_password": "パスワードを設定してください",
-  "presentation": "プレゼンテーション",
   "private": "非公開",
   "processing": "実行中",
   "project_name": "プロジェクト名",

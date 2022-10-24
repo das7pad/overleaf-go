@@ -87,13 +87,6 @@ func (d *CommonData) CurrentLngCode() string {
 	return d.Settings.I18n.DefaultLang
 }
 
-func (d *CommonData) IsAdmin() bool {
-	if d.SessionUser == nil {
-		return false
-	}
-	return d.SessionUser.IsAdmin
-}
-
 func (d *CommonData) LoggedIn() bool {
 	if d.SessionUser == nil {
 		return false

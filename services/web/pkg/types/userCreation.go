@@ -18,38 +18,41 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 )
 
-type AdminCreateUserRequest struct {
-	WithSession
-	IPAddress string `json:"-"`
-
-	Email sharedTypes.Email `json:"email"`
+func NewCMDCreateUserRequest(email sharedTypes.Email, adminUserId sharedTypes.UUID) CMDCreateUserRequest {
+	return CMDCreateUserRequest{
+		fromCMD:     true,
+		Email:       email,
+		InitiatorId: adminUserId,
+	}
 }
 
-func (r *AdminCreateUserRequest) Preprocess() {
+type CMDCreateUserRequest struct {
+	fromCMD     bool
+	Email       sharedTypes.Email
+	InitiatorId sharedTypes.UUID
+}
+
+func (r *CMDCreateUserRequest) Preprocess() {
 	r.Email = r.Email.Normalize()
 }
 
-func (r *AdminCreateUserRequest) Validate() error {
+func (r *CMDCreateUserRequest) Validate() error {
+	if !r.fromCMD {
+		return errors.New("restricted to command line")
+	}
 	if err := r.Email.Validate(); err != nil {
 		return err
 	}
 	return nil
 }
 
-type AdminCreateUserResponse struct {
+type CMDCreateUserResponse struct {
 	SetNewPasswordURL *sharedTypes.URL `json:"setNewPasswordUrl"`
-}
-
-type AdminRegisterUsersPageRequest struct {
-	WithSession
-}
-
-type AdminRegisterUsersPageResponse struct {
-	Data *templates.AdminRegisterUsersData
 }
 
 type RegisterUserRequest struct {

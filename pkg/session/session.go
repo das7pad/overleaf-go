@@ -44,18 +44,6 @@ type Session struct {
 	providedId Id
 }
 
-var errNotAdmin = &errors.NotAuthorizedError{}
-
-func (s *Session) CheckIsAdmin() error {
-	if err := s.CheckIsLoggedIn(); err != nil {
-		return err
-	}
-	if !s.User.IsAdmin {
-		return errNotAdmin
-	}
-	return nil
-}
-
 func (s *Session) CheckIsLoggedIn() error {
 	if !s.IsLoggedIn() {
 		return ErrNotLoggedIn
@@ -83,7 +71,6 @@ func (s *Session) PrepareLogin(ctx context.Context, u user.ForSession, ip string
 	s.PostLoginRedirect = ""
 	s.User = &User{
 		Id:             u.Id,
-		IsAdmin:        u.IsAdmin,
 		FirstName:      u.FirstName,
 		LastName:       u.LastName,
 		Email:          u.Email,

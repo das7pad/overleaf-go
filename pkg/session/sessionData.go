@@ -36,7 +36,6 @@ type User struct {
 	FirstName      string            `json:"first_name,omitempty"`
 	IPAddress      string            `json:"ip_address"`
 	Id             sharedTypes.UUID  `json:"_id,omitempty"`
-	IsAdmin        bool              `json:"isAdmin,omitempty"`
 	LastName       string            `json:"last_name,omitempty"`
 	Language       string            `json:"lng"`
 	SessionCreated time.Time         `json:"session_created"`

@@ -66,10 +66,6 @@ type IdField struct {
 	Id sharedTypes.UUID `json:"_id"`
 }
 
-type IsAdminField struct {
-	IsAdmin bool `json:"isAdmin"`
-}
-
 type HashedPasswordField struct {
 	HashedPassword string `json:"-"`
 }

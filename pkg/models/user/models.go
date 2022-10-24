@@ -41,7 +41,6 @@ type WithLoadEditorInfo struct {
 	EditorConfigField
 	AlphaProgramField
 	BetaProgramField
-	IsAdminField
 	EpochField
 	LearnedWordsField
 	WithPublicInfoAndFeatures
@@ -55,7 +54,6 @@ type WithLoginInfo struct {
 
 type ForSession struct {
 	EpochField
-	IsAdminField
 	WithPublicInfo
 }
 

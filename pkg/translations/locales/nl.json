@@ -207,7 +207,6 @@
   "please_confirm_email": "Please confirm your email {{ `{{ userEmail.email }}` }} by clicking on the link in the confirmation email ",
   "please_enter_email": "Vul je e-mailadres in",
   "please_set_a_password": "Gelieve een wachtwoord te kiezen",
-  "presentation": "Presentatie",
   "private": "Privé",
   "processing": "aan het verwerken",
   "project_name": "Projectnaam",

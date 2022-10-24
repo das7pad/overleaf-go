@@ -38,7 +38,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
-	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/admin"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/betaProgram"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/editor"
@@ -74,7 +73,6 @@ type Manager interface {
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
 
-	adminManager
 	betaProgramManager
 	compileManager
 	editorManager
@@ -180,7 +178,6 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	pDelM := projectDeletion.New(pm, dum, fm)
 	uDelM := userDeletion.New(um, pDelM)
 	ucm := userCreation.New(options, ps, db, um, lm)
-	am := admin.New(ps, db)
 	learnM, err := learn.New(options, ps, proxy)
 	if err != nil {
 		return nil, err
@@ -192,7 +189,6 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	spm := spelling.New(um)
 	slm := siteLanguage.New(options)
 	return &manager{
-		adminManager:           am,
 		betaProgramManager:     bm,
 		compileManager:         cm,
 		editorManager:          em,
@@ -223,8 +219,6 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		userDeletionManager:    uDelM,
 	}, nil
 }
-
-type adminManager = admin.Manager
 
 type betaProgramManager = betaProgram.Manager
 
@@ -277,7 +271,6 @@ type userCreationManager = userCreation.Manager
 type userDeletionManager = userDeletion.Manager
 
 type manager struct {
-	adminManager
 	betaProgramManager
 	compileManager
 	editorManager

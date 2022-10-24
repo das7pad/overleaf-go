@@ -207,7 +207,6 @@
   "please_confirm_email": "Please confirm your email {{ `{{ userEmail.email }}` }} by clicking on the link in the confirmation email ",
   "please_enter_email": "Syötä sähköpostiosoitteesi",
   "please_set_a_password": "Please set a password",
-  "presentation": "Esitelmä",
   "private": "Yksityinen",
   "processing": "käsitellään",
   "project_name": "Projektin nimi",

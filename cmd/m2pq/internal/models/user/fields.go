@@ -60,10 +60,6 @@ type IdField struct {
 	Id primitive.ObjectID `json:"_id" bson:"_id"`
 }
 
-type IsAdminField struct {
-	IsAdmin bool `json:"isAdmin" bson:"isAdmin"`
-}
-
 type HashedPasswordField struct {
 	HashedPassword string `json:"-" bson:"hashedPassword"`
 }

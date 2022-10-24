@@ -25,7 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -37,10 +36,7 @@ func randomPassword() (types.UserPassword, error) {
 	return types.UserPassword(hex.EncodeToString(b)), nil
 }
 
-func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserRequest, response *types.AdminCreateUserResponse) error {
-	if err := r.Session.CheckIsAdmin(); err != nil {
-		return err
-	}
+func (m *manager) CMDCreateUser(ctx context.Context, r *types.CMDCreateUserRequest, response *types.CMDCreateUserResponse) error {
 	r.Preprocess()
 	if err := r.Validate(); err != nil {
 		return err
@@ -57,8 +53,8 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 	}
 	u.AuditLog = []user.AuditLogEntry{
 		{
-			InitiatorId: r.Session.User.Id,
-			IPAddress:   r.IPAddress,
+			InitiatorId: r.InitiatorId,
+			IPAddress:   "127.0.0.1",
 			Operation:   user.AuditLogOperationCreateAccount,
 			Timestamp:   u.SignUpDate,
 		},
@@ -80,20 +76,4 @@ func (m *manager) AdminCreateUser(ctx context.Context, r *types.AdminCreateUserR
 
 	response.SetNewPasswordURL = setPasswordURL
 	return m.sendActivateEmail(ctx, r.Email, setPasswordURL)
-}
-
-func (m *manager) AdminRegisterUsersPage(_ context.Context, request *types.AdminRegisterUsersPageRequest, response *types.AdminRegisterUsersPageResponse) error {
-	if err := request.Session.CheckIsAdmin(); err != nil {
-		return err
-	}
-	response.Data = &templates.AdminRegisterUsersData{
-		AngularLayoutData: templates.AngularLayoutData{
-			CommonData: templates.CommonData{
-				Settings:    m.ps,
-				SessionUser: request.Session.User,
-				Title:       "Register New Users",
-			},
-		},
-	}
-	return nil
 }

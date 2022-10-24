@@ -30,8 +30,7 @@ import (
 )
 
 type Manager interface {
-	AdminCreateUser(ctx context.Context, r *types.AdminCreateUserRequest, response *types.AdminCreateUserResponse) error
-	AdminRegisterUsersPage(_ context.Context, request *types.AdminRegisterUsersPageRequest, response *types.AdminRegisterUsersPageResponse) error
+	CMDCreateUser(ctx context.Context, r *types.CMDCreateUserRequest, response *types.CMDCreateUserResponse) error
 	RegisterUser(ctx context.Context, r *types.RegisterUserRequest, response *types.RegisterUserResponse) error
 	RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
 }

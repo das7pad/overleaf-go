@@ -207,7 +207,6 @@
   "please_confirm_email": "Please confirm your email {{ `{{ userEmail.email }}` }} by clicking on the link in the confirmation email ",
   "please_enter_email": "Lütfen e-posta adresinizi giriniz",
   "please_set_a_password": "Lütfen bir şifre belirleyin",
-  "presentation": "Sunum",
   "private": "Özel",
   "processing": "işlem yapılıyor",
   "project_name": "Proje Adı",

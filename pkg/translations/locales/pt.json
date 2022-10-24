@@ -207,7 +207,6 @@
   "please_confirm_email": "Por favor, confirme seu e-mail {{ `{{ userEmail.email }}` }} clicando no link no e-mail de confirmação",
   "please_enter_email": "Por favor, insira seu endereço de email",
   "please_set_a_password": "Por favor, insira sua senha",
-  "presentation": "Apresentação",
   "private": "Privado",
   "processing": "processando",
   "project_name": "Nome do Projeto",

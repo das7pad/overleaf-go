@@ -207,7 +207,6 @@
   "please_confirm_email": "Please confirm your email {{ `{{ userEmail.email }}` }} by clicking on the link in the confirmation email ",
   "please_enter_email": "이메일 주소를 입력해주세요",
   "please_set_a_password": "비밀번호를 설정하세요.",
-  "presentation": "프레젠테이션",
   "private": "비공개",
   "processing": "처리중",
   "project_name": "프로젝트 이름",
