@@ -60,7 +60,9 @@ func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions)
 	}
 	funcMap := make(template.FuncMap)
 	{
-		tm, err := translations.Load(appName, i18nOptions.Languages())
+		tm, err := translations.Load(
+			appName, i18nOptions.DefaultLang, i18nOptions.Languages(),
+		)
 		if err != nil {
 			return errors.Tag(err, "cannot load translations")
 		}

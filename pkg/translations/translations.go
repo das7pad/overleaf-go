@@ -119,28 +119,67 @@ func (l Languages) Has(other string) bool {
 	return false
 }
 
-func Load(appName string, languages Languages) (Manager, error) {
+func Load(appName string, defaultLang string, languages Languages) (Manager, error) {
+	if err := (Languages{defaultLang}).Validate(); err != nil {
+		return nil, err
+	}
 	if err := languages.Validate(); err != nil {
 		return nil, err
 	}
 	byLanguage := make(map[string]map[string]renderer, len(languages))
 	for _, language := range languages {
-		f, errOpen := _locales.Open("locales/" + language + ".json")
-		if errOpen != nil {
-			return nil, errors.Tag(errOpen, "cannot open: "+language)
-		}
-		raw := make(map[string]string)
-		if err := json.NewDecoder(f).Decode(&raw); err != nil {
-			return nil, errors.Tag(err, "cannot consume: "+language)
-		}
-		d, err := parseLocales(raw, appName)
+		d, err := load(language, appName)
 		if err != nil {
-			return nil, errors.Tag(err, "cannot parse locales: "+language)
+			return nil, err
 		}
 		byLanguage[language] = d
 	}
+	fallback := byLanguage[defaultLang]
+	if len(fallback) == 0 {
+		d, err := load(defaultLang, appName)
+		if err != nil {
+			return nil, err
+		}
+		fallback = d
+	}
+	if defaultLang != "en" {
+		d, err := load("en", appName)
+		if err != nil {
+			return nil, err
+		}
+		fallback = merge(fallback, d)
+	}
+	for language, d := range byLanguage {
+		byLanguage[language] = merge(d, fallback)
+	}
 	_locales = embed.FS{}
 	return &manager{localesByLanguage: byLanguage}, nil
+}
+
+func merge(dst, src map[string]renderer) map[string]renderer {
+	for key, r := range src {
+		if _, exists := dst[key]; !exists {
+			dst[key] = r
+		}
+	}
+	return dst
+}
+
+func load(language string, appName string) (map[string]renderer, error) {
+	f, errOpen := _locales.Open("locales/" + language + ".json")
+	if errOpen != nil {
+		return nil, errors.Tag(errOpen, "cannot open "+language)
+	}
+	defer func() { _ = f.Close() }()
+	raw := make(map[string]string)
+	if err := json.NewDecoder(f).Decode(&raw); err != nil {
+		return nil, errors.Tag(err, "cannot consume "+language)
+	}
+	d, err := parseLocales(raw, appName)
+	if err != nil {
+		return nil, errors.Tag(err, "parse "+language)
+	}
+	return d, err
 }
 
 func parseLocales(raw map[string]string, appName string) (map[string]renderer, error) {

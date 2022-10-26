@@ -60,9 +60,8 @@ func main() {
 			continue
 		}
 		err := importLng(
-			path.Join(src, entry.Name()),
-			path.Join(src, "en.json"),
 			path.Join(dst, entry.Name()),
+			path.Join(src, entry.Name()),
 			filteredLocales,
 		)
 		if err != nil {
@@ -156,21 +155,21 @@ func writeLocales(out string, locales map[string]string) error {
 	return nil
 }
 
-func importLng(in, inEn, out string, localeKeys []string) error {
+func importLng(out, in string, localeKeys []string) error {
 	log.Printf("%s: Importing", in)
 
 	inLocales := make(map[string]string)
-	if in != inEn {
-		if err := loadLocalesInto(&inLocales, inEn); err != nil {
-			return errors.Tag(err, "en file")
-		}
-	}
 	if err := loadLocalesInto(&inLocales, in); err != nil {
 		return errors.Tag(err, "target lng file")
 	}
 	outLocales := make(map[string]string, len(localeKeys))
 	for _, key := range localeKeys {
-		outLocales[key] = processLocale(key, inLocales[key])
+		v, exists := inLocales[key]
+		if !exists {
+			// The value will be back-filled from the DefaultLang at boot-time.
+			continue
+		}
+		outLocales[key] = processLocale(key, v)
 	}
 	if err := writeLocales(out, outLocales); err != nil {
 		return errors.Tag(err, "write out")
