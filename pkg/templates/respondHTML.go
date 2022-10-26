@@ -25,15 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/session"
 )
 
-const (
-	timingKeyRender = "templates.timing.render"
-)
-
-var (
-	timerStartRender = httpUtils.StartTimer(timingKeyRender)
-	timerEndRender   = httpUtils.EndTimer(timingKeyRender, "render")
-)
-
 func shouldRedirectToLogin(s *session.Session, err error) bool {
 	if !errors.IsUnauthorizedError(err) {
 		return false
@@ -146,9 +137,9 @@ func RespondHTMLCustomStatus(
 	}
 	var blob []byte
 	var hints string
-	timerStartRender(c)
+	doneRender := httpUtils.TimeStage(c, "render")
 	blob, hints, err = body.Render()
-	timerEndRender(c)
+	doneRender()
 	if err != nil {
 		if code == http.StatusInternalServerError {
 			httpUtils.GetAndLogErrResponseDetails(c, err)

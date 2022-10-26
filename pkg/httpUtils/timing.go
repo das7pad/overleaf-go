@@ -21,36 +21,28 @@ import (
 	"time"
 )
 
-const timingKeyTotal = "httpUtils.timing.total"
-
-var (
-	StartTotalTimer = StartTimer(timingKeyTotal)
-	EndTotalTimer   = EndTimer(timingKeyTotal, "total")
-)
-
-func StartTimer(key interface{}) HandlerFunc {
-	return func(c *Context) {
-		c.AddValue(key, time.Now())
+func TimeStage(c *Context, label string) func() {
+	t0 := time.Now()
+	return func() {
+		endTimer(c, label, t0)
 	}
 }
 
-func EndTimer(key interface{}, label string) HandlerFunc {
-	return func(c *Context) {
-		t, ok := c.Value(key).(time.Time)
-		if !ok {
-			return
-		}
-		diff := time.Since(t)
-		ms := int64(diff / time.Millisecond)
-		micro := int64(diff % time.Millisecond / time.Microsecond)
-		c.Writer.Header().Add(
-			"Server-Timing",
-			// Inline printing of "%s;dur=%d.%03d" % (label, ms, micro)
-			label+";dur="+
-				strconv.FormatInt(ms, 10)+"."+
-				strconv.FormatInt(micro%1000/100, 10)+
-				strconv.FormatInt(micro%100/10, 10)+
-				strconv.FormatInt(micro%10/1, 10),
-		)
-	}
+func EndTotalTimer(c *Context) {
+	endTimer(c, "total", c.t0)
+}
+
+func endTimer(c *Context, label string, t0 time.Time) {
+	diff := time.Since(t0)
+	ms := int64(diff / time.Millisecond)
+	micro := int64(diff % time.Millisecond / time.Microsecond)
+	c.Writer.Header().Add(
+		"Server-Timing",
+		// Inline printing of "%s;dur=%d.%03d" % (label, ms, micro)
+		label+";dur="+
+			strconv.FormatInt(ms, 10)+"."+
+			strconv.FormatInt(micro%1000/100, 10)+
+			strconv.FormatInt(micro%100/10, 10)+
+			strconv.FormatInt(micro%10/1, 10),
+	)
 }

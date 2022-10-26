@@ -68,18 +68,17 @@ func (c *Claims) CheckEpochItems(ctx context.Context) error {
 	)
 }
 
-func (c *Claims) PostProcess(target *httpUtils.Context) error {
+func (c *Claims) PostProcess(target *httpUtils.Context) (*httpUtils.Context, error) {
 	projectIdInPath := target.Param("projectId")
 	if projectIdInPath == "" || projectIdInPath != c.ProjectId.String() {
-		return ErrMismatchingProjectId
+		return target, ErrMismatchingProjectId
 	}
 
 	if err := c.CheckEpochItems(target); err != nil {
-		return err
+		return target, err
 	}
 
-	target.AddValue(jwtField, c)
-	return nil
+	return target.AddValue(jwtField, c), nil
 }
 
 func MustGet(c *httpUtils.Context) *Claims {

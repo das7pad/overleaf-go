@@ -44,8 +44,7 @@ func ValidateAndSetId(name string) MiddlewareFunc {
 				RespondErr(c, err)
 				return
 			}
-			c.AddValue(name, id)
-			next(c)
+			next(c.AddValue(name, id))
 		}
 	}
 }
@@ -56,8 +55,7 @@ func ValidateAndSetIdZeroOK(name string) MiddlewareFunc {
 		return func(c *Context) {
 			raw := c.Param(name)
 			if raw == sharedTypes.AllZeroUUID {
-				c.AddValue(name, sharedTypes.UUID{})
-				next(c)
+				next(c.AddValue(name, sharedTypes.UUID{}))
 			} else {
 				handleRegularId(c)
 			}

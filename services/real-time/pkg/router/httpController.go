@@ -67,7 +67,7 @@ func (h *httpController) addRoutes(router *httpUtils.Router) {
 }
 
 func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Claims, error) {
-	genericClaims, jwtError := h.jwt.Parse(c)
+	_, genericClaims, jwtError := h.jwt.Parse(c)
 	if jwtError != nil {
 		return nil, jwtError
 	}

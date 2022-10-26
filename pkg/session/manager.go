@@ -64,15 +64,6 @@ type manager struct {
 	verifier     []hash.Hash
 }
 
-const (
-	timingKeyGet = "session.timing.get"
-)
-
-var (
-	timerStartGet = httpUtils.StartTimer(timingKeyGet)
-	timerEndGet   = httpUtils.EndTimer(timingKeyGet, "session")
-)
-
 func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
 	if data.User == nil {
 		data.User = anonymousUser
@@ -121,8 +112,7 @@ func (m *manager) RequireLoggedInSession(c *httpUtils.Context) (*Session, error)
 }
 
 func (m *manager) GetSession(c *httpUtils.Context) (*Session, error) {
-	timerStartGet(c)
-	defer timerEndGet(c)
+	defer httpUtils.TimeStage(c, "session")()
 
 	id, err := m.signedCookie.Get(c)
 	if err != nil {

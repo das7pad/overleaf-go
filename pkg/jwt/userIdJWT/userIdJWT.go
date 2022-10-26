@@ -27,7 +27,6 @@ type Claims struct {
 	UserId sharedTypes.UUID `json:"userId"`
 }
 
-func (c *Claims) PostProcess(target *httpUtils.Context) error {
-	target.AddValue("userId", c.UserId)
-	return nil
+func (c *Claims) PostProcess(target *httpUtils.Context) (*httpUtils.Context, error) {
+	return target.AddValue("userId", c.UserId), nil
 }

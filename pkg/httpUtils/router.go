@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -34,14 +35,16 @@ type Context struct {
 	appendOnlyCtx
 	Writer  http.ResponseWriter
 	Request *http.Request
+	t0      time.Time
 }
 
 func (c *Context) Param(key string) string {
 	return mux.Vars(c.Request)[key]
 }
 
-func (c *Context) AddValue(key interface{}, v interface{}) {
+func (c Context) AddValue(key interface{}, v interface{}) *Context {
 	c.appendOnlyCtx = context.WithValue(c.appendOnlyCtx, key, v)
+	return &c
 }
 
 // ClientIP returns the last IP of the last X-Forwarded-For header on the
@@ -65,9 +68,9 @@ func (f HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		appendOnlyCtx: r.Context(),
 		Writer:        w,
 		Request:       r,
+		t0:            time.Now(),
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	StartTotalTimer(c)
 	f(c)
 }
 

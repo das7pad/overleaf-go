@@ -26,7 +26,7 @@ import (
 )
 
 type PostProcessClaims interface {
-	PostProcess(c *Context) error
+	PostProcess(c *Context) (*Context, error)
 }
 
 func NewJWTHandlerFromQuery(handler jwtHandler.JWTHandler, fromQuery string) *JWTHTTPHandler {
@@ -43,19 +43,12 @@ func NewJWTHandler(handler jwtHandler.JWTHandler) *JWTHTTPHandler {
 	}
 }
 
-const timingKeyJWT = "httpUtils.timing.jwt"
-
-var (
-	startJWTTimer = StartTimer(timingKeyJWT)
-	endJWTTimer   = EndTimer(timingKeyJWT, "jwt")
-)
-
 type JWTHTTPHandler struct {
 	parser    jwtHandler.JWTHandler
 	fromQuery string
 }
 
-func (h *JWTHTTPHandler) Parse(c *Context) (jwt.Claims, error) {
+func (h *JWTHTTPHandler) Parse(c *Context) (*Context, jwt.Claims, error) {
 	var blob string
 	if h.fromQuery != "" {
 		blob = c.Request.URL.Query().Get(h.fromQuery)
@@ -67,29 +60,29 @@ func (h *JWTHTTPHandler) Parse(c *Context) (jwt.Claims, error) {
 	}
 
 	if blob == "" {
-		return nil, &errors.UnauthorizedError{Reason: "missing jwt"}
+		return c, nil, &errors.UnauthorizedError{Reason: "missing jwt"}
 	}
 
 	claims, err := h.parser.Parse(blob)
 	if err != nil {
-		return nil, &errors.UnauthorizedError{Reason: "invalid jwt"}
+		return c, nil, &errors.UnauthorizedError{Reason: "invalid jwt"}
 	}
 
 	if postProcessClaims, ok := claims.(PostProcessClaims); ok {
-		if err = postProcessClaims.PostProcess(c); err != nil {
-			return nil, err
+		if c, err = postProcessClaims.PostProcess(c); err != nil {
+			return nil, nil, err
 		}
 	}
 
-	return claims, nil
+	return c, claims, nil
 }
 
 func (h *JWTHTTPHandler) Middleware() MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(c *Context) {
-			startJWTTimer(c)
-			_, err := h.Parse(c)
-			endJWTTimer(c)
+			done := TimeStage(c, "jwt")
+			c, _, err := h.Parse(c)
+			done()
 			if err != nil {
 				RespondErr(c, err)
 				return
