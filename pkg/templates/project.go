@@ -47,7 +47,7 @@ func (d *ProjectTokenAccessData) Meta() []metaEntry {
 }
 
 func (d *ProjectTokenAccessData) Render() ([]byte, string, error) {
-	return render("project/tokenAccess.gohtml", 6*1024, d)
+	return render("project/tokenAccess.gohtml", 8*1024, d)
 }
 
 type ProjectViewInviteData struct {
@@ -139,7 +139,7 @@ func (d *ProjectListData) Meta() []metaEntry {
 }
 
 func (d *ProjectListData) Render() ([]byte, string, error) {
-	n := 1024 * (38 + d.PrefetchedProjectsBlob.TotalSize*3/4 + len(d.Tags)/10)
+	n := 1024 * (10 + d.PrefetchedProjectsBlob.TotalSize*3/4 + len(d.Tags)/10)
 	return render("project/list.gohtml", n, d)
 }
 
@@ -232,7 +232,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 func (d *ProjectEditorData) Render() ([]byte, string, error) {
 	d.HideFooter = true
 	d.HideNavBar = true
-	return render("project/editor.gohtml", 43*1024, d)
+	return render("project/editor.gohtml", 38*1024, d)
 }
 
 func (d *ProjectEditorData) CSP() string {
@@ -267,7 +267,7 @@ func (d *ProjectEditorDetachedData) Meta() []metaEntry {
 func (d *ProjectEditorDetachedData) Render() ([]byte, string, error) {
 	d.HideFooter = true
 	d.HideNavBar = true
-	return render("project/editorDetached.gohtml", 5*1024, d)
+	return render("project/editorDetached.gohtml", 9*1024, d)
 }
 
 func (d *ProjectEditorDetachedData) CSP() string {

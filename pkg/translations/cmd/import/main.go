@@ -190,12 +190,6 @@ func processLocale(key, v string) string {
 		v = "-"
 	case "account_with_email_exists":
 		v = strings.ReplaceAll(v, "the email <b>__email__</b>", "the provided email")
-	case "click_here_to_view_sl_in_lng":
-		v = strings.ReplaceAll(v, "__lngName__", "{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}")
-		v = strings.ReplaceAll(v, "<0>", "<strong>")
-		v = strings.ReplaceAll(v, "</0>", "</strong>")
-	case "please_confirm_email":
-		v = strings.ReplaceAll(v, "__emailAddress__", "{{ `{{ userEmail.email }}` }}")
 	case "reconnecting_in_x_secs":
 		v = strings.ReplaceAll(v, "__seconds__", "{{ `{{ connection.reconnection_countdown }}` }}")
 	case "saving_notification_with_seconds":
@@ -206,11 +200,6 @@ func processLocale(key, v string) string {
 	case "sure_you_want_to_restore_before":
 		v = strings.ReplaceAll(v, "__filename__", "{{ `{{ diff.doc.name }}` }}")
 		v = strings.ReplaceAll(v, "__date__", "{{ `{{ diff.start_ts | formatDate }}` }}")
-		v = strings.ReplaceAll(v, "<0>", "<strong>")
-		v = strings.ReplaceAll(v, "</0>", "</strong>")
-	case "select_project":
-		v = strings.ReplaceAll(v, "__project__", "{{ `'{{ project.name }}'` }}")
-	case "delete_account_warning_message_3":
 		v = strings.ReplaceAll(v, "<0>", "<strong>")
 		v = strings.ReplaceAll(v, "</0>", "</strong>")
 	}

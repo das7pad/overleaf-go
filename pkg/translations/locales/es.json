@@ -18,7 +18,6 @@
   "cant_find_page": "Disculpa, no podemos encontrar la página que estás buscando.",
   "change": "Cambiar",
   "chat": "Chat",
-  "click_here_to_view_sl_in_lng": "Clickea aquí para usar {{ .Settings.AppName }} en <strong>{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}</strong>",
   "close": "Cerrar",
   "cn": "Chino (simplificado)",
   "compiler": "Compilador",

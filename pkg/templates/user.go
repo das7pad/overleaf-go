@@ -165,7 +165,7 @@ func (d *UserSettingsData) Entrypoint() string {
 }
 
 func (d *UserSettingsData) Render() ([]byte, string, error) {
-	n := 1024 * (11 +
+	n := 1024 * (5 +
 		(len(d.User.FirstName)+len(d.User.LastName)+3*len(d.User.Email))/1024)
 	return render("user/settings.gohtml", n, d)
 }

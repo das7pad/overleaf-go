@@ -15,7 +15,6 @@
   "cant_find_page": "Beklager, vi kan ikke finne siden du leter etter.",
   "change": "Endre",
   "chat": "Chat",
-  "click_here_to_view_sl_in_lng": "Trykk her for å bruke {{ .Settings.AppName }} på <strong>{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}</strong>",
   "close": "Lukk",
   "cn": "Kinesisk (Forenklet)",
   "compiler": "Kompilator",

@@ -12,7 +12,6 @@
   "cant_find_page": "Przykro nam, ale nie możemy znaleźć strony której szukasz.",
   "change": "Zmień",
   "chat": "Czat",
-  "click_here_to_view_sl_in_lng": "Kliknij tutaj, żeby używać {{ .Settings.AppName }} w <strong>{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}</strong>m",
   "compiler": "Kompilator",
   "copy_project": "Kopiuj projekt",
   "cs": "Czeski",

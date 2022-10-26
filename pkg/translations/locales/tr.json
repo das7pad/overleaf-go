@@ -18,7 +18,6 @@
   "cant_find_page": "Özür dileriz, aradığınız sayfayı bulamıyoruz",
   "change": "Değiştir",
   "chat": "Sohbet",
-  "click_here_to_view_sl_in_lng": "{{ .Settings.AppName }}’i <strong>{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}</strong> dilinde kullanmak için",
   "close": "Kapat",
   "cn": "Çince (Basitleştirilmiş)",
   "compiler": "Derleyici",

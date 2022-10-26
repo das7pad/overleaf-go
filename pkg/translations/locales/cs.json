@@ -12,7 +12,6 @@
   "cant_find_page": "Je nám líto, ale nemůžeme najít stránku, kterou hledáte.",
   "change": "Změnit",
   "chat": "Chat",
-  "click_here_to_view_sl_in_lng": "Pro použití {{ .Settings.AppName }} v <strong>{{ index .Settings.TranslatedLanguages .SuggestedLngCode }}</strong> klikněte zde",
   "close": "Zavřít",
   "compiler": "Kompilátor",
   "copy_project": "Kopírovat projekt",
