@@ -21,7 +21,10 @@
   <!DOCTYPE html>
   <html lang="{{ .CurrentLngCode }}">
   {{ template "head" . }}
-  <body ng-csp="">
+  <body
+    ng-csp=""
+    class="thin-footer"
+  >
   {{ if not .HideNavBar }}
     <a
       class="skip-to-content"
