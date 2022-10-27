@@ -124,8 +124,7 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 		if err := w.startBatch(); err != nil {
 			return err
 		}
-		// Write until we are done or something errored.
-		for len(words) > 0 && writerContext.Err() == nil {
+		for len(words) > 0 {
 			sliceAt := int(math.Min(float64(len(words)), BatchSize))
 			chunk := words[:sliceAt]
 			words = words[sliceAt:]
@@ -162,7 +161,26 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 	eg.Go(func() error {
 		select {
 		case <-writerContext.Done():
-			w.Kill()
+			if ctx.Err() == nil {
+				// Something went wrong with the sub-process.
+				return writerContext.Err()
+			}
+			// The parent context was cancelled.
+			// Assumption: Starting a new sub-process with fresh cache incurs a
+			//              penalty of 10ms for the next batch.
+			// Try to flush the pipeline in 10ms and keep this worker alive.
+			t := time.NewTimer(time.Millisecond * 10)
+			select {
+			case <-t.C:
+				w.Kill()
+			case processError := <-w.done:
+				if !t.Stop() {
+					<-t.C
+				}
+				return processError
+			case <-hasReadEndOfBatchMarker:
+				return nil
+			}
 			return writerContext.Err()
 		case processError := <-w.done:
 			return processError
