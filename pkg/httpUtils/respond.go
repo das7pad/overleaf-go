@@ -17,6 +17,7 @@
 package httpUtils
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"math"
@@ -118,7 +119,7 @@ func respondJSON(
 }
 
 func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
-	code := 500
+	code := http.StatusInternalServerError
 	errMessage := err.Error()
 	switch {
 	case errors.IsValidationError(err):
@@ -145,6 +146,12 @@ func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
 		code = http.StatusLocked
 	case errors.IsRateLimitedError(err):
 		code = http.StatusTooManyRequests
+	case c.Err() == context.Canceled &&
+		errors.GetCause(err) == context.Canceled:
+		// Unfortunately HTTP does define a response status code for the case
+		//  of an aborted request before the server produced a response.
+		// The next best option is "Client Closed Request" from nginx.
+		code = 499
 	default:
 		log.Printf(
 			"%s %s: %s",
