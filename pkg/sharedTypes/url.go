@@ -19,6 +19,7 @@ package sharedTypes
 import (
 	"encoding/json"
 	"net/url"
+	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -27,6 +28,9 @@ func ParseAndValidateURL(s string) (*URL, error) {
 	raw, err := url.Parse(s)
 	if err != nil {
 		return nil, &errors.ValidationError{Msg: "invalid url: " + err.Error()}
+	}
+	if raw.Path == "" {
+		raw.Path = "/"
 	}
 	u := &URL{URL: *raw}
 	if err = u.Validate(); err != nil {
@@ -44,7 +48,21 @@ func (u *URL) FileNameFromPath() Filename {
 }
 
 func (u URL) WithPath(s string) *URL {
-	u.URL.Path = s
+	if s == "" {
+		// no-op
+	} else if strings.HasSuffix(u.Path, "/") {
+		if strings.HasPrefix(s, "/") {
+			u.Path += s[1:]
+		} else {
+			u.Path += s
+		}
+	} else {
+		if strings.HasPrefix(s, "/") {
+			u.Path += s
+		} else {
+			u.Path += "/" + s
+		}
+	}
 	return &u
 }
 
@@ -80,6 +98,11 @@ func (u *URL) Validate() error {
 	if u.Host == "" {
 		return &errors.ValidationError{
 			Msg: "URL is missing host",
+		}
+	}
+	if u.Path == "" {
+		return &errors.ValidationError{
+			Msg: "URL is missing path",
 		}
 	}
 	return nil

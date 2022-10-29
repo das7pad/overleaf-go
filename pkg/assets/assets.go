@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -57,9 +56,7 @@ type Options struct {
 }
 
 func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
-	base := template.URL(strings.TrimSuffix(options.CDNURL.String(), "/"))
 	m := &manager{
-		base:             base,
 		cdnURL:           options.CDNURL,
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
@@ -76,7 +73,6 @@ func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
 }
 
 type manager struct {
-	base             template.URL
 	assets           map[string]template.URL
 	entrypointChunks map[string][]template.URL
 	hints            resourceHints
@@ -84,8 +80,8 @@ type manager struct {
 }
 
 type manifest struct {
-	Assets           map[string]template.URL   `json:"assets"`
-	EntrypointChunks map[string][]template.URL `json:"entrypointChunks"`
+	Assets           map[string]string   `json:"assets"`
+	EntrypointChunks map[string][]string `json:"entrypointChunks"`
 }
 
 func (m *manager) load(proxy proxyClient.Manager, manifestPath string) error {
@@ -93,7 +89,7 @@ func (m *manager) load(proxy proxyClient.Manager, manifestPath string) error {
 	if manifestPath == "cdn" {
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
-		u := m.cdnURL.WithPath(m.cdnURL.Path + "/manifest.json")
+		u := m.cdnURL.WithPath("/manifest.json")
 		body, cleanup, err := proxy.Fetch(ctx, u)
 		if err != nil {
 			return errors.Tag(err, "request manifest from CDN")
@@ -120,13 +116,13 @@ func (m *manager) loadFrom(f io.Reader) error {
 	for s, urls := range raw.EntrypointChunks {
 		rebased := make([]template.URL, 0, len(urls))
 		for _, url := range urls {
-			rebased = append(rebased, m.base+url)
+			rebased = append(rebased, m.StaticPath(url))
 		}
 		entrypointChunks[s] = rebased
 	}
 	assets := make(map[string]template.URL)
 	for s, url := range raw.Assets {
-		assets[s] = m.base + url
+		assets[s] = m.StaticPath(url)
 	}
 	m.assets = assets
 	m.entrypointChunks = entrypointChunks
@@ -179,5 +175,5 @@ func (m *manager) ResourceHintsEditorLight() string {
 }
 
 func (m *manager) StaticPath(path string) template.URL {
-	return m.base + template.URL(path)
+	return template.URL(m.cdnURL.WithPath(path).String())
 }

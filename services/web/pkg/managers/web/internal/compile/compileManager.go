@@ -78,7 +78,7 @@ type Manager interface {
 func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, fm filestore.Manager, pm project.Manager, um user.Manager, bundle ClsiManager) (Manager, error) {
 	return &manager{
 		bundle:                   bundle,
-		baseURL:                  options.APIs.Clsi.URL.String(),
+		baseURL:                  options.APIs.Clsi.URL,
 		persistenceCookieName:    options.APIs.Clsi.Persistence.CookieName,
 		persistenceTTL:           options.APIs.Clsi.Persistence.TTL,
 		pdfDownloadDomain:        options.PDFDownloadDomain,
@@ -94,7 +94,7 @@ func New(options *types.Options, client redis.UniversalClient, dum documentUpdat
 
 type manager struct {
 	bundle                   ClsiManager
-	baseURL                  string
+	baseURL                  sharedTypes.URL
 	persistenceCookieName    string
 	persistenceTTL           time.Duration
 	pdfDownloadDomain        types.PDFDownloadDomain
@@ -121,6 +121,15 @@ func (m *manager) getImageName(raw sharedTypes.ImageName) sharedTypes.ImageName 
 	return m.teXLiveImageNameOverride + "/" + raw[idx+1:]
 }
 
+func (m *manager) getURL(projectId, userId sharedTypes.UUID, endpoint string) string {
+	return m.baseURL.WithPath(
+		"" +
+			"/project/" + projectId.String() +
+			"/user/" + userId.String() +
+			endpoint,
+	).String()
+}
+
 func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error {
 	if m.bundle != nil {
 		return m.bundle.ClearCache(request.ProjectId, request.UserId)
@@ -129,9 +138,7 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 		ctx, request.SignedCompileProjectRequestOptions,
 	)
 
-	u := m.baseURL
-	u += "/project/" + request.ProjectId.String()
-	u += "/user/" + request.UserId.String()
+	u := m.getURL(request.ProjectId, request.UserId, "")
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
 	if err != nil {
@@ -166,10 +173,7 @@ func (m *manager) StartInBackground(ctx context.Context, options types.SignedCom
 		)
 	}
 
-	u := m.baseURL
-	u += "/project/" + options.ProjectId.String()
-	u += "/user/" + options.UserId.String()
-	u += "/status"
+	u := m.getURL(options.ProjectId, options.UserId, "/status")
 
 	blob, err := json.Marshal(request)
 	body := bytes.NewReader(blob)
@@ -381,10 +385,7 @@ type compileResponseBody struct {
 }
 
 func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRequest, clsiServerId types.ClsiServerId, requestBody *clsiTypes.CompileRequest, response *types.CompileProjectResponse) error {
-	u := m.baseURL
-	u += "/project/" + request.ProjectId.String()
-	u += "/user/" + request.UserId.String()
-	u += "/compile"
+	u := m.getURL(request.ProjectId, request.UserId, "/compile")
 
 	blob, err := json.Marshal(compileRequestBody{Request: requestBody})
 	if err != nil {

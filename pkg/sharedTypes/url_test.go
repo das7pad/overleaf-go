@@ -144,7 +144,7 @@ func TestURL_Validate(t *testing.T) {
 	}
 }
 
-func TestURL_WithPath(t *testing.T) {
+func TestURL_WithPath_base_immutable(t *testing.T) {
 	buildBase := func() url.URL {
 		u, _ := url.Parse("http://foo.bar/baz?bazz=barr")
 		return *u
@@ -153,8 +153,8 @@ func TestURL_WithPath(t *testing.T) {
 	t.Run("value base", func(t *testing.T) {
 		u := URL{URL: buildBase()}
 		x := u.WithPath("/other")
-		if got := x.Path; got != "/other" {
-			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
+		if got := x.Path; got != "/baz/other" {
+			t.Errorf("WithPath().Path = %v, want %v", got, "/baz/other")
 		}
 		if got := u.Path; got != "/baz" {
 			t.Errorf("u.WithPath(); u.Path = %v, want %v", got, "/baz")
@@ -164,13 +164,66 @@ func TestURL_WithPath(t *testing.T) {
 	t.Run("pointer base", func(t *testing.T) {
 		u := &URL{URL: buildBase()}
 		x := u.WithPath("/other")
-		if got := x.Path; got != "/other" {
-			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
+		if got := x.Path; got != "/baz/other" {
+			t.Errorf("WithPath().Path = %v, want %v", got, "/baz/other")
 		}
 		if got := u.Path; got != "/baz" {
 			t.Errorf("u.WithPath(); u.Path = %v, want %v", got, "/baz")
 		}
 	})
+}
+
+func TestURL_WithPath(t *testing.T) {
+	buildURL := func(p string) URL {
+		u, _ := url.Parse("http://foo.bar/baz?bazz=barr")
+		u.Path = p
+		return URL{URL: *u}
+	}
+
+	tests := []struct {
+		name string
+		u    URL
+		s    string
+		want URL
+	}{
+		{
+			name: "empty",
+			u:    buildURL("/foo"),
+			s:    "",
+			want: buildURL("/foo"),
+		},
+		{
+			name: "simple",
+			u:    buildURL("/foo"),
+			s:    "bar",
+			want: buildURL("/foo/bar"),
+		},
+		{
+			name: "leading",
+			u:    buildURL("/foo"),
+			s:    "/bar",
+			want: buildURL("/foo/bar"),
+		},
+		{
+			name: "trailing",
+			u:    buildURL("/foo/"),
+			s:    "bar",
+			want: buildURL("/foo/bar"),
+		},
+		{
+			name: "leading and trailing",
+			u:    buildURL("/foo/"),
+			s:    "/bar",
+			want: buildURL("/foo/bar"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.u.WithPath(tt.s); !reflect.DeepEqual(*got, tt.want) {
+				t.Errorf("WithPath() = %s, want %s", got, &tt.want)
+			}
+		})
+	}
 }
 
 func TestURL_WithQuery(t *testing.T) {
@@ -192,12 +245,12 @@ func TestURL_WithQuery(t *testing.T) {
 
 	t.Run("pointer base", func(t *testing.T) {
 		u := &URL{URL: buildBase()}
-		x := u.WithPath("/other")
-		if got := x.Path; got != "/other" {
-			t.Errorf("WithPath().Path = %v, want %v", got, "/other")
+		x := u.WithQuery(url.Values{"key": {"new"}})
+		if got := x.Query().Get("key"); got != "new" {
+			t.Errorf("Query().Query().Get() = %v, want %v", got, "new")
 		}
-		if got := u.Path; got != "/baz" {
-			t.Errorf("u.WithPath(); u.Path = %v, want %v", got, "/baz")
+		if got := u.Query().Get("key"); got != "old" {
+			t.Errorf("u.Query(); u.Query().Get() = %v, want %v", got, "old")
 		}
 	})
 }

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -37,8 +38,12 @@ type watchingManager struct {
 
 func (wm *watchingManager) watch() {
 	log.Println("assets: watch: waiting for rebuilds")
+	u := wm.cdnURL.
+		WithPath("/event-source").
+		WithQuery(url.Values{"manifest": {"true"}}).
+		String()
 	for {
-		res, err := http.Get(string(wm.base) + "/event-source?manifest=true")
+		res, err := http.Get(u)
 		if err != nil {
 			time.Sleep(time.Second)
 			log.Printf(

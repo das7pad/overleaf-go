@@ -28,7 +28,7 @@ import (
 
 func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLinkedFileRequest) error {
 	u := m.pdfDownloadBase.WithPath(
-		m.pdfDownloadBase.Path + string(clsiTypes.BuildDownloadPath(
+		string(clsiTypes.BuildDownloadPath(
 			r.Parameter.SourceProjectId, r.UserId,
 			r.Parameter.BuildId, r.Parameter.SourceOutputFilePath,
 		)),

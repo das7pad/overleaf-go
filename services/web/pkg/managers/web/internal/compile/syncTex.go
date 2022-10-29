@@ -44,10 +44,7 @@ func (m *manager) preprocessGenericPOST(options types.SignedCompileProjectReques
 }
 
 func (m *manager) genericPOST(ctx context.Context, endpoint string, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, request genericPOSTRequest, response interface{}) error {
-	u := m.baseURL
-	u += "/project/" + options.ProjectId.String()
-	u += "/user/" + options.UserId.String()
-	u += endpoint
+	u := m.getURL(options.ProjectId, options.UserId, endpoint)
 
 	blob, err := json.Marshal(request)
 	if err != nil {
