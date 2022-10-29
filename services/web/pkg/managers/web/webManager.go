@@ -110,7 +110,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		return nil, err
 	}
 
-	am, err := assets.Load(options.AssetsOptions())
+	am, err := assets.Load(options.AssetsOptions(), proxy)
 	if err != nil {
 		return nil, errors.Tag(err, "load assets")
 	}

@@ -150,7 +150,9 @@ func (o *Options) Validate() error {
 		}
 	}
 	if o.ManifestPath == "" {
-		return &errors.ValidationError{Msg: "manifest_path is missing"}
+		return &errors.ValidationError{
+			Msg: "manifest_path is missing, use 'cdn' for download at boot",
+		}
 	}
 	if err := o.SiteURL.Validate(); err != nil {
 		return errors.Tag(err, "site_url is invalid")

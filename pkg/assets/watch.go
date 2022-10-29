@@ -18,6 +18,7 @@ package assets
 
 import (
 	"bufio"
+	"bytes"
 	"log"
 	"net/http"
 	"sync"
@@ -37,7 +38,7 @@ type watchingManager struct {
 func (wm *watchingManager) watch() {
 	log.Println("assets: watch: waiting for rebuilds")
 	for {
-		res, err := http.Get(string(wm.base) + "/event-source")
+		res, err := http.Get(string(wm.base) + "/event-source?manifest=true")
 		if err != nil {
 			time.Sleep(time.Second)
 			log.Printf(
@@ -67,12 +68,15 @@ func (wm *watchingManager) watch() {
 		r.Split(bufio.ScanLines)
 		for r.Scan() {
 			blob := r.Text()
-			if blob != "event: epoch" && blob != "event: rebuild" {
+			if blob != "event: manifest" {
 				continue
+			}
+			if !r.Scan() {
+				break
 			}
 			log.Println("assets: watch: reloading")
 			wm.mu.Lock()
-			err = wm.load()
+			err = wm.loadFrom(bytes.NewReader(r.Bytes()[len("data: "):]))
 			wm.mu.Unlock()
 			if err != nil {
 				log.Printf(

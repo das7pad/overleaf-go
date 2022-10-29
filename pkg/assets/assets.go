@@ -17,13 +17,17 @@
 package assets
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
+	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/proxyClient"
 )
 
 type Manager interface {
@@ -52,15 +56,15 @@ type Options struct {
 	WatchManifest bool
 }
 
-func Load(options Options) (Manager, error) {
+func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
 	base := template.URL(strings.TrimSuffix(options.CDNURL.String(), "/"))
 	m := &manager{
-		manifestPath:     options.ManifestPath,
 		base:             base,
+		cdnURL:           options.CDNURL,
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
 	}
-	if err := m.load(); err != nil {
+	if err := m.load(proxy, options.ManifestPath); err != nil {
 		return nil, err
 	}
 	if options.WatchManifest {
@@ -72,11 +76,11 @@ func Load(options Options) (Manager, error) {
 }
 
 type manager struct {
-	manifestPath     string
 	base             template.URL
 	assets           map[string]template.URL
 	entrypointChunks map[string][]template.URL
 	hints            resourceHints
+	cdnURL           sharedTypes.URL
 }
 
 type manifest struct {
@@ -84,13 +88,32 @@ type manifest struct {
 	EntrypointChunks map[string][]template.URL `json:"entrypointChunks"`
 }
 
-func (m *manager) load() error {
-	f, err := os.Open(m.manifestPath)
-	if err != nil {
-		return errors.Tag(err, "cannot open manifest")
+func (m *manager) load(proxy proxyClient.Manager, manifestPath string) error {
+	var f io.ReadCloser
+	if manifestPath == "cdn" {
+		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+		defer done()
+		u := m.cdnURL.WithPath(m.cdnURL.Path + "/manifest.json")
+		body, cleanup, err := proxy.Fetch(ctx, u)
+		if err != nil {
+			return errors.Tag(err, "request manifest from CDN")
+		}
+		defer cleanup()
+		f = body
+	} else {
+		var err error
+		f, err = os.Open(manifestPath)
+		if err != nil {
+			return errors.Tag(err, "cannot open manifest")
+		}
 	}
+	defer func() { _ = f.Close() }()
+	return m.loadFrom(f)
+}
+
+func (m *manager) loadFrom(f io.Reader) error {
 	var raw manifest
-	if err = json.NewDecoder(f).Decode(&raw); err != nil {
+	if err := json.NewDecoder(f).Decode(&raw); err != nil {
 		return errors.Tag(err, "cannot consume manifest")
 	}
 	entrypointChunks := make(map[string][]template.URL, len(raw.EntrypointChunks))
