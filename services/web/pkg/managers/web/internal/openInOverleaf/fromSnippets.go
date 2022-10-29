@@ -64,14 +64,6 @@ func (f *projectFile) SourceElement() project.TreeElement {
 const parallelDownloads = 5
 
 func (m *manager) createFromSnippets(ctx context.Context, request *types.OpenInOverleafRequest, response *types.CreateProjectResponse) error {
-	defer func() {
-		for _, snippet := range request.Snippets {
-			if f := snippet.File; f != nil {
-				f.Cleanup()
-			}
-		}
-	}()
-
 	downloadQueue := make(chan types.OpenInOverleafSnippet, parallelDownloads)
 	readyQueue := make(chan types.OpenInOverleafSnippet, parallelDownloads)
 	eg, pCtx := errgroup.WithContext(ctx)
@@ -114,6 +106,14 @@ func (m *manager) createFromSnippets(ctx context.Context, request *types.OpenInO
 		})
 	}
 	files := make([]types.CreateProjectFile, 0, len(request.Snippets))
+	defer func() {
+		for _, file := range files {
+			snippet := file.(*projectFile).s
+			if f := snippet.File; f != nil {
+				f.Cleanup()
+			}
+		}
+	}()
 	eg.Go(func() error {
 		for snippet := range readyQueue {
 			files = append(files, &projectFile{s: snippet})
