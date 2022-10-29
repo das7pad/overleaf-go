@@ -53,7 +53,10 @@ func genSecret(n int) string {
 	return hex.EncodeToString(b)
 }
 
-func serialize(d interface{}, label string) string {
+func serialize(d interface{ Validate() error }, label string) string {
+	if err := d.Validate(); err != nil {
+		panic(errors.Tag(err, "validate "+label))
+	}
 	blob, err := json.Marshal(d)
 	if err != nil {
 		panic(errors.Tag(err, "serialize "+label))
@@ -85,6 +88,7 @@ func main() {
 		Key:       []byte(genSecret(32)),
 		ExpiresIn: time.Hour,
 	}
+	linkedURLProxyToken := genSecret(32)
 
 	dockerSocket := "unix:///var/run/docker.sock"
 	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
@@ -101,8 +105,8 @@ func main() {
 	tmpDir := "/tmp/overleaf"
 	flag.StringVar(&tmpDir, "tmp-dir", tmpDir, "base dir for ephemeral files")
 
-	manifestPath := ""
-	flag.StringVar(&manifestPath, "frontend-manifest-path", manifestPath, "frontend manifest path")
+	manifestPath := "cdn"
+	flag.StringVar(&manifestPath, "frontend-manifest-path", manifestPath, "frontend manifest path, use 'cdn' for download at boot time")
 
 	siteURLRaw := ""
 	flag.StringVar(&siteURLRaw, "site-url", siteURLRaw, "site url")
@@ -110,8 +114,11 @@ func main() {
 	cdnURLRaw := ""
 	flag.StringVar(&cdnURLRaw, "cdn-url", cdnURLRaw, "cdn url")
 
-	clsiUrlRaw := ""
-	flag.StringVar(&clsiUrlRaw, "clsi-url", clsiUrlRaw, "clsi url (required when running separate processes)")
+	linkedURLProxyChainRaw := "http://127.0.0.1:8080/proxy/" + linkedURLProxyToken
+	flag.StringVar(&linkedURLProxyChainRaw, "linked-url-proxy-chain", linkedURLProxyChainRaw, "proxy chain (comma separated list, first item is first proxy hop)")
+
+	clsiURLRaw := "http://127.0.0.1:3013"
+	flag.StringVar(&clsiURLRaw, "clsi-url", clsiURLRaw, "clsi url (required when load balancing compiles)")
 
 	pdfDownloadURLRaw := ""
 	flag.StringVar(&pdfDownloadURLRaw, "pdf-download-url", pdfDownloadURLRaw, "pdf download url")
@@ -122,7 +129,7 @@ func main() {
 	sessionCookieName := "ol.go"
 	flag.StringVar(&sessionCookieName, "session-cookie-name", sessionCookieName, "session cookie name")
 
-	smtpAddress := ""
+	smtpAddress := "log"
 	flag.StringVar(&smtpAddress, "email-smtp-address", smtpAddress, "address:port of email provider")
 
 	smtpUser := ""
@@ -162,12 +169,21 @@ func main() {
 	}
 
 	var clsiUrl sharedTypes.URL
-	if clsiUrlRaw != "" {
-		u, err := sharedTypes.ParseAndValidateURL(clsiUrlRaw)
+	if clsiURLRaw != "" {
+		u, err := sharedTypes.ParseAndValidateURL(clsiURLRaw)
 		if err != nil {
 			panic(errors.Tag(err, "clsi-url"))
 		}
 		clsiUrl = *u
+	}
+
+	linkedURLProxyChain := make([]sharedTypes.URL, 0)
+	for i, s := range strings.Split(linkedURLProxyChainRaw, ",") {
+		u, err := sharedTypes.ParseAndValidateURL(strings.Trim(s, `"' `))
+		if err != nil {
+			panic(errors.Tag(err, fmt.Sprintf("item idx=%d", i)))
+		}
+		linkedURLProxyChain = append(linkedURLProxyChain, *u)
 	}
 
 	if dockerRootless && dockerSocket == "unix:///var/run/docker.sock" {
@@ -186,6 +202,10 @@ func main() {
 		})
 	}
 	agentPathHost := path.Join(tmpDir, "exec-agent")
+
+	fmt.Println("services/linked-url-proxy:")
+	fmt.Printf("PROXY_TOKEN=%s\n", linkedURLProxyToken)
+	fmt.Println()
 
 	clsiOptions := clsiTypes.Options{
 		AllowedImages:             allowedImages,
@@ -218,13 +238,17 @@ func main() {
 			OutputBaseDir:          clsiTypes.OutputBaseDir(path.Join(tmpDir, "output")),
 		},
 	}
-	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(clsiOptions, "clsi options"))
+	fmt.Println("services/clsi or cmd/overleaf:")
+	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(&clsiOptions, "clsi options"))
+	fmt.Println()
 
 	documentUpdaterOptions := documentUpdaterTypes.Options{
 		Workers:                      10,
 		PendingUpdatesListShardCount: 1,
 	}
-	fmt.Printf("DOCUMENT_UPDATER_OPTIONS=%s\n", serialize(documentUpdaterOptions, "document updater options"))
+	fmt.Println("services/document-updater or cmd/overleaf:")
+	fmt.Printf("DOCUMENT_UPDATER_OPTIONS=%s\n", serialize(&documentUpdaterOptions, "document updater options"))
+	fmt.Println()
 
 	realTimeOptions := realTimeTypes.Options{
 		GracefulShutdown: struct {
@@ -251,12 +275,16 @@ func main() {
 			RealTime: jwtOptionsRealTime,
 		},
 	}
-	fmt.Printf("REAL_TIME_OPTIONS=%s\n", serialize(realTimeOptions, "realtime options"))
+	fmt.Println("services/real-time or cmd/overleaf:")
+	fmt.Printf("REAL_TIME_OPTIONS=%s\n", serialize(&realTimeOptions, "realtime options"))
+	fmt.Println()
 
 	spellingOptions := spellingTypes.Options{
 		LRUSize: 10_000,
 	}
-	fmt.Printf("SPELLING_OPTIONS=%s\n", serialize(spellingOptions, "spelling options"))
+	fmt.Println("services/spelling or cmd/overleaf:")
+	fmt.Printf("SPELLING_OPTIONS=%s\n", serialize(&spellingOptions, "spelling options"))
+	fmt.Println()
 
 	webOptions := webTypes.Options{
 		AdminEmail:        sharedTypes.Email("support@" + siteURL.Host),
@@ -365,7 +393,9 @@ func main() {
 			}{},
 			LinkedURLProxy: struct {
 				Chain []sharedTypes.URL `json:"chain"`
-			}{},
+			}{
+				Chain: linkedURLProxyChain,
+			},
 		},
 		JWT: struct {
 			Compile      jwtOptions.JWTOptions `json:"compile"`
@@ -383,7 +413,14 @@ func main() {
 			Path:    siteURL.Path,
 			Secrets: []string{genSecret(32)},
 		},
+		RateLimits: struct {
+			LinkSharingTokenLookupConcurrency int64 `json:"link_sharing_token_lookup_concurrency"`
+		}{
+			LinkSharingTokenLookupConcurrency: 1,
+		},
 	}
 
-	fmt.Printf("WEB_OPTIONS=%s\n", serialize(webOptions, "web options"))
+	fmt.Println("services/web or cmd/overleaf:")
+	fmt.Printf("WEB_OPTIONS=%s\n", serialize(&webOptions, "web options"))
+	fmt.Println()
 }

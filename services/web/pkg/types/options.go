@@ -201,9 +201,11 @@ func (o *Options) Validate() error {
 	if err := o.APIs.Clsi.URL.Validate(); err != nil {
 		return errors.Tag(err, "apis.clsi.url is invalid")
 	}
-	if o.APIs.Clsi.Persistence.TTL <= 0 {
-		return &errors.ValidationError{
-			Msg: "apis.clsi.persistence.ttl must be greater than zero",
+	if o.APIs.Clsi.Persistence.CookieName != "" {
+		if o.APIs.Clsi.Persistence.TTL <= 0 {
+			return &errors.ValidationError{
+				Msg: "apis.clsi.persistence.ttl must be greater than zero",
+			}
 		}
 	}
 	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
