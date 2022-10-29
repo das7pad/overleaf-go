@@ -51,6 +51,7 @@ type Options struct {
 		From             email.Identity    `json:"from"`
 		FallbackReplyTo  email.Identity    `json:"fallback_reply_to"`
 		SMTPAddress      email.SMTPAddress `json:"smtp_address"`
+		SMTPHello        string            `json:"smtp_hello"`
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
@@ -177,16 +178,22 @@ func (o *Options) Validate() error {
 		}
 	}
 	if o.Email.SMTPAddress == "" {
-		return &errors.ValidationError{Msg: "email.smtp_address is missing"}
+		return &errors.ValidationError{
+			Msg: "email.smtp_address is missing, use 'log' as no-op",
+		}
 	}
 	if err := o.Email.SMTPAddress.Validate(); err != nil {
 		return errors.Tag(err, "email.smtp_address is invalid")
 	}
-	if o.Email.SMTPUser == "" {
-		return &errors.ValidationError{Msg: "email.smtp_user is missing"}
-	}
-	if o.Email.SMTPPassword == "" {
-		return &errors.ValidationError{Msg: "email.smtp_password is missing"}
+	if o.Email.SMTPAddress != "log" {
+		if o.Email.SMTPUser == "" {
+			return &errors.ValidationError{Msg: "email.smtp_user is missing"}
+		}
+		if o.Email.SMTPPassword == "" {
+			return &errors.ValidationError{
+				Msg: "email.smtp_password is missing",
+			}
+		}
 	}
 
 	if err := o.APIs.Clsi.URL.Validate(); err != nil {
@@ -242,6 +249,15 @@ type EmailOptions struct {
 }
 
 func (o *Options) EmailOptions() *EmailOptions {
+	var a smtp.Auth
+	if o.Email.SMTPAddress != "log" {
+		a = smtp.PlainAuth(
+			"",
+			o.Email.SMTPUser,
+			o.Email.SMTPPassword,
+			o.Email.SMTPAddress.Host(),
+		)
+	}
 	return &EmailOptions{
 		Public: &email.PublicOptions{
 			AppName:          o.AppName,
@@ -253,12 +269,8 @@ func (o *Options) EmailOptions() *EmailOptions {
 			From:            o.Email.From,
 			FallbackReplyTo: o.Email.FallbackReplyTo,
 			SMTPAddress:     o.Email.SMTPAddress,
-			SMTPAuth: smtp.PlainAuth(
-				"",
-				o.Email.SMTPUser,
-				o.Email.SMTPPassword,
-				o.Email.SMTPAddress.Host(),
-			),
+			SMTPAuth:        a,
+			SMTPHello:       o.Email.SMTPHello,
 		},
 	}
 }

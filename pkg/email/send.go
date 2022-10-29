@@ -19,11 +19,14 @@ package email
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
+	"net"
 	"net/smtp"
 	"net/textproto"
 	"strings"
@@ -41,6 +44,9 @@ func (a SMTPAddress) Host() string {
 }
 
 func (a SMTPAddress) Validate() error {
+	if a == "log" {
+		return nil
+	}
 	if !strings.ContainsRune(string(a), ':') {
 		return &errors.ValidationError{Msg: "missing port spec"}
 	}
@@ -51,6 +57,7 @@ type SendOptions struct {
 	From            Identity
 	FallbackReplyTo Identity
 	SMTPAddress     SMTPAddress
+	SMTPHello       string
 	SMTPAuth        smtp.Auth
 }
 
@@ -144,19 +151,73 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		return errors.Tag(err, "cannot finalize body")
 	}
 
-	// TODO: actual context support
-	if err := ctx.Err(); err != nil {
-		return err
+	if o.SMTPAddress == "log" {
+		log.Println(w.String())
+		return nil
 	}
-	err := smtp.SendMail(
-		string(o.SMTPAddress),
-		o.SMTPAuth,
-		string(o.From.Address),
-		[]string{string(e.To.Address)},
-		b.Bytes(),
+	err := sendMail(
+		ctx, o.SMTPAddress, o.SMTPAuth, o.SMTPHello, o.From, e.To, b.Bytes(),
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot send email")
+		log.Printf("cannot send email: %s", err)
+		// Ensure that we do not expose details on the email infrastructure.
+		return errors.New("cannot send email")
+	}
+	return nil
+}
+
+func sendMail(ctx context.Context, addr SMTPAddress, a smtp.Auth, hello string, from, to Identity, blob []byte) error {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", string(addr))
+	if err != nil {
+		return errors.Tag(err, "connect")
+	}
+	ctx, done := context.WithCancel(ctx)
+	defer done()
+	go func() {
+		<-ctx.Done()
+		_ = conn.Close()
+	}()
+	c, err := smtp.NewClient(conn, addr.Host())
+	if err != nil {
+		return errors.Tag(err, "create client")
+	}
+	defer func() { _ = c.Close() }()
+
+	if err = c.Hello(hello); err != nil {
+		return errors.Tag(err, "hello")
+	}
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err = c.StartTLS(&tls.Config{ServerName: addr.Host()}); err != nil {
+			return errors.Tag(err, "starttls")
+		}
+	}
+	if a != nil {
+		if ok, _ := c.Extension("AUTH"); !ok {
+			return errors.New("expected AUTH support")
+		}
+		if err = c.Auth(a); err != nil {
+			return errors.Tag(err, "auth")
+		}
+	}
+	if err = c.Mail(string(from.Address)); err != nil {
+		return errors.Tag(err, "mail")
+	}
+	if err = c.Rcpt(string(to.Address)); err != nil {
+		return errors.Tag(err, "receipt")
+	}
+	w, err := c.Data()
+	if err != nil {
+		return errors.Tag(err, "data")
+	}
+	if _, err = w.Write(blob); err != nil {
+		return errors.Tag(err, "write")
+	}
+	if err = w.Close(); err != nil {
+		return errors.Tag(err, "flush write")
+	}
+	if err = c.Quit(); err != nil {
+		return errors.Tag(err, "quit")
 	}
 	return nil
 }

@@ -133,7 +133,7 @@ func main() {
 
 	flag.Parse()
 
-	if smtpPassword != "-" {
+	if smtpPassword == "-" {
 		_, _ = fmt.Fprintf(os.Stderr, "Enter SMTP Password: ")
 		s, err := term.ReadPassword(int(os.Stdin.Fd()))
 		_, _ = fmt.Fprintln(os.Stderr, "")
@@ -273,6 +273,7 @@ func main() {
 			From             email.Identity    `json:"from"`
 			FallbackReplyTo  email.Identity    `json:"fallback_reply_to"`
 			SMTPAddress      email.SMTPAddress `json:"smtp_address"`
+			SMTPHello        string            `json:"smtp_hello"`
 			SMTPUser         string            `json:"smtp_user"`
 			SMTPPassword     string            `json:"smtp_password"`
 		}{
@@ -283,6 +284,7 @@ func main() {
 				Address: sharedTypes.Email("support@" + siteURL.Host),
 			},
 			SMTPAddress:  email.SMTPAddress(smtpAddress),
+			SMTPHello:    "localhost",
 			SMTPUser:     smtpUser,
 			SMTPPassword: smtpPassword,
 		},
