@@ -26,7 +26,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/linkedURLProxy"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -38,11 +37,11 @@ func (m *manager) fetchPage(ctx context.Context, path string) (*pageContent, err
 		"page":      {path},
 	})
 
-	body, err := m.proxy.Fetch(ctx, u)
+	body, cleanup, err := m.proxy.Fetch(ctx, u)
 	if err != nil {
 		return nil, err
 	}
-	defer linkedURLProxy.CleanupResponseBody(body)
+	defer cleanup()
 	raw := pageContentRaw{}
 	if err = json.NewDecoder(body).Decode(&raw); err != nil {
 		return nil, errors.Tag(err, "cannot parse api response")

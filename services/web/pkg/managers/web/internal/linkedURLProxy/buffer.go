@@ -88,11 +88,11 @@ func (b *bufferedFile) ToUploadDetails() types.UploadDetails {
 // DownloadFile downloads a remote file via the proxy.
 // The call-site must call the bufferedFile.Cleanup() method when finished.
 func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*bufferedFile, error) {
-	body, err := m.Fetch(ctx, src)
+	body, cleanup, err := m.Fetch(ctx, src)
 	if err != nil {
 		return nil, err
 	}
-	defer CleanupResponseBody(body)
+	defer cleanup()
 	f, err := os.CreateTemp("", "download-buffer")
 	if err != nil {
 		return nil, errors.Tag(

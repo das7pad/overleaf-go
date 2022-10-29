@@ -104,8 +104,12 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
+	proxy, err := linkedURLProxy.New(options)
+	if err != nil {
+		return nil, err
+	}
 
-	err := templates.Load(
+	err = templates.Load(
 		options.AppName, options.AssetsOptions(), options.I18n,
 	)
 	if err != nil {
@@ -117,7 +121,6 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		return nil, err
 	}
 	sm := session.New(options.SessionCookie, client)
-	proxy := linkedURLProxy.New(options)
 	editorEvents := channel.NewWriter(client, "editor-events")
 	mm := message.New(db)
 	dum, err := documentUpdater.New(

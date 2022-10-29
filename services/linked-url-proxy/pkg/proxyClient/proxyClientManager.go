@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,52 +14,77 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package linkedURLProxy
+package proxyClient
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func CleanupResponseBody(body io.ReadCloser) {
-	// Consume the body to enable connection re-use.
-	_, _ = io.Discard.(io.ReaderFrom).ReadFrom(body)
-	_ = body.Close()
+type Manager interface {
+	Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadCloser, func(), error)
 }
 
-func (m *manager) Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadCloser, error) {
+func New(chain []sharedTypes.URL) (Manager, error) {
+	if len(chain) < 1 {
+		return nil, &errors.ValidationError{Msg: "url chain is too short"}
+	}
+	return &manager{
+		chain: chain,
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return errors.New("blocked redirect")
+			},
+		},
+	}, nil
+}
+
+type manager struct {
+	chain  []sharedTypes.URL
+	client *http.Client
+}
+
+func (m *manager) Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadCloser, func(), error) {
 	req, err := http.NewRequestWithContext(
 		ctx, http.MethodGet, chainURL(src, m.chain), nil,
 	)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot prepare http request")
+		return nil, nil, errors.Tag(err, "cannot prepare http request")
 	}
 	res, err := m.client.Do(req)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot send http request")
+		return nil, nil, errors.Tag(err, "cannot send http request")
 	}
 	if res.StatusCode != 200 {
-		CleanupResponseBody(res.Body)
+		_ = res.Body.Close() // should be empty anyway
 		switch res.StatusCode {
 		case http.StatusUnprocessableEntity:
-			return nil, &errors.UnprocessableEntityError{
+			return nil, nil, &errors.UnprocessableEntityError{
 				Msg: fmt.Sprintf(
 					"upstream returned non success: %s",
 					res.Header.Get("X-Upstream-Status-Code"),
 				),
 			}
 		case http.StatusRequestEntityTooLarge:
-			return nil, &errors.BodyTooLargeError{}
+			return nil, nil, &errors.BodyTooLargeError{}
 		default:
-			return nil, errors.New(fmt.Sprintf(
+			return nil, nil, errors.New(fmt.Sprintf(
 				"proxy returned non success: %d", res.StatusCode,
 			))
 		}
 	}
-	return res.Body, nil
+	cleanup := func() {
+		// Just close the body. In case the body has not been consumed in full
+		//  yet, the connection cannot be re-used. This is fine and better than
+		//  consuming up-to 50MB of useless bandwidth.
+		_ = res.Body.Close()
+	}
+	return res.Body, cleanup, nil
 }

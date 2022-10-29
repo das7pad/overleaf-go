@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,33 +18,27 @@ package linkedURLProxy
 
 import (
 	"context"
-	"io"
-	"net/http"
-	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/proxyClient"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type Manager interface {
+	proxyClient.Manager
 	DownloadFile(ctx context.Context, src *sharedTypes.URL) (*bufferedFile, error)
-	Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadCloser, error)
 }
 
-func New(options *types.Options) Manager {
-	return &manager{
-		chain: options.APIs.LinkedURLProxy.Chain,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return errors.New("blocked redirect")
-			},
-		},
+func New(options *types.Options) (Manager, error) {
+	c, err := proxyClient.New(options.APIs.LinkedURLProxy.Chain)
+	if err != nil {
+		return nil, err
 	}
+	return &manager{
+		Manager: c,
+	}, nil
 }
 
 type manager struct {
-	chain  []sharedTypes.URL
-	client *http.Client
+	proxyClient.Manager
 }
