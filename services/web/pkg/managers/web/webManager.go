@@ -25,6 +25,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v4/pgxpool"
 
+	"github.com/das7pad/overleaf-go/pkg/assets"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
@@ -109,10 +110,11 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		return nil, err
 	}
 
-	err = templates.Load(
-		options.AppName, options.AssetsOptions(), options.I18n,
-	)
+	am, err := assets.Load(options.AssetsOptions())
 	if err != nil {
+		return nil, errors.Tag(err, "load assets")
+	}
+	if err = templates.Load(options.AppName, options.I18n, am); err != nil {
 		return nil, errors.Tag(err, "load templates")
 	}
 

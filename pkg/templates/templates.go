@@ -54,7 +54,7 @@ func render(p string, estimate int, data Renderer) ([]byte, string, error) {
 	return buffer.Bytes(), data.ResourceHints(), nil
 }
 
-func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions) error {
+func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 	if err := i18nOptions.Validate(); err != nil {
 		return err
 	}
@@ -70,10 +70,6 @@ func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions)
 		funcMap["translate"] = tm.Translate
 	}
 	{
-		am, err := assets.Load(assetsOptions)
-		if err != nil {
-			return errors.Tag(err, "cannot load assets")
-		}
 		resourceHints = am
 		funcMap["buildCssPath"] = am.BuildCssPath
 		funcMap["buildFontPath"] = am.BuildFontPath
@@ -90,7 +86,7 @@ func Load(appName string, assetsOptions assets.Options, i18nOptions I18nOptions)
 	// login "content" -> layout-marketing "content"
 	// settings "content" -> layout-angular "content"
 	// When rendering the login template, the settings "content" will be used
-	//  instead of the login "content as the settings template was the last to
+	//  instead of the login "content" as the settings template was the last to
 	//  create an override for the "content" template.
 	// In the future we might be able to go back to something as simple as:
 	//
