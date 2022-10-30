@@ -69,7 +69,7 @@ type Options struct {
 		ProjectId sharedTypes.UUID  `json:"projectId"`
 		UserId    sharedTypes.UUID  `json:"userId"`
 	} `json:"smoke_test"`
-	StatusPageURL             sharedTypes.URL       `json:"status_page_url"`
+	StatusPageURL             *sharedTypes.URL      `json:"status_page_url"`
 	TeXLiveImageNameOverride  sharedTypes.ImageName `json:"texlive_image_name_override"`
 	EmailConfirmationDisabled bool                  `json:"email_confirmation_disabled"`
 	RegistrationDisabled      bool                  `json:"registration_disabled"`

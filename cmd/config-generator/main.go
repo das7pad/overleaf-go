@@ -394,7 +394,6 @@ func main() {
 			ProjectId: sharedTypes.UUID{42},
 			UserId:    sharedTypes.UUID{13, 37},
 		},
-		StatusPageURL:             sharedTypes.URL{},
 		TeXLiveImageNameOverride:  "",
 		EmailConfirmationDisabled: false,
 		RegistrationDisabled:      false,

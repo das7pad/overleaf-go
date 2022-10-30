@@ -102,7 +102,7 @@ type PublicSettings struct {
 	Nav                       NavOptions
 	Sentry                    PublicSentryOptions
 	SiteURL                   sharedTypes.URL
-	StatusPageURL             sharedTypes.URL
+	StatusPageURL             *sharedTypes.URL
 	TranslatedLanguages       map[string]string
 	ZipFileSizeLimit          int64
 	EmailConfirmationDisabled bool

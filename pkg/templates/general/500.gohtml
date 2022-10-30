@@ -29,7 +29,7 @@
         <p class="error-status">Something went wrong, sorry.</p>
         <p class="error-description">
           Our staff are probably looking into this, but if it continues, please
-            {{ if .Settings.StatusPageURL.String }}
+            {{ if .Settings.StatusPageURL }}
               check our status page at
               <a
                 href="{{ .Settings.StatusPageURL.String }}"
