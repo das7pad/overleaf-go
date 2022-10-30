@@ -103,7 +103,7 @@ func (t ComputeTimeout) String() string {
 	return time.Duration(t).String()
 }
 
-var imageNameYearRegex = regexp.MustCompile(`:(\d+)\.\d+`)
+var imageNameYearRegex = regexp.MustCompile(`:.*(20\d\d)\b`)
 
 type ImageName string
 
@@ -129,7 +129,7 @@ func (i ImageName) Validate() error {
 	}
 	if !imageNameYearRegex.MatchString(string(i)) {
 		return &errors.ValidationError{
-			Msg: "imageName does not match year regex",
+			Msg: "imageName must have year in the tag, e.g. texlive:TL2022.4",
 		}
 	}
 	return nil
