@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -27,8 +28,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"golang.org/x/term"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -141,13 +140,17 @@ func main() {
 	flag.Parse()
 
 	if smtpPassword == "-" {
-		_, _ = fmt.Fprintf(os.Stderr, "Enter SMTP Password: ")
-		s, err := term.ReadPassword(int(os.Stdin.Fd()))
-		_, _ = fmt.Fprintln(os.Stderr, "")
-		if err != nil {
-			panic(errors.Tag(err, "read smtp password"))
+		_, _ = fmt.Fprintf(
+			os.Stderr,
+			"Please type the SMTP Password and confirm with ENTER: ",
+		)
+		s := bufio.NewScanner(os.Stdin)
+		if !s.Scan() {
+			fmt.Println()
+			panic(errors.Tag(s.Err(), "read smtp password"))
 		}
-		smtpPassword = string(s)
+		smtpPassword = s.Text()
+		fmt.Println()
 	}
 
 	var siteURL sharedTypes.URL

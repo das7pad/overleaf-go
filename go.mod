@@ -19,7 +19,6 @@ require (
 	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
 	golang.org/x/net v0.0.0-20220919171627-f8f703f97925
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
 
 // Cut down allocations
