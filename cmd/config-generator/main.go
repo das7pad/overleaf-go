@@ -225,7 +225,11 @@ func main() {
 	}
 	agentPathHost := path.Join(tmpDir, "exec-agent")
 
-	fmt.Println("services/linked-url-proxy:")
+	fmt.Println("# services/spelling or services/web or cmd/overleaf:")
+	fmt.Printf("PUBLIC_URL=%s\n", siteURL.String())
+	fmt.Println()
+
+	fmt.Println("# services/linked-url-proxy:")
 	fmt.Printf("PROXY_TOKEN=%s\n", linkedURLProxyToken)
 	fmt.Println()
 
@@ -260,7 +264,7 @@ func main() {
 			OutputBaseDir:          clsiTypes.OutputBaseDir(path.Join(tmpDir, "output")),
 		},
 	}
-	fmt.Println("services/clsi or cmd/overleaf:")
+	fmt.Println("# services/clsi or cmd/overleaf:")
 	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(&clsiOptions, "clsi options"))
 	fmt.Printf("DOCKER_HOST=%s\n", dockerSocket)
 	fmt.Println()
@@ -269,7 +273,7 @@ func main() {
 		Workers:                      10,
 		PendingUpdatesListShardCount: 1,
 	}
-	fmt.Println("services/document-updater or cmd/overleaf:")
+	fmt.Println("# services/document-updater or cmd/overleaf:")
 	fmt.Printf("DOCUMENT_UPDATER_OPTIONS=%s\n", serialize(&documentUpdaterOptions, "document updater options"))
 	fmt.Println()
 
@@ -298,14 +302,14 @@ func main() {
 			RealTime: jwtOptionsRealTime,
 		},
 	}
-	fmt.Println("services/real-time or cmd/overleaf:")
+	fmt.Println("# services/real-time or cmd/overleaf:")
 	fmt.Printf("REAL_TIME_OPTIONS=%s\n", serialize(&realTimeOptions, "realtime options"))
 	fmt.Println()
 
 	spellingOptions := spellingTypes.Options{
 		LRUSize: 10_000,
 	}
-	fmt.Println("services/spelling or cmd/overleaf:")
+	fmt.Println("# services/spelling or cmd/overleaf:")
 	fmt.Printf("SPELLING_OPTIONS=%s\n", serialize(&spellingOptions, "spelling options"))
 	fmt.Println()
 
@@ -443,7 +447,7 @@ func main() {
 		},
 	}
 
-	fmt.Println("services/web or cmd/overleaf:")
+	fmt.Println("# services/web or cmd/overleaf:")
 	fmt.Printf("WEB_OPTIONS=%s\n", serialize(&webOptions, "web options"))
 	fmt.Println()
 }
