@@ -217,7 +217,10 @@ func Generate(o Options) CSPs {
 	// NOTE: expectation: everything is on https://.
 	siteOrigin := o.SiteURL.Host
 	cdnOrigin := o.CDNURL.Host
-	pdfDownloadOrigin := o.PdfDownloadDomain.Host
+	pdfDownloadOrigin := ""
+	if o.PdfDownloadDomain != nil {
+		pdfDownloadOrigin = o.PdfDownloadDomain.Host
+	}
 	sentryOrigin := ""
 	if o.SentryDSN != nil {
 		sentryOrigin = o.SentryDSN.Host

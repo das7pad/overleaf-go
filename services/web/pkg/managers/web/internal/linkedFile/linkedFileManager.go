@@ -36,18 +36,22 @@ type Manager interface {
 }
 
 func New(options *types.Options, pm project.Manager, dum documentUpdater.Manager, fm filestore.Manager, cm compile.Manager, ftm fileTree.Manager, proxy linkedURLProxy.Manager) (Manager, error) {
-	base, err := sharedTypes.ParseAndValidateURL(
-		string(options.PDFDownloadDomain),
-	)
-	if err != nil {
-		return nil, err
+	base := options.SiteURL
+	if options.PDFDownloadDomain != "" {
+		u, err := sharedTypes.ParseAndValidateURL(
+			string(options.PDFDownloadDomain),
+		)
+		if err != nil {
+			return nil, errors.Tag(err, "pdf download domain invalid")
+		}
+		base = *u
 	}
 	return &manager{
 		cm:              cm,
 		dum:             dum,
 		fm:              fm,
 		ftm:             ftm,
-		pdfDownloadBase: *base,
+		pdfDownloadBase: base,
 		pm:              pm,
 		proxy:           proxy,
 	}, nil
