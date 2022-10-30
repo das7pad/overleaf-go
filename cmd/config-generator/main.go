@@ -26,18 +26,20 @@ import (
 	"html/template"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
-	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
+	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -50,6 +52,24 @@ func genSecret(n int) string {
 		panic(errors.Tag(err, "generate secret"))
 	}
 	return hex.EncodeToString(b)
+}
+
+func handlePromptInput(dst *string, label string) {
+	if *dst != "-" {
+		return
+	}
+	_, _ = fmt.Fprintf(
+		os.Stderr,
+		"Please type the %s and confirm with ENTER: ",
+		label,
+	)
+	s := bufio.NewScanner(os.Stdin)
+	if !s.Scan() {
+		fmt.Println()
+		panic(errors.Tag(s.Err(), "read "+label))
+	}
+	*dst = s.Text()
+	fmt.Println()
 }
 
 func serialize(d interface{ Validate() error }, label string) string {
@@ -149,28 +169,32 @@ func main() {
 
 	smtpAddress := "log"
 	flag.StringVar(&smtpAddress, "email-smtp-address", smtpAddress, "address:port of email provider")
-
 	smtpUser := ""
 	flag.StringVar(&smtpUser, "email-smtp-user", smtpUser, "login user name at email provider")
-
 	smtpPassword := "-"
 	flag.StringVar(&smtpPassword, "email-smtp-password", smtpPassword, "login password at email provider, use '-' for prompt")
 
+	filestoreOptions := objectStorage.Options{
+		Bucket:          "overleaf-files",
+		Provider:        "minio",
+		Endpoint:        "127.0.0.1:9000",
+		Region:          "",
+		Secure:          false,
+		Key:             genSecret(32),
+		Secret:          genSecret(32),
+		SignedURLExpiry: 15 * time.Minute,
+	}
+	flag.StringVar(&filestoreOptions.Bucket, "filestore-bucket", filestoreOptions.Bucket, "bucket for binary files")
+	flag.StringVar(&filestoreOptions.Endpoint, "s3-endpoint", filestoreOptions.Endpoint, "endpoint of s3 compatible storage backend (e.g. minio)")
+	flag.BoolVar(&filestoreOptions.Secure, "s3-https", filestoreOptions.Secure, "toggle to use https on s3-endpoint")
+	flag.StringVar(&filestoreOptions.Region, "s3-region", filestoreOptions.Region, "region of s3 bucket")
+	flag.StringVar(&filestoreOptions.Key, "s3-key", filestoreOptions.Key, "s3 access key")
+	flag.StringVar(&filestoreOptions.Secret, "s3-secret", filestoreOptions.Secret, "s3 secret key, use '-' for prompt")
+
 	flag.Parse()
 
-	if smtpPassword == "-" {
-		_, _ = fmt.Fprintf(
-			os.Stderr,
-			"Please type the SMTP Password and confirm with ENTER: ",
-		)
-		s := bufio.NewScanner(os.Stdin)
-		if !s.Scan() {
-			fmt.Println()
-			panic(errors.Tag(s.Err(), "read smtp password"))
-		}
-		smtpPassword = s.Text()
-		fmt.Println()
-	}
+	handlePromptInput(&smtpPassword, "SMTP Password")
+	handlePromptInput(&filestoreOptions.Secret, "S3 secret key")
 
 	var siteURL sharedTypes.URL
 	{
@@ -368,7 +392,7 @@ func main() {
 			Email:     sharedTypes.Email("smoke-test@" + siteURL.Host),
 			Password:  webTypes.UserPassword(genSecret(72 / 2)),
 			ProjectId: sharedTypes.UUID{42},
-			UserId:    sharedTypes.UUID{42},
+			UserId:    sharedTypes.UUID{13, 37},
 		},
 		StatusPageURL:             sharedTypes.URL{},
 		TeXLiveImageNameOverride:  "",
@@ -388,7 +412,7 @@ func main() {
 				Options *documentUpdaterTypes.Options `json:"options"`
 			} `json:"document_updater"`
 			Filestore struct {
-				Options *types.Options `json:"options"`
+				Options *filestoreTypes.Options `json:"options"`
 			} `json:"filestore"`
 			LinkedURLProxy struct {
 				Chain []sharedTypes.URL `json:"chain"`
@@ -416,8 +440,12 @@ func main() {
 				Options: &documentUpdaterOptions,
 			},
 			Filestore: struct {
-				Options *types.Options `json:"options"`
-			}{},
+				Options *filestoreTypes.Options `json:"options"`
+			}{
+				Options: &filestoreTypes.Options{
+					BackendOptions: filestoreOptions,
+				},
+			},
 			LinkedURLProxy: struct {
 				Chain []sharedTypes.URL `json:"chain"`
 			}{
@@ -449,5 +477,45 @@ func main() {
 
 	fmt.Println("# services/web or cmd/overleaf:")
 	fmt.Printf("WEB_OPTIONS=%s\n", serialize(&webOptions, "web options"))
+	fmt.Println()
+
+	fmt.Println("# s3:")
+	fmt.Printf("# Please ensure bucket %q exists and the below credentials have write access:\n", filestoreOptions.Bucket)
+	fmt.Printf("ACCESS_KEY=%s\n", filestoreOptions.Key)
+	fmt.Printf("SECRET_KEY=%s\n", filestoreOptions.Secret)
+	fmt.Println()
+	fmt.Println("# s3 alternative 'minio':")
+	fmt.Printf("# Run minio on %s\n", filestoreOptions.Endpoint)
+	fmt.Printf("# Please ensure bucket %q exists and the below credentials have write access:\n", filestoreOptions.Bucket)
+	fmt.Printf("MINIO_ROOT_USER=%s\n", filestoreOptions.Key)
+	fmt.Printf("MINIO_ROOT_PASSWORD=%sn", filestoreOptions.Secret)
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("# s3 and minio: !! Strongly consider setting up a low privileged user instead of using root account credentials !!")
+	fmt.Println("# Minimal policy for listing the bucket and read/write/delete access:")
+	policy := fmt.Sprintf(`
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::%s"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::%s/*"
+    }
+  ]
+}
+`, filestoreOptions.Bucket, filestoreOptions.Bucket)
+	fmt.Printf("# %s", regexp.MustCompile(`\s+`).ReplaceAllString(policy, ""))
 	fmt.Println()
 }
