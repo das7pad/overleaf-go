@@ -63,6 +63,16 @@ func serialize(d interface{ Validate() error }, label string) string {
 	return string(blob)
 }
 
+func isSocket(p string) bool {
+	p = strings.TrimPrefix(p, "unix://")
+	if s, err := os.Stat(p); err != nil {
+		return false
+	} else if s.Mode()&os.ModeSocket == 0 {
+		return false
+	}
+	return true
+}
+
 func main() {
 	defer func() {
 		err := recover()
@@ -89,13 +99,22 @@ func main() {
 	}
 	linkedURLProxyToken := genSecret(32)
 
-	dockerSocket := "unix:///var/run/docker.sock"
-	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
-
+	dockerSocketRootLess := fmt.Sprintf(
+		"unix:///run/user/%d/docker.sock", os.Getuid(),
+	)
+	dockerSocketRootful := "unix:///var/run/docker.sock"
 	dockerContainerUser := "tex"
-	flag.StringVar(&dockerContainerUser, "texlive-container-user", dockerContainerUser, "user inside the docker container running texlive")
-
+	dockerSocket := dockerSocketRootful
 	dockerRootless := false
+	dockerRootlessAvailable := isSocket(dockerSocketRootLess)
+	if dockerRootlessAvailable {
+		dockerRootless = true
+		dockerSocket = dockerSocketRootLess
+		dockerContainerUser = "root"
+	}
+
+	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
+	flag.StringVar(&dockerContainerUser, "texlive-container-user", dockerContainerUser, "user inside the docker container running texlive")
 	flag.BoolVar(&dockerRootless, "docker-rootless", dockerRootless, "run in rootless docker environment")
 
 	texLiveImages := "texlive/texlive:TL2021-historic"
@@ -189,10 +208,10 @@ func main() {
 		linkedURLProxyChain = append(linkedURLProxyChain, *u)
 	}
 
-	if dockerRootless && dockerSocket == "unix:///var/run/docker.sock" {
-		dockerContainerUser = "root"
-		dockerSocket = fmt.Sprintf(
-			"unix:///run/user/%d/docker.sock", os.Getuid(),
+	if dockerRootless && !dockerRootlessAvailable {
+		_, _ = fmt.Fprintln(
+			os.Stderr,
+			"WARN: Could not detect rootless docker support, is it set up yet? (Is the socket mounted into the current container?) Falling back to rootful docker.",
 		)
 	}
 	var allowedImages []sharedTypes.ImageName
@@ -243,6 +262,7 @@ func main() {
 	}
 	fmt.Println("services/clsi or cmd/overleaf:")
 	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(&clsiOptions, "clsi options"))
+	fmt.Printf("DOCKER_HOST=%s\n", dockerSocket)
 	fmt.Println()
 
 	documentUpdaterOptions := documentUpdaterTypes.Options{
