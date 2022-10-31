@@ -32,5 +32,6 @@ func Parse() httpUtils.CORSOptions {
 
 	return httpUtils.CORSOptions{
 		AllowOrigins: allowOrigins,
+		SiteOrigin:   siteURL,
 	}
 }

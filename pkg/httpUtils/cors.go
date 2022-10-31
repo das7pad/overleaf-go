@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,6 +24,7 @@ import (
 )
 
 type CORSOptions struct {
+	SiteOrigin      string
 	AllowOrigins    []string
 	AllowWebsockets bool
 }
@@ -49,7 +50,9 @@ func CORS(options CORSOptions) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(c *Context) {
 			origin := c.Request.Header.Get("Origin")
-			if origin == "" || origin == "https://"+c.Request.Host {
+			if origin == "" ||
+				origin == "https://"+c.Request.Host ||
+				origin == "http://"+c.Request.Host {
 				// not a cross-origin request.
 				next(c)
 				return

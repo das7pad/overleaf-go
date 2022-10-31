@@ -20,6 +20,7 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -28,7 +29,7 @@ import (
 
 type csp struct {
 	reportURL        *sharedTypes.URL
-	siteURL          sharedTypes.URL
+	siteOrigin       string
 	omitProtocol     bool
 	reportViolations bool
 	trimPolicy       bool
@@ -119,6 +120,15 @@ func (c csp) render() string {
 	}
 
 	if c.omitProtocol {
+		for _, d := range directives {
+			for _, item := range d.items {
+				if strings.HasPrefix(item, "http://") {
+					c.omitProtocol = false
+				}
+			}
+		}
+	}
+	if c.omitProtocol {
 		directives = append(directives, directive{
 			name:         "block-all-mixed-content",
 			isStandalone: true,
@@ -132,26 +142,21 @@ func (c csp) render() string {
 	}
 
 	b := &strings.Builder{}
-	siteOrigin := c.siteURL.Host
 	for i, d := range directives {
 		uniq := make(map[string]bool, 0)
 		for _, item := range d.items {
 			if item == "" {
 				continue
 			}
-			if item == siteOrigin {
+			if item == c.siteOrigin {
 				item = "'self'"
 			}
-			if !c.omitProtocol {
+			if c.omitProtocol && d.name != "report-uri" {
 				switch item {
 				case "data:", "blob:", "'self'":
 					// constants
 				default:
-					if !(strings.HasPrefix(item, "http://") ||
-						strings.HasPrefix(item, "https://") ||
-						strings.HasPrefix(item, "'")) {
-						item = "https://" + item
-					}
+					item = strings.TrimPrefix(item, "https://")
 				}
 			}
 			uniq[item] = true
@@ -213,24 +218,27 @@ type CSPs struct {
 	Learn     string
 }
 
+func getOrigin(u *sharedTypes.URL) string {
+	if u == nil {
+		return ""
+	}
+	return (&url.URL{
+		Scheme: u.Scheme,
+		Host:   u.Host,
+	}).String()
+}
+
 func Generate(o Options) CSPs {
-	// NOTE: expectation: everything is on https://.
-	siteOrigin := o.SiteURL.Host
-	cdnOrigin := o.CDNURL.Host
-	pdfDownloadOrigin := ""
-	if o.PdfDownloadDomain != nil {
-		pdfDownloadOrigin = o.PdfDownloadDomain.Host
-	}
-	sentryOrigin := ""
-	if o.SentryDSN != nil {
-		sentryOrigin = o.SentryDSN.Host
-	}
+	siteOrigin := getOrigin(&o.SiteURL)
+	cdnOrigin := getOrigin(&o.CDNURL)
+	pdfDownloadOrigin := getOrigin(o.PdfDownloadDomain)
+	sentryOrigin := getOrigin(o.SentryDSN)
 
 	noJs := csp{
 		omitProtocol:     true,
 		reportURL:        o.ReportURL,
 		reportViolations: true,
-		siteURL:          o.SiteURL,
+		siteOrigin:       siteOrigin,
 
 		baseURI:    []string{siteOrigin},
 		connectSRC: []string{},
@@ -254,9 +262,9 @@ func Generate(o Options) CSPs {
 
 	learn := marketing
 	// Media files and Tutorial videos.
-	learn.frameSrc = append(learn.frameSrc, "www.youtube.com")
-	learn.imgSrc = append(learn.imgSrc, siteOrigin, "images.ctfassets.net", "wikimedia.org", "www.filepicker.io")
-	learn.mediaSrc = append(learn.mediaSrc, "videos.ctfassets.net")
+	learn.frameSrc = append(learn.frameSrc, "https://www.youtube.com")
+	learn.imgSrc = append(learn.imgSrc, siteOrigin, "https://images.ctfassets.net", "https://wikimedia.org", "https://www.filepicker.io")
+	learn.mediaSrc = append(learn.mediaSrc, "https://videos.ctfassets.net")
 	// Too many inline styles to put on an allow-list.
 	learn.styleSrc = append(learn.styleSrc, "'unsafe-inline'")
 
@@ -277,7 +285,7 @@ func Generate(o Options) CSPs {
 	}
 
 	api := csp{
-		siteURL:    o.SiteURL,
+		siteOrigin: siteOrigin,
 		trimPolicy: true,
 		imgSrc:     []string{siteOrigin, cdnOrigin},
 	}

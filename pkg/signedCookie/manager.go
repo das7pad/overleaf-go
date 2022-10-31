@@ -93,7 +93,7 @@ func (m *manager) Set(c *httpUtils.Context, s string) {
 		Path:     m.Path,
 		Domain:   m.Domain,
 		MaxAge:   expiry,
-		Secure:   true,
+		Secure:   m.Secure,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})

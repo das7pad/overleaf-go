@@ -122,6 +122,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	if err != nil {
 		return nil, err
 	}
+	options.SessionCookie.Secure = options.SiteURL.Scheme == "https"
 	sm := session.New(options.SessionCookie, client)
 	editorEvents := channel.NewWriter(client, "editor-events")
 	mm := message.New(db)
