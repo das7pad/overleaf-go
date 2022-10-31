@@ -17,15 +17,23 @@
 package postgresOptions
 
 import (
+	"net/url"
 	"strconv"
 
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func Parse() string {
 	poolSize := utils.GetIntFromEnv("POSTGRES_POOL_SIZE", 25)
-	return utils.GetStringFromEnv(
-		"POSTGRES_DSN",
-		"postgresql://postgres@localhost:5432/postgres?sslmode=disable",
-	) + "&pool_max_conns=" + strconv.FormatInt(int64(poolSize), 10)
+	u := sharedTypes.URL{}
+	u.Scheme = "postgresql"
+	u.User = url.User("postgres")
+	u.Host = utils.GetStringFromEnv("POSTGRES_HOST", "localhost:5432")
+	u.Path = "/postgres"
+	u.WithQuery(url.Values{
+		"sslmode":        {"disable"},
+		"pool_max_conns": {strconv.FormatInt(int64(poolSize), 10)},
+	})
+	return utils.GetStringFromEnv("POSTGRES_DSN", u.String())
 }
