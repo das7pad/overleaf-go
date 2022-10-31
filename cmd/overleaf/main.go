@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -53,8 +55,11 @@ func main() {
 
 	rClient := utils.MustConnectRedis(10 * time.Second)
 	db := utils.MustConnectPostgres(10 * time.Second)
-	addr := "127.0.0.1:3000"
+	addr := listenAddress.Parse(3000)
 	localUrl := "http://" + addr
+	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {
+		localUrl = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
+	}
 
 	clsiOptions := clsiTypes.Options{}
 	clsiOptions.FillFromEnv("CLSI_OPTIONS")
