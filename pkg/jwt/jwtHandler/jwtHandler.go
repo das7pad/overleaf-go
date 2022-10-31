@@ -37,6 +37,9 @@ type NewClaims func() expiringJWT.ExpiringJWT
 func New(options jwtOptions.JWTOptions, newClaims NewClaims) JWTHandler {
 	method := jwt.GetSigningMethod(options.Algorithm)
 	key := options.Key
+	if s, isString := key.(string); isString {
+		key = []byte(s)
+	}
 
 	p := jwt.NewParser(jwt.WithValidMethods([]string{method.Alg()}))
 	var keyFn jwt.Keyfunc = func(_ *jwt.Token) (interface{}, error) {

@@ -104,17 +104,17 @@ func main() {
 	}()
 	jwtOptionsRealTime := jwtOptions.JWTOptions{
 		Algorithm: "HS512",
-		Key:       []byte(genSecret(32)),
+		Key:       genSecret(32),
 		ExpiresIn: 30 * time.Second,
 	}
 	jwtOptionsLoggedInUser := jwtOptions.JWTOptions{
 		Algorithm: "HS512",
-		Key:       []byte(genSecret(32)),
+		Key:       genSecret(32),
 		ExpiresIn: 24 * time.Hour,
 	}
 	jwtOptionsProject := jwtOptions.JWTOptions{
 		Algorithm: "HS512",
-		Key:       []byte(genSecret(32)),
+		Key:       genSecret(32),
 		ExpiresIn: time.Hour,
 	}
 	linkedURLProxyToken := genSecret(32)
