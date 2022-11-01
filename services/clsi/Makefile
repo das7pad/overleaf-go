@@ -64,11 +64,14 @@ $(SERVICE):
 	touch -m -d 2021-01-01T00:00Z $@
 
 # Build the execAgent in ubuntu/debian. The texlive image will use debian.
-.PHONY: execAgent
-execAgent:
-	$(BUILD_IN) golang:1.19 sh -c \
-		'go build -ldflags="-s -w" -tags noDB ./cmd/execAgent'
-	touch -m -d 2021-01-01T00:00Z $@
+.PHONY: execAgent execAgent/docker execAgent/local
+execAgent: execAgent/docker
+execAgent/docker:
+	$(BUILD_IN) golang:1.19 make execAgent/local
+	touch -m -d 2021-01-01T00:00Z execAgent
+
+execAgent/local:
+	go build -ldflags="-s -w" -tags noDB ./cmd/execAgent
 
 docker/build/production: execAgent
 docker/build/production: $(SERVICE)

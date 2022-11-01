@@ -28,6 +28,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/email"
@@ -120,39 +121,38 @@ func main() {
 	linkedURLProxyToken := genSecret(32)
 
 	dockerSocketRootLess := fmt.Sprintf(
-		"unix:///run/user/%d/docker.sock", os.Getuid(),
+		"/run/user/%d/docker.sock", os.Getuid(),
 	)
-	dockerSocketRootful := "unix:///var/run/docker.sock"
-	dockerContainerUser := "tex"
+	dockerSocketRootful := "/var/run/docker.sock"
 	dockerSocket := dockerSocketRootful
-	dockerRootless := false
 	dockerRootlessAvailable := isSocket(dockerSocketRootLess)
 	if dockerRootlessAvailable {
-		dockerRootless = true
 		dockerSocket = dockerSocketRootLess
-		dockerContainerUser = "root"
 	}
 
+	dockerComposeSetup := true
+	flag.BoolVar(&dockerComposeSetup, "docker-compose-setup", dockerComposeSetup, "generate config for docker-compose setup (hostnames refer to services in docker-compose config)")
+
 	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
-	flag.StringVar(&dockerContainerUser, "texlive-container-user", dockerContainerUser, "user inside the docker container running texlive")
-	flag.BoolVar(&dockerRootless, "docker-rootless", dockerRootless, "run in rootless docker environment")
+	dockerContainerUser := "nobody"
+	flag.StringVar(&dockerContainerUser, "docker-container-user", dockerContainerUser, "user inside the docker containers running texlive and services/clsi or cmd/overleaf")
 
 	texLiveImages := "texlive/texlive:TL2021-historic"
 	flag.StringVar(&texLiveImages, "texlive-images", texLiveImages, "comma separated list of texlive docker images, first image is default image")
 
-	tmpDir := "/tmp/overleaf"
+	tmpDir := "/tmp/ol"
 	flag.StringVar(&tmpDir, "tmp-dir", tmpDir, "base dir for ephemeral files")
 
-	manifestPath := "cdn"
+	manifestPath := ""
 	flag.StringVar(&manifestPath, "frontend-manifest-path", manifestPath, "frontend manifest path, use 'cdn' for download at boot time")
 
-	siteURLRaw := ""
+	siteURLRaw := "http://127.0.0.1:8080"
 	flag.StringVar(&siteURLRaw, "site-url", siteURLRaw, "site url")
 
 	cdnURLRaw := ""
 	flag.StringVar(&cdnURLRaw, "cdn-url", cdnURLRaw, "cdn url")
 
-	linkedURLProxyChainRaw := "http://127.0.0.1:8080/proxy/" + linkedURLProxyToken
+	linkedURLProxyChainRaw := ""
 	flag.StringVar(&linkedURLProxyChainRaw, "linked-url-proxy-chain", linkedURLProxyChainRaw, "proxy chain (comma separated list, first item is first proxy hop)")
 
 	clsiURLRaw := "http://127.0.0.1:3013"
@@ -178,7 +178,7 @@ func main() {
 		Bucket:          "overleaf-files",
 		Provider:        "minio",
 		Endpoint:        "127.0.0.1:9000",
-		Region:          "",
+		Region:          "us-east-1",
 		Secure:          false,
 		Key:             genSecret(32),
 		Secret:          genSecret(32),
@@ -193,7 +193,9 @@ func main() {
 
 	flag.Parse()
 
-	handlePromptInput(&smtpPassword, "SMTP Password")
+	if smtpAddress != "log" {
+		handlePromptInput(&smtpPassword, "SMTP Password")
+	}
 	handlePromptInput(&filestoreOptions.Secret, "S3 secret key")
 
 	var siteURL sharedTypes.URL
@@ -205,6 +207,9 @@ func main() {
 		siteURL = *u
 	}
 
+	if cdnURLRaw == "" {
+		cdnURLRaw = siteURL.JoinPath("/assets/").String()
+	}
 	var cdnURL sharedTypes.URL
 	{
 		u, err := sharedTypes.ParseAndValidateURL(cdnURLRaw)
@@ -223,31 +228,58 @@ func main() {
 		clsiUrl = *u
 	}
 
+	if dockerComposeSetup && linkedURLProxyChainRaw == "" {
+		linkedURLProxyChainRaw = "http://linked-url-proxy:8080/proxy/" + linkedURLProxyToken
+	}
 	linkedURLProxyChain := make([]sharedTypes.URL, 0)
 	for i, s := range strings.Split(linkedURLProxyChainRaw, ",") {
 		u, err := sharedTypes.ParseAndValidateURL(strings.Trim(s, `"' `))
 		if err != nil {
-			panic(errors.Tag(err, fmt.Sprintf("item idx=%d", i)))
+			panic(errors.Tag(err, fmt.Sprintf("linked-url-proxy-chain idx=%d", i)))
 		}
 		linkedURLProxyChain = append(linkedURLProxyChain, *u)
 	}
 
-	if dockerRootless && !dockerRootlessAvailable {
-		_, _ = fmt.Fprintln(
-			os.Stderr,
-			"WARN: Could not detect rootless docker support, is it set up yet? (Is the socket mounted into the current container?) Falling back to rootful docker.",
-		)
-	}
 	var allowedImages []sharedTypes.ImageName
 	var allowedImageNames []templates.AllowedImageName
-	for _, s := range strings.Split(texLiveImages, ",") {
-		allowedImages = append(allowedImages, sharedTypes.ImageName(s))
+	for i, s := range strings.Split(texLiveImages, ",") {
+		imageName := sharedTypes.ImageName(s)
+		if err := imageName.Validate(); err != nil {
+			panic(errors.Tag(err, fmt.Sprintf("texlive-images idx=%d", i)))
+		}
+		allowedImages = append(allowedImages, imageName)
 		allowedImageNames = append(allowedImageNames, templates.AllowedImageName{
-			Name: sharedTypes.ImageName(s),
-			Desc: s,
+			Name: imageName,
+			Desc: imageName.Year(),
 		})
 	}
 	agentPathHost := path.Join(tmpDir, "exec-agent")
+
+	if manifestPath == "" {
+		manifestPath = path.Join(tmpDir, "assets/manifest.json")
+	}
+
+	if dockerComposeSetup && filestoreOptions.Endpoint == "127.0.0.1:9000" {
+		filestoreOptions.Endpoint = "minio:9000"
+	}
+
+	var dockerSocketGroup int
+	{
+		i := syscall.Stat_t{}
+		if err := syscall.Stat(dockerSocketRootful, &i); err != nil {
+			panic(errors.Tag(err, "detect docker group-id on docker socket"))
+		}
+		dockerSocketGroup = int(i.Gid)
+	}
+
+	fmt.Println("# docker")
+	fmt.Printf("BUCKET=%s\n", filestoreOptions.Bucket)
+	fmt.Printf("DOCKER_SOCKET=%s\n", dockerSocket)
+	fmt.Printf("DOCKER_SOCKET_GROUP=%d\n", dockerSocketGroup)
+	fmt.Printf("DOCKER_USER=%s\n", dockerContainerUser)
+	fmt.Printf("SITE_HOSTNAME=%s\n", siteURL.Hostname())
+	fmt.Printf("SITE_PORT=%s\n", siteURL.Port())
+	fmt.Printf("TMP_DIR=%s\n", tmpDir)
 
 	fmt.Println("# services/spelling or services/web or cmd/overleaf:")
 	fmt.Printf("PUBLIC_URL=%s\n", siteURL.String())
@@ -290,7 +322,7 @@ func main() {
 	}
 	fmt.Println("# services/clsi or cmd/overleaf:")
 	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(&clsiOptions, "clsi options"))
-	fmt.Printf("DOCKER_HOST=%s\n", dockerSocket)
+	fmt.Printf("DOCKER_HOST=unix://%s\n", dockerSocket)
 	fmt.Println()
 
 	documentUpdaterOptions := documentUpdaterTypes.Options{
@@ -337,8 +369,9 @@ func main() {
 	fmt.Printf("SPELLING_OPTIONS=%s\n", serialize(&spellingOptions, "spelling options"))
 	fmt.Println()
 
+	emailHost := siteURL.Hostname()
 	webOptions := webTypes.Options{
-		AdminEmail:        sharedTypes.Email("support@" + siteURL.Host),
+		AdminEmail:        sharedTypes.Email("support@" + emailHost),
 		AllowedImages:     allowedImages,
 		AllowedImageNames: allowedImageNames,
 		AppName:           "Overleaf Go",
@@ -357,10 +390,10 @@ func main() {
 			SMTPPassword     string            `json:"smtp_password"`
 		}{
 			From: email.Identity{
-				Address: sharedTypes.Email("no-reply@" + siteURL.Host),
+				Address: sharedTypes.Email("no-reply@" + emailHost),
 			},
 			FallbackReplyTo: email.Identity{
-				Address: sharedTypes.Email("support@" + siteURL.Host),
+				Address: sharedTypes.Email("support@" + emailHost),
 			},
 			SMTPAddress:  email.SMTPAddress(smtpAddress),
 			SMTPHello:    "localhost",
@@ -389,7 +422,7 @@ func main() {
 			ProjectId sharedTypes.UUID      `json:"projectId"`
 			UserId    sharedTypes.UUID      `json:"userId"`
 		}{
-			Email:     sharedTypes.Email("smoke-test@" + siteURL.Host),
+			Email:     sharedTypes.Email("smoke-test@" + emailHost),
 			Password:  webTypes.UserPassword(genSecret(72 / 2)),
 			ProjectId: sharedTypes.UUID{42},
 			UserId:    sharedTypes.UUID{13, 37},
@@ -461,7 +494,7 @@ func main() {
 			RealTime:     jwtOptionsRealTime,
 		},
 		SessionCookie: signedCookie.Options{
-			Domain:  siteURL.Host,
+			Domain:  siteURL.Hostname(),
 			Expiry:  7 * 24 * time.Hour,
 			Name:    sessionCookieName,
 			Path:    siteURL.Path,
@@ -487,7 +520,8 @@ func main() {
 	fmt.Printf("# Run minio on %s\n", filestoreOptions.Endpoint)
 	fmt.Printf("# Please ensure bucket %q exists and the below credentials have write access:\n", filestoreOptions.Bucket)
 	fmt.Printf("MINIO_ROOT_USER=%s\n", filestoreOptions.Key)
-	fmt.Printf("MINIO_ROOT_PASSWORD=%sn", filestoreOptions.Secret)
+	fmt.Printf("MINIO_ROOT_PASSWORD=%s\n", filestoreOptions.Secret)
+	fmt.Printf("MINIO_REGION=%s\n", filestoreOptions.Region)
 	fmt.Println()
 	fmt.Println()
 	fmt.Println("# s3 and minio: !! Strongly consider setting up a low privileged user instead of using root account credentials !!")

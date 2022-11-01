@@ -1,0 +1,192 @@
+networks:
+  internal:
+    internal: true
+  proxy:
+    internal: true
+  public:
+
+services:
+  postgres:
+    image: postgres:14
+    networks:
+      - internal
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - ~/overleaf-go/pg:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:5
+    networks:
+      - internal
+    volumes:
+      - ~/overleaf-go/redis:/data
+
+  minio:
+    image: minio/minio:RELEASE.2022-10-29T06-21-33Z
+    networks:
+      - internal
+    command: server /data
+    environment:
+      - MINIO_ROOT_PASSWORD
+      - MINIO_ROOT_USER
+      - MINIO_REGION
+    volumes:
+      - ~/overleaf-go/minio:/data
+
+  minio-setup:
+    depends_on:
+      minio:
+        condition: service_started
+    networks:
+      - internal
+    image: minio/mc:RELEASE.2022-10-29T10-09-23Z
+    entrypoint: sh
+    command:
+      - '-ec'
+      - >
+        sleep 2
+        && mc alias set minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+        && mc mb --ignore-existing minio/${BUCKET}
+      # TODO(das7pad): policy
+    environment:
+      - MINIO_REGION
+
+  assets:
+    build: https://github.com/das7pad/overleaf-node.git#rebase
+    network_mode: bridge
+    command:
+      - sh
+      - '-exc'
+      - 'make dist && tar -x -f output/public.tar.gz -C ${TMP_DIR}/assets'
+    volumes:
+      - ${TMP_DIR}/assets:${TMP_DIR}/assets
+
+  nginx:
+    image: nginx:1.22
+    depends_on:
+      overleaf:
+        condition: service_started
+      assets:
+        condition: service_completed_successfully
+    networks:
+      - internal
+      - public
+    ports:
+      - ${SITE_HOSTNAME}:${SITE_PORT}:${SITE_PORT}
+    entrypoint: /src/entrypoint.sh
+    environment:
+      - BACKEND=overleaf:${SITE_PORT}
+      - SITE_HOSTNAME
+      - SITE_PORT
+      - TMP_DIR
+    volumes:
+      - ./services/nginx:/src:ro
+      - ${TMP_DIR}/output:${TMP_DIR}/output:ro
+      - ${TMP_DIR}/assets:${TMP_DIR}/assets:ro
+
+  build-linked-url-proxy:
+    image: golang:1.19
+    network_mode: bridge
+    working_dir: /go/src/services/linked-url-proxy
+    command: go build -o ${TMP_DIR}/binaries/linked-url-proxy
+    volumes:
+      - ./:/go/src
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
+
+  linked-url-proxy:
+    image: debian:buster-slim
+    depends_on:
+      build-linked-url-proxy:
+        condition: service_completed_successfully
+    networks:
+      - proxy
+      - public
+    user: ${DOCKER_USER}
+    entrypoint: ${TMP_DIR}/binaries/linked-url-proxy
+    environment:
+      - LISTEN_ADDRESS=0.0.0.0
+      - PROXY_TOKEN
+    volumes:
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
+
+  build-execAgent:
+    image: golang:1.19
+    network_mode: bridge
+    working_dir: /go/src/services/clsi
+    command:
+      - sh
+      - '-exc'
+      - 'make execAgent/local && mv execAgent ${TMP_DIR}/binaries/execAgent'
+    volumes:
+      - ./:/go/src
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
+
+  build-overleaf:
+    image: golang:1.19
+    network_mode: bridge
+    working_dir: /go/src/cmd/overleaf
+    command: go build -o ${TMP_DIR}/binaries/overleaf
+    volumes:
+      - ./:/go/src
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
+
+  setup-data-dirs:
+    image: debian:buster-slim
+    network_mode: none
+    command:
+      - chown
+      - '${DOCKER_USER}:'
+      - ${TMP_DIR}
+    volumes:
+      - ${TMP_DIR}:${TMP_DIR}
+
+  overleaf:
+    build:
+      context: ./services/spelling
+      target: aspell-cache
+    depends_on:
+      assets:
+        condition: service_completed_successfully
+      build-overleaf:
+        condition: service_completed_successfully
+      build-execAgent:
+        condition: service_completed_successfully
+      linked-url-proxy:
+        condition: service_started
+      minio:
+        condition: service_started
+      minio-setup:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      setup-data-dirs:
+        condition: service_completed_successfully
+    networks:
+      - internal
+      - proxy
+    user: ${DOCKER_USER}
+    group_add:
+      - ${DOCKER_SOCKET_GROUP}
+    entrypoint: ${TMP_DIR}/binaries/overleaf
+    environment:
+      - CLSI_OPTIONS
+      - COPY_EXEC_AGENT_SRC=${TMP_DIR}/binaries/execAgent
+      - DOCKER_HOST
+      - DOCUMENT_UPDATER_OPTIONS
+      - LISTEN_ADDRESS=0.0.0.0
+      - PORT=${SITE_PORT}
+      - POSTGRES_HOST=postgres:5432
+      - PUBLIC_URL
+      - REAL_TIME_OPTIONS
+      - REDIS_HOST=redis:6379
+      - SPELLING_OPTIONS
+      - WEB_OPTIONS
+    volumes:
+      - ${DOCKER_SOCKET}:${DOCKER_SOCKET}
+      - ${TMP_DIR}:${TMP_DIR}
+      - ${TMP_DIR}/assets:${TMP_DIR}/assets:ro
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
