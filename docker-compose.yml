@@ -74,15 +74,14 @@ services:
       - internal
       - public
     ports:
-      - ${SITE_HOSTNAME}:${SITE_PORT}:${SITE_PORT}
-    entrypoint: /src/entrypoint.sh
+      - ${NGINX_PUBLIC_LISTEN_ADDRESS}:${NGINX_INTERNAL_PORT}
     environment:
-      - BACKEND=overleaf:${SITE_PORT}
-      - SITE_HOSTNAME
-      - SITE_PORT
+      - BACKEND=overleaf:3000
+      - NGINX_INTERNAL_PORT
       - TMP_DIR
     volumes:
-      - ./services/nginx:/src:ro
+      - ./services/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./services/nginx/entrypoint.sh:/docker-entrypoint.d/99-overleaf.sh:ro
       - ${TMP_DIR}/output:${TMP_DIR}/output:ro
       - ${TMP_DIR}/assets:${TMP_DIR}/assets:ro
 
@@ -178,7 +177,7 @@ services:
       - DOCKER_HOST
       - DOCUMENT_UPDATER_OPTIONS
       - LISTEN_ADDRESS=0.0.0.0
-      - PORT=${SITE_PORT}
+      - PORT=3000
       - POSTGRES_HOST=postgres:5432
       - PUBLIC_URL
       - REAL_TIME_OPTIONS

@@ -19,12 +19,3 @@
 sed -i \
   "s/worker_connections  1024/worker_connections 20000/" \
   /etc/nginx/nginx.conf
-
-cat /src/overleaf.conf \
-  | sed "s/\$BACKEND/$BACKEND/g" \
-  | sed "s/\$SITE_HOSTNAME/$SITE_HOSTNAME/g" \
-  | sed "s/\$SITE_PORT/$SITE_PORT/g" \
-  | sed "s!\$TMP_DIR!$TMP_DIR!g" \
-  > /etc/nginx/conf.d/default.conf
-
-exec "$@"

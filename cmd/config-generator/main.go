@@ -133,6 +133,11 @@ func main() {
 	dockerComposeSetup := true
 	flag.BoolVar(&dockerComposeSetup, "docker-compose-setup", dockerComposeSetup, "generate config for docker-compose setup (hostnames refer to services in docker-compose config)")
 
+	nginxPublicListenAddress := "127.0.0.1:8080"
+	flag.StringVar(&nginxPublicListenAddress, "nginx-external-listen-address", nginxPublicListenAddress, "docker-compose only: public bind address for nginx plain HTTP server")
+	nginxInternalPort := "8080"
+	flag.StringVar(&nginxInternalPort, "nginx-internal-port", nginxInternalPort, "docker-compose only: container internal port for nginx plain HTTP server")
+
 	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
 	dockerContainerUser := "nobody"
 	flag.StringVar(&dockerContainerUser, "docker-container-user", dockerContainerUser, "user inside the docker containers running texlive and services/clsi or cmd/overleaf")
@@ -146,7 +151,7 @@ func main() {
 	manifestPath := ""
 	flag.StringVar(&manifestPath, "frontend-manifest-path", manifestPath, "frontend manifest path, use 'cdn' for download at boot time")
 
-	siteURLRaw := "http://127.0.0.1:8080"
+	siteURLRaw := "http://localhost:8080"
 	flag.StringVar(&siteURLRaw, "site-url", siteURLRaw, "site url")
 
 	cdnURLRaw := ""
@@ -277,8 +282,8 @@ func main() {
 	fmt.Printf("DOCKER_SOCKET=%s\n", dockerSocket)
 	fmt.Printf("DOCKER_SOCKET_GROUP=%d\n", dockerSocketGroup)
 	fmt.Printf("DOCKER_USER=%s\n", dockerContainerUser)
-	fmt.Printf("SITE_HOSTNAME=%s\n", siteURL.Hostname())
-	fmt.Printf("SITE_PORT=%s\n", siteURL.Port())
+	fmt.Printf("NGINX_PUBLIC_LISTEN_ADDRESS=%s\n", nginxPublicListenAddress)
+	fmt.Printf("NGINX_INTERNAL_PORT=%s\n", nginxInternalPort)
 	fmt.Printf("TMP_DIR=%s\n", tmpDir)
 
 	fmt.Println("# services/spelling or services/web or cmd/overleaf:")
