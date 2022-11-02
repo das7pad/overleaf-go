@@ -236,6 +236,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				fileRef := e.ref
 				mErr := &errors.MergedError{}
 				for j := 0; j < retryUploads; j++ {
+					if err := uploadCtx.Err(); err != nil {
+						mErr.Add(err)
+						break
+					}
 					if e.reader == nil {
 						err := m.fm.CopyProjectFile(
 							uploadCtx,
