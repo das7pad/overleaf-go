@@ -241,6 +241,7 @@ func (o *Options) Validate() error {
 
 func (o *Options) AssetsOptions() assets.Options {
 	return assets.Options{
+		SiteURL:       o.SiteURL,
 		CDNURL:        o.CDNURL,
 		ManifestPath:  o.ManifestPath,
 		WatchManifest: o.WatchManifest,

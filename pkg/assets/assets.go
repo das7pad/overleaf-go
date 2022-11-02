@@ -51,22 +51,29 @@ type ResourceHintsManager interface {
 
 type Options struct {
 	CDNURL        sharedTypes.URL
+	SiteURL       sharedTypes.URL
 	ManifestPath  string
 	WatchManifest bool
 }
 
 func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
+	baseURL := options.CDNURL
+	if options.SiteURL.Host == options.CDNURL.Host {
+		baseURL.Scheme = ""
+		baseURL.Host = ""
+		baseURL.OmitHost = true
+	}
 	m := &manager{
-		cdnURL:           options.CDNURL,
+		baseURL:          baseURL,
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
 	}
-	if err := m.load(proxy, options.ManifestPath); err != nil {
+	if err := m.load(proxy, options.ManifestPath, options.CDNURL); err != nil {
 		return nil, err
 	}
 	if options.WatchManifest {
 		wm := &watchingManager{manager: m}
-		go wm.watch()
+		go wm.watch(options.CDNURL)
 		return wm, nil
 	}
 	return m, nil
@@ -76,7 +83,7 @@ type manager struct {
 	assets           map[string]template.URL
 	entrypointChunks map[string][]template.URL
 	hints            resourceHints
-	cdnURL           sharedTypes.URL
+	baseURL          sharedTypes.URL
 }
 
 type manifest struct {
@@ -84,12 +91,12 @@ type manifest struct {
 	EntrypointChunks map[string][]string `json:"entrypointChunks"`
 }
 
-func (m *manager) load(proxy proxyClient.Manager, manifestPath string) error {
+func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) error {
 	var f io.ReadCloser
 	if manifestPath == "cdn" {
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
-		u := m.cdnURL.WithPath("/manifest.json")
+		u := cdnURL.WithPath("/manifest.json")
 		body, cleanup, err := proxy.Fetch(ctx, u)
 		if err != nil {
 			return errors.Tag(err, "request manifest from CDN")
@@ -175,5 +182,5 @@ func (m *manager) ResourceHintsEditorLight() string {
 }
 
 func (m *manager) StaticPath(path string) template.URL {
-	return template.URL(m.cdnURL.WithPath(path).String())
+	return template.URL(m.baseURL.WithPath(path).String())
 }

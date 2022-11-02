@@ -24,6 +24,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 // watchingManager is safe for concurrent rendering and watching.
@@ -36,9 +38,9 @@ type watchingManager struct {
 	*manager
 }
 
-func (wm *watchingManager) watch() {
+func (wm *watchingManager) watch(cdnURL sharedTypes.URL) {
 	log.Println("assets: watch: waiting for rebuilds")
-	u := wm.cdnURL.
+	u := cdnURL.
 		WithPath("/event-source").
 		WithQuery(url.Values{"manifest": {"true"}}).
 		String()
