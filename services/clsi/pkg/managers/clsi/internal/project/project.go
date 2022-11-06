@@ -101,10 +101,7 @@ func newProject(
 		projectId: projectId,
 
 		state:                 initialState,
-		stateMux:              sync.RWMutex{},
 		runnerSetupValidUntil: time.Now(),
-		runnerSetupMux:        sync.RWMutex{},
-		compileMux:            sync.Mutex{},
 
 		managers: m,
 	}, nil
@@ -116,15 +113,15 @@ type project struct {
 	namespace  types.Namespace
 	projectId  sharedTypes.UUID
 
-	state    types.SyncState
 	stateMux sync.RWMutex
+	state    types.SyncState
 
-	runnerSetupValidUntil time.Time
 	runnerSetupMux        sync.RWMutex
+	runnerSetupValidUntil time.Time
 	pendingRunnerSetup    pendingOperation.WithCancel
 
-	compileMux     sync.Mutex
-	pendingCompile pendingOperation.WithCancel
+	abortPendingCompileMux sync.Mutex
+	abortPendingCompile    context.CancelFunc
 
 	*managers
 }
@@ -164,34 +161,24 @@ func (p *project) Compile(ctx context.Context, request *types.CompileRequest, re
 	if err := p.checkSyncState(options.SyncType, options.SyncState); err != nil {
 		return err
 	}
-	pending, err := p.triggerCompile(ctx, request, response)
-	if err != nil {
-		return err
-	}
-	return pending.Wait(ctx)
-}
 
-func (p *project) triggerCompile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) (pendingOperation.WithCancel, error) {
-	p.compileMux.Lock()
-	defer p.compileMux.Unlock()
-	pending := p.pendingCompile
-	if pending != nil {
-		return nil, &errors.AlreadyCompilingError{}
-	}
+	ctx, done := context.WithCancel(ctx)
+	defer done()
 
-	pending = pendingOperation.TrackOperationWithCancel(
-		ctx,
-		func(compileCtx context.Context) error {
-			err := p.doCompile(compileCtx, request, response)
-			p.compileMux.Lock()
-			defer p.compileMux.Unlock()
-			if p.pendingCompile == pending {
-				p.pendingCompile = nil
-			}
-			return err
-		},
-	)
-	return pending, nil
+	p.abortPendingCompileMux.Lock()
+	if p.abortPendingCompile != nil {
+		p.abortPendingCompileMux.Unlock()
+		return &errors.AlreadyCompilingError{}
+	}
+	p.abortPendingCompile = done
+	p.abortPendingCompileMux.Unlock()
+
+	err := p.doCompile(ctx, request, response)
+
+	p.abortPendingCompileMux.Lock()
+	defer p.abortPendingCompileMux.Unlock()
+	p.abortPendingCompile = nil
+	return err
 }
 
 func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error {
@@ -332,11 +319,11 @@ func (p *project) checkSyncState(syncType types.SyncType, state types.SyncState)
 }
 
 func (p *project) doCleanup() error {
-	p.compileMux.Lock()
-	if compile := p.pendingCompile; compile != nil {
-		compile.Cancel()
+	p.abortPendingCompileMux.Lock()
+	if abort := p.abortPendingCompile; abort != nil {
+		abort()
 	}
-	p.compileMux.Unlock()
+	p.abortPendingCompileMux.Unlock()
 
 	p.runnerSetupMux.RLock()
 	if setup := p.pendingRunnerSetup; setup != nil {
