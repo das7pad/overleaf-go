@@ -52,12 +52,6 @@ type Manager interface {
 
 	StartInBackground(ctx context.Context, projectId, userId sharedTypes.UUID, request *types.StartInBackgroundRequest) error
 
-	StopCompile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-	) error
-
 	SyncFromCode(
 		ctx context.Context,
 		projectId sharedTypes.UUID,
@@ -300,14 +294,6 @@ func (m *manager) StartInBackground(ctx context.Context, projectId, userId share
 			return nil
 		},
 	)
-}
-
-func (m *manager) StopCompile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
-	p, err := m.pm.GetProject(ctx, projectId, userId)
-	if err != nil {
-		return err
-	}
-	return p.StopCompile(ctx)
 }
 
 func (m *manager) SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {

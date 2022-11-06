@@ -45,12 +45,6 @@ type ClsiManager interface {
 
 	StartInBackground(ctx context.Context, projectId, userId sharedTypes.UUID, request *clsiTypes.StartInBackgroundRequest) error
 
-	StopCompile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-	) error
-
 	SyncFromCode(
 		ctx context.Context,
 		projectId sharedTypes.UUID,

@@ -49,8 +49,6 @@ type Project interface {
 
 	StartInBackground(imageName sharedTypes.ImageName)
 
-	StopCompile(ctx context.Context) error
-
 	SyncFromCode(
 		ctx context.Context,
 		request *types.SyncFromCodeRequest,
@@ -238,19 +236,6 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 		return err
 	}
 	response.OutputFiles = outputFiles
-	return nil
-}
-
-func (p *project) StopCompile(ctx context.Context) error {
-	p.compileMux.Lock()
-	defer p.compileMux.Unlock()
-
-	pending := p.pendingCompile
-	if pending == nil {
-		return nil
-	}
-	pending.Cancel()
-	_ = pending.Wait(ctx)
 	return nil
 }
 

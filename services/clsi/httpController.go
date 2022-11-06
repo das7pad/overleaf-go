@@ -44,7 +44,6 @@ func (h *httpController) GetRouter() *httpUtils.Router {
 	userRouter.Use(httpUtils.ValidateAndSetIdZeroOK("userId"))
 
 	userRouter.POST("/compile", h.compile)
-	userRouter.POST("/compile/stop", h.stopCompile)
 	userRouter.DELETE("", h.clearCache)
 	userRouter.POST("/sync/code", h.syncFromCode)
 	userRouter.POST("/sync/pdf", h.syncFromPDF)
@@ -84,15 +83,6 @@ func (h *httpController) compile(c *httpUtils.Context) {
 	}
 	body := &compileResponseBody{Response: &response}
 	httpUtils.Respond(c, http.StatusOK, body, err)
-}
-
-func (h *httpController) stopCompile(c *httpUtils.Context) {
-	err := h.cm.StopCompile(
-		c,
-		httpUtils.GetId(c, "projectId"),
-		httpUtils.GetId(c, "userId"),
-	)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) clearCache(c *httpUtils.Context) {
