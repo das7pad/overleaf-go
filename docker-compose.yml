@@ -54,7 +54,7 @@ services:
       - MINIO_REGION
 
   assets:
-    build: https://github.com/das7pad/overleaf-node.git#rebase
+    build: https://github.com/das7pad/overleaf-node.git#main
     network_mode: bridge
     command:
       - sh
