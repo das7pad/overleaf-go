@@ -124,6 +124,10 @@ func main() {
 		"/run/user/%d/docker.sock", os.Getuid(),
 	)
 	dockerSocketRootful := "/var/run/docker.sock"
+	dockerSocketRootfulMac := "/var/run/docker.sock.raw"
+	if isSocket(dockerSocketRootfulMac) {
+		dockerSocketRootful = dockerSocketRootfulMac
+	}
 	dockerSocket := dockerSocketRootful
 	dockerRootlessAvailable := isSocket(dockerSocketRootLess)
 	if dockerRootlessAvailable {
