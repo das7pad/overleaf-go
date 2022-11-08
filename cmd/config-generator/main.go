@@ -278,7 +278,6 @@ func main() {
 	}
 
 	fmt.Println("# docker")
-	fmt.Printf("BUCKET=%s\n", filestoreOptions.Bucket)
 	fmt.Printf("DOCKER_SOCKET=%s\n", dockerSocket)
 	fmt.Printf("DOCKER_SOCKET_GROUP=%d\n", dockerSocketGroup)
 	fmt.Printf("DOCKER_USER=%s\n", dockerContainerUser)
@@ -517,20 +516,23 @@ func main() {
 	fmt.Println()
 
 	fmt.Println("# s3:")
-	fmt.Printf("# Please ensure bucket %q exists and the below credentials have write access:\n", filestoreOptions.Bucket)
+	fmt.Printf("BUCKET=%s\n", filestoreOptions.Bucket)
 	fmt.Printf("ACCESS_KEY=%s\n", filestoreOptions.Key)
 	fmt.Printf("SECRET_KEY=%s\n", filestoreOptions.Secret)
 	fmt.Println()
+	minioRootUser := genSecret(32)
+	minioRootPassword := genSecret(32)
 	fmt.Println("# s3 alternative 'minio':")
-	fmt.Printf("# Run minio on %s\n", filestoreOptions.Endpoint)
-	fmt.Printf("# Please ensure bucket %q exists and the below credentials have write access:\n", filestoreOptions.Bucket)
-	fmt.Printf("MINIO_ROOT_USER=%s\n", filestoreOptions.Key)
-	fmt.Printf("MINIO_ROOT_PASSWORD=%s\n", filestoreOptions.Secret)
+	fmt.Printf("# Run minio on MINIO_ENDPOINT\n")
+	fmt.Printf("MINIO_ENDPOINT=%s\n", filestoreOptions.Endpoint)
+	fmt.Printf("MINIO_SECURE=%t\n", filestoreOptions.Secure)
+	fmt.Printf("MINIO_ROOT_USER=%s\n", minioRootUser)
+	fmt.Printf("MINIO_ROOT_PASSWORD=%s\n", minioRootPassword)
 	fmt.Printf("MINIO_REGION=%s\n", filestoreOptions.Region)
 	fmt.Println()
-	fmt.Println()
-	fmt.Println("# s3 and minio: !! Strongly consider setting up a low privileged user instead of using root account credentials !!")
-	fmt.Println("# Minimal policy for listing the bucket and read/write/delete access:")
+	fmt.Println("# s3 and minio:")
+	fmt.Println("# Setup an privileged user using the ACCESS_KEY/SECRET_KEY and restrict access with a policy.")
+	fmt.Println("# Below is a minimal policy that allows delete/listing/read/write access:")
 	policy := fmt.Sprintf(`
 {
   "Version": "2012-10-17",
@@ -554,6 +556,6 @@ func main() {
   ]
 }
 `, filestoreOptions.Bucket, filestoreOptions.Bucket)
-	fmt.Printf("# %s", regexp.MustCompile(`\s+`).ReplaceAllString(policy, ""))
+	fmt.Printf("S3_POLICY=%s", regexp.MustCompile(`\s+`).ReplaceAllString(policy, ""))
 	fmt.Println()
 }

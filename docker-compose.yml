@@ -43,15 +43,19 @@ services:
       - internal
     image: minio/mc:RELEASE.2022-10-29T10-09-23Z
     entrypoint: sh
-    command:
-      - '-ec'
-      - >
-        sleep 2
-        && mc alias set minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
-        && mc mb --ignore-existing minio/${BUCKET}
-      # TODO(das7pad): policy
+    command: /minio_setup.sh
     environment:
+      - ACCESS_KEY
+      - BUCKET
+      - MINIO_ENDPOINT
       - MINIO_REGION
+      - MINIO_ROOT_USER
+      - MINIO_ROOT_PASSWORD
+      - MINIO_SECURE
+      - S3_POLICY
+      - SECRET_KEY
+    volumes:
+      - ./bin/minio_setup.sh:/minio_setup.sh:ro
 
   assets:
     build: https://github.com/das7pad/overleaf-node.git#main
