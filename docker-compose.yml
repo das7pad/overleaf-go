@@ -173,7 +173,7 @@ services:
       - proxy
     user: ${DOCKER_USER}
     group_add:
-      - ${DOCKER_SOCKET_GROUP}
+      - ${DOCKER_SOCKET_GROUP_ID}
     entrypoint: ${TMP_DIR}/binaries/overleaf
     environment:
       - CLSI_OPTIONS

@@ -143,6 +143,8 @@ func main() {
 	flag.StringVar(&nginxInternalPort, "nginx-internal-port", nginxInternalPort, "docker-compose only: container internal port for nginx plain HTTP server")
 
 	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
+	dockerSocketGroupId := -1
+	flag.IntVar(&dockerSocketGroupId, "docker-socket-group-id", dockerSocketGroupId, "docker socket group-id (default: auto-detect from socket)")
 	dockerContainerUser := "nobody"
 	flag.StringVar(&dockerContainerUser, "docker-container-user", dockerContainerUser, "user inside the docker containers running texlive and services/clsi or cmd/overleaf")
 
@@ -189,16 +191,16 @@ func main() {
 		Endpoint:        "127.0.0.1:9000",
 		Region:          "us-east-1",
 		Secure:          false,
-		Key:             genSecret(32),
-		Secret:          genSecret(32),
+		Key:             "",
+		Secret:          "",
 		SignedURLExpiry: 15 * time.Minute,
 	}
 	flag.StringVar(&filestoreOptions.Bucket, "filestore-bucket", filestoreOptions.Bucket, "bucket for binary files")
 	flag.StringVar(&filestoreOptions.Endpoint, "s3-endpoint", filestoreOptions.Endpoint, "endpoint of s3 compatible storage backend (e.g. minio)")
 	flag.BoolVar(&filestoreOptions.Secure, "s3-https", filestoreOptions.Secure, "toggle to use https on s3-endpoint")
 	flag.StringVar(&filestoreOptions.Region, "s3-region", filestoreOptions.Region, "region of s3 bucket")
-	flag.StringVar(&filestoreOptions.Key, "s3-key", filestoreOptions.Key, "s3 access key")
-	flag.StringVar(&filestoreOptions.Secret, "s3-secret", filestoreOptions.Secret, "s3 secret key, use '-' for prompt")
+	flag.StringVar(&filestoreOptions.Key, "s3-key", filestoreOptions.Key, "s3 access key (default: generate)")
+	flag.StringVar(&filestoreOptions.Secret, "s3-secret", filestoreOptions.Secret, "s3 secret key, use '-' for prompt (default: generate)")
 
 	flag.Parse()
 
@@ -206,6 +208,13 @@ func main() {
 		handlePromptInput(&smtpPassword, "SMTP Password")
 	}
 	handlePromptInput(&filestoreOptions.Secret, "S3 secret key")
+
+	if filestoreOptions.Key == "" {
+		filestoreOptions.Key = genSecret(32)
+	}
+	if filestoreOptions.Secret == "" {
+		filestoreOptions.Secret = genSecret(32)
+	}
 
 	var siteURL sharedTypes.URL
 	{
@@ -272,18 +281,17 @@ func main() {
 		filestoreOptions.Endpoint = "minio:9000"
 	}
 
-	var dockerSocketGroup int
-	{
+	if dockerSocketGroupId == -1 {
 		i := syscall.Stat_t{}
 		if err := syscall.Stat(dockerSocketRootful, &i); err != nil {
 			panic(errors.Tag(err, "detect docker group-id on docker socket"))
 		}
-		dockerSocketGroup = int(i.Gid)
+		dockerSocketGroupId = int(i.Gid)
 	}
 
 	fmt.Println("# docker")
 	fmt.Printf("DOCKER_SOCKET=%s\n", dockerSocket)
-	fmt.Printf("DOCKER_SOCKET_GROUP=%d\n", dockerSocketGroup)
+	fmt.Printf("DOCKER_SOCKET_GROUP_ID=%d\n", dockerSocketGroupId)
 	fmt.Printf("DOCKER_USER=%s\n", dockerContainerUser)
 	fmt.Printf("NGINX_PUBLIC_LISTEN_ADDRESS=%s\n", nginxPublicListenAddress)
 	fmt.Printf("NGINX_INTERNAL_PORT=%s\n", nginxInternalPort)
