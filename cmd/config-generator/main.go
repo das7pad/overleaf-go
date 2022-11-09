@@ -26,7 +26,6 @@ import (
 	"html/template"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -45,54 +44,6 @@ import (
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
-
-func genSecret(n int) string {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(errors.Tag(err, "generate secret"))
-	}
-	return hex.EncodeToString(b)
-}
-
-func handlePromptInput(dst *string, label string) {
-	if *dst != "-" {
-		return
-	}
-	_, _ = fmt.Fprintf(
-		os.Stderr,
-		"Please type the %s and confirm with ENTER: ",
-		label,
-	)
-	s := bufio.NewScanner(os.Stdin)
-	if !s.Scan() {
-		fmt.Println()
-		panic(errors.Tag(s.Err(), "read "+label))
-	}
-	*dst = s.Text()
-	fmt.Println()
-}
-
-func serialize(d interface{ Validate() error }, label string) string {
-	if err := d.Validate(); err != nil {
-		panic(errors.Tag(err, "validate "+label))
-	}
-	blob, err := json.Marshal(d)
-	if err != nil {
-		panic(errors.Tag(err, "serialize "+label))
-	}
-	return string(blob)
-}
-
-func isSocket(p string) bool {
-	p = strings.TrimPrefix(p, "unix://")
-	if s, err := os.Stat(p); err != nil {
-		return false
-	} else if s.Mode()&os.ModeSocket == 0 {
-		return false
-	}
-	return true
-}
 
 func main() {
 	defer func() {
@@ -216,34 +167,16 @@ func main() {
 		filestoreOptions.Secret = genSecret(32)
 	}
 
-	var siteURL sharedTypes.URL
-	{
-		u, err := sharedTypes.ParseAndValidateURL(siteURLRaw)
-		if err != nil {
-			panic(errors.Tag(err, "site-url"))
-		}
-		siteURL = *u
-	}
+	siteURL := mustParseURL("site-url", siteURLRaw)
 
 	if cdnURLRaw == "" {
 		cdnURLRaw = siteURL.JoinPath("/assets/").String()
 	}
-	var cdnURL sharedTypes.URL
-	{
-		u, err := sharedTypes.ParseAndValidateURL(cdnURLRaw)
-		if err != nil {
-			panic(errors.Tag(err, "cdn-url"))
-		}
-		cdnURL = *u
-	}
+	cdnURL := mustParseURL("cdn-url", cdnURLRaw)
 
 	var clsiUrl sharedTypes.URL
 	if clsiURLRaw != "" {
-		u, err := sharedTypes.ParseAndValidateURL(clsiURLRaw)
-		if err != nil {
-			panic(errors.Tag(err, "clsi-url"))
-		}
-		clsiUrl = *u
+		clsiUrl = mustParseURL("clsi-url", clsiURLRaw)
 	}
 
 	if dockerComposeSetup && linkedURLProxyChainRaw == "" {
@@ -251,11 +184,9 @@ func main() {
 	}
 	linkedURLProxyChain := make([]sharedTypes.URL, 0)
 	for i, s := range strings.Split(linkedURLProxyChainRaw, ",") {
-		u, err := sharedTypes.ParseAndValidateURL(strings.Trim(s, `"' `))
-		if err != nil {
-			panic(errors.Tag(err, fmt.Sprintf("linked-url-proxy-chain idx=%d", i)))
-		}
-		linkedURLProxyChain = append(linkedURLProxyChain, *u)
+		s = strings.Trim(s, `"' `)
+		u := mustParseURL(fmt.Sprintf("linked-url-proxy-chain idx=%d", i), s)
+		linkedURLProxyChain = append(linkedURLProxyChain, u)
 	}
 
 	var allowedImages []sharedTypes.ImageName
@@ -282,11 +213,11 @@ func main() {
 	}
 
 	if dockerSocketGroupId == -1 {
-		i := syscall.Stat_t{}
-		if err := syscall.Stat(dockerSocketRootful, &i); err != nil {
+		s := syscall.Stat_t{}
+		if err := syscall.Stat(dockerSocketRootful, &s); err != nil {
 			panic(errors.Tag(err, "detect docker group-id on docker socket"))
 		}
-		dockerSocketGroupId = int(i.Gid)
+		dockerSocketGroupId = int(s.Gid)
 	}
 
 	fmt.Println("# docker")
@@ -342,7 +273,7 @@ func main() {
 	fmt.Println()
 
 	documentUpdaterOptions := documentUpdaterTypes.Options{
-		Workers:                      10,
+		Workers:                      20,
 		PendingUpdatesListShardCount: 1,
 	}
 	fmt.Println("# services/document-updater or cmd/overleaf:")
@@ -568,6 +499,62 @@ func main() {
   ]
 }
 `, filestoreOptions.Bucket, filestoreOptions.Bucket)
-	fmt.Printf("S3_POLICY=%s", regexp.MustCompile(`\s+`).ReplaceAllString(policy, ""))
+	fmt.Printf("S3_POLICY=%s", strings.Join(strings.Fields(policy), ""))
 	fmt.Println()
+}
+
+func genSecret(n int) string {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(errors.Tag(err, "generate secret"))
+	}
+	return hex.EncodeToString(b)
+}
+
+func handlePromptInput(dst *string, label string) {
+	if *dst != "-" {
+		return
+	}
+	_, _ = fmt.Fprintf(
+		os.Stderr,
+		"Please type the %s and confirm with ENTER: ",
+		label,
+	)
+	s := bufio.NewScanner(os.Stdin)
+	if !s.Scan() {
+		fmt.Println()
+		panic(errors.Tag(s.Err(), "read "+label))
+	}
+	*dst = s.Text()
+	fmt.Println()
+}
+
+func isSocket(p string) bool {
+	p = strings.TrimPrefix(p, "unix://")
+	if s, err := os.Stat(p); err != nil {
+		return false
+	} else if s.Mode()&os.ModeSocket == 0 {
+		return false
+	}
+	return true
+}
+
+func mustParseURL(label, s string) sharedTypes.URL {
+	u, err := sharedTypes.ParseAndValidateURL(s)
+	if err != nil {
+		panic(errors.Tag(err, label))
+	}
+	return *u
+}
+
+func serialize(d interface{ Validate() error }, label string) string {
+	if err := d.Validate(); err != nil {
+		panic(errors.Tag(err, "validate "+label))
+	}
+	blob, err := json.Marshal(d)
+	if err != nil {
+		panic(errors.Tag(err, "serialize "+label))
+	}
+	return string(blob)
 }
