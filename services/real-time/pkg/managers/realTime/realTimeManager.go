@@ -28,9 +28,9 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/webApi"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -47,12 +47,12 @@ type Manager interface {
 	Disconnect(client *types.Client) error
 }
 
-func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client redis.UniversalClient) (Manager, error) {
+func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	a := appliedOps.New(options, client)
+	a := appliedOps.New(client, dum)
 	if err := a.StartListening(ctx); err != nil {
 		return nil, err
 	}
@@ -62,15 +62,11 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 	w := webApi.New(db)
-	d, err := documentUpdater.New(options, db, client)
-	if err != nil {
-		return nil, err
-	}
 	return &manager{
 		appliedOps:              a,
 		clientTracking:          ct,
 		editorEvents:            e,
-		documentUpdater:         d,
+		documentUpdater:         dum,
 		webApi:                  w,
 		gracefulShutdownDelay:   options.GracefulShutdown.Delay,
 		gracefulShutdownTimeout: options.GracefulShutdown.Timeout,

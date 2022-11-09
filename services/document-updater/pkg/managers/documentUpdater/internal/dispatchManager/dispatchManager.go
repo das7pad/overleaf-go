@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 
 type Manager interface {
 	ProcessDocumentUpdates(ctx context.Context)
+	GetPendingUpdatesListKey() types.PendingUpdatesListKey
 }
 
 const (
@@ -54,6 +56,11 @@ type manager struct {
 	dm                           docManager.Manager
 	pendingUpdatesListShardCount int
 	workersPerShard              int
+}
+
+func (m *manager) GetPendingUpdatesListKey() types.PendingUpdatesListKey {
+	shard := rand.Intn(m.pendingUpdatesListShardCount)
+	return types.PendingUpdatesListKey(shard)
 }
 
 func (m *manager) ProcessDocumentUpdates(ctx context.Context) {

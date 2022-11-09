@@ -30,7 +30,7 @@ import (
 )
 
 type Manager interface {
-	ProcessDocumentUpdates(ctx context.Context)
+	dispatchManager.Manager
 	CheckDocExists(
 		ctx context.Context,
 		projectId sharedTypes.UUID,
@@ -65,13 +65,11 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient)
 	}, nil
 }
 
-type manager struct {
-	dispatcher dispatchManager.Manager
-	dm         docManager.Manager
-}
+type dispatcher dispatchManager.Manager
 
-func (m *manager) ProcessDocumentUpdates(ctx context.Context) {
-	m.dispatcher.ProcessDocumentUpdates(ctx)
+type manager struct {
+	dispatcher
+	dm docManager.Manager
 }
 
 func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, updates types.RenameDocUpdates) error {

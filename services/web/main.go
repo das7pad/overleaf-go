@@ -32,6 +32,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/router"
 	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -54,9 +56,16 @@ func main() {
 		localUrl = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
 	}
 
+	dumOptions := documentUpdaterTypes.Options{}
+	dumOptions.FillFromEnv("DOCUMENT_UPDATER_OPTIONS")
+	dum, err := documentUpdater.New(&dumOptions, db, rClient)
+	if err != nil {
+		panic(errors.Tag(err, "document-updater setup"))
+	}
+
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv("WEB_OPTIONS")
-	webManager, err := web.New(&webOptions, db, rClient, localUrl, nil)
+	webManager, err := web.New(&webOptions, db, rClient, localUrl, dum, nil)
 	if err != nil {
 		panic(errors.Tag(err, "web setup"))
 	}

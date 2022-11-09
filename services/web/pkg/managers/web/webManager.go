@@ -101,7 +101,7 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, localURL string, clsiBundle compile.ClsiManager) (Manager, error) {
+func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, localURL string, dum documentUpdater.Manager, clsiBundle compile.ClsiManager) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, errors.Tag(err, "invalid options")
 	}
@@ -126,13 +126,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	sm := session.New(options.SessionCookie, client)
 	editorEvents := channel.NewWriter(client, "editor-events")
 	mm := message.New(db)
-	dum, err := documentUpdater.New(
-		options.APIs.DocumentUpdater.Options, db, client,
-	)
-	if err != nil {
-		return nil, err
-	}
-	fm, err := filestore.New(options.APIs.Filestore.Options)
+	fm, err := filestore.New(options.APIs.Filestore)
 	if err != nil {
 		return nil, err
 	}

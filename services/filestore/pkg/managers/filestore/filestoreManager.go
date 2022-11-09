@@ -23,7 +23,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
 type Manager interface {
@@ -35,12 +34,12 @@ type Manager interface {
 	SendStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID, reader io.Reader, size int64) error
 }
 
-func New(options *types.Options) (Manager, error) {
+func New(options objectStorage.Options) (Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	b, err := objectStorage.FromOptions(options.BackendOptions)
+	b, err := objectStorage.FromOptions(options)
 	if err != nil {
 		return nil, err
 	}

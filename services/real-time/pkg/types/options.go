@@ -22,7 +22,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 type Options struct {
@@ -30,12 +29,6 @@ type Options struct {
 		Delay   time.Duration `json:"delay"`
 		Timeout time.Duration `json:"timeout"`
 	} `json:"graceful_shutdown"`
-
-	APIs struct {
-		DocumentUpdater struct {
-			Options *documentUpdaterTypes.Options `json:"options"`
-		} `json:"document_updater"`
-	} `json:"apis"`
 
 	JWT struct {
 		RealTime jwtOptions.JWTOptions `json:"realTime"`
@@ -52,10 +45,6 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "graceful_shutdown.timeout must be greater than 0",
 		}
-	}
-
-	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
-		return errors.Tag(err, "apis.document_updater.options is invalid")
 	}
 	return nil
 }

@@ -27,13 +27,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
-	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 )
 
 type Options struct {
@@ -84,12 +83,7 @@ type Options struct {
 				TTL        time.Duration `json:"ttl"`
 			} `json:"persistence"`
 		} `json:"clsi"`
-		DocumentUpdater struct {
-			Options *documentUpdaterTypes.Options `json:"options"`
-		} `json:"document_updater"`
-		Filestore struct {
-			Options *filestoreTypes.Options `json:"options"`
-		} `json:"filestore"`
+		Filestore      objectStorage.Options `json:"filestore"`
 		LinkedURLProxy struct {
 			Chain []sharedTypes.URL `json:"chain"`
 		} `json:"linked_url_proxy"`
@@ -208,8 +202,8 @@ func (o *Options) Validate() error {
 			}
 		}
 	}
-	if err := o.APIs.DocumentUpdater.Options.Validate(); err != nil {
-		return errors.Tag(err, "apis.document_updater.options is invalid")
+	if err := o.APIs.Filestore.Validate(); err != nil {
+		return errors.Tag(err, "apis.filestore is invalid")
 	}
 	if len(o.APIs.LinkedURLProxy.Chain) < 1 {
 		return &errors.ValidationError{

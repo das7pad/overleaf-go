@@ -19,13 +19,13 @@ package appliedOps
 import (
 	"context"
 	"encoding/json"
-	"math/rand"
 
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -36,29 +36,23 @@ type Manager interface {
 	QueueUpdate(ctx context.Context, rpc *types.RPC, update *sharedTypes.DocumentUpdate) error
 }
 
-func New(options *types.Options, client redis.UniversalClient) Manager {
+func New(client redis.UniversalClient, dum documentUpdater.Manager) Manager {
 	c := channel.New(client, "applied-ops")
 	b := broadcaster.New(c, newRoom)
-	n := options.APIs.DocumentUpdater.Options.PendingUpdatesListShardCount
 	return &manager{
-		Broadcaster:                  b,
-		channel:                      c,
-		client:                       client,
-		pendingUpdatesListShardCount: n,
+		Broadcaster:              b,
+		channel:                  c,
+		client:                   client,
+		getPendingUpdatesListKey: dum.GetPendingUpdatesListKey,
 	}
 }
 
 type manager struct {
 	broadcaster.Broadcaster
 
-	channel                      channel.Manager
-	client                       redis.UniversalClient
-	pendingUpdatesListShardCount int
-}
-
-func (m *manager) getPendingUpdatesListKey() string {
-	shard := rand.Intn(m.pendingUpdatesListShardCount)
-	return documentUpdaterTypes.PendingUpdatesListKey(shard).String()
+	channel                  channel.Manager
+	client                   redis.UniversalClient
+	getPendingUpdatesListKey func() documentUpdaterTypes.PendingUpdatesListKey
 }
 
 func (m *manager) QueueUpdate(ctx context.Context, rpc *types.RPC, update *sharedTypes.DocumentUpdate) error {
@@ -73,7 +67,7 @@ func (m *manager) QueueUpdate(ctx context.Context, rpc *types.RPC, update *share
 		return errors.Tag(err, "cannot queue update")
 	}
 
-	shardKey := m.getPendingUpdatesListKey()
+	shardKey := m.getPendingUpdatesListKey().String()
 	docKey := rpc.Client.ProjectId.String() + ":" + docId.String()
 	if err = m.client.RPush(ctx, shardKey, docKey).Err(); err != nil {
 		return errors.Tag(

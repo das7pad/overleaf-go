@@ -29,6 +29,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -43,6 +45,13 @@ func main() {
 	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
+	dumOptions := documentUpdaterTypes.Options{}
+	dumOptions.FillFromEnv("DOCUMENT_UPDATER_OPTIONS")
+	dum, err := documentUpdater.New(&dumOptions, db, rClient)
+	if err != nil {
+		panic(errors.Tag(err, "document-updater setup"))
+	}
+
 	realTimeOptions := realTimeTypes.Options{}
 	realTimeOptions.FillFromEnv("REAL_TIME_OPTIONS")
 	rtm, err := realTime.New(
@@ -50,6 +59,7 @@ func main() {
 		&realTimeOptions,
 		db,
 		rClient,
+		dum,
 	)
 	if err != nil {
 		panic(errors.Tag(err, "realTime setup"))

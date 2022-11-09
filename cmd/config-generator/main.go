@@ -39,7 +39,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
-	filestoreTypes "github.com/das7pad/overleaf-go/services/filestore/pkg/types"
 	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -287,17 +286,6 @@ func main() {
 			Delay:   3 * time.Second,
 			Timeout: 10 * time.Second,
 		},
-		APIs: struct {
-			DocumentUpdater struct {
-				Options *documentUpdaterTypes.Options `json:"options"`
-			} `json:"document_updater"`
-		}{
-			DocumentUpdater: struct {
-				Options *documentUpdaterTypes.Options `json:"options"`
-			}{
-				Options: &documentUpdaterOptions,
-			},
-		},
 		JWT: struct {
 			RealTime jwtOptions.JWTOptions `json:"realTime"`
 		}{
@@ -386,12 +374,7 @@ func main() {
 					TTL        time.Duration `json:"ttl"`
 				} `json:"persistence"`
 			} `json:"clsi"`
-			DocumentUpdater struct {
-				Options *documentUpdaterTypes.Options `json:"options"`
-			} `json:"document_updater"`
-			Filestore struct {
-				Options *filestoreTypes.Options `json:"options"`
-			} `json:"filestore"`
+			Filestore      objectStorage.Options `json:"filestore"`
 			LinkedURLProxy struct {
 				Chain []sharedTypes.URL `json:"chain"`
 			} `json:"linked_url_proxy"`
@@ -412,18 +395,7 @@ func main() {
 					TTL:        6 * time.Hour,
 				},
 			},
-			DocumentUpdater: struct {
-				Options *documentUpdaterTypes.Options `json:"options"`
-			}{
-				Options: &documentUpdaterOptions,
-			},
-			Filestore: struct {
-				Options *filestoreTypes.Options `json:"options"`
-			}{
-				Options: &filestoreTypes.Options{
-					BackendOptions: filestoreOptions,
-				},
-			},
+			Filestore: filestoreOptions,
 			LinkedURLProxy: struct {
 				Chain []sharedTypes.URL `json:"chain"`
 			}{

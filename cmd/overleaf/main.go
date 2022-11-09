@@ -77,7 +77,13 @@ func main() {
 
 	realTimeOptions := realTimeTypes.Options{}
 	realTimeOptions.FillFromEnv("REAL_TIME_OPTIONS")
-	rtm, err := realTime.New(context.Background(), &realTimeOptions, db, rClient)
+	rtm, err := realTime.New(
+		context.Background(),
+		&realTimeOptions,
+		db,
+		rClient,
+		dum,
+	)
 	if err != nil {
 		panic(errors.Tag(err, "realTime setup"))
 	}
@@ -91,7 +97,9 @@ func main() {
 
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv("WEB_OPTIONS")
-	webManager, err := web.New(&webOptions, db, rClient, localUrl, clsiManager)
+	webManager, err := web.New(
+		&webOptions, db, rClient, localUrl, dum, clsiManager,
+	)
 	if err != nil {
 		panic(errors.Tag(err, "web setup"))
 	}
