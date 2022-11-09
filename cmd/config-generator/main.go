@@ -240,7 +240,6 @@ func main() {
 		AllowedImages:             allowedImages,
 		CopyExecAgentDst:          agentPathHost,
 		ProjectCacheDuration:      time.Hour,
-		RefreshCapacityEvery:      5 * time.Second,
 		RefreshHealthCheckEvery:   30 * time.Second,
 		ParallelOutputWrite:       10,
 		ParallelResourceWrite:     20,

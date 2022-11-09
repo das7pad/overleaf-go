@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package loadAgent
 
 import (
 	"fmt"
@@ -24,6 +24,10 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
+
+func Start(addr string, loadShedding bool, refreshCapacityEvery time.Duration) (io.Closer, error) {
+	return startLoadAgent(addr, loadShedding, New(refreshCapacityEvery).GetCapacity)
+}
 
 func startLoadAgent(addr string, loadShedding bool, getCapacity func() (int64, error)) (io.Closer, error) {
 	l, listenErr := net.Listen("tcp", addr)

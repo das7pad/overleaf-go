@@ -46,7 +46,6 @@ type Options struct {
 	CopyExecAgentDst string `json:"copy_exec_agent_dst"`
 
 	ProjectCacheDuration    time.Duration `json:"project_cache_duration_ns"`
-	RefreshCapacityEvery    time.Duration `json:"get_capacity_refresh_every_ns"`
 	RefreshHealthCheckEvery time.Duration `json:"health_check_refresh_every_ns"`
 
 	ParallelOutputWrite       int64 `json:"parallel_output_write"`
@@ -123,11 +122,6 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "project_cache_duration_ns cannot be lower than " +
 				maxComputeTime.String(),
-		}
-	}
-	if o.RefreshCapacityEvery < 1 {
-		return &errors.ValidationError{
-			Msg: "get_capacity_refresh_every_ns cannot be lower than 1",
 		}
 	}
 	if o.RefreshHealthCheckEvery < 1 {

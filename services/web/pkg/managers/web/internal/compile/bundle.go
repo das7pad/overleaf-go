@@ -37,8 +37,6 @@ type ClsiManager interface {
 		response *clsiTypes.CompileResponse,
 	) error
 
-	GetCapacity() (int64, error)
-
 	HealthCheck(ctx context.Context) error
 
 	PeriodicCleanup(ctx context.Context)

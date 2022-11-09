@@ -19,11 +19,13 @@ package main
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/loadAgent"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -40,13 +42,13 @@ func main() {
 	)
 	go clsiManager.PeriodicCleanup(backgroundTaskCtx)
 
-	loadAgent, err := startLoadAgent(
+	loadAgentSocket, err := loadAgent.Start(
 		listenAddress.Parse(env.GetInt("LOAD_PORT", 3048)),
 		env.GetBool("LOAD_SHEDDING"),
-		clsiManager.GetCapacity,
+		env.GetDuration("LOAD_REFRESH_CAPACITY_EVERY_NS", 3*time.Second),
 	)
 	if err != nil {
-		panic(err)
+		panic(errors.Tag(err, "load agent setup"))
 	}
 
 	server := http.Server{
@@ -55,7 +57,7 @@ func main() {
 	}
 	err = server.ListenAndServe()
 	shutdownBackgroundTasks()
-	_ = loadAgent.Close()
+	_ = loadAgentSocket.Close()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}

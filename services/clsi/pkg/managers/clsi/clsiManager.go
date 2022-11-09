@@ -19,9 +19,7 @@ package clsi
 import (
 	"context"
 	"log"
-	"runtime"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -43,8 +41,6 @@ type Manager interface {
 		request *types.CompileRequest,
 		response *types.CompileResponse,
 	) error
-
-	GetCapacity() (int64, error)
 
 	HealthCheck(ctx context.Context) error
 
@@ -87,24 +83,13 @@ func New(options *types.Options) (Manager, error) {
 		return nil, err
 	}
 
-	nCores := float64(runtime.NumCPU())
-	maxSystemLoad := nCores
-	if nCores > 1 {
-		maxSystemLoad -= 0.25
-	}
-
 	return &manager{
-		refreshCapacityEvery:    options.RefreshCapacityEvery,
 		refreshHealthCheckEvery: options.RefreshHealthCheckEvery,
 		projectCacheDuration:    options.ProjectCacheDuration,
 		healthCheckImageName:    options.AllowedImages[0],
-		maxSystemLoad:           maxSystemLoad,
 
 		healthCheckMux:       sync.Mutex{},
 		healthCheckExpiresAt: time.Now(),
-
-		getCapacityMux:       sync.Mutex{},
-		getCapacityExpiresAt: time.Now(),
 
 		pm: pm,
 	}, nil
@@ -112,19 +97,12 @@ func New(options *types.Options) (Manager, error) {
 
 type manager struct {
 	refreshHealthCheckEvery time.Duration
-	refreshCapacityEvery    time.Duration
 	projectCacheDuration    time.Duration
 	healthCheckImageName    sharedTypes.ImageName
-	maxSystemLoad           float64
 
 	healthCheckMux       sync.Mutex
 	healthCheckErr       error
 	healthCheckExpiresAt time.Time
-
-	getCapacityMux       sync.Mutex
-	getCapacityCapacity  int64
-	getCapacityErr       error
-	getCapacityExpiresAt time.Time
 
 	pm project.Manager
 }
@@ -156,35 +134,6 @@ func (m *manager) Compile(ctx context.Context, projectId sharedTypes.UUID, userI
 			return err
 		},
 	)
-}
-
-func (m *manager) GetCapacity() (int64, error) {
-	m.getCapacityMux.Lock()
-	defer m.getCapacityMux.Unlock()
-	if m.getCapacityExpiresAt.After(time.Now()) {
-		return m.getCapacityCapacity, m.getCapacityErr
-	}
-	capacity, err := m.refreshGetCapacity()
-	m.getCapacityCapacity = capacity
-	m.getCapacityErr = err
-	m.getCapacityExpiresAt = time.Now().Add(m.refreshCapacityEvery)
-	return capacity, err
-}
-
-const loadBase = 1 << 16
-
-func (m *manager) refreshGetCapacity() (int64, error) {
-	var info syscall.Sysinfo_t
-	if err := syscall.Sysinfo(&info); err != nil {
-		return 0, err
-	}
-	load1 := float64(info.Loads[0]) / loadBase
-	capacity := int64(100 * (m.maxSystemLoad - load1) / m.maxSystemLoad)
-
-	if capacity < 0 {
-		capacity = 0
-	}
-	return capacity, nil
 }
 
 func (m *manager) HealthCheck(ctx context.Context) error {
