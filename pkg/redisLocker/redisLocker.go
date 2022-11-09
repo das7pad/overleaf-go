@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"math"
+	"math/big"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -52,10 +53,14 @@ func New(client redis.UniversalClient, namespace string) (Locker, error) {
 	pid := strconv.FormatInt(int64(os.Getpid()), 10)
 	valuePrefix := "locked:host=" + hostname + ":pid=" + pid + ":random=" + rnd
 
+	i, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	if err != nil {
+		return nil, errors.Tag(err, "init counter")
+	}
 	return &locker{
 		client: client,
 
-		counter:     0,
+		counter:     i.Int64(),
 		valuePrefix: valuePrefix,
 		namespace:   namespace,
 	}, nil
