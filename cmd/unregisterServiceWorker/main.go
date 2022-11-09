@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,7 +23,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/das7pad/overleaf-go/cmd/internal/utils"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -33,11 +33,11 @@ func main() {
 	timeout := flag.Duration("timout", 10*time.Second, "timeout for operation")
 	flag.Parse()
 
-	client := utils.MustConnectRedis(*timeout)
-	editorEvents := channel.NewWriter(client, "editor-events")
-
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
+
+	client := utils.MustConnectRedis(ctx)
+	editorEvents := channel.NewWriter(client, "editor-events")
 
 	log.Println("Broadcasting message.")
 	err := editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{

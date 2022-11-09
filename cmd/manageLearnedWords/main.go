@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/das7pad/overleaf-go/cmd/internal/utils"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -41,10 +41,10 @@ func main() {
 		panic(errors.Tag(err, "cannot parse user id"))
 	}
 
-	db := utils.MustConnectPostgres(*timeout)
-	um := user.New(db)
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
+	db := utils.MustConnectPostgres(ctx)
+	um := user.New(db)
 
 	log.Println("Getting users learned words.")
 	u := user.LearnedWordsField{}

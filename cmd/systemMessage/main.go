@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/das7pad/overleaf-go/cmd/internal/utils"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/models/systemMessage"
 )
 
@@ -35,11 +35,12 @@ func main() {
 	flag.Parse()
 	*msg = strings.TrimSpace(*msg)
 
-	db := utils.MustConnectPostgres(*timeout)
-	smm := systemMessage.New(db)
-
 	ctx, done := context.WithTimeout(context.Background(), *timeout)
 	defer done()
+
+	db := utils.MustConnectPostgres(ctx)
+	smm := systemMessage.New(db)
+
 	var err error
 	switch {
 	case *clear:

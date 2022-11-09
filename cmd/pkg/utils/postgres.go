@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,21 +20,23 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 )
 
-func MustConnectRedis(timeout time.Duration) redis.UniversalClient {
-	ctx, done := context.WithTimeout(context.Background(), timeout)
+func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
+	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
 
-	rOptions := redisOptions.Parse()
-
-	rClient := redis.NewUniversalClient(rOptions)
-	if err := rClient.Ping(ctx).Err(); err != nil {
-		panic(errors.Tag(err, "cannot talk to redis"))
+	dsn := postgresOptions.Parse()
+	db, err := pgxpool.Connect(ctx, dsn)
+	if err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
-	return rClient
+	if err = db.Ping(ctx); err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
+	}
+	return db
 }

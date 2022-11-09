@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/das7pad/overleaf-go/cmd/internal/utils"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
@@ -53,8 +53,8 @@ func main() {
 	)
 	defer triggerExit()
 
-	rClient := utils.MustConnectRedis(10 * time.Second)
-	db := utils.MustConnectPostgres(10 * time.Second)
+	rClient := utils.MustConnectRedis(triggerExitCtx)
+	db := utils.MustConnectPostgres(triggerExitCtx)
 	addr := listenAddress.Parse(3000)
 	localUrl := "http://" + addr
 	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {

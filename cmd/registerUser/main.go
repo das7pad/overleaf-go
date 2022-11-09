@@ -23,9 +23,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/das7pad/overleaf-go/cmd/internal/utils"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
@@ -61,8 +60,8 @@ func main() {
 		}
 	}
 
-	db := utils.MustConnectPostgres(10 * time.Second)
-	rClient := utils.MustConnectRedis(10 * time.Second)
+	db := utils.MustConnectPostgres(ctx)
+	rClient := utils.MustConnectRedis(ctx)
 	addr := "127.0.0.1:3000"
 	localUrl := "http://" + addr
 
