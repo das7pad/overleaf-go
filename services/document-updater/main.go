@@ -25,8 +25,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
+	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
 func main() {
@@ -34,18 +37,19 @@ func main() {
 		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
 	)
 	defer triggerExit()
-	o := getOptions()
 
-	redisClient := utils.MustConnectRedis(triggerExitCtx)
+	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
-	dum, err := documentUpdater.New(&o.options, db, redisClient)
+	dumOptions := documentUpdaterTypes.Options{}
+	dumOptions.FillFromEnv("DOCUMENT_UPDATER_OPTIONS")
+	dum, err := documentUpdater.New(&dumOptions, db, rClient)
 	if err != nil {
-		panic(err)
+		panic(errors.Tag(err, "document-updater setup"))
 	}
 
 	server := http.Server{
-		Addr:    o.address,
+		Addr:    listenAddress.Parse(3003),
 		Handler: httpUtils.NewRouter(&httpUtils.RouterOptions{}),
 	}
 	eg, ctx := errgroup.WithContext(triggerExitCtx)

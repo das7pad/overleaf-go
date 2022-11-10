@@ -20,36 +20,38 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
+	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-func Setup() (clsi.Manager, *httpUtils.Router, *clsiOptions) {
-	o := getOptions()
-
-	cm, err := clsi.New(&o.options)
-	if err != nil {
-		panic(err)
-	}
-	handler := newHTTPController(cm)
-	return cm, handler.GetRouter(), o
-}
-
 func main() {
-	cm, handler, o := Setup()
+	clsiOptions := clsiTypes.Options{}
+	clsiOptions.FillFromEnv("CLSI_OPTIONS")
+	clsiManager, err := clsi.New(&clsiOptions)
+	if err != nil {
+		panic(errors.Tag(err, "clsi setup"))
+	}
+
 	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
 		context.Background(),
 	)
-	go cm.PeriodicCleanup(backgroundTaskCtx)
+	go clsiManager.PeriodicCleanup(backgroundTaskCtx)
 
-	loadAgent, err := startLoadAgent(o, cm)
+	loadAgent, err := startLoadAgent(
+		listenAddress.Parse(env.GetInt("LOAD_PORT", 3048)),
+		env.GetBool("LOAD_SHEDDING"),
+		clsiManager.GetCapacity,
+	)
 	if err != nil {
 		panic(err)
 	}
 
 	server := http.Server{
-		Addr:    o.address,
-		Handler: handler,
+		Addr:    listenAddress.Parse(3013),
+		Handler: newHTTPController(clsiManager).GetRouter(),
 	}
 	err = server.ListenAndServe()
 	shutdownBackgroundTasks()

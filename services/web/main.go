@@ -23,12 +23,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/router"
+	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func main() {
@@ -38,25 +44,32 @@ func main() {
 	defer triggerExit()
 
 	rand.Seed(time.Now().UnixNano())
-	o := getOptions()
 
-	redisClient := utils.MustConnectRedis(triggerExitCtx)
+	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
-	wm, err := web.New(&o.options, db, redisClient, "http://"+o.address, nil)
+	addr := listenAddress.Parse(3000)
+	localUrl := "http://" + addr
+	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {
+		localUrl = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
+	}
+
+	webOptions := webTypes.Options{}
+	webOptions.FillFromEnv("WEB_OPTIONS")
+	webManager, err := web.New(&webOptions, db, rClient, localUrl, nil)
 	if err != nil {
-		panic(err)
+		panic(errors.Tag(err, "web setup"))
 	}
 
 	go func() {
 		time.Sleep(time.Duration(rand.Int63n(int64(time.Hour))))
-		if !wm.CronOnce(triggerExitCtx, false) {
+		if !webManager.CronOnce(triggerExitCtx, false) {
 			log.Println("cron failed")
 		}
 	}()
 
 	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "cron" {
-		if !wm.CronOnce(triggerExitCtx, o.dryRunCron) {
+		if !webManager.CronOnce(triggerExitCtx, env.GetBool("DRY_RUN_CRON")) {
 			os.Exit(42)
 		} else {
 			os.Exit(0)
@@ -64,8 +77,8 @@ func main() {
 		return
 	}
 
-	r := router.New(wm, o.corsOptions)
-	if err = http.ListenAndServe(o.address, r); err != nil {
+	r := router.New(webManager, corsOptions.Parse())
+	if err = http.ListenAndServe(addr, r); err != nil {
 		panic(err)
 	}
 }

@@ -25,8 +25,8 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-func newHTTPController(cm clsi.Manager) httpController {
-	return httpController{cm: cm}
+func newHTTPController(cm clsi.Manager) *httpController {
+	return &httpController{cm: cm}
 }
 
 type httpController struct {

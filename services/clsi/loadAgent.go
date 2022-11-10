@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,11 +23,10 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
 )
 
-func startLoadAgent(options *clsiOptions, manager clsi.Manager) (io.Closer, error) {
-	l, listenErr := net.Listen("tcp", options.loadAddress)
+func startLoadAgent(addr string, loadShedding bool, getCapacity func() (int64, error)) (io.Closer, error) {
+	l, listenErr := net.Listen("tcp", addr)
 	if listenErr != nil {
 		return nil, listenErr
 	}
@@ -48,7 +47,7 @@ func startLoadAgent(options *clsiOptions, manager clsi.Manager) (io.Closer, erro
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
-			capacity, err := manager.GetCapacity()
+			capacity, err := getCapacity()
 			if err != nil {
 				// Not sending a reply would count as a failed health check.
 				// Emitting capacity=0 would trigger load shedding.
@@ -56,7 +55,7 @@ func startLoadAgent(options *clsiOptions, manager clsi.Manager) (io.Closer, erro
 				capacity = 1
 			}
 			var msg string
-			if options.loadShedding && capacity == 0 {
+			if loadShedding && capacity == 0 {
 				msg = fmt.Sprintf("maint, %d%%\n", capacity)
 			} else {
 				// 'ready' cancels out a previous 'maint' state.

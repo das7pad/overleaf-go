@@ -18,13 +18,19 @@ package main
 
 import (
 	"net/http"
+	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/options/env"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 )
 
 func main() {
-	o := getOptions()
-	handler := newHTTPController(o.timeout, o.proxyToken, o.allowRedirects)
+	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT", 28*time.Second)
+	proxyToken := env.MustGetString("PROXY_TOKEN")
+	allowRedirects := env.GetBool("ALLOW_REDIRECTS")
+	handler := newHTTPController(timeout, proxyToken, allowRedirects)
 	server := http.Server{
-		Addr:    o.address,
+		Addr:    listenAddress.Parse(8080),
 		Handler: handler.GetRouter(),
 	}
 	err := server.ListenAndServe()

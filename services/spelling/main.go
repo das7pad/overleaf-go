@@ -19,19 +19,24 @@ package main
 import (
 	"net/http"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/router"
+	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 func main() {
-	o := getOptions()
-	sm, err := spelling.New(&o.options)
+	spellingOptions := spellingTypes.Options{}
+	spellingOptions.FillFromEnv("SPELLING_OPTIONS")
+	sm, err := spelling.New(&spellingOptions)
 	if err != nil {
-		panic(err)
+		panic(errors.Tag(err, "spelling setup"))
 	}
 
-	r := router.New(sm, o.corsOptions)
-	if err = http.ListenAndServe(o.address, r); err != nil {
+	r := router.New(sm, corsOptions.Parse())
+	if err = http.ListenAndServe(listenAddress.Parse(3005), r); err != nil {
 		panic(err)
 	}
 }

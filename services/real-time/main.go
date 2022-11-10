@@ -26,24 +26,33 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
+	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 func main() {
-	o := getOptions()
 	triggerExitCtx, triggerExit := signal.NotifyContext(
 		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
 	)
 	defer triggerExit()
 
-	redisClient := utils.MustConnectRedis(triggerExitCtx)
+	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
-	rtm, err := realTime.New(context.Background(), &o.options, db, redisClient)
+	realTimeOptions := realTimeTypes.Options{}
+	realTimeOptions.FillFromEnv("REAL_TIME_OPTIONS")
+	rtm, err := realTime.New(
+		context.Background(),
+		&realTimeOptions,
+		db,
+		rClient,
+	)
 	if err != nil {
-		panic(err)
+		panic(errors.Tag(err, "realTime setup"))
 	}
 
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
@@ -52,8 +61,8 @@ func main() {
 		return nil
 	})
 	server := http.Server{
-		Addr:    o.address,
-		Handler: router.New(rtm, o.options.JWT.RealTime),
+		Addr:    listenAddress.Parse(3026),
+		Handler: router.New(rtm, realTimeOptions.JWT.RealTime),
 	}
 	var errServe error
 	eg.Go(func() error {
