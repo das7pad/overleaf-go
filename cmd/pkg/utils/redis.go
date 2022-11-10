@@ -26,6 +26,19 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 )
 
+func ensureRedisAcceptsWrites(
+	ctx context.Context,
+	rClient redis.UniversalClient,
+) error {
+	// Write a dummy value as health check on startup.
+	// Redis standalone: not reachable -> timeout
+	// Redis cluster: not reachable -> timeout
+	// Redis cluster: some shard is down -> error
+	//                (provided `cluster-require-full-coverage=yes` is set in
+	//                 redis config -- this is the default)
+	return rClient.Set(ctx, "startup", "42", time.Second).Err()
+}
+
 func MustConnectRedis(ctx context.Context) redis.UniversalClient {
 	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
@@ -33,8 +46,8 @@ func MustConnectRedis(ctx context.Context) redis.UniversalClient {
 	rOptions := redisOptions.Parse()
 
 	rClient := redis.NewUniversalClient(rOptions)
-	if err := rClient.Ping(ctx).Err(); err != nil {
-		panic(errors.Tag(err, "cannot talk to redis"))
+	if err := ensureRedisAcceptsWrites(ctx, rClient); err != nil {
+		panic(errors.Tag(err, "ensure redis accepts writes"))
 	}
 	return rClient
 }
