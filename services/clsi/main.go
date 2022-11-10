@@ -31,7 +31,7 @@ import (
 
 func main() {
 	clsiOptions := clsiTypes.Options{}
-	clsiOptions.FillFromEnv("CLSI_OPTIONS")
+	clsiOptions.FillFromEnv()
 	clsiManager, err := clsi.New(&clsiOptions)
 	if err != nil {
 		panic(errors.Tag(err, "clsi setup"))

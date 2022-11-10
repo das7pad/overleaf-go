@@ -42,7 +42,7 @@ func main() {
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
 	dumOptions := documentUpdaterTypes.Options{}
-	dumOptions.FillFromEnv("DOCUMENT_UPDATER_OPTIONS")
+	dumOptions.FillFromEnv()
 	dum, err := documentUpdater.New(&dumOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "document-updater setup"))

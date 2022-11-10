@@ -102,8 +102,8 @@ type Options struct {
 	} `json:"rate_limits"`
 }
 
-func (o *Options) FillFromEnv(key string) {
-	env.MustParseJSON(o, key)
+func (o *Options) FillFromEnv() {
+	env.MustParseJSON(o, "WEB_OPTIONS")
 	o.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")

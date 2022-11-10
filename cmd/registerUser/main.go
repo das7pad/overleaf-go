@@ -66,7 +66,7 @@ func main() {
 	localUrl := "http://" + addr
 
 	webOptions := webTypes.Options{}
-	webOptions.FillFromEnv("WEB_OPTIONS")
+	webOptions.FillFromEnv()
 	webManager, err := web.New(&webOptions, db, rClient, localUrl, nil, nil)
 	if err != nil {
 		panic(errors.Tag(err, "web setup"))

@@ -25,8 +25,8 @@ type Options struct {
 	LRUSize int `json:"lru_size"`
 }
 
-func (o *Options) FillFromEnv(key string) {
-	env.MustParseJSON(o, key)
+func (o *Options) FillFromEnv() {
+	env.MustParseJSON(o, "SPELLING_OPTIONS")
 }
 
 func (o *Options) Validate() error {

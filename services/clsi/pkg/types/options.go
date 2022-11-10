@@ -63,8 +63,8 @@ type Options struct {
 	DockerContainerOptions DockerContainerOptions `json:"docker_container_options"`
 }
 
-func (o *Options) FillFromEnv(key string) {
-	env.MustParseJSON(o, key)
+func (o *Options) FillFromEnv() {
+	env.MustParseJSON(o, "CLSI_OPTIONS")
 
 	if o.CopyExecAgentSrc == "" {
 		o.CopyExecAgentSrc = env.GetString("COPY_EXEC_AGENT_SRC", "")

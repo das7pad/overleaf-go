@@ -27,7 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/web/pkg/types"
+	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 func main() {
@@ -46,10 +46,10 @@ func main() {
 		os.Exit(101)
 	}
 
-	o := &types.Options{}
-	o.FillFromEnv("OPTIONS")
+	o := &webTypes.Options{}
+	o.FillFromEnv()
 	if err := o.Validate(); err != nil {
-		panic(errors.Tag(err, "web OPTIONS invalid"))
+		panic(errors.Tag(err, "WEB_OPTIONS invalid"))
 	}
 	emailOptions := o.EmailOptions()
 

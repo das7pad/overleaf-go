@@ -29,7 +29,7 @@ import (
 
 func main() {
 	spellingOptions := spellingTypes.Options{}
-	spellingOptions.FillFromEnv("SPELLING_OPTIONS")
+	spellingOptions.FillFromEnv()
 	sm, err := spelling.New(&spellingOptions)
 	if err != nil {
 		panic(errors.Tag(err, "spelling setup"))

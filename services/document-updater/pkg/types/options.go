@@ -26,8 +26,8 @@ type Options struct {
 	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
 }
 
-func (o *Options) FillFromEnv(key string) {
-	env.MustParseJSON(o, key)
+func (o *Options) FillFromEnv() {
+	env.MustParseJSON(o, "DOCUMENT_UPDATER_OPTIONS")
 }
 
 func (o *Options) Validate() error {

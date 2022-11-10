@@ -62,21 +62,21 @@ func main() {
 	}
 
 	clsiOptions := clsiTypes.Options{}
-	clsiOptions.FillFromEnv("CLSI_OPTIONS")
+	clsiOptions.FillFromEnv()
 	clsiManager, err := clsi.New(&clsiOptions)
 	if err != nil {
 		panic(errors.Tag(err, "clsi setup"))
 	}
 
 	dumOptions := documentUpdaterTypes.Options{}
-	dumOptions.FillFromEnv("DOCUMENT_UPDATER_OPTIONS")
+	dumOptions.FillFromEnv()
 	dum, err := documentUpdater.New(&dumOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "document-updater setup"))
 	}
 
 	realTimeOptions := realTimeTypes.Options{}
-	realTimeOptions.FillFromEnv("REAL_TIME_OPTIONS")
+	realTimeOptions.FillFromEnv()
 	rtm, err := realTime.New(
 		context.Background(),
 		&realTimeOptions,
@@ -89,14 +89,14 @@ func main() {
 	}
 
 	spellingOptions := spellingTypes.Options{}
-	spellingOptions.FillFromEnv("SPELLING_OPTIONS")
+	spellingOptions.FillFromEnv()
 	sm, err := spelling.New(&spellingOptions)
 	if err != nil {
 		panic(errors.Tag(err, "spelling setup"))
 	}
 
 	webOptions := webTypes.Options{}
-	webOptions.FillFromEnv("WEB_OPTIONS")
+	webOptions.FillFromEnv()
 	webManager, err := web.New(
 		&webOptions, db, rClient, localUrl, dum, clsiManager,
 	)

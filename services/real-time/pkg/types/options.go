@@ -35,8 +35,8 @@ type Options struct {
 	} `json:"jwt"`
 }
 
-func (o *Options) FillFromEnv(key string) {
-	env.MustParseJSON(o, key)
+func (o *Options) FillFromEnv() {
+	env.MustParseJSON(o, "REAL_TIME_OPTIONS")
 	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 }
 
