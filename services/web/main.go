@@ -22,46 +22,26 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-	"github.com/jackc/pgx/v4/pgxpool"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/router"
 )
 
-func waitForRedis(
-	ctx context.Context,
-	rClient redis.UniversalClient,
-) error {
-	// Write a dummy value as health check on startup.
-	// Redis standalone: not reachable -> timeout
-	// Redis cluster: not reachable -> timeout; some shard down -> error *
-	// *provided cluster-require-full-coverage=yes (which is the default)
-	return rClient.Set(ctx, "startup", "42", time.Second).Err()
-}
-
 func main() {
+	triggerExitCtx, triggerExit := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
+	)
+	defer triggerExit()
+
 	rand.Seed(time.Now().UnixNano())
 	o := getOptions()
-	ctx := context.Background()
 
-	redisClient := redis.NewUniversalClient(o.redisOptions)
-	if err := waitForRedis(ctx, redisClient); err != nil {
-		panic(err)
-	}
-
-	dsn := postgresOptions.Parse()
-	db, err := pgxpool.Connect(ctx, dsn)
-	if err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
-	}
-	if err = db.Ping(ctx); err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
-	}
+	redisClient := utils.MustConnectRedis(triggerExitCtx)
+	db := utils.MustConnectPostgres(triggerExitCtx)
 
 	wm, err := web.New(&o.options, db, redisClient, "http://"+o.address, nil)
 	if err != nil {
@@ -70,13 +50,13 @@ func main() {
 
 	go func() {
 		time.Sleep(time.Duration(rand.Int63n(int64(time.Hour))))
-		if !wm.CronOnce(ctx, false) {
+		if !wm.CronOnce(triggerExitCtx, false) {
 			log.Println("cron failed")
 		}
 	}()
 
 	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "cron" {
-		if !wm.CronOnce(ctx, o.dryRunCron) {
+		if !wm.CronOnce(triggerExitCtx, o.dryRunCron) {
 			os.Exit(42)
 		} else {
 			os.Exit(0)

@@ -17,23 +17,18 @@
 package main
 
 import (
-	"github.com/go-redis/redis/v8"
-
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type realTimeOptions struct {
-	address      string
-	redisOptions *redis.UniversalOptions
-	options      types.Options
+	address string
+	options types.Options
 }
 
 func getOptions() *realTimeOptions {
 	o := &realTimeOptions{}
 	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(3026)
-	o.redisOptions = redisOptions.Parse()
 	return o
 }

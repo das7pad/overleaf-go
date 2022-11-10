@@ -23,27 +23,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 )
-
-func waitForRedis(
-	ctx context.Context,
-	rClient redis.UniversalClient,
-) error {
-	// Write a dummy value as health check on startup.
-	// Redis standalone: not reachable -> timeout
-	// Redis cluster: not reachable -> timeout; some shard down -> error *
-	// *provided cluster-require-full-coverage=yes (which is the default)
-	return rClient.Set(ctx, "startup", "42", time.Second).Err()
-}
 
 func main() {
 	o := getOptions()
@@ -52,20 +38,8 @@ func main() {
 	)
 	defer triggerExit()
 
-	redisClient := redis.NewUniversalClient(o.redisOptions)
-	err := waitForRedis(triggerExitCtx, redisClient)
-	if err != nil {
-		panic(err)
-	}
-
-	dsn := postgresOptions.Parse()
-	db, err := pgxpool.Connect(triggerExitCtx, dsn)
-	if err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
-	}
-	if err = db.Ping(triggerExitCtx); err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
-	}
+	redisClient := utils.MustConnectRedis(triggerExitCtx)
+	db := utils.MustConnectPostgres(triggerExitCtx)
 
 	rtm, err := realTime.New(context.Background(), &o.options, db, redisClient)
 	if err != nil {

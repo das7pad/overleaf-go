@@ -17,21 +17,17 @@
 package main
 
 import (
-	"github.com/go-redis/redis/v8"
-
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 type webOptions struct {
-	address      string
-	corsOptions  httpUtils.CORSOptions
-	redisOptions *redis.UniversalOptions
-	options      types.Options
+	address     string
+	corsOptions httpUtils.CORSOptions
+	options     types.Options
 
 	dryRunCron bool
 }
@@ -41,7 +37,6 @@ func getOptions() *webOptions {
 	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
-	o.redisOptions = redisOptions.Parse()
 
 	o.dryRunCron = utils.GetBoolFromEnv("DRY_RUN_CRON")
 	return o
