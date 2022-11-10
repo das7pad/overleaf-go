@@ -17,7 +17,7 @@
 FROM alpine:3.16
 ENV SERVICE_NAME="web"
 ENTRYPOINT ["web"]
-COPY ./web /usr/local/bin/
+COPY --chown=root:root ./web /usr/local/bin/
 USER nobody
 
 ARG DATE

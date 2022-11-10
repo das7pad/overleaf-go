@@ -17,7 +17,7 @@
 FROM alpine:3.16
 ENV SERVICE_NAME="document-updater"
 ENTRYPOINT ["document-updater"]
-COPY ./document-updater /usr/local/bin/
+COPY --chown=root:root ./document-updater /usr/local/bin/
 USER nobody
 
 ARG DATE

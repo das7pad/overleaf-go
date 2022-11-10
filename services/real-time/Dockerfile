@@ -17,7 +17,7 @@
 FROM alpine:3.16
 ENV SERVICE_NAME="real-time"
 ENTRYPOINT ["real-time"]
-COPY ./real-time /usr/local/bin/
+COPY --chown=root:root ./real-time /usr/local/bin/
 USER nobody
 
 ARG DATE

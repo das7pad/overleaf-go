@@ -18,8 +18,8 @@ FROM alpine:3.16
 ENV SERVICE_NAME="clsi"
 ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
 ENTRYPOINT ["clsi"]
-COPY ./clsi /usr/local/bin/
-COPY ./execAgent /usr/local/bin/
+COPY --chown=root:root ./clsi /usr/local/bin/
+COPY --chown=root:root ./execAgent /usr/local/bin/
 
 RUN adduser --uid 1000 --disabled-password tex \
 &&  mkdir         /cache /compiles /output \

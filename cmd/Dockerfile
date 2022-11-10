@@ -19,7 +19,7 @@ FROM $IMAGE_ASPELL_CACHE
 ENV SERVICE_NAME="cmd"
 ENV COPY_EXEC_AGENT_SRC="/usr/local/bin/execAgent"
 ENTRYPOINT []
-ADD ./bin.tar /usr/local/bin/
+ADD --chown=root:root ./bin.tar /usr/local/bin/
 
 RUN adduser --uid 1000 --disabled-password tex \
 &&  mkdir         /cache /compiles /output \

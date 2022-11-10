@@ -21,7 +21,7 @@ RUN /install_aspell.sh
 FROM aspell-cache
 ENV SERVICE_NAME="spelling"
 ENTRYPOINT ["spelling"]
-COPY ./spelling /usr/local/bin/
+COPY --chown=root:root ./spelling /usr/local/bin/
 USER nobody
 
 ARG DATE

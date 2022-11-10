@@ -17,7 +17,7 @@
 FROM alpine:3.16
 ENV SERVICE_NAME="linked-url-proxy"
 ENTRYPOINT ["linked-url-proxy"]
-COPY ./linked-url-proxy /usr/local/bin/
+COPY --chown=root:root ./linked-url-proxy /usr/local/bin/
 USER nobody
 
 ARG DATE
