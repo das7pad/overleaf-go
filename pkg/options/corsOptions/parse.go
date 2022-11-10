@@ -20,13 +20,13 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 func Parse() httpUtils.CORSOptions {
-	siteURL := utils.GetStringFromEnv("PUBLIC_URL", "http://localhost:3000")
+	siteURL := env.GetString("PUBLIC_URL", "http://localhost:3000")
 	allowOrigins := strings.Split(
-		utils.GetStringFromEnv("ALLOWED_ORIGINS", siteURL),
+		env.GetString("ALLOWED_ORIGINS", siteURL),
 		",",
 	)
 

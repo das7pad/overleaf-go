@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
@@ -43,7 +43,7 @@ type Options struct {
 }
 
 func (o *Options) FillFromEnv(key string) {
-	utils.MustParseJSONFromEnv(o, key)
+	env.MustParseJSON(o, key)
 	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 }
 

@@ -19,8 +19,8 @@ package main
 import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -38,6 +38,6 @@ func getOptions() *webOptions {
 	o.address = listenAddress.Parse(4000)
 	o.corsOptions = corsOptions.Parse()
 
-	o.dryRunCron = utils.GetBoolFromEnv("DRY_RUN_CRON")
+	o.dryRunCron = env.GetBool("DRY_RUN_CRON")
 	return o
 }

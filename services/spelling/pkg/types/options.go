@@ -18,7 +18,7 @@ package types
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 type Options struct {
@@ -26,7 +26,7 @@ type Options struct {
 }
 
 func (o *Options) FillFromEnv(key string) {
-	utils.MustParseJSONFromEnv(o, key)
+	env.MustParseJSON(o, key)
 }
 
 func (o *Options) Validate() error {

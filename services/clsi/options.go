@@ -17,8 +17,8 @@
 package main
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
@@ -36,9 +36,9 @@ func getOptions() *clsiOptions {
 	o.options.FillFromEnv("OPTIONS")
 	o.address = listenAddress.Parse(3013)
 
-	loadPort := utils.GetIntFromEnv("LOAD_PORT", 3048)
+	loadPort := env.GetInt("LOAD_PORT", 3048)
 	o.loadAddress = listenAddress.Parse(loadPort)
-	o.loadShedding = utils.GetStringFromEnv("LOAD_SHEDDING", "false") == "true"
+	o.loadShedding = env.GetBool("LOAD_SHEDDING")
 
 	return o
 }

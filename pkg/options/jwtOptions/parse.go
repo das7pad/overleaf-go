@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 type JWTOptions struct {
@@ -47,7 +47,7 @@ func (j *JWTOptions) FillFromEnv(name string) {
 		return
 	}
 	j.Algorithm = "HS512"
-	j.Key = []byte(utils.MustGetStringFromEnv(name))
+	j.Key = []byte(env.MustGetString(name))
 }
 
 func Parse(key string) JWTOptions {

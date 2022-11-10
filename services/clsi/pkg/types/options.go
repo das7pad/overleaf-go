@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -65,10 +65,10 @@ type Options struct {
 }
 
 func (o *Options) FillFromEnv(key string) {
-	utils.MustParseJSONFromEnv(o, key)
+	env.MustParseJSON(o, key)
 
 	if o.CopyExecAgentSrc == "" {
-		o.CopyExecAgentSrc = utils.GetStringFromEnv("COPY_EXEC_AGENT_SRC", "")
+		o.CopyExecAgentSrc = env.GetString("COPY_EXEC_AGENT_SRC", "")
 	}
 }
 

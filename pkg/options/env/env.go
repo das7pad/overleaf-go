@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package utils
+package env
 
 import (
 	"encoding/json"
@@ -26,7 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func GetIntFromEnv(key string, fallback int) int {
+func GetInt(key string, fallback int) int {
 	raw := os.Getenv(key)
 	if raw == "" {
 		return fallback
@@ -38,7 +38,7 @@ func GetIntFromEnv(key string, fallback int) int {
 	return int(parsed)
 }
 
-func GetStringFromEnv(key, fallback string) string {
+func GetString(key, fallback string) string {
 	raw := os.Getenv(key)
 	if raw == "" {
 		return fallback
@@ -46,11 +46,11 @@ func GetStringFromEnv(key, fallback string) string {
 	return raw
 }
 
-func GetBoolFromEnv(key string) bool {
-	return strings.ToLower(GetStringFromEnv(key, "false")) == "true"
+func GetBool(key string) bool {
+	return strings.ToLower(GetString(key, "false")) == "true"
 }
 
-func MustGetStringFromEnv(key string) string {
+func MustGetString(key string) string {
 	raw := os.Getenv(key)
 	if raw == "" {
 		panic(errors.New("missing " + key))
@@ -58,16 +58,16 @@ func MustGetStringFromEnv(key string) string {
 	return raw
 }
 
-func GetDurationFromEnv(key string, fallback time.Duration) time.Duration {
+func GetDuration(key string, fallback time.Duration) time.Duration {
 	raw := os.Getenv(key)
 	if raw == "" {
 		return fallback
 	}
-	return time.Duration(GetIntFromEnv(key, 0) * int(time.Millisecond))
+	return time.Duration(GetInt(key, 0) * int(time.Millisecond))
 }
 
-func MustParseJSONFromEnv(target interface{}, key string) {
-	raw := MustGetStringFromEnv(key)
+func MustParseJSON(target interface{}, key string) {
+	raw := MustGetString(key)
 	err := json.Unmarshal([]byte(raw), target)
 	if err != nil {
 		panic(errors.Tag(err, "malformed "+key))

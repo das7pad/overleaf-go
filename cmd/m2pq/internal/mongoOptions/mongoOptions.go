@@ -24,27 +24,27 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 func Parse() (*options.ClientOptions, string) {
-	mongoConnectionString := utils.GetStringFromEnv(
+	mongoConnectionString := env.GetString(
 		"MONGO_CONNECTION_STRING",
 		fmt.Sprintf(
 			"mongodb://%s/sharelatex",
-			utils.GetStringFromEnv("MONGO_HOST", "localhost"),
+			env.GetString("MONGO_HOST", "localhost"),
 		),
 	)
 	mongoOptions := options.Client()
 	mongoOptions.ApplyURI(mongoConnectionString)
-	mongoOptions.SetAppName(utils.GetStringFromEnv("SERVICE_NAME", ""))
+	mongoOptions.SetAppName(env.GetString("SERVICE_NAME", ""))
 	mongoOptions.SetMaxPoolSize(
-		uint64(utils.GetIntFromEnv("MONGO_POOL_SIZE", 10)),
+		uint64(env.GetInt("MONGO_POOL_SIZE", 10)),
 	)
 	mongoOptions.SetSocketTimeout(
-		utils.GetDurationFromEnv("MONGO_SOCKET_TIMEOUT", 30*time.Second),
+		env.GetDuration("MONGO_SOCKET_TIMEOUT", 30*time.Second),
 	)
-	mongoOptions.SetServerSelectionTimeout(utils.GetDurationFromEnv(
+	mongoOptions.SetServerSelectionTimeout(env.GetDuration(
 		"MONGO_SERVER_SELECTION_TIMEOUT",
 		60*time.Second,
 	))

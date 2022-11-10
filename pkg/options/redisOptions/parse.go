@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,19 +21,19 @@ import (
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 func Parse() *redis.UniversalOptions {
 	return &redis.UniversalOptions{
 		Addrs: strings.Split(
-			utils.GetStringFromEnv("REDIS_HOST", "localhost:6379"),
+			env.GetString("REDIS_HOST", "localhost:6379"),
 			",",
 		),
-		Password: utils.GetStringFromEnv("REDIS_PASSWORD", ""),
-		MaxRetries: utils.GetIntFromEnv(
+		Password: env.GetString("REDIS_PASSWORD", ""),
+		MaxRetries: env.GetInt(
 			"REDIS_MAX_RETRIES_PER_REQUEST", 20,
 		),
-		PoolSize: utils.GetIntFromEnv("REDIS_POOL_SIZE", 0),
+		PoolSize: env.GetInt("REDIS_POOL_SIZE", 0),
 	}
 }

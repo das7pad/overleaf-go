@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,11 +19,11 @@ package listenAddress
 import (
 	"fmt"
 
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 func Parse(port int) string {
-	listenAddress := utils.GetStringFromEnv("LISTEN_ADDRESS", "localhost")
-	port = utils.GetIntFromEnv("PORT", port)
+	listenAddress := env.GetString("LISTEN_ADDRESS", "localhost")
+	port = env.GetInt("PORT", port)
 	return fmt.Sprintf("%s:%d", listenAddress, port)
 }

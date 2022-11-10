@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
 type Options struct {
@@ -37,7 +37,7 @@ func (o *Options) FillFromEnv(name string) {
 	if len(o.Secrets) > 0 {
 		return
 	}
-	o.Secrets = strings.Split(utils.MustGetStringFromEnv(name), ",")
+	o.Secrets = strings.Split(env.MustGetString(name), ",")
 }
 
 func (o *Options) Validate() error {

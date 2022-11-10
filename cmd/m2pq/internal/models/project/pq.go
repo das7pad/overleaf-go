@@ -38,7 +38,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -114,7 +114,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 	var fo objectStorage.Backend
 	{
 		o := objectStorage.Options{}
-		utils.MustParseJSONFromEnv(&o, "FILESTORE_OPTIONS")
+		env.MustParseJSON(&o, "FILESTORE_OPTIONS")
 		m, err := objectStorage.FromOptions(o)
 		if err != nil {
 			panic(errors.Tag(err, "create filestore backend"))
@@ -124,7 +124,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 	var do objectStorage.Backend
 	{
 		o := objectStorage.Options{}
-		utils.MustParseJSONFromEnv(&o, "DOCSTORE_OPTIONS")
+		env.MustParseJSON(&o, "DOCSTORE_OPTIONS")
 		m, err := objectStorage.FromOptions(o)
 		if err != nil {
 			panic(errors.Tag(err, "create docstore backend"))

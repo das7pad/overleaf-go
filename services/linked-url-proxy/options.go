@@ -19,8 +19,8 @@ package main
 import (
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
-	"github.com/das7pad/overleaf-go/pkg/options/utils"
 )
 
 type linkedURLProxyOptions struct {
@@ -33,12 +33,10 @@ type linkedURLProxyOptions struct {
 func getOptions() *linkedURLProxyOptions {
 	o := &linkedURLProxyOptions{}
 	o.address = listenAddress.Parse(8080)
-	o.proxyToken = utils.MustGetStringFromEnv("PROXY_TOKEN")
-	o.timeout = utils.GetDurationFromEnv(
+	o.proxyToken = env.MustGetString("PROXY_TOKEN")
+	o.timeout = env.GetDuration(
 		"LINKED_URL_PROXY_TIMEOUT", 28*time.Second,
 	)
-	o.allowRedirects = utils.GetStringFromEnv(
-		"ALLOW_REDIRECTS", "false",
-	) == "true"
+	o.allowRedirects = env.GetBool("ALLOW_REDIRECTS")
 	return o
 }
