@@ -27,7 +27,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type internalDataAccessOnly = Data
@@ -52,7 +51,7 @@ func (s *Session) CheckIsLoggedIn() error {
 }
 
 func (s *Session) IsLoggedIn() bool {
-	return s.User.Id != (sharedTypes.UUID{})
+	return !s.User.Id.IsZero()
 }
 
 func (s *Session) Login(ctx context.Context, u user.ForSession, ip string) (string, error) {
@@ -115,7 +114,7 @@ func (s *Session) prepareCleanup() func(ctx context.Context) error {
 		if err != nil && err != redis.Nil {
 			return err
 		}
-		if userId == (sharedTypes.UUID{}) {
+		if userId.IsZero() {
 			return nil
 		}
 		// Multi/EXEC skips over nil error from `DEL`.

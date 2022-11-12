@@ -103,6 +103,10 @@ const AllZeroUUID = "00000000-0000-0000-0000-000000000000"
 
 type UUID [16]byte
 
+func (u UUID) IsZero() bool {
+	return u == UUID{}
+}
+
 func (u UUID) String() string {
 	dst := make([]byte, 36)
 	hex.Encode(dst, u[:4])

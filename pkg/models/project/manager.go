@@ -260,7 +260,7 @@ FROM p
 
 func (m *manager) FinalizeProjectCreation(ctx context.Context, p *ForCreation) error {
 	var rootDocId interface{} = nil
-	if p.RootDoc.Id != (sharedTypes.UUID{}) {
+	if !p.RootDoc.Id.IsZero() {
 		rootDocId = p.RootDoc.Id
 	}
 	return getErr(m.db.Exec(ctx, `
@@ -1000,7 +1000,7 @@ WHERE p.id = $1
 func (m *manager) ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
 	ok := false
 	var err error
-	if userId == (sharedTypes.UUID{}) {
+	if userId.IsZero() {
 		err = m.db.QueryRow(ctx, `
 SELECT TRUE
 FROM projects
@@ -1836,7 +1836,7 @@ func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId s
 	if err != nil {
 		return sharedTypes.UUID{}, false, 0, err
 	}
-	if existingId == (sharedTypes.UUID{}) {
+	if existingId.IsZero() {
 		return existingId, false, 0, errInsert
 	}
 	if isDoc {

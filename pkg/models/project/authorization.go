@@ -111,7 +111,7 @@ func (p *ForAuthorizationDetails) GetPrivilegeLevelAuthenticated() (*Authorizati
 }
 
 func (p *ForAuthorizationDetails) GetPrivilegeLevel(userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
-	if userId == (sharedTypes.UUID{}) {
+	if userId.IsZero() {
 		return p.GetPrivilegeLevelAnonymous(accessToken)
 	} else {
 		return p.GetPrivilegeLevelAuthenticated()

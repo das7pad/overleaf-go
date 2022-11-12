@@ -22,7 +22,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -43,7 +42,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 		return err
 	}
 
-	if userId == (sharedTypes.UUID{}) {
+	if userId.IsZero() {
 		userEpoch = user.AnonymousUserEpoch
 	}
 

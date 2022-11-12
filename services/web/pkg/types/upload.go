@@ -99,7 +99,7 @@ type CreateProjectRequest struct {
 }
 
 func (r *CreateProjectRequest) Validate() error {
-	if r.UserId == (sharedTypes.UUID{}) {
+	if r.UserId.IsZero() {
 		return errors.New("must be logged in")
 	}
 	if r.Compiler != "" {

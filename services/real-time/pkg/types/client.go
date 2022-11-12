@@ -198,7 +198,7 @@ func (c *Client) requireJoinedProjectAndDoc() error {
 	if err := c.requireJoinedProject(); err != nil {
 		return err
 	}
-	if c.DocId == (sharedTypes.UUID{}) {
+	if c.DocId.IsZero() {
 		return &errors.InvalidStateError{Msg: "join doc first"}
 	}
 	return nil
@@ -235,7 +235,7 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		if err := c.requireJoinedProject(); err != nil {
 			return err
 		}
-		if c.DocId != (sharedTypes.UUID{}) && c.DocId != docId {
+		if !c.DocId.IsZero() && c.DocId != docId {
 			return &errors.InvalidStateError{Msg: "leave other doc first"}
 		}
 		return nil

@@ -21,6 +21,32 @@ import (
 	"testing"
 )
 
+func TestUUID_IsZero(t *testing.T) {
+	tests := []struct {
+		name string
+		u    UUID
+		want bool
+	}{
+		{
+			name: "zero",
+			u:    UUID{},
+			want: true,
+		},
+		{
+			name: "set",
+			u:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.u.IsZero(); got != tt.want {
+				t.Errorf("IsZero() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUUID_String(t *testing.T) {
 	tests := []struct {
 		name string
@@ -104,14 +130,21 @@ func TestParseUUID(t *testing.T) {
 	}
 }
 
-func BenchmarkUUIDString(b *testing.B) {
+func BenchmarkUUID_IsZero(b *testing.B) {
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	for i := 0; i < b.N; i++ {
+		_ = u.IsZero()
+	}
+}
+
+func BenchmarkUUID_String(b *testing.B) {
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	for i := 0; i < b.N; i++ {
 		_ = u.String()
 	}
 }
 
-func BenchmarkUUIDParse(b *testing.B) {
+func BenchmarkParseUUID(b *testing.B) {
 	s := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}.String()
 	for i := 0; i < b.N; i++ {
 		_, _ = ParseUUID(s)

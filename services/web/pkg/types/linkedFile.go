@@ -80,7 +80,7 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		}
 		return nil
 	case project.LinkedFileProviderProjectFile:
-		if r.Parameter.SourceProjectId == (sharedTypes.UUID{}) {
+		if r.Parameter.SourceProjectId.IsZero() {
 			return &errors.ValidationError{Msg: "missing source_project_id"}
 		}
 		if err := r.Parameter.SourceEntityPath.Validate(); err != nil {
@@ -88,7 +88,7 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		}
 		return nil
 	case project.LinkedFileProviderProjectOutputFile:
-		if r.Parameter.SourceProjectId == (sharedTypes.UUID{}) {
+		if r.Parameter.SourceProjectId.IsZero() {
 			return &errors.ValidationError{Msg: "missing source_project_id"}
 		}
 		if err := r.Parameter.SourceOutputFilePath.Validate(); err != nil {

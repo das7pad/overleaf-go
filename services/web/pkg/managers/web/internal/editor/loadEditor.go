@@ -88,7 +88,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
-	isAnonymous := userId == (sharedTypes.UUID{})
+	isAnonymous := userId.IsZero()
 	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
 
 	response := templates.EditorBootstrap{
@@ -204,7 +204,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 func (m *manager) ProjectEditorDetached(ctx context.Context, request *types.ProjectEditorDetachedPageRequest, res *types.ProjectEditorDetachedPageResponse) error {
 	projectId := request.ProjectId
 	userId := request.Session.User.Id
-	isAnonymous := userId == (sharedTypes.UUID{})
+	isAnonymous := userId.IsZero()
 	anonymousAccessToken := request.Session.GetAnonTokenAccess(projectId)
 
 	d, err := m.pm.GetLoadEditorDetails(

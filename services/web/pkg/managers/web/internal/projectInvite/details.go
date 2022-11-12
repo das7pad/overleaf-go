@@ -36,7 +36,7 @@ type projectInviteDetails struct {
 }
 
 func (d *projectInviteDetails) IsUserRegistered() bool {
-	return d.user.Id != (sharedTypes.UUID{})
+	return !d.user.Id.IsZero()
 }
 
 func (d *projectInviteDetails) GetInviteURL(siteURL sharedTypes.URL) *sharedTypes.URL {

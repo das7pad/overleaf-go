@@ -24,7 +24,7 @@ import (
 
 func ParseAndValidateId(c *Context, name string) (sharedTypes.UUID, error) {
 	id, err := m2pq.ParseID(c.Param(name))
-	if err != nil || id == (sharedTypes.UUID{}) {
+	if err != nil || id.IsZero() {
 		return sharedTypes.UUID{}, &errors.ValidationError{
 			Msg: "invalid " + name,
 		}

@@ -34,7 +34,7 @@ func (m *manager) ActivateUserPage(ctx context.Context, request *types.ActivateU
 	var userId sharedTypes.UUID
 	{
 		id, err := m2pq.ParseID(request.UserIdHex)
-		if err != nil || id == (sharedTypes.UUID{}) {
+		if err != nil || id.IsZero() {
 			return &errors.ValidationError{Msg: "invalid user_id"}
 		}
 		userId = id

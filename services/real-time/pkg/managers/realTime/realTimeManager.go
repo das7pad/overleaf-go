@@ -373,7 +373,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 func (m *manager) Disconnect(client *types.Client) error {
 	var errAppliedOps, errEditorEvents, errClientTracking error
 	docId := client.DocId
-	if docId != (sharedTypes.UUID{}) {
+	if !docId.IsZero() {
 		errAppliedOps = m.appliedOps.Leave(client, docId)
 	}
 	projectId := client.ProjectId

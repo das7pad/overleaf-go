@@ -158,10 +158,10 @@ func (o *Options) Validate() error {
 	if err := o.SmokeTest.Password.Validate(); err != nil {
 		return errors.Tag(err, "smoke_test.password is invalid")
 	}
-	if o.SmokeTest.ProjectId == (sharedTypes.UUID{}) {
+	if o.SmokeTest.ProjectId.IsZero() {
 		return &errors.ValidationError{Msg: "smoke_test.projectId is missing"}
 	}
-	if o.SmokeTest.UserId == (sharedTypes.UUID{}) {
+	if o.SmokeTest.UserId.IsZero() {
 		return &errors.ValidationError{Msg: "smoke_test.userId is missing"}
 	}
 

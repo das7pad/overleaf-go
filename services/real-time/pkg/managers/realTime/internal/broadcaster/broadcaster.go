@@ -328,7 +328,7 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 					id:        raw.Channel,
 				}
 			case channel.IncomingMessage:
-				if raw.Channel == (sharedTypes.UUID{}) {
+				if raw.Channel.IsZero() {
 					b.allQueue <- raw.Msg
 				} else {
 					b.handleMessage(raw)

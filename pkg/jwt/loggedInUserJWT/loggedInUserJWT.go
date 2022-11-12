@@ -22,7 +22,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type userIdJWTClaims = userIdJWT.Claims
@@ -35,7 +34,7 @@ func (c *Claims) Valid() error {
 	if err := c.userIdJWTClaims.Valid(); err != nil {
 		return err
 	}
-	if c.UserId == (sharedTypes.UUID{}) {
+	if c.UserId.IsZero() {
 		return &errors.NotAuthorizedError{}
 	}
 	return nil

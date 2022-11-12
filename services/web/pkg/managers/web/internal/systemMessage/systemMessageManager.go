@@ -53,7 +53,7 @@ func New(db *pgxpool.Pool) Manager {
 }
 
 func (m *manager) GetAllCached(ctx context.Context, userId sharedTypes.UUID) ([]systemMessage.Full, error) {
-	if userId == (sharedTypes.UUID{}) {
+	if userId.IsZero() {
 		// Hide messages for logged out users.
 		return noMessages, nil
 	}
@@ -64,7 +64,7 @@ func (m *manager) GetAllCached(ctx context.Context, userId sharedTypes.UUID) ([]
 }
 
 func (m *manager) GetAllCachedOnly(userId sharedTypes.UUID) ([]systemMessage.Full, bool) {
-	if userId == (sharedTypes.UUID{}) {
+	if userId.IsZero() {
 		// Hide messages for logged out users.
 		return noMessages, true
 	}

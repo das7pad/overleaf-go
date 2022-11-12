@@ -21,7 +21,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/session"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 const (
@@ -91,7 +90,7 @@ func (d *CommonData) LoggedIn() bool {
 	if d.SessionUser == nil {
 		return false
 	}
-	return d.SessionUser.Id != (sharedTypes.UUID{})
+	return !d.SessionUser.Id.IsZero()
 }
 
 func (d *CommonData) Meta() []metaEntry {

@@ -86,7 +86,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		if err != nil {
 			return errors.Tag(err, "cannot create populated doc")
 		}
-		if existingId != (sharedTypes.UUID{}) && existingIsDoc {
+		if !existingId.IsZero() && existingIsDoc {
 			// This a text file upload on a doc. Just upsert the content.
 			err = m.dum.SetDoc(
 				ctx, projectId, existingId,
@@ -148,7 +148,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	// Failing the request and retrying now would result in duplicates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	if existingId != (sharedTypes.UUID{}) {
+	if !existingId.IsZero() {
 		if existingIsDoc {
 			m.cleanupDocDeletion(ctx, projectId, existingId)
 		}

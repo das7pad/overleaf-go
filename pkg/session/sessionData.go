@@ -79,7 +79,7 @@ func (d *Data) IsEmpty() bool {
 }
 
 func (d *Data) GetAnonTokenAccess(projectId sharedTypes.UUID) project.AccessToken {
-	if d.User.Id != (sharedTypes.UUID{}) {
+	if !d.User.Id.IsZero() {
 		// Tokens are cleared during login. Explicitly return no token here.
 		return ""
 	}
