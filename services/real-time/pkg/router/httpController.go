@@ -19,11 +19,14 @@ package router
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -46,28 +49,48 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptions jwtOptions.JWTOpt
 	(&httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
-			Subprotocols: []string{"v6.real-time.overleaf.com"},
+			Subprotocols: []string{
+				protoV6,
+				protoV7,
+			},
 		},
-		jwt: httpUtils.NewJWTHandlerFromQuery(
-			wsBootstrap.New(jwtOptions), jwtQueryParameter,
-		),
+		jwt: wsBootstrap.New(jwtOptions),
 	}).addRoutes(r)
 }
 
 type httpController struct {
 	rtm realTime.Manager
 	u   websocket.Upgrader
-	jwt *httpUtils.JWTHTTPHandler
+	jwt jwtHandler.JWTHandler
 }
 
-const jwtQueryParameter = "bootstrap"
+const (
+	protoV6                  = "v6.real-time.overleaf.com"
+	protoV6JWTQueryParameter = "bootstrap"
+	protoV7                  = "v7.real-time.overleaf.com"
+	protoV7JWTProtoPrefix    = ".bootstrap.v7.real-time.overleaf.com"
+)
 
 func (h *httpController) addRoutes(router *httpUtils.Router) {
 	router.GET("/socket.io", h.ws)
 }
 
 func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Claims, error) {
-	_, genericClaims, jwtError := h.jwt.Parse(c)
+	var blob string
+	for _, proto := range websocket.Subprotocols(c.Request) {
+		if proto == protoV6 {
+			blob = c.Request.URL.Query().Get(protoV6JWTQueryParameter)
+			break
+		}
+		if strings.HasSuffix(proto, protoV7JWTProtoPrefix) {
+			blob = proto[:len(proto)-len(protoV7JWTProtoPrefix)]
+			break
+		}
+	}
+	if len(blob) == 0 {
+		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
+	}
+	genericClaims, jwtError := h.jwt.Parse(blob)
 	if jwtError != nil {
 		return nil, jwtError
 	}

@@ -29,36 +29,22 @@ type PostProcessClaims interface {
 	PostProcess(c *Context) (*Context, error)
 }
 
-func NewJWTHandlerFromQuery(handler jwtHandler.JWTHandler, fromQuery string) *JWTHTTPHandler {
-	return &JWTHTTPHandler{
-		parser:    handler,
-		fromQuery: fromQuery,
-	}
-}
-
 func NewJWTHandler(handler jwtHandler.JWTHandler) *JWTHTTPHandler {
 	return &JWTHTTPHandler{
-		parser:    handler,
-		fromQuery: "",
+		parser: handler,
 	}
 }
 
 type JWTHTTPHandler struct {
-	parser    jwtHandler.JWTHandler
-	fromQuery string
+	parser jwtHandler.JWTHandler
 }
 
 func (h *JWTHTTPHandler) Parse(c *Context) (*Context, jwt.Claims, error) {
 	var blob string
-	if h.fromQuery != "" {
-		blob = c.Request.URL.Query().Get(h.fromQuery)
-	} else {
-		v := c.Request.Header.Get("Authorization")
-		if strings.HasPrefix(v, "Bearer ") {
-			blob = v[7:]
-		}
+	v := c.Request.Header.Get("Authorization")
+	if strings.HasPrefix(v, "Bearer ") {
+		blob = v[7:]
 	}
-
 	if blob == "" {
 		return c, nil, &errors.UnauthorizedError{Reason: "missing jwt"}
 	}
@@ -70,7 +56,7 @@ func (h *JWTHTTPHandler) Parse(c *Context) (*Context, jwt.Claims, error) {
 
 	if postProcessClaims, ok := claims.(PostProcessClaims); ok {
 		if c, err = postProcessClaims.PostProcess(c); err != nil {
-			return nil, nil, err
+			return c, nil, err
 		}
 	}
 
