@@ -121,7 +121,7 @@ type Client struct {
 
 	DocId     sharedTypes.UUID
 	PublicId  sharedTypes.PublicId
-	ProjectId *sharedTypes.UUID
+	ProjectId sharedTypes.UUID
 	User      User
 
 	knownDocs []sharedTypes.UUID
@@ -188,7 +188,7 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 }
 
 func (c *Client) requireJoinedProject() error {
-	if c.ProjectId == nil {
+	if c.ProjectId.IsZero() {
 		return &errors.InvalidStateError{Msg: "join project first"}
 	}
 	return nil
@@ -227,7 +227,7 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	case Ping:
 		return nil
 	case JoinProject:
-		if c.ProjectId != nil {
+		if !c.ProjectId.IsZero() {
 			return &errors.InvalidStateError{Msg: "already joined project"}
 		}
 		return nil

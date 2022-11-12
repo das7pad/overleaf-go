@@ -64,7 +64,7 @@ func getProjectKey(projectId sharedTypes.UUID) string {
 }
 
 func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
-	projectId := *client.ProjectId
+	projectId := client.ProjectId
 	rawIds, err := m.redisClient.SMembers(ctx, getProjectKey(projectId)).Result()
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	staleClients := make([]sharedTypes.PublicId, 0)
 	defer func() {
 		if len(staleClients) != 0 {
-			go m.cleanupStaleClients(*client.ProjectId, staleClients)
+			go m.cleanupStaleClients(client.ProjectId, staleClients)
 		}
 	}()
 	for idx, id := range ids {
@@ -172,8 +172,8 @@ func (m *manager) DeleteClientPosition(client *types.Client) bool {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	projectKey := getProjectKey(*client.ProjectId)
-	userKey := getConnectedUserKey(*client.ProjectId, client.PublicId)
+	projectKey := getProjectKey(client.ProjectId)
+	userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
 	var nowEmpty *redis.IntCmd
 	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
 		p.SRem(ctx, projectKey, string(client.PublicId))
@@ -202,10 +202,10 @@ func (m *manager) RefreshClientPositions(ctx context.Context, clients []*types.C
 	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
 		for idx, client := range clients {
 			if idx == 0 && refreshProjectExpiry {
-				projectKey := getProjectKey(*client.ProjectId)
+				projectKey := getProjectKey(client.ProjectId)
 				p.Expire(ctx, projectKey, ProjectExpiry)
 			}
-			userKey := getConnectedUserKey(*client.ProjectId, client.PublicId)
+			userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
 			p.Expire(ctx, userKey, UserExpiry)
 		}
 		return nil
@@ -214,8 +214,8 @@ func (m *manager) RefreshClientPositions(ctx context.Context, clients []*types.C
 }
 
 func (m *manager) UpdateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition) error {
-	projectKey := getProjectKey(*client.ProjectId)
-	userKey := getConnectedUserKey(*client.ProjectId, client.PublicId)
+	projectKey := getProjectKey(client.ProjectId)
+	userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
 
 	user, err := json.Marshal(client.User)
 	if err != nil {

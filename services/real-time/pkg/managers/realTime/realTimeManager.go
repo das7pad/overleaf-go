@@ -152,7 +152,7 @@ func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
 	rpc.Client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
 
 	// For cleanup purposes: mark as joined before actually joining.
-	rpc.Client.ProjectId = &args.ProjectId
+	rpc.Client.ProjectId = args.ProjectId
 
 	// Fetch connected users in the background.
 	var connectedClients types.ConnectedClients
@@ -215,7 +215,7 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	if !rpc.Client.IsKnownDoc(rpc.Request.DocId) {
 		err := m.documentUpdater.CheckDocExists(
 			ctx,
-			*rpc.Client.ProjectId,
+			rpc.Client.ProjectId,
 			args.DocId,
 		)
 		if err != nil {
@@ -238,7 +238,7 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 
 	r, err := m.documentUpdater.GetDoc(
 		ctx,
-		*rpc.Client.ProjectId,
+		rpc.Client.ProjectId,
 		args.DocId,
 		args.FromVersion,
 	)
@@ -357,7 +357,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 		return errors.Tag(err, "cannot encode notification")
 	}
 	msg := &sharedTypes.EditorEventsMessage{
-		RoomId:  *rpc.Client.ProjectId,
+		RoomId:  rpc.Client.ProjectId,
 		Message: editorEvents.ClientTrackingClientUpdated,
 		Payload: body,
 	}
@@ -372,13 +372,11 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 
 func (m *manager) Disconnect(client *types.Client) error {
 	var errAppliedOps, errEditorEvents, errClientTracking error
-	docId := client.DocId
-	if !docId.IsZero() {
-		errAppliedOps = m.appliedOps.Leave(client, docId)
+	if !client.DocId.IsZero() {
+		errAppliedOps = m.appliedOps.Leave(client, client.DocId)
 	}
-	projectId := client.ProjectId
-	if projectId != nil {
-		errEditorEvents = m.editorEvents.Leave(client, *projectId)
+	if !client.ProjectId.IsZero() {
+		errEditorEvents = m.editorEvents.Leave(client, client.ProjectId)
 
 		// Skip cleanup when not joined yet.
 		var nowEmpty bool
@@ -406,7 +404,7 @@ func (m *manager) cleanupClientTracking(client *types.Client) (bool, error) {
 
 	body := json.RawMessage("\"" + client.PublicId + "\"")
 	msg := &sharedTypes.EditorEventsMessage{
-		RoomId:  *client.ProjectId,
+		RoomId:  client.ProjectId,
 		Message: "clientTracking.clientDisconnected",
 		Payload: body,
 	}
@@ -424,7 +422,7 @@ func (m *manager) backgroundFlush(client *types.Client) {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 
-	err := m.documentUpdater.FlushProject(ctx, *client.ProjectId)
+	err := m.documentUpdater.FlushProject(ctx, client.ProjectId)
 	if err != nil {
 		log.Println(
 			errors.Tag(
