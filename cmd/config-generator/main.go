@@ -287,8 +287,10 @@ func main() {
 			Timeout: 10 * time.Second,
 		},
 		JWT: struct {
+			Project  jwtOptions.JWTOptions `json:"project"`
 			RealTime jwtOptions.JWTOptions `json:"realTime"`
 		}{
+			Project:  jwtOptionsProject,
 			RealTime: jwtOptionsRealTime,
 		},
 	}

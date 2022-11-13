@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
@@ -43,6 +44,7 @@ type Manager interface {
 
 	PeriodicCleanup(ctx context.Context)
 
+	BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error)
 	RPC(ctx context.Context, rpc *types.RPC)
 	Disconnect(client *types.Client) error
 }
@@ -133,6 +135,15 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 	}
 }
 
+func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error) {
+	u, p, err := m.webApi.BootstrapWS(ctx, client, claims)
+	if err != nil {
+		return nil, err
+	}
+	client.User = u
+	return m.doJoinProject(ctx, client, p)
+}
+
 func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
 	var args types.JoinProjectRequest
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
@@ -149,21 +160,31 @@ func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
 			err, "webApi.joinProject failed for "+args.ProjectId.String(),
 		)
 	}
-	rpc.Client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
+	body, err := m.doJoinProject(ctx, rpc.Client, r)
+	if err != nil {
+		return err
+	}
+	rpc.Response.Body = body
+	return nil
+}
+
+func (m *manager) doJoinProject(ctx context.Context, client *types.Client, r *types.JoinProjectWebApiResponse) ([]byte, error) {
+	projectId := r.Project.Id
+	client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
 
 	// For cleanup purposes: mark as joined before actually joining.
-	rpc.Client.ProjectId = args.ProjectId
+	client.ProjectId = projectId
 
 	// Fetch connected users in the background.
 	var connectedClients types.ConnectedClients
 	fetchUsersCtx, doneFetchingUsers := context.WithTimeout(
 		ctx, time.Second*10,
 	)
-	if rpc.Client.CanDo(types.GetConnectedUsers, rpc.Request.DocId) == nil {
+	if client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil {
 		defer doneFetchingUsers()
 		go func() {
 			connectedClients, _ = m.clientTracking.GetConnectedClients(
-				fetchUsersCtx, rpc.Client,
+				fetchUsersCtx, client,
 			)
 			doneFetchingUsers()
 		}()
@@ -176,12 +197,12 @@ func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
 		// Mark the user as joined in the background.
 		// NOTE: UpdateClientPosition expects a present client.ProjectId.
 		//       Start the goroutine after assigning one.
-		m.clientTracking.InitializeClientPosition(rpc.Client)
+		m.clientTracking.InitializeClientPosition(client)
 	}()
 
-	if err = m.editorEvents.Join(ctx, rpc.Client, args.ProjectId); err != nil {
-		return errors.Tag(
-			err, "editorEvents.Join failed for "+args.ProjectId.String(),
+	if err := m.editorEvents.Join(ctx, client, projectId); err != nil {
+		return nil, errors.Tag(
+			err, "editorEvents.Join failed for "+projectId.String(),
 		)
 	}
 
@@ -193,16 +214,16 @@ func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
 		Project:          r.Project,
 		PrivilegeLevel:   r.PrivilegeLevel,
 		ConnectedClients: connectedClients,
+		PublicId:         client.PublicId,
 	}
 	body, err := json.Marshal(res)
 	if err != nil {
-		return errors.Tag(
+		return nil, errors.Tag(
 			err,
-			"encoding JoinProjectResponse failed for "+args.ProjectId.String(),
+			"encoding JoinProjectResponse failed for "+projectId.String(),
 		)
 	}
-	rpc.Response.Body = body
-	return nil
+	return body, nil
 }
 
 func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {

@@ -27,6 +27,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -35,33 +36,41 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func New(rtm realTime.Manager, jwtOptions jwtOptions.JWTOptions) *httpUtils.Router {
+func New(rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOptionsProject jwtOptions.JWTOptions) *httpUtils.Router {
 	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
 		Ready: func() bool {
 			return !rtm.IsShuttingDown()
 		},
 	})
-	Add(r, rtm, jwtOptions)
+	Add(r, rtm, jwtOptionsWsBootstrap, jwtOptionsProject)
 	return r
 }
 
-func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptions jwtOptions.JWTOptions) {
+func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOptionsProject jwtOptions.JWTOptions) {
 	(&httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
 			Subprotocols: []string{
 				protoV6,
 				protoV7,
+				protoV8,
 			},
 		},
-		jwt: wsBootstrap.New(jwtOptions),
+		jwtWSBootstrap: wsBootstrap.New(jwtOptionsWsBootstrap),
+		jwtProject: projectJWT.New(
+			jwtOptionsProject,
+			func(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
+				// validation is performed as part of bootstrap
+				return &errors.NotAuthorizedError{}
+			}),
 	}).addRoutes(r)
 }
 
 type httpController struct {
-	rtm realTime.Manager
-	u   websocket.Upgrader
-	jwt jwtHandler.JWTHandler
+	rtm            realTime.Manager
+	u              websocket.Upgrader
+	jwtWSBootstrap jwtHandler.JWTHandler
+	jwtProject     jwtHandler.JWTHandler
 }
 
 const (
@@ -69,10 +78,30 @@ const (
 	protoV6JWTQueryParameter = "bootstrap"
 	protoV7                  = "v7.real-time.overleaf.com"
 	protoV7JWTProtoPrefix    = ".bootstrap.v7.real-time.overleaf.com"
+	protoV8                  = "v8.real-time.overleaf.com"
+	protoV8JWTProtoPrefix    = ".bootstrap.v8.real-time.overleaf.com"
 )
 
 func (h *httpController) addRoutes(router *httpUtils.Router) {
 	router.GET("/socket.io", h.ws)
+}
+
+func (h *httpController) getProjectJWT(c *httpUtils.Context) (*projectJWT.Claims, error) {
+	var blob string
+	for _, proto := range websocket.Subprotocols(c.Request) {
+		if strings.HasSuffix(proto, protoV8JWTProtoPrefix) {
+			blob = proto[:len(proto)-len(protoV8JWTProtoPrefix)]
+			break
+		}
+	}
+	if len(blob) == 0 {
+		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
+	}
+	genericClaims, jwtError := h.jwtProject.Parse(blob)
+	if jwtError != nil {
+		return nil, jwtError
+	}
+	return genericClaims.(*projectJWT.Claims), nil
 }
 
 func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Claims, error) {
@@ -90,7 +119,7 @@ func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Clai
 	if len(blob) == 0 {
 		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
 	}
-	genericClaims, jwtError := h.jwt.Parse(blob)
+	genericClaims, jwtError := h.jwtWSBootstrap.Parse(blob)
 	if jwtError != nil {
 		return nil, jwtError
 	}
@@ -118,12 +147,31 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		return
 	}
 
-	claims, jwtErr := h.getWsBootstrap(requestCtx)
-	if jwtErr != nil {
-		log.Println("jwt auth failed: " + jwtErr.Error())
+	var claimsWSBootstrap *wsBootstrap.Claims
+	var claimsProjectJWT *projectJWT.Claims
+	switch conn.Subprotocol() {
+	case protoV6, protoV7:
+		var jwtErr error
+		claimsWSBootstrap, jwtErr = h.getWsBootstrap(requestCtx)
+		if jwtErr != nil {
+			log.Println("jwt auth failed: " + jwtErr.Error())
+			sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+			return
+		}
+	case protoV8:
+		var jwtErr error
+		claimsProjectJWT, jwtErr = h.getProjectJWT(requestCtx)
+		if jwtErr != nil {
+			log.Println("jwt auth failed: " + jwtErr.Error())
+			sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+			return
+		}
+	default:
+		log.Println("jwt auth failed: bad proto")
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
+	bootstrapConnection := conn.Subprotocol() == protoV8
 
 	writerChanges := make(chan bool)
 	writeQueue := make(chan types.WriteQueueEntry, 10)
@@ -145,17 +193,28 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		writerChanges <- false
 	}()
 
-	ctx, cancel := context.WithCancel(requestCtx)
-	defer cancel()
+	ctx, disconnect := context.WithCancel(requestCtx)
+	defer disconnect()
 
-	c, clientErr := types.NewClient(
-		claims.ProjectId, claims.User,
-		writerChanges, writeQueue, cancel,
-	)
-	if clientErr != nil {
-		log.Println("client setup failed: " + clientErr.Error())
-		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
-		return
+	var c *types.Client
+	var clientErr error
+	if bootstrapConnection {
+		c, clientErr = types.NewClient(
+			claimsProjectJWT.ProjectId, types.User{
+				// User will get populated by realTime.Manager.BootstrapWS.
+			},
+			writerChanges, writeQueue, disconnect,
+		)
+	} else {
+		c, clientErr = types.NewClient(
+			claimsWSBootstrap.ProjectId, claimsWSBootstrap.User,
+			writerChanges, writeQueue, disconnect,
+		)
+		if clientErr != nil {
+			log.Println("client setup failed: " + clientErr.Error())
+			sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
+			return
+		}
 	}
 
 	if h.rtm.IsShuttingDown() {
@@ -163,21 +222,23 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		return
 	}
 
-	setupTime.End()
-	if !c.EnsureQueueResponse(events.ConnectionAcceptedResponse(c.PublicId, setupTime)) {
-		return
+	if !bootstrapConnection {
+		setupTime.End()
+		if !c.EnsureQueueResponse(events.ConnectionAcceptedResponse(c.PublicId, setupTime)) {
+			return
+		}
 	}
 
 	waitForCtxDone := ctx.Done()
 
 	defer func() {
-		cancel()
+		disconnect()
 		_ = conn.Close()
 		_ = h.rtm.Disconnect(c)
 	}()
 	go func() {
 		defer func() {
-			cancel()
+			disconnect()
 			_ = conn.Close()
 			for range writeQueue {
 				// Flush the queue.
@@ -215,6 +276,35 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		// In case queuing from the read-loop failed, this is a noop.
 		<-waitForCtxDone
 	}()
+	if bootstrapConnection {
+		bCtx, done := context.WithTimeout(ctx, 10*time.Second)
+		blob, err := h.rtm.BootstrapWS(bCtx, c, *claimsProjectJWT)
+		done()
+		if ctx.Err() != nil {
+			return // connection aborted
+		}
+		if err != nil {
+			if errors.IsUnauthorizedError(err) {
+				log.Println("jwt auth failed: " + err.Error())
+				sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+			} else {
+				log.Println("bootstrapWS failed: " + err.Error())
+				sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
+			}
+			return
+		}
+		setupTime.End()
+		r := &types.RPCResponse{
+			Body:        blob,
+			Callback:    0,
+			Name:        "bootstrap",
+			Latency:     setupTime,
+			ProcessedBy: "self",
+		}
+		if !c.EnsureQueueResponse(r) {
+			return
+		}
+	}
 	for {
 		select {
 		case <-waitForCtxDone:

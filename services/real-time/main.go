@@ -71,8 +71,12 @@ func main() {
 		return nil
 	})
 	server := http.Server{
-		Addr:    listenAddress.Parse(3026),
-		Handler: router.New(rtm, realTimeOptions.JWT.RealTime),
+		Addr: listenAddress.Parse(3026),
+		Handler: router.New(
+			rtm,
+			realTimeOptions.JWT.RealTime,
+			realTimeOptions.JWT.Project,
+		),
 	}
 	var errServe error
 	eg.Go(func() error {

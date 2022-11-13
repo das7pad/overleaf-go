@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -31,6 +32,7 @@ import (
 
 type Manager interface {
 	JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, error)
+	BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) (types.User, *types.JoinProjectWebApiResponse, error)
 }
 
 func New(db *pgxpool.Pool) Manager {
@@ -44,21 +46,38 @@ type manager struct {
 }
 
 func (m *manager) JoinProject(ctx context.Context, client *types.Client, request *types.JoinProjectRequest) (*types.JoinProjectWebApiResponse, error) {
-	userId := client.User.Id
 	d, err := m.pm.GetJoinProjectDetails(
-		ctx, request.ProjectId, userId, request.AnonymousAccessToken,
+		ctx, request.ProjectId, client.User.Id, request.AnonymousAccessToken,
 	)
 	if err != nil {
 		return nil, errors.Tag(err, "cannot get project")
 	}
-	p := &d.Project
-
-	authorizationDetails, err := p.GetPrivilegeLevel(
-		userId, request.AnonymousAccessToken,
+	authorizationDetails, err := d.Project.GetPrivilegeLevel(
+		client.User.Id, request.AnonymousAccessToken,
 	)
 	if err != nil {
 		return nil, err
 	}
+	return m.resolve(d, *authorizationDetails), nil
+}
+
+func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) (types.User, *types.JoinProjectWebApiResponse, error) {
+	d, err := m.pm.GetBootstrapWSDetails(
+		ctx, claims.ProjectId, claims.UserId, claims.Epoch, claims.EpochUser,
+	)
+	if err != nil {
+		return types.User{}, nil, err
+	}
+	return types.User{
+		Id:        claims.UserId,
+		FirstName: d.User.FirstName,
+		LastName:  d.User.LastName,
+		Email:     d.User.Email,
+	}, m.resolve(d, claims.AuthorizationDetails), nil
+}
+
+func (m *manager) resolve(d *project.JoinProjectDetails, authorizationDetails project.AuthorizationDetails) *types.JoinProjectWebApiResponse {
+	p := &d.Project
 
 	var tokens project.Tokens
 	if authorizationDetails.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
@@ -100,5 +119,5 @@ func (m *manager) JoinProject(ctx context.Context, client *types.Client, request
 		Project:          details,
 		PrivilegeLevel:   authorizationDetails.PrivilegeLevel,
 		IsRestrictedUser: authorizationDetails.IsRestrictedUser(),
-	}, nil
+	}
 }

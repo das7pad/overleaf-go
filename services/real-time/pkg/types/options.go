@@ -31,12 +31,14 @@ type Options struct {
 	} `json:"graceful_shutdown"`
 
 	JWT struct {
+		Project  jwtOptions.JWTOptions `json:"project"`
 		RealTime jwtOptions.JWTOptions `json:"realTime"`
 	} `json:"jwt"`
 }
 
 func (o *Options) FillFromEnv() {
 	env.MustParseJSON(o, "REAL_TIME_OPTIONS")
+	o.JWT.Project.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 }
 

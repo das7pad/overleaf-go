@@ -45,6 +45,7 @@ type JoinProjectViewPublic struct {
 type JoinProjectDetails struct {
 	Project JoinProjectViewPrivate
 	Owner   user.WithPublicInfo
+	User    user.ForBootstrapWS
 }
 
 type ListViewPrivate struct {

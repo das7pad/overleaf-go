@@ -110,7 +110,9 @@ func main() {
 			return !rtm.IsShuttingDown()
 		},
 	})
-	realTimeRouter.Add(r, rtm, realTimeOptions.JWT.RealTime)
+	realTimeRouter.Add(
+		r, rtm, realTimeOptions.JWT.RealTime, realTimeOptions.JWT.Project,
+	)
 	spellingRouter.Add(r, sm, co)
 	webRouter.Add(r, webManager, co)
 

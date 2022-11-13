@@ -32,6 +32,7 @@ type JoinProjectResponse struct {
 	Project          JoinProjectDetails         `json:"project"`
 	PrivilegeLevel   sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 	ConnectedClients ConnectedClients           `json:"connectedClients"`
+	PublicId         sharedTypes.PublicId       `json:"publicId"`
 }
 
 type JoinProjectWebApiResponse struct {

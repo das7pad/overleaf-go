@@ -52,6 +52,13 @@ type WithLoginInfo struct {
 	MustReconfirmField
 }
 
+type ForBootstrapWS struct {
+	EmailField
+	EpochField
+	FirstNameField
+	LastNameField
+}
+
 type ForSession struct {
 	EpochField
 	WithPublicInfo
