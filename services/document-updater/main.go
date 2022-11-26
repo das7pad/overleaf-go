@@ -64,8 +64,7 @@ func main() {
 		<-ctx.Done()
 		return server.Shutdown(context.Background())
 	})
-	err = eg.Wait()
-	if err != nil && err != http.ErrServerClosed {
+	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }

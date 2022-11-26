@@ -67,9 +67,10 @@ func main() {
 
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	eg.Go(func() error {
-		rtm.PeriodicCleanup(triggerExitCtx)
+		rtm.PeriodicCleanup(ctx)
 		return nil
 	})
+
 	server := http.Server{
 		Addr: listenAddress.Parse(3026),
 		Handler: router.New(
@@ -78,14 +79,8 @@ func main() {
 			realTimeOptions.JWT.Project,
 		),
 	}
-	var errServe error
 	eg.Go(func() error {
-		errServe = server.ListenAndServe()
-		triggerExit()
-		if errServe == http.ErrServerClosed {
-			errServe = nil
-		}
-		return errServe
+		return server.ListenAndServe()
 	})
 	eg.Go(func() error {
 		<-ctx.Done()
@@ -98,11 +93,7 @@ func main() {
 		rtm.TriggerGracefulReconnect()
 		return pendingShutdown.Wait(ctx2)
 	})
-	err = eg.Wait()
-	if errServe != nil {
-		panic(errServe)
-	}
-	if err != nil {
+	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }

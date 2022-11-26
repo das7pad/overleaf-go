@@ -131,18 +131,13 @@ func main() {
 		dum.ProcessDocumentUpdates(processDocumentUpdatesCtx)
 		return nil
 	})
+
 	server := http.Server{
 		Addr:    addr,
 		Handler: r,
 	}
-	var errServe error
 	eg.Go(func() error {
-		errServe = server.ListenAndServe()
-		triggerExit()
-		if errServe == http.ErrServerClosed {
-			errServe = nil
-		}
-		return errServe
+		return server.ListenAndServe()
 	})
 	eg.Go(func() error {
 		<-ctx.Done()
@@ -164,11 +159,7 @@ func main() {
 		// - Wait for existing HTTP requests to finish processing
 		return pendingShutdown.Wait(ctx2)
 	})
-	err = eg.Wait()
-	if errServe != nil {
-		panic(errServe)
-	}
-	if err != nil {
+	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }
