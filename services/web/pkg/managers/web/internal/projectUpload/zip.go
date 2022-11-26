@@ -25,6 +25,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -61,13 +62,13 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 	if errNewReader != nil {
 		return errors.Tag(errNewReader, "cannot open zip")
 	}
-	if len(r.File) > 10*1000 {
+	if len(r.File) > 10_000 {
 		return &errors.ValidationError{
 			Msg: "too many entries in zip file (>10000)",
 		}
 	}
 
-	files := make([]types.CreateProjectFile, 0, len(r.File))
+	files := make([]types.CreateProjectFile, 0, constants.MaxFilesPerProject)
 	topDir := ""
 	topDirSet := false
 	for _, file := range r.File {
@@ -78,6 +79,11 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 		if !mode.IsRegular() {
 			return &errors.ValidationError{
 				Msg: fmt.Sprintf("%q is not a dir/file", file.Name),
+			}
+		}
+		if len(files) >= constants.MaxFilesPerProject {
+			return &errors.ValidationError{
+				Msg: "too many files for new project",
 			}
 		}
 		files = append(files, &zipFile{File: file})

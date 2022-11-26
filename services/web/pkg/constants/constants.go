@@ -23,4 +23,8 @@ import (
 const (
 	ExpireProjectsAfter = 90 * 24 * time.Hour
 	ExpireUsersAfter    = 90 * 24 * time.Hour
+
+	MaxUploadSize      = 50 * 1024 * 1024
+	MaxProjectSize     = 300 * 1024 * 1024
+	MaxFilesPerProject = 2_000
 )

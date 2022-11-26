@@ -36,12 +36,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
-)
-
-const (
-	maxDocSize = sharedTypes.MaxDocSizeBytes
 )
 
 func New(wm web.Manager, corsOptions httpUtils.CORSOptions) *httpUtils.Router {
@@ -938,7 +935,7 @@ func (h *httpController) addFolderToProject(c *httpUtils.Context) {
 func (h *httpController) uploadFile(c *httpUtils.Context) {
 	j := projectJWT.MustGet(c)
 	d := &httpUtils.UploadDetails{}
-	if !httpUtils.ProcessFileUpload(d, c, types.MaxUploadSize, maxDocSize) {
+	if !httpUtils.ProcessFileUpload(d, c, constants.MaxUploadSize, sharedTypes.MaxDocSizeBytes) {
 		return
 	}
 	defer d.Cleanup()
@@ -1277,7 +1274,7 @@ func (h *httpController) createFromZip(c *httpUtils.Context) {
 	}
 
 	d := &httpUtils.UploadDetails{}
-	if !httpUtils.ProcessFileUpload(d, c, types.MaxUploadSize, maxDocSize) {
+	if !httpUtils.ProcessFileUpload(d, c, constants.MaxUploadSize, sharedTypes.MaxDocSizeBytes) {
 		return
 	}
 	request.UploadDetails = types.UploadDetails{
@@ -1820,7 +1817,7 @@ func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
 		request.Query = c.Request.URL.Query()
 	case http.MethodPost:
 		c.Request.Body = http.MaxBytesReader(
-			c.Writer, c.Request.Body, types.MaxUploadSize,
+			c.Writer, c.Request.Body, constants.MaxUploadSize,
 		)
 		var err error
 		if c.Request.Header.Get("Content-Type") == "application/json" {

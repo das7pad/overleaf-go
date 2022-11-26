@@ -25,6 +25,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
 type OpenInOverleafSnippet struct {
@@ -187,14 +188,15 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 		// Zip based request
 		return nil
 	}
+	nSnippets :=
+		len(params["snip"]) +
+			len(params["snip_uri"]) +
+			len(params["encoded_snip"])
+	if nSnippets > constants.MaxFilesPerProject {
+		return &errors.ValidationError{Msg: "too many snippets for new project"}
+	}
 	// Snippet based request
-	snippets := make(
-		[]OpenInOverleafSnippet,
-		0,
-		len(params["snip"])+
-			len(params["snip_uri"])+
-			len(params["encoded_snip"]),
-	)
+	snippets := make([]OpenInOverleafSnippet, 0, nSnippets)
 	for i, raw := range params["encoded_snip"] {
 		v, err := url.QueryUnescape(raw)
 		if err != nil {

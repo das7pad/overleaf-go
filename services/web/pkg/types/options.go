@@ -33,6 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
 type Options struct {
@@ -310,7 +311,7 @@ func (o *Options) PublicSettings() (*templates.PublicSettings, error) {
 		EditorSettings: templates.EditorSettings{
 			MaxDocLength:           sharedTypes.MaxDocLength,
 			MaxEntitiesPerProject:  2000,
-			MaxUploadSize:          MaxUploadSize,
+			MaxUploadSize:          constants.MaxUploadSize,
 			WikiEnabled:            true,
 			WsURL:                  "/socket.io",
 			WsRetryHandshake:       5,
@@ -353,6 +354,6 @@ func (o *Options) PublicSettings() (*templates.PublicSettings, error) {
 			"uk":    "Українська",
 			"zh-CN": "简体中文",
 		},
-		ZipFileSizeLimit: MaxUploadSize,
+		ZipFileSizeLimit: constants.MaxUploadSize,
 	}, nil
 }

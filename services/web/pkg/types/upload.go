@@ -25,16 +25,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
+	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types/internal/conflictChecker"
-)
-
-const (
-	MaxUploadSize  = 50 * 1024 * 1024
-	maxProjectSize = 300 * 1024 * 1024
-)
-
-var errTotalSizeTooHigh = errors.Tag(
-	&errors.BodyTooLargeError{}, "total size must be below 300MB",
 )
 
 type UploadFileRequest struct {
@@ -113,8 +105,8 @@ func (r *CreateProjectRequest) Validate() error {
 	if len(r.Files) == 0 {
 		return &errors.ValidationError{Msg: "no files found"}
 	}
-	if len(r.Files) > 2000 {
-		return &errors.ValidationError{Msg: "too many files"}
+	if len(r.Files) > constants.MaxFilesPerProject {
+		return &errors.ValidationError{Msg: "too many files for new project"}
 	}
 
 	cc := make(conflictChecker.ConflictChecker, len(r.Files)*3)
@@ -125,14 +117,16 @@ func (r *CreateProjectRequest) Validate() error {
 			return err
 		}
 		size := file.Size()
-		if size > MaxUploadSize {
+		if size > constants.MaxUploadSize {
 			return &errors.ValidationError{
 				Msg: fmt.Sprintf("file %q is too large", path),
 			}
 		}
 		sum += size
-		if sum > maxProjectSize {
-			return errTotalSizeTooHigh
+		if sum > constants.MaxProjectSize {
+			return errors.Tag(
+				&errors.BodyTooLargeError{}, "total size must be below 300MB",
+			)
 		}
 		if err := cc.RegisterFile(path); err != nil {
 			return err
@@ -158,7 +152,7 @@ func (d *UploadDetails) Validate() error {
 	if err := d.FileName.Validate(); err != nil {
 		return err
 	}
-	if d.Size > MaxUploadSize {
+	if d.Size > constants.MaxUploadSize {
 		return &errors.BodyTooLargeError{}
 	}
 	return nil
