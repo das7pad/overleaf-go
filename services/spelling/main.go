@@ -17,7 +17,13 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
@@ -28,6 +34,11 @@ import (
 )
 
 func main() {
+	triggerExitCtx, triggerExit := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
+	)
+	defer triggerExit()
+
 	spellingOptions := spellingTypes.Options{}
 	spellingOptions.FillFromEnv()
 	sm, err := spelling.New(&spellingOptions)
@@ -35,8 +46,24 @@ func main() {
 		panic(errors.Tag(err, "spelling setup"))
 	}
 
-	r := router.New(sm, corsOptions.Parse())
-	if err = http.ListenAndServe(listenAddress.Parse(3005), r); err != nil {
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	server := http.Server{
+		Addr:    listenAddress.Parse(3005),
+		Handler: router.New(sm, corsOptions.Parse()),
+	}
+	eg.Go(func() error {
+		return server.ListenAndServe()
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		waitForSlowRequests, done := context.WithTimeout(
+			context.Background(), time.Second*10,
+		)
+		defer done()
+		return server.Shutdown(waitForSlowRequests)
+	})
+	err = eg.Wait()
+	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }
