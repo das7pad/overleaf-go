@@ -17,24 +17,46 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 )
 
 func main() {
+	triggerExitCtx, triggerExit := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
+	)
+	defer triggerExit()
+
 	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT_MS", 28*time.Second)
 	proxyToken := env.MustGetString("PROXY_TOKEN")
 	allowRedirects := env.GetBool("ALLOW_REDIRECTS")
 	handler := newHTTPController(timeout, proxyToken, allowRedirects)
+
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	server := http.Server{
 		Addr:    listenAddress.Parse(8080),
 		Handler: handler.GetRouter(),
 	}
-	err := server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
+	eg.Go(func() error {
+		return server.ListenAndServe()
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		waitForSlowRequests, done := context.WithTimeout(
+			context.Background(), timeout,
+		)
+		defer done()
+		return server.Shutdown(waitForSlowRequests)
+	})
+	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }
