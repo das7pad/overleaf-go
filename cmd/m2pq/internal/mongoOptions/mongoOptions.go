@@ -42,10 +42,10 @@ func Parse() (*options.ClientOptions, string) {
 		uint64(env.GetInt("MONGO_POOL_SIZE", 10)),
 	)
 	mongoOptions.SetSocketTimeout(
-		env.GetDuration("MONGO_SOCKET_TIMEOUT", 30*time.Second),
+		env.GetDuration("MONGO_SOCKET_TIMEOUT_MS", 30*time.Second),
 	)
 	mongoOptions.SetServerSelectionTimeout(env.GetDuration(
-		"MONGO_SERVER_SELECTION_TIMEOUT",
+		"MONGO_SERVER_SELECTION_TIMEOUT_MS",
 		60*time.Second,
 	))
 

@@ -63,7 +63,17 @@ func GetDuration(key string, fallback time.Duration) time.Duration {
 	if raw == "" {
 		return fallback
 	}
-	return time.Duration(GetInt(key, 0) * int(time.Millisecond))
+	n := time.Duration(GetInt(key, 0))
+	if strings.HasSuffix(key, "_NS") {
+		return n * time.Nanosecond
+	}
+	if strings.HasSuffix(key, "_MS") {
+		return n * time.Millisecond
+	}
+	if strings.HasSuffix(key, "_S") {
+		return n * time.Second
+	}
+	panic("unknown key suffix, try _NS, _MS, _S")
 }
 
 func MustParseJSON(target interface{}, key string) {

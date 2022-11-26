@@ -25,7 +25,7 @@ import (
 )
 
 func main() {
-	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT", 28*time.Second)
+	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT_MS", 28*time.Second)
 	proxyToken := env.MustGetString("PROXY_TOKEN")
 	allowRedirects := env.GetBool("ALLOW_REDIRECTS")
 	handler := newHTTPController(timeout, proxyToken, allowRedirects)
