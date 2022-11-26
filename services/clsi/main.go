@@ -19,7 +19,11 @@ package main
 import (
 	"context"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
@@ -30,17 +34,17 @@ import (
 )
 
 func main() {
+	triggerExitCtx, triggerExit := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
+	)
+	defer triggerExit()
+
 	clsiOptions := clsiTypes.Options{}
 	clsiOptions.FillFromEnv()
 	clsiManager, err := clsi.New(&clsiOptions)
 	if err != nil {
 		panic(errors.Tag(err, "clsi setup"))
 	}
-
-	backgroundTaskCtx, shutdownBackgroundTasks := context.WithCancel(
-		context.Background(),
-	)
-	go clsiManager.PeriodicCleanup(backgroundTaskCtx)
 
 	loadAgentSocket, err := loadAgent.Start(
 		listenAddress.Parse(env.GetInt("LOAD_PORT", 3048)),
@@ -51,13 +55,29 @@ func main() {
 		panic(errors.Tag(err, "load agent setup"))
 	}
 
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	eg.Go(func() error {
+		clsiManager.PeriodicCleanup(ctx)
+		return nil
+	})
+
 	server := http.Server{
 		Addr:    listenAddress.Parse(3013),
 		Handler: newHTTPController(clsiManager).GetRouter(),
 	}
-	err = server.ListenAndServe()
-	shutdownBackgroundTasks()
-	_ = loadAgentSocket.Close()
+	eg.Go(func() error {
+		return server.ListenAndServe()
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		_ = loadAgentSocket.Close()
+		waitForSlowRequests, done := context.WithTimeout(
+			context.Background(), time.Second*30,
+		)
+		defer done()
+		return server.Shutdown(waitForSlowRequests)
+	})
+	err = eg.Wait()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
