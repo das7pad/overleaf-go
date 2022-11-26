@@ -27,6 +27,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
@@ -70,13 +72,6 @@ func main() {
 		panic(errors.Tag(err, "web setup"))
 	}
 
-	go func() {
-		time.Sleep(time.Duration(rand.Int63n(int64(time.Hour))))
-		if !webManager.CronOnce(triggerExitCtx, false) {
-			log.Println("cron failed")
-		}
-	}()
-
 	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "cron" {
 		if !webManager.CronOnce(triggerExitCtx, env.GetBool("DRY_RUN_CRON")) {
 			os.Exit(42)
@@ -86,8 +81,32 @@ func main() {
 		return
 	}
 
-	r := router.New(webManager, corsOptions.Parse())
-	if err = http.ListenAndServe(addr, r); err != nil {
+	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	eg.Go(func() error {
+		time.Sleep(time.Duration(rand.Int63n(int64(time.Hour))))
+		if !webManager.CronOnce(ctx, false) {
+			log.Println("cron failed")
+		}
+		return nil
+	})
+
+	server := http.Server{
+		Addr:    addr,
+		Handler: router.New(webManager, corsOptions.Parse()),
+	}
+	eg.Go(func() error {
+		return server.ListenAndServe()
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		waitForSlowRequests, done := context.WithTimeout(
+			context.Background(), time.Second*30,
+		)
+		defer done()
+		return server.Shutdown(waitForSlowRequests)
+	})
+	err = eg.Wait()
+	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
 }
