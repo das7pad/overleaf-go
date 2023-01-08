@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,16 +18,35 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 )
+
+var internalNetworks = strings.Join([]string{
+	// Unspecified
+	"0.0.0.0/32", "::/128",
+	// Local
+	"127.0.0.1/8", "::1/128",
+	// Link-Local
+	"169.254.0.0/16", "FE80::/10",
+	// Private
+	"10.0.0.0/8",
+	"172.16.0.0/12",
+	"192.168.0.0/16",
+	"FC00::/7",
+	// CG NAT
+	"100.64.0.0/10",
+}, ",")
 
 func main() {
 	triggerExitCtx, triggerExit := signal.NotifyContext(
@@ -38,7 +57,20 @@ func main() {
 	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT_MS", 28*time.Second)
 	proxyToken := env.MustGetString("PROXY_TOKEN")
 	allowRedirects := env.GetBool("ALLOW_REDIRECTS")
-	handler := newHTTPController(timeout, proxyToken, allowRedirects)
+	var blockedNetworks []net.IPNet
+	{
+		blockedRaw := env.GetString("BLOCKED_NETWORKS", internalNetworks)
+		for _, s := range strings.Split(blockedRaw, ",") {
+			_, b, err := net.ParseCIDR(strings.TrimSpace(s))
+			if err != nil {
+				panic(errors.Tag(err, "parse CIDR: "+s))
+			}
+			blockedNetworks = append(blockedNetworks, *b)
+		}
+	}
+	handler := newHTTPController(
+		timeout, proxyToken, allowRedirects, blockedNetworks,
+	)
 
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	server := http.Server{

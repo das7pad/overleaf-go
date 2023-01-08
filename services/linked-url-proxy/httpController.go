@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,8 +19,10 @@ package main
 import (
 	"crypto/subtle"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -31,7 +33,7 @@ const (
 	maxProxySize = 50 * 1024 * 1024
 )
 
-func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects bool) httpController {
+func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects bool, blockedNetworks []net.IPNet) httpController {
 	checkRedirect := func(_ *http.Request, _ []*http.Request) error {
 		return &errors.UnprocessableEntityError{Msg: "blocked redirect"}
 	}
@@ -42,6 +44,26 @@ func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects 
 		client: http.Client{
 			Timeout:       timeout,
 			CheckRedirect: checkRedirect,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				IdleConnTimeout:     timeout,
+				TLSHandshakeTimeout: 10 * time.Second,
+				DialContext: (&net.Dialer{
+					Timeout:   timeout,
+					KeepAlive: timeout,
+					Control: func(_, addr string, _ syscall.RawConn) error {
+						ip := net.ParseIP(addr)
+						for _, b := range blockedNetworks {
+							if b.Contains(ip) {
+								return &errors.ValidationError{
+									Msg: "ip blocked",
+								}
+							}
+						}
+						return nil
+					},
+				}).DialContext,
+			},
 		},
 		proxyPathWithToken: "/proxy/" + proxyToken,
 	}
