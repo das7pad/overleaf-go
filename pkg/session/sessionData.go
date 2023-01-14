@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,14 +25,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-var anonymousUser = &User{
-	Epoch: user.AnonymousUserEpoch,
-}
+var anonymousUser = &User{}
 
-//goland:noinspection SpellCheckingInspection
 type User struct {
 	Email          sharedTypes.Email `json:"email"`
-	Epoch          int64             `json:"epoch,omitempty"`
 	FirstName      string            `json:"first_name,omitempty"`
 	IPAddress      string            `json:"ip_address"`
 	Id             sharedTypes.UUID  `json:"_id,omitempty"`
