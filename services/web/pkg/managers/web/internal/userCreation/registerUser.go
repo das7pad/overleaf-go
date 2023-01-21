@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -97,7 +97,7 @@ func (m *manager) RegisterUserPage(_ context.Context, request *types.RegisterUse
 		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
-				SessionUser: request.Session.User,
+				Session:     request.Session.PublicData,
 				TitleLocale: "register",
 				Viewport:    true,
 			},

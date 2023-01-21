@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,7 +36,7 @@ func (m *manager) bumpEpoch(ctx context.Context, userId sharedTypes.UUID) error 
 }
 
 type clearSessionsAuditLogInfo struct {
-	Sessions []session.OtherSessionData `json:"sessions"`
+	Sessions []session.LoginMetadata `json:"sessions"`
 }
 
 func (m *manager) ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error {
@@ -127,11 +127,11 @@ func (m *manager) SessionsPage(ctx context.Context, request *types.SessionsPageR
 		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
-				SessionUser: request.Session.User,
+				Session:     request.Session.PublicData,
 				TitleLocale: "sessions",
 			},
 		},
-		CurrentSession: request.Session.ToOtherSessionData(),
+		CurrentSession: *request.Session.LoginMetadata,
 		OtherSessions:  otherSessions.Sessions,
 	}
 	return nil

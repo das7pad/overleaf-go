@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -107,7 +107,7 @@ func (m *manager) SetPasswordPage(_ context.Context, request *types.SetPasswordP
 		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
-				SessionUser: request.Session.User,
+				Session:     request.Session.PublicData,
 				TitleLocale: "set_password",
 				Viewport:    true,
 			},
@@ -182,7 +182,7 @@ func (m *manager) RequestPasswordResetPage(_ context.Context, request *types.Req
 		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
-				SessionUser: request.Session.User,
+				Session:     request.Session.PublicData,
 				TitleLocale: "reset_password",
 				Viewport:    true,
 			},

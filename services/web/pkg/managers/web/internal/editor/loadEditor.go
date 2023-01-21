@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -180,7 +180,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 			CommonData: templates.CommonData{
 				Settings:              m.ps,
 				RobotsNoindexNofollow: true,
-				SessionUser:           request.Session.User,
+				Session:               request.Session.PublicData,
 				ThemeModifier:         u.EditorConfig.OverallTheme,
 				Title:                 string(p.Name),
 			},
@@ -229,7 +229,7 @@ func (m *manager) ProjectEditorDetached(ctx context.Context, request *types.Proj
 			CommonData: templates.CommonData{
 				Settings:              m.ps,
 				RobotsNoindexNofollow: true,
-				SessionUser:           request.Session.User,
+				Session:               request.Session.PublicData,
 				ThemeModifier:         d.User.EditorConfig.OverallTheme,
 				Title:                 string(d.Project.Name),
 			},

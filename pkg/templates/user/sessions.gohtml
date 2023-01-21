@@ -41,7 +41,7 @@
               <tr>
                 <td>{{ .CurrentSession.IPAddress }}</td>
                 <td>{{
-                    .CurrentSession.SessionCreated.Format
+                    .CurrentSession.LoggedInAt.Format
                     "Mon, 02 Jan 2006 15:04:05 MST"
                     }}</td>
               </tr>
@@ -76,7 +76,7 @@
                         <tr>
                           <td>{{ $session.IPAddress }}</td>
                           <td>{{
-                              $session.SessionCreated.Format
+                              $session.LoggedInAt.Format
                               "Mon, 02 Jan 2006 15:04:05 MST"
                               }}</td>
                         </tr>

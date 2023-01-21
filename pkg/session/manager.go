@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -80,7 +80,7 @@ func (m *manager) new(id Id, persisted []byte, data *Data) *Session {
 
 func (m *manager) DestroyAllForUser(ctx context.Context, userId sharedTypes.UUID) error {
 	s := m.new("", nil, &Data{
-		User: &User{Id: userId},
+		PublicData: PublicData{User: &User{Id: userId}},
 	})
 	others, err := s.GetOthers(ctx)
 	if err != nil {
@@ -161,22 +161,22 @@ func (m *manager) Flush(c *httpUtils.Context, session *Session) error {
 	return nil
 }
 
-func (m *manager) TouchSession(c *httpUtils.Context, session *Session) {
-	if session.id == "" {
+func (m *manager) TouchSession(c *httpUtils.Context, s *Session) {
+	if s.id == "" {
 		return
 	}
-	if time.Since(session.User.SessionCreated) < time.Minute {
+	if s.IsLoggedIn() && time.Since(s.LoginMetadata.LoggedInAt) < time.Minute {
 		// Skip touching of recently created sessions.
 		return
 	}
 
-	m.signedCookie.Set(c, string(session.id))
+	m.signedCookie.Set(c, string(s.id))
 
 	// NOTE: The context will get reused by the next request. Do not access.
 	go func() {
 		ctx, done := context.WithTimeout(context.Background(), 3*time.Second)
 		defer done()
-		if err := session.Touch(ctx); err != nil {
+		if err := s.Touch(ctx); err != nil {
 			log.Printf("touch session failed: %q", err.Error())
 		}
 	}()

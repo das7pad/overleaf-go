@@ -17,8 +17,6 @@
 package session
 
 import (
-	"time"
-
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -28,13 +26,10 @@ import (
 var anonymousUser = &User{}
 
 type User struct {
-	Email          sharedTypes.Email `json:"email"`
-	FirstName      string            `json:"first_name,omitempty"`
-	IPAddress      string            `json:"ip_address"`
-	Id             sharedTypes.UUID  `json:"_id,omitempty"`
-	LastName       string            `json:"last_name,omitempty"`
-	Language       string            `json:"lng"`
-	SessionCreated time.Time         `json:"session_created"`
+	Email     sharedTypes.Email `json:"e"`
+	FirstName string            `json:"f,omitempty"`
+	Id        sharedTypes.UUID  `json:"i"`
+	LastName  string            `json:"l,omitempty"`
 }
 
 func (u *User) ToPublicUserInfo() user.WithPublicInfo {
@@ -46,13 +41,20 @@ func (u *User) ToPublicUserInfo() user.WithPublicInfo {
 	}
 }
 
+type PublicData struct {
+	User     *User  `json:"u,omitempty"`
+	Language string `json:"l,omitempty"`
+}
+
 type anonTokenAccess map[string]project.AccessToken
 
 type Data struct {
-	AnonTokenAccess    anonTokenAccess           `json:"anonTokenAccess,omitempty"`
-	PasswordResetToken oneTimeToken.OneTimeToken `json:"resetToken,omitempty"`
-	PostLoginRedirect  string                    `json:"postLoginRedirect,omitempty"`
-	User               *User                     `json:"user,omitempty"`
+	AnonTokenAccess    anonTokenAccess           `json:"ata,omitempty"`
+	PasswordResetToken oneTimeToken.OneTimeToken `json:"rt,omitempty"`
+	PostLoginRedirect  string                    `json:"plr,omitempty"`
+	LoginMetadata      *LoginMetadata            `json:"lm,omitempty"`
+	PublicData
+	isOldSchema bool
 }
 
 func (d *Data) IsEmpty() bool {
@@ -69,6 +71,9 @@ func (d *Data) IsEmpty() bool {
 		return false
 	}
 	if len(d.AnonTokenAccess) != 0 {
+		return false
+	}
+	if len(d.Language) != 0 {
 		return false
 	}
 	return true

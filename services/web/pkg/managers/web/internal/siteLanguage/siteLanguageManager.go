@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -41,23 +41,22 @@ type manager struct {
 	siteURL sharedTypes.URL
 }
 
-func (m *manager) SwitchLanguage(ctx context.Context, request *types.SwitchLanguageRequest, response *types.SwitchLanguageResponse) error {
+func (m *manager) SwitchLanguage(_ context.Context, request *types.SwitchLanguageRequest, response *types.SwitchLanguageResponse) error {
 	if !m.allowed.Has(request.Lng) {
 		return &errors.ValidationError{Msg: "invalid lng"}
 	}
-	request.Session.User.Language = request.Lng
-	if _, err := request.Session.Save(ctx); err != nil {
-		return err
-	}
+	request.Session.Language = request.Lng
+
 	back, err := sharedTypes.ParseAndValidateURL(request.Referrer)
 	if err != nil {
-		return err
+		response.Redirect = m.siteURL.String()
+		return nil
 	}
-	if back.Host == m.siteURL.Host && back.Path != "/switch-language" {
+	if back.Host != m.siteURL.Host || back.Path == "/switch-language" {
 		// No open redirect or redirect loop
-		response.Redirect = back.String()
+		response.Redirect = m.siteURL.String()
 	} else {
-		response.Redirect = "/"
+		response.Redirect = back.String()
 	}
 	return nil
 }

@@ -149,11 +149,11 @@
       {{ if .LoggedIn }}
         <meta
           name="ol-usersEmail"
-          content="{{ .SessionUser.Email }}"
+          content="{{ .Session.User.Email }}"
         />
         <meta
           name="ol-user_id"
-          content="{{ .SessionUser.Id.String }}"
+          content="{{ .Session.User.Id.String }}"
         />
       {{ end }}
       {{ range $key, $meta := .Meta }}

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,6 +28,7 @@ import (
 )
 
 const sessionIdSizeBytes = 24
+const sessionIdKeyPrefix = "sess:"
 
 var (
 	b64                  = base64.RawURLEncoding
@@ -37,7 +38,7 @@ var (
 type Id string
 
 func (s Id) toKey() string {
-	return "sess:" + string(s)
+	return sessionIdKeyPrefix + string(s)
 }
 
 func (s Id) toSessionValidationToken() sessionValidationToken {

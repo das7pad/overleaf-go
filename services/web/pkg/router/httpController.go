@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -479,6 +479,10 @@ func (h *httpController) switchLanguage(c *httpUtils.Context) {
 	request.Referrer = c.Request.Referer()
 	response := &types.SwitchLanguageResponse{}
 	if err := h.wm.SwitchLanguage(c, request, response); err != nil {
+		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
+		return
+	}
+	if err := h.wm.Flush(c, request.Session); err != nil {
 		templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 		return
 	}

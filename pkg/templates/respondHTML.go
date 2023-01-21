@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -90,7 +90,7 @@ func RespondHTMLCustomStatus(
 					CommonData: CommonData{
 						Settings:              ps,
 						RobotsNoindexNofollow: true,
-						SessionUser:           s.User,
+						Session:               s.PublicData,
 						Title:                 "Client Error",
 						Viewport:              true,
 					},
@@ -103,7 +103,7 @@ func RespondHTMLCustomStatus(
 					CommonData: CommonData{
 						Settings:              ps,
 						RobotsNoindexNofollow: true,
-						SessionUser:           s.User,
+						Session:               s.PublicData,
 						TitleLocale:           "restricted",
 						Viewport:              true,
 					},
@@ -115,7 +115,7 @@ func RespondHTMLCustomStatus(
 					CommonData: CommonData{
 						Settings:              ps,
 						RobotsNoindexNofollow: true,
-						SessionUser:           s.User,
+						Session:               s.PublicData,
 						TitleLocale:           "page_not_found",
 						Viewport:              true,
 					},
@@ -127,7 +127,7 @@ func RespondHTMLCustomStatus(
 					CommonData: CommonData{
 						Settings:              ps,
 						RobotsNoindexNofollow: true,
-						SessionUser:           s.User,
+						Session:               s.PublicData,
 						TitleLocale:           "server_error",
 						Viewport:              true,
 					},

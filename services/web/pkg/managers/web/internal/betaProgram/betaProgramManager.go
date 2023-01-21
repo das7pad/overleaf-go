@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -69,7 +69,7 @@ func (m *manager) BetaProgramParticipatePage(ctx context.Context, request *types
 		MarketingLayoutData: templates.MarketingLayoutData{
 			CommonData: templates.CommonData{
 				Settings:    m.ps,
-				SessionUser: request.Session.User,
+				Session:     request.Session.PublicData,
 				TitleLocale: "sharelatex_beta_program",
 				Viewport:    true,
 			},

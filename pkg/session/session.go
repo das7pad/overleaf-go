@@ -19,7 +19,6 @@ package session
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -51,7 +50,7 @@ func (s *Session) CheckIsLoggedIn() error {
 }
 
 func (s *Session) IsLoggedIn() bool {
-	return !s.User.Id.IsZero()
+	return s.LoginMetadata != nil
 }
 
 func (s *Session) Login(ctx context.Context, u user.ForSession, ip string) (string, error) {
@@ -67,16 +66,22 @@ func (s *Session) PrepareLogin(ctx context.Context, u user.ForSession, ip string
 	redirect := s.PostLoginRedirect
 	triggerCleanup := s.prepareCleanup()
 	s.noAutoSave = true
-	s.PostLoginRedirect = ""
-	s.User = &User{
-		Id:             u.Id,
-		FirstName:      u.FirstName,
-		LastName:       u.LastName,
-		Email:          u.Email,
-		IPAddress:      ip,
-		SessionCreated: time.Now(),
+	// Overwrite all the Data to avoid accidentally forgetting a new field.
+	s.internalDataAccessOnly = &Data{
+		LoginMetadata: &LoginMetadata{
+			IPAddress:  ip,
+			LoggedInAt: time.Now().Truncate(time.Second),
+		},
+		PublicData: PublicData{
+			User: &User{
+				Id:        u.Id,
+				FirstName: u.FirstName,
+				LastName:  u.LastName,
+				Email:     u.Email,
+			},
+			Language: s.Language,
+		},
 	}
-	s.AnonTokenAccess = nil
 	id, blob, err := s.newSessionId(ctx)
 	if err != nil {
 		return "", nil, errors.Tag(err, "cannot cycle session")
@@ -151,13 +156,13 @@ func (s *Session) Destroy(ctx context.Context) error {
 	return nil
 }
 
-type OtherSessionData struct {
-	IPAddress      string    `json:"ip_address"`
-	SessionCreated time.Time `json:"session_created"`
+type LoginMetadata struct {
+	IPAddress  string    `json:"i"`
+	LoggedInAt time.Time `json:"t"`
 }
 
 type OtherSessionsDetails struct {
-	Sessions   []OtherSessionData
+	Sessions   []LoginMetadata
 	sessionIds []Id
 }
 
@@ -174,7 +179,7 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 	otherIds := make([]Id, 0, len(allKeys))
 	otherSessionKeys := make([]string, 0, len(allKeys))
 	for _, raw := range allKeys {
-		id := Id(strings.TrimPrefix(raw, "sess:"))
+		id := Id(strings.TrimPrefix(raw, sessionIdKeyPrefix))
 		if id == s.id {
 			continue
 		}
@@ -194,9 +199,9 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 		return nil
 	})
 	if err != nil && err != redis.Nil {
-		return nil, errors.Tag(err, "cannot fetch session data")
+		return nil, errors.Tag(err, "cannot fetch other session data")
 	}
-	sessions := make([]OtherSessionData, 0, len(otherIds))
+	sessions := make([]LoginMetadata, 0, len(otherIds))
 	validSessionIds := make([]Id, 0, len(otherIds))
 	for i, id := range otherIds {
 		var blob []byte
@@ -205,24 +210,18 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 				// Already deleted
 				continue
 			}
-			return nil, errors.Tag(err, "cannot fetch session data")
+			return nil, errors.Tag(err, "cannot fetch other session data")
 		}
-		data := sessionDataWithDeSyncProtection{}
-		if err = json.Unmarshal(blob, &data); err != nil {
+		var data *Data
+		if data, err = deSerializeSession(id, blob); err != nil {
 			return nil, errors.New("redis returned corrupt session data")
-		}
-		if err = data.ValidationToken.Validate(id); err != nil {
-			return nil, err
 		}
 		if data.User == nil || data.User.Id != s.User.Id {
 			// race-condition with logout and login of another user.
 			continue
 		}
 		validSessionIds = append(validSessionIds, id)
-		sessions = append(sessions, OtherSessionData{
-			IPAddress:      data.User.IPAddress,
-			SessionCreated: data.User.SessionCreated,
-		})
+		sessions = append(sessions, *data.LoginMetadata)
 	}
 	return &OtherSessionsDetails{
 		Sessions:   sessions,
@@ -255,7 +254,15 @@ func (s *Session) DestroyOthers(ctx context.Context, d *OtherSessionsDetails) er
 
 func (s *Session) Touch(ctx context.Context) error {
 	_, err := s.client.Pipelined(ctx, func(p redis.Pipeliner) error {
-		p.Expire(ctx, s.id.toKey(), s.expiry)
+		if s.isOldSchema {
+			b, err := s.serializeWithId(s.id)
+			if err != nil {
+				return err
+			}
+			p.SetXX(ctx, s.id.toKey(), b, s.expiry)
+		} else {
+			p.Expire(ctx, s.id.toKey(), s.expiry)
+		}
 		if s.IsLoggedIn() {
 			p.Expire(ctx, userSessionsKey(s.User.Id), s.expiry)
 		}
@@ -304,11 +311,4 @@ func (s *Session) serializeWithId(id Id) ([]byte, error) {
 		return nil, errors.Tag(err, "serialize session")
 	}
 	return b, nil
-}
-
-func (s *Session) ToOtherSessionData() OtherSessionData {
-	return OtherSessionData{
-		IPAddress:      s.User.IPAddress,
-		SessionCreated: s.User.SessionCreated,
-	}
 }
