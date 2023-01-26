@@ -187,6 +187,26 @@ services:
     volumes:
       - ${TMP_DIR}:${TMP_DIR}
 
+  ready:
+    image: debian:buster-slim
+    depends_on:
+      nginx:
+        condition: service_started
+    network_mode: none
+    entrypoint: echo
+    command:
+      - |
+
+        ---
+        Setup finished!
+
+        Overleaf-Go is ready on ${PUBLIC_URL} .
+
+        Go to ${PUBLIC_URL}register to create your first account.
+
+        Enjoy!
+        ---
+
   overleaf:
     build:
       context: ./services/spelling
