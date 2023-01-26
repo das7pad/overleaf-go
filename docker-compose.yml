@@ -130,6 +130,32 @@ services:
     volumes:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
+  build-pull-texlive-images:
+    image: golang:1.19
+    network_mode: bridge
+    working_dir: /go/src/cmd/pull-texlive-images
+    command: go build -o ${TMP_DIR}/binaries/pull-texlive-images
+    volumes:
+      - ./:/go/src
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
+
+  pull-texlive-images:
+    image: debian:buster-slim
+    depends_on:
+      build-pull-texlive-images:
+        condition: service_completed_successfully
+    network_mode: none
+    user: ${DOCKER_USER}
+    group_add:
+      - ${DOCKER_SOCKET_GROUP_ID}
+    entrypoint: ${TMP_DIR}/binaries/pull-texlive-images
+    environment:
+      - CLSI_OPTIONS
+      - DOCKER_HOST
+    volumes:
+      - ${DOCKER_SOCKET}:${DOCKER_SOCKET}
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
+
   build-execAgent:
     image: golang:1.19
     network_mode: bridge
@@ -180,6 +206,8 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_started
+      pull-texlive-images:
+        condition: service_completed_successfully
       redis:
         condition: service_started
       setup-data-dirs:
