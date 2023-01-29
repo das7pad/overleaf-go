@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -74,13 +74,16 @@ func Test_chainURL(t *testing.T) {
 					*mustParse("https://third.com/z1/z2"),
 				},
 			},
-			want: "https://third.com/z1/z2?url=" + url.QueryEscape(
-				"https://second.com/y1/y2?url="+url.QueryEscape(
-					"https://first.com/x1/x2?url="+url.QueryEscape(
-						"https://foo.bar.com/p1/p2&url=evil",
-					),
+			want: "https://third.com/z1/z2?next_is_proxy=true&url=" +
+				url.QueryEscape(
+					"https://second.com/y1/y2?next_is_proxy=true&url="+
+						url.QueryEscape(
+							"https://first.com/x1/x2?url="+
+								url.QueryEscape(
+									"https://foo.bar.com/p1/p2&url=evil",
+								),
+						),
 				),
-			),
 		},
 	}
 	for _, tt := range tests {

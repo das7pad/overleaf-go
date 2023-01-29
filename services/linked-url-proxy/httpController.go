@@ -23,11 +23,13 @@ import (
 	"net/http"
 	"net/netip"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/constants"
 )
 
 const (
@@ -95,11 +97,13 @@ func (h *httpController) checkAuth(c *httpUtils.Context) error {
 }
 
 func (h *httpController) proxy(c *httpUtils.Context) {
+	c.Writer.Header().Add("Via", constants.LinkedUrlProxy)
 	if err := h.checkAuth(c); err != nil {
 		httpUtils.RespondErr(c, err)
 		return
 	}
-	url := c.Request.URL.Query().Get("url")
+	q := c.Request.URL.Query()
+	url := q.Get(constants.QueryNameURL)
 	if url == "" {
 		httpUtils.RespondErr(c, &errors.ValidationError{Msg: "url missing"})
 		return
@@ -125,8 +129,27 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 		return
 	}
 	if statusCode := response.StatusCode; statusCode != http.StatusOK {
+		via := response.Header.Get("Via")
+		if q.Get(constants.QueryNameProxyChainMarker) == "true" &&
+			strings.Contains(via, constants.LinkedUrlProxy) {
+			cloneHeaders := []string{
+				"Via", "X-Served-By", "X-Request-Id",
+				"CF-RAY", "Fly-Request-Id", "Function-Execution-Id",
+				constants.HeaderXUpstreamStatusCode,
+			}
+			c.Writer.Header().Del("Via") // move to the end
+			for _, name := range cloneHeaders {
+				for _, v := range response.Header.Values(name) {
+					c.Writer.Header().Add(name, v)
+				}
+			}
+			c.Writer.Header().Add("Via", constants.LinkedUrlProxy)
+			c.Writer.WriteHeader(statusCode)
+			_, _ = io.Copy(c.Writer, response.Body)
+			return
+		}
 		s := strconv.FormatInt(int64(statusCode), 10)
-		c.Writer.Header().Set("X-Upstream-Status-Code", s)
+		c.Writer.Header().Set(constants.HeaderXUpstreamStatusCode, s)
 		httpUtils.RespondErr(c, &errors.UnprocessableEntityError{
 			Msg: "upstream responded with " + s,
 		})

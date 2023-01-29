@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,22 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package proxyClient
+package constants
 
-import (
-	"net/url"
-
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/constants"
+const (
+	HeaderXUpstreamStatusCode = "X-Upstream-Status-Code"
+	LinkedUrlProxy            = "linked-url-proxy"
+	QueryNameProxyChainMarker = "next_is_proxy"
+	QueryNameURL              = "url"
 )
-
-func chainURL(u *sharedTypes.URL, chain []sharedTypes.URL) string {
-	for i, next := range chain {
-		q := url.Values{constants.QueryNameURL: {u.String()}}
-		if i > 0 {
-			q.Set(constants.QueryNameProxyChainMarker, "true")
-		}
-		u = next.WithQuery(q)
-	}
-	return u.String()
-}

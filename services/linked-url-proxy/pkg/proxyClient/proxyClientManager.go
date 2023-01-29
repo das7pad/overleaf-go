@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,6 +25,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/constants"
 )
 
 type Manager interface {
@@ -69,7 +70,7 @@ func (m *manager) Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadClose
 			return nil, nil, &errors.UnprocessableEntityError{
 				Msg: fmt.Sprintf(
 					"upstream returned non success: %s",
-					res.Header.Get("X-Upstream-Status-Code"),
+					res.Header.Get(constants.HeaderXUpstreamStatusCode),
 				),
 			}
 		case http.StatusRequestEntityTooLarge:
