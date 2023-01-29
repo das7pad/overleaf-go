@@ -18,8 +18,8 @@ package main
 
 import (
 	"context"
-	"net"
 	"net/http"
+	"net/netip"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -57,15 +57,15 @@ func main() {
 	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT_MS", 28*time.Second)
 	proxyToken := env.MustGetString("PROXY_TOKEN")
 	allowRedirects := env.GetBool("ALLOW_REDIRECTS")
-	var blockedNetworks []net.IPNet
+	var blockedNetworks []netip.Prefix
 	{
 		blockedRaw := env.GetString("BLOCKED_NETWORKS", internalNetworks)
 		for _, s := range strings.Split(blockedRaw, ",") {
-			_, b, err := net.ParseCIDR(strings.TrimSpace(s))
+			b, err := netip.ParsePrefix(strings.TrimSpace(s))
 			if err != nil {
 				panic(errors.Tag(err, "parse CIDR: "+s))
 			}
-			blockedNetworks = append(blockedNetworks, *b)
+			blockedNetworks = append(blockedNetworks, b)
 		}
 	}
 	handler := newHTTPController(

@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"syscall"
 	"time"
@@ -33,7 +34,7 @@ const (
 	maxProxySize = 50 * 1024 * 1024
 )
 
-func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects bool, blockedNetworks []net.IPNet) httpController {
+func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects bool, blockedNetworks []netip.Prefix) httpController {
 	checkRedirect := func(_ *http.Request, _ []*http.Request) error {
 		return &errors.UnprocessableEntityError{Msg: "blocked redirect"}
 	}
@@ -52,7 +53,11 @@ func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects 
 					Timeout:   timeout,
 					KeepAlive: timeout,
 					Control: func(_, addr string, _ syscall.RawConn) error {
-						ip := net.ParseIP(addr)
+						a, err := netip.ParseAddrPort(addr)
+						if err != nil {
+							return &errors.ValidationError{Msg: err.Error()}
+						}
+						ip := a.Addr()
 						for _, b := range blockedNetworks {
 							if b.Contains(ip) {
 								return &errors.ValidationError{
