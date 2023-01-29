@@ -18,6 +18,7 @@ package proxyClient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,9 +64,21 @@ func (m *manager) Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadClose
 	if err != nil {
 		return nil, nil, errors.Tag(err, "cannot send http request")
 	}
-	if res.StatusCode != 200 {
-		_ = res.Body.Close() // should be empty anyway
+	cleanup := func() {
+		// Just close the body. In case the body has not been consumed in full
+		//  yet, the connection cannot be re-used. This is fine and better than
+		//  consuming up-to 50MB of useless bandwidth.
+		_ = res.Body.Close()
+	}
+	if res.StatusCode != http.StatusOK {
+		defer cleanup()
 		switch res.StatusCode {
+		case http.StatusBadRequest:
+			msg := map[string]string{}
+			if err = json.NewDecoder(res.Body).Decode(&msg); err != nil {
+				return nil, nil, errors.Tag(err, "decode 400 response")
+			}
+			return nil, nil, &errors.ValidationError{Msg: msg["message"]}
 		case http.StatusUnprocessableEntity:
 			return nil, nil, &errors.UnprocessableEntityError{
 				Msg: fmt.Sprintf(
@@ -80,12 +93,6 @@ func (m *manager) Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadClose
 				"proxy returned non success: %d", res.StatusCode,
 			))
 		}
-	}
-	cleanup := func() {
-		// Just close the body. In case the body has not been consumed in full
-		//  yet, the connection cannot be re-used. This is fine and better than
-		//  consuming up-to 50MB of useless bandwidth.
-		_ = res.Body.Close()
 	}
 	return res.Body, cleanup, nil
 }
