@@ -36,6 +36,15 @@ const (
 	maxProxySize = 50 * 1024 * 1024
 )
 
+var (
+	clientErrors = []string{
+		"blocked redirect",
+		"ip blocked",
+		"connection refused",
+		"no such host",
+	}
+)
+
 func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects bool, blockedNetworks []netip.Prefix) httpController {
 	checkRedirect := func(_ *http.Request, _ []*http.Request) error {
 		return &errors.UnprocessableEntityError{Msg: "blocked redirect"}
@@ -118,6 +127,13 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	}
 	response, err := h.client.Do(request)
 	if err != nil {
+		msg := err.Error()
+		for _, clientErr := range clientErrors {
+			if strings.HasSuffix(msg, clientErr) {
+				err = &errors.ValidationError{Msg: clientErr}
+				break
+			}
+		}
 		httpUtils.RespondErr(c, errors.Tag(err, "request failed"))
 		return
 	}
