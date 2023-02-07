@@ -13,7 +13,7 @@ require (
 	github.com/jackc/pgconn v1.13.0
 	github.com/jackc/pgtype v1.12.0
 	github.com/jackc/pgx/v4 v4.17.2
-	github.com/minio/minio-go/v7 v7.0.37
+	github.com/minio/minio-go/v7 v7.0.47
 	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae
 	github.com/sergi/go-diff v1.2.0
 	go.mongodb.org/mongo-driver v1.10.2
