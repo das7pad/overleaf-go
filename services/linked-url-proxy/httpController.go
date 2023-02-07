@@ -52,6 +52,25 @@ func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects 
 	if allowRedirects {
 		checkRedirect = nil
 	}
+	d := net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: timeout,
+		Control: func(_, addr string, _ syscall.RawConn) error {
+			a, err := netip.ParseAddrPort(addr)
+			if err != nil {
+				return &errors.ValidationError{Msg: err.Error()}
+			}
+			ip := a.Addr()
+			for _, b := range blockedNetworks {
+				if b.Contains(ip) {
+					return &errors.ValidationError{
+						Msg: "ip blocked",
+					}
+				}
+			}
+			return nil
+		},
+	}
 	return httpController{
 		client: http.Client{
 			Timeout:       timeout,
@@ -60,25 +79,7 @@ func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects 
 				MaxIdleConns:        100,
 				IdleConnTimeout:     timeout,
 				TLSHandshakeTimeout: 10 * time.Second,
-				DialContext: (&net.Dialer{
-					Timeout:   timeout,
-					KeepAlive: timeout,
-					Control: func(_, addr string, _ syscall.RawConn) error {
-						a, err := netip.ParseAddrPort(addr)
-						if err != nil {
-							return &errors.ValidationError{Msg: err.Error()}
-						}
-						ip := a.Addr()
-						for _, b := range blockedNetworks {
-							if b.Contains(ip) {
-								return &errors.ValidationError{
-									Msg: "ip blocked",
-								}
-							}
-						}
-						return nil
-					},
-				}).DialContext,
+				DialContext:         d.DialContext,
 			},
 		},
 		proxyPathWithToken: "/proxy/" + proxyToken,
