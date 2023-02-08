@@ -16,10 +16,10 @@ require (
 	github.com/minio/minio-go/v7 v7.0.47
 	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae
 	github.com/sergi/go-diff v1.3.1
-	go.mongodb.org/mongo-driver v1.10.2
-	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
-	golang.org/x/net v0.0.0-20220919171627-f8f703f97925
-	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
+	go.mongodb.org/mongo-driver v1.11.1
+	golang.org/x/crypto v0.5.0
+	golang.org/x/net v0.5.0
+	golang.org/x/sync v0.1.0
 )
 
 // Cut down allocations
@@ -61,8 +61,8 @@ require (
 	github.com/xdg-go/scram v1.1.1 // indirect
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gotest.tools/v3 v3.3.0 // indirect
