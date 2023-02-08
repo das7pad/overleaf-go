@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -345,10 +345,12 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) erro
 }
 
 func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Namespace) (*time.Time, error) {
-	restartTimeout := time.Duration(0)
+	restartTimeout := int(time.Duration(0).Seconds())
 	name := containerName(namespace)
 	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
-	err := a.dockerClient.ContainerRestart(ctx, name, &restartTimeout)
+	err := a.dockerClient.ContainerRestart(ctx, name, container.StopOptions{
+		Timeout: &restartTimeout,
+	})
 	if err != nil {
 		return nil, errors.Tag(err, "cannot restart container")
 	}
@@ -356,11 +358,13 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 }
 
 func (a *agentRunner) stopContainer(namespace types.Namespace) error {
-	timeout := time.Duration(0)
+	timeout := int(time.Duration(0).Seconds())
 	err := a.dockerClient.ContainerStop(
 		context.Background(),
 		containerName(namespace),
-		&timeout,
+		container.StopOptions{
+			Timeout: &timeout,
+		},
 	)
 	if err == nil {
 		return nil

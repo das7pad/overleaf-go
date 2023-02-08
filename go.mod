@@ -3,7 +3,7 @@ module github.com/das7pad/overleaf-go
 go 1.19
 
 require (
-	github.com/docker/docker v20.10.18+incompatible
+	github.com/docker/docker v23.0.0+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v4 v4.4.3
