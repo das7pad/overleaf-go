@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,35 +19,60 @@
 package sharedTypes
 
 import (
+	"encoding/binary"
 	"fmt"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func (u *UUID) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+func (u *UUID) DecodeBinary(_ *pgtype.Map, src []byte) error {
 	copy(u[:], src)
 	return nil
 }
 
-func (u *UUID) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+func (u *UUID) EncodeBinary(_ *pgtype.Map, buf []byte) ([]byte, error) {
 	return append(buf, u[:]...), nil
 }
 
-func (s *UUIDs) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+func (s *UUIDs) DecodeBinary(ci *pgtype.Map, src []byte) error {
 	if len(src) == 0 {
 		*s = (*s)[:0]
 		return nil
 	}
-	h := pgtype.ArrayHeader{}
-	offset, err := h.DecodeBinary(ci, src)
-	if err != nil {
-		return errors.Tag(err, "decode UUID array header")
+	if len(src) < 12 {
+		return errors.New(fmt.Sprintf(
+			"decode UUID array header: too short body: expected >=%d, got %d",
+			12, len(src),
+		))
 	}
+	offset := 0
+
+	dimensions := int(binary.BigEndian.Uint32(src))
+	offset += 4
+	if dimensions > 1 {
+		return errors.New(fmt.Sprintf(
+			"decode UUID array header: too many dimensions: expected <=1, got %d",
+			dimensions,
+		))
+	}
+
+	// contains null
+	offset += 4
+
+	// OID
+	offset += 4
+
+	// first dimension
 	n := 0
-	for _, dimension := range h.Dimensions {
-		n = int(dimension.Length)
+	if len(src) >= 12+4 {
+		// length
+		n = int(binary.BigEndian.Uint32(src[offset:]))
+		offset += 4
+
+		// lower bound
+		offset += 4
 	}
 	min := n * (4 + 16)
 	if len(src[offset:]) < min {
@@ -71,19 +96,24 @@ func (s *UUIDs) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	return nil
 }
 
-func (s UUIDs) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
-	h := pgtype.ArrayHeader{
-		ContainsNull: false,
-		ElementOID:   pgtype.UUIDOID,
-		Dimensions:   []pgtype.ArrayDimension{{Length: int32(len(s))}},
-	}
-	buf = h.EncodeBinary(ci, buf)
-	min := len(buf) + len(s)*(16+4)
+func (s UUIDs) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
+	min := len(buf) + 5*4 + len(s)*(16+4)
 	if cap(buf) < min {
 		buf = append(make([]byte, 0, min), buf...)
 	}
+	// dimensions
+	buf = binary.BigEndian.AppendUint32(buf, 1)
+
+	// contains null
+	buf = binary.BigEndian.AppendUint32(buf, 0)
+
+	// element oid
+	buf = binary.BigEndian.AppendUint32(buf, pgtype.UUIDOID)
+
 	for _, u := range s {
-		buf = append(buf, 0, 0, 0, 16) // UUID length
+		// UUID length
+		buf = binary.BigEndian.AppendUint32(buf, 16)
+		// UUID body
 		buf = append(buf, u[:]...)
 	}
 	return buf, nil

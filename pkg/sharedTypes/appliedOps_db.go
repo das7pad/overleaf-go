@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,14 +21,14 @@ package sharedTypes
 import (
 	"encoding/json"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (o *Op) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+func (o *Op) DecodeBinary(_ *pgtype.Map, src []byte) error {
 	return json.Unmarshal(src, o)
 }
 
-func (o Op) EncodeBinary(_ *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+func (o Op) EncodeBinary(_ *pgtype.Map, buf []byte) ([]byte, error) {
 	b, err := json.Marshal(o)
 	return append(buf, b...), err
 }

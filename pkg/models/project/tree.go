@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -92,14 +92,14 @@ type LinkedFileData struct {
 	URL                  string               `json:"url,omitempty"`
 }
 
-func (d *LinkedFileData) DecodeBinary(_ *pgtype.ConnInfo, src []byte) error {
+func (d *LinkedFileData) DecodeBinary(_ *pgtype.Map, src []byte) error {
 	if src == nil {
 		return nil
 	}
 	return json.Unmarshal(src, d)
 }
 
-func (d *LinkedFileData) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+func (d *LinkedFileData) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
 	if d == nil || d.Provider == "" {
 		return nil, nil
 	}

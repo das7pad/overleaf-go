@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,7 @@ package user
 import (
 	"encoding/json"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -34,7 +34,7 @@ type Features struct {
 	Versioning          bool                       `json:"versioning" bson:"versioning"`
 }
 
-func (f Features) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+func (f Features) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
 	blob, err := json.Marshal(map[string]interface{}{
 		"compileGroup":   f.CompileGroup,
 		"compileTimeout": f.CompileTimeout,

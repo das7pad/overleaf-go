@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,7 @@ package user
 import (
 	"encoding/json"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -39,7 +39,7 @@ type EditorConfig struct {
 	AutoPairDelimiters bool                             `json:"autoPairDelimiters"`
 }
 
-func (e *EditorConfig) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+func (e *EditorConfig) DecodeBinary(ci *pgtype.Map, src []byte) error {
 	b := pgtype.JSONB{}
 	if err := b.DecodeBinary(ci, src); err != nil {
 		return errors.Tag(err, "decode EditorConfig")
@@ -47,7 +47,7 @@ func (e *EditorConfig) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	return json.Unmarshal(b.Bytes, e)
 }
 
-func (e EditorConfig) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+func (e EditorConfig) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
 	blob, err := json.Marshal(e)
 	if err != nil {
 		return nil, errors.Tag(err, "serialize EditorConfig")
