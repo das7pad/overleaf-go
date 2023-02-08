@@ -15,7 +15,7 @@ require (
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/minio/minio-go/v7 v7.0.47
 	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae
-	github.com/sergi/go-diff v1.2.0
+	github.com/sergi/go-diff v1.3.1
 	go.mongodb.org/mongo-driver v1.10.2
 	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
 	golang.org/x/net v0.0.0-20220919171627-f8f703f97925
