@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,7 @@ package aspell
 import (
 	"context"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/aspell/internal/aspellRunner"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -34,7 +34,7 @@ type Manager interface {
 }
 
 func New(lruSize int) (Manager, error) {
-	cache, err := lru.New(lruSize)
+	cache, err := lru.New[aspellRunner.SuggestionKey, []string](lruSize)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ const (
 )
 
 type manager struct {
-	cache  *lru.Cache
+	cache  *lru.Cache[aspellRunner.SuggestionKey, []string]
 	runner aspellRunner.Runner
 }
 
@@ -78,11 +78,7 @@ func (m *manager) CheckWords(
 		// ^ do not hit the cache for duplicate words
 
 		if items, exists := m.cache.Get(key); exists {
-			if items == nil {
-				suggestions[key] = nil
-			} else {
-				suggestions[key] = items.([]string)
-			}
+			suggestions[key] = items
 		} else {
 			runOnWordsDedupe[word] = true
 		}
