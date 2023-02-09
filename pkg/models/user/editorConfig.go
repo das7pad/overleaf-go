@@ -17,10 +17,6 @@
 package user
 
 import (
-	"encoding/json"
-
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -39,24 +35,26 @@ type EditorConfig struct {
 	AutoPairDelimiters bool                             `json:"autoPairDelimiters"`
 }
 
-func (e *EditorConfig) DecodeBinary(ci *pgtype.Map, src []byte) error {
-	b := pgtype.JSONB{}
-	if err := b.DecodeBinary(ci, src); err != nil {
-		return errors.Tag(err, "decode EditorConfig")
-	}
-	return json.Unmarshal(b.Bytes, e)
-}
-
-func (e EditorConfig) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	blob, err := json.Marshal(e)
-	if err != nil {
-		return nil, errors.Tag(err, "serialize EditorConfig")
-	}
-	return pgtype.JSONB{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
-}
+// TODO
+//
+// func (e *EditorConfig) DecodeBinary(ci *pgtype.Map, src []byte) error {
+// 	b := pgtype.JSONB{}
+// 	if err := b.DecodeBinary(ci, src); err != nil {
+// 		return errors.Tag(err, "decode EditorConfig")
+// 	}
+// 	return json.Unmarshal(b.Bytes, e)
+// }
+//
+// func (e EditorConfig) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
+// 	blob, err := json.Marshal(e)
+// 	if err != nil {
+// 		return nil, errors.Tag(err, "serialize EditorConfig")
+// 	}
+// 	return pgtype.JSONB{
+// 		Bytes:  blob,
+// 		Status: pgtype.Present,
+// 	}.EncodeBinary(ci, buf)
+// }
 
 //goland:noinspection SpellCheckingInspection
 const (

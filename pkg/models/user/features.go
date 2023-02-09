@@ -17,11 +17,6 @@
 package user
 
 import (
-	"encoding/json"
-
-	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -34,24 +29,26 @@ type Features struct {
 	Versioning          bool                       `json:"versioning"`
 }
 
-func (f *Features) DecodeBinary(ci *pgtype.Map, src []byte) error {
-	b := pgtype.JSONB{}
-	if err := b.DecodeBinary(ci, src); err != nil {
-		return errors.Tag(err, "deserialize Features")
-	}
-	return json.Unmarshal(b.Bytes, f)
-}
-
-func (f Features) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	blob, err := json.Marshal(map[string]interface{}{
-		"compileGroup":   f.CompileGroup,
-		"compileTimeout": f.CompileTimeout,
-	})
-	if err != nil {
-		return nil, errors.Tag(err, "serialize Features")
-	}
-	return pgtype.JSONB{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
-}
+// TODO
+//
+// func (f *Features) DecodeBinary(ci *pgtype.Map, src []byte) error {
+// 	b := pgtype.JSONB{}
+// 	if err := b.DecodeBinary(ci, src); err != nil {
+// 		return errors.Tag(err, "deserialize Features")
+// 	}
+// 	return json.Unmarshal(b.Bytes, f)
+// }
+//
+// func (f Features) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
+// 	blob, err := json.Marshal(map[string]interface{}{
+// 		"compileGroup":   f.CompileGroup,
+// 		"compileTimeout": f.CompileTimeout,
+// 	})
+// 	if err != nil {
+// 		return nil, errors.Tag(err, "serialize Features")
+// 	}
+// 	return pgtype.JSONB{
+// 		Bytes:  blob,
+// 		Status: pgtype.Present,
+// 	}.EncodeBinary(ci, buf)
+// }

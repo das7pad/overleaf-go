@@ -20,10 +20,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
@@ -31,9 +34,15 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 	defer done()
 
 	dsn := postgresOptions.Parse()
-	db, err := pgxpool.Connect(ctx, dsn)
+	db, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))
+	}
+	db.Config().AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		m := conn.TypeMap()
+		zeronull.Register(m)
+		m.RegisterDefaultPgType(sharedTypes.UUID{}, "uuid")
+		return nil
 	}
 	if err = db.Ping(ctx); err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))

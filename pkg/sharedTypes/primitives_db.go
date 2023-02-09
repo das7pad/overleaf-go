@@ -27,13 +27,15 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func (u *UUID) DecodeBinary(_ *pgtype.Map, src []byte) error {
-	copy(u[:], src)
+func (UUID) SkipUnderlyingTypePlan() {}
+
+func (u *UUID) ScanUUID(v pgtype.UUID) error {
+	copy(u[:], v.Bytes[:])
 	return nil
 }
 
-func (u *UUID) EncodeBinary(_ *pgtype.Map, buf []byte) ([]byte, error) {
-	return append(buf, u[:]...), nil
+func (u *UUID) UUIDValue() (pgtype.UUID, error) {
+	return pgtype.UUID{Bytes: *u, Valid: true}, nil
 }
 
 func (s *UUIDs) DecodeBinary(ci *pgtype.Map, src []byte) error {

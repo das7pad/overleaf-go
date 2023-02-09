@@ -99,19 +99,21 @@ func (d *LinkedFileData) DecodeBinary(_ *pgtype.Map, src []byte) error {
 	return json.Unmarshal(src, d)
 }
 
-func (d *LinkedFileData) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	if d == nil || d.Provider == "" {
-		return nil, nil
-	}
-	blob, err := json.Marshal(d)
-	if err != nil {
-		return nil, errors.Tag(err, "serialize LinkedFileData")
-	}
-	return pgtype.JSON{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
-}
+// TODO
+//
+// func (d *LinkedFileData) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
+// 	if d == nil || d.Provider == "" {
+// 		return nil, nil
+// 	}
+// 	blob, err := json.Marshal(d)
+// 	if err != nil {
+// 		return nil, errors.Tag(err, "serialize LinkedFileData")
+// 	}
+// 	return pgtype.JSON{
+// 		Bytes:  blob,
+// 		Status: pgtype.Present,
+// 	}.EncodeBinary(ci, buf)
+// }
 
 type FileWithParent struct {
 	FileRef
