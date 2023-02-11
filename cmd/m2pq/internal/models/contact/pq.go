@@ -20,6 +20,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -120,13 +121,13 @@ LIMIT 1
 		}
 
 		id := resolved[u.UserId]
-		if id.Status != pgtype.Present {
+		if !id.Valid {
 			continue
 		}
 
 		for _, other := range pending {
 			r := resolved[other]
-			if r.Status != pgtype.Present {
+			if !r.Valid {
 				continue
 			}
 			details := u.Contacts[other.Hex()]

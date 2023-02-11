@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -37,8 +38,8 @@ import (
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/user"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/mongoOptions"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
 )
 
 type importer struct {
@@ -73,18 +74,8 @@ func main() {
 	var pqDB *pgxpool.Pool
 	{
 		ctx, done := context.WithTimeout(signalCtx, timeout)
-		defer done()
-
-		dsn := postgresOptions.Parse()
-		db, err := pgxpool.Connect(ctx, dsn)
-		if err != nil {
-			panic(errors.Tag(err, "cannot talk to postgres"))
-		}
-		if err = db.Ping(ctx); err != nil {
-			panic(errors.Tag(err, "cannot talk to postgres"))
-		}
+		pqDB = utils.MustConnectPostgres(ctx)
 		done()
-		pqDB = db
 	}
 
 	queue := []importer{

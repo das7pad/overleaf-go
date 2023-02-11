@@ -17,12 +17,10 @@
 package project
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -60,9 +58,9 @@ type LinkedFileData struct {
 	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
 }
 
-func (d *LinkedFileData) Migrate() error {
+func (d *LinkedFileData) Migrate() (*LinkedFileData, error) {
 	if d == nil || d.Provider == "" {
-		return nil
+		return nil, nil
 	}
 
 	// The NodeJS implementation stored these as absolute paths.
@@ -80,25 +78,11 @@ func (d *LinkedFileData) Migrate() error {
 	if d.SourceProjectId != "" {
 		id, err := m2pq.ParseID(d.SourceProjectId)
 		if err != nil {
-			return errors.Tag(err, "invalid source project id")
+			return nil, errors.Tag(err, "invalid source project id")
 		}
 		d.SourceProjectId = id.String()
 	}
-	return nil
-}
-
-func (d *LinkedFileData) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	if d == nil || d.Provider == "" {
-		return nil, nil
-	}
-	blob, err := json.Marshal(d)
-	if err != nil {
-		return nil, errors.Tag(err, "serialize LinkedFileData")
-	}
-	return pgtype.JSON{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
+	return d, nil
 }
 
 type FileRef struct {

@@ -17,33 +17,14 @@
 package user
 
 import (
-	"encoding/json"
-
-	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators" bson:"collaborators"`
+	Collaborators       int                        `json:"collaborators,omitempty" bson:"collaborators"`
 	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" bson:"compileTimeout"`
 	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" bson:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges" bson:"trackChanges"`
-	TrackChangesVisible bool                       `json:"trackChangesVisible"`
-	Versioning          bool                       `json:"versioning" bson:"versioning"`
-}
-
-func (f Features) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	blob, err := json.Marshal(map[string]interface{}{
-		"compileGroup":   f.CompileGroup,
-		"compileTimeout": f.CompileTimeout,
-	})
-	if err != nil {
-		return nil, errors.Tag(err, "serialize Features")
-	}
-	return pgtype.JSONB{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
+	TrackChanges        bool                       `json:"trackChanges,omitempty" bson:"trackChanges"`
+	TrackChangesVisible bool                       `json:"trackChangesVisible,omitempty"`
+	Versioning          bool                       `json:"versioning,omitempty" bson:"versioning"`
 }

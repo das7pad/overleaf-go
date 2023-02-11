@@ -24,6 +24,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -301,7 +302,7 @@ WHERE id = ANY ($1)
 		if _, exists := m[id]; exists {
 			continue
 		}
-		m[id] = pgtype.UUID{Status: pgtype.Null}
+		m[id] = pgtype.UUID{}
 	}
 
 	return m, nil

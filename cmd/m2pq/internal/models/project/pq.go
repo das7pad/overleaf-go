@@ -480,7 +480,7 @@ SELECT $1,
 		rows = rows[:0]
 		_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 			d := e.(*FileRef)
-			if err = d.LinkedFileData.Migrate(); err != nil {
+			if d.LinkedFileData, err = d.LinkedFileData.Migrate(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{
@@ -490,7 +490,7 @@ SELECT $1,
 			return nil
 		})
 		for _, f := range deletedFiles {
-			if err = f.LinkedFileData.Migrate(); err != nil {
+			if f.LinkedFileData, err = f.LinkedFileData.Migrate(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{

@@ -17,11 +17,6 @@
 package user
 
 import (
-	"encoding/json"
-
-	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -37,15 +32,4 @@ type EditorConfig struct {
 	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
 	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
 	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
-}
-
-func (e EditorConfig) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	blob, err := json.Marshal(e)
-	if err != nil {
-		return nil, errors.Tag(err, "serialize EditorConfig")
-	}
-	return pgtype.JSONB{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
 }
