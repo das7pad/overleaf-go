@@ -26,6 +26,14 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
+type TreeNodeKind string
+
+const (
+	TreeNodeKindDoc    TreeNodeKind = "doc"
+	TreeNodeKindFile   TreeNodeKind = "file"
+	TreeNodeKindFolder TreeNodeKind = "folder"
+)
+
 type TreeElement interface {
 	GetId() sharedTypes.UUID
 }
@@ -321,18 +329,18 @@ func (p *ForTree) GetRootFolder() *Folder {
 		//       We can safely ignore the conflict error here.
 		f, _ := t.CreateParents(path.Dir())
 		switch kind {
-		case "doc":
+		case TreeNodeKindDoc:
 			e := NewDoc(path.Filename())
 			e.Id = p.treeIds[i]
 			if p.docSnapshots != nil {
 				e.Snapshot = p.docSnapshots[i]
 			}
 			f.Docs = append(f.Docs, e)
-		case "file":
+		case TreeNodeKindFile:
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
-			if p.createdAts.Elements != nil {
-				e.Created = p.createdAts.Elements[i].Time
+			if p.createdAts != nil {
+				e.Created = p.createdAts[i].Time
 			}
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])
@@ -344,7 +352,7 @@ func (p *ForTree) GetRootFolder() *Folder {
 				e.Size = p.sizes[i]
 			}
 			f.FileRefs = append(f.FileRefs, e)
-		case "folder":
+		case TreeNodeKindFolder:
 			// NOTE: The paths of folders have a trailing slash in the DB.
 			//       When getting f, that slash is removed by the path.Dir()
 			//        call and f will have the correct path/name. :)
@@ -360,7 +368,7 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 	for i, kind := range p.treeKinds {
 		path := sharedTypes.PathName(p.treePaths[i])
 		switch kind {
-		case "doc":
+		case TreeNodeKindDoc:
 			e := NewDoc(path.Filename())
 			e.Id = p.treeIds[i]
 			e.Path = path
@@ -368,12 +376,12 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 				e.Snapshot = p.docSnapshots[i]
 			}
 			docs = append(docs, e)
-		case "file":
+		case TreeNodeKindFile:
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
 			e.Path = path
-			if p.createdAts.Elements != nil {
-				e.Created = p.createdAts.Elements[i].Time
+			if p.createdAts != nil {
+				e.Created = p.createdAts[i].Time
 			}
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])

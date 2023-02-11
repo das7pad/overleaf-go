@@ -26,23 +26,41 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
 
-	dsn := postgresOptions.Parse()
-	db, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
+	var cfg *pgxpool.Config
+	{
+		var err error
+		cfg, err = pgxpool.ParseConfig(postgresOptions.Parse())
+		if err != nil {
+			panic(errors.Tag(err, "parse postgres DSN"))
+		}
 	}
-	db.Config().AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		m := conn.TypeMap()
 		zeronull.Register(m)
-		m.RegisterDefaultPgType(sharedTypes.UUID{}, "uuid")
+		customTypes := []string{
+			"AccessSource",
+			"PrivilegeLevel",
+			"PublicAccessLevel",
+			"TreeNodeKind",
+		}
+		for _, name := range customTypes {
+			t, err := conn.LoadType(ctx, name)
+			if err != nil {
+				return err
+			}
+			m.RegisterType(t)
+		}
 		return nil
+	}
+	db, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 	if err = db.Ping(ctx); err != nil {
 		panic(errors.Tag(err, "cannot talk to postgres"))

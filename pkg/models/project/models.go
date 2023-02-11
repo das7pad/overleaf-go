@@ -120,10 +120,10 @@ type ForTree struct {
 	RootFolderField
 
 	treeIds        sharedTypes.UUIDs
-	treeKinds      []string
+	treeKinds      []TreeNodeKind
 	treePaths      []string
 	docSnapshots   []string
-	createdAts     pgtype.Array[pgtype.Timestamp]
+	createdAts     pgtype.FlatArray[pgtype.Timestamp]
 	hashes         []string
 	sizes          []int64
 	linkedFileData []LinkedFileData

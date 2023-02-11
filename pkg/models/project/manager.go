@@ -184,22 +184,22 @@ FROM p
 	rows := make([][]interface{}, 0, t.CountNodes())
 
 	rows = append(rows, []interface{}{
-		deletedAt, t.Id, "folder", nil, "", p.Id,
+		deletedAt, t.Id, TreeNodeKindFolder, nil, "", p.Id,
 	})
 	_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 		for _, d := range f.Docs {
 			rows = append(rows, []interface{}{
-				deletedAt, d.Id, "doc", f.Id, path.Join(d.Name), p.Id,
+				deletedAt, d.Id, TreeNodeKindDoc, f.Id, path.Join(d.Name), p.Id,
 			})
 		}
 		for _, r := range f.FileRefs {
 			rows = append(rows, []interface{}{
-				deletedAt, r.Id, "file", f.Id, path.Join(r.Name), p.Id,
+				deletedAt, r.Id, TreeNodeKindFile, f.Id, path.Join(r.Name), p.Id,
 			})
 		}
 		for _, ff := range f.Folders {
 			rows = append(rows, []interface{}{
-				deletedAt, ff.Id, "folder", f.Id, ff.Path + "/", p.Id,
+				deletedAt, ff.Id, TreeNodeKindFolder, f.Id, ff.Path + "/", p.Id,
 			})
 		}
 		return nil
@@ -515,7 +515,7 @@ RETURNING p.tree_version
 `, projectId, userId, parent, f.Id, f.Name).Scan(&treeVersion)
 }
 
-func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, runner queryRunner) (sharedTypes.Version, error) {
+func (m *manager) deleteTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind TreeNodeKind, runner queryRunner) (sharedTypes.Version, error) {
 	var treeVersion sharedTypes.Version
 	return treeVersion, runner.QueryRow(ctx, `
 WITH node AS (SELECT t.id
@@ -549,11 +549,11 @@ RETURNING p.tree_version
 }
 
 func (m *manager) DeleteDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID) (sharedTypes.Version, error) {
-	return m.deleteTreeLeaf(ctx, projectId, userId, docId, "doc", m.db)
+	return m.deleteTreeLeaf(ctx, projectId, userId, docId, TreeNodeKindDoc, m.db)
 }
 
 func (m *manager) DeleteFile(ctx context.Context, projectId, userId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
-	return m.deleteTreeLeaf(ctx, projectId, userId, fileId, "file", m.db)
+	return m.deleteTreeLeaf(ctx, projectId, userId, fileId, TreeNodeKindFile, m.db)
 }
 
 func (m *manager) DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error) {
@@ -600,7 +600,7 @@ RETURNING p.tree_version
 `, projectId, userId, folderId).Scan(&v))
 }
 
-func (m *manager) moveTreeLeaf(ctx context.Context, projectId, userId, folderId, nodeId sharedTypes.UUID, kind string) (sharedTypes.Version, sharedTypes.PathName, error) {
+func (m *manager) moveTreeLeaf(ctx context.Context, projectId, userId, folderId, nodeId sharedTypes.UUID, kind TreeNodeKind) (sharedTypes.Version, sharedTypes.PathName, error) {
 	var treeVersion sharedTypes.Version
 	var path sharedTypes.PathName
 	return treeVersion, path, m.db.QueryRow(ctx, `
@@ -637,11 +637,11 @@ RETURNING p.tree_version, updated.path
 }
 
 func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error) {
-	return m.moveTreeLeaf(ctx, projectId, userId, folderId, docId, "doc")
+	return m.moveTreeLeaf(ctx, projectId, userId, folderId, docId, TreeNodeKindDoc)
 }
 
 func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
-	v, _, err := m.moveTreeLeaf(ctx, projectId, userId, folderId, fileId, "file")
+	v, _, err := m.moveTreeLeaf(ctx, projectId, userId, folderId, fileId, TreeNodeKindFile)
 	return v, err
 }
 
@@ -719,7 +719,7 @@ FROM updated_version,
 	return v, docs, nil
 }
 
-func (m *manager) renameTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind string, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.PathName, error) {
+func (m *manager) renameTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind TreeNodeKind, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.PathName, error) {
 	var treeVersion sharedTypes.Version
 	var path sharedTypes.PathName
 	return treeVersion, path, m.db.QueryRow(ctx, `
@@ -754,11 +754,11 @@ RETURNING p.tree_version, updated.path
 }
 
 func (m *manager) RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.PathName, error) {
-	return m.renameTreeLeaf(ctx, projectId, userId, d.Id, "doc", d.Name)
+	return m.renameTreeLeaf(ctx, projectId, userId, d.Id, TreeNodeKindDoc, d.Name)
 }
 
 func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
-	v, _, err := m.renameTreeLeaf(ctx, projectId, userId, f.Id, "file", f.Name)
+	v, _, err := m.renameTreeLeaf(ctx, projectId, userId, f.Id, TreeNodeKindFile, f.Name)
 	return v, err
 }
 
@@ -1110,7 +1110,7 @@ WHERE f.id = $4
 
 func (m *manager) getElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename, tx pgx.Tx) (sharedTypes.UUID, bool, error) {
 	var nodeId sharedTypes.UUID
-	var kind string
+	var kind TreeNodeKind
 	err := tx.QueryRow(ctx, `
 SELECT t.id, t.kind
 FROM tree_nodes t
@@ -1127,12 +1127,12 @@ WHERE t.project_id = $1
 	if err == pgx.ErrNoRows {
 		return nodeId, false, nil
 	}
-	if kind == "folder" {
+	if kind == TreeNodeKindFolder {
 		return nodeId, false, &errors.UnprocessableEntityError{
 			Msg: "element is a folder",
 		}
 	}
-	return nodeId, kind == "doc", err
+	return nodeId, kind == TreeNodeKindDoc, err
 }
 
 func (m *manager) GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error) {
@@ -1846,7 +1846,7 @@ func (m *manager) EnsureIsDoc(ctx context.Context, projectId, userId, folderId s
 	if isDoc {
 		return existingId, true, v, nil
 	}
-	_, err = m.deleteTreeLeaf(ctx, projectId, userId, existingId, "file", tx)
+	_, err = m.deleteTreeLeaf(ctx, projectId, userId, existingId, TreeNodeKindFile, tx)
 	if err != nil {
 		return existingId, false, 0, errors.Tag(err, "delete existing file")
 	}
@@ -1899,7 +1899,7 @@ FROM inserted_tree_node
 
 func (m *manager) FinalizeFileCreation(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.UUID, bool, sharedTypes.Version, error) {
 	var nodeId sharedTypes.UUID
-	var kind string
+	var kind TreeNodeKind
 	var v sharedTypes.Version
 	err := m.db.QueryRow(ctx, `
 WITH f AS (SELECT t.id, t.project_id, t.path
@@ -1952,7 +1952,7 @@ WHERE p.id = f.project_id
 RETURNING deleted.id, deleted.kind, p.tree_version
 `, projectId, userId, f.Id, f.Created.Add(-time.Microsecond)).
 		Scan(&nodeId, &kind, &v)
-	return nodeId, kind == "doc", v, err
+	return nodeId, kind == TreeNodeKindDoc, v, err
 }
 
 func (m *manager) ProcessStaleFileUploads(ctx context.Context, cutOff time.Time, fn func(projectId, fileId sharedTypes.UUID) bool) error {
