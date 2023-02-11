@@ -1080,7 +1080,6 @@ RETURNING p.tree_version, restored.parent_id
 
 func (m *manager) GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error) {
 	f := FileWithParent{}
-	d := LinkedFileData{}
 	err := m.db.QueryRow(ctx, `
 SELECT t.path, t.parent_id, f.linked_file_data, f.size
 FROM files f
@@ -1098,13 +1097,10 @@ WHERE f.id = $4
          (pm.access_source = 'token' OR p.token_ro = $3))
     )
 `, projectId, userId, accessToken, fileId).Scan(
-		&f.Path, &f.ParentId, &d, &f.Size,
+		&f.Path, &f.ParentId, &f.LinkedFileData, &f.Size,
 	)
 	f.Id = fileId
 	f.Name = f.Path.Filename()
-	if d.Provider != "" {
-		f.LinkedFileData = &d
-	}
 	return &f, err
 }
 

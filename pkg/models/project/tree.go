@@ -17,10 +17,7 @@
 package project
 
 import (
-	"encoding/json"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -99,29 +96,6 @@ type LinkedFileData struct {
 	SourceOutputFilePath sharedTypes.PathName `json:"source_output_file_path,omitempty"`
 	URL                  string               `json:"url,omitempty"`
 }
-
-func (d *LinkedFileData) DecodeBinary(_ *pgtype.Map, src []byte) error {
-	if src == nil {
-		return nil
-	}
-	return json.Unmarshal(src, d)
-}
-
-// TODO
-//
-// func (d *LinkedFileData) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-// 	if d == nil || d.Provider == "" {
-// 		return nil, nil
-// 	}
-// 	blob, err := json.Marshal(d)
-// 	if err != nil {
-// 		return nil, errors.Tag(err, "serialize LinkedFileData")
-// 	}
-// 	return pgtype.JSON{
-// 		Bytes:  blob,
-// 		Status: pgtype.Present,
-// 	}.EncodeBinary(ci, buf)
-// }
 
 type FileWithParent struct {
 	FileRef
@@ -345,8 +319,8 @@ func (p *ForTree) GetRootFolder() *Folder {
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])
 			}
-			if p.linkedFileData != nil && p.linkedFileData[i].Provider != "" {
-				e.LinkedFileData = &p.linkedFileData[i]
+			if p.linkedFileData != nil && p.linkedFileData[i] != nil {
+				e.LinkedFileData = p.linkedFileData[i]
 			}
 			if p.sizes != nil {
 				e.Size = p.sizes[i]
@@ -386,8 +360,8 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])
 			}
-			if p.linkedFileData != nil && p.linkedFileData[i].Provider != "" {
-				e.LinkedFileData = &p.linkedFileData[i]
+			if p.linkedFileData != nil && p.linkedFileData[i] != nil {
+				e.LinkedFileData = p.linkedFileData[i]
 			}
 			if p.sizes != nil {
 				e.Size = p.sizes[i]

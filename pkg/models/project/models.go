@@ -126,7 +126,7 @@ type ForTree struct {
 	createdAts     pgtype.FlatArray[pgtype.Timestamp]
 	hashes         []string
 	sizes          []int64
-	linkedFileData []LinkedFileData
+	linkedFileData []*LinkedFileData
 }
 
 type ForZip struct {

@@ -21,34 +21,10 @@ import (
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators"`
+	Collaborators       int                        `json:"collaborators,omitempty"`
 	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout"`
 	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges"`
-	TrackChangesVisible bool                       `json:"trackChangesVisible"`
-	Versioning          bool                       `json:"versioning"`
+	TrackChanges        bool                       `json:"trackChanges,omitempty"`
+	TrackChangesVisible bool                       `json:"trackChangesVisible,omitempty"`
+	Versioning          bool                       `json:"versioning,omitempty"`
 }
-
-// TODO
-//
-// func (f *Features) DecodeBinary(ci *pgtype.Map, src []byte) error {
-// 	b := pgtype.JSONB{}
-// 	if err := b.DecodeBinary(ci, src); err != nil {
-// 		return errors.Tag(err, "deserialize Features")
-// 	}
-// 	return json.Unmarshal(b.Bytes, f)
-// }
-//
-// func (f Features) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-// 	blob, err := json.Marshal(map[string]interface{}{
-// 		"compileGroup":   f.CompileGroup,
-// 		"compileTimeout": f.CompileTimeout,
-// 	})
-// 	if err != nil {
-// 		return nil, errors.Tag(err, "serialize Features")
-// 	}
-// 	return pgtype.JSONB{
-// 		Bytes:  blob,
-// 		Status: pgtype.Present,
-// 	}.EncodeBinary(ci, buf)
-// }
