@@ -123,7 +123,7 @@ type ForTree struct {
 	treeKinds      []TreeNodeKind
 	treePaths      []string
 	docSnapshots   []string
-	createdAts     pgtype.FlatArray[pgtype.Timestamp]
+	createdAts     []pgtype.Timestamp
 	hashes         []string
 	sizes          []int64
 	linkedFileData []*LinkedFileData

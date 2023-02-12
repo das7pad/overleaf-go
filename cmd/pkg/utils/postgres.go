@@ -21,11 +21,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype/zeronull"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/postgresOptions"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
@@ -42,20 +43,19 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 	}
 	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		m := conn.TypeMap()
-		zeronull.Register(m)
-		customTypes := []string{
-			"AccessSource",
-			"PrivilegeLevel",
-			"PublicAccessLevel",
-			"TreeNodeKind",
+		if err := registerEnumTypes(ctx, m, conn); err != nil {
+			return errors.Tag(err, "register enum types")
 		}
-		for _, name := range customTypes {
-			t, err := conn.LoadType(ctx, name)
-			if err != nil {
-				return err
-			}
-			m.RegisterType(t)
-		}
+		m.RegisterType(&pgtype.Type{
+			Codec: sharedTypes.UUIDCodec{},
+			Name:  "uuid",
+			OID:   pgtype.UUIDOID,
+		})
+		m.RegisterType(&pgtype.Type{
+			Codec: sharedTypes.UUIDsCodec{},
+			Name:  "_uuid",
+			OID:   pgtype.UUIDArrayOID,
+		})
 		return nil
 	}
 	db, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -66,4 +66,25 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 		panic(errors.Tag(err, "cannot talk to postgres"))
 	}
 	return db
+}
+
+func registerEnumTypes(ctx context.Context, m *pgtype.Map, conn *pgx.Conn) error {
+	rows, err := conn.Query(
+		ctx, `SELECT oid, typname FROM pg_type WHERE typtype = 'e'`,
+	)
+	if err != nil {
+		return errors.Tag(err, "list enum types")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		t := pgtype.Type{Codec: &pgtype.EnumCodec{}}
+		if err = rows.Scan(&t.OID, &t.Name); err != nil {
+			return errors.Tag(err, "scan enum type")
+		}
+		m.RegisterType(&t)
+	}
+	if err = rows.Err(); err != nil {
+		return errors.Tag(err, "iter enum types")
+	}
+	return nil
 }

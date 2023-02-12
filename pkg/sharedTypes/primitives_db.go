@@ -19,69 +19,104 @@
 package sharedTypes
 
 import (
+	"database/sql/driver"
 	"encoding/binary"
-	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes/internal/pgarray"
 )
 
 func (UUID) SkipUnderlyingTypePlan() {}
 
-func (u *UUID) ScanUUID(v pgtype.UUID) error {
-	copy(u[:], v.Bytes[:])
+func (UUIDs) SkipUnderlyingTypePlan() {}
+
+var (
+	_ pgtype.SkipUnderlyingTypePlanner = UUID{}
+	_ pgtype.Codec                     = UUIDCodec{}
+	_ pgtype.SkipUnderlyingTypePlanner = UUIDs{}
+	_ pgtype.Codec                     = UUIDsCodec{}
+)
+
+type UUIDCodec struct{}
+
+func (UUIDCodec) FormatSupported(format int16) bool {
+	return format == pgtype.BinaryFormatCode
+}
+
+func (UUIDCodec) PreferredFormat() int16 {
+	return pgtype.BinaryFormatCode
+}
+
+func (c UUIDCodec) PlanEncode(_ *pgtype.Map, _ uint32, _ int16, _ any) pgtype.EncodePlan {
+	return c
+}
+
+func (UUIDCodec) Encode(value any, buf []byte) (newBuf []byte, err error) {
+	uuid := value.(UUID)
+	return append(buf, uuid[:]...), nil
+}
+
+func (c UUIDCodec) PlanScan(_ *pgtype.Map, _ uint32, _ int16, _ any) pgtype.ScanPlan {
+	return c
+}
+
+func (UUIDCodec) Scan(src []byte, dst any) error {
+	uuid := dst.(*UUID)
+	copy(uuid[:], src)
 	return nil
 }
 
-func (u *UUID) UUIDValue() (pgtype.UUID, error) {
-	return pgtype.UUID{Bytes: *u, Valid: true}, nil
+func (c UUIDCodec) DecodeDatabaseSQLValue(_ *pgtype.Map, _ uint32, _ int16, _ []byte) (driver.Value, error) {
+	return nil, errors.New("UUIDCodec.DecodeDatabaseSQLValue not implemented")
 }
 
-func (s *UUIDs) DecodeBinary(ci *pgtype.Map, src []byte) error {
+func (c UUIDCodec) DecodeValue(_ *pgtype.Map, _ uint32, _ int16, _ []byte) (any, error) {
+	return nil, errors.New("UUIDCodec.DecodeValue not implemented")
+}
+
+type UUIDsCodec struct{}
+
+func (UUIDsCodec) FormatSupported(format int16) bool {
+	return format == pgtype.BinaryFormatCode
+}
+
+func (UUIDsCodec) PreferredFormat() int16 {
+	return pgtype.BinaryFormatCode
+}
+
+func (c UUIDsCodec) PlanEncode(_ *pgtype.Map, _ uint32, _ int16, _ any) pgtype.EncodePlan {
+	return c
+}
+
+func (UUIDsCodec) Encode(value any, buf []byte) (newBuf []byte, err error) {
+	s := value.(UUIDs)
+
+	buf = pgarray.EncodeFlatArrayHeader(buf, len(s), 16)
+
+	for _, u := range s {
+		// UUID length
+		buf = binary.BigEndian.AppendUint32(buf, 16)
+		// UUID body
+		buf = append(buf, u[:]...)
+	}
+	return buf, nil
+}
+
+func (c UUIDsCodec) PlanScan(_ *pgtype.Map, _ uint32, _ int16, _ any) pgtype.ScanPlan {
+	return c
+}
+
+func (UUIDsCodec) Scan(src []byte, dst any) error {
+	s := dst.(*UUIDs)
 	if len(src) == 0 {
 		*s = (*s)[:0]
 		return nil
 	}
-	if len(src) < 12 {
-		return errors.New(fmt.Sprintf(
-			"decode UUID array header: too short body: expected >=%d, got %d",
-			12, len(src),
-		))
-	}
-	offset := 0
-
-	dimensions := int(binary.BigEndian.Uint32(src))
-	offset += 4
-	if dimensions > 1 {
-		return errors.New(fmt.Sprintf(
-			"decode UUID array header: too many dimensions: expected <=1, got %d",
-			dimensions,
-		))
-	}
-
-	// contains null
-	offset += 4
-
-	// OID
-	offset += 4
-
-	// first dimension
-	n := 0
-	if len(src) >= 12+4 {
-		// length
-		n = int(binary.BigEndian.Uint32(src[offset:]))
-		offset += 4
-
-		// lower bound
-		offset += 4
-	}
-	min := n * (4 + 16)
-	if len(src[offset:]) < min {
-		return errors.New(fmt.Sprintf(
-			"decode UUID array header: too short body: expected >=%d, got %d",
-			min, len(src[offset:]),
-		))
+	src, n, err := pgarray.DecodeFlatArrayHeader(src, 16)
+	if err != nil {
+		return errors.Tag(err, "decode UUID array header")
 	}
 	s2 := *s
 	if cap(s2) < n {
@@ -89,6 +124,7 @@ func (s *UUIDs) DecodeBinary(ci *pgtype.Map, src []byte) error {
 	} else {
 		s2 = s2[:n]
 	}
+	offset := 0
 	for i := 0; i < n; i++ {
 		offset += 4 // UUID length, skip over [0, 0, 0, 16]
 		copy(s2[i][:], src[offset:])
@@ -98,25 +134,10 @@ func (s *UUIDs) DecodeBinary(ci *pgtype.Map, src []byte) error {
 	return nil
 }
 
-func (s UUIDs) EncodeBinary(ci *pgtype.Map, buf []byte) ([]byte, error) {
-	min := len(buf) + 5*4 + len(s)*(16+4)
-	if cap(buf) < min {
-		buf = append(make([]byte, 0, min), buf...)
-	}
-	// dimensions
-	buf = binary.BigEndian.AppendUint32(buf, 1)
+func (c UUIDsCodec) DecodeDatabaseSQLValue(_ *pgtype.Map, _ uint32, _ int16, _ []byte) (driver.Value, error) {
+	return nil, errors.New("UUIDsCodec.DecodeDatabaseSQLValue not implemented")
+}
 
-	// contains null
-	buf = binary.BigEndian.AppendUint32(buf, 0)
-
-	// element oid
-	buf = binary.BigEndian.AppendUint32(buf, pgtype.UUIDOID)
-
-	for _, u := range s {
-		// UUID length
-		buf = binary.BigEndian.AppendUint32(buf, 16)
-		// UUID body
-		buf = append(buf, u[:]...)
-	}
-	return buf, nil
+func (c UUIDsCodec) DecodeValue(_ *pgtype.Map, _ uint32, _ int16, _ []byte) (any, error) {
+	return nil, errors.New("UUIDsCodec.DecodeValue not implemented")
 }
