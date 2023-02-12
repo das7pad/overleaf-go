@@ -62,8 +62,7 @@ type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
-	GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error)
-	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) (*JoinProjectDetails, error)
+	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) (*GetBootstrapWSDetails, error)
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
@@ -1243,8 +1242,8 @@ WHERE p.id = $1
 	)
 }
 
-func (m *manager) GetJoinProjectDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*JoinProjectDetails, error) {
-	d := &JoinProjectDetails{}
+func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) (*GetBootstrapWSDetails, error) {
+	d := &GetBootstrapWSDetails{}
 	d.Project.Id = projectId
 	d.Project.RootFolder = NewFolder("")
 	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
@@ -1275,123 +1274,7 @@ WITH tree AS
                         AND t.deleted_at != '1970-01-01'
                       GROUP BY t.project_id)
 
-SELECT coalesce(pm.access_source::TEXT, ''),
-       coalesce(pm.privilege_level::TEXT, ''),
-       p.compiler,
-       p.epoch,
-       p.image_name,
-       p.name,
-       p.owner_id,
-       p.public_access_level,
-       COALESCE(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
-       p.root_folder_id,
-       p.spell_check_language,
-       COALESCE(p.token_ro, ''),
-       COALESCE(p.token_rw, ''),
-       p.tree_version,
-       o.features,
-       o.email,
-       o.first_name,
-       o.last_name,
-       tree.ids,
-       tree.kinds,
-       tree.paths,
-       tree.created_ats,
-       tree.linked_file_data,
-       tree.sizes,
-       deleted_docs.ids,
-       deleted_docs.names
-FROM projects p
-         INNER JOIN users o ON p.owner_id = o.id
-         LEFT JOIN tree ON (p.id = tree.project_id)
-         LEFT JOIN deleted_docs ON (p.id = deleted_docs.project_id)
-         LEFT JOIN project_members pm ON (p.id = pm.project_id AND
-                                          pm.user_id = $2)
-
-WHERE p.id = $1
-  AND p.deleted_at IS NULL
-  AND (
-        (pm.access_source >= 'invite') OR
-        (p.public_access_level = 'tokenBased' AND
-         (pm.access_source = 'token' OR p.token_ro = $3))
-    )
-`, projectId, userId, accessToken).Scan(
-		&d.Project.Member.AccessSource,
-		&d.Project.Member.PrivilegeLevel,
-		&d.Project.Compiler,
-		&d.Project.Epoch,
-		&d.Project.ImageName,
-		&d.Project.Name,
-		&d.Project.OwnerId,
-		&d.Project.PublicAccessLevel,
-		&d.Project.RootDoc.Id,
-		&d.Project.RootFolder.Id,
-		&d.Project.SpellCheckLanguage,
-		&d.Project.Tokens.ReadOnly,
-		&d.Project.Tokens.ReadAndWrite,
-		&d.Project.Version,
-		&d.Project.OwnerFeatures,
-		&d.Owner.Email,
-		&d.Owner.FirstName,
-		&d.Owner.LastName,
-		&d.Project.treeIds,
-		&d.Project.treeKinds,
-		&d.Project.treePaths,
-		&d.Project.createdAts,
-		&d.Project.linkedFileData,
-		&d.Project.sizes,
-		&deletedDocIds,
-		&deletedDocNames,
-	)
-	if err != nil {
-		return nil, err
-	}
-	for i, id := range deletedDocIds {
-		d.Project.DeletedDocs = append(d.Project.DeletedDocs, CommonTreeFields{
-			Id:   id,
-			Name: sharedTypes.Filename(deletedDocNames[i]),
-		})
-	}
-	d.Owner.Id = d.Project.OwnerId
-	return d, nil
-}
-
-func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) (*JoinProjectDetails, error) {
-	d := &JoinProjectDetails{}
-	d.Project.Id = projectId
-	d.Project.RootFolder = NewFolder("")
-	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
-
-	var deletedDocIds sharedTypes.UUIDs
-	var deletedDocNames []string
-
-	err := m.db.QueryRow(ctx, `
-WITH tree AS
-         (SELECT t.project_id,
-                 array_agg(t.id)                AS ids,
-                 array_agg(t.kind::TEXT)        AS kinds,
-                 array_agg(t.path)              AS paths,
-                 array_agg(f.created_at)        AS created_ats,
-                 array_agg(f.linked_file_data)  AS linked_file_data,
-                 array_agg(coalesce(f.size, 0)) AS sizes
-          FROM tree_nodes t
-                   LEFT JOIN files f ON t.id = f.id
-          WHERE t.project_id = $1
-            AND t.deleted_at = '1970-01-01'
-            AND t.parent_id IS NOT NULL
-          GROUP BY t.project_id),
-     deleted_docs AS (SELECT t.project_id,
-                             array_agg(t.id)                        AS ids,
-                             array_agg(split_part(t.path, '/', -1)) AS names
-                      FROM tree_nodes t
-                      WHERE t.project_id = $1
-                        AND t.deleted_at != '1970-01-01'
-                      GROUP BY t.project_id)
-
-SELECT COALESCE(pm.access_source::TEXT, ''),
-       COALESCE(pm.privilege_level::TEXT, ''),
-       p.compiler,
-       p.epoch,
+SELECT p.compiler,
        p.image_name,
        p.name,
        p.owner_id,
@@ -1424,18 +1307,15 @@ FROM projects p
          LEFT JOIN deleted_docs ON (p.id = deleted_docs.project_id)
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
                                           pm.user_id = $2)
-LEFT JOIN users u ON (pm.user_id = u.id AND
+         LEFT JOIN users u ON (pm.user_id = u.id AND
                                u.id = $2 AND
-                      			u.epoch = $4 AND
+                               u.epoch = $4 AND
                                u.deleted_at IS NULL)
 WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.epoch = $3
 `, projectId, userId, projectEpoch, userEpoch).Scan(
-		&d.Project.Member.AccessSource,
-		&d.Project.Member.PrivilegeLevel,
 		&d.Project.Compiler,
-		&d.Project.Epoch,
 		&d.Project.ImageName,
 		&d.Project.Name,
 		&d.Project.OwnerId,

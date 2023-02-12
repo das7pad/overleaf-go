@@ -24,7 +24,8 @@ import (
 )
 
 type JoinProjectViewPrivate struct {
-	ForAuthorizationDetails
+	PublicAccessLevelField
+	TokensField
 	ForTree
 	JoinProjectViewPublic
 	OwnerIdField
@@ -42,7 +43,7 @@ type JoinProjectViewPublic struct {
 	VersionField
 }
 
-type JoinProjectDetails struct {
+type GetBootstrapWSDetails struct {
 	Project JoinProjectViewPrivate
 	Owner   user.WithPublicInfo
 	User    user.ForBootstrapWS

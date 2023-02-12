@@ -136,50 +136,19 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 }
 
 func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error) {
-	u, p, err := m.webApi.BootstrapWS(ctx, client, claims)
+	u, r, err := m.webApi.BootstrapWS(ctx, claims)
 	if err != nil {
 		return nil, err
 	}
-	client.User = u
-	return m.doJoinProject(ctx, client, p)
-}
-
-func (m *manager) joinProject(ctx context.Context, rpc *types.RPC) error {
-	var args types.JoinProjectRequest
-	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
-		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
-	}
-	if err := rpc.Client.CanJoinProject(args.ProjectId); err != nil {
-		return err
-	}
-
-	r, err := m.webApi.JoinProject(ctx, rpc.Client, &args)
-	rpc.Response.ProcessedBy = "self"
-	if err != nil {
-		return errors.Tag(
-			err, "webApi.joinProject failed for "+args.ProjectId.String(),
-		)
-	}
-	body, err := m.doJoinProject(ctx, rpc.Client, r)
-	if err != nil {
-		return err
-	}
-	rpc.Response.Body = body
-	return nil
-}
-
-func (m *manager) doJoinProject(ctx context.Context, client *types.Client, r *types.JoinProjectWebApiResponse) ([]byte, error) {
 	projectId := r.Project.Id
-	client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
 
-	// For cleanup purposes: mark as joined before actually joining.
 	client.ProjectId = projectId
+	client.User = u
+	client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
 
 	// Fetch connected users in the background.
 	var connectedClients types.ConnectedClients
-	fetchUsersCtx, doneFetchingUsers := context.WithTimeout(
-		ctx, time.Second*10,
-	)
+	fetchUsersCtx, doneFetchingUsers := context.WithTimeout(ctx, time.Second)
 	if client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil {
 		defer doneFetchingUsers()
 		go func() {
@@ -195,12 +164,10 @@ func (m *manager) doJoinProject(ctx context.Context, client *types.Client, r *ty
 
 	go func() {
 		// Mark the user as joined in the background.
-		// NOTE: UpdateClientPosition expects a present client.ProjectId.
-		//       Start the goroutine after assigning one.
 		m.clientTracking.InitializeClientPosition(client)
 	}()
 
-	if err := m.editorEvents.Join(ctx, client, projectId); err != nil {
+	if err = m.editorEvents.Join(ctx, client, projectId); err != nil {
 		return nil, errors.Tag(
 			err, "editorEvents.Join failed for "+projectId.String(),
 		)
@@ -461,8 +428,6 @@ func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {
 	switch rpc.Request.Action {
 	case types.Ping:
 		return nil
-	case types.JoinProject:
-		return m.joinProject(ctx, rpc)
 	case types.JoinDoc:
 		return m.joinDoc(ctx, rpc)
 	case types.LeaveDoc:

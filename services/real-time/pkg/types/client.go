@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -100,24 +100,21 @@ func generatePublicId() (sharedTypes.PublicId, error) {
 	return id, nil
 }
 
-func NewClient(projectId sharedTypes.UUID, user User, writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
+func NewClient(writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
 	}
 	return &Client{
-		lockedProjectId: projectId,
-		PublicId:        publicId,
-		User:            user,
-		writerChanges:   writerChanges,
-		writeQueue:      writeQueue,
-		disconnect:      disconnect,
+		PublicId:      publicId,
+		writerChanges: writerChanges,
+		writeQueue:    writeQueue,
+		disconnect:    disconnect,
 	}, nil
 }
 
 type Client struct {
-	capabilities    Capabilities
-	lockedProjectId sharedTypes.UUID
+	capabilities Capabilities
 
 	DocId     sharedTypes.UUID
 	PublicId  sharedTypes.PublicId
@@ -187,33 +184,6 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 	}
 }
 
-func (c *Client) requireJoinedProject() error {
-	if c.ProjectId.IsZero() {
-		return &errors.InvalidStateError{Msg: "join project first"}
-	}
-	return nil
-}
-
-func (c *Client) requireJoinedProjectAndDoc() error {
-	if err := c.requireJoinedProject(); err != nil {
-		return err
-	}
-	if c.DocId.IsZero() {
-		return &errors.InvalidStateError{Msg: "join doc first"}
-	}
-	return nil
-}
-
-func (c *Client) CanJoinProject(id sharedTypes.UUID) error {
-	if id != c.lockedProjectId {
-		return errors.Tag(
-			&errors.NotAuthorizedError{},
-			"rejecting cross project join "+id.String(),
-		)
-	}
-	return nil
-}
-
 func (c *Client) HasCapability(component CapabilityComponent) bool {
 	return c.capabilities.Includes(component)
 }
@@ -226,49 +196,27 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	switch action {
 	case Ping:
 		return nil
-	case JoinProject:
-		if !c.ProjectId.IsZero() {
-			return &errors.InvalidStateError{Msg: "already joined project"}
-		}
-		return nil
 	case JoinDoc:
-		if err := c.requireJoinedProject(); err != nil {
-			return err
-		}
 		if !c.DocId.IsZero() && c.DocId != docId {
 			return &errors.InvalidStateError{Msg: "leave other doc first"}
 		}
 		return nil
 	case LeaveDoc:
-		if err := c.requireJoinedProject(); err != nil {
-			return err
-		}
-		if c.DocId != docId {
-			// Silently ignore not joined yet.
-			return nil
-		}
 		return nil
 	case ApplyUpdate:
-		if err := c.requireJoinedProjectAndDoc(); err != nil {
-			return err
+		if c.DocId.IsZero() {
+			return &errors.InvalidStateError{Msg: "join doc first"}
 		}
 		if err := c.capabilities.CheckIncludes(CanEditContent); err != nil {
 			return err
 		}
 		return nil
-
 	case GetConnectedUsers:
-		if err := c.requireJoinedProject(); err != nil {
-			return err
-		}
 		if err := c.capabilities.CheckIncludes(CanSeeOtherClients); err != nil {
 			return err
 		}
 		return nil
 	case UpdatePosition:
-		if err := c.requireJoinedProject(); err != nil {
-			return err
-		}
 		if c.DocId != docId {
 			return &errors.ValidationError{Msg: "stale position update"}
 		}

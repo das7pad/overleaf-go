@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -51,8 +51,6 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOp
 		rtm: rtm,
 		u: websocket.Upgrader{
 			Subprotocols: []string{
-				protoV6,
-				protoV7,
 				protoV8,
 			},
 		},
@@ -74,12 +72,8 @@ type httpController struct {
 }
 
 const (
-	protoV6                  = "v6.real-time.overleaf.com"
-	protoV6JWTQueryParameter = "bootstrap"
-	protoV7                  = "v7.real-time.overleaf.com"
-	protoV7JWTProtoPrefix    = ".bootstrap.v7.real-time.overleaf.com"
-	protoV8                  = "v8.real-time.overleaf.com"
-	protoV8JWTProtoPrefix    = ".bootstrap.v8.real-time.overleaf.com"
+	protoV8               = "v8.real-time.overleaf.com"
+	protoV8JWTProtoPrefix = ".bootstrap.v8.real-time.overleaf.com"
 )
 
 func (h *httpController) addRoutes(router *httpUtils.Router) {
@@ -104,28 +98,6 @@ func (h *httpController) getProjectJWT(c *httpUtils.Context) (*projectJWT.Claims
 	return genericClaims.(*projectJWT.Claims), nil
 }
 
-func (h *httpController) getWsBootstrap(c *httpUtils.Context) (*wsBootstrap.Claims, error) {
-	var blob string
-	for _, proto := range websocket.Subprotocols(c.Request) {
-		if proto == protoV6 {
-			blob = c.Request.URL.Query().Get(protoV6JWTQueryParameter)
-			break
-		}
-		if strings.HasSuffix(proto, protoV7JWTProtoPrefix) {
-			blob = proto[:len(proto)-len(protoV7JWTProtoPrefix)]
-			break
-		}
-	}
-	if len(blob) == 0 {
-		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
-	}
-	genericClaims, jwtError := h.jwtWSBootstrap.Parse(blob)
-	if jwtError != nil {
-		return nil, jwtError
-	}
-	return genericClaims.(*wsBootstrap.Claims), nil
-}
-
 func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 	_ = conn.WritePreparedMessage(entry.Msg)
 }
@@ -147,31 +119,12 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		return
 	}
 
-	var claimsWSBootstrap *wsBootstrap.Claims
-	var claimsProjectJWT *projectJWT.Claims
-	switch conn.Subprotocol() {
-	case protoV6, protoV7:
-		var jwtErr error
-		claimsWSBootstrap, jwtErr = h.getWsBootstrap(requestCtx)
-		if jwtErr != nil {
-			log.Println("jwt auth failed: " + jwtErr.Error())
-			sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
-			return
-		}
-	case protoV8:
-		var jwtErr error
-		claimsProjectJWT, jwtErr = h.getProjectJWT(requestCtx)
-		if jwtErr != nil {
-			log.Println("jwt auth failed: " + jwtErr.Error())
-			sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
-			return
-		}
-	default:
-		log.Println("jwt auth failed: bad proto")
+	claimsProjectJWT, jwtErr := h.getProjectJWT(requestCtx)
+	if jwtErr != nil {
+		log.Println("jwt auth failed: " + jwtErr.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	bootstrapConnection := conn.Subprotocol() == protoV8
 
 	writerChanges := make(chan bool)
 	writeQueue := make(chan types.WriteQueueEntry, 10)
@@ -196,37 +149,16 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 	ctx, disconnect := context.WithCancel(requestCtx)
 	defer disconnect()
 
-	var c *types.Client
-	var clientErr error
-	if bootstrapConnection {
-		c, clientErr = types.NewClient(
-			claimsProjectJWT.ProjectId, types.User{
-				// User will get populated by realTime.Manager.BootstrapWS.
-			},
-			writerChanges, writeQueue, disconnect,
-		)
-	} else {
-		c, clientErr = types.NewClient(
-			claimsWSBootstrap.ProjectId, claimsWSBootstrap.User,
-			writerChanges, writeQueue, disconnect,
-		)
-		if clientErr != nil {
-			log.Println("client setup failed: " + clientErr.Error())
-			sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
-			return
-		}
+	c, clientErr := types.NewClient(writerChanges, writeQueue, disconnect)
+	if clientErr != nil {
+		log.Println("client setup failed: " + clientErr.Error())
+		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
+		return
 	}
 
 	if h.rtm.IsShuttingDown() {
 		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
-	}
-
-	if !bootstrapConnection {
-		setupTime.End()
-		if !c.EnsureQueueResponse(events.ConnectionAcceptedResponse(c.PublicId, setupTime)) {
-			return
-		}
 	}
 
 	waitForCtxDone := ctx.Done()
@@ -276,7 +208,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		// In case queuing from the read-loop failed, this is a noop.
 		<-waitForCtxDone
 	}()
-	if bootstrapConnection {
+	{
 		bCtx, done := context.WithTimeout(ctx, 10*time.Second)
 		blob, err := h.rtm.BootstrapWS(bCtx, c, *claimsProjectJWT)
 		done()

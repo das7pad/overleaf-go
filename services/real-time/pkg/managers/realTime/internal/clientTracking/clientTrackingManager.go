@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -88,6 +88,10 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 			ids[idxSelf] = ids[len(ids)-1]
 			ids = ids[:len(ids)-1]
 		}
+	}
+
+	if err = ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	users := make([]*redis.StringStringMapCmd, len(ids))
