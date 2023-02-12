@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,6 @@ package sharedTypes
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"strconv"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -40,21 +39,8 @@ func (i Int) String() string {
 }
 
 func ParseUUID(s string) (UUID, error) {
-	if len(s) != 36 ||
-		s[8] != '-' || s[13] != '-' || s[18] != '-' || s[23] != '-' {
-		return UUID{}, ErrInvalidUUID
-	}
 	u := UUID{}
-	src := make([]byte, 32)
-	copy(src[:8], s[:8])
-	copy(src[8:12], s[9:13])
-	copy(src[12:16], s[14:18])
-	copy(src[16:20], s[19:23])
-	copy(src[20:32], s[24:])
-	if _, err := hex.Decode(u[:], src); err != nil {
-		return UUID{}, ErrInvalidUUID
-	}
-	return u, nil
+	return u, u.writeHexEncoded([]byte(s))
 }
 
 func GenerateUUID() (UUID, error) {
@@ -107,8 +93,7 @@ func (u UUID) IsZero() bool {
 	return u == UUID{}
 }
 
-func (u UUID) String() string {
-	dst := make([]byte, 36)
+func (u UUID) readHexDecoded(dst []byte) {
 	hex.Encode(dst, u[:4])
 	dst[8] = '-'
 	hex.Encode(dst[9:13], u[4:6])
@@ -118,24 +103,44 @@ func (u UUID) String() string {
 	hex.Encode(dst[19:23], u[8:10])
 	dst[23] = '-'
 	hex.Encode(dst[24:], u[10:])
+}
+
+func (u UUID) String() string {
+	dst := make([]byte, 36)
+	u.readHexDecoded(dst)
 	return string(dst)
 }
 
 func (u UUID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(u.String())
+	dst := make([]byte, 38)
+	dst[0] = '"'
+	dst[37] = '"'
+	u.readHexDecoded(dst[1:37])
+	return dst, nil
+}
+
+func (u *UUID) writeHexEncoded(src []byte) error {
+	if len(src) != 36 ||
+		src[8] != '-' || src[13] != '-' || src[18] != '-' || src[23] != '-' {
+		return ErrInvalidUUID
+	}
+	stripped := make([]byte, 32)
+	copy(stripped[:8], src[:8])
+	copy(stripped[8:12], src[9:13])
+	copy(stripped[12:16], src[14:18])
+	copy(stripped[16:20], src[19:23])
+	copy(stripped[20:32], src[24:])
+	if _, err := hex.Decode(u[:], stripped); err != nil {
+		return ErrInvalidUUID
+	}
+	return nil
 }
 
 func (u *UUID) UnmarshalJSON(b []byte) error {
-	s := ""
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
+	if len(b) != 38 || b[0] != '"' || b[37] != '"' {
+		return ErrInvalidUUID
 	}
-	u2, err := ParseUUID(s)
-	if err != nil {
-		return err
-	}
-	*u = u2
-	return nil
+	return u.writeHexEncoded(b[1:37])
 }
 
 type UUIDs []UUID

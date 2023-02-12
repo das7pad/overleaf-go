@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,6 +17,8 @@
 package sharedTypes
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -34,7 +36,7 @@ func TestUUID_IsZero(t *testing.T) {
 		},
 		{
 			name: "set",
-			u:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+			u:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255},
 			want: false,
 		},
 	}
@@ -60,8 +62,8 @@ func TestUUID_String(t *testing.T) {
 		},
 		{
 			name: "seq",
-			u:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-			want: "00010203-0405-0607-0809-0a0b0c0d0e0f",
+			u:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255},
+			want: "00010203-0405-0607-0809-0a0b0c0d0eff",
 		},
 	}
 	for _, tt := range tests {
@@ -94,9 +96,9 @@ func TestParseUUID(t *testing.T) {
 		{
 			name: "seq",
 			args: args{
-				s: "00010203-0405-0607-0809-0a0b0c0d0e0f",
+				s: "00010203-0405-0607-0809-0a0b0c0d0eff",
 			},
-			want:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+			want:    UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255},
 			wantErr: false,
 		},
 		{
@@ -131,21 +133,88 @@ func TestParseUUID(t *testing.T) {
 }
 
 func BenchmarkUUID_IsZero(b *testing.B) {
-	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		_ = u.IsZero()
 	}
 }
 
 func BenchmarkUUID_String(b *testing.B) {
-	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		_ = u.String()
 	}
 }
 
+func BenchmarkUUID_StringNaive(b *testing.B) {
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
+	for i := 0; i < b.N; i++ {
+		_ = fmt.Sprintf(
+			"%x-%x-%x-%x-%x",
+			u[0:4], u[4:6], u[6:8], u[8:10], u[10:16],
+		)
+	}
+}
+
+func BenchmarkUUID_MarshalJSON(b *testing.B) {
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
+	for i := 0; i < b.N; i++ {
+		_, _ = u.MarshalJSON()
+	}
+}
+
+func BenchmarkUUID_MarshalJSONNaive(b *testing.B) {
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
+	for i := 0; i < b.N; i++ {
+		_, _ = json.Marshal(u.String())
+	}
+}
+
+func BenchmarkUUID_UnmarshalJSON(b *testing.B) {
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
+	blob, err := json.Marshal(u)
+	if err != nil {
+		b.Error(err)
+	}
+	u2 := &UUID{}
+	for i := 0; i < b.N; i++ {
+		err = u2.UnmarshalJSON(blob)
+		if err != nil {
+			b.Error(err)
+		}
+		if u != *u2 {
+			b.Fatalf("%s != %s", u, u2)
+		}
+	}
+}
+
+func BenchmarkUUID_UnmarshalJSONNaive(b *testing.B) {
+	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
+	blob, err := json.Marshal(u)
+	if err != nil {
+		b.Error(err)
+	}
+	u2 := &UUID{}
+	for i := 0; i < b.N; i++ {
+		s := ""
+		err = json.Unmarshal(blob, &s)
+		if err != nil {
+			b.Error(err)
+		}
+		var u3 UUID
+		u3, err = ParseUUID(s)
+		if err != nil {
+			b.Error(err)
+		}
+		*u2 = u3
+		if u != *u2 {
+			b.Fatalf("%s != %s", u, u2)
+		}
+	}
+}
+
 func BenchmarkParseUUID(b *testing.B) {
-	s := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}.String()
+	s := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}.String()
 	for i := 0; i < b.N; i++ {
 		_, _ = ParseUUID(s)
 	}
