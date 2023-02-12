@@ -238,15 +238,12 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		}
 	}
 	for {
-		select {
-		case <-waitForCtxDone:
-			return
-		default:
-			// Not done yet.
-		}
 		var request types.RPCRequest
-		err := conn.ReadJSON(&request)
-		if err != nil {
+		if err := conn.ReadJSON(&request); err != nil {
+			if _, ok := err.(*websocket.CloseError); ok {
+				disconnect()
+				return
+			}
 			c.EnsureQueueMessage(events.BadRequestBulkMessage)
 			return
 		}
@@ -264,8 +261,9 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		finishedRPC()
 		if rpc.Response != nil {
 			rpc.Response.Latency.End()
-			failed := !c.EnsureQueueResponse(&response)
-			if failed || rpc.Response.FatalError {
+			ok := c.EnsureQueueResponse(&response)
+			if !ok || rpc.Response.FatalError {
+				// Do not process further rpc calls after a fatal error.
 				return
 			}
 		}
