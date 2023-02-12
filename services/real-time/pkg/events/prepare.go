@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +20,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func prepareBulkMessageOffline(response *types.RPCResponse) types.WriteQueueEntry {
+func mustPrepareBulkMessageOffline(response *types.RPCResponse) types.WriteQueueEntry {
 	entry, err := types.PrepareBulkMessage(response)
 	if err != nil {
 		panic(err)
