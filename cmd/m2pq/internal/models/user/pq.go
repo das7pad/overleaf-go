@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,8 +24,8 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -302,7 +302,7 @@ WHERE id = ANY ($1)
 		if _, exists := m[id]; exists {
 			continue
 		}
-		m[id] = pgtype.UUID{Status: pgtype.Null}
+		m[id] = pgtype.UUID{}
 	}
 
 	return m, nil

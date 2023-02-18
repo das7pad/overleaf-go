@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -91,7 +91,7 @@ func (m *manager) RefreshLinkedFile(ctx context.Context, request *types.RefreshL
 	if err != nil {
 		return err
 	}
-	if fileRef.LinkedFileData.Provider == "" {
+	if fileRef.LinkedFileData == nil {
 		return &errors.UnprocessableEntityError{Msg: "file is not linked"}
 	}
 

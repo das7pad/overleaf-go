@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -480,7 +480,7 @@ SELECT $1,
 		rows = rows[:0]
 		_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 			d := e.(*FileRef)
-			if err = d.LinkedFileData.Migrate(); err != nil {
+			if d.LinkedFileData, err = d.LinkedFileData.Migrate(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{
@@ -490,7 +490,7 @@ SELECT $1,
 			return nil
 		})
 		for _, f := range deletedFiles {
-			if err = f.LinkedFileData.Migrate(); err != nil {
+			if f.LinkedFileData, err = f.LinkedFileData.Migrate(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,41 +17,14 @@
 package user
 
 import (
-	"encoding/json"
-
-	"github.com/jackc/pgtype"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators"`
+	Collaborators       int                        `json:"collaborators,omitempty"`
 	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout"`
 	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges"`
-	TrackChangesVisible bool                       `json:"trackChangesVisible"`
-	Versioning          bool                       `json:"versioning"`
-}
-
-func (f *Features) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	b := pgtype.JSONB{}
-	if err := b.DecodeBinary(ci, src); err != nil {
-		return errors.Tag(err, "deserialize Features")
-	}
-	return json.Unmarshal(b.Bytes, f)
-}
-
-func (f Features) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
-	blob, err := json.Marshal(map[string]interface{}{
-		"compileGroup":   f.CompileGroup,
-		"compileTimeout": f.CompileTimeout,
-	})
-	if err != nil {
-		return nil, errors.Tag(err, "serialize Features")
-	}
-	return pgtype.JSONB{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
+	TrackChanges        bool                       `json:"trackChanges,omitempty"`
+	TrackChangesVisible bool                       `json:"trackChangesVisible,omitempty"`
+	Versioning          bool                       `json:"versioning,omitempty"`
 }

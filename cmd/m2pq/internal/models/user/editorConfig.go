@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,11 +17,6 @@
 package user
 
 import (
-	"encoding/json"
-
-	"github.com/jackc/pgtype"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
@@ -37,15 +32,4 @@ type EditorConfig struct {
 	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
 	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
 	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
-}
-
-func (e EditorConfig) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
-	blob, err := json.Marshal(e)
-	if err != nil {
-		return nil, errors.Tag(err, "serialize EditorConfig")
-	}
-	return pgtype.JSONB{
-		Bytes:  blob,
-		Status: pgtype.Present,
-	}.EncodeBinary(ci, buf)
 }
