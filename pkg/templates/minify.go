@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,56 +29,72 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func minifyTemplate(raw *template.Template, funcMap template.FuncMap) (*template.Template, error) {
-	s := flatten(raw)
+func newMinifier() minifier {
+	return minifier{
+		blocks:         regexp.MustCompile(`{{[\s\S]*?}}`),
+		siblingActions: regexp.MustCompile(`}}\s+{{`),
+	}
+}
+
+type minifier struct {
+	siblingActions *regexp.Regexp
+	blocks         *regexp.Regexp
+}
+
+func (m minifier) MinifyTemplate(raw *template.Template, funcMap template.FuncMap) (*template.Template, error) {
+	var err error
+	s := m.flatten(raw)
 
 	// `{{- "" -}}` gets collapsed into `{{""}}` when printing a template.
-	s = regexp.MustCompile(`{{""}}`).ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, `{{""}}`, "")
 
 	// Preserve sequence of blocks in tables and similar conditions.
-	blocks := regexp.MustCompile(`{{[\s\S]*?}}`)
-	s = blocks.ReplaceAllStringFunc(s, func(m string) string {
-		return "<!--" + html.EscapeString(m) + "-->"
+	escaped := make(map[string]string)
+	s = m.blocks.ReplaceAllStringFunc(s, func(m string) string {
+		e := html.EscapeString(m)
+		c := "<!--" + e + "-->"
+		ce := "&lt;!--" + e + "--&gt;"
+		escaped[c] = m
+		escaped[ce] = m
+		return c
 	})
 
-	s, errSwap := swapScriptNodeType(s)
-	if errSwap != nil {
-		return nil, errSwap
+	s, err = m.swapScriptNodeType(s)
+	if err != nil {
+		return nil, err
 	}
 
-	h, errParse := html.Parse(bytes.NewBufferString(s))
-	if errParse != nil {
-		return nil, errors.Tag(errParse, "html.Parse")
+	h, err := html.Parse(bytes.NewBufferString(s))
+	if err != nil {
+		return nil, errors.Tag(err, "html.Parse")
 	}
 
-	trimTextNodes(h)
+	m.trimTextNodes(h)
 
 	b := &bytes.Buffer{}
 	b.Grow(len(s))
-	if errRender := html.Render(b, h); errRender != nil {
-		return nil, errors.Tag(errRender, "html.Render")
+	if err = html.Render(b, h); err != nil {
+		return nil, errors.Tag(err, "html.Render")
 	}
 	s = b.String()
 
-	s, errSwap = swapScriptNodeType(s)
-	if errSwap != nil {
-		return nil, errSwap
+	s, err = m.swapScriptNodeType(s)
+	if err != nil {
+		return nil, err
 	}
 
-	blocksRev := regexp.MustCompile(`(<|&lt;)!--{{[\s\S]*?}}--(>|&gt;)`)
-	s = blocksRev.ReplaceAllStringFunc(s, func(m string) string {
-		m = html.UnescapeString(m)
-		return m[4 : len(m)-3]
-	})
+	// `<!-- ESCAPED_BLOCK -->` -> BLOCK
+	for needle, original := range escaped {
+		s = strings.ReplaceAll(s, needle, original)
+	}
 
 	// `{{if foo}}\n  {{bar}}\n  {{end}}` -> `{{if foo}}{{bar}}{{end}}`
-	siblingActions := regexp.MustCompile(`}}\s+{{`)
-	s = siblingActions.ReplaceAllString(s, "}}{{")
+	s = m.siblingActions.ReplaceAllString(s, "}}{{")
 
 	return template.New(raw.Name()).Funcs(funcMap).Parse(s)
 }
 
-func swapScriptNodeType(s string) (string, error) {
+func (m minifier) swapScriptNodeType(s string) (string, error) {
 	h, errParse := html.Parse(bytes.NewBufferString(s))
 	if errParse != nil {
 		return "", errors.Tag(errParse, "html.Parse in swapScriptNodeType")
@@ -130,13 +146,13 @@ func swapScriptNodeType(s string) (string, error) {
 	return b.String(), nil
 }
 
-func trimTextNodes(node *html.Node) {
+func (m minifier) trimTextNodes(node *html.Node) {
 	for next := node.FirstChild; next != nil; {
 		c := next
 		next = next.NextSibling
 
 		if c.Type != html.TextNode {
-			trimTextNodes(c)
+			m.trimTextNodes(c)
 			continue
 		}
 		start := 0
@@ -178,7 +194,7 @@ func trimTextNodes(node *html.Node) {
 	}
 }
 
-func flatten(raw *template.Template) string {
+func (m minifier) flatten(raw *template.Template) string {
 	s := ""
 	for _, t := range raw.Templates() {
 		if t.Name() == raw.Name() {

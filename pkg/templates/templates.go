@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,7 +23,11 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/assets"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -120,14 +124,11 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 	if errGlob != nil {
 		return errors.Tag(errGlob, "cannot glob")
 	}
-	templates = make(map[string]*template.Template)
-	for _, p := range paths {
-		if strings.HasPrefix(p, "layout/") {
-			continue
-		}
+	m := newMinifier()
+	loadTemplate := func(p string) (*template.Template, error) {
 		blob, err := fs.ReadFile(_fs, p)
 		if err != nil {
-			return errors.Tag(err, "cannot read "+p)
+			return nil, errors.Tag(err, "cannot read")
 		}
 		s := string(blob)
 		var c *template.Template
@@ -139,22 +140,45 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 		case strings.Contains(s, `{{ template "layout-no-js" . }}`):
 			c, err = noJsLayout.Clone()
 		default:
-			return errors.New("missing parent template for " + p)
+			return nil, errors.New("missing parent template")
 		}
 		if err != nil {
-			return errors.Tag(err, "cannot clone layout for "+p)
+			return nil, errors.Tag(err, "cannot clone layout")
 		}
-		var raw *template.Template
-		raw, err = c.New(filepath.Base(p)).Parse(s)
+		t, err := c.New(filepath.Base(p)).Parse(s)
 		if err != nil {
-			return errors.Tag(err, "cannot parse "+p)
+			return nil, errors.Tag(err, "cannot parse")
 		}
-		if templates[p], err = minifyTemplate(raw, funcMap); err != nil {
-			return errors.Tag(err, "minify "+p)
+		if t, err = m.MinifyTemplate(t, funcMap); err != nil {
+			return nil, errors.Tag(err, "minify")
 		}
 		// Finalize the template. With nil data, the rendering will fail fast.
-		_ = templates[p].Execute(io.Discard, nil)
+		_ = t.Execute(io.Discard, nil)
+		return t, err
 	}
+
+	eg := errgroup.Group{}
+	eg.SetLimit(runtime.NumCPU())
+
+	templates = make(map[string]*template.Template)
+	mu := sync.Mutex{}
+	for _, path := range paths {
+		if strings.HasPrefix(path, "layout/") {
+			continue
+		}
+		p := path
+		eg.Go(func() error {
+			out, err := loadTemplate(p)
+			if err != nil {
+				return errors.Tag(err, p)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			templates[p] = out
+			return nil
+		})
+	}
+	err := eg.Wait()
 	_fs = embed.FS{}
-	return nil
+	return err
 }
