@@ -10,13 +10,13 @@ https://github.com/das7pad/overleaf-node).
 ## Highlights compared to the original Node.js implementation
 
 - The backend code is written in a statically typed language
-- Monolith-first approach, eliminating latency overhead and network chatter,
-  blast radius of a network compromise (compiles can still be scaled
+- Monolith-first approach, eliminating latency overhead and network chatter --
+  just run this single binary, and you are good (compiles can still be scaled
   horizontally, other components as well - but they are self-contained and
   do not expose internal APIs on the network)
-- Mongodb was replaced with PostgreSQL (incl. an automated data migration,
-  you can find a mongodb implementation and edgedb implementation in the git
-  history too)
+- Mongodb was replaced with PostgreSQL (an automated data migration exists via
+  `cmd/m2pq`, you can find a mongodb implementation and edgedb implementation
+  in the git history too)
 - Postgres enables single round-trip data fetching for complex pages like the
   project dashboard or the project editor page
 - Postgres enables atomic updates to the filetree and strong unique constrains
@@ -31,12 +31,15 @@ https://github.com/das7pad/overleaf-node).
   DB enable invalidation of tokens ahead of their expiry)
 - Highly optimized document updating process (merged redis keys reduce redis
   calls by an order of magnitude, re-using of already fetched content for
-  processing the n+1 update and flushing them all the way to history/Postgres)
-- Work-stealing for spellcheck worker (this allows less popular languages to
-  take over idle worker of a more popular language)
+  processing multiple updates and flushing them all the way to history/DB)
+- Worker-stealing for spellchecker (this allows less popular languages to
+  take over idle worker from a more popular language)
 - Chaining of network proxies for fetching external resources (multiple hops
-  between proxies allow stronger firewalling of services)
+  between proxies allow stronger firewalling of services, e.g. hop to local
+  service and then hop to external cloud -- only that local service needs
+  internet access)
 - Stronger CSP and zero inline scripts in HTML templates
+- Minify and compile HTML templates at boot-time in well under 1s
 - Caching for documentation content and images
 - Website translations on a single domain
 - No local filesystem backend for storing binary files (all major provider
@@ -45,7 +48,7 @@ https://github.com/das7pad/overleaf-node).
 ## Getting started
 
 There are little to no run-time defaults and strict validation of options
-flags missed details.
+flags missed details in your config.
 
 You can use the config generator which has opinionated options and
 auto-detection for Docker details (rootful, rootless, Mac).
