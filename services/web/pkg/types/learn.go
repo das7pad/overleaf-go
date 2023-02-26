@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,7 +18,6 @@ package types
 
 import (
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -29,18 +28,19 @@ import (
 type LearnPageRequest struct {
 	WithSession
 	Section         string `form:"-"`
+	SubSection      string `form:"-"`
 	Page            string `form:"-"`
 	HasQuestionMark bool   `form:"-"`
 }
 
 func (r *LearnPageRequest) Preprocess() {
-	if r.Section == "" && r.Page == "" {
+	if r.Section == "" && r.SubSection == "" && r.Page == "" {
 		// Home
 		return
 	}
 	switch strings.ToLower(r.Section) {
 	case "latex":
-		if r.Page == "" {
+		if r.SubSection == "" && r.Page == "" {
 			// latex section has no overview, send Home
 			r.Section = ""
 		} else {
@@ -52,42 +52,82 @@ func (r *LearnPageRequest) Preprocess() {
 		if r.Page == "" {
 			// /learn/foo_bar -> /learn/latex/foo_bar
 			r.Page = r.Section
-			r.Section = "latex"
+		} else {
+			// /learn/Errors/foo -> /learn/latex/Errors/foo
+			r.SubSection = r.Section
 		}
+		r.Section = "latex"
 	}
 	if r.HasQuestionMark && r.Page != "" && !strings.HasSuffix(r.Page, "?") {
 		r.Page += "?"
 	}
+	r.Page = strings.ReplaceAll(r.Page, " ", "_")
+	r.SubSection = strings.ReplaceAll(r.SubSection, " ", "_")
 }
-
-var learnInternalPages = regexp.MustCompile("help:|special:|template:")
 
 func (r *LearnPageRequest) Validate() error {
 	if r.Section != "" && r.Section != "latex" && r.Section != "how-to" {
 		return &errors.NotFoundError{}
 	}
-	if learnInternalPages.MatchString(r.Page) {
-		return &errors.UnprocessableEntityError{Msg: "internal page"}
+	for _, s := range []string{r.Section, r.SubSection, r.Page} {
+		for _, needle := range []string{"help:", "special:", "template:"} {
+			if strings.Contains(s, needle) {
+				return &errors.UnprocessableEntityError{Msg: "internal page"}
+			}
+		}
 	}
 	return nil
 }
 
-func (r *LearnPageRequest) PreSessionRedirect(path string) string {
-	r.Preprocess()
-	if err := r.Validate(); err != nil {
-		return ""
-	}
+func (r *LearnPageRequest) EscapedPath() string {
 	u := "/learn"
 	if r.Section != "" {
 		u += "/" + url.PathEscape(r.Section)
 	}
+	if r.SubSection != "" {
+		u += "/" + url.PathEscape(r.SubSection)
+	}
 	if r.Page != "" {
 		u += "/" + url.PathEscape(r.Page)
 	}
-	if u != path {
-		return u
+	return u
+}
+
+func (r *LearnPageRequest) Path() string {
+	u := "/learn"
+	if r.Section != "" {
+		u += "/" + r.Section
 	}
-	return ""
+	if r.SubSection != "" {
+		u += "/" + r.SubSection
+	}
+	if r.Page != "" {
+		u += "/" + r.Page
+	}
+	return u
+}
+
+func (r *LearnPageRequest) WikiPage() string {
+	switch r.Section {
+	case "":
+		return "Main_Page"
+	case "how-to":
+		if r.Page == "" {
+			return "Kb/Knowledge Base"
+		} else if r.SubSection != "" {
+			return "Kb/" + r.SubSection + "/" + r.Page
+		} else {
+			return "Kb/" + r.Page
+		}
+	case "latex":
+		if r.SubSection != "" {
+			return r.SubSection + "/" + r.Page
+		} else {
+			return r.Page
+		}
+	default:
+		return "417" // .Validate ensures that this code path is not reachable.
+	}
 }
 
 type LearnPageResponse struct {

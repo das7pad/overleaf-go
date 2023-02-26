@@ -53,8 +53,7 @@ func (m *manager) getPage(ctx context.Context, path string) (*pageContent, bool,
 	m.pageMux.RLock()
 	pc, exists := m.pageCache[path]
 	m.pageMux.RUnlock()
-	now := time.Now()
-	if exists && pc.fetchedAt.Add(m.cacheDuration).After(now) {
+	if exists && time.Since(pc.fetchedAt) < m.cacheDuration {
 		return pc, true, nil
 	}
 	freshPc, err := m.fetchPage(ctx, path)
@@ -68,6 +67,25 @@ func (m *manager) getPage(ctx context.Context, path string) (*pageContent, bool,
 	m.pageMux.Unlock()
 	pc = freshPc
 	return pc, false, nil
+}
+
+func (m *manager) LearnPageEarlyRedirect(ctx context.Context, r *types.LearnPageRequest, u *url.URL) (string, int64) {
+	r.Preprocess()
+	if err := r.Validate(); err != nil {
+		return "", 0
+	}
+
+	// NOTE: We cannot handle the error yet. The error page needs details from
+	//        the session. Defer user facing error handling until .LearnPage().
+	page, hit, err := m.getPage(ctx, r.WikiPage())
+	if err == nil && page.redirect != "" {
+		return page.redirect, page.Age(hit)
+	}
+
+	if expected := r.EscapedPath(); expected != u.EscapedPath() {
+		return m.ps.SiteURL.WithPath(r.Path()).String(), -1
+	}
+	return "", 0
 }
 
 func (m *manager) LearnPage(ctx context.Context, r *types.LearnPageRequest, response *types.LearnPageResponse) error {
@@ -87,29 +105,12 @@ func (m *manager) LearnPage(ctx context.Context, r *types.LearnPageRequest, resp
 		return nil
 	})
 	eg.Go(func() error {
-		page := ""
-		switch r.Section {
-		case "":
-			page = "Main_Page"
-		case "how-to":
-			if r.Page == "" {
-				page = "Kb/Knowledge Base"
-			} else {
-				page = "Kb/" + r.Page
-			}
-		case "latex":
-			page = r.Page
-		}
-		content, hit, err := m.getPage(pCtx, page)
+		content, hit, err := m.getPage(pCtx, r.WikiPage())
 		if err != nil {
 			return errors.Tag(err, "cannot get contents")
 		}
 		pc = content
-		if hit {
-			response.Age = int64(time.Since(pc.fetchedAt).Seconds())
-		} else {
-			response.Age = -1
-		}
+		response.Age = pc.Age(hit)
 		return nil
 	})
 	if err := eg.Wait(); err != nil {

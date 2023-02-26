@@ -93,6 +93,8 @@ func (h *httpController) addRoutes(
 		r.GET("/learn/{section}/", h.learn)
 		r.GET("/learn/{section}/{page}", h.learn)
 		r.GET("/learn/{section}/{page}/", h.learn)
+		r.GET("/learn/{section}/{subsection}/{page}", h.learn)
+		r.GET("/learn/{section}/{subsection}/{page}/", h.learn)
 		r.GET("/learn-scripts/images/{a}/{b}/{c}", h.proxyLearnImage)
 		r.GET("/login", h.loginPage)
 		r.GET("/logout", h.logoutPage)
@@ -1941,10 +1943,12 @@ func (h *httpController) viewProjectInvitePage(c *httpUtils.Context) {
 func (h *httpController) learn(c *httpUtils.Context) {
 	request := &types.LearnPageRequest{
 		Section:         c.Param("section"),
+		SubSection:      c.Param("subsection"),
 		Page:            c.Param("page"),
 		HasQuestionMark: strings.HasSuffix(c.Request.RequestURI, "?"),
 	}
-	if t := request.PreSessionRedirect(c.Request.URL.EscapedPath()); t != "" {
+	if t, a := h.wm.LearnPageEarlyRedirect(c, request, c.Request.URL); t != "" {
+		httpUtils.Age(c, a)
 		httpUtils.Redirect(c, t)
 		return
 	}

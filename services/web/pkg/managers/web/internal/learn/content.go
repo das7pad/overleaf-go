@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
 //goland:noinspection SpellCheckingInspection
@@ -52,12 +53,36 @@ func (pc *pageContentRaw) isHidden() bool {
 }
 
 func (pc *pageContentRaw) redirect() string {
+	to := ""
+	// Pick the last non-empty redirect.
 	for _, redirect := range pc.Parse.Redirects {
-		if to := redirect.To; to != "" {
+		if redirect.To != "" {
+			to = redirect.To
+		}
+	}
+	if to == "" {
+		return ""
+	}
+	r := types.LearnPageRequest{}
+	{
+		s := strings.TrimPrefix(to, "/")
+		r.Section, s, _ = strings.Cut(s, "/")
+		r.SubSection, s, _ = strings.Cut(s, "/")
+		r.Page, s, _ = strings.Cut(s, "/")
+		if s != "" {
+			// Unexpected URL schema, /section/subsection/page/...
 			return to
 		}
 	}
-	return ""
+	if r.Page == "" {
+		r.Page = r.SubSection
+		r.SubSection = ""
+	}
+	r.Preprocess()
+	if err := r.Validate(); err != nil {
+		return to
+	}
+	return strings.TrimPrefix(r.Path(), "/learn")
 }
 
 var regexOverleafLinks = regexp.MustCompile(
@@ -107,4 +132,11 @@ type pageContent struct {
 	titleLocale string
 	fetchedAt   time.Time
 	exists      bool
+}
+
+func (pc *pageContent) Age(hit bool) int64 {
+	if hit {
+		return int64(time.Since(pc.fetchedAt).Seconds())
+	}
+	return -1
 }

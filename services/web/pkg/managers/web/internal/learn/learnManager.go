@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ package learn
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ import (
 
 type Manager interface {
 	LearnPage(ctx context.Context, request *types.LearnPageRequest, response *types.LearnPageResponse) error
+	LearnPageEarlyRedirect(ctx context.Context, r *types.LearnPageRequest, u *url.URL) (string, int64)
 	ProxyImage(ctx context.Context, request *types.LearnImageRequest, response *types.LearnImageResponse) error
 }
 
