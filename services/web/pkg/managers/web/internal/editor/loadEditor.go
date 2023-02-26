@@ -136,7 +136,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		response.JWTLoggedInUser = s
 		response.SystemMessages, _ = m.smm.GetAllCachedOnly(userId)
 	}
-	signedOptions := types.SignedCompileProjectRequestOptions{
+	signedOptions := sharedTypes.SignedCompileProjectRequestOptions{
 		CompileGroup: p.OwnerFeatures.CompileGroup,
 		ProjectId:    projectId,
 		UserId:       userId,

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,17 +17,18 @@
 package types
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type SyncFromCodeRequest struct {
 	clsiTypes.SyncFromCodeRequest
-	ClsiServerId                       ClsiServerId `json:"clsiServerId"`
-	SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
+	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
 }
 
 type SyncFromPDFRequest struct {
 	clsiTypes.SyncFromPDFRequest
-	ClsiServerId                       ClsiServerId `json:"clsiServerId"`
-	SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
+	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
 }

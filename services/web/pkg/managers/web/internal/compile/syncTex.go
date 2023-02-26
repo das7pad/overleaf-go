@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -34,7 +34,7 @@ type genericPOSTRequest interface {
 	Validate() error
 }
 
-func (m *manager) preprocessGenericPOST(options types.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName, request genericPOSTRequest) error {
+func (m *manager) preprocessGenericPOST(options sharedTypes.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName, request genericPOSTRequest) error {
 	request.SetCompileGroup(options.CompileGroup)
 	if err := request.Validate(); err != nil {
 		return err
@@ -43,7 +43,7 @@ func (m *manager) preprocessGenericPOST(options types.SignedCompileProjectReques
 	return nil
 }
 
-func (m *manager) genericPOST(ctx context.Context, endpoint string, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, request genericPOSTRequest, response interface{}) error {
+func (m *manager) genericPOST(ctx context.Context, endpoint string, options sharedTypes.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, request genericPOSTRequest, response interface{}) error {
 	u := m.getURL(options.ProjectId, options.UserId, endpoint)
 
 	blob, err := json.Marshal(request)

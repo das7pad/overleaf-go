@@ -350,7 +350,7 @@ func requireWriteAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
 	}
 }
 
-func mustGetSignedCompileProjectOptionsFromJwt(c *httpUtils.Context) types.SignedCompileProjectRequestOptions {
+func mustGetSignedCompileProjectOptionsFromJwt(c *httpUtils.Context) sharedTypes.SignedCompileProjectRequestOptions {
 	return projectJWT.MustGet(c).SignedCompileProjectRequestOptions
 }
 
@@ -408,7 +408,7 @@ func (h *httpController) mustProcessQueryHTML(request interface{ FromQuery(value
 }
 
 func (h *httpController) mustProcessSignedOptions(request interface {
-	FromSignedOptions(o types.SignedCompileProjectRequestOptions)
+	FromSignedOptions(o sharedTypes.SignedCompileProjectRequestOptions)
 }, c *httpUtils.Context) {
 	request.FromSignedOptions(mustGetSignedCompileProjectOptionsFromJwt(c))
 }

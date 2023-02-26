@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -133,4 +133,11 @@ func (i ImageName) Validate() error {
 		}
 	}
 	return nil
+}
+
+type SignedCompileProjectRequestOptions struct {
+	CompileGroup CompileGroup   `json:"c"`
+	ProjectId    UUID           `json:"p"`
+	UserId       UUID           `json:"u"`
+	Timeout      ComputeTimeout `json:"t"`
 }

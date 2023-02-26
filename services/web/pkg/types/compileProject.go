@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,13 +21,6 @@ import (
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-type SignedCompileProjectRequestOptions struct {
-	CompileGroup sharedTypes.CompileGroup   `json:"c"`
-	ProjectId    sharedTypes.UUID           `json:"p"`
-	UserId       sharedTypes.UUID           `json:"u"`
-	Timeout      sharedTypes.ComputeTimeout `json:"t"`
-}
-
 type CompileProjectHeadlessRequest struct {
 	WithSession
 	ProjectId sharedTypes.UUID `json:"-"`
@@ -35,12 +28,12 @@ type CompileProjectHeadlessRequest struct {
 }
 
 type ClearCompileCacheRequest struct {
-	SignedCompileProjectRequestOptions `json:"-"`
-	ClsiServerId                       ClsiServerId `json:"clsiServerId"`
+	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
 }
 
 type CompileProjectRequest struct {
-	SignedCompileProjectRequestOptions `json:"-"`
+	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
 
 	CheckMode                  clsiTypes.CheckMode     `json:"checkMode"`
 	Compiler                   sharedTypes.Compiler    `json:"compiler"`

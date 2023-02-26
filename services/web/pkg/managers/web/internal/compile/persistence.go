@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,10 +25,11 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func getPersistenceKey(options types.SignedCompileProjectRequestOptions) string {
+func getPersistenceKey(options sharedTypes.SignedCompileProjectRequestOptions) string {
 	return "clsiserver" +
 		":" + string(options.CompileGroup) +
 		":" + options.ProjectId.String() +
@@ -39,7 +40,7 @@ func (m *manager) persistenceDisabled() bool {
 	return m.persistenceCookieName == ""
 }
 
-func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options types.SignedCompileProjectRequestOptions) types.ClsiServerId {
+func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options sharedTypes.SignedCompileProjectRequestOptions) types.ClsiServerId {
 	if m.persistenceDisabled() {
 		return ""
 	}
@@ -77,7 +78,7 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 	return clsiServerId
 }
 
-func (m *manager) getServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
+func (m *manager) getServerId(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
 	if m.persistenceDisabled() {
 		return "", nil
 	}
@@ -89,7 +90,7 @@ func (m *manager) getServerId(ctx context.Context, options types.SignedCompilePr
 	return types.ClsiServerId(s), nil
 }
 
-func (m *manager) clearServerId(ctx context.Context, options types.SignedCompileProjectRequestOptions) error {
+func (m *manager) clearServerId(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions) error {
 	if m.persistenceDisabled() {
 		return nil
 	}
@@ -101,7 +102,7 @@ func (m *manager) clearServerId(ctx context.Context, options types.SignedCompile
 	return nil
 }
 
-func (m *manager) doPersistentRequest(ctx context.Context, options types.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, types.ClsiServerId, error) {
+func (m *manager) doPersistentRequest(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, types.ClsiServerId, error) {
 	if clsiServerId != "" {
 		r.AddCookie(&http.Cookie{
 			Name:  m.persistenceCookieName,
