@@ -18,11 +18,8 @@ package session
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type sessionValidationToken string
@@ -30,22 +27,6 @@ type sessionValidationToken string
 type sessionDataWithDeSyncProtection struct {
 	ValidationToken sessionValidationToken `json:"!"`
 	Data
-}
-
-type sessionDataWithDeSyncProtectionOld struct {
-	ValidationToken    sessionValidationToken    `json:"validationToken"`
-	AnonTokenAccess    anonTokenAccess           `json:"anonTokenAccess,omitempty"`
-	PasswordResetToken oneTimeToken.OneTimeToken `json:"resetToken,omitempty"`
-	PostLoginRedirect  string                    `json:"postLoginRedirect,omitempty"`
-	User               *struct {
-		Email          sharedTypes.Email `json:"email"`
-		FirstName      string            `json:"first_name,omitempty"`
-		IPAddress      string            `json:"ip_address"`
-		Id             sharedTypes.UUID  `json:"_id,omitempty"`
-		LastName       string            `json:"last_name,omitempty"`
-		Language       string            `json:"lng"`
-		SessionCreated time.Time         `json:"session_created"`
-	} `json:"user,omitempty"`
 }
 
 var ErrRedisConnectionDeSync = errors.New("redis connection de-synced")
@@ -67,47 +48,10 @@ func serializeSession(id Id, data Data) ([]byte, error) {
 func deSerializeSession(id Id, blob []byte) (*Data, error) {
 	var dst sessionDataWithDeSyncProtection
 	if err := json.Unmarshal(blob, &dst); err != nil {
-		return deSerializeOldSession(id, blob)
+		return nil, errors.Tag(err, "de-serialize session")
 	}
 	if err := dst.ValidationToken.Validate(id); err != nil {
-		return deSerializeOldSession(id, blob)
+		return nil, err
 	}
 	return &dst.Data, nil
-}
-
-func deSerializeOldSession(id Id, blob []byte) (*Data, error) {
-	var dst sessionDataWithDeSyncProtectionOld
-	if err := json.Unmarshal(blob, &dst); err != nil {
-		return nil, err
-	}
-	if err := dst.ValidationToken.Validate(id); err != nil {
-		return nil, err
-	}
-	var l string
-	var lm *LoginMetadata
-	var u *User
-	if dst.User != nil {
-		l = dst.User.Language
-		lm = &LoginMetadata{
-			IPAddress:  dst.User.IPAddress,
-			LoggedInAt: dst.User.SessionCreated,
-		}
-		u = &User{
-			Email:     dst.User.Email,
-			FirstName: dst.User.FirstName,
-			Id:        dst.User.Id,
-			LastName:  dst.User.LastName,
-		}
-	}
-	return &Data{
-		AnonTokenAccess:    dst.AnonTokenAccess,
-		PasswordResetToken: dst.PasswordResetToken,
-		PostLoginRedirect:  dst.PostLoginRedirect,
-		LoginMetadata:      lm,
-		PublicData: PublicData{
-			Language: l,
-			User:     u,
-		},
-		isOldSchema: true,
-	}, nil
 }

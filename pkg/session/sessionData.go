@@ -54,7 +54,6 @@ type Data struct {
 	PostLoginRedirect  string                    `json:"plr,omitempty"`
 	LoginMetadata      *LoginMetadata            `json:"lm,omitempty"`
 	PublicData
-	isOldSchema bool
 }
 
 func (d *Data) IsEmpty() bool {

@@ -254,15 +254,7 @@ func (s *Session) DestroyOthers(ctx context.Context, d *OtherSessionsDetails) er
 
 func (s *Session) Touch(ctx context.Context) error {
 	_, err := s.client.Pipelined(ctx, func(p redis.Pipeliner) error {
-		if s.isOldSchema {
-			b, err := s.serializeWithId(s.id)
-			if err != nil {
-				return err
-			}
-			p.SetXX(ctx, s.id.toKey(), b, s.expiry)
-		} else {
-			p.Expire(ctx, s.id.toKey(), s.expiry)
-		}
+		p.Expire(ctx, s.id.toKey(), s.expiry)
 		if s.IsLoggedIn() {
 			p.Expire(ctx, userSessionsKey(s.User.Id), s.expiry)
 		}
