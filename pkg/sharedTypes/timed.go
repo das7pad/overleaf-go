@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,30 +18,28 @@ package sharedTypes
 
 import (
 	"encoding/json"
-	"math"
 	"time"
 )
 
 type Timed struct {
-	t0   *time.Time
+	t0   time.Time
 	diff time.Duration
 }
 
 func (t *Timed) Begin() {
-	now := time.Now()
-	t.t0 = &now
+	t.t0 = time.Now()
 }
 
 func (t *Timed) SetBegin(t0 time.Time) {
-	t.t0 = &t0
+	t.t0 = t0
 }
 
 func (t *Timed) End() *Timed {
-	if t.t0 == nil {
+	if t.t0.IsZero() {
 		return t
 	}
-	t.diff = time.Since(*t.t0)
-	t.t0 = nil
+	t.diff = time.Since(t.t0)
+	t.t0 = time.Time{}
 	return t
 }
 
@@ -49,20 +47,11 @@ func (t *Timed) String() string {
 	return t.diff.String()
 }
 
-func (t *Timed) MS() string {
-	v := math.Ceil(float64(t.diff.Nanoseconds())/1000) / 1000
-	return Float(v).String()
-}
-
 func (t *Timed) Stage() string {
 	t.End()
 	s := t.diff.String()
 	t.Begin()
 	return s
-}
-
-func (t *Timed) Diff() int64 {
-	return t.diff.Milliseconds()
 }
 
 func (t *Timed) MarshalJSON() ([]byte, error) {
