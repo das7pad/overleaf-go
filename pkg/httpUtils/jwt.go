@@ -25,6 +25,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 )
 
+func init() {
+	jwt.DecodeStrict = true
+}
+
 type PostProcessClaims interface {
 	PostProcess(c *Context) (*Context, error)
 }

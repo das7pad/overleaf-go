@@ -52,11 +52,16 @@ func (m minifier) MinifyTemplate(raw *template.Template, funcMap template.FuncMa
 	escaped := make(map[string]string)
 	s = m.blocks.ReplaceAllStringFunc(s, func(m string) string {
 		e := html.EscapeString(m)
-		c := "<!--" + e + "-->"
-		ce := "&lt;!--" + e + "--&gt;"
-		escaped[c] = m
-		escaped[ce] = m
-		return c
+		ec := html.Token{
+			Type: html.CommentToken,
+			Data: m,
+		}.String()
+		ec = ec[4 : len(ec)-3]
+		escaped["<!--"+e+"-->"] = m
+		escaped["<!--"+ec+"-->"] = m
+		escaped["&lt;!--"+e+"--&gt;"] = m
+		escaped["&lt;!--"+ec+"--&gt;"] = m
+		return "<!--" + e + "-->"
 	})
 
 	s, err = m.swapScriptNodeType(s)
