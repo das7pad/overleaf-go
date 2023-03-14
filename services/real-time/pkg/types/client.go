@@ -31,21 +31,20 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type Capabilities int
+type Capabilities uint8
 
-type CapabilityComponent int
+type CapabilityComponent uint8
 
 const (
 	NoCapabilities            = Capabilities(0)
-	CanAddComment             = CapabilityComponent(2)
-	CanEditContent            = CapabilityComponent(3)
-	CanSeeOtherClients        = CapabilityComponent(5)
-	CanSeeNonRestrictedEvents = CapabilityComponent(11)
-	CanSeeAllEditorEvents     = CapabilityComponent(13)
+	CanEditContent            = CapabilityComponent(2)
+	CanSeeOtherClients        = CapabilityComponent(3)
+	CanSeeNonRestrictedEvents = CapabilityComponent(5)
+	CanSeeAllEditorEvents     = CapabilityComponent(7)
 )
 
 func (c Capabilities) Includes(action CapabilityComponent) bool {
-	return int(c)%int(action) == 0
+	return uint8(c)%uint8(action) == 0
 }
 
 func (c Capabilities) CheckIncludes(action CapabilityComponent) error {
@@ -59,7 +58,7 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 	if !c.Includes(action) {
 		return c
 	}
-	return Capabilities(int(c) / int(action))
+	return Capabilities(uint8(c) / uint8(action))
 }
 
 func PrepareBulkMessage(response *RPCResponse) (WriteQueueEntry, error) {
@@ -162,16 +161,14 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 	switch privilegeLevel {
 	case sharedTypes.PrivilegeLevelOwner, sharedTypes.PrivilegeLevelReadAndWrite:
 		c.capabilities = Capabilities(
-			CanAddComment *
-				CanEditContent *
+			CanEditContent *
 				CanSeeOtherClients *
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
 	case sharedTypes.PrivilegeLevelReadOnly:
 		c.capabilities = Capabilities(
-			CanAddComment *
-				CanSeeOtherClients *
+			CanSeeOtherClients *
 				CanSeeNonRestrictedEvents *
 				CanSeeAllEditorEvents,
 		)
@@ -207,12 +204,12 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		if c.DocId.IsZero() {
 			return &errors.InvalidStateError{Msg: "join doc first"}
 		}
-		if err := c.capabilities.CheckIncludes(CanEditContent); err != nil {
+		if err := c.CheckHasCapability(CanEditContent); err != nil {
 			return err
 		}
 		return nil
 	case GetConnectedUsers:
-		if err := c.capabilities.CheckIncludes(CanSeeOtherClients); err != nil {
+		if err := c.CheckHasCapability(CanSeeOtherClients); err != nil {
 			return err
 		}
 		return nil
@@ -220,7 +217,7 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		if c.DocId != docId {
 			return &errors.ValidationError{Msg: "stale position update"}
 		}
-		if err := c.capabilities.CheckIncludes(CanSeeOtherClients); err != nil {
+		if err := c.CheckHasCapability(CanSeeOtherClients); err != nil {
 			return err
 		}
 		return nil
