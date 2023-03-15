@@ -18,6 +18,7 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 	"time"
@@ -177,6 +178,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 				// Eventually the main goroutine will close the channel.
 			}
 		}()
+		var lsr []types.LazySuccessResponse
 		for {
 			select {
 			case <-waitForCtxDone:
@@ -190,8 +192,22 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 					if err != nil {
 						return
 					}
+				} else if len(lsr) < 15 &&
+					entry.RPCResponse.IsLazySuccessResponse() {
+					lsr = append(lsr, types.LazySuccessResponse{
+						Callback: entry.RPCResponse.Callback,
+						Latency:  entry.RPCResponse.Latency,
+					})
 				} else {
-					err := conn.WriteMessage(websocket.TextMessage, entry.Blob)
+					if len(lsr) > 0 {
+						entry.RPCResponse.LazySuccessResponses = lsr
+						lsr = lsr[:0]
+					}
+					blob, err := json.Marshal(entry.RPCResponse)
+					if err != nil {
+						return
+					}
+					err = conn.WriteMessage(websocket.TextMessage, blob)
 					if err != nil {
 						return
 					}
@@ -259,13 +275,10 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		response.Latency.Begin()
 		h.rtm.RPC(tCtx, &rpc)
 		finishedRPC()
-		if rpc.Response != nil {
-			rpc.Response.Latency.End()
-			ok := c.EnsureQueueResponse(&response)
-			if !ok || rpc.Response.FatalError {
-				// Do not process further rpc calls after a fatal error.
-				return
-			}
+		rpc.Response.Latency.End()
+		if !c.EnsureQueueResponse(&response) || rpc.Response.FatalError {
+			// Do not process further rpc calls after a fatal error.
+			return
 		}
 	}
 }

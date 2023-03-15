@@ -36,6 +36,11 @@ const (
 
 type Callback int64
 
+type LazySuccessResponse struct {
+	Callback Callback          `json:"c"`
+	Latency  sharedTypes.Timed `json:"l"`
+}
+
 type RPCRequest struct {
 	Action   Action           `json:"a"`
 	Body     json.RawMessage  `json:"b"`
@@ -44,14 +49,28 @@ type RPCRequest struct {
 }
 
 type RPCResponse struct {
-	Body        json.RawMessage         `json:"b,omitempty"`
-	Callback    Callback                `json:"c,omitempty"`
-	Error       *errors.JavaScriptError `json:"e,omitempty"`
-	Name        string                  `json:"n,omitempty"`
-	Latency     sharedTypes.Timed       `json:"l,omitempty"`
-	ProcessedBy string                  `json:"p,omitempty"`
+	Body                 json.RawMessage         `json:"b,omitempty"`
+	Callback             Callback                `json:"c,omitempty"`
+	Error                *errors.JavaScriptError `json:"e,omitempty"`
+	Name                 string                  `json:"n,omitempty"`
+	Latency              sharedTypes.Timed       `json:"l,omitempty"`
+	ProcessedBy          string                  `json:"p,omitempty"`
+	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
 
 	FatalError bool `json:"-"`
+}
+
+func (r *RPCResponse) IsLazySuccessResponse() bool {
+	if r.Error != nil {
+		return false
+	}
+	if r.Callback > 0 {
+		return false
+	}
+	if len(r.Name) > 0 {
+		return false
+	}
+	return true
 }
 
 type RPC struct {

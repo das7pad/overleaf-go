@@ -77,9 +77,9 @@ func PrepareBulkMessage(response *RPCResponse) (WriteQueueEntry, error) {
 }
 
 type WriteQueueEntry struct {
-	Blob       []byte
-	Msg        *websocket.PreparedMessage
-	FatalError bool
+	RPCResponse *RPCResponse
+	Msg         *websocket.PreparedMessage
+	FatalError  bool
 }
 
 type WriteQueue chan<- WriteQueueEntry
@@ -233,13 +233,9 @@ func (c *Client) TriggerDisconnect() {
 }
 
 func (c *Client) QueueResponse(response *RPCResponse) error {
-	blob, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
 	return c.QueueMessage(WriteQueueEntry{
-		Blob:       blob,
-		FatalError: response.FatalError,
+		RPCResponse: response,
+		FatalError:  response.FatalError,
 	})
 }
 

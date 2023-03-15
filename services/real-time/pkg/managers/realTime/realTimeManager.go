@@ -352,9 +352,6 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	if err = m.editorEvents.Publish(ctx, msg); err != nil {
 		return errors.Tag(err, "cannot send notification")
 	}
-	if rpc.Request.Callback == 0 {
-		rpc.Response = nil
-	}
 	return nil
 }
 
