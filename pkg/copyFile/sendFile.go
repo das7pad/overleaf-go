@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,14 +31,14 @@ func copySendFile(dest *os.File, src *os.File, size int) error {
 		if batchSize > maxBatchSize {
 			batchSize = maxBatchSize
 		}
-		n, err2 := syscall.Sendfile(
+		n, err := syscall.Sendfile(
 			int(dest.Fd()),
 			int(src.Fd()),
 			nil,
 			batchSize,
 		)
-		if err2 != nil {
-			return err2
+		if err != nil {
+			return err
 		}
 		if n == 0 {
 			return io.ErrShortWrite

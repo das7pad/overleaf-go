@@ -32,10 +32,10 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-units"
 
+	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner/internal/seccomp"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )

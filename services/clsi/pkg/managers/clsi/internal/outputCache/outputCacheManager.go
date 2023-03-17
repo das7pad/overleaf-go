@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,9 +27,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceWriter"
@@ -147,7 +147,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 				dest := compileOutputDir.Join(fileName)
 				if resourceCleanup.ShouldDelete(fileName) {
 					// Optimization: Steal the file from the compileDir.
-					// The next compile request would delete it anyways.
+					// The next compile request would delete it anyway.
 					if err2 := syscall.Rename(src, dest); err2 != nil {
 						return errors.Tag(
 							err2, "cannot rename "+src+" -> "+dest,
