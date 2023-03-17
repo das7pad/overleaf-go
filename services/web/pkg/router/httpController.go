@@ -193,7 +193,6 @@ func (h *httpController) addRoutes(
 		r.DELETE("/trash", h.unTrashProject)
 		r.POST("/trash", h.trashProject)
 		r.POST("/undelete", h.deleteProject)
-		r.GET("/ws/bootstrap", h.getWSBootstrap)
 		r.GET("/download/zip", h.createProjectZIP)
 
 		rFile := r.Group("/file/{fileId}")
@@ -632,18 +631,6 @@ func (h *httpController) getProjectJWT(c *httpUtils.Context) {
 		return
 	}
 	err := h.wm.GetProjectJWT(c, request, &response)
-	httpUtils.Respond(c, http.StatusOK, response, err)
-}
-
-func (h *httpController) getWSBootstrap(c *httpUtils.Context) {
-	request := &types.GetWSBootstrapRequest{
-		ProjectId: httpUtils.GetId(c, "projectId"),
-	}
-	response := types.GetWSBootstrapResponse{}
-	if !h.mustGetOrCreateSession(c, request, response) {
-		return
-	}
-	err := h.wm.GetWSBootstrap(c, request, &response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 

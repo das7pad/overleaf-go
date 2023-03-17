@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -169,7 +169,6 @@ type EditorBootstrap struct {
 	User                 user.WithLoadEditorInfo      `json:"user"`
 	Anonymous            bool                         `json:"anonymous"`
 	IsRestrictedUser     project.IsRestrictedUser     `json:"isRestrictedTokenMember"`
-	WSBootstrap          WSBootstrap                  `json:"wsBootstrap"`
 	DetachRole           DetachRole                   `json:"detachRole"`
 }
 
@@ -182,11 +181,6 @@ func (r DetachRole) Validate() error {
 	default:
 		return &errors.ValidationError{Msg: "invalid detach role"}
 	}
-}
-
-type WSBootstrap struct {
-	JWT       string `json:"bootstrap"`
-	ExpiresIn int64  `json:"expiresIn"`
 }
 
 type AllowedImageName struct {

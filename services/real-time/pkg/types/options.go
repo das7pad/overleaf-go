@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,15 +31,13 @@ type Options struct {
 	} `json:"graceful_shutdown"`
 
 	JWT struct {
-		Project  jwtOptions.JWTOptions `json:"project"`
-		RealTime jwtOptions.JWTOptions `json:"realTime"`
+		Project jwtOptions.JWTOptions `json:"project"`
 	} `json:"jwt"`
 }
 
 func (o *Options) FillFromEnv() {
 	env.MustParseJSON(o, "REAL_TIME_OPTIONS")
 	o.JWT.Project.FillFromEnv("JWT_WEB_VERIFY_SECRET")
-	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 }
 
 func (o *Options) Validate() error {

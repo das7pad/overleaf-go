@@ -24,7 +24,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -45,41 +44,6 @@ func (m *manager) genJWTLoggedInUser(userId sharedTypes.UUID) (string, error) {
 	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
 	c.UserId = userId
 	return m.jwtLoggedInUser.SetExpiryAndSign(c)
-}
-
-func (m *manager) genWSBootstrap(projectId sharedTypes.UUID, u user.WithPublicInfo) (types.WSBootstrap, error) {
-	c := m.wsBootstrap.New().(*wsBootstrap.Claims)
-	c.ProjectId = projectId
-	c.User.Id = u.Id
-	c.User.Email = u.Email
-	c.User.FirstName = u.FirstName
-	c.User.LastName = u.LastName
-
-	blob, err := m.wsBootstrap.SetExpiryAndSign(c)
-	if err != nil {
-		return types.WSBootstrap{}, err
-	}
-	return types.WSBootstrap{
-		JWT:       blob,
-		ExpiresIn: int64(m.wsBootstrap.GetExpiresIn().Seconds()),
-	}, nil
-}
-
-func (m *manager) GetWSBootstrap(ctx context.Context, request *types.GetWSBootstrapRequest, response *types.GetWSBootstrapResponse) error {
-	projectId := request.ProjectId
-	userId := request.Session.User.Id
-	token := request.Session.GetAnonTokenAccess(projectId)
-	_, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
-	if err != nil {
-		return err
-	}
-	u := request.Session.User.ToPublicUserInfo()
-	b, err := m.genWSBootstrap(projectId, u)
-	if err != nil {
-		return errors.Tag(err, "cannot gen jwt")
-	}
-	*response = b
-	return nil
 }
 
 func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, res *types.ProjectEditorPageResponse) error {
@@ -121,13 +85,6 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		}
 	}
 
-	{
-		b, err := m.genWSBootstrap(projectId, u.WithPublicInfo)
-		if err != nil {
-			return errors.Tag(err, "cannot get wsBootstrap")
-		}
-		response.WSBootstrap = templates.WSBootstrap(b)
-	}
 	if !isAnonymous {
 		s, err := m.genJWTLoggedInUser(userId)
 		if err != nil {

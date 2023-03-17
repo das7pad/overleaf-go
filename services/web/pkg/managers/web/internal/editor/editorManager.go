@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,7 +24,6 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/models/message"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
@@ -50,7 +49,6 @@ type Manager interface {
 	ProjectEditorDetached(ctx context.Context, request *types.ProjectEditorDetachedPageRequest, res *types.ProjectEditorDetachedPageResponse) error
 	GetProjectJWT(ctx context.Context, request *types.GetProjectJWTRequest, response *types.GetProjectJWTResponse) error
 	GetProjectMessages(ctx context.Context, request *types.GetProjectChatMessagesRequest, response *types.GetProjectChatMessagesResponse) error
-	GetWSBootstrap(ctx context.Context, request *types.GetWSBootstrapRequest, response *types.GetWSBootstrapResponse) error
 	SendProjectMessage(ctx context.Context, request *types.SendProjectChatMessageRequest) error
 	SetCompiler(ctx context.Context, request *types.SetCompilerRequest) error
 	SetImageName(ctx context.Context, request *types.SetImageNameRequest) error
@@ -78,7 +76,6 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 		pm:              pm,
 		smm:             smm,
 		um:              um,
-		wsBootstrap:     wsBootstrap.New(options.JWT.RealTime),
 
 		adminEmail:                options.AdminEmail,
 		appName:                   options.AppName,
@@ -102,7 +99,6 @@ type manager struct {
 	pm              project.Manager
 	smm             systemMessage.Manager
 	um              user.Manager
-	wsBootstrap     jwtHandler.JWTHandler
 
 	adminEmail                sharedTypes.Email
 	appName                   string

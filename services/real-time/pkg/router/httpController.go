@@ -29,7 +29,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/wsBootstrap"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
@@ -37,17 +36,17 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func New(rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOptionsProject jwtOptions.JWTOptions) *httpUtils.Router {
+func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions) *httpUtils.Router {
 	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
 		Ready: func() bool {
 			return !rtm.IsShuttingDown()
 		},
 	})
-	Add(r, rtm, jwtOptionsWsBootstrap, jwtOptionsProject)
+	Add(r, rtm, jwtOptionsProject)
 	return r
 }
 
-func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOptionsProject jwtOptions.JWTOptions) {
+func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions) {
 	(&httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
@@ -55,7 +54,6 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOp
 				protoV8,
 			},
 		},
-		jwtWSBootstrap: wsBootstrap.New(jwtOptionsWsBootstrap),
 		jwtProject: projectJWT.New(
 			jwtOptionsProject,
 			func(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
@@ -66,10 +64,9 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsWsBootstrap, jwtOp
 }
 
 type httpController struct {
-	rtm            realTime.Manager
-	u              websocket.Upgrader
-	jwtWSBootstrap jwtHandler.JWTHandler
-	jwtProject     jwtHandler.JWTHandler
+	rtm        realTime.Manager
+	u          websocket.Upgrader
+	jwtProject jwtHandler.JWTHandler
 }
 
 const (

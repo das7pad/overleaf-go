@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -93,7 +93,6 @@ type Options struct {
 	JWT struct {
 		Compile      jwtOptions.JWTOptions `json:"compile"`
 		LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
-		RealTime     jwtOptions.JWTOptions `json:"realTime"`
 	} `json:"jwt"`
 
 	SessionCookie signedCookie.Options `json:"session_cookie"`
@@ -107,7 +106,6 @@ func (o *Options) FillFromEnv() {
 	env.MustParseJSON(o, "WEB_OPTIONS")
 	o.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
-	o.JWT.RealTime.FillFromEnv("JWT_REAL_TIME_VERIFY_SECRET")
 	o.SessionCookie.FillFromEnv("SESSION_SECRET")
 }
 
@@ -217,9 +215,6 @@ func (o *Options) Validate() error {
 	}
 	if err := o.JWT.LoggedInUser.Validate(); err != nil {
 		return errors.Tag(err, "jwt.logged_in_user is invalid")
-	}
-	if err := o.JWT.RealTime.Validate(); err != nil {
-		return errors.Tag(err, "jwt.realTime is invalid")
 	}
 
 	if err := o.SessionCookie.Validate(); err != nil {

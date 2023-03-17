@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -53,11 +53,6 @@ func main() {
 			os.Exit(101)
 		}
 	}()
-	jwtOptionsRealTime := jwtOptions.JWTOptions{
-		Algorithm: "HS512",
-		Key:       genSecret(32),
-		ExpiresIn: 30 * time.Second,
-	}
 	jwtOptionsLoggedInUser := jwtOptions.JWTOptions{
 		Algorithm: "HS512",
 		Key:       genSecret(32),
@@ -287,11 +282,9 @@ func main() {
 			Timeout: 10 * time.Second,
 		},
 		JWT: struct {
-			Project  jwtOptions.JWTOptions `json:"project"`
-			RealTime jwtOptions.JWTOptions `json:"realTime"`
+			Project jwtOptions.JWTOptions `json:"project"`
 		}{
-			Project:  jwtOptionsProject,
-			RealTime: jwtOptionsRealTime,
+			Project: jwtOptionsProject,
 		},
 	}
 	fmt.Println("# services/real-time or cmd/overleaf:")
@@ -407,11 +400,9 @@ func main() {
 		JWT: struct {
 			Compile      jwtOptions.JWTOptions `json:"compile"`
 			LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
-			RealTime     jwtOptions.JWTOptions `json:"realTime"`
 		}{
 			Compile:      jwtOptionsProject,
 			LoggedInUser: jwtOptionsLoggedInUser,
-			RealTime:     jwtOptionsRealTime,
 		},
 		SessionCookie: signedCookie.Options{
 			Domain:  siteURL.Hostname(),
