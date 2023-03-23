@@ -1,6 +1,6 @@
 {{/*
     Golang port of Overleaf
-    Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+    Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
     Copyright (C) 2021-2022 Overleaf <team@overleaf.com>
 
     This program is free software: you can redistribute it and/or modify
@@ -75,17 +75,22 @@
       <div
         class="alert alert-danger small"
         ng-if="connection.forced_disconnect"
-      ><strong>{{ translate "disconnected" . }}</strong></div>
+      >
+        <strong>{{ translate "disconnected" . }}</strong>
+      </div>
       <div
         class="alert alert-warning small"
         ng-if="connection.reconnection_countdown"
-      ><strong>{{ translate "lost_connection" . }}
-          .</strong> {{ translate "reconnecting_in_x_secs" . }}.<a
+      >
+        <strong>{{ translate "lost_connection" . }}.</strong>
+        &nbsp;{{ translate "reconnecting_in_x_secs" . }}.
+        <a
           id="try-reconnect-now-button"
           class="alert-link-as-btn pull-right"
           href="#"
           ng-click="tryReconnectNow()"
-        >{{ translate "try_now" . }}</a></div>
+        >{{ translate "try_now" . }}</a>
+      </div>
       <div
         class="alert alert-warning small"
         ng-if="connection.reconnecting && connection.stillReconnecting"
