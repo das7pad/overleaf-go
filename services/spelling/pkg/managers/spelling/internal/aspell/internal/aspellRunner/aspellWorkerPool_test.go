@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ package aspellRunner
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 )
 
 func benchmarkWorkerPoolCheckWords(b *testing.B, p int) {
+	b.ReportAllocs()
 	wp := newWorkerPool()
 	defer wp.Close()
 	eg, ctx := errgroup.WithContext(context.Background())
@@ -69,34 +71,14 @@ func benchmarkWorkerPoolCheckWords(b *testing.B, p int) {
 	b.ReportMetric(float64(time.Second/perReq), "req/s")
 }
 
-func BenchmarkWorkerPool_CheckWords1(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, 1)
-}
-
-func BenchmarkWorkerPool_CheckWords2(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, 2)
-}
-
-func BenchmarkWorkerPool_CheckWords3(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, 3)
-}
-
-func BenchmarkWorkerPool_CheckWords10(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, 10)
-}
-
-func BenchmarkWorkerPool_CheckWords17(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, 17)
-}
-
-func BenchmarkWorkerPool_CheckWords32(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, MaxWorkers)
-}
-
-func BenchmarkWorkerPool_CheckWords42(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, MaxWorkers+10)
-}
-
-func BenchmarkWorkerPool_CheckWords100(b *testing.B) {
-	benchmarkWorkerPoolCheckWords(b, 100)
+func BenchmarkWorkerPool_CheckWords(b *testing.B) {
+	cases := []int{
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, MaxWorkers, MaxWorkers * 2, 100,
+	}
+	for i := range cases {
+		p := cases[i]
+		b.Run(fmt.Sprintf("%03d", p), func(b *testing.B) {
+			benchmarkWorkerPoolCheckWords(b, p)
+		})
+	}
 }
