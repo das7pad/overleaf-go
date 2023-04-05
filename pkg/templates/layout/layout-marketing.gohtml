@@ -21,7 +21,10 @@
   <!DOCTYPE html>
   <html lang="{{ .CurrentLngCode }}">
   {{ template "head" . }}
-  <body class="thin-footer">
+  <body
+    class="thin-footer"
+    data-ol-theme-modifier="{{ .ThemeModifier }}"
+  >
   {{ if not .HideNavBar }}
     <a
       class="skip-to-content"

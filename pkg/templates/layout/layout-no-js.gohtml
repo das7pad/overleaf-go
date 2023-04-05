@@ -21,7 +21,10 @@
   <!DOCTYPE html>
   <html lang="{{ .CurrentLngCode }}">
   {{ template "head" . }}
-  <body class="full-height">
+  <body
+    class="full-height"
+    data-ol-theme-modifier="{{ .ThemeModifier }}"
+  >
   {{ template "content" . }}
   </body>
   </html>
