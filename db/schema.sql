@@ -40,10 +40,10 @@ CREATE TABLE users
 
 CREATE TABLE contacts
 (
-  a            UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
-  b            UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
-  connections  INTEGER   NOT NULL,
-  last_touched TIMESTAMP NOT NULL,
+  a               UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
+  b               UUID      NOT NULL REFERENCES users ON DELETE CASCADE,
+  connections     INTEGER   NOT NULL,
+  last_touched_at TIMESTAMP NOT NULL,
 
   PRIMARY KEY (a, b)
 );

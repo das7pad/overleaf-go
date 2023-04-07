@@ -219,7 +219,7 @@ WITH pi AS (
                                WHERE c.a = ids.a
                                  AND c.b = ids.b)
                  SELECT coalesce((SELECT connections FROM prev), 1) AS n)
-             INSERT INTO contacts (a, b, connections, last_touched)
+             INSERT INTO contacts (a, b, connections, last_touched_at)
                  SELECT sortedIds.a,
                         sortedIds.b,
                         target.n,
@@ -228,7 +228,7 @@ WITH pi AS (
                       target
                  ON CONFLICT (a, b) DO UPDATE
                      SET connections = excluded.connections,
-                         last_touched = transaction_timestamp()),
+                         last_touched_at = transaction_timestamp()),
      new_entry AS (
          INSERT INTO project_members
              (project_id, user_id, access_source, privilege_level, archived,

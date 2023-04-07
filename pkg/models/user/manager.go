@@ -508,7 +508,7 @@ WITH ids AS (SELECT unnest(ARRAY [a, b]) AS id
              FROM contacts
              WHERE a = $1
                 OR b = $1
-             ORDER BY connections DESC, last_touched DESC
+             ORDER BY connections DESC, last_touched_at DESC
              LIMIT 50)
 SELECT u.id, email, first_name, last_name
 FROM users u, ids

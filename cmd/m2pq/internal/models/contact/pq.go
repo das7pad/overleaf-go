@@ -135,7 +135,7 @@ LIMIT 1
 				r,                          // a
 				id,                         // b
 				details.Connections,        // connections
-				details.LastTouched.Time(), // last_touched
+				details.LastTouched.Time(), // last_touched_at
 			})
 		}
 	}
@@ -145,7 +145,7 @@ LIMIT 1
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"contacts"},
-		[]string{"a", "b", "connections", "last_touched"},
+		[]string{"a", "b", "connections", "last_touched_at"},
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
