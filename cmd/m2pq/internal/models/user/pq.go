@@ -262,7 +262,10 @@ LIMIT 1
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"user_audit_log"},
-		[]string{"id", "info", "initiator_id", "ip_address", "operation", "timestamp", "user_id"},
+		[]string{
+			"id", "info", "initiator_id", "ip_address", "operation",
+			"timestamp", "user_id",
+		},
 		pgx.CopyFromRows(ual),
 	)
 	if err != nil {

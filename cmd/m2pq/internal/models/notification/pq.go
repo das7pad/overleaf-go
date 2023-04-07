@@ -101,7 +101,10 @@ LIMIT 1
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"notifications"},
-		[]string{"expires_at", "id", "key", "message_options", "template_key", "user_id"},
+		[]string{
+			"expires_at", "id", "key", "message_options", "template_key",
+			"user_id",
+		},
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {

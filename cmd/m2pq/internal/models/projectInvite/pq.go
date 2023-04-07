@@ -105,7 +105,10 @@ LIMIT 1
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"project_invites"},
-		[]string{"created_at", "email", "expires_at", "id", "privilege_level", "project_id", "sending_user_id", "token"},
+		[]string{
+			"created_at", "email", "expires_at", "id", "privilege_level",
+			"project_id", "sending_user_id", "token",
+		},
 		pgx.CopyFromRows(piRows),
 	)
 	if err != nil {

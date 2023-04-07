@@ -122,7 +122,10 @@ LIMIT 1
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"one_time_tokens"},
-		[]string{"created_at", "email", "expires_at", "token", "use", "used_at", "user_id"},
+		[]string{
+			"created_at", "email", "expires_at", "token", "use", "used_at",
+			"user_id",
+		},
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
