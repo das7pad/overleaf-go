@@ -102,7 +102,7 @@ INSERT
 INTO one_time_tokens
 (created_at, email, expires_at, token, use, user_id)
 SELECT $2, $1, $13, $14, $15, u.id
-FROM u;
+FROM u
 `,
 		string(u.Email),
 		u.SignUpDate,
@@ -212,7 +212,7 @@ SELECT gen_random_uuid(),
        $3,
        transaction_timestamp(),
        u.id
-FROM u;
+FROM u
 `, userId, ip, AuditLogOperationSoftDeletion)
 	if err != nil {
 		return err
@@ -296,7 +296,7 @@ SELECT gen_random_uuid(),
        $4,
        transaction_timestamp(),
        u.id
-FROM u;
+FROM u
 `, userId, blob, ip, AuditLogOperationClearSessions))
 }
 
@@ -357,7 +357,7 @@ func (m *manager) BumpEpoch(ctx context.Context, userId sharedTypes.UUID) error 
 UPDATE users
 SET epoch = epoch + 1
 WHERE id = $1
-  AND deleted_at IS NULL;
+  AND deleted_at IS NULL
 `, userId))
 }
 
@@ -366,7 +366,7 @@ func (m *manager) SetBetaProgram(ctx context.Context, userId sharedTypes.UUID, j
 UPDATE users
 SET beta_program = $2
 WHERE id = $1
-  AND deleted_at IS NULL;
+  AND deleted_at IS NULL
 `, userId, joined))
 }
 
@@ -376,7 +376,7 @@ UPDATE users
 SET first_name = $2,
 	last_name  = $3
 WHERE id = $1
-  AND deleted_at IS NULL;
+  AND deleted_at IS NULL
 `, userId, u.FirstName, u.LastName))
 }
 
@@ -394,7 +394,7 @@ INSERT
 INTO user_audit_log
 (id, initiator_id, ip_address, operation, timestamp, user_id)
 SELECT gen_random_uuid(), u.id, $3, 'login', transaction_timestamp(), u.id
-FROM u;
+FROM u
 `, userId, epoch, ip))
 }
 

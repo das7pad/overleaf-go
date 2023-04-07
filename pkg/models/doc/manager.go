@@ -59,7 +59,7 @@ SET last_updated_at = $5,
     last_updated_by = $6
 FROM d
 WHERE id = d.project_id
-  AND last_updated_at < $5;
+  AND last_updated_at < $5
 `,
 		projectId, docId, string(update.Snapshot), int64(update.Version),
 		update.LastUpdatedAt, update.LastUpdatedBy,
