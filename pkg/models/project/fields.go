@@ -35,6 +35,10 @@ type CompilerField struct {
 	Compiler sharedTypes.Compiler `json:"compiler"`
 }
 
+type CreatedAtField struct {
+	CreatedAt time.Time
+}
+
 type DeletedAtField struct {
 	DeletedAt time.Time
 }

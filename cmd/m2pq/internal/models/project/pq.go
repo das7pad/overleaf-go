@@ -355,11 +355,12 @@ LIMIT 1
 
 		_, err = tx.Exec(ctx, `
 INSERT INTO projects
-(compiler, deleted_at, epoch, id, image_name, last_opened_at, last_updated_at,
- last_updated_by, name, owner_id, public_access_level, spell_check_language,
- token_ro, token_rw, token_rw_prefix, tree_version, root_folder_id,
- root_doc_id)
-SELECT $1,
+(created_at, compiler, deleted_at, epoch, id, image_name, last_opened_at,
+ last_updated_at, last_updated_by, name, owner_id, public_access_level,
+ spell_check_language, token_ro, token_rw, token_rw_prefix, tree_version,
+ root_folder_id, root_doc_id)
+SELECT $16,
+       $1,
        NULL,
        $2,
        $3,
@@ -382,7 +383,7 @@ SELECT $1,
 			p.LastUpdatedAt, m2pq.ObjectID2UUID(p.LastUpdatedBy), p.Name,
 			m2pq.ObjectID2UUID(p.OwnerRef), p.PublicAccessLevel,
 			p.SpellCheckLanguage, p.Tokens.ReadOnly, p.Tokens.ReadAndWrite,
-			p.Tokens.ReadAndWritePrefix, p.Version)
+			p.Tokens.ReadAndWritePrefix, p.Version, p.Id.Timestamp())
 		if err != nil {
 			return errors.Tag(err, "insert project")
 		}

@@ -146,7 +146,7 @@ func (m *manager) GetById(ctx context.Context, projectId, inviteId, actorId shar
 	pi := WithToken{}
 	pi.ProjectId = projectId
 	return &pi, m.db.QueryRow(ctx, `
-SELECT created_at, email, expires_at, privilege_level, token
+SELECT pi.created_at, email, expires_at, privilege_level, token
 FROM project_invites pi
          INNER JOIN projects p ON p.id = pi.project_id
 WHERE pi.id = $2

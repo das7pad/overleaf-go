@@ -143,16 +143,17 @@ func (m *manager) PrepareProjectCreation(ctx context.Context, p *ForCreation) er
 		`
 WITH p AS (
     INSERT INTO projects
-        (compiler, deleted_at, epoch, id, image_name, last_opened_at,
-         last_updated_at, last_updated_by, name, owner_id, public_access_level,
-         spell_check_language, tree_version)
-        SELECT $3,
+        (created_at, compiler, deleted_at, epoch, id, image_name,
+         last_opened_at, last_updated_at, last_updated_by, name, owner_id,
+         public_access_level, spell_check_language, tree_version)
+        SELECT $7,
+               $3,
                $4,
                1,
                $5,
                $6,
-               transaction_timestamp(),
-               transaction_timestamp(),
+               $7,
+               $7,
                o.id,
                '',
                o.id,
@@ -173,7 +174,7 @@ SELECT p.id, p.owner_id, 'owner', 'owner', FALSE, FALSE
 FROM p
 `,
 		p.OwnerId, p.SpellCheckLanguage, p.Compiler, p.DeletedAt, p.Id,
-		p.ImageName,
+		p.ImageName, p.CreatedAt,
 	)
 	if err != nil {
 		return err

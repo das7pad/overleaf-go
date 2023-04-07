@@ -135,6 +135,7 @@ type ForZip struct {
 }
 
 type ForCreation struct {
+	CreatedAtField
 	CompilerField
 	DeletedAtField
 	IdField

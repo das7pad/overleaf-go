@@ -1,5 +1,5 @@
 --  Golang port of Overleaf
---  Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+--  Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 --
 --  This program is free software: you can redistribute it and/or modify
 --  it under the terms of the GNU Affero General Public License as published
@@ -64,6 +64,7 @@ CREATE TYPE PublicAccessLevel AS ENUM ('private', 'tokenBased');
 CREATE TABLE projects
 (
   compiler             TEXT              NOT NULL,
+  created_at           TIMESTAMP         NOT NULL,
   deleted_at           TIMESTAMP         NULL,
   epoch                INTEGER           NOT NULL,
   id                   UUID              NOT NULL PRIMARY KEY,

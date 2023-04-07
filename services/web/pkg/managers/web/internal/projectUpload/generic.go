@@ -77,6 +77,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		Add(-constants.ExpireProjectsAfter).
 		Add(time.Hour)
 
+	p.CreatedAt = time.Now().Truncate(time.Microsecond)
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
 	}
