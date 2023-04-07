@@ -439,16 +439,16 @@ WITH ctx AS (SELECT p.id     AS project_id,
      log AS (
          INSERT
              INTO project_audit_log
-                 (id, info, initiator_id, operation, project_id, timestamp)
-                 SELECT gen_random_uuid(),
+                 (created_at, id, info, initiator_id, operation, project_id)
+                 SELECT transaction_timestamp(),
+						gen_random_uuid(),
                         json_build_object(
                                 'newOwnerId', ctx.new_owner_id,
                                 'previousOwnerId', ctx.old_owner_id
                             ),
                         ctx.old_owner_id,
                         'transfer-ownership',
-                        ctx.project_id,
-                        transaction_timestamp()
+                        ctx.project_id
                  FROM ctx
                  RETURNING TRUE)
 SELECT ctx.project_name,
@@ -1678,13 +1678,13 @@ WITH soft_deleted AS (
 
 INSERT
 INTO project_audit_log
-(id, info, initiator_id, operation, project_id, timestamp)
-SELECT gen_random_uuid(),
+(created_at, id, info, initiator_id, operation, project_id)
+SELECT transaction_timestamp(),
+       gen_random_uuid(),
        $3,
        $2,
        'soft-deletion',
-       id,
-       transaction_timestamp()
+       id
 FROM soft_deleted
 `, projectIds, userId, blob)
 	if err != nil {

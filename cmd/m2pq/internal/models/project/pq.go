@@ -632,12 +632,12 @@ WHERE id = $1
 				return errors.Tag(err, "serialize audit log")
 			}
 			rows = append(rows, []interface{}{
+				entry.Timestamp,                 // created_at
 				ids.Next(),                      // id
 				infoBlob,                        // info
 				initiatorIds[entry.InitiatorId], // initiator_id
 				entry.Operation,                 // operation
 				projectId,                       // project_id
-				entry.Timestamp,                 // timestamp
 			})
 		}
 	}
@@ -645,8 +645,8 @@ WHERE id = $1
 		ctx,
 		pgx.Identifier{"project_audit_log"},
 		[]string{
-			"id", "info", "initiator_id", "operation", "project_id",
-			"timestamp",
+			"created_at", "id", "info", "initiator_id", "operation",
+			"project_id",
 		},
 		pgx.CopyFromRows(rows),
 	)

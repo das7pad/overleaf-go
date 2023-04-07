@@ -100,12 +100,12 @@ CREATE INDEX ON project_members (user_id);
 
 CREATE TABLE project_audit_log
 (
+  created_at   TIMESTAMP NOT NULL,
   id           UUID      NOT NULL PRIMARY KEY,
   info         JSONB     NULL,
   initiator_id UUID      NULL REFERENCES users ON DELETE SET NULL,
   operation    TEXT      NOT NULL,
-  project_id   UUID      NOT NULL REFERENCES projects ON DELETE CASCADE,
-  timestamp    TIMESTAMP NOT NULL
+  project_id   UUID      NOT NULL REFERENCES projects ON DELETE CASCADE
 );
 
 CREATE TABLE project_invites
