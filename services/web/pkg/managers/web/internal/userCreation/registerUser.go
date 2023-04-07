@@ -24,6 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -39,8 +40,8 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 		return err
 	}
 
-	u, err := user.NewUser(r.Email)
-	if err != nil {
+	u := user.NewUser(r.Email)
+	if err := sharedTypes.PopulateUUID(&u.Id); err != nil {
 		return err
 	}
 	u.AuditLog = []user.AuditLogEntry{
@@ -55,7 +56,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 	u.LastLoginIp = r.IPAddress
 	u.LoginCount = 1
 	u.OneTimeTokenUse = oneTimeToken.EmailConfirmationUse
-	if err = m.createUser(ctx, u, r.Password); err != nil {
+	if err := m.createUser(ctx, &u, r.Password); err != nil {
 		if errors.GetCause(err) == user.ErrEmailAlreadyRegistered {
 			response.SetCustomFormMessage("already-exists", err)
 			return user.ErrEmailAlreadyRegistered

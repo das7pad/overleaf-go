@@ -25,6 +25,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -47,8 +48,8 @@ func (m *manager) CMDCreateUser(ctx context.Context, r *types.CMDCreateUserReque
 		return errPW
 	}
 
-	u, err := user.NewUser(r.Email)
-	if err != nil {
+	u := user.NewUser(r.Email)
+	if err := sharedTypes.PopulateUUID(&u.Id); err != nil {
 		return err
 	}
 	u.AuditLog = []user.AuditLogEntry{
@@ -60,7 +61,7 @@ func (m *manager) CMDCreateUser(ctx context.Context, r *types.CMDCreateUserReque
 		},
 	}
 	u.OneTimeTokenUse = oneTimeToken.PasswordResetUse
-	if err = m.createUser(ctx, u, pw); err != nil {
+	if err := m.createUser(ctx, &u, pw); err != nil {
 		if errors.GetCause(err) == user.ErrEmailAlreadyRegistered {
 			return user.ErrEmailAlreadyRegistered
 		}

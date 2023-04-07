@@ -22,25 +22,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-func NewUser(email sharedTypes.Email) (*ForCreation, error) {
-	id, err := sharedTypes.GenerateUUID()
-	if err != nil {
-		return nil, err
-	}
-	return &ForCreation{
+func NewUser(email sharedTypes.Email) ForCreation {
+	return ForCreation{
 		ForSession: ForSession{
 			WithPublicInfo: WithPublicInfo{
-				IdField: IdField{
-					Id: id,
-				},
 				EmailField: EmailField{
 					Email: email,
-				},
-				FirstNameField: FirstNameField{
-					FirstName: "",
-				},
-				LastNameField: LastNameField{
-					LastName: "",
 				},
 			},
 		},
@@ -56,5 +43,5 @@ func NewUser(email sharedTypes.Email) (*ForCreation, error) {
 		CreatedAtField: CreatedAtField{
 			CreatedAt: time.Now().Truncate(time.Microsecond),
 		},
-	}, nil
+	}
 }
