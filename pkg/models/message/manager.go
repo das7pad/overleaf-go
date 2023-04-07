@@ -27,19 +27,8 @@ import (
 )
 
 type Manager interface {
-	GetGlobalMessages(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		limit int64,
-		before sharedTypes.Timestamp,
-		target *[]Message,
-	) error
-
-	SendGlobalMessage(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		msg *Message,
-	) error
+	GetGlobalMessages(ctx context.Context, projectId sharedTypes.UUID, limit int64, before sharedTypes.Timestamp, target *[]Message) error
+	SendGlobalMessage(ctx context.Context, projectId sharedTypes.UUID, msg *Message) error
 }
 
 func New(db *pgxpool.Pool) Manager {
@@ -50,13 +39,7 @@ type manager struct {
 	db *pgxpool.Pool
 }
 
-func (m *manager) GetGlobalMessages(
-	ctx context.Context,
-	projectId sharedTypes.UUID,
-	limit int64,
-	before sharedTypes.Timestamp,
-	messages *[]Message,
-) error {
+func (m *manager) GetGlobalMessages(ctx context.Context, projectId sharedTypes.UUID, limit int64, before sharedTypes.Timestamp, messages *[]Message) error {
 	var t time.Time
 	if before == 0 {
 		t = time.Now()
@@ -108,18 +91,14 @@ LIMIT $3
 	return nil
 }
 
-func (m *manager) SendGlobalMessage(
-	ctx context.Context,
-	projectId sharedTypes.UUID,
-	msg *Message,
-) error {
+func (m *manager) SendGlobalMessage(ctx context.Context, projectId sharedTypes.UUID, msg *Message) error {
 	if err := checkContent(msg.Content); err != nil {
 		return err
 	}
 	err := m.db.QueryRow(ctx, `
 WITH msg AS (
     INSERT INTO chat_messages (id, project_id, content, created_at, user_id)
-        VALUES (gen_random_uuid(), $1, $2, now(), $3)
+        VALUES (gen_random_uuid(), $1, $2, transaction_timestamp(), $3)
         RETURNING id, user_id)
 SELECT msg.id, users.id, email, first_name, last_name
 FROM users, msg

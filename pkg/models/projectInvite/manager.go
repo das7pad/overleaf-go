@@ -202,7 +202,7 @@ WITH pi AS (
             AND project_id = p.id
             AND p.deleted_at IS NULL
         RETURNING pi.id, project_id, privilege_level, sending_user_id),
-     notification as (
+     notification AS (
          DELETE
              FROM notifications USING pi
                  WHERE key = concat('project-invite-', pi.id::TEXT)),

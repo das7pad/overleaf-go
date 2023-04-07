@@ -131,7 +131,7 @@ FROM u
 }
 
 func (m *manager) ChangePassword(ctx context.Context, u ForPasswordChange, ip, operation string, newHashedPassword string) error {
-	ok := false
+	invalidated := 0
 	err := m.db.QueryRow(ctx, `
 WITH u AS (
     UPDATE users
@@ -149,18 +149,22 @@ WITH u AS (
                     $4,
                     $5,
                     u.id
-             FROM u),
-     ott AS (
+             FROM u
+             RETURNING TRUE),
+     invalidate_any_ott AS (
          UPDATE one_time_tokens
              SET used_at = transaction_timestamp()
              FROM u
              WHERE user_id = u.id
                  AND use = $6
-                 AND used_at IS NULL)
-SELECT TRUE
-FROM u
+                 AND used_at IS NULL
+             RETURNING TRUE)
+SELECT (SELECT count(*) FROM invalidate_any_ott)
+-- only return anything when updated and logged
+FROM u,
+     log
 `, u.Id, u.Epoch, newHashedPassword, ip, operation,
-		oneTimeToken.PasswordResetUse).Scan(&ok)
+		oneTimeToken.PasswordResetUse).Scan(&invalidated)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return ErrEpochChanged

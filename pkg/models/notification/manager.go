@@ -89,7 +89,7 @@ SET expires_at      = $3,
     template_key    = $4,
     message_options = $5
 WHERE id = $1
-  and user_id = $2
+  AND user_id = $2
 `, n.Key, n.UserId, n.Expires, n.Key, n.MessageOptions))
 }
 
@@ -99,6 +99,6 @@ UPDATE notifications
 SET template_key    = '',
     message_options = '{}'
 WHERE id = $1
-  and user_id = $2
+  AND user_id = $2
 `, notificationId, userId))
 }

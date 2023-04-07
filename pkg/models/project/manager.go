@@ -287,9 +287,9 @@ func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTy
 		persisted := Tokens{}
 		err = m.db.QueryRow(ctx, `
 UPDATE projects
-SET token_ro        = COALESCE(token_ro, $3),
-    token_rw        = COALESCE(token_rw, $4),
-    token_rw_prefix = COALESCE(token_rw_prefix, $5)
+SET token_ro        = coalesce(token_ro, $3),
+    token_rw        = coalesce(token_rw, $4),
+    token_rw_prefix = coalesce(token_rw_prefix, $5)
 WHERE id = $1
   AND owner_id = $2
   AND deleted_at IS NULL
@@ -497,7 +497,7 @@ WITH f AS (
                $4,
                'folder',
                $3,
-               CONCAT(t.path, $5::TEXT, '/'),
+               concat(t.path, $5::TEXT, '/'),
                $1
         FROM projects p
                  INNER JOIN project_members pm ON (p.id = pm.project_id AND
@@ -622,7 +622,7 @@ WITH f AS (SELECT t.id, t.path, t.project_id
      updated AS (
          UPDATE tree_nodes t
              SET parent_id = f.id,
-                 path = CONCAT(f.path, SPLIT_PART(t.path, '/', -1))
+                 path = concat(f.path, split_part(t.path, '/', -1))
              FROM f
              WHERE t.id = $4
                  AND t.project_id = f.project_id
@@ -693,7 +693,7 @@ WITH node AS (SELECT t.id,
                  AND t.id != node.id
                  AND starts_with(t.path, node.path)
              RETURNING t.id, t.kind, t.path),
-     updated_docs AS (SELECT array_agg(id) as ids, array_agg(path) as paths
+     updated_docs AS (SELECT array_agg(id) AS ids, array_agg(path) AS paths
                       FROM updated_children
                       WHERE kind = 'doc'),
      updated_version AS (
@@ -742,7 +742,7 @@ WITH node AS (SELECT t.id, f.path AS parent_path
              AND pm.privilege_level >= 'readAndWrite'),
      updated AS (
          UPDATE tree_nodes t
-             SET path = CONCAT(node.parent_path, $5::TEXT)
+             SET path = concat(node.parent_path, $5::TEXT)
              FROM node
              WHERE t.id = node.id
              RETURNING t.id, t.path)
@@ -893,8 +893,8 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.epoch,
        p.public_access_level,
-       COALESCE(p.token_ro, ''),
-       COALESCE(p.token_rw, '')
+       coalesce(p.token_ro, ''),
+       coalesce(p.token_rw, '')
 FROM projects p
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
                                           pm.user_id = $2)
@@ -967,10 +967,10 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.epoch,
        p.public_access_level,
-       COALESCE(p.token_ro, ''),
-       COALESCE(p.token_rw, ''),
+       coalesce(p.token_ro, ''),
+       coalesce(p.token_rw, ''),
        o.features,
-       COALESCE(u.epoch, 0)
+       coalesce(u.epoch, 0)
 FROM projects p
          INNER JOIN users o ON p.owner_id = o.id
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
@@ -1122,7 +1122,7 @@ WHERE t.project_id = $1
   AND f.id = $3
   AND t.deleted_at = '1970-01-01'
   AND p.deleted_at IS NULL
-  AND (t.path = $4 OR t.path LIKE CONCAT('%/', $4::TEXT))
+  AND (t.path = $4 OR t.path LIKE concat('%/', $4::TEXT))
 `, projectId, userId, folderId, name).Scan(&nodeId, &kind)
 	if err == pgx.ErrNoRows {
 		return nodeId, false, nil
@@ -1154,7 +1154,7 @@ WHERE t.project_id = $1
 
 func (m *manager) GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error) {
 	r, err := m.db.Query(ctx, `
-SELECT t.id, t.path, COALESCE(d.snapshot, ''), COALESCE(d.version, -1)
+SELECT t.id, t.path, coalesce(d.snapshot, ''), coalesce(d.version, -1)
 FROM tree_nodes t
          INNER JOIN projects p ON t.project_id = p.id
          LEFT JOIN docs d ON t.id = d.id
@@ -1209,7 +1209,7 @@ WITH tree AS
                  array_agg(t.id)                     AS ids,
                  array_agg(t.kind::TEXT)             AS kinds,
                  array_agg(t.path)                   AS paths,
-                 array_agg(COALESCE(d.snapshot, '')) AS snapshots
+                 array_agg(coalesce(d.snapshot, '')) AS snapshots
           FROM tree_nodes t
                    LEFT JOIN docs d ON t.id = d.id
           WHERE t.project_id = $1
@@ -1279,11 +1279,11 @@ SELECT p.compiler,
        p.name,
        p.owner_id,
        p.public_access_level,
-       COALESCE(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
        p.root_folder_id,
        p.spell_check_language,
-       COALESCE(p.token_ro, ''),
-       COALESCE(p.token_rw, ''),
+       coalesce(p.token_ro, ''),
+       coalesce(p.token_rw, ''),
        p.tree_version,
        o.features,
        o.email,
@@ -1377,11 +1377,11 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        p.image_name,
        p.name,
        p.public_access_level,
-       COALESCE(p.token_ro, ''),
-       COALESCE(p.token_rw, ''),
+       coalesce(p.token_ro, ''),
+       coalesce(p.token_rw, ''),
        p.tree_version,
-       COALESCE(d.id, '00000000-0000-0000-0000-000000000000'::UUID),
-       COALESCE(d.path, ''),
+       coalesce(d.id, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(d.path, ''),
        o.features,
        coalesce(u.editor_config, '{}'),
        coalesce(u.email, ''),
@@ -1451,7 +1451,7 @@ WITH tree AS
                  array_agg(t.id)                     AS ids,
                  array_agg(t.kind::TEXT)             AS kinds,
                  array_agg(t.path)                   AS paths,
-                 array_agg(COALESCE(d.snapshot, '')) AS snapshots,
+                 array_agg(coalesce(d.snapshot, '')) AS snapshots,
                  array_agg(t.created_at)             AS created_ats,
                  array_agg(f.linked_file_data)       AS linked_file_data,
                  array_agg(coalesce(f.size, 0))      AS sizes
@@ -1465,7 +1465,7 @@ WITH tree AS
 
 SELECT p.compiler,
        p.image_name,
-       COALESCE(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
+       coalesce(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
        p.spell_check_language,
        tree.ids,
        tree.kinds,
@@ -1596,8 +1596,8 @@ SELECT coalesce(pm.access_source::TEXT, ''),
        p.id,
        p.epoch,
        p.name,
-       COALESCE(p.token_ro, ''),
-       COALESCE(p.token_rw, '')
+       coalesce(p.token_ro, ''),
+       coalesce(p.token_rw, '')
 FROM projects p
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
                                           pm.user_id = $1)
@@ -1799,7 +1799,7 @@ WITH f AS (SELECT t.id, t.path
                     $4,
                     'doc',
                     f.id,
-                    CONCAT(f.path, $5::TEXT),
+                    concat(f.path, $5::TEXT),
                     $1
              FROM f
              RETURNING id),
@@ -1883,7 +1883,7 @@ WITH f AS (SELECT t.id, t.path
                     $4,
                     'file',
                     f.id,
-                    CONCAT(f.path, $5::TEXT),
+                    concat(f.path, $5::TEXT),
                     $1
              FROM f
              RETURNING id)
@@ -1926,9 +1926,11 @@ WITH f AS (SELECT t.id, t.project_id, t.path
                  AND t.deleted_at = '1970-01-01'
                  AND t.kind != 'folder'
              RETURNING t.id, kind),
-     deleted AS (SELECT coalesce((SELECT id FROM d),
-                                 '00000000-0000-0000-0000-000000000000'::UUID) AS id,
-                        coalesce((SELECT kind FROM d)::TEXT, '')               AS kind),
+     deleted AS (SELECT coalesce(
+                                (SELECT id FROM d),
+                                '00000000-0000-0000-0000-000000000000'::UUID
+                            )                                    AS id,
+                        coalesce((SELECT kind FROM d)::TEXT, '') AS kind),
      createdTn AS (
          UPDATE tree_nodes t
              SET deleted_at = '1970-01-01'
@@ -2078,10 +2080,10 @@ WHERE pm.user_id = $1
 WITH t AS (SELECT array_agg(id) AS ids, array_agg(name) AS names
            FROM tags
            WHERE user_id = $1),
-     n AS (SELECT array_agg(id)              as ids,
-                  array_agg(key)             as keys,
-                  array_agg(template_key)    as template_keys,
-                  array_agg(message_options) as message_options
+     n AS (SELECT array_agg(id)              AS ids,
+                  array_agg(key)             AS keys,
+                  array_agg(template_key)    AS template_keys,
+                  array_agg(message_options) AS message_options
            FROM notifications
            WHERE user_id = $1
              AND template_key != ''

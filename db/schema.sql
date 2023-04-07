@@ -29,7 +29,7 @@ CREATE TABLE users
   features           JSONB     NOT NULL,
   first_name         TEXT      NOT NULL,
   id                 UUID      NOT NULL PRIMARY KEY,
-  last_login_at      timestamp NULL,
+  last_login_at      TIMESTAMP NULL,
   last_login_ip      TEXT      NULL,
   last_name          TEXT      NOT NULL,
   learned_words      TEXT[]    NOT NULL,

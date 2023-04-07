@@ -267,7 +267,7 @@ WITH dh AS (SELECT dh.*
                      INNER JOIN docs d ON d.id = dh.doc_id
                      INNER JOIN tree_nodes t ON d.id = t.id
                      INNER JOIN projects p ON t.project_id = p.id
-                     INNER JOIN project_members pm on p.id = pm.project_id
+                     INNER JOIN project_members pm ON p.id = pm.project_id
             WHERE p.id = $1
               AND pm.user_id = $2
               AND (pm.access_source > 'token' OR
