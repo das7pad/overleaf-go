@@ -73,10 +73,9 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	// Give the project upload 1h until it gets cleaned up by the cron.
 	ctx, done := context.WithTimeout(ctx, time.Hour)
 	defer done()
-	scrubInOneHour := time.Now().
+	p.DeletedAt = time.Now().
 		Add(-constants.ExpireProjectsAfter).
 		Add(time.Hour)
-	p.DeletedAt = &scrubInOneHour
 
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
