@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -113,6 +113,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			return err
 		}
 		file := project.NewFileRef(request.FileName, hash, request.Size)
+		file.CreatedAt = time.Now().Truncate(time.Microsecond)
 		file.LinkedFileData = request.LinkedFileData
 		if err = sharedTypes.PopulateUUID(&file.Id); err != nil {
 			return err

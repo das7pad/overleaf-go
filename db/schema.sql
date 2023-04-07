@@ -127,6 +127,7 @@ CREATE TYPE TreeNodeKind AS ENUM ('doc', 'file', 'folder');
 
 CREATE TABLE tree_nodes
 (
+  created_at TIMESTAMP    NOT NULL,
   deleted_at TIMESTAMP    NOT NULL,
   id         UUID         NOT NULL PRIMARY KEY,
   kind       TreeNodeKind NOT NULL,
@@ -234,12 +235,11 @@ CREATE UNIQUE INDEX ON doc_history (doc_id, version DESC);
 
 CREATE TABLE files
 (
-  id               UUID      NOT NULL PRIMARY KEY REFERENCES tree_nodes ON DELETE CASCADE,
-  created_at       TIMESTAMP NOT NULL,
-  hash             TEXT      NOT NULL,
-  linked_file_data JSON      NULL,
-  size             INTEGER   NOT NULL,
-  pending          BOOLEAN   NOT NULL,
+  id               UUID    NOT NULL PRIMARY KEY REFERENCES tree_nodes ON DELETE CASCADE,
+  hash             TEXT    NOT NULL,
+  linked_file_data JSON    NULL,
+  size             INTEGER NOT NULL,
+  pending          BOOLEAN NOT NULL,
 
   CHECK (is_tree_node_kind(id, 'file'))
 );

@@ -185,22 +185,25 @@ FROM p
 	rows := make([][]interface{}, 0, t.CountNodes())
 
 	rows = append(rows, []interface{}{
-		deletedAt, t.Id, TreeNodeKindFolder, nil, "", p.Id,
+		p.CreatedAt, deletedAt, t.Id, TreeNodeKindFolder, nil, "", p.Id,
 	})
 	_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 		for _, d := range f.Docs {
 			rows = append(rows, []interface{}{
-				deletedAt, d.Id, TreeNodeKindDoc, f.Id, path.Join(d.Name), p.Id,
+				p.CreatedAt, deletedAt, d.Id, TreeNodeKindDoc, f.Id,
+				path.Join(d.Name), p.Id,
 			})
 		}
 		for _, r := range f.FileRefs {
 			rows = append(rows, []interface{}{
-				deletedAt, r.Id, TreeNodeKindFile, f.Id, path.Join(r.Name), p.Id,
+				r.CreatedAt, deletedAt, r.Id, TreeNodeKindFile, f.Id,
+				path.Join(r.Name), p.Id,
 			})
 		}
 		for _, ff := range f.Folders {
 			rows = append(rows, []interface{}{
-				deletedAt, ff.Id, TreeNodeKindFolder, f.Id, ff.Path + "/", p.Id,
+				p.CreatedAt, deletedAt, ff.Id, TreeNodeKindFolder, f.Id,
+				ff.Path + "/", p.Id,
 			})
 		}
 		return nil
@@ -209,7 +212,8 @@ FROM p
 		ctx,
 		pgx.Identifier{"tree_nodes"},
 		[]string{
-			"deleted_at", "id", "kind", "parent_id", "path", "project_id",
+			"created_at", "deleted_at", "id", "kind", "parent_id", "path",
+			"project_id",
 		},
 		pgx.CopyFromRows(rows),
 	)
@@ -237,16 +241,14 @@ FROM p
 	_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 		d := e.(*FileRef)
 		rows = append(rows, []interface{}{
-			d.Id, d.Created, d.Hash, d.LinkedFileData, d.Size, false,
+			d.Id, d.Hash, d.LinkedFileData, d.Size, false,
 		})
 		return nil
 	})
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"files"},
-		[]string{
-			"id", "created_at", "hash", "linked_file_data", "size", "pending",
-		},
+		[]string{"id", "hash", "linked_file_data", "size", "pending"},
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
@@ -489,8 +491,9 @@ func (m *manager) AddFolder(ctx context.Context, projectId, userId, parent share
 	return treeVersion, m.db.QueryRow(ctx, `
 WITH f AS (
     INSERT INTO tree_nodes
-        (deleted_at, id, kind, parent_id, path, project_id)
-        SELECT '1970-01-01',
+        (created_at, deleted_at, id, kind, parent_id, path, project_id)
+        SELECT transaction_timestamp(),
+               '1970-01-01',
                $4,
                'folder',
                $3,
@@ -1254,7 +1257,7 @@ WITH tree AS
                  array_agg(t.id)                AS ids,
                  array_agg(t.kind::TEXT)        AS kinds,
                  array_agg(t.path)              AS paths,
-                 array_agg(f.created_at)        AS created_ats,
+                 array_agg(t.created_at)        AS created_ats,
                  array_agg(f.linked_file_data)  AS linked_file_data,
                  array_agg(coalesce(f.size, 0)) AS sizes
           FROM tree_nodes t
@@ -1449,7 +1452,7 @@ WITH tree AS
                  array_agg(t.kind::TEXT)             AS kinds,
                  array_agg(t.path)                   AS paths,
                  array_agg(COALESCE(d.snapshot, '')) AS snapshots,
-                 array_agg(f.created_at)             AS created_ats,
+                 array_agg(t.created_at)             AS created_ats,
                  array_agg(f.linked_file_data)       AS linked_file_data,
                  array_agg(coalesce(f.size, 0))      AS sizes
           FROM tree_nodes t
@@ -1790,8 +1793,9 @@ WITH f AS (SELECT t.id, t.path
              AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
          INSERT INTO tree_nodes
-             (deleted_at, id, kind, parent_id, path, project_id)
-             SELECT '1970-01-01',
+             (created_at, deleted_at, id, kind, parent_id, path, project_id)
+             SELECT transaction_timestamp(),
+                    '1970-01-01',
                     $4,
                     'doc',
                     f.id,
@@ -1873,8 +1877,9 @@ WITH f AS (SELECT t.id, t.path
              AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
          INSERT INTO tree_nodes
-             (deleted_at, id, kind, parent_id, path, project_id)
+             (created_at, deleted_at, id, kind, parent_id, path, project_id)
              SELECT $6,
+                    $7,
                     $4,
                     'file',
                     f.id,
@@ -1884,12 +1889,12 @@ WITH f AS (SELECT t.id, t.path
              RETURNING id)
 INSERT
 INTO files
-    (id, created_at, hash, linked_file_data, size, pending)
-SELECT inserted_tree_node.id, $7, $8, $9, $10, TRUE
+    (id, hash, linked_file_data, size, pending)
+SELECT inserted_tree_node.id, $8, $9, $10, TRUE
 FROM inserted_tree_node
 `,
 		projectId, userId, folderId,
-		f.Id, f.Name, f.Created.Add(-time.Microsecond), f.Created, f.Hash,
+		f.Id, f.Name, f.CreatedAt, f.CreatedAt.Add(-time.Microsecond), f.Hash,
 		f.LinkedFileData, f.Size,
 	))
 }
@@ -1947,7 +1952,7 @@ FROM createdF,
      f
 WHERE p.id = f.project_id
 RETURNING deleted.id, deleted.kind, p.tree_version
-`, projectId, userId, f.Id, f.Created.Add(-time.Microsecond)).
+`, projectId, userId, f.Id, f.CreatedAt.Add(-time.Microsecond)).
 		Scan(&nodeId, &kind, &v)
 	return nodeId, kind == TreeNodeKindDoc, v, err
 }

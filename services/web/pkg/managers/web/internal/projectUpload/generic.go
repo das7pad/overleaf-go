@@ -190,6 +190,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					}
 				}
 				fileRef := project.NewFileRef(name, hash, size)
+				fileRef.CreatedAt = time.Now().Truncate(time.Microsecond)
 				parent.FileRefs = append(parent.FileRefs, fileRef)
 				openReader[path] = uploadQueueEntry{
 					file:   file,

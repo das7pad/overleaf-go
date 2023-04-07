@@ -36,8 +36,9 @@ type TreeElement interface {
 }
 
 type CommonTreeFields struct {
-	Id   sharedTypes.UUID     `json:"_id"`
-	Name sharedTypes.Filename `json:"name"`
+	Id        sharedTypes.UUID     `json:"_id"`
+	Name      sharedTypes.Filename `json:"name"`
+	CreatedAt time.Time            `json:"created"`
 }
 
 type LeafFields struct {
@@ -107,14 +108,12 @@ type FileRef struct {
 
 	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty"`
 	Hash           sharedTypes.Hash `json:"hash,omitempty"`
-	Created        time.Time        `json:"created"`
 	Size           int64            `json:"size"`
 }
 
 func NewFileRef(name sharedTypes.Filename, hash sharedTypes.Hash, size int64) FileRef {
 	f := FileRef{}
 	f.Name = name
-	f.Created = time.Now().Truncate(time.Microsecond)
 	f.Hash = hash
 	f.Size = size
 	return f
@@ -314,7 +313,7 @@ func (p *ForTree) GetRootFolder() *Folder {
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
 			if p.createdAts != nil {
-				e.Created = p.createdAts[i].Time
+				e.CreatedAt = p.createdAts[i].Time
 			}
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])
@@ -355,7 +354,7 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 			e.Id = p.treeIds[i]
 			e.Path = path
 			if p.createdAts != nil {
-				e.Created = p.createdAts[i].Time
+				e.CreatedAt = p.createdAts[i].Time
 			}
 			if p.hashes != nil {
 				e.Hash = sharedTypes.Hash(p.hashes[i])

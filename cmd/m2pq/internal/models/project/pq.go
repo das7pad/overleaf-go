@@ -399,28 +399,28 @@ SELECT $16,
 
 		// tree_nodes
 		rows = append(rows, []interface{}{
-			deletedAt, tId, "folder", nil, "", pId,
+			t.Id.Timestamp(), deletedAt, tId, "folder", nil, "", pId,
 		})
 		_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
 			fId := m2pq.ObjectID2UUID(f.Id)
 			for _, d := range f.Docs {
 				rows = append(rows, []interface{}{
-					deletedAt, m2pq.ObjectID2UUID(d.Id), "doc", fId,
-					path.Join(d.Name), pId,
+					d.Id.Timestamp(), deletedAt, m2pq.ObjectID2UUID(d.Id),
+					"doc", fId, path.Join(d.Name), pId,
 				})
 			}
 			for _, r := range f.FileRefs {
 				fileId := m2pq.ObjectID2UUID(r.Id)
 				rows = append(rows, []interface{}{
-					deletedAt, fileId, "file", fId,
+					r.Created, deletedAt, fileId, "file", fId,
 					path.Join(r.Name), pId,
 				})
 				copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 			}
 			for _, ff := range f.Folders {
 				rows = append(rows, []interface{}{
-					deletedAt, m2pq.ObjectID2UUID(ff.Id), "folder", fId,
-					path.JoinDir(ff.Name) + "/", pId,
+					ff.Id.Timestamp(), deletedAt, m2pq.ObjectID2UUID(ff.Id),
+					"folder", fId, path.JoinDir(ff.Name) + "/", pId,
 				})
 			}
 			return nil
@@ -429,7 +429,7 @@ SELECT $16,
 		for _, f := range deletedFiles {
 			fileId := m2pq.ObjectID2UUID(f.Id)
 			rows = append(rows, []interface{}{
-				f.DeletedAt, fileId, "file", tId, f.Name, pId,
+				f.Created, f.DeletedAt, fileId, "file", tId, f.Name, pId,
 			})
 			copyQueue <- projectFile{ProjectId: pId, FileId: fileId}
 		}
@@ -439,7 +439,8 @@ SELECT $16,
 				continue
 			}
 			rows = append(rows, []interface{}{
-				d.DeletedAt, m2pq.ObjectID2UUID(d.Id), "doc", tId, d.Name, pId,
+				d.Id.Timestamp(), d.DeletedAt, m2pq.ObjectID2UUID(d.Id), "doc",
+				tId, d.Name, pId,
 			})
 		}
 
@@ -447,7 +448,8 @@ SELECT $16,
 			ctx,
 			pgx.Identifier{"tree_nodes"},
 			[]string{
-				"deleted_at", "id", "kind", "parent_id", "path", "project_id",
+				"created_at", "deleted_at", "id", "kind", "parent_id", "path",
+				"project_id",
 			},
 			pgx.CopyFromRows(rows),
 		)
@@ -495,7 +497,7 @@ SELECT $16,
 				return err
 			}
 			rows = append(rows, []interface{}{
-				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
+				m2pq.ObjectID2UUID(f.Id), f.Hash, f.LinkedFileData,
 				*f.Size, false,
 			})
 		}
@@ -503,8 +505,7 @@ SELECT $16,
 			ctx,
 			pgx.Identifier{"files"},
 			[]string{
-				"id", "created_at", "hash", "linked_file_data", "size",
-				"pending",
+				"id", "hash", "linked_file_data", "size", "pending",
 			},
 			pgx.CopyFromRows(rows),
 		)
