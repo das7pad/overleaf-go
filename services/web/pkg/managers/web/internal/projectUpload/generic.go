@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -69,11 +69,15 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	if errProject != nil {
 		return errProject
 	}
+
 	// Give the project upload 1h until it gets cleaned up by the cron.
+	ctx, done := context.WithTimeout(ctx, time.Hour)
+	defer done()
 	scrubInOneHour := time.Now().
 		Add(-constants.ExpireProjectsAfter).
 		Add(time.Hour)
 	p.DeletedAt = &scrubInOneHour
+
 	if request.Compiler != "" {
 		p.Compiler = request.Compiler
 	}
@@ -110,10 +114,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	rootDocPath := request.RootDocPath
 	{
 		// Prepare tree
-		done := ctx.Done()
+		ctxDone := ctx.Done()
 		for _, file := range request.Files {
 			select {
-			case <-done:
+			case <-ctxDone:
 				return ctx.Err()
 			default:
 			}
@@ -222,7 +226,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		}
 	}
 
-	if err := m.pm.PrepareProjectCreation(ctx, p); err != nil {
+	if err := m.pm.PrepareProjectCreation(ctx, &p); err != nil {
 		return err
 	}
 
@@ -318,7 +322,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	if err := eg.Wait(); err != nil {
 		return cleanupBestEffort(err)
 	}
-	if err := m.pm.FinalizeProjectCreation(ctx, p); err != nil {
+	if err := m.pm.FinalizeProjectCreation(ctx, &p); err != nil {
 		return cleanupBestEffort(errors.Tag(err, "cannot finalize project"))
 	}
 
