@@ -19,6 +19,7 @@
 CREATE TABLE users
 (
   beta_program       BOOLEAN   NOT NULL,
+  created_at         TIMESTAMP NOT NULL,
   deleted_at         TIMESTAMP NULL,
   editor_config      JSONB     NOT NULL,
   email              TEXT      NOT NULL UNIQUE,
@@ -34,8 +35,7 @@ CREATE TABLE users
   learned_words      TEXT[]    NOT NULL,
   login_count        INTEGER   NOT NULL,
   must_reconfirm     BOOLEAN   NOT NULL,
-  password_hash      TEXT      NOT NULL,
-  signup_date        TIMESTAMP NOT NULL
+  password_hash      TEXT      NOT NULL
 );
 
 CREATE TABLE contacts

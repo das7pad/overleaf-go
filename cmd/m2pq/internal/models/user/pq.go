@@ -80,7 +80,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 		err := tx.QueryRow(ctx, `
 SELECT id
 FROM users u
-ORDER BY signup_date
+ORDER BY created_at
 LIMIT 1
 `).Scan(&o)
 		if err != nil && err != pgx.ErrNoRows {
@@ -177,6 +177,7 @@ LIMIT 1
 
 		users = append(users, []interface{}{
 			u.BetaProgram,           // beta_program
+			u.SignUpDate,            // created_at
 			nil,                     // deleted_at
 			u.EditorConfig,          // editor_config
 			u.Email,                 // email
@@ -193,7 +194,6 @@ LIMIT 1
 			u.LoginCount,            // login_count
 			u.MustReconfirm,         // must_reconfirm
 			u.HashedPassword,        // password_hash
-			u.SignUpDate,            // signup_date
 		})
 		if err != nil {
 			return errors.Tag(err, "queue user")
@@ -205,7 +205,13 @@ LIMIT 1
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"users"},
-		[]string{"beta_program", "deleted_at", "editor_config", "email", "email_confirmed_at", "email_created_at", "epoch", "features", "first_name", "id", "last_login_at", "last_login_ip", "last_name", "learned_words", "login_count", "must_reconfirm", "password_hash", "signup_date"},
+		[]string{
+			"beta_program", "created_at", "deleted_at", "editor_config",
+			"email", "email_confirmed_at", "email_created_at", "epoch",
+			"features", "first_name", "id", "last_login_at", "last_login_ip",
+			"last_name", "learned_words", "login_count", "must_reconfirm",
+			"password_hash",
+		},
 		pgx.CopyFromRows(users),
 	)
 	if err != nil {

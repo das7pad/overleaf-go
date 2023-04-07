@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -56,7 +56,7 @@ func (m *manager) CMDCreateUser(ctx context.Context, r *types.CMDCreateUserReque
 			InitiatorId: r.InitiatorId,
 			IPAddress:   "127.0.0.1",
 			Operation:   user.AuditLogOperationCreateAccount,
-			Timestamp:   u.SignUpDate,
+			Timestamp:   u.CreatedAt,
 		},
 	}
 	u.OneTimeTokenUse = oneTimeToken.PasswordResetUse

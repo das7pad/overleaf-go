@@ -53,8 +53,8 @@ func NewUser(email sharedTypes.Email) (*ForCreation, error) {
 				CompileGroup:   sharedTypes.StandardCompileGroup,
 			},
 		},
-		SignUpDateField: SignUpDateField{
-			SignUpDate: time.Now().Truncate(time.Microsecond),
+		CreatedAtField: CreatedAtField{
+			CreatedAt: time.Now().Truncate(time.Microsecond),
 		},
 	}, nil
 }

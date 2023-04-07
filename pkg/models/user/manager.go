@@ -80,15 +80,11 @@ func (m *manager) CreateUser(ctx context.Context, u *ForCreation) error {
 	_, err := m.db.Exec(ctx, `
 WITH u AS (
     INSERT INTO users
-        (beta_program, editor_config, email, email_created_at, epoch, features,
-         first_name, id, last_login_at, last_login_ip, last_name,
-         learned_words, login_count, must_reconfirm, password_hash,
-         signup_date)
-        VALUES (FALSE,
-                $3,
-                $1, $2, 1, $4, '', $5, $6, $7, '', ARRAY []::TEXT[],
-                $8,
-                FALSE, $9, $2)
+        (beta_program, created_at, editor_config, email, email_created_at,
+         epoch, features, first_name, id, last_login_at, last_login_ip,
+         last_name, learned_words, login_count, must_reconfirm, password_hash)
+        VALUES (FALSE, $2, $3, $1, $2, 1, $4, '', $5, $6, $7, '',
+                ARRAY []::TEXT[], $8, FALSE, $9)
         RETURNING id),
      log AS (
          INSERT INTO user_audit_log
@@ -105,7 +101,7 @@ SELECT $2, $1, $13, $14, $15, u.id
 FROM u
 `,
 		string(u.Email),
-		u.SignUpDate,
+		u.CreatedAt,
 		&u.EditorConfig,
 		&u.Features,
 		u.Id,
@@ -116,7 +112,7 @@ FROM u
 		u.AuditLog[0].InitiatorId,
 		u.AuditLog[0].IPAddress,
 		u.AuditLog[0].Operation,
-		u.SignUpDate.Add(7*24*time.Hour),
+		u.CreatedAt.Add(7*24*time.Hour),
 		u.OneTimeToken,
 		u.OneTimeTokenUse,
 	)

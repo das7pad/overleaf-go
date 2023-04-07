@@ -48,10 +48,10 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 			InitiatorId: u.Id,
 			IPAddress:   r.IPAddress,
 			Operation:   user.AuditLogOperationLogin,
-			Timestamp:   u.SignUpDate,
+			Timestamp:   u.CreatedAt,
 		},
 	}
-	u.LastLoggedIn = &u.SignUpDate
+	u.LastLoggedIn = &u.CreatedAt
 	u.LastLoginIp = r.IPAddress
 	u.LoginCount = 1
 	u.OneTimeTokenUse = oneTimeToken.EmailConfirmationUse
