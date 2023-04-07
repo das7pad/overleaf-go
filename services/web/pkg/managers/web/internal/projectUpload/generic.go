@@ -65,9 +65,9 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	p, errProject := project.NewProject(request.UserId)
-	if errProject != nil {
-		return errProject
+	p := project.NewProject()
+	if err := sharedTypes.PopulateUUID(&p.Id); err != nil {
+		return err
 	}
 
 	// Give the project upload 1h until it gets cleaned up by the cron.
@@ -85,6 +85,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		p.ImageName = request.ImageName
 	}
 	p.Name = request.Name
+	p.OwnerId = request.UserId
 	p.SpellCheckLanguage = request.SpellCheckLanguage
 
 	var existingProjectNames project.Names

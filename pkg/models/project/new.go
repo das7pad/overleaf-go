@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,20 +24,10 @@ const (
 	DefaultCompiler = sharedTypes.PDFLaTeX
 )
 
-func NewProject(ownerId sharedTypes.UUID) (*ForCreation, error) {
-	id, err := sharedTypes.GenerateUUID()
-	if err != nil {
-		return nil, err
-	}
-	return &ForCreation{
+func NewProject() ForCreation {
+	return ForCreation{
 		CompilerField: CompilerField{
 			Compiler: DefaultCompiler,
-		},
-		IdField: IdField{
-			Id: id,
-		},
-		OwnerIdField: OwnerIdField{
-			OwnerId: ownerId,
 		},
 		SpellCheckLanguageField: SpellCheckLanguageField{
 			SpellCheckLanguage: "inherit",
@@ -45,5 +35,5 @@ func NewProject(ownerId sharedTypes.UUID) (*ForCreation, error) {
 		RootFolderField: RootFolderField{
 			RootFolder: NewFolder(""),
 		},
-	}, nil
+	}
 }
