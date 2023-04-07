@@ -57,7 +57,7 @@ func (m *manager) CMDCreateUser(ctx context.Context, r *types.CMDCreateUserReque
 			InitiatorId: r.InitiatorId,
 			IPAddress:   "127.0.0.1",
 			Operation:   user.AuditLogOperationCreateAccount,
-			Timestamp:   u.CreatedAt,
+			CreatedAt:   u.CreatedAt,
 		},
 	}
 	u.OneTimeTokenUse = oneTimeToken.PasswordResetUse

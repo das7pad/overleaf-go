@@ -249,12 +249,12 @@ LIMIT 1
 			}
 
 			ual = append(ual, []interface{}{
+				entry.Timestamp,                 // created_at
 				ids.Next(),                      // id
 				infoBlob,                        // info
 				initiatorIds[entry.InitiatorId], // initiator_id
 				entry.IPAddress,                 // ip_address
 				entry.Operation,                 // operation
-				entry.Timestamp,                 // timestamp
 				userId,                          // user_id
 			})
 		}
@@ -263,8 +263,8 @@ LIMIT 1
 		ctx,
 		pgx.Identifier{"user_audit_log"},
 		[]string{
-			"id", "info", "initiator_id", "ip_address", "operation",
-			"timestamp", "user_id",
+			"created_at", "id", "info", "initiator_id", "ip_address",
+			"operation", "user_id",
 		},
 		pgx.CopyFromRows(ual),
 	)

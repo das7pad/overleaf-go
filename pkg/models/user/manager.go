@@ -88,9 +88,9 @@ WITH u AS (
         RETURNING id),
      log AS (
          INSERT INTO user_audit_log
-             (id, info, initiator_id, ip_address, operation, timestamp,
+             (created_at, id, info, initiator_id, ip_address, operation,
               user_id)
-             SELECT gen_random_uuid(), '{}', $10, $11, $12, $2, $5
+             SELECT $2, gen_random_uuid(), '{}', $10, $11, $12, $5
              WHERE $10 != '00000000-0000-0000-0000-000000000000'::UUID
              RETURNING FALSE)
 
@@ -140,14 +140,14 @@ WITH u AS (
         RETURNING id),
      log AS (
          INSERT INTO user_audit_log
-             (id, info, initiator_id, ip_address, operation, timestamp,
+             (created_at, id, info, initiator_id, ip_address, operation,
               user_id)
-             SELECT gen_random_uuid(),
+             SELECT transaction_timestamp(),
+                    gen_random_uuid(),
                     '{}',
                     u.id,
                     $4,
                     $5,
-                    transaction_timestamp(),
                     u.id
              FROM u),
      ott AS (
@@ -201,12 +201,12 @@ WITH u AS (
 
 INSERT
 INTO user_audit_log
-(id, initiator_id, ip_address, operation, timestamp, user_id)
-SELECT gen_random_uuid(),
+(created_at, id, initiator_id, ip_address, operation, user_id)
+SELECT transaction_timestamp(),
+       gen_random_uuid(),
        u.id,
        $2,
        $3,
-       transaction_timestamp(),
        u.id
 FROM u
 `, userId, ip, AuditLogOperationSoftDeletion)
@@ -284,13 +284,13 @@ WITH u AS (
 
 INSERT
 INTO user_audit_log
-(id, info, initiator_id, ip_address, operation, timestamp, user_id)
-SELECT gen_random_uuid(),
+(created_at, id, info, initiator_id, ip_address, operation, user_id)
+SELECT transaction_timestamp(),
+       gen_random_uuid(),
        $2,
        u.id,
        $3,
        $4,
-       transaction_timestamp(),
        u.id
 FROM u
 `, userId, blob, ip, AuditLogOperationClearSessions))
@@ -320,13 +320,13 @@ WITH u AS (
              WHERE user_id = u.id AND used_at IS NULL)
 INSERT
 INTO user_audit_log
-(id, info, initiator_id, ip_address, operation, timestamp, user_id)
-SELECT gen_random_uuid(),
+(created_at, id, info, initiator_id, ip_address, operation, user_id)
+SELECT transaction_timestamp(),
+       gen_random_uuid(),
        $4,
        u.id,
        $5,
        $6,
-       transaction_timestamp(),
        u.id
 FROM u
 `, u.Id, u.Epoch, newEmail, blob, ip,
@@ -388,8 +388,8 @@ WITH u AS (
 
 INSERT
 INTO user_audit_log
-(id, initiator_id, ip_address, operation, timestamp, user_id)
-SELECT gen_random_uuid(), u.id, $3, 'login', transaction_timestamp(), u.id
+(created_at, id, initiator_id, ip_address, operation, user_id)
+SELECT transaction_timestamp(), gen_random_uuid(), u.id, $3, 'login', u.id
 FROM u
 `, userId, epoch, ip))
 }

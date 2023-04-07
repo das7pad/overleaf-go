@@ -49,7 +49,7 @@ func (m *manager) RegisterUser(ctx context.Context, r *types.RegisterUserRequest
 			InitiatorId: u.Id,
 			IPAddress:   r.IPAddress,
 			Operation:   user.AuditLogOperationLogin,
-			Timestamp:   u.CreatedAt,
+			CreatedAt:   u.CreatedAt,
 		},
 	}
 	u.LastLoggedIn = &u.CreatedAt

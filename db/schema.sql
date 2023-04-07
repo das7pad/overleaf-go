@@ -50,12 +50,12 @@ CREATE TABLE contacts
 
 CREATE TABLE user_audit_log
 (
+  created_at   TIMESTAMP NOT NULL,
   id           UUID      NOT NULL PRIMARY KEY,
   info         JSONB     NULL,
   initiator_id UUID      NULL REFERENCES users ON DELETE SET NULL,
   ip_address   TEXT      NULL,
   operation    TEXT      NOT NULL,
-  timestamp    TIMESTAMP NOT NULL,
   user_id      UUID      NOT NULL REFERENCES users ON DELETE CASCADE
 );
 
