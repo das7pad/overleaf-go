@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,56 +24,42 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func Atomic(dest string, reader io.Reader, copyMode bool) error {
-	readerAsFile, readerIsFile := reader.(*os.File)
-	var stat os.FileInfo
-	if readerIsFile {
-		var errStat error
-		if stat, errStat = readerAsFile.Stat(); errStat != nil {
-			return errStat
-		}
-	} else if copyMode {
-		return errors.New("cannot action copyMode from non file")
-	}
+func Atomic(dest string, reader io.Reader) error {
+	return copyAtomic(dest, reader, 0)
+}
 
-	dir := path.Dir(dest)
-	writer, err := os.CreateTemp(dir, ".atomicWrite-*")
+func AtomicWithMode(dest string, reader *os.File) error {
+	stat, err := reader.Stat()
 	if err != nil {
-		return err
+		return errors.Tag(err, "stat src")
 	}
-	atomicWritePath := writer.Name()
+	return copyAtomic(dest, reader, stat.Mode())
+}
 
-	var errCopy error
-	if readerIsFile {
-		size := int(stat.Size())
-		errCopy = copySendFile(writer, readerAsFile, size)
-	} else {
-		_, errCopy = io.Copy(writer, reader)
+func copyAtomic(dest string, reader io.Reader, mode os.FileMode) error {
+	writer, err := os.CreateTemp(path.Dir(dest), ".atomicWrite-*")
+	if err != nil {
+		return errors.Tag(err, "mktemp")
 	}
-	errClose := writer.Close()
-	var errRename error
-	var errPerms error
-	if errCopy == nil && errClose == nil {
-		if readerIsFile && copyMode {
-			errPerms = os.Chmod(atomicWritePath, stat.Mode())
+	defer func() {
+		if err != nil {
+			_ = os.Remove(writer.Name())
 		}
-		if errPerms == nil {
-			errRename = os.Rename(atomicWritePath, dest)
-			if errRename == nil {
-				// Happy path.
-				return nil
-			}
+	}()
+	if _, err = io.Copy(writer, reader); err != nil {
+		_ = writer.Close()
+		return errors.Tag(err, "copy")
+	}
+	if mode != 0 {
+		if err = writer.Chmod(mode); err != nil {
+			return errors.Tag(err, "chmod dest")
 		}
 	}
-	_ = os.Remove(atomicWritePath)
-	if errCopy != nil {
-		return errCopy
+	if err = writer.Close(); err != nil {
+		return errors.Tag(err, "close dest")
 	}
-	if errClose != nil {
-		return errClose
+	if err = os.Rename(writer.Name(), dest); err != nil {
+		return errors.Tag(err, "rename")
 	}
-	if errPerms != nil {
-		return errPerms
-	}
-	return errRename
+	return nil
 }

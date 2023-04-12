@@ -18,7 +18,6 @@ package urlCache
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -78,10 +77,6 @@ func (u *urlCache) SetupForProject(_ context.Context, projectId sharedTypes.UUID
 	return err
 }
 
-func atomicWrite(dest string, reader io.Reader) error {
-	return copyFile.Atomic(dest, reader, false)
-}
-
 func (u *urlCache) projectDir(projectId sharedTypes.UUID) types.ProjectCacheDir {
 	return u.cacheDir.ProjectCacheDir(projectId)
 }
@@ -108,7 +103,7 @@ func (u *urlCache) downloadIntoCache(ctx context.Context, url sharedTypes.URL, c
 			"file download returned non success: status " + response.Status,
 		)
 	}
-	return atomicWrite(cachePath, response.Body)
+	return copyFile.Atomic(cachePath, response.Body)
 }
 
 func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedTypes.URL, cachePath string) error {

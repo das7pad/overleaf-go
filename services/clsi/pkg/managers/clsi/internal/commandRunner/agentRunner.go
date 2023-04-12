@@ -68,7 +68,7 @@ func copyAgent(dst, src string) error {
 	defer func() {
 		_ = agent.Close()
 	}()
-	if err = copyFile.Atomic(dst, agent, true); err != nil {
+	if err = copyFile.AtomicWithMode(dst, agent); err != nil {
 		return errors.Tag(err, "copy agent")
 	}
 	return nil
