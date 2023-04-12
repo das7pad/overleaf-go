@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"syscall"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -74,7 +75,7 @@ func (b *bufferedFile) Move(target string) error {
 	if b.tempFile != nil {
 		_ = b.tempFile.Close()
 	}
-	return os.Rename(b.fsPath, target)
+	return syscall.Rename(b.fsPath, target)
 }
 
 func (b *bufferedFile) ToUploadDetails() types.UploadDetails {

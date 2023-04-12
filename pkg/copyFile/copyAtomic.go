@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"syscall"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
@@ -58,7 +59,7 @@ func copyAtomic(dest string, reader io.Reader, mode os.FileMode) error {
 	if err = writer.Close(); err != nil {
 		return errors.Tag(err, "close dest")
 	}
-	if err = os.Rename(writer.Name(), dest); err != nil {
+	if err = syscall.Rename(writer.Name(), dest); err != nil {
 		return errors.Tag(err, "rename")
 	}
 	return nil

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,6 +19,7 @@ package resourceWriter
 import (
 	"encoding/json"
 	"os"
+	"syscall"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
@@ -81,7 +82,7 @@ func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache Res
 	if err = json.NewEncoder(file).Encode(cache); err != nil {
 		return err
 	}
-	if err = os.Rename(tmp, target); err != nil {
+	if err = syscall.Rename(tmp, target); err != nil {
 		return err
 	}
 	return nil
