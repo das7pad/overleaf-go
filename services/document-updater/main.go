@@ -34,7 +34,7 @@ import (
 
 func main() {
 	triggerExitCtx, triggerExit := signal.NotifyContext(
-		context.Background(), syscall.SIGINT, syscall.SIGUSR1, syscall.SIGTERM,
+		context.Background(), syscall.SIGINT, syscall.SIGTERM,
 	)
 	defer triggerExit()
 
