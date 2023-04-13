@@ -120,15 +120,20 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 }
 
 func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Namespace) error {
+	cacheDir := r.cacheBaseDir.NamespacedCacheDir(namespace)
 	compileDir := r.compileBaseDir.CompileDir(namespace)
+	errClearCache := os.RemoveAll(string(cacheDir))
 	errClearCompileDir := os.RemoveAll(string(compileDir))
-	errClearCache := r.urlCache.ClearForProject(projectId)
+	errClearURLCache := r.urlCache.ClearForProject(projectId)
 
+	if errClearCache != nil && !os.IsNotExist(errClearCache) {
+		return errClearCache
+	}
 	if errClearCompileDir != nil && !os.IsNotExist(errClearCompileDir) {
 		return errClearCompileDir
 	}
-	if errClearCache != nil && !os.IsNotExist(errClearCache) {
-		return errClearCache
+	if errClearURLCache != nil && !os.IsNotExist(errClearURLCache) {
+		return errClearURLCache
 	}
 	return nil
 }
