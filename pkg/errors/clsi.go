@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -39,11 +39,26 @@ func (a AlreadyCompilingError) Error() string {
 	return "already compiling"
 }
 
-func IsAlreadyCompiling(err error) bool {
+func IsAlreadyCompilingError(err error) bool {
 	err = GetCause(err)
 	if err == nil {
 		return false
 	}
 	_, ok := err.(*AlreadyCompilingError)
+	return ok
+}
+
+type CompilerUnavailableError struct{}
+
+func (a CompilerUnavailableError) Error() string {
+	return "clsi-maintenance"
+}
+
+func IsCompilerUnavailableError(err error) bool {
+	err = GetCause(err)
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*CompilerUnavailableError)
 	return ok
 }

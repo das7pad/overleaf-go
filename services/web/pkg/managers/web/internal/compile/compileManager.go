@@ -227,8 +227,6 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 	)
 	defer pendingFetchClsiServerId.Cancel()
 
-	syncState := request.SyncState
-
 	var resources clsiTypes.Resources
 	var rootDocPath sharedTypes.PathName
 	var err error
@@ -265,7 +263,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 				CompileGroup: request.CompileGroup,
 				Draft:        request.Draft,
 				ImageName:    request.ImageName,
-				SyncState:    syncState,
+				SyncState:    request.SyncState,
 				SyncType:     syncType,
 				Timeout:      request.Timeout,
 			},
@@ -290,14 +288,22 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			)
 			clsiServerId = response.ClsiServerId
 		}
+		response.Timings.FetchContent = fetchContentPerf
+		response.PDFDownloadDomain = m.pdfDownloadDomain
 		if err != nil {
 			if errors.IsInvalidState(err) && !syncType.IsFull() {
-				continue
+				continue // retry as full sync
+			}
+			if errors.IsAlreadyCompilingError(err) {
+				response.Status = "compile-in-progress"
+				return nil
+			}
+			if errors.IsCompilerUnavailableError(err) {
+				response.Status = "clsi-maintenance"
+				return nil
 			}
 			return errors.Tag(err, "cannot compile")
 		}
-		response.Timings.FetchContent = fetchContentPerf
-		response.PDFDownloadDomain = m.pdfDownloadDomain
 		return nil
 	}
 }
@@ -427,6 +433,8 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 		return &errors.InvalidStateError{}
 	case http.StatusLocked:
 		return &errors.AlreadyCompilingError{}
+	case http.StatusServiceUnavailable:
+		return &errors.CompilerUnavailableError{}
 	default:
 		return unexpectedStatus(res)
 	}
