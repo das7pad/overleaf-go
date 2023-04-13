@@ -17,10 +17,11 @@
 package resourceWriter
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
-	"syscall"
 
+	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
@@ -70,20 +71,10 @@ func composeResourceCache(request *types.CompileRequest) ResourceCache {
 }
 
 func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache ResourceCache) error {
-	target := r.getStatePath(namespace)
-	tmp := target + "~"
-	file, err := os.Create(tmp)
-	if err != nil {
+	buf := bytes.Buffer{}
+	buf.Grow(10 * 1024)
+	if err := json.NewEncoder(&buf).Encode(cache); err != nil {
 		return err
 	}
-	defer func() {
-		_ = file.Close()
-	}()
-	if err = json.NewEncoder(file).Encode(cache); err != nil {
-		return err
-	}
-	if err = syscall.Rename(tmp, target); err != nil {
-		return err
-	}
-	return nil
+	return copyFile.Atomic(r.getStatePath(namespace), &buf)
 }
