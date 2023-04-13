@@ -41,7 +41,7 @@ type ResourceWriter interface {
 
 	Clear(projectId sharedTypes.UUID, namespace types.Namespace) error
 
-	GetState(namespace types.Namespace) types.SyncState
+	HasContent(namespace types.Namespace) bool
 }
 
 func New(options *types.Options, finder outputFileFinder.Finder) (ResourceWriter, error) {
@@ -73,9 +73,9 @@ type resourceWriter struct {
 	urlCache urlCache.URLCache
 }
 
-func (r *resourceWriter) GetState(namespace types.Namespace) types.SyncState {
-	s, _ := r.loadResourceCache(namespace)
-	return s
+func (r *resourceWriter) HasContent(namespace types.Namespace) bool {
+	_, err := os.Stat(r.getStatePath(namespace))
+	return err == nil
 }
 
 func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {

@@ -96,7 +96,7 @@ func newProject(
 		projectId: projectId,
 		managers:  m,
 	}
-	if m.writer.GetState(namespace) != types.SyncStateCleared {
+	if m.writer.HasContent(namespace) {
 		p.hasContent.Store(true)
 	}
 	return &p, nil
