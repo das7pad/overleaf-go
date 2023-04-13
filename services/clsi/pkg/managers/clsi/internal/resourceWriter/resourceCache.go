@@ -34,24 +34,26 @@ func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
 		Join(constants.ProjectSyncStateFilename)
 }
 
-type resourceCacheEntry struct {
-	Path sharedTypes.PathName `json:"p"`
-	URL  *sharedTypes.URL     `json:"u"`
+type ResourceCache map[sharedTypes.PathName]struct{}
+type projectState struct {
+	FlatResourceCache []sharedTypes.PathName
 }
 
-type ResourceCache map[sharedTypes.PathName]resourceCacheEntry
-
 func (r *resourceWriter) loadResourceCache(namespace types.Namespace) ResourceCache {
-	cache := make(ResourceCache)
 	file, err := os.Open(r.getStatePath(namespace))
 	if err != nil {
-		return cache
+		return nil
 	}
 	defer func() {
 		_ = file.Close()
 	}()
-	if err = json.NewDecoder(file).Decode(&cache); err != nil {
-		return cache
+	s := projectState{}
+	if err = json.NewDecoder(file).Decode(&s); err != nil {
+		return nil
+	}
+	cache := make(ResourceCache, len(s.FlatResourceCache))
+	for _, p := range s.FlatResourceCache {
+		cache[p] = struct{}{}
 	}
 	return cache
 }
@@ -62,18 +64,21 @@ func composeResourceCache(request *types.CompileRequest) ResourceCache {
 		if resource == request.RootDocAliasResource {
 			continue
 		}
-		cache[resource.Path] = resourceCacheEntry{
-			Path: resource.Path,
-			URL:  resource.URL,
-		}
+		cache[resource.Path] = struct{}{}
 	}
 	return cache
 }
 
 func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache ResourceCache) error {
+	s := projectState{
+		FlatResourceCache: make([]sharedTypes.PathName, 0, len(cache)),
+	}
+	for p := range cache {
+		s.FlatResourceCache = append(s.FlatResourceCache, p)
+	}
 	buf := bytes.Buffer{}
 	buf.Grow(10 * 1024)
-	if err := json.NewEncoder(&buf).Encode(cache); err != nil {
+	if err := json.NewEncoder(&buf).Encode(s); err != nil {
 		return err
 	}
 	return copyFile.Atomic(r.getStatePath(namespace), &buf)
