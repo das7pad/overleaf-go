@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -41,7 +41,7 @@ type ResourceWriter interface {
 
 	Clear(projectId sharedTypes.UUID, namespace types.Namespace) error
 
-	GetState(namespace types.Namespace) (types.SyncState, error)
+	GetState(namespace types.Namespace) types.SyncState
 }
 
 func New(options *types.Options, finder outputFileFinder.Finder) (ResourceWriter, error) {
@@ -73,15 +73,9 @@ type resourceWriter struct {
 	urlCache urlCache.URLCache
 }
 
-func (r *resourceWriter) GetState(namespace types.Namespace) (types.SyncState, error) {
-	p := r.getStatePath(namespace)
-	if _, err := os.Stat(p); err != nil {
-		if os.IsNotExist(err) {
-			return types.SyncStateCleared, nil
-		}
-		return "", err
-	}
-	return "", nil
+func (r *resourceWriter) GetState(namespace types.Namespace) types.SyncState {
+	s, _ := r.loadResourceCache(namespace)
+	return s
 }
 
 func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
@@ -163,7 +157,7 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId shar
 		return nil, err
 	}
 
-	err = r.storeResourceCache(namespace, cache)
+	err = r.storeResourceCache(namespace, cache, request.Options.SyncState)
 	if err != nil {
 		return nil, err
 	}
@@ -171,8 +165,8 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId shar
 }
 
 func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
-	cache := r.loadResourceCache(namespace)
-	if len(cache) == 0 {
+	s, cache := r.loadResourceCache(namespace)
+	if s == types.SyncStateCleared {
 		return nil, &errors.InvalidStateError{
 			Msg: "missing cache for incremental sync",
 		}

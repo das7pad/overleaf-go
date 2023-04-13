@@ -37,25 +37,26 @@ func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
 type ResourceCache map[sharedTypes.PathName]struct{}
 type projectState struct {
 	FlatResourceCache []sharedTypes.PathName
+	SyncState         types.SyncState
 }
 
-func (r *resourceWriter) loadResourceCache(namespace types.Namespace) ResourceCache {
+func (r *resourceWriter) loadResourceCache(namespace types.Namespace) (types.SyncState, ResourceCache) {
 	file, err := os.Open(r.getStatePath(namespace))
 	if err != nil {
-		return nil
+		return types.SyncStateCleared, nil
 	}
 	defer func() {
 		_ = file.Close()
 	}()
 	s := projectState{}
 	if err = json.NewDecoder(file).Decode(&s); err != nil {
-		return nil
+		return types.SyncStateCleared, nil
 	}
 	cache := make(ResourceCache, len(s.FlatResourceCache))
 	for _, p := range s.FlatResourceCache {
 		cache[p] = struct{}{}
 	}
-	return cache
+	return s.SyncState, cache
 }
 
 func composeResourceCache(request *types.CompileRequest) ResourceCache {
@@ -69,9 +70,10 @@ func composeResourceCache(request *types.CompileRequest) ResourceCache {
 	return cache
 }
 
-func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache ResourceCache) error {
+func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache ResourceCache, syncState types.SyncState) error {
 	s := projectState{
 		FlatResourceCache: make([]sharedTypes.PathName, 0, len(cache)),
+		SyncState:         syncState,
 	}
 	for p := range cache {
 		s.FlatResourceCache = append(s.FlatResourceCache, p)
