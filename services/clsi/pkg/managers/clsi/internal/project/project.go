@@ -131,7 +131,12 @@ func (p *project) IsHealthy(activeThreshold time.Time) bool {
 
 func (p *project) Cleanup() error {
 	p.dead.Store(true)
-	return p.triggerCleanup()
+	if err := p.doCleanup(true); err != nil {
+		log.Printf("cleanup failed for %q: %s", p.namespace, err)
+		return err
+	}
+	return nil
+
 }
 
 func (p *project) CleanupUnlessHealthy(activeThreshold time.Time) error {
@@ -142,7 +147,7 @@ func (p *project) CleanupUnlessHealthy(activeThreshold time.Time) error {
 }
 
 func (p *project) ClearCache() error {
-	return p.triggerCleanup()
+	return p.doCleanup(false)
 }
 
 func (p *project) Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error {
@@ -218,31 +223,21 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 }
 
 func (p *project) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
-	if err := p.checkStateExpectAnyContent(); err != nil {
+	p.stateMux.RLock()
+	defer p.stateMux.RUnlock()
+	if err := p.checkIsDead(); err != nil {
 		return err
 	}
-
-	return p.syncTex.FromCode(
-		ctx,
-		p.run,
-		p.namespace,
-		request,
-		positions,
-	)
+	return p.syncTex.FromCode(ctx, p.run, p.namespace, request, positions)
 }
 
 func (p *project) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
-	if err := p.checkStateExpectAnyContent(); err != nil {
+	p.stateMux.RLock()
+	defer p.stateMux.RUnlock()
+	if err := p.checkIsDead(); err != nil {
 		return err
 	}
-
-	return p.syncTex.FromPDF(
-		ctx,
-		p.run,
-		p.namespace,
-		request,
-		positions,
-	)
+	return p.syncTex.FromPDF(ctx, p.run, p.namespace, request, positions)
 }
 
 func (p *project) Touch() {
@@ -288,7 +283,7 @@ func (p *project) checkStateExpectAnyContent() error {
 	return nil
 }
 
-func (p *project) doCleanup() error {
+func (p *project) doCleanup(clearOutputCache bool) error {
 	p.abortPendingCompileMux.Lock()
 	if abort := p.abortPendingCompile; abort != nil {
 		abort()
@@ -308,7 +303,10 @@ func (p *project) doCleanup() error {
 
 	errRunner := p.runner.Stop(p.namespace)
 	errWriter := p.writer.Clear(p.projectId, p.namespace)
-	errOutputCache := p.outputCache.Clear(p.namespace)
+	var errOutputCache error
+	if clearOutputCache {
+		errOutputCache = p.outputCache.Clear(p.namespace)
+	}
 
 	if errRunner != nil {
 		return errRunner
@@ -320,16 +318,6 @@ func (p *project) doCleanup() error {
 		return errOutputCache
 	}
 
-	return nil
-}
-
-func (p *project) triggerCleanup() error {
-	if err := p.doCleanup(); err != nil {
-		log.Printf("cleanup failed for %q: %s", p.namespace, err)
-		// Schedule this instance for recycling.
-		p.dead.Store(true)
-		return err
-	}
 	return nil
 }
 

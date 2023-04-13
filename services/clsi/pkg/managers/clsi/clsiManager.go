@@ -112,7 +112,7 @@ func (m *manager) CleanupOldProjects(ctx context.Context, threshold time.Time) e
 }
 
 func (m *manager) ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
-	return m.pm.CleanupProject(projectId, userId)
+	return m.pm.ClearProjectCache(projectId, userId)
 }
 
 func (m *manager) Compile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.CompileRequest, response *types.CompileResponse) error {

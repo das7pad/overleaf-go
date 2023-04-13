@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -44,6 +44,8 @@ type Manager interface {
 	) (Project, error)
 
 	CleanupProject(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
+
+	ClearProjectCache(projectId, userId sharedTypes.UUID) error
 
 	CleanupOldProjects(
 		ctx context.Context,
@@ -156,23 +158,29 @@ func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.T
 	return nil
 }
 
+func (m *manager) ClearProjectCache(projectId, userId sharedTypes.UUID) error {
+	key := projectKey{
+		ProjectId: projectId,
+		UserId:    userId,
+	}
+	if p, exists := m.getExistingProject(key); exists {
+		return p.ClearCache()
+	}
+	return nil
+}
+
 func (m *manager) CleanupProject(projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
 	key := projectKey{
 		ProjectId: projectId,
 		UserId:    userId,
 	}
 
-	p := m.getExistingProject(key)
-	if p == nil {
-		// Already cleaned up.
-		return nil
+	if p, exists := m.getExistingProject(key); exists {
+		if err := p.Cleanup(); err != nil {
+			return err
+		}
+		m.cleanupIfStillDead(key, p)
 	}
-
-	if err := p.Cleanup(); err != nil {
-		return err
-	}
-
-	m.cleanupIfStillDead(key, p)
 	return nil
 }
 
@@ -191,8 +199,8 @@ func (m *manager) getOrCreateProject(ctx context.Context, projectId sharedTypes.
 		UserId:    userId,
 	}
 
-	p := m.getExistingProject(key)
-	if p != nil {
+	p, exists := m.getExistingProject(key)
+	if exists {
 		if err := ctx.Err(); err != nil {
 			// Cancelled or timed out.
 			return nil, err
@@ -225,8 +233,7 @@ func (m *manager) setIfStillDead(key projectKey, deadProject Project, newProject
 	m.l.Lock()
 	defer m.l.Unlock()
 
-	p, exists := m.projects[key]
-	if exists && p != deadProject {
+	if p, exists := m.projects[key]; exists && p != deadProject {
 		// Someone else won the race, return their Project instance.
 		return p
 	}
@@ -238,15 +245,16 @@ func (m *manager) cleanupIfStillDead(key projectKey, deadProject Project) {
 	m.l.Lock()
 	defer m.l.Unlock()
 
-	if p := m.projects[key]; p == deadProject {
+	if p, exists := m.projects[key]; exists && p == deadProject {
 		// Nobody replaced the project yet.
 		delete(m.projects, key)
 	}
 }
 
-func (m *manager) getExistingProject(key projectKey) Project {
+func (m *manager) getExistingProject(key projectKey) (Project, bool) {
 	m.l.RLock()
 	defer m.l.RUnlock()
 
-	return m.projects[key]
+	p, exists := m.projects[key]
+	return p, exists
 }
