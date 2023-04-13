@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -50,28 +50,29 @@ func (c CheckMode) Validate() error {
 
 type SyncState string
 
-const SyncStateCleared = SyncState("__INTERNAL_CLEARED__")
+const SyncStateCleared = SyncState("")
 
 func (s SyncState) Validate() error {
-	// SyncTypeFull does not send any state :/
+	if s == "" {
+		return &errors.ValidationError{Msg: "missing sync state"}
+	}
 	return nil
 }
 
 type SyncType string
 
 const (
-	SyncTypeFull            = SyncType("")
 	SyncTypeFullIncremental = SyncType("full")
 	SyncTypeIncremental     = SyncType("incremental")
 )
 
 func (s SyncType) IsFull() bool {
-	return s == SyncTypeFull || s == SyncTypeFullIncremental
+	return s == SyncTypeFullIncremental
 }
 
 func (s SyncType) Validate() error {
 	switch s {
-	case SyncTypeFull, SyncTypeFullIncremental, SyncTypeIncremental:
+	case SyncTypeFullIncremental, SyncTypeIncremental:
 		return nil
 	default:
 		return &errors.ValidationError{Msg: "syncType is not allowed"}

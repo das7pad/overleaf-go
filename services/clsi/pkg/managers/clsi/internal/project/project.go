@@ -91,15 +91,15 @@ func newProject(
 		}
 	}
 
-	return &project{
+	p := project{
 		namespace: namespace,
 		projectId: projectId,
-
-		state:                 m.writer.GetState(namespace),
-		runnerSetupValidUntil: time.Now(),
-
-		managers: m,
-	}, nil
+		managers:  m,
+	}
+	if m.writer.GetState(namespace) != types.SyncStateCleared {
+		p.hasContent.Store(true)
+	}
+	return &p, nil
 }
 
 type project struct {
@@ -108,8 +108,8 @@ type project struct {
 	namespace  types.Namespace
 	projectId  sharedTypes.UUID
 
-	stateMux sync.RWMutex
-	state    types.SyncState
+	stateMux   sync.RWMutex
+	hasContent atomic.Bool
 
 	runnerSetupMux        sync.RWMutex
 	runnerSetupValidUntil time.Time
@@ -146,14 +146,10 @@ func (p *project) ClearCache() error {
 }
 
 func (p *project) Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error {
-	options := request.Options
 	p.stateMux.RLock()
 	defer p.stateMux.RUnlock()
 
 	if err := p.checkIsDead(); err != nil {
-		return err
-	}
-	if err := p.checkSyncState(options.SyncType, options.SyncState); err != nil {
 		return err
 	}
 
@@ -197,7 +193,7 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	if err != nil {
 		return err
 	}
-	p.state = request.Options.SyncState
+	p.hasContent.Store(true)
 
 	err = p.latexRunner.Run(ctx, p.run, p.namespace, request, response)
 	if err != nil {
@@ -284,30 +280,9 @@ func (p *project) checkStateExpectAnyContent() error {
 	if err := p.checkIsDead(); err != nil {
 		return err
 	}
-	if p.state == types.SyncStateCleared {
+	if !p.hasContent.Load() {
 		return &errors.InvalidStateError{
 			Msg: "project contents are missing",
-		}
-	}
-	return nil
-}
-
-func (p *project) checkSyncState(syncType types.SyncType, state types.SyncState) error {
-	if syncType.IsFull() {
-		// SyncTypeFull and SyncTypeFullIncremental overwrite everything.
-		return nil
-	}
-
-	needsFullSync := p.state == "" || p.state == types.SyncStateCleared
-	if needsFullSync {
-		return &errors.InvalidStateError{
-			Msg: "local sync state empty and incoming syncType!=full",
-		}
-	}
-
-	if p.state != state {
-		return &errors.InvalidStateError{
-			Msg: "local sync state differs remote state",
 		}
 	}
 	return nil
@@ -329,7 +304,7 @@ func (p *project) doCleanup() error {
 	// Take write lock
 	p.stateMux.Lock()
 	defer p.stateMux.Unlock()
-	p.state = types.SyncStateCleared
+	p.hasContent.Store(false)
 
 	errRunner := p.runner.Stop(p.namespace)
 	errWriter := p.writer.Clear(p.projectId, p.namespace)

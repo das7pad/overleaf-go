@@ -82,14 +82,11 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 	dir := r.compileBaseDir.CompileDir(namespace)
 	var cache ResourceCache
 	var err error
-	switch {
-	case request.Options.SyncType == types.SyncTypeFull:
-		cache, err = r.fullSync(ctx, projectId, request, dir)
-	case request.Options.SyncType == types.SyncTypeFullIncremental:
+	if request.Options.SyncType == types.SyncTypeFullIncremental {
 		cache, err = r.fullSyncIncremental(
 			ctx, projectId, namespace, request, dir,
 		)
-	default:
+	} else {
 		cache, err = r.incrementalSync(ctx, projectId, namespace, request, dir)
 	}
 	if err != nil {
@@ -103,15 +100,12 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 		if err = ctx.Err(); err != nil {
 			return nil, err
 		}
-		// Retry once when doing a fully sync.
-		switch request.Options.SyncType {
-		case types.SyncTypeFull:
-			cache, err = r.fullSync(ctx, projectId, request, dir)
-		case types.SyncTypeFullIncremental:
+		// Retry once when doing a full sync.
+		if request.Options.SyncType == types.SyncTypeFullIncremental {
 			cache, err = r.fullSyncIncremental(
 				ctx, projectId, namespace, request, dir,
 			)
-		case types.SyncTypeIncremental:
+		} else {
 			// Let web try with a full sync request again.
 			return nil, err
 		}
@@ -139,16 +133,6 @@ func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Names
 	return nil
 }
 
-func (r *resourceWriter) fullSync(ctx context.Context, projectId sharedTypes.UUID, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
-	cache := composeResourceCache(request)
-
-	err := r.sync(ctx, projectId, request, dir, cache)
-	if err != nil {
-		return nil, err
-	}
-	return cache, nil
-}
-
 func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := composeResourceCache(request)
 
@@ -166,9 +150,9 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId shar
 
 func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	s, cache := r.loadResourceCache(namespace)
-	if s == types.SyncStateCleared {
+	if s != request.Options.SyncState {
 		return nil, &errors.InvalidStateError{
-			Msg: "missing cache for incremental sync",
+			Msg: "local sync state differs remote state, must perform full sync",
 		}
 	}
 

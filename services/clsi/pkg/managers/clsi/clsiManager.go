@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -165,7 +165,8 @@ Hello world
 			CompileGroup: sharedTypes.StandardCompileGroup,
 			Compiler:     sharedTypes.PDFLaTeX,
 			ImageName:    m.healthCheckImageName,
-			SyncType:     types.SyncTypeFull,
+			SyncState:    "42",
+			SyncType:     types.SyncTypeFullIncremental,
 			Timeout:      sharedTypes.ComputeTimeout(10 * time.Second),
 		},
 		Resources: types.Resources{
