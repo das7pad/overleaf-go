@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,18 +23,12 @@ import (
 
 type CacheBaseDir string
 
-func (d CacheBaseDir) NamespacedCacheDir(namespace Namespace) NamespacedCacheDir {
-	return NamespacedCacheDir(string(d) + "/" + string(namespace))
+func (d CacheBaseDir) StateFile(namespace Namespace) string {
+	return string(d) + "/state/" + string(namespace) + constants.ProjectSyncStateFilename
 }
 
 func (d CacheBaseDir) ProjectCacheDir(projectId sharedTypes.UUID) ProjectCacheDir {
 	return ProjectCacheDir(string(d) + "/" + projectId.String())
-}
-
-type NamespacedCacheDir string
-
-func (d NamespacedCacheDir) Join(name sharedTypes.PathName) string {
-	return string(d) + "/" + string(name)
 }
 
 type ProjectCacheDir string

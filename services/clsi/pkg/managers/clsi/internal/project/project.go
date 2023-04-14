@@ -79,7 +79,6 @@ func newProject(
 	namespace := types.Namespace(projectId.String() + "-" + userId.String())
 
 	createPaths := []string{
-		string(paths.CacheBaseDir.NamespacedCacheDir(namespace)),
 		string(paths.CompileBaseDir.CompileDir(namespace)),
 		string(paths.OutputBaseDir.OutputDir(namespace)),
 		paths.OutputBaseDir.OutputDir(namespace).CompileOutput(),

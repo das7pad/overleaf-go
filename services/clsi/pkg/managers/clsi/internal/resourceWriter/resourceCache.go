@@ -23,16 +23,8 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
-
-func (r *resourceWriter) getStatePath(namespace types.Namespace) string {
-	return r.
-		cacheBaseDir.
-		NamespacedCacheDir(namespace).
-		Join(constants.ProjectSyncStateFilename)
-}
 
 type ResourceCache map[sharedTypes.PathName]struct{}
 type projectState struct {
@@ -41,7 +33,7 @@ type projectState struct {
 }
 
 func (r *resourceWriter) loadResourceCache(namespace types.Namespace) (types.SyncState, ResourceCache) {
-	file, err := os.Open(r.getStatePath(namespace))
+	file, err := os.Open(r.cacheBaseDir.StateFile(namespace))
 	if err != nil {
 		return types.SyncStateCleared, nil
 	}
@@ -83,5 +75,5 @@ func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache Res
 	if err := json.NewEncoder(&buf).Encode(s); err != nil {
 		return err
 	}
-	return copyFile.Atomic(r.getStatePath(namespace), &buf)
+	return copyFile.Atomic(r.cacheBaseDir.StateFile(namespace), &buf)
 }

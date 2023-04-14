@@ -19,6 +19,7 @@ package resourceWriter
 import (
 	"context"
 	"os"
+	"path"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -53,6 +54,10 @@ func New(options *types.Options, finder outputFileFinder.Finder) (ResourceWriter
 	if err = os.MkdirAll(cacheDir, 0o700); err != nil {
 		return nil, err
 	}
+	stateDir := path.Dir(options.CacheBaseDir.StateFile(""))
+	if err = os.MkdirAll(stateDir, 0o700); err != nil {
+		return nil, err
+	}
 
 	return &resourceWriter{
 		cacheBaseDir:          options.CacheBaseDir,
@@ -74,7 +79,7 @@ type resourceWriter struct {
 }
 
 func (r *resourceWriter) HasContent(namespace types.Namespace) bool {
-	_, err := os.Stat(r.getStatePath(namespace))
+	_, err := os.Stat(r.cacheBaseDir.StateFile(namespace))
 	return err == nil
 }
 
@@ -120,14 +125,13 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 }
 
 func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Namespace) error {
-	cacheDir := r.cacheBaseDir.NamespacedCacheDir(namespace)
 	compileDir := r.compileBaseDir.CompileDir(namespace)
-	errClearCache := os.RemoveAll(string(cacheDir))
+	errClearState := os.Remove(r.cacheBaseDir.StateFile(namespace))
 	errClearCompileDir := os.RemoveAll(string(compileDir))
 	errClearURLCache := r.urlCache.ClearForProject(projectId)
 
-	if errClearCache != nil && !os.IsNotExist(errClearCache) {
-		return errClearCache
+	if errClearState != nil && !os.IsNotExist(errClearState) {
+		return errClearState
 	}
 	if errClearCompileDir != nil && !os.IsNotExist(errClearCompileDir) {
 		return errClearCompileDir
