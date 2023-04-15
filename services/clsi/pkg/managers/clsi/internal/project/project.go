@@ -130,7 +130,7 @@ func (p *project) IsHealthy(activeThreshold time.Time) bool {
 
 func (p *project) Cleanup() error {
 	p.dead.Store(true)
-	if err := p.doCleanup(true); err != nil {
+	if err := p.doCleanup(false); err != nil {
 		log.Printf("cleanup failed for %q: %s", p.namespace, err)
 		return err
 	}
@@ -146,7 +146,7 @@ func (p *project) CleanupUnlessHealthy(activeThreshold time.Time) error {
 }
 
 func (p *project) ClearCache() error {
-	return p.doCleanup(false)
+	return p.doCleanup(true)
 }
 
 func (p *project) Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error {
@@ -282,7 +282,7 @@ func (p *project) checkStateExpectAnyContent() error {
 	return nil
 }
 
-func (p *project) doCleanup(clearOutputCache bool) error {
+func (p *project) doCleanup(isClearCache bool) error {
 	p.abortPendingCompileMux.Lock()
 	if abort := p.abortPendingCompile; abort != nil {
 		abort()
@@ -303,7 +303,14 @@ func (p *project) doCleanup(clearOutputCache bool) error {
 	errRunner := p.runner.Stop(p.namespace)
 	errWriter := p.writer.Clear(p.projectId, p.namespace)
 	var errOutputCache error
-	if clearOutputCache {
+	if isClearCache {
+		// Create the compile dir again.
+		if err := p.writer.CreateCompileDir(p.namespace); err != nil {
+			// The next runner setup needs this directory. Start over.
+			p.dead.Store(true)
+			return err
+		}
+	} else {
 		errOutputCache = p.outputCache.Clear(p.namespace)
 	}
 

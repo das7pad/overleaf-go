@@ -40,6 +40,8 @@ type ResourceWriter interface {
 		request *types.CompileRequest,
 	) (ResourceCache, error)
 
+	CreateCompileDir(namespace types.Namespace) error
+
 	Clear(projectId sharedTypes.UUID, namespace types.Namespace) error
 
 	HasContent(namespace types.Namespace) bool
@@ -76,6 +78,14 @@ type resourceWriter struct {
 	finder outputFileFinder.Finder
 
 	urlCache urlCache.URLCache
+}
+
+func (r *resourceWriter) CreateCompileDir(namespace types.Namespace) error {
+	compileDir := string(r.compileBaseDir.CompileDir(namespace))
+	if err := os.Mkdir(compileDir, 0o755); err != nil && !os.IsExist(err) {
+		return errors.Tag(err, "create compile dir")
+	}
+	return nil
 }
 
 func (r *resourceWriter) HasContent(namespace types.Namespace) bool {
