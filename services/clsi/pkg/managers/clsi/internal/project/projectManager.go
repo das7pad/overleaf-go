@@ -37,20 +37,10 @@ import (
 )
 
 type Manager interface {
-	GetProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-	) (Project, error)
-
+	GetProject(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID) (Project, error)
 	CleanupProject(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
-
 	ClearProjectCache(projectId, userId sharedTypes.UUID) error
-
-	CleanupOldProjects(
-		ctx context.Context,
-		activeThreshold time.Time,
-	) error
+	CleanupOldProjects(ctx context.Context, activeThreshold time.Time) error
 }
 
 type managers struct {

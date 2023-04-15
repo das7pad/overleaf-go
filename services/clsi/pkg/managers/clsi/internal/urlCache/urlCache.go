@@ -29,21 +29,9 @@ import (
 )
 
 type URLCache interface {
-	SetupForProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-	) error
-
-	Download(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		resource *types.Resource,
-		dir types.CompileDir,
-	) error
-
-	ClearForProject(
-		projectId sharedTypes.UUID,
-	) error
+	SetupForProject(ctx context.Context, projectId sharedTypes.UUID) error
+	Download(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, dir types.CompileDir) error
+	ClearForProject(projectId sharedTypes.UUID) error
 }
 
 func New(options *types.Options) (URLCache, error) {

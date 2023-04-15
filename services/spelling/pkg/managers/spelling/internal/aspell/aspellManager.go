@@ -26,11 +26,7 @@ import (
 )
 
 type Manager interface {
-	CheckWords(
-		ctx context.Context,
-		language types.SpellCheckLanguage,
-		words []string,
-	) ([]types.Misspelling, error)
+	CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]types.Misspelling, error)
 }
 
 func New(lruSize int) (Manager, error) {

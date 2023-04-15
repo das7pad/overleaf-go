@@ -41,38 +41,13 @@ import (
 )
 
 type Manager interface {
-	Compile(
-		ctx context.Context,
-		request *types.CompileProjectRequest,
-		response *types.CompileProjectResponse,
-	) error
-
+	Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error
 	CompileHeadLess(ctx context.Context, request *types.CompileProjectHeadlessRequest, response *types.CompileProjectResponse) error
-
-	ClearCache(
-		ctx context.Context,
-		request *types.ClearCompileCacheRequest,
-	) error
-
+	ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error
 	StartInBackground(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName) error
-
-	SyncFromCode(
-		ctx context.Context,
-		request *types.SyncFromCodeRequest,
-		positions *clsiTypes.PDFPositions,
-	) error
-
-	SyncFromPDF(
-		ctx context.Context,
-		request *types.SyncFromPDFRequest,
-		positions *clsiTypes.CodePositions,
-	) error
-
-	WordCount(
-		ctx context.Context,
-		request *types.WordCountRequest,
-		words *clsiTypes.Words,
-	) error
+	SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error
+	SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error
+	WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error
 }
 
 func New(options *types.Options, client redis.UniversalClient, dum documentUpdater.Manager, fm filestore.Manager, pm project.Manager, um user.Manager, bundle ClsiManager) (Manager, error) {

@@ -34,40 +34,15 @@ import (
 type Project interface {
 	IsDead() bool
 	IsHealthy(activeThreshold time.Time) bool
-
 	Cleanup() error
-
 	CleanupUnlessHealthy(activeThreshold time.Time) error
-
 	ClearCache() error
-
-	Compile(
-		ctx context.Context,
-		request *types.CompileRequest,
-		response *types.CompileResponse,
-	) error
-
+	Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error
 	StartInBackground(imageName sharedTypes.ImageName)
-
-	SyncFromCode(
-		ctx context.Context,
-		request *types.SyncFromCodeRequest,
-		positions *types.PDFPositions,
-	) error
-
-	SyncFromPDF(
-		ctx context.Context,
-		request *types.SyncFromPDFRequest,
-		positions *types.CodePositions,
-	) error
-
+	SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error
+	SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *types.CodePositions) error
 	Touch()
-
-	WordCount(
-		ctx context.Context,
-		request *types.WordCountRequest,
-		words *types.Words,
-	) error
+	WordCount(ctx context.Context, request *types.WordCountRequest, words *types.Words) error
 }
 
 func newProject(

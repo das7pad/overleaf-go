@@ -42,13 +42,9 @@ type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
 	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error)
-
 	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error
-
 	RenameDoc(ctx context.Context, projectId, docId sharedTypes.UUID, newPath sharedTypes.PathName) error
-
 	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId sharedTypes.UUID) error
-
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
 	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
 	FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error

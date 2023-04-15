@@ -37,12 +37,7 @@ import (
 )
 
 type Manager interface {
-	SaveOutputFiles(
-		ctx context.Context,
-		allResources resourceWriter.ResourceCache,
-		namespace types.Namespace,
-	) (types.OutputFiles, HasOutputPDF, error)
-
+	SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error)
 	Clear(namespace types.Namespace) error
 }
 

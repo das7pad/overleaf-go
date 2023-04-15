@@ -41,9 +41,7 @@ type Manager interface {
 	InitiateGracefulShutdown()
 	TriggerGracefulReconnect()
 	IsShuttingDown() bool
-
 	PeriodicCleanup(ctx context.Context)
-
 	BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error)
 	RPC(ctx context.Context, rpc *types.RPC)
 	Disconnect(client *types.Client) error

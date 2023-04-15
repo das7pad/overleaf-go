@@ -31,46 +31,14 @@ import (
 
 type Manager interface {
 	CleanupOldProjects(ctx context.Context, threshold time.Time) error
-
 	ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
-
-	Compile(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-		request *types.CompileRequest,
-		response *types.CompileResponse,
-	) error
-
+	Compile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.CompileRequest, response *types.CompileResponse) error
 	HealthCheck(ctx context.Context) error
-
 	PeriodicCleanup(ctx context.Context)
-
 	StartInBackground(ctx context.Context, projectId, userId sharedTypes.UUID, request *types.StartInBackgroundRequest) error
-
-	SyncFromCode(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-		request *types.SyncFromCodeRequest,
-		positions *types.PDFPositions,
-	) error
-
-	SyncFromPDF(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-		request *types.SyncFromPDFRequest,
-		positions *types.CodePositions,
-	) error
-
-	WordCount(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		userId sharedTypes.UUID,
-		request *types.WordCountRequest,
-		words *types.Words,
-	) error
+	SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error
+	SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error
+	WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.WordCountRequest, words *types.Words) error
 }
 
 func New(options *types.Options) (Manager, error) {

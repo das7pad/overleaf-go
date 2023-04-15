@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,13 +31,7 @@ import (
 )
 
 type Counter interface {
-	Count(
-		ctx context.Context,
-		run commandRunner.NamespacedRun,
-		namespace types.Namespace,
-		request *types.WordCountRequest,
-		words *types.Words,
-	) error
+	Count(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.WordCountRequest, words *types.Words) error
 }
 
 func New(options *types.Options) Counter {

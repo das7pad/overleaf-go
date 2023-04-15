@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,22 +30,9 @@ import (
 
 type Manager interface {
 	ConfirmUpdates(ctx context.Context, processed []sharedTypes.DocumentUpdate) error
-
-	GetPendingUpdatesForDoc(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-	) ([]sharedTypes.DocumentUpdate, error)
-
-	GetUpdatesLength(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-	) (int64, error)
-
-	ReportError(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-		err error,
-	) error
+	GetPendingUpdatesForDoc(ctx context.Context, docId sharedTypes.UUID) ([]sharedTypes.DocumentUpdate, error)
+	GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) (int64, error)
+	ReportError(ctx context.Context, docId sharedTypes.UUID, err error) error
 }
 
 func New(client redis.UniversalClient) (Manager, error) {

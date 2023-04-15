@@ -33,17 +33,9 @@ import (
 )
 
 type ResourceWriter interface {
-	SyncResourcesToDisk(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		namespace types.Namespace,
-		request *types.CompileRequest,
-	) (ResourceCache, error)
-
+	SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error)
 	CreateCompileDir(namespace types.Namespace) error
-
 	Clear(projectId sharedTypes.UUID, namespace types.Namespace) error
-
 	HasContent(namespace types.Namespace) bool
 }
 

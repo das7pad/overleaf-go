@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -33,73 +33,18 @@ import (
 )
 
 type Manager interface {
-	PutDocInMemory(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		docId sharedTypes.UUID,
-		doc *types.Doc,
-	) error
-
-	RemoveDocFromMemory(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		docId sharedTypes.UUID,
-	) error
-
-	GetDoc(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		docId sharedTypes.UUID,
-	) (*types.Doc, error)
-
-	GetDocVersion(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-	) (sharedTypes.Version, error)
-
-	GetPreviousDocUpdates(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-		start sharedTypes.Version,
-		end sharedTypes.Version,
-	) ([]sharedTypes.DocumentUpdate, error)
-
-	GetPreviousDocUpdatesUnderLock(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-		begin sharedTypes.Version,
-		end sharedTypes.Version,
-		docVersion sharedTypes.Version,
-	) ([]sharedTypes.DocumentUpdate, error)
-
-	UpdateDocument(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-		doc *types.Doc,
-		appliedUpdates []sharedTypes.DocumentUpdate,
-	) (int64, error)
-
+	PutDocInMemory(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc) error
+	RemoveDocFromMemory(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) error
+	GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) (*types.Doc, error)
+	GetDocVersion(ctx context.Context, docId sharedTypes.UUID) (sharedTypes.Version, error)
+	GetPreviousDocUpdates(ctx context.Context, docId sharedTypes.UUID, start sharedTypes.Version, end sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error)
+	GetPreviousDocUpdatesUnderLock(ctx context.Context, docId sharedTypes.UUID, begin sharedTypes.Version, end sharedTypes.Version, docVersion sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error)
+	UpdateDocument(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, appliedUpdates []sharedTypes.DocumentUpdate) (int64, error)
 	RenameDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc, newPath sharedTypes.PathName) error
-
-	ClearUnFlushedTime(
-		ctx context.Context,
-		docId sharedTypes.UUID,
-	) error
-
-	GetDocIdsInProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-	) ([]sharedTypes.UUID, error)
-
-	QueueFlushAndDeleteProject(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-	) error
-
-	GetNextProjectToFlushAndDelete(
-		ctx context.Context,
-		cutoffTime time.Time,
-	) (sharedTypes.UUID, int64, int64, error)
+	ClearUnFlushedTime(ctx context.Context, docId sharedTypes.UUID) error
+	GetDocIdsInProject(ctx context.Context, projectId sharedTypes.UUID) ([]sharedTypes.UUID, error)
+	QueueFlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
+	GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime time.Time) (sharedTypes.UUID, int64, int64, error)
 }
 
 func New(rClient redis.UniversalClient) Manager {

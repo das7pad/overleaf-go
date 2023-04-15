@@ -31,17 +31,8 @@ import (
 
 type Manager interface {
 	dispatchManager.Manager
-	CheckDocExists(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		docId sharedTypes.UUID,
-	) error
-	GetDoc(
-		ctx context.Context,
-		projectId sharedTypes.UUID,
-		docId sharedTypes.UUID,
-		fromVersion sharedTypes.Version,
-	) (*types.GetDocResponse, error)
+	CheckDocExists(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) error
+	GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error)
 	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error)
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
 	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error

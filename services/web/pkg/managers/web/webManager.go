@@ -73,7 +73,6 @@ type Manager interface {
 	GetPublicSettings() *templates.PublicSettings
 	GetProjectJWTHandler() jwtHandler.JWTHandler
 	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
-
 	betaProgramManager
 	compileManager
 	editorManager

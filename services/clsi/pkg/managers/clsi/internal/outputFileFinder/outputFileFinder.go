@@ -28,10 +28,7 @@ import (
 )
 
 type Finder interface {
-	FindAll(
-		ctx context.Context,
-		dir types.CompileDir,
-	) (*AllFilesAndDirs, error)
+	FindAll(ctx context.Context, dir types.CompileDir) (*AllFilesAndDirs, error)
 }
 
 func New(options *types.Options) Finder {
