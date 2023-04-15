@@ -27,8 +27,8 @@ func (d CacheBaseDir) StateFile(namespace Namespace) string {
 	return string(d) + "/state/" + string(namespace) + constants.ProjectSyncStateFilename
 }
 
-func (d CacheBaseDir) ProjectCacheDir(projectId sharedTypes.UUID) ProjectCacheDir {
-	return ProjectCacheDir(string(d) + "/" + projectId.String())
+func (d CacheBaseDir) ProjectCacheDir(namespace Namespace) ProjectCacheDir {
+	return ProjectCacheDir(string(d) + "/" + string(namespace[:36]))
 }
 
 type ProjectCacheDir string

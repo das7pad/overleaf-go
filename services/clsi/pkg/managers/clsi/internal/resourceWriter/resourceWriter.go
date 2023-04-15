@@ -33,9 +33,9 @@ import (
 )
 
 type ResourceWriter interface {
-	SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error)
+	SyncResourcesToDisk(ctx context.Context, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error)
 	CreateCompileDir(namespace types.Namespace) error
-	Clear(projectId sharedTypes.UUID, namespace types.Namespace) error
+	Clear(namespace types.Namespace) error
 	HasContent(namespace types.Namespace) bool
 }
 
@@ -85,23 +85,23 @@ func (r *resourceWriter) HasContent(namespace types.Namespace) bool {
 	return err == nil
 }
 
-func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
+func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
 	dir := r.compileBaseDir.CompileDir(namespace)
 	var cache ResourceCache
 	var err error
 	if request.Options.SyncType == types.SyncTypeFullIncremental {
 		cache, err = r.fullSyncIncremental(
-			ctx, projectId, namespace, request, dir,
+			ctx, namespace, request, dir,
 		)
 	} else {
-		cache, err = r.incrementalSync(ctx, projectId, namespace, request, dir)
+		cache, err = r.incrementalSync(ctx, namespace, request, dir)
 	}
 	if err != nil {
 		if err != outputFileFinder.ErrProjectHasTooManyFilesAndDirectories {
 			return nil, err
 		}
 		// Clear all the contents.
-		if err2 := r.Clear(projectId, namespace); err2 != nil {
+		if err2 := r.Clear(namespace); err2 != nil {
 			return nil, err
 		}
 		if err = ctx.Err(); err != nil {
@@ -109,9 +109,7 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 		}
 		// Retry once when doing a full sync.
 		if request.Options.SyncType == types.SyncTypeFullIncremental {
-			cache, err = r.fullSyncIncremental(
-				ctx, projectId, namespace, request, dir,
-			)
+			cache, err = r.fullSyncIncremental(ctx, namespace, request, dir)
 		} else {
 			// Let web try with a full sync request again.
 			return nil, err
@@ -126,11 +124,11 @@ func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, projectId shar
 	return cache, nil
 }
 
-func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Namespace) error {
+func (r *resourceWriter) Clear(namespace types.Namespace) error {
 	compileDir := r.compileBaseDir.CompileDir(namespace)
 	errClearState := os.Remove(r.cacheBaseDir.StateFile(namespace))
 	errClearCompileDir := os.RemoveAll(string(compileDir))
-	errClearURLCache := r.urlCache.ClearForProject(projectId)
+	errClearURLCache := r.urlCache.ClearForProject(namespace)
 
 	if errClearState != nil && !os.IsNotExist(errClearState) {
 		return errClearState
@@ -144,10 +142,10 @@ func (r *resourceWriter) Clear(projectId sharedTypes.UUID, namespace types.Names
 	return nil
 }
 
-func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
+func (r *resourceWriter) fullSyncIncremental(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	cache := composeResourceCache(request)
 
-	err := r.sync(ctx, projectId, request, dir, cache)
+	err := r.sync(ctx, namespace, request, dir, cache)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +157,7 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, projectId shar
 	return cache, nil
 }
 
-func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTypes.UUID, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
+func (r *resourceWriter) incrementalSync(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
 	s, cache := r.loadResourceCache(namespace)
 	if s != request.Options.SyncState {
 		return nil, &errors.InvalidStateError{
@@ -171,7 +169,7 @@ func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTy
 		return nil, err
 	}
 
-	err := r.sync(ctx, projectId, request, dir, cache)
+	err := r.sync(ctx, namespace, request, dir, cache)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +177,8 @@ func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTy
 	return cache, nil
 }
 
-func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {
-	if err := r.urlCache.SetupForProject(projectId); err != nil {
+func (r *resourceWriter) sync(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {
+	if err := r.urlCache.SetupForProject(namespace); err != nil {
 		return err
 	}
 
@@ -257,7 +255,7 @@ func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, r
 			for resource := range work {
 				err := r.writeResource(
 					workCtx,
-					projectId,
+					namespace,
 					resource,
 					compileDir,
 				)
@@ -279,11 +277,11 @@ func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, r
 	return nil
 }
 
-func (r *resourceWriter) writeResource(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, compileDir types.CompileDir) error {
+func (r *resourceWriter) writeResource(ctx context.Context, namespace types.Namespace, resource *types.Resource, compileDir types.CompileDir) error {
 	if resource.IsDoc() {
 		return r.writeDoc(resource, compileDir)
 	}
-	return r.writeFile(ctx, projectId, resource, compileDir)
+	return r.writeFile(ctx, namespace, resource, compileDir)
 }
 
 func (r *resourceWriter) writeDoc(resource *types.Resource, compileDir types.CompileDir) error {
@@ -294,6 +292,6 @@ func (r *resourceWriter) writeDoc(resource *types.Resource, compileDir types.Com
 	return os.WriteFile(compileDir.Join(resource.Path), blob, 0o600)
 }
 
-func (r *resourceWriter) writeFile(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, compileDir types.CompileDir) error {
-	return r.urlCache.Download(ctx, projectId, resource, compileDir)
+func (r *resourceWriter) writeFile(ctx context.Context, namespace types.Namespace, resource *types.Resource, compileDir types.CompileDir) error {
+	return r.urlCache.Download(ctx, namespace, resource, compileDir)
 }

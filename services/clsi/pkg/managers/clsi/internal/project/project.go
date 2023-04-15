@@ -62,7 +62,6 @@ func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers
 
 	p := project{
 		namespace: namespace,
-		projectId: projectId,
 		managers:  m,
 	}
 	if m.writer.HasContent(namespace) {
@@ -75,7 +74,6 @@ type project struct {
 	dead       atomic.Bool
 	lastAccess atomic.Int64
 	namespace  types.Namespace
-	projectId  sharedTypes.UUID
 
 	stateMux   sync.RWMutex
 	hasContent atomic.Bool
@@ -159,7 +157,6 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	response.Timings.Sync.Begin()
 	cache, err := p.writer.SyncResourcesToDisk(
 		ctx,
-		p.projectId,
 		p.namespace,
 		request,
 	)
@@ -271,7 +268,7 @@ func (p *project) doCleanup(isClearCache bool) error {
 	p.hasContent.Store(false)
 
 	errRunner := p.runner.Stop(p.namespace)
-	errWriter := p.writer.Clear(p.projectId, p.namespace)
+	errWriter := p.writer.Clear(p.namespace)
 	var errOutputCache error
 	if isClearCache {
 		// Create the compile dir again.

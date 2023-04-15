@@ -29,9 +29,9 @@ import (
 )
 
 type URLCache interface {
-	SetupForProject(projectId sharedTypes.UUID) error
-	Download(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, dir types.CompileDir) error
-	ClearForProject(projectId sharedTypes.UUID) error
+	SetupForProject(namespace types.Namespace) error
+	Download(ctx context.Context, namespace types.Namespace, resource *types.Resource, dir types.CompileDir) error
+	ClearForProject(namespace types.Namespace) error
 }
 
 func New(options *types.Options) (URLCache, error) {
@@ -57,16 +57,16 @@ type urlCache struct {
 	client http.Client
 }
 
-func (u *urlCache) SetupForProject(projectId sharedTypes.UUID) error {
-	err := os.Mkdir(string(u.projectDir(projectId)), 0o700)
+func (u *urlCache) SetupForProject(namespace types.Namespace) error {
+	err := os.Mkdir(string(u.projectDir(namespace)), 0o700)
 	if err == nil || os.IsExist(err) {
 		return nil
 	}
 	return err
 }
 
-func (u *urlCache) projectDir(projectId sharedTypes.UUID) types.ProjectCacheDir {
-	return u.cacheDir.ProjectCacheDir(projectId)
+func (u *urlCache) projectDir(namespace types.Namespace) types.ProjectCacheDir {
+	return u.cacheDir.ProjectCacheDir(namespace)
 }
 
 func (u *urlCache) downloadIntoCache(ctx context.Context, url sharedTypes.URL, cachePath string) error {
@@ -107,8 +107,8 @@ func (u *urlCache) downloadIntoCacheWithRetries(ctx context.Context, url sharedT
 	return err
 }
 
-func (u *urlCache) Download(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, dir types.CompileDir) error {
-	cachePath := u.projectDir(projectId).Join(
+func (u *urlCache) Download(ctx context.Context, namespace types.Namespace, resource *types.Resource, dir types.CompileDir) error {
+	cachePath := u.projectDir(namespace).Join(
 		sharedTypes.PathName(strings.ReplaceAll(resource.URL.Path, "/", "-")),
 	)
 	dest := dir.Join(resource.Path)
@@ -136,6 +136,6 @@ func (u *urlCache) Download(ctx context.Context, projectId sharedTypes.UUID, res
 	return nil
 }
 
-func (u *urlCache) ClearForProject(projectId sharedTypes.UUID) error {
-	return os.RemoveAll(string(u.projectDir(projectId)))
+func (u *urlCache) ClearForProject(namespace types.Namespace) error {
+	return os.RemoveAll(string(u.projectDir(namespace)))
 }
