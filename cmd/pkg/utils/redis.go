@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,10 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/redisOptions"
 )
 
-func ensureRedisAcceptsWrites(
-	ctx context.Context,
-	rClient redis.UniversalClient,
-) error {
+func ensureRedisAcceptsWrites(ctx context.Context, rClient redis.UniversalClient) error {
 	// Write a dummy value as health check on startup.
 	// Redis standalone: not reachable -> timeout
 	// Redis cluster: not reachable -> timeout

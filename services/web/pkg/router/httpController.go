@@ -59,10 +59,7 @@ type httpController struct {
 	wm web.Manager
 }
 
-func (h *httpController) addRoutes(
-	router *httpUtils.Router,
-	corsOptions httpUtils.CORSOptions,
-) *httpUtils.Router {
+func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUtils.CORSOptions) *httpUtils.Router {
 	router = router.Group("")
 	{
 		// SECURITY: Attach gateway page before CORS middleware.
@@ -853,9 +850,7 @@ func (h *httpController) unTrashProject(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func prepareFileResponse(
-	c *httpUtils.Context, filename sharedTypes.Filename, size int64,
-) {
+func prepareFileResponse(c *httpUtils.Context, filename sharedTypes.Filename, size int64) {
 	httpUtils.EndTotalTimer(c)
 	cd := fmt.Sprintf("attachment; filename=%q", filename)
 	c.Writer.Header().Set("Content-Disposition", cd)

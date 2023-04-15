@@ -42,33 +42,17 @@ func RespondErr(c *Context, err error) {
 	Respond(c, 0, nil, err)
 }
 
-func Respond(
-	c *Context,
-	code int,
-	body interface{},
-	err error,
-) {
+func Respond(c *Context, code int, body interface{}, err error) {
 	respondJSON(c, code, body, err, false)
 }
 
-func RespondWithIndent(
-	c *Context,
-	code int,
-	body interface{},
-	err error,
-) {
+func RespondWithIndent(c *Context, code int, body interface{}, err error) {
 	respondJSON(c, code, body, err, true)
 }
 
 var fatalSerializeError []byte
 
-func respondJSON(
-	c *Context,
-	code int,
-	body interface{},
-	err error,
-	indent bool,
-) {
+func respondJSON(c *Context, code int, body interface{}, err error, indent bool) {
 	if err != nil {
 		var errMessage string
 		code, errMessage = GetAndLogErrResponseDetails(c, err)

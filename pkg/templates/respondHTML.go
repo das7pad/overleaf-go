@@ -35,26 +35,11 @@ func shouldRedirectToLogin(s *session.Session, err error) bool {
 	return true
 }
 
-func RespondHTML(
-	c *httpUtils.Context,
-	body Renderer,
-	err error,
-	s *session.Session,
-	ps *PublicSettings,
-	flushSession func(c *httpUtils.Context, session *session.Session) error,
-) {
+func RespondHTML(c *httpUtils.Context, body Renderer, err error, s *session.Session, ps *PublicSettings, flushSession func(c *httpUtils.Context, session *session.Session) error) {
 	RespondHTMLCustomStatus(c, http.StatusOK, body, err, s, ps, flushSession)
 }
 
-func RespondHTMLCustomStatus(
-	c *httpUtils.Context,
-	code int,
-	body Renderer,
-	err error,
-	s *session.Session,
-	ps *PublicSettings,
-	flushSession func(c *httpUtils.Context, session *session.Session) error,
-) {
+func RespondHTMLCustomStatus(c *httpUtils.Context, code int, body Renderer, err error, s *session.Session, ps *PublicSettings, flushSession func(c *httpUtils.Context, session *session.Session) error) {
 	if err != nil {
 		if shouldRedirectToLogin(s, err) {
 			if c.Request.URL.Path != "/project" {

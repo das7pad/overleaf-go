@@ -45,12 +45,7 @@ type Project interface {
 	WordCount(ctx context.Context, request *types.WordCountRequest, words *types.Words) error
 }
 
-func newProject(
-	projectId sharedTypes.UUID,
-	userId sharedTypes.UUID,
-	m *managers,
-	paths types.Paths,
-) (Project, error) {
+func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers, paths types.Paths) (Project, error) {
 	namespace := types.Namespace(projectId.String() + "-" + userId.String())
 
 	createPaths := []string{

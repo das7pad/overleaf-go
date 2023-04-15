@@ -369,14 +369,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sha
 	return nil, errPartialFlush
 }
 
-func (m *manager) persistProcessedUpdates(
-	ctx context.Context,
-	projectId, docId sharedTypes.UUID,
-	doc *types.Doc,
-	initialVersion sharedTypes.Version,
-	processed []sharedTypes.DocumentUpdate,
-	updateErr error,
-) error {
+func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, doc *types.Doc, initialVersion sharedTypes.Version, processed []sharedTypes.DocumentUpdate, updateErr error) error {
 	var queueDepth int64
 	var err error
 	appliedUpdates := make([]sharedTypes.DocumentUpdate, 0, len(processed))

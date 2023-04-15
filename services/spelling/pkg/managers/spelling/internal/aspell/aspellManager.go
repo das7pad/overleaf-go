@@ -49,11 +49,7 @@ type manager struct {
 	runner aspellRunner.Runner
 }
 
-func (m *manager) CheckWords(
-	ctx context.Context,
-	language types.SpellCheckLanguage,
-	words []string,
-) ([]types.Misspelling, error) {
+func (m *manager) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]types.Misspelling, error) {
 	if err := language.Validate(); err != nil {
 		return nil, err
 	}
