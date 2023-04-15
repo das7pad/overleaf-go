@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,8 +28,8 @@ import (
 
 type Manager interface {
 	OpenInOverleaf(ctx context.Context, request *types.OpenInOverleafRequest, response *types.CreateProjectResponse) error
-	OpenInOverleafGatewayPage(_ context.Context, request *types.OpenInOverleafGatewayPageRequest, response *types.OpenInOverleafGatewayPageResponse) error
-	OpenInOverleafDocumentationPage(_ context.Context, request *types.OpenInOverleafDocumentationPageRequest, response *types.OpenInOverleafDocumentationPageResponse) error
+	OpenInOverleafGatewayPage(ctx context.Context, request *types.OpenInOverleafGatewayPageRequest, response *types.OpenInOverleafGatewayPageResponse) error
+	OpenInOverleafDocumentationPage(ctx context.Context, request *types.OpenInOverleafDocumentationPageRequest, response *types.OpenInOverleafDocumentationPageResponse) error
 }
 
 func New(options *types.Options, ps *templates.PublicSettings, proxy linkedURLProxy.Manager, pum projectUpload.Manager) Manager {

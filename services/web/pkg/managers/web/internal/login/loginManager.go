@@ -36,15 +36,15 @@ type Manager interface {
 	ChangePassword(ctx context.Context, r *types.ChangePasswordRequest, response *types.ChangePasswordResponse) error
 	ClearSessions(ctx context.Context, request *types.ClearSessionsRequest) error
 	ConfirmEmail(ctx context.Context, r *types.ConfirmEmailRequest) error
-	ConfirmEmailPage(_ context.Context, request *types.ConfirmEmailPageRequest, response *types.ConfirmEmailPageResponse) error
+	ConfirmEmailPage(ctx context.Context, request *types.ConfirmEmailPageRequest, response *types.ConfirmEmailPageResponse) error
 	GetLoggedInUserJWT(ctx context.Context, request *types.GetLoggedInUserJWTRequest, response *types.GetLoggedInUserJWTResponse) error
 	Login(ctx context.Context, request *types.LoginRequest, response *types.LoginResponse) error
-	LoginPage(_ context.Context, request *types.LoginPageRequest, response *types.LoginPageResponse) error
+	LoginPage(ctx context.Context, request *types.LoginPageRequest, response *types.LoginPageResponse) error
 	Logout(ctx context.Context, request *types.LogoutRequest) error
-	LogoutPage(_ context.Context, request *types.LogoutPageRequest, response *types.LogoutPageResponse) error
-	ReconfirmAccountPage(_ context.Context, _ *types.ReconfirmAccountPageRequest, response *types.ReconfirmAccountPageResponse) error
+	LogoutPage(ctx context.Context, request *types.LogoutPageRequest, response *types.LogoutPageResponse) error
+	ReconfirmAccountPage(ctx context.Context, _ *types.ReconfirmAccountPageRequest, response *types.ReconfirmAccountPageResponse) error
 	RequestPasswordReset(ctx context.Context, r *types.RequestPasswordResetRequest) error
-	RequestPasswordResetPage(_ context.Context, request *types.RequestPasswordResetPageRequest, response *types.RequestPasswordResetPageResponse) error
+	RequestPasswordResetPage(ctx context.Context, request *types.RequestPasswordResetPageRequest, response *types.RequestPasswordResetPageResponse) error
 	ResendEmailConfirmation(ctx context.Context, r *types.ResendEmailConfirmationRequest) error
 	SessionsPage(ctx context.Context, request *types.SessionsPageRequest, response *types.SessionsPageResponse) error
 	SetPassword(ctx context.Context, r *types.SetPasswordRequest, response *types.SetPasswordResponse) error

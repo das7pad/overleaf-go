@@ -32,7 +32,7 @@ import (
 type Manager interface {
 	CMDCreateUser(ctx context.Context, r *types.CMDCreateUserRequest, response *types.CMDCreateUserResponse) error
 	RegisterUser(ctx context.Context, r *types.RegisterUserRequest, response *types.RegisterUserResponse) error
-	RegisterUserPage(_ context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
+	RegisterUserPage(ctx context.Context, request *types.RegisterUserPageRequest, response *types.RegisterUserPageResponse) error
 }
 
 func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, lm login.Manager) Manager {
