@@ -29,7 +29,7 @@ import (
 )
 
 type URLCache interface {
-	SetupForProject(ctx context.Context, projectId sharedTypes.UUID) error
+	SetupForProject(projectId sharedTypes.UUID) error
 	Download(ctx context.Context, projectId sharedTypes.UUID, resource *types.Resource, dir types.CompileDir) error
 	ClearForProject(projectId sharedTypes.UUID) error
 }
@@ -57,7 +57,7 @@ type urlCache struct {
 	client http.Client
 }
 
-func (u *urlCache) SetupForProject(_ context.Context, projectId sharedTypes.UUID) error {
+func (u *urlCache) SetupForProject(projectId sharedTypes.UUID) error {
 	err := os.Mkdir(string(u.projectDir(projectId)), 0o700)
 	if err == nil || os.IsExist(err) {
 		return nil

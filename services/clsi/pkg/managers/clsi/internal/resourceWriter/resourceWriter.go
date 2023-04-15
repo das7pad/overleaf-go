@@ -180,7 +180,7 @@ func (r *resourceWriter) incrementalSync(ctx context.Context, projectId sharedTy
 }
 
 func (r *resourceWriter) sync(ctx context.Context, projectId sharedTypes.UUID, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {
-	if err := r.urlCache.SetupForProject(ctx, projectId); err != nil {
+	if err := r.urlCache.SetupForProject(projectId); err != nil {
 		return err
 	}
 
