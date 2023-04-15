@@ -203,6 +203,7 @@ func (m *manager) StartInBackground(ctx context.Context, projectId, userId share
 	if err := request.Validate(); err != nil {
 		return err
 	}
+
 	return m.operateOnProjectWithRecovery(
 		ctx,
 		projectId,
@@ -263,25 +264,21 @@ func (m *manager) WordCount(ctx context.Context, projectId sharedTypes.UUID, use
 }
 
 func (m *manager) operateOnProjectWithRecovery(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, fn func(p project.Project) error) error {
-	var lastErr error
 	for i := 0; i < 3; i++ {
 		p, err := m.pm.GetProject(ctx, projectId, userId)
 		if err != nil {
 			if err == project.ErrIsDead {
-				lastErr = err
 				continue
 			}
 			return err
 		}
-		err = fn(p)
-		if err != nil {
+		if err = fn(p); err != nil {
 			if err == project.ErrIsDead {
-				lastErr = err
 				continue
 			}
 			return err
 		}
 		return nil
 	}
-	return lastErr
+	return project.ErrIsDead
 }

@@ -213,8 +213,13 @@ func (p *project) Touch() {
 func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest, words *types.Words) error {
 	p.stateMux.RLock()
 	defer p.stateMux.RUnlock()
-	if err := p.checkStateExpectAnyContent(); err != nil {
+	if err := p.checkIsDead(); err != nil {
 		return err
+	}
+	if !p.hasContent.Load() {
+		return &errors.InvalidStateError{
+			Msg: "project contents are missing",
+		}
 	}
 
 	return p.wordCounter.Count(
@@ -233,18 +238,6 @@ var ErrIsDead = &errors.InvalidStateError{
 func (p *project) checkIsDead() error {
 	if p.IsDead() {
 		return ErrIsDead
-	}
-	return nil
-}
-
-func (p *project) checkStateExpectAnyContent() error {
-	if err := p.checkIsDead(); err != nil {
-		return err
-	}
-	if !p.hasContent.Load() {
-		return &errors.InvalidStateError{
-			Msg: "project contents are missing",
-		}
 	}
 	return nil
 }
@@ -348,10 +341,6 @@ func (p *project) StartInBackground(imageName sharedTypes.ImageName) {
 func (p *project) needsRunnerSetup(deadline time.Time) bool {
 	p.runnerSetupMux.RLock()
 	defer p.runnerSetupMux.RUnlock()
-	return p.needsRunnerSetupLocked(deadline)
-}
-
-func (p *project) needsRunnerSetupLocked(deadline time.Time) bool {
 	return p.runnerSetupValidUntil.Before(deadline)
 }
 
@@ -419,7 +408,7 @@ func (p *project) tryRun(ctx context.Context, options *types.CommandOptions) (ty
 	}
 
 	deadline, _ := ctx.Deadline()
-	if p.needsRunnerSetupLocked(deadline) {
+	if p.runnerSetupValidUntil.Before(deadline) {
 		return -1, errors.New("runner setup expired")
 	}
 
