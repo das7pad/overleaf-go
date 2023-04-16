@@ -1412,17 +1412,6 @@ func (h *httpController) deleteProject(c *httpUtils.Context) {
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
-func (h *httpController) undeleteProject(c *httpUtils.Context) {
-	request := &types.UnDeleteProjectRequest{
-		ProjectId: httpUtils.GetId(c, "projectId"),
-	}
-	if !h.mustRequireLoggedInSession(c, request) {
-		return
-	}
-	err := h.wm.UnDeleteProject(c, request)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
-}
-
 func (h *httpController) deleteUser(c *httpUtils.Context) {
 	request := &types.DeleteUserRequest{}
 	if !h.mustRequireLoggedInSession(c, request) {
