@@ -18,6 +18,7 @@ package env
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -33,7 +34,7 @@ func GetInt(key string, fallback int) int {
 	}
 	parsed, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		panic(err)
+		panic(errors.Tag(err, fmt.Sprintf("parse %s as int", key)))
 	}
 	return int(parsed)
 }
@@ -59,26 +60,21 @@ func MustGetString(key string) string {
 }
 
 func GetDuration(key string, fallback time.Duration) time.Duration {
-	if raw := os.Getenv(key); raw == "" {
+	raw := os.Getenv(key)
+	if raw == "" {
 		return fallback
 	}
-	n := time.Duration(GetInt(key, 0))
-	if strings.HasSuffix(key, "_NS") {
-		return n * time.Nanosecond
+	n, err := time.ParseDuration(raw)
+	if err != nil {
+		panic(errors.Tag(err, fmt.Sprintf("parse %s as duration", key)))
 	}
-	if strings.HasSuffix(key, "_MS") {
-		return n * time.Millisecond
-	}
-	if strings.HasSuffix(key, "_S") {
-		return n * time.Second
-	}
-	panic("unknown key suffix, try _NS, _MS, _S")
+	return n
 }
 
 func MustParseJSON(target interface{}, key string) {
 	raw := MustGetString(key)
 	err := json.Unmarshal([]byte(raw), target)
 	if err != nil {
-		panic(errors.Tag(err, "malformed "+key))
+		panic(errors.Tag(err, fmt.Sprintf("parse %s as json", key)))
 	}
 }

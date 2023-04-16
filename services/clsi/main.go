@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -49,7 +49,7 @@ func main() {
 	loadAgentSocket, err := loadAgent.Start(
 		listenAddress.Parse(env.GetInt("LOAD_PORT", 3048)),
 		env.GetBool("LOAD_SHEDDING"),
-		env.GetDuration("LOAD_REFRESH_CAPACITY_EVERY_NS", 3*time.Second),
+		env.GetDuration("LOAD_REFRESH_CAPACITY_EVERY", 3*time.Second),
 	)
 	if err != nil {
 		panic(errors.Tag(err, "load agent setup"))

@@ -38,7 +38,7 @@ func main() {
 	t := template.Must(template.New("").Parse(strings.TrimLeft(`
 app = {{ printf "%q" .App }}
 kill_signal = "SIGINT"
-# LINKED_URL_PROXY_TIMEOUT_MS in seconds plus some 1s extra delay
+# LINKED_URL_PROXY_TIMEOUT in seconds plus some 1s extra delay
 kill_timeout = 28
 
 [build]
@@ -49,7 +49,7 @@ kill_timeout = 28
 
 [env]
   ALLOW_REDIRECTS = "true"
-  LINKED_URL_PROXY_TIMEOUT_MS = "27000"
+  LINKED_URL_PROXY_TIMEOUT = "27s"
   LISTEN_ADDRESS = "0.0.0.0"
   PORT = "8080"
 

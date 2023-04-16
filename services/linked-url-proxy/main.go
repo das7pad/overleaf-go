@@ -54,7 +54,7 @@ func main() {
 	)
 	defer triggerExit()
 
-	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT_MS", 28*time.Second)
+	timeout := env.GetDuration("LINKED_URL_PROXY_TIMEOUT", 28*time.Second)
 	proxyToken := env.MustGetString("PROXY_TOKEN")
 	allowRedirects := env.GetBool("ALLOW_REDIRECTS")
 	var blockedNetworks []netip.Prefix

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,10 +42,10 @@ func Parse() (*options.ClientOptions, string) {
 		uint64(env.GetInt("MONGO_POOL_SIZE", 10)),
 	)
 	mongoOptions.SetSocketTimeout(
-		env.GetDuration("MONGO_SOCKET_TIMEOUT_MS", 30*time.Second),
+		env.GetDuration("MONGO_SOCKET_TIMEOUT", 30*time.Second),
 	)
 	mongoOptions.SetServerSelectionTimeout(env.GetDuration(
-		"MONGO_SERVER_SELECTION_TIMEOUT_MS",
+		"MONGO_SERVER_SELECTION_TIMEOUT",
 		60*time.Second,
 	))
 
