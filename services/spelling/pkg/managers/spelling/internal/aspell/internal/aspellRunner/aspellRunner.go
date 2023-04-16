@@ -52,40 +52,28 @@ func (r *runner) CheckWords(ctx context.Context, language types.SpellCheckLangua
 	return r.parseOutput(language, lines), nil
 }
 
-var NoSuggestions []string
-
 func (r *runner) parseOutput(language types.SpellCheckLanguage, lines []string) Suggestions {
 	out := make(Suggestions)
 	for _, line := range lines {
 		if len(line) < 1 {
 			continue
 		}
-		hasSuggestions := line[0] == '&' &&
-			strings.ContainsRune(line, ' ') &&
-			strings.ContainsRune(line, ':') &&
-			len(line) > (strings.IndexRune(line, ':')+2)
+		parts := strings.SplitN(line, " ", 5)
+		hasSuggestions := len(parts) == 5 &&
+			parts[0] == "&" &&
+			strings.HasSuffix(parts[3], ":")
 		if hasSuggestions {
-			parts := strings.SplitN(line, " ", 3)
-			word := parts[1]
+			suggestions := strings.Split(parts[4], ", ")
 
-			suggestions := strings.Split(
-				line[strings.IndexRune(line, ':')+2:],
-				", ",
-			)
-
-			key := SuggestionKey{language, word}
+			key := SuggestionKey{Language: language, Word: parts[1]}
 			out[key] = suggestions
 			continue
 		}
 
-		hasNoSuggestions := line[0] == '#' &&
-			strings.ContainsRune(line, ' ')
+		hasNoSuggestions := len(parts) == 3 && parts[0] == "#"
 		if hasNoSuggestions {
-			parts := strings.SplitN(line, " ", 2)
-			word := parts[1]
-
-			key := SuggestionKey{language, word}
-			out[key] = NoSuggestions
+			key := SuggestionKey{Language: language, Word: parts[1]}
+			out[key] = nil
 		}
 	}
 	return out
