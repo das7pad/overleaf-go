@@ -64,15 +64,15 @@ type ForPQ struct {
 	CompilerField                    `bson:"inline"`
 	EpochField                       `bson:"inline"`
 	IdField                          `bson:"inline"`
+	LastUpdatedByField               `bson:"inline"`
+	OwnerRefField                    `bson:"inline"`
+	RootDocIdField                   `bson:"inline"`
 	ImageNameField                   `bson:"inline"`
 	LastOpenedField                  `bson:"inline"`
 	LastUpdatedAtField               `bson:"inline"`
-	LastUpdatedByField               `bson:"inline"`
 	NameField                        `bson:"inline"`
-	OwnerRefField                    `bson:"inline"`
 	PublicAccessLevelField           `bson:"inline"`
 	ReadOnlyRefsField                `bson:"inline"`
-	RootDocIdField                   `bson:"inline"`
 	SpellCheckLanguageField          `bson:"inline"`
 	TokenAccessReadAndWriteRefsField `bson:"inline"`
 	TokenAccessReadOnlyRefsField     `bson:"inline"`
@@ -482,18 +482,18 @@ SELECT $16,
 		// files
 		rows = rows[:0]
 		_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
-			d := e.(*FileRef)
-			if d.LinkedFileData, err = d.LinkedFileData.Migrate(); err != nil {
+			f := e.(*FileRef)
+			if err = f.MigrateLinkedFileData(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{
-				m2pq.ObjectID2UUID(d.Id), d.Created, d.Hash, d.LinkedFileData,
-				*d.Size, false,
+				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
+				*f.Size, false,
 			})
 			return nil
 		})
 		for _, f := range deletedFiles {
-			if f.LinkedFileData, err = f.LinkedFileData.Migrate(); err != nil {
+			if err = f.MigrateLinkedFileData(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{

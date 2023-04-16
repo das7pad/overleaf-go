@@ -168,9 +168,9 @@ func main() {
 	}
 	cdnURL := mustParseURL("cdn-url", cdnURLRaw)
 
-	var clsiUrl sharedTypes.URL
+	var clsiURL sharedTypes.URL
 	if clsiURLRaw != "" {
-		clsiUrl = mustParseURL("clsi-url", clsiURLRaw)
+		clsiURL = mustParseURL("clsi-url", clsiURLRaw)
 	}
 
 	if dockerComposeSetup && linkedURLProxyChainRaw == "" {
@@ -183,9 +183,10 @@ func main() {
 		linkedURLProxyChain = append(linkedURLProxyChain, u)
 	}
 
-	var allowedImages []sharedTypes.ImageName
-	var allowedImageNames []templates.AllowedImageName
-	for i, s := range strings.Split(texLiveImages, ",") {
+	rawImages := strings.Split(texLiveImages, ",")
+	allowedImages := make([]sharedTypes.ImageName, 0, len(rawImages))
+	allowedImageNames := make([]templates.AllowedImageName, 0, len(rawImages))
+	for i, s := range rawImages {
 		imageName := sharedTypes.ImageName(s)
 		if err := imageName.Validate(); err != nil {
 			panic(errors.Tag(err, fmt.Sprintf("texlive-images idx=%d", i)))
@@ -381,7 +382,7 @@ func main() {
 					TTL        time.Duration `json:"ttl"`
 				} `json:"persistence"`
 			}{
-				URL: clsiUrl,
+				URL: clsiURL,
 				Persistence: struct {
 					CookieName string        `json:"cookie_name"`
 					TTL        time.Duration `json:"ttl"`
@@ -469,8 +470,7 @@ func main() {
 
 func genSecret(n int) string {
 	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
+	if _, err := rand.Read(b); err != nil {
 		panic(errors.Tag(err, "generate secret"))
 	}
 	return hex.EncodeToString(b)

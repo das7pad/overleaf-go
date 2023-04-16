@@ -405,9 +405,11 @@ func (h *httpController) mustProcessQueryHTML(request interface{ FromQuery(value
 	return true
 }
 
-func (h *httpController) mustProcessSignedOptions(request interface {
+type signedOptionsConsumer interface {
 	FromSignedOptions(o sharedTypes.SignedCompileProjectRequestOptions)
-}, c *httpUtils.Context) {
+}
+
+func (h *httpController) mustProcessSignedOptions(request signedOptionsConsumer, c *httpUtils.Context) {
 	request.FromSignedOptions(mustGetSignedCompileProjectOptionsFromJwt(c))
 }
 

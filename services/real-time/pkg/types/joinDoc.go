@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,7 +21,7 @@ import (
 )
 
 type JoinDocRequest struct {
-	DocId       sharedTypes.UUID
+	DocId       sharedTypes.UUID    `json:"doc_id"`
 	FromVersion sharedTypes.Version `json:"fromVersion"`
 }
 

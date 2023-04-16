@@ -58,10 +58,15 @@ type LinkedFileData struct {
 	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
 }
 
-func (d *LinkedFileData) Migrate() (*LinkedFileData, error) {
-	if d == nil || d.Provider == "" {
-		return nil, nil
+func (f *FileRef) MigrateLinkedFileData() error {
+	if f.LinkedFileData == nil {
+		return nil
 	}
+	if f.LinkedFileData.Provider == "" {
+		f.LinkedFileData = nil
+		return nil
+	}
+	d := f.LinkedFileData
 
 	// The NodeJS implementation stored these as absolute paths.
 	if d.SourceEntityPath != "" {
@@ -78,11 +83,11 @@ func (d *LinkedFileData) Migrate() (*LinkedFileData, error) {
 	if d.SourceProjectId != "" {
 		id, err := m2pq.ParseID(d.SourceProjectId)
 		if err != nil {
-			return nil, errors.Tag(err, "invalid source project id")
+			return errors.Tag(err, "invalid source project id")
 		}
 		d.SourceProjectId = id.String()
 	}
-	return d, nil
+	return nil
 }
 
 type FileRef struct {

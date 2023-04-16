@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -78,8 +78,7 @@ func (m *manager) ProxyImage(ctx context.Context, request *types.LearnImageReque
 	m.imageMux.RLock()
 	fetchedAt, exists := m.imageCache[target]
 	m.imageMux.RUnlock()
-	now := time.Now()
-	if exists && fetchedAt.Add(m.cacheDuration).After(now) {
+	if now := time.Now(); exists && fetchedAt.Add(m.cacheDuration).After(now) {
 		response.Age = int64(now.Sub(fetchedAt).Seconds())
 	} else {
 		response.Age = -1

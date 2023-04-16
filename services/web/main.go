@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -53,9 +53,9 @@ func main() {
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
 	addr := listenAddress.Parse(3000)
-	localUrl := "http://" + addr
+	localURL := "http://" + addr
 	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {
-		localUrl = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
+		localURL = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
 	}
 
 	dumOptions := documentUpdaterTypes.Options{}
@@ -67,7 +67,7 @@ func main() {
 
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv()
-	webManager, err := web.New(&webOptions, db, rClient, localUrl, dum, nil)
+	webManager, err := web.New(&webOptions, db, rClient, localURL, dum, nil)
 	if err != nil {
 		panic(errors.Tag(err, "web setup"))
 	}

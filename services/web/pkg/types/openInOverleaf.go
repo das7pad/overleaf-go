@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -188,10 +188,10 @@ func (r *OpenInOverleafRequest) PopulateFromParams(params url.Values) error {
 		// Zip based request
 		return nil
 	}
-	nSnippets :=
+	nSnippets := 0 +
 		len(params["snip"]) +
-			len(params["snip_uri"]) +
-			len(params["encoded_snip"])
+		len(params["snip_uri"]) +
+		len(params["encoded_snip"])
 	if nSnippets > constants.MaxFilesPerProject {
 		return &errors.ValidationError{Msg: "too many snippets for new project"}
 	}

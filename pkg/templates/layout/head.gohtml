@@ -121,14 +121,14 @@
     />
     <link
       rel="stylesheet"
-      href="{{ buildCssPath .ThemeModifier }}"
+      href="{{ buildCSSPath .ThemeModifier }}"
       id="main-stylesheet"
     />
       {{ range $key, $details := .Settings.I18n.SubdomainLang }}
           {{ if not $details.Hide }}
             <link
               rel="alternate"
-              href="{{ getTranslationUrl $details.LngCode }}"
+              href="{{ getTranslationURL $details.LngCode }}"
               hreflang="{{ $details.LngCode }}"
             />
           {{ end }}

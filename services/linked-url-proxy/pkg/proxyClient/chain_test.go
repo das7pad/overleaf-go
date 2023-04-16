@@ -86,7 +86,8 @@ func Test_chainURL(t *testing.T) {
 				),
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := chainURL(tt.args.u, tt.args.chain); got != tt.want {
 				t.Errorf("chainURL() = %v, want %v", got, tt.want)

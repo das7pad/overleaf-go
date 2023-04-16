@@ -40,7 +40,8 @@ func TestUUID_IsZero(t *testing.T) {
 			want: false,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.u.IsZero(); got != tt.want {
 				t.Errorf("IsZero() = %v, want %v", got, tt.want)
@@ -66,7 +67,8 @@ func TestUUID_String(t *testing.T) {
 			want: "00010203-0405-0607-0809-0a0b0c0d0eff",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.u.String(); got != tt.want {
 				t.Errorf("String() = %v, want %v", got, tt.want)
@@ -118,7 +120,8 @@ func TestParseUUID(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseUUID(tt.args.s)
 			if (err != nil) != tt.wantErr {
@@ -166,7 +169,9 @@ func BenchmarkUUID_MarshalJSON(b *testing.B) {
 func BenchmarkUUID_MarshalJSONNaive(b *testing.B) {
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
-		_, _ = json.Marshal(u.String())
+		if _, err := json.Marshal(u.String()); err != nil {
+			b.Error(err)
+		}
 	}
 }
 

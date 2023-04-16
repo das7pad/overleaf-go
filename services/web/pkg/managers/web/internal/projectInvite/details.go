@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -57,8 +57,7 @@ func (d *projectInviteDetails) ValidateForCreation() error {
 		return &errors.ValidationError{Msg: "cannot_invite_self"}
 	}
 	authorizationDetails, err := d.project.GetPrivilegeLevelAuthenticated()
-	alreadyAMember := err == nil
-	if !alreadyAMember {
+	if alreadyAMember := err == nil; !alreadyAMember {
 		// This user is not a member yet and the invitation will change that.
 		return nil
 	}

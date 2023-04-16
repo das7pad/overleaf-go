@@ -40,20 +40,20 @@ import (
 
 type ForPQ struct {
 	AuditLogField       `bson:"inline"`
+	IdField             `bson:"inline"`
 	BetaProgramField    `bson:"inline"`
+	MustReconfirmField  `bson:"inline"`
 	EditorConfigField   `bson:"inline"`
 	EmailField          `bson:"inline"`
 	EmailsField         `bson:"inline"`
 	EpochField          `bson:"inline"`
 	FeaturesField       `bson:"inline"`
 	FirstNameField      `bson:"inline"`
-	IdField             `bson:"inline"`
 	HashedPasswordField `bson:"inline"`
 	LastLoggedInField   `bson:"inline"`
 	LastLoginIPField    `bson:"inline"`
 	LastNameField       `bson:"inline"`
 	LoginCountField     `bson:"inline"`
-	MustReconfirmField  `bson:"inline"`
 	SignUpDateField     `bson:"inline"`
 }
 

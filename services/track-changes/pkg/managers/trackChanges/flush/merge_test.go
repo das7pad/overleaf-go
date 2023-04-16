@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -554,7 +554,8 @@ func Test_mergeComponents(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got, c := mergeComponents(tt.args.a, tt.args.b); got != tt.want {
 				t.Errorf("mergeComponents() = %v, want %v", got, tt.want)

@@ -27,8 +27,10 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-const sessionIdSizeBytes = 24
-const sessionIdKeyPrefix = "sess:"
+const (
+	sessionIdSizeBytes = 24
+	sessionIdKeyPrefix = "sess:"
+)
 
 var (
 	b64                  = base64.RawURLEncoding

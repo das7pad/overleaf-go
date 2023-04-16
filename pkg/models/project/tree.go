@@ -366,6 +366,8 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 				e.Size = p.sizes[i]
 			}
 			files = append(files, e)
+		case TreeNodeKindFolder:
+			// no-op
 		}
 	}
 	return docs, files

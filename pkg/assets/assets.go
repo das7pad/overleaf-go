@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,7 +30,7 @@ import (
 )
 
 type Manager interface {
-	BuildCssPath(theme string) template.URL
+	BuildCSSPath(theme string) template.URL
 	BuildFontPath(path string) template.URL
 	BuildImgPath(path string) template.URL
 	BuildMathJaxEntrypoint() template.URL
@@ -145,7 +145,7 @@ func (m *manager) GetBundlePath(path string) template.URL {
 	return m.assets[path]
 }
 
-func (m *manager) BuildCssPath(theme string) template.URL {
+func (m *manager) BuildCSSPath(theme string) template.URL {
 	return m.assets["frontend/stylesheets/"+theme+"style.less"]
 }
 

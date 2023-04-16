@@ -53,7 +53,7 @@ func (c UUIDCodec) PlanEncode(_ *pgtype.Map, _ uint32, _ int16, _ any) pgtype.En
 	return c
 }
 
-func (UUIDCodec) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (UUIDCodec) Encode(value any, buf []byte) ([]byte, error) {
 	uuid := value.(UUID)
 	return append(buf, uuid[:]...), nil
 }
@@ -90,7 +90,7 @@ func (c UUIDsCodec) PlanEncode(_ *pgtype.Map, _ uint32, _ int16, _ any) pgtype.E
 	return c
 }
 
-func (UUIDsCodec) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (UUIDsCodec) Encode(value any, buf []byte) ([]byte, error) {
 	s := value.(UUIDs)
 
 	buf = pgarray.EncodeFlatArrayHeader(buf, len(s), 16)

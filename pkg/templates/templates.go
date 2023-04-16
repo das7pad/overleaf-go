@@ -70,12 +70,12 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 		if err != nil {
 			return errors.Tag(err, "cannot load translations")
 		}
-		funcMap["getTranslationUrl"] = tm.GetTranslationURL
+		funcMap["getTranslationURL"] = tm.GetTranslationURL
 		funcMap["translate"] = tm.Translate
 	}
 	{
 		resourceHints = am
-		funcMap["buildCssPath"] = am.BuildCssPath
+		funcMap["buildCSSPath"] = am.BuildCSSPath
 		funcMap["buildFontPath"] = am.BuildFontPath
 		funcMap["buildMathJaxEntrypoint"] = am.BuildMathJaxEntrypoint
 		funcMap["buildTPath"] = am.BuildTPath

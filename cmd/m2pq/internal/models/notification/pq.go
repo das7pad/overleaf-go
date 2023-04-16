@@ -34,9 +34,9 @@ import (
 
 type ForPQ struct {
 	IdField          `bson:"inline"`
-	KeyField         `bson:"inline"`
 	UserIdField      `bson:"inline"`
 	ExpiresField     `bson:"inline"`
+	KeyField         `bson:"inline"`
 	TemplateKeyField `bson:"inline"`
 	MessageOptsField `bson:"inline"`
 }

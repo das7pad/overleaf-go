@@ -36,14 +36,12 @@ const (
 	maxProxySize = 50 * 1024 * 1024
 )
 
-var (
-	clientErrors = []string{
-		"blocked redirect",
-		"ip blocked",
-		"connection refused",
-		"no such host",
-	}
-)
+var clientErrors = []string{
+	"blocked redirect",
+	"ip blocked",
+	"connection refused",
+	"no such host",
+}
 
 func newHTTPController(timeout time.Duration, proxyToken string, allowRedirects bool, blockedNetworks []netip.Prefix) httpController {
 	checkRedirect := func(_ *http.Request, _ []*http.Request) error {
@@ -107,7 +105,7 @@ func (h *httpController) checkAuth(c *httpUtils.Context) error {
 }
 
 func (h *httpController) proxy(c *httpUtils.Context) {
-	c.Writer.Header().Add("Via", constants.LinkedUrlProxy)
+	c.Writer.Header().Add("Via", constants.LinkedURLProxy)
 	if err := h.checkAuth(c); err != nil {
 		httpUtils.RespondErr(c, err)
 		return
@@ -148,7 +146,7 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	if statusCode := response.StatusCode; statusCode != http.StatusOK {
 		via := response.Header.Get("Via")
 		if q.Get(constants.QueryNameProxyChainMarker) == "true" &&
-			strings.Contains(via, constants.LinkedUrlProxy) {
+			strings.Contains(via, constants.LinkedURLProxy) {
 			cloneHeaders := []string{
 				"Via", "X-Served-By", "X-Request-Id",
 				"CF-RAY", "Fly-Request-Id", "Function-Execution-Id",
@@ -160,7 +158,7 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 					c.Writer.Header().Add(name, v)
 				}
 			}
-			c.Writer.Header().Add("Via", constants.LinkedUrlProxy)
+			c.Writer.Header().Add("Via", constants.LinkedURLProxy)
 			c.Writer.WriteHeader(statusCode)
 			_, _ = io.Copy(c.Writer, response.Body)
 			return

@@ -18,7 +18,7 @@ package constants
 
 const (
 	HeaderXUpstreamStatusCode = "X-Upstream-Status-Code"
-	LinkedUrlProxy            = "linked-url-proxy"
+	LinkedURLProxy            = "linked-url-proxy"
 	QueryNameProxyChainMarker = "next_is_proxy"
 	QueryNameURL              = "url"
 )

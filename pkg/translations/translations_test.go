@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -86,14 +86,16 @@ func Test_parseLocales(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := parseLocales(tt.args.raw, tt.args.appName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseLocales() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			for _, c := range tt.tCases {
+			for j := range tt.tCases {
+				c := tt.tCases[j]
 				t.Run(fmt.Sprintf("%s/%s", tt.name, c.key), func(t *testing.T) {
 					v, err1 := got[c.key].Render(c.data)
 					if err1 != nil {

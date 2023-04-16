@@ -72,11 +72,11 @@ func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers
 
 type project struct {
 	dead       atomic.Bool
+	hasContent atomic.Bool
 	lastAccess atomic.Int64
 	namespace  types.Namespace
 
-	stateMux   sync.RWMutex
-	hasContent atomic.Bool
+	stateMux sync.RWMutex
 
 	runnerSetupMux        sync.RWMutex
 	runnerSetupValidUntil time.Time
@@ -103,7 +103,6 @@ func (p *project) Cleanup() error {
 		return err
 	}
 	return nil
-
 }
 
 func (p *project) CleanupUnlessHealthy(activeThreshold time.Time) error {

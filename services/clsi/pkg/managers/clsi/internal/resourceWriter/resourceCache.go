@@ -27,9 +27,10 @@ import (
 )
 
 type ResourceCache map[sharedTypes.PathName]struct{}
+
 type projectState struct {
-	FlatResourceCache []sharedTypes.PathName
-	SyncState         types.SyncState
+	FlatResourceCache []sharedTypes.PathName `json:"flatResourceCache"`
+	SyncState         types.SyncState        `json:"syncState"`
 }
 
 func (r *resourceWriter) loadResourceCache(namespace types.Namespace) (types.SyncState, ResourceCache) {

@@ -54,7 +54,8 @@ func Test_addHeader(t *testing.T) {
 Hello world!`)),
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := addHeader(tt.args.s, tt.args.learnURL); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("addHeader() = %v, want %v", string(got), string(tt.want))

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -59,8 +59,7 @@ func MustGetString(key string) string {
 }
 
 func GetDuration(key string, fallback time.Duration) time.Duration {
-	raw := os.Getenv(key)
-	if raw == "" {
+	if raw := os.Getenv(key); raw == "" {
 		return fallback
 	}
 	n := time.Duration(GetInt(key, 0))

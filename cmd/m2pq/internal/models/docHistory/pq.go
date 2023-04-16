@@ -172,9 +172,8 @@ WHERE d.id = $1
 		if err != nil {
 			return errors.Tag(err, "generate insert ids")
 		}
-		hasBigDelete := false
 		for _, pack := range dh.Pack {
-			hasBigDelete = false
+			hasBigDelete := false
 			for _, component := range pack.Op {
 				if len(component.Deletion) > 16 {
 					hasBigDelete = true

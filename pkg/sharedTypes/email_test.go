@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -32,7 +32,8 @@ func TestEmail_Host(t *testing.T) {
 			want: "bar.com",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.e.Host(); got != tt.want {
 				t.Errorf("Host() = %v, want %v", got, tt.want)
@@ -53,7 +54,8 @@ func TestEmail_LocalPart(t *testing.T) {
 			want: "foo",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.e.LocalPart(); got != tt.want {
 				t.Errorf("LocalPart() = %v, want %v", got, tt.want)
@@ -74,7 +76,8 @@ func TestEmail_Normalize(t *testing.T) {
 			want: "foo@bar.com",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.e.Normalize(); got != tt.want {
 				t.Errorf("Normalize() = %v, want %v", got, tt.want)
@@ -120,7 +123,8 @@ func TestEmail_Validate(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.e.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -151,7 +155,8 @@ func TestEmail_ReversedHostname(t *testing.T) {
 			want: "moc.räb",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.e.ReversedHostname(); got != tt.want {
 				t.Errorf("ReversedHostname() = %v, want %v", got, tt.want)

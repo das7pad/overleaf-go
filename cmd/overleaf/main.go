@@ -56,9 +56,9 @@ func main() {
 	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
 	addr := listenAddress.Parse(3000)
-	localUrl := "http://" + addr
+	localURL := "http://" + addr
 	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {
-		localUrl = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
+		localURL = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
 	}
 
 	clsiOptions := clsiTypes.Options{}
@@ -98,7 +98,7 @@ func main() {
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv()
 	webManager, err := web.New(
-		&webOptions, db, rClient, localUrl, dum, clsiManager,
+		&webOptions, db, rClient, localURL, dum, clsiManager,
 	)
 	if err != nil {
 		panic(errors.Tag(err, "web setup"))
@@ -115,8 +115,7 @@ func main() {
 	webRouter.Add(r, webManager, co)
 
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
-	processDocumentUpdatesCtx, stopProcessingDocumentUpdates :=
-		context.WithCancel(context.Background())
+	processDocumentUpdatesCtx, stopProcessingDocumentUpdates := context.WithCancel(context.Background())
 	eg.Go(func() error {
 		webManager.Cron(ctx, false)
 		return nil
