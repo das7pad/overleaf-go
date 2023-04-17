@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,6 +24,7 @@ import (
 	"io"
 	"math"
 	"os/exec"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -36,7 +37,7 @@ type Worker interface {
 	Count() int
 	LastUsed() time.Time
 	Language() types.SpellCheckLanguage
-	CheckWords(ctx context.Context, words []string) ([]string, error)
+	CheckWords(ctx context.Context, words []string) (Suggestions, error)
 	Kill()
 }
 
@@ -75,6 +76,7 @@ func newAspellWorker(language types.SpellCheckLanguage) (Worker, error) {
 	if err = w.start(); err != nil {
 		return nil, err
 	}
+	scanner.Scan() // discard aspell version header
 	return &w, nil
 }
 
@@ -86,6 +88,7 @@ const (
 var (
 	errPipeClosedBeforeFinish = errors.New("pipe closed before read finished")
 	errProcessExisted         = errors.New("process exited")
+	spaceSeparator            = []byte(" ")
 )
 
 type worker struct {
@@ -114,7 +117,7 @@ func (w *worker) LastUsed() time.Time {
 	return w.lastUsed
 }
 
-func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, error) {
+func (w *worker) CheckWords(ctx context.Context, words []string) (Suggestions, error) {
 	ctx, cancel := context.WithTimeout(ctx, MaxRequestDuration)
 	defer cancel()
 	// Cancel the context once any sub-task errored or the parent ctx errored.
@@ -139,16 +142,35 @@ func (w *worker) CheckWords(ctx context.Context, words []string) ([]string, erro
 		return nil
 	})
 
-	out := make([]string, 0)
+	out := make(Suggestions, len(words))
 	hasReadEndOfBatchMarker := make(chan struct{})
 	eg.Go(func() error {
 		defer close(hasReadEndOfBatchMarker)
 		for w.scanner.Scan() {
-			line := w.scanner.Text()
-			if line == string(w.language) {
+			b := w.scanner.Bytes()
+			if len(b) == 0 {
+				continue
+			}
+			parts := bytes.SplitN(b, spaceSeparator, 5)
+
+			hasSuggestions := len(parts) == 5 &&
+				len(parts[0]) == 1 && parts[0][0] == '&' &&
+				len(parts[3]) > 1 && parts[3][len(parts[3])-1] == ':'
+			if hasSuggestions {
+				out[string(parts[1])] = strings.Split(string(parts[4]), ", ")
+				continue
+			}
+
+			hasNoSuggestions := len(parts) == 3 &&
+				len(parts[0]) == 1 && parts[0][0] == '#'
+			if hasNoSuggestions {
+				out[string(parts[1])] = nil
+				continue
+			}
+
+			if len(parts) == 1 && string(parts[0]) == string(w.language) {
 				return nil
 			}
-			out = append(out, line)
 		}
 		scanErr := w.scanner.Err()
 		if scanErr == nil {

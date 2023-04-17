@@ -30,7 +30,7 @@ import (
 
 func benchmarkWorkerPoolCheckWords(b *testing.B, p int) {
 	b.ReportAllocs()
-	wp := newWorkerPool()
+	wp := NewWorkerPool()
 	defer wp.Close()
 	eg, ctx := errgroup.WithContext(context.Background())
 

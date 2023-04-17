@@ -21,6 +21,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/managers/spelling/internal/aspell/internal/aspellRunner"
 	"github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
@@ -30,23 +31,31 @@ type Manager interface {
 }
 
 func New(lruSize int) (Manager, error) {
-	cache, err := lru.New[aspellRunner.SuggestionKey, []string](lruSize)
-	if err != nil {
-		return nil, err
+	caches := make(
+		map[types.SpellCheckLanguage]*lru.Cache[string, []string],
+		len(types.AllowedLanguages),
+	)
+	for _, language := range types.AllowedLanguages {
+		cache, err := lru.New[string, []string](lruSize)
+		if err != nil {
+			return nil, err
+		}
+		caches[language] = cache
 	}
+
 	return &manager{
-		cache:  cache,
-		runner: aspellRunner.NewRunner(),
+		caches: caches,
+		wp:     aspellRunner.NewWorkerPool(),
 	}, nil
 }
 
 const (
-	RequestLimit = 10000
+	RequestLimit = 10_000
 )
 
 type manager struct {
-	cache  *lru.Cache[aspellRunner.SuggestionKey, []string]
-	runner aspellRunner.Runner
+	caches map[types.SpellCheckLanguage]*lru.Cache[string, []string]
+	wp     aspellRunner.WorkerPool
 }
 
 func (m *manager) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]types.Misspelling, error) {
@@ -56,48 +65,42 @@ func (m *manager) CheckWords(ctx context.Context, language types.SpellCheckLangu
 	if len(words) > RequestLimit {
 		words = words[:RequestLimit]
 	}
+	cache := m.caches[language]
 
-	suggestions := make(aspellRunner.Suggestions)
-	runOnWordsDedupe := make(map[string]bool, 0)
+	suggestions := make(aspellRunner.Suggestions, len(words))
+	cacheStatus := make(map[string]bool, len(words))
 	for _, word := range words {
-		if runOnWordsDedupe[word] {
-			continue
+		if _, found := cacheStatus[word]; found {
+			return nil, &errors.ValidationError{Msg: "duplicate word"}
 		}
-		key := aspellRunner.SuggestionKey{Language: language, Word: word}
-		if _, exists := suggestions[key]; exists {
-			continue
-		}
-		// ^ do not hit the cache for duplicate words
-
-		if items, exists := m.cache.Get(key); exists {
-			suggestions[key] = items
-		} else {
-			runOnWordsDedupe[word] = true
+		items, exists := cache.Get(word)
+		cacheStatus[word] = exists
+		if exists {
+			suggestions[word] = items
 		}
 	}
-	if len(runOnWordsDedupe) > 0 {
-		runOnWords := make([]string, 0, len(runOnWordsDedupe))
-		for word := range runOnWordsDedupe {
-			runOnWords = append(runOnWords, word)
+	if missing := len(cacheStatus) - len(suggestions); missing > 0 {
+		runOnWords := make([]string, 0, missing)
+		for word, exists := range cacheStatus {
+			if !exists {
+				runOnWords = append(runOnWords, word)
+			}
 		}
-		newSuggestions, err := m.runner.CheckWords(ctx, language, runOnWords)
+		newSuggestions, err := m.wp.CheckWords(ctx, language, runOnWords)
 		if err != nil {
 			return nil, err
 		}
 		for _, word := range runOnWords {
-			key := aspellRunner.SuggestionKey{Language: language, Word: word}
-			items := newSuggestions[key]
-			suggestions[key] = items
-			m.cache.Add(key, items)
+			items := newSuggestions[word]
+			suggestions[word] = items
+			cache.Add(word, items)
 		}
 	}
 	misspellings := make([]types.Misspelling, 0)
 	for idx, word := range words {
-		key := aspellRunner.SuggestionKey{Language: language, Word: word}
-		items := suggestions[key]
+		items := suggestions[word]
 		if items == nil {
-			// not misspelled
-			continue
+			continue // not misspelled
 		}
 		misspellings = append(misspellings, types.Misspelling{
 			Index:       idx,

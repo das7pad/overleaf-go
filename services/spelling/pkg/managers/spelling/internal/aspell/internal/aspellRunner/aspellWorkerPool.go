@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,7 +26,7 @@ import (
 )
 
 type WorkerPool interface {
-	CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]string, error)
+	CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) (Suggestions, error)
 	Close()
 }
 
@@ -37,7 +37,7 @@ const (
 	MaxRequestDuration = 10 * time.Second
 )
 
-func newWorkerPool() WorkerPool {
+func NewWorkerPool() WorkerPool {
 	t := time.NewTicker(MaxIdleTime / 2)
 	sem := make(chan struct{}, MaxWorkers)
 	for i := 0; i < MaxWorkers; i++ {
@@ -65,16 +65,16 @@ type workerPool struct {
 	cleanupTicker *time.Ticker
 }
 
-func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) ([]string, error) {
+func (wp *workerPool) CheckWords(ctx context.Context, language types.SpellCheckLanguage, words []string) (Suggestions, error) {
 	<-wp.sem
 	defer func() { wp.sem <- struct{}{} }()
 	w, err := wp.getWorker(language)
 	if err != nil {
 		return nil, err
 	}
-	lines, err := w.CheckWords(ctx, words)
+	out, err := w.CheckWords(ctx, words)
 	wp.returnWorker(w, err)
-	return lines, err
+	return out, err
 }
 
 func (wp *workerPool) Close() {

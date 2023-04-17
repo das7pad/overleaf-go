@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,19 +25,23 @@ type Misspelling struct {
 	Suggestions []string `json:"suggestions"`
 }
 
+var AllowedLanguages = []SpellCheckLanguage{
+	"en",
+	"bg",
+	"de",
+	"es",
+	"fr",
+	"pt_BR",
+	"pt_PT",
+}
+
 type SpellCheckLanguage string
 
 func (l SpellCheckLanguage) Validate() error {
-	switch l {
-	case "bg":
-	case "de":
-	case "en":
-	case "es":
-	case "fr":
-	case "pt_BR":
-	case "pt_PT":
-	default:
-		return &errors.ValidationError{Msg: "non supported language specified"}
+	for _, language := range AllowedLanguages {
+		if l == language {
+			return nil
+		}
 	}
-	return nil
+	return &errors.ValidationError{Msg: "non supported language specified"}
 }
