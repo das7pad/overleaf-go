@@ -36,26 +36,26 @@ func benchmarkWorkerPoolCheckWords(b *testing.B, p int) {
 
 	t0 := time.Now()
 	for j := 0; j < p; j++ {
-		lng := types.SpellCheckLanguage("en")
-		switch {
-		case j%2 == 0:
-			lng = "en"
-		case j%3 == 0:
-			lng = "bg"
-		case j%5 == 0:
-			lng = "de"
-		case j%7 == 0:
-			lng = "es"
-		case j%11 == 0:
-			lng = "fr"
-		case j%13 == 0:
-			lng = "pt_BR"
-		case j%17 == 0:
-			lng = "pt_PT"
-		}
 		eg.Go(func() error {
 			for i := 0; i < b.N; i++ {
-				_, err := wp.CheckWords(ctx, lng, []string{"Overleaf"})
+				lng := types.SpellCheckLanguage("en")
+				switch {
+				case i%2 == 0:
+					lng = "en"
+				case i%3 == 0:
+					lng = "bg"
+				case i%5 == 0:
+					lng = "de"
+				case i%7 == 0:
+					lng = "es"
+				case i%11 == 0:
+					lng = "fr"
+				case i%13 == 0:
+					lng = "pt_BR"
+				case i%17 == 0:
+					lng = "pt_PT"
+				}
+				_, err := wp.CheckWords(ctx, lng, []string{"Helllo"})
 				if err != nil {
 					return errors.Tag(err, string(lng))
 				}
