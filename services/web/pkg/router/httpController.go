@@ -384,7 +384,11 @@ func (h *httpController) mustRequireLoggedInSession(c *httpUtils.Context, reques
 	return true
 }
 
-func (h *httpController) mustProcessQuery(request interface{ FromQuery(values url.Values) error }, c *httpUtils.Context) bool {
+type queryConsumer interface {
+	FromQuery(values url.Values) error
+}
+
+func (h *httpController) mustProcessQuery(request queryConsumer, c *httpUtils.Context) bool {
 	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
 		httpUtils.RespondErr(c, err)
 		return false
@@ -392,7 +396,7 @@ func (h *httpController) mustProcessQuery(request interface{ FromQuery(values ur
 	return true
 }
 
-func (h *httpController) mustProcessQueryHTML(request interface{ FromQuery(values url.Values) error }, c *httpUtils.Context, s *session.Session) bool {
+func (h *httpController) mustProcessQueryHTML(request queryConsumer, c *httpUtils.Context, s *session.Session) bool {
 	if err := request.FromQuery(c.Request.URL.Query()); err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
 		return false
