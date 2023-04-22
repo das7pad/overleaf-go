@@ -359,7 +359,11 @@ func (h *httpController) flushSession(c *httpUtils.Context, s *session.Session, 
 	return err
 }
 
-func (h *httpController) mustGetOrCreateSession(c *httpUtils.Context, request interface{ SetSession(s *session.Session) }, response interface{}) bool {
+type sessionConsumer interface {
+	SetSession(s *session.Session)
+}
+
+func (h *httpController) mustGetOrCreateSession(c *httpUtils.Context, request sessionConsumer, response interface{}) bool {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		httpUtils.Respond(c, http.StatusOK, response, err)
@@ -369,7 +373,7 @@ func (h *httpController) mustGetOrCreateSession(c *httpUtils.Context, request in
 	return true
 }
 
-func (h *httpController) mustGetOrCreateSessionHTML(c *httpUtils.Context, request interface{ SetSession(s *session.Session) }) bool {
+func (h *httpController) mustGetOrCreateSessionHTML(c *httpUtils.Context, request sessionConsumer) bool {
 	s, err := h.wm.GetOrCreateSession(c)
 	if err != nil {
 		templates.RespondHTML(c, nil, err, s, h.ps, h.wm.Flush)
@@ -379,7 +383,7 @@ func (h *httpController) mustGetOrCreateSessionHTML(c *httpUtils.Context, reques
 	return true
 }
 
-func (h *httpController) mustRequireLoggedInSession(c *httpUtils.Context, request interface{ SetSession(s *session.Session) }) bool {
+func (h *httpController) mustRequireLoggedInSession(c *httpUtils.Context, request sessionConsumer) bool {
 	s, err := h.wm.RequireLoggedInSession(c)
 	if err != nil {
 		httpUtils.RespondErr(c, err)
