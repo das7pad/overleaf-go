@@ -321,23 +321,16 @@ func blockRestrictedUsers(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
 }
 
 func requireProjectAdminAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
-	return func(c *httpUtils.Context) {
-		err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
-			sharedTypes.PrivilegeLevelOwner,
-		)
-		if err != nil {
-			httpUtils.Respond(c, http.StatusOK, nil, err)
-			return
-		}
-		next(c)
-	}
+	return requirePrivilegeLevel(next, sharedTypes.PrivilegeLevelOwner)
 }
 
 func requireWriteAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
+	return requirePrivilegeLevel(next, sharedTypes.PrivilegeLevelReadAndWrite)
+}
+
+func requirePrivilegeLevel(next httpUtils.HandlerFunc, level sharedTypes.PrivilegeLevel) httpUtils.HandlerFunc {
 	return func(c *httpUtils.Context) {
-		err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(
-			sharedTypes.PrivilegeLevelReadAndWrite,
-		)
+		err := projectJWT.MustGet(c).PrivilegeLevel.CheckIsAtLeast(level)
 		if err != nil {
 			httpUtils.Respond(c, http.StatusOK, nil, err)
 			return
