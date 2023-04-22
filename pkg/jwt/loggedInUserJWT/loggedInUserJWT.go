@@ -18,27 +18,32 @@ package loggedInUserJWT
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
-	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type JWTHandler jwtHandler.JWTHandler[*Claims]
 
-type userIdJWTClaims = userIdJWT.Claims
-
 type Claims struct {
-	userIdJWTClaims
+	expiringJWT.Claims
+	UserId sharedTypes.UUID `json:"userId"`
 }
 
 func (c *Claims) Valid() error {
-	if err := c.userIdJWTClaims.Valid(); err != nil {
+	if err := c.Claims.Valid(); err != nil {
 		return err
 	}
 	if c.UserId.IsZero() {
 		return &errors.NotAuthorizedError{}
 	}
 	return nil
+}
+
+func (c *Claims) PostProcess(target *httpUtils.Context) (*httpUtils.Context, error) {
+	return target.AddValue("userId", c.UserId), nil
 }
 
 func New(options jwtOptions.JWTOptions) JWTHandler {
