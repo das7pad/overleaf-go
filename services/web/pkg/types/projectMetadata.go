@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,16 +20,23 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type ProjectMetadataResponse struct {
-	ProjectMetadata ProjectMetadata `json:"projectMeta"`
-}
-type ProjectDocMetadataRequest struct {
-	Broadcast bool `json:"broadcast"`
+type GetMetadataForProjectRequest struct {
+	ProjectId sharedTypes.UUID `json:"-"`
 }
 
-type ProjectDocMetadataResponse struct {
-	DocId              sharedTypes.UUID   `json:"docId"`
-	ProjectDocMetadata ProjectDocMetadata `json:"meta"`
+type GetMetadataForProjectResponse struct {
+	ProjectMetadata ProjectMetadata `json:"projectMeta"`
+}
+
+type GetMetadataForDocRequest struct {
+	ProjectId sharedTypes.UUID `json:"-"`
+	DocId     sharedTypes.UUID `json:"-"`
+	Broadcast bool             `json:"broadcast"`
+}
+
+type GetMetadataForDocResponse struct {
+	DocId              sharedTypes.UUID    `json:"docId"`
+	ProjectDocMetadata *ProjectDocMetadata `json:"meta,omitempty"`
 }
 
 type SuggestedLatexCommand struct {

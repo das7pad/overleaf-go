@@ -567,19 +567,23 @@ func (h *httpController) getUserProjects(c *httpUtils.Context) {
 }
 
 func (h *httpController) getMetadataForProject(c *httpUtils.Context) {
-	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
-	response, err := h.wm.GetMetadataForProject(c, projectId)
+	request := &types.GetMetadataForProjectRequest{
+		ProjectId: mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId,
+	}
+	response := &types.GetMetadataForProjectResponse{}
+	err := h.wm.GetMetadataForProject(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) getMetadataForDoc(c *httpUtils.Context) {
-	request := &types.ProjectDocMetadataRequest{}
+	request := &types.GetMetadataForDocRequest{}
 	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
-	projectId := mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
-	docId := httpUtils.GetId(c, "docId")
-	response, err := h.wm.GetMetadataForDoc(c, projectId, docId, request)
+	request.ProjectId = mustGetSignedCompileProjectOptionsFromJwt(c).ProjectId
+	request.DocId = httpUtils.GetId(c, "docId")
+	response := &types.GetMetadataForDocResponse{}
+	err := h.wm.GetMetadataForDoc(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 

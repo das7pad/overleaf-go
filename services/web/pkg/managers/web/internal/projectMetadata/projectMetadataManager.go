@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -33,10 +33,9 @@ import (
 )
 
 type Manager interface {
-	BroadcastMetadataForDoc(projectId, docId sharedTypes.UUID) error
 	BroadcastMetadataForDocFromSnapshot(projectId, docId sharedTypes.UUID, snapshot string) error
-	GetMetadataForProject(ctx context.Context, projectId sharedTypes.UUID) (*types.ProjectMetadataResponse, error)
-	GetMetadataForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error)
+	GetMetadataForProject(ctx context.Context, request *types.GetMetadataForProjectRequest, response *types.GetMetadataForProjectResponse) error
+	GetMetadataForDoc(ctx context.Context, request *types.GetMetadataForDocRequest, response *types.GetMetadataForDocResponse) error
 }
 
 func New(client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, dum documentUpdater.Manager) Manager {
@@ -55,59 +54,46 @@ type manager struct {
 	dum    documentUpdater.Manager
 }
 
-func (m *manager) GetMetadataForProject(ctx context.Context, projectId sharedTypes.UUID) (*types.ProjectMetadataResponse, error) {
-	l, err := m.getForProjectWithCache(ctx, projectId)
+func (m *manager) GetMetadataForProject(ctx context.Context, request *types.GetMetadataForProjectRequest, response *types.GetMetadataForProjectResponse) error {
+	l, err := m.getForProjectWithCache(ctx, request.ProjectId)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	p := make(types.ProjectMetadata, len(l))
 	for id, metadata := range l {
 		p[id] = inflate(metadata)
 	}
-	return &types.ProjectMetadataResponse{ProjectMetadata: p}, nil
-}
-
-func (m *manager) BroadcastMetadataForDoc(projectId, docId sharedTypes.UUID) error {
-	r := &types.ProjectDocMetadataRequest{Broadcast: true}
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-	_, err := m.GetMetadataForDoc(ctx, projectId, docId, r)
-	return err
+	response.ProjectMetadata = p
+	return nil
 }
 
 func (m *manager) BroadcastMetadataForDocFromSnapshot(projectId, docId sharedTypes.UUID, snapshot string) error {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	return m.broadcast(ctx, projectId, &types.ProjectDocMetadataResponse{
-		DocId:              docId,
-		ProjectDocMetadata: inflate(m.parseDoc(snapshot)),
-	})
+	return m.broadcast(ctx, projectId, docId, inflate(m.parseDoc(snapshot)))
 }
 
-func (m *manager) GetMetadataForDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request *types.ProjectDocMetadataRequest) (*types.ProjectDocMetadataResponse, error) {
-	d, err := m.dum.GetDoc(ctx, projectId, docId, -1)
+func (m *manager) GetMetadataForDoc(ctx context.Context, request *types.GetMetadataForDocRequest, response *types.GetMetadataForDocResponse) error {
+	d, err := m.dum.GetDoc(ctx, request.ProjectId, request.DocId, -1)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get doc")
+		return errors.Tag(err, "cannot get doc")
 	}
-
-	resp := &types.ProjectDocMetadataResponse{
-		DocId:              docId,
-		ProjectDocMetadata: inflate(m.parseDoc(d.Snapshot)),
-	}
+	meta := inflate(m.parseDoc(d.Snapshot))
 
 	if !request.Broadcast {
 		// Skip pub/sub for projects with a single active user.
-		return resp, nil
+		response.DocId = request.DocId
+		response.ProjectDocMetadata = &meta
+		return nil
 	}
-
-	if err = m.broadcast(ctx, projectId, resp); err != nil {
-		return nil, errors.Tag(err, "cannot broadcast meta")
-	}
-	return &types.ProjectDocMetadataResponse{DocId: docId}, nil
+	return m.broadcast(ctx, request.ProjectId, request.DocId, meta)
 }
 
-func (m *manager) broadcast(ctx context.Context, projectId sharedTypes.UUID, resp *types.ProjectDocMetadataResponse) error {
-	blob, err := json.Marshal(resp)
+func (m *manager) broadcast(ctx context.Context, projectId, docId sharedTypes.UUID, meta types.ProjectDocMetadata) error {
+	blob, err := json.Marshal(types.GetMetadataForDocResponse{
+		DocId:              docId,
+		ProjectDocMetadata: &meta,
+	})
 	if err != nil {
 		return errors.Tag(err, "cannot serialize meta")
 	}
