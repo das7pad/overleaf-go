@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -428,11 +427,10 @@ func (h *httpController) addApiCSPmw(next httpUtils.HandlerFunc) httpUtils.Handl
 	}
 }
 
-var unsupportedBrowsers = regexp.MustCompile("Trident/|MSIE")
-
 func (h *httpController) blockUnsupportedBrowser(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
 	return func(c *httpUtils.Context) {
-		if unsupportedBrowsers.MatchString(c.Request.Header.Get("User-Agent")) {
+		s := c.Request.Header.Get("User-Agent")
+		if strings.Contains(s, "Trident/") || strings.Contains(s, "MSIE") {
 			h.unsupportedBrowserPage(c)
 			return
 		}
