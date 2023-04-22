@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,11 +18,12 @@ package loggedInUserJWT
 
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/userIdJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
+
+type JWTHandler jwtHandler.JWTHandler[*Claims]
 
 type userIdJWTClaims = userIdJWT.Claims
 
@@ -40,8 +41,8 @@ func (c *Claims) Valid() error {
 	return nil
 }
 
-func New(options jwtOptions.JWTOptions) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
+func New(options jwtOptions.JWTOptions) JWTHandler {
+	return jwtHandler.New[*Claims](options, func() *Claims {
 		return &Claims{}
 	})
 }

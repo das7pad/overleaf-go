@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -28,7 +27,7 @@ func (m *manager) GetLoggedInUserJWT(_ context.Context, request *types.GetLogged
 	if err := request.Session.CheckIsLoggedIn(); err != nil {
 		return err
 	}
-	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+	c := m.jwtLoggedInUser.New()
 	c.UserId = request.Session.User.Id
 	b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 	if err != nil {

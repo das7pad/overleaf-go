@@ -28,6 +28,8 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
+type JWTHandler jwtHandler.JWTHandler[*Claims]
+
 type Claims struct {
 	validateProjectJWTEpochs
 
@@ -84,8 +86,8 @@ func MustGet(c *httpUtils.Context) *Claims {
 	return c.Value(jwtField).(*Claims)
 }
 
-func New(options jwtOptions.JWTOptions, validate validateProjectJWTEpochs) jwtHandler.JWTHandler {
-	return jwtHandler.New(options, func() expiringJWT.ExpiringJWT {
+func New(options jwtOptions.JWTOptions, validate validateProjectJWTEpochs) JWTHandler {
+	return jwtHandler.New[*Claims](options, func() *Claims {
 		return &Claims{
 			validateProjectJWTEpochs: validate,
 		}

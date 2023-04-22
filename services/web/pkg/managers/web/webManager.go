@@ -27,7 +27,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/assets"
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/message"
@@ -71,8 +70,8 @@ type Manager interface {
 	Cron(ctx context.Context, dryRun bool)
 	CronOnce(ctx context.Context, dryRun bool) bool
 	GetPublicSettings() *templates.PublicSettings
-	GetProjectJWTHandler() jwtHandler.JWTHandler
-	GetLoggedInUserJWTHandler() jwtHandler.JWTHandler
+	GetProjectJWTHandler() projectJWT.JWTHandler
+	GetLoggedInUserJWTHandler() loggedInUserJWT.JWTHandler
 	betaProgramManager
 	compileManager
 	editorManager
@@ -295,8 +294,8 @@ type manager struct {
 	tokenAccessManager
 	userCreationManager
 	userDeletionManager
-	loggedInUserJWTHandler jwtHandler.JWTHandler
-	projectJWTHandler      jwtHandler.JWTHandler
+	loggedInUserJWTHandler loggedInUserJWT.JWTHandler
+	projectJWTHandler      projectJWT.JWTHandler
 	ps                     *templates.PublicSettings
 }
 
@@ -304,11 +303,11 @@ func (m *manager) GetPublicSettings() *templates.PublicSettings {
 	return m.ps
 }
 
-func (m *manager) GetProjectJWTHandler() jwtHandler.JWTHandler {
+func (m *manager) GetProjectJWTHandler() projectJWT.JWTHandler {
 	return m.projectJWTHandler
 }
 
-func (m *manager) GetLoggedInUserJWTHandler() jwtHandler.JWTHandler {
+func (m *manager) GetLoggedInUserJWTHandler() loggedInUserJWT.JWTHandler {
 	return m.loggedInUserJWTHandler
 }
 

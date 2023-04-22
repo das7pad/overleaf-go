@@ -28,6 +28,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
@@ -209,13 +210,15 @@ func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUti
 		// Use a cheap authentication mechanism for this high volume traffic.
 		r := jwtRouter.Group("")
 		j := h.wm.GetLoggedInUserJWTHandler()
-		r.Use(httpUtils.NewJWTHandler(j).Middleware())
+		r.Use(httpUtils.NewJWTHandler[*loggedInUserJWT.Claims](j).Middleware())
 		r.GET("/system/messages", h.getSystemMessages)
 	}
 
 	projectJWTRouter := jwtRouter.Group("/project/{projectId}")
 	projectJWTRouter.Use(
-		httpUtils.NewJWTHandler(h.wm.GetProjectJWTHandler()).Middleware(),
+		httpUtils.NewJWTHandler[*projectJWT.Claims](
+			h.wm.GetProjectJWTHandler(),
+		).Middleware(),
 	)
 	projectJWTRouter.POST("/clear-cache", h.clearProjectCache)
 	projectJWTRouter.POST("/compile", h.compileProject)

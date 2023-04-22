@@ -22,8 +22,6 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -41,7 +39,7 @@ var defaultUser = &user.WithLoadEditorInfo{
 }
 
 func (m *manager) genJWTLoggedInUser(userId sharedTypes.UUID) (string, error) {
-	c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+	c := m.jwtLoggedInUser.New()
 	c.UserId = userId
 	return m.jwtLoggedInUser.SetExpiryAndSign(c)
 }
@@ -100,7 +98,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		Timeout:      p.OwnerFeatures.CompileTimeout,
 	}
 	{
-		c := m.jwtProject.New().(*projectJWT.Claims)
+		c := m.jwtProject.New()
 		c.EpochUser = u.Epoch
 		c.AuthorizationDetails = *authorizationDetails
 		c.SignedCompileProjectRequestOptions = signedOptions

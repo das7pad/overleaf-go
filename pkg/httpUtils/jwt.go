@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,49 +29,48 @@ func init() {
 	jwt.DecodeStrict = true
 }
 
-type PostProcessClaims interface {
+type JWT interface {
+	jwtHandler.JWT
 	PostProcess(c *Context) (*Context, error)
 }
 
-func NewJWTHandler(handler jwtHandler.JWTHandler) *JWTHTTPHandler {
-	return &JWTHTTPHandler{
+func NewJWTHandler[T JWT](handler jwtHandler.JWTHandler[T]) *JWTHTTPHandler[T] {
+	return &JWTHTTPHandler[T]{
 		parser: handler,
 	}
 }
 
-type JWTHTTPHandler struct {
-	parser jwtHandler.JWTHandler
+type JWTHTTPHandler[T JWT] struct {
+	parser jwtHandler.JWTHandler[T]
 }
 
-func (h *JWTHTTPHandler) Parse(c *Context) (*Context, jwt.Claims, error) {
+func (h *JWTHTTPHandler[T]) Parse(c *Context) (*Context, error) {
 	var blob string
 	v := c.Request.Header.Get("Authorization")
 	if strings.HasPrefix(v, "Bearer ") {
 		blob = v[7:]
 	}
 	if blob == "" {
-		return c, nil, &errors.UnauthorizedError{Reason: "missing jwt"}
+		return c, &errors.UnauthorizedError{Reason: "missing jwt"}
 	}
 
 	claims, err := h.parser.Parse(blob)
 	if err != nil {
-		return c, nil, &errors.UnauthorizedError{Reason: "invalid jwt"}
+		return c, &errors.UnauthorizedError{Reason: "invalid jwt"}
 	}
 
-	if postProcessClaims, ok := claims.(PostProcessClaims); ok {
-		if c, err = postProcessClaims.PostProcess(c); err != nil {
-			return c, nil, err
-		}
+	if c, err = claims.PostProcess(c); err != nil {
+		return c, err
 	}
 
-	return c, claims, nil
+	return c, nil
 }
 
-func (h *JWTHTTPHandler) Middleware() MiddlewareFunc {
+func (h *JWTHTTPHandler[T]) Middleware() MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(c *Context) {
 			done := TimeStage(c, "jwt")
-			c, _, err := h.Parse(c)
+			c, err := h.Parse(c)
 			done()
 			if err != nil {
 				RespondErr(c, err)

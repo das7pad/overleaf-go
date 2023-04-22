@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,16 +25,18 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
 
-type JWTHandler interface {
-	New() expiringJWT.ExpiringJWT
-	Parse(blob string) (expiringJWT.ExpiringJWT, error)
+type JWT = expiringJWT.ExpiringJWT
+
+type JWTHandler[T JWT] interface {
+	New() T
+	Parse(blob string) (T, error)
 	GetExpiresIn() time.Duration
-	SetExpiryAndSign(claims expiringJWT.ExpiringJWT) (string, error)
+	SetExpiryAndSign(claims T) (string, error)
 }
 
-type NewClaims func() expiringJWT.ExpiringJWT
+type NewClaims[T JWT] func() T
 
-func New(options jwtOptions.JWTOptions, newClaims NewClaims) JWTHandler {
+func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandler[T] {
 	method := jwt.GetSigningMethod(options.Algorithm)
 	key := options.Key
 	if s, isString := key.(string); isString {
@@ -45,7 +47,7 @@ func New(options jwtOptions.JWTOptions, newClaims NewClaims) JWTHandler {
 	var keyFn jwt.Keyfunc = func(_ *jwt.Token) (interface{}, error) {
 		return key, nil
 	}
-	return &handler{
+	return &handler[T]{
 		expiresIn: options.ExpiresIn,
 		newClaims: newClaims,
 		key:       key,
@@ -55,32 +57,33 @@ func New(options jwtOptions.JWTOptions, newClaims NewClaims) JWTHandler {
 	}
 }
 
-type handler struct {
+type handler[T JWT] struct {
 	expiresIn time.Duration
 	key       interface{}
 	keyFn     jwt.Keyfunc
 	method    jwt.SigningMethod
-	newClaims NewClaims
+	newClaims NewClaims[T]
 	p         *jwt.Parser
 }
 
-func (h *handler) New() expiringJWT.ExpiringJWT {
+func (h *handler[T]) New() T {
 	return h.newClaims()
 }
 
-func (h *handler) Parse(blob string) (expiringJWT.ExpiringJWT, error) {
+func (h *handler[T]) Parse(blob string) (T, error) {
 	t, err := h.p.ParseWithClaims(blob, h.newClaims(), h.keyFn)
 	if err != nil {
-		return nil, err
+		var tt T
+		return tt, err
 	}
-	return t.Claims.(expiringJWT.ExpiringJWT), nil
+	return t.Claims.(T), nil
 }
 
-func (h *handler) GetExpiresIn() time.Duration {
+func (h *handler[T]) GetExpiresIn() time.Duration {
 	return h.expiresIn
 }
 
-func (h *handler) SetExpiryAndSign(claims expiringJWT.ExpiringJWT) (string, error) {
+func (h *handler[T]) SetExpiryAndSign(claims T) (string, error) {
 	claims.SetExpiry(h.expiresIn)
 	t := jwt.NewWithClaims(h.method, claims)
 	return t.SignedString(h.key)

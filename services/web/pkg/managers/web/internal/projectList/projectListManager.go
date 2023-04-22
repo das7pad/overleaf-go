@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/tag"
@@ -41,7 +40,7 @@ type Manager interface {
 	RenameProject(ctx context.Context, request *types.RenameProjectRequest) error
 }
 
-func New(ps *templates.PublicSettings, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, smm systemMessage.Manager) Manager {
+func New(ps *templates.PublicSettings, editorEvents channel.Writer, pm project.Manager, tm tag.Manager, um user.Manager, jwtLoggedInUser loggedInUserJWT.JWTHandler, smm systemMessage.Manager) Manager {
 	return &manager{
 		editorEvents:    editorEvents,
 		pm:              pm,
@@ -59,7 +58,7 @@ type manager struct {
 	ps              *templates.PublicSettings
 	tm              tag.Manager
 	um              user.Manager
-	jwtLoggedInUser jwtHandler.JWTHandler
+	jwtLoggedInUser loggedInUserJWT.JWTHandler
 	smm             systemMessage.Manager
 }
 
@@ -130,7 +129,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 
 	var jwtLoggedInUser string
 	{
-		c := m.jwtLoggedInUser.New().(*loggedInUserJWT.Claims)
+		c := m.jwtLoggedInUser.New()
 		c.UserId = userId
 		b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 		if err != nil {

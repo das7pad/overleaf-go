@@ -66,7 +66,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 type httpController struct {
 	rtm        realTime.Manager
 	u          websocket.Upgrader
-	jwtProject jwtHandler.JWTHandler
+	jwtProject jwtHandler.JWTHandler[*projectJWT.Claims]
 }
 
 const (
@@ -89,11 +89,7 @@ func (h *httpController) getProjectJWT(c *httpUtils.Context) (*projectJWT.Claims
 	if len(blob) == 0 {
 		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
 	}
-	genericClaims, jwtError := h.jwtProject.Parse(blob)
-	if jwtError != nil {
-		return nil, jwtError
-	}
-	return genericClaims.(*projectJWT.Claims), nil
+	return h.jwtProject.Parse(blob)
 }
 
 func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {

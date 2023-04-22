@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -46,7 +45,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 		userEpoch = user.AnonymousUserEpoch
 	}
 
-	c := m.jwtProject.New().(*projectJWT.Claims)
+	c := m.jwtProject.New()
 	c.ProjectId = projectId
 	c.UserId = userId
 	c.CompileGroup = p.OwnerFeatures.CompileGroup

@@ -21,7 +21,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
+	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/session"
@@ -53,7 +53,7 @@ type Manager interface {
 	SettingsPage(ctx context.Context, request *types.SettingsPageRequest, response *types.SettingsPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, jwtLoggedInUser jwtHandler.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, jwtLoggedInUser loggedInUserJWT.JWTHandler, sm session.Manager) Manager {
 	return &manager{
 		jwtLoggedInUser: jwtLoggedInUser,
 		oTTm:            oneTimeToken.New(db),
@@ -70,7 +70,7 @@ func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool,
 }
 
 type manager struct {
-	jwtLoggedInUser jwtHandler.JWTHandler
+	jwtLoggedInUser loggedInUserJWT.JWTHandler
 	oTTm            oneTimeToken.Manager
 	sm              session.Manager
 	um              user.Manager
