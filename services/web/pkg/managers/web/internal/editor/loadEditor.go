@@ -38,12 +38,6 @@ var defaultUser = &user.WithLoadEditorInfo{
 	},
 }
 
-func (m *manager) genJWTLoggedInUser(userId sharedTypes.UUID) (string, error) {
-	c := m.jwtLoggedInUser.New()
-	c.UserId = userId
-	return m.jwtLoggedInUser.SetExpiryAndSign(c)
-}
-
 func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectEditorPageRequest, res *types.ProjectEditorPageResponse) error {
 	if err := request.Validate(); err != nil {
 		return err
@@ -84,7 +78,9 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 
 	if !isAnonymous {
-		s, err := m.genJWTLoggedInUser(userId)
+		c := m.jwtLoggedInUser.New()
+		c.UserId = userId
+		s, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 		if err != nil {
 			return errors.Tag(err, "cannot get LoggedInUserJWT")
 		}
