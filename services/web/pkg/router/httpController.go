@@ -34,7 +34,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
@@ -522,7 +521,7 @@ func (h *httpController) syncFromCode(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request.SignedCompileProjectRequestOptions = o
 
-	response := &clsiTypes.PDFPositions{}
+	response := &types.SyncFromCodeResponse{}
 	err := h.wm.SyncFromCode(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
@@ -535,7 +534,7 @@ func (h *httpController) syncFromPDF(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request.SignedCompileProjectRequestOptions = o
 
-	response := &clsiTypes.CodePositions{}
+	response := &types.SyncFromPDFResponse{}
 	err := h.wm.SyncFromPDF(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }
@@ -548,7 +547,7 @@ func (h *httpController) wordCount(c *httpUtils.Context) {
 	o := mustGetSignedCompileProjectOptionsFromJwt(c)
 	request.SignedCompileProjectRequestOptions = o
 
-	response := &clsiTypes.Words{}
+	response := &types.WordCountResponse{}
 	err := h.wm.WordCount(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
 }

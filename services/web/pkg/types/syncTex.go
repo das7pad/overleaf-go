@@ -27,8 +27,12 @@ type SyncFromCodeRequest struct {
 	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
 }
 
+type SyncFromCodeResponse = clsiTypes.PDFPositions
+
 type SyncFromPDFRequest struct {
 	clsiTypes.SyncFromPDFRequest
 	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
 	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
 }
+
+type SyncFromPDFResponse = clsiTypes.CodePositions

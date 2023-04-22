@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,11 +19,10 @@ package compile
 import (
 	"context"
 
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, words *clsiTypes.Words) error {
+func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, response *types.WordCountResponse) error {
 	err := m.preprocessGenericPOST(
 		request.SignedCompileProjectRequestOptions,
 		request.ImageName,
@@ -35,7 +34,7 @@ func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest
 	if m.bundle != nil {
 		return m.bundle.WordCount(
 			ctx, request.ProjectId, request.UserId,
-			&request.WordCountRequest, words,
+			&request.WordCountRequest, response,
 		)
 	}
 	return m.genericPOST(
@@ -44,6 +43,6 @@ func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest
 		request.SignedCompileProjectRequestOptions,
 		request.ClsiServerId,
 		&request.WordCountRequest,
-		words,
+		response,
 	)
 }

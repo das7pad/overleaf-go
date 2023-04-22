@@ -24,7 +24,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -72,7 +71,7 @@ func (m *manager) genericPOST(ctx context.Context, endpoint string, options shar
 	}
 }
 
-func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error {
+func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error {
 	err := m.preprocessGenericPOST(
 		request.SignedCompileProjectRequestOptions,
 		request.ImageName,
@@ -84,7 +83,7 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 	if m.bundle != nil {
 		return m.bundle.SyncFromCode(
 			ctx, request.ProjectId, request.UserId,
-			&request.SyncFromCodeRequest, positions,
+			&request.SyncFromCodeRequest, response,
 		)
 	}
 	return m.genericPOST(
@@ -93,11 +92,11 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 		request.SignedCompileProjectRequestOptions,
 		request.ClsiServerId,
 		&request.SyncFromCodeRequest,
-		positions,
+		response,
 	)
 }
 
-func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error {
+func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error {
 	err := m.preprocessGenericPOST(
 		request.SignedCompileProjectRequestOptions,
 		request.ImageName,
@@ -109,7 +108,7 @@ func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFReq
 	if m.bundle != nil {
 		return m.bundle.SyncFromPDF(
 			ctx, request.ProjectId, request.UserId,
-			&request.SyncFromPDFRequest, positions,
+			&request.SyncFromPDFRequest, response,
 		)
 	}
 	return m.genericPOST(
@@ -118,6 +117,6 @@ func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFReq
 		request.SignedCompileProjectRequestOptions,
 		request.ClsiServerId,
 		&request.SyncFromPDFRequest,
-		positions,
+		response,
 	)
 }

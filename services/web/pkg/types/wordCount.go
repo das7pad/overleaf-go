@@ -26,3 +26,5 @@ type WordCountRequest struct {
 	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
 	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
 }
+
+type WordCountResponse = clsiTypes.Words
