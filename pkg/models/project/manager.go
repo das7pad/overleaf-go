@@ -47,11 +47,11 @@ type Manager interface {
 	DeleteFolder(ctx context.Context, projectId, userId, folderId sharedTypes.UUID) (sharedTypes.Version, error)
 	RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.UUID, error)
 	MoveDoc(ctx context.Context, projectId, userId, folderId, docId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
-	MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error)
-	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error)
+	MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error)
+	MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, []FileRef, error)
 	RenameDoc(ctx context.Context, projectId, userId sharedTypes.UUID, d *Doc) (sharedTypes.Version, sharedTypes.PathName, error)
-	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error)
-	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error)
+	RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, sharedTypes.PathName, error)
+	RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, []FileRef, error)
 	GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error)
 	GetForClone(ctx context.Context, projectId, userId sharedTypes.UUID) (*ForClone, error)
 	GetForProjectInvite(ctx context.Context, projectId, actorId sharedTypes.UUID, email sharedTypes.Email) (*ForProjectInvite, error)
@@ -644,15 +644,16 @@ func (m *manager) MoveDoc(ctx context.Context, projectId, userId, folderId, docI
 	return m.moveTreeLeaf(ctx, projectId, userId, folderId, docId, TreeNodeKindDoc)
 }
 
-func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, error) {
-	v, _, err := m.moveTreeLeaf(ctx, projectId, userId, folderId, fileId, TreeNodeKindFile)
-	return v, err
+func (m *manager) MoveFile(ctx context.Context, projectId, userId, folderId, fileId sharedTypes.UUID) (sharedTypes.Version, sharedTypes.PathName, error) {
+	return m.moveTreeLeaf(ctx, projectId, userId, folderId, fileId, TreeNodeKindFile)
 }
 
-func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, error) {
+func (m *manager) MoveFolder(ctx context.Context, projectId, userId, targetFolderId, folderId sharedTypes.UUID) (sharedTypes.Version, []Doc, []FileRef, error) {
 	var v sharedTypes.Version
 	var docIds sharedTypes.UUIDs
 	var docPaths []string
+	var fileIds sharedTypes.UUIDs
+	var filePaths []string
 	err := m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
                      t.project_id,
@@ -696,6 +697,9 @@ WITH node AS (SELECT t.id,
      updated_docs AS (SELECT array_agg(id) AS ids, array_agg(path) AS paths
                       FROM updated_children
                       WHERE kind = 'doc'),
+     updated_files AS (SELECT array_agg(id) AS ids, array_agg(path) AS paths
+                       FROM updated_children
+                       WHERE kind = 'file'),
      updated_version AS (
          UPDATE projects p
              SET last_updated_by = $2,
@@ -705,22 +709,30 @@ WITH node AS (SELECT t.id,
              WHERE p.id = $1
              RETURNING p.tree_version)
 
-SELECT updated_version.tree_version, updated_docs.ids, updated_docs.paths
+SELECT updated_version.tree_version,
+       updated_docs.ids,
+       updated_docs.paths,
+       updated_files.ids,
+       updated_files.paths
 FROM updated_version,
-     updated_docs
+     updated_docs,
+     updated_files
 `, projectId, userId, folderId, targetFolderId).
-		Scan(&v, &docIds, &docPaths)
+		Scan(&v, &docIds, &docPaths, &fileIds, &filePaths)
 	if err != nil {
-		return 0, nil, rewritePostgresErr(err)
+		return 0, nil, nil, rewritePostgresErr(err)
 	}
-	docs := make([]Doc, 0, len(docIds))
+	docs := make([]Doc, len(docIds))
 	for i, id := range docIds {
-		d := Doc{}
-		d.Id = id
-		d.Path = sharedTypes.PathName(docPaths[i])
-		docs = append(docs, d)
+		docs[i].Id = id
+		docs[i].Path = sharedTypes.PathName(docPaths[i])
 	}
-	return v, docs, nil
+	files := make([]FileRef, len(fileIds))
+	for i, id := range fileIds {
+		files[i].Id = id
+		files[i].Path = sharedTypes.PathName(filePaths[i])
+	}
+	return v, docs, files, nil
 }
 
 func (m *manager) renameTreeLeaf(ctx context.Context, projectId, userId, nodeId sharedTypes.UUID, kind TreeNodeKind, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.PathName, error) {
@@ -761,27 +773,28 @@ func (m *manager) RenameDoc(ctx context.Context, projectId, userId sharedTypes.U
 	return m.renameTreeLeaf(ctx, projectId, userId, d.Id, TreeNodeKindDoc, d.Name)
 }
 
-func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, error) {
-	v, _, err := m.renameTreeLeaf(ctx, projectId, userId, f.Id, TreeNodeKindFile, f.Name)
-	return v, err
+func (m *manager) RenameFile(ctx context.Context, projectId, userId sharedTypes.UUID, f *FileRef) (sharedTypes.Version, sharedTypes.PathName, error) {
+	return m.renameTreeLeaf(ctx, projectId, userId, f.Id, TreeNodeKindFile, f.Name)
 }
 
-func (m *manager) RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, error) {
+func (m *manager) RenameFolder(ctx context.Context, projectId, userId sharedTypes.UUID, f *Folder) (sharedTypes.Version, []Doc, []FileRef, error) {
 	var v sharedTypes.Version
 	var docIds sharedTypes.UUIDs
 	var docPaths []string
+	var filesIds sharedTypes.UUIDs
+	var filesPaths []string
 	err := m.db.QueryRow(ctx, `
 WITH node AS (SELECT t.id,
                      t.project_id,
                      t.path,
-                     char_length(t.path) + 1     AS old_end,
+                     char_length(t.path) + 1            AS old_end,
                      concat(parent.path, $4::TEXT, '/') AS new_path
               FROM tree_nodes t
                        INNER JOIN projects p ON t.project_id = p.id
                        INNER JOIN project_members pm
                                   ON (t.project_id = pm.project_id AND
                                       pm.user_id = $2)
-						INNER JOIN tree_nodes parent ON t.parent_id = parent.id
+                       INNER JOIN tree_nodes parent ON t.parent_id = parent.id
               WHERE t.id = $3
                 AND t.kind = 'folder'
                 AND t.project_id = $1
@@ -800,6 +813,9 @@ WITH node AS (SELECT t.id,
      updated_docs AS (SELECT array_agg(id) AS ids, array_agg(path) AS paths
                       FROM updated_children
                       WHERE kind = 'doc'),
+     updated_files AS (SELECT array_agg(id) AS ids, array_agg(path) AS paths
+                       FROM updated_children
+                       WHERE kind = 'file'),
      updated_version AS (
          UPDATE projects p
              SET last_updated_by = $2,
@@ -809,22 +825,30 @@ WITH node AS (SELECT t.id,
              WHERE p.id = $1
              RETURNING p.tree_version)
 
-SELECT updated_version.tree_version, updated_docs.ids, updated_docs.paths
+SELECT updated_version.tree_version,
+       updated_docs.ids,
+       updated_docs.paths,
+       updated_files.ids,
+       updated_files.paths
 FROM updated_version,
-     updated_docs
+     updated_docs,
+     updated_files
 `, projectId, userId, f.Id, f.Name).
-		Scan(&v, &docIds, &docPaths)
+		Scan(&v, &docIds, &docPaths, filesIds, filesPaths)
 	if err != nil {
-		return 0, nil, rewritePostgresErr(err)
+		return 0, nil, nil, rewritePostgresErr(err)
 	}
-	docs := make([]Doc, 0, len(docIds))
+	docs := make([]Doc, len(docIds))
 	for i, id := range docIds {
-		d := Doc{}
-		d.Id = id
-		d.Path = sharedTypes.PathName(docPaths[i])
-		docs = append(docs, d)
+		docs[i].Id = id
+		docs[i].Path = sharedTypes.PathName(docPaths[i])
 	}
-	return v, docs, nil
+	files := make([]FileRef, len(filesIds))
+	for i, id := range filesIds {
+		files[i].Id = id
+		files[i].Path = sharedTypes.PathName(filesPaths[i])
+	}
+	return v, docs, files, nil
 }
 
 func (m *manager) ArchiveForUser(ctx context.Context, projectId, userId sharedTypes.UUID) error {

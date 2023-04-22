@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -32,7 +32,7 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 	fileRef.Id = request.FileId
 	fileRef.Name = request.Name
 
-	projectVersion, err := m.pm.RenameFile(
+	projectVersion, _, err := m.pm.RenameFile(
 		ctx, projectId, request.UserId, &fileRef,
 	)
 	if err != nil {

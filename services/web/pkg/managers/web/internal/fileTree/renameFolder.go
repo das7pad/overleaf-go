@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,7 +35,7 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	folder.Id = request.FolderId
 	folder.Name = request.Name
 
-	projectVersion, docs, err := m.pm.RenameFolder(
+	projectVersion, docs, _, err := m.pm.RenameFolder(
 		ctx, projectId, userId, &folder,
 	)
 	if err != nil {
