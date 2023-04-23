@@ -73,29 +73,49 @@ func (m *manager) ProxyImage(ctx context.Context, request *types.LearnImageReque
 	if err := request.Path.Validate(); err != nil {
 		return err
 	}
+	now := time.Now()
+	target, fetchedAt, err := m.getImage(ctx, request, now)
+	if err != nil {
+		return err
+	}
+	if fetchedAt.Equal(now) {
+		response.Age = -1
+	} else {
+		response.Age = int64(now.Sub(fetchedAt).Seconds())
+	}
+	response.FSPath = target
+	return nil
+}
+
+func (m *manager) getImage(ctx context.Context, request *types.LearnImageRequest, now time.Time) (string, time.Time, error) {
 	flatPath := strings.ReplaceAll(request.Path.String(), "/", "-")
 	target := m.baseImagePath.JoinPath(sharedTypes.PathName(flatPath)).String()
 	m.imageMux.RLock()
 	fetchedAt, exists := m.imageCache[target]
 	m.imageMux.RUnlock()
-	if now := time.Now(); exists && fetchedAt.Add(m.cacheDuration).After(now) {
-		response.Age = int64(now.Sub(fetchedAt).Seconds())
-	} else {
-		response.Age = -1
-
-		u := m.baseImageURL.WithPath(request.Path.String())
-		f, err := m.proxy.DownloadFile(ctx, u)
-		if err != nil {
-			return errors.Tag(err, "cannot download")
-		}
-		if err = f.Move(target); err != nil {
-			f.Cleanup()
-			return errors.Tag(err, "cannot move target")
-		}
-		m.imageMux.Lock()
-		m.imageCache[target] = now
-		m.imageMux.Unlock()
+	if exists && fetchedAt.Add(m.cacheDuration).After(now) {
+		return target, fetchedAt, nil
 	}
-	response.FSPath = target
-	return nil
+
+	u := m.baseImageURL.WithPath(request.Path.String())
+	f, err := m.proxy.DownloadFile(ctx, u)
+	if err != nil {
+		if exists {
+			// fallback to cache
+			return target, fetchedAt, nil
+		}
+		return "", time.Time{}, errors.Tag(err, "cannot download")
+	}
+	if err = f.Move(target); err != nil {
+		f.Cleanup()
+		if exists {
+			// fallback to cache
+			return target, fetchedAt, nil
+		}
+		return "", time.Time{}, errors.Tag(err, "cannot move target")
+	}
+	m.imageMux.Lock()
+	m.imageCache[target] = now
+	m.imageMux.Unlock()
+	return target, now, nil
 }

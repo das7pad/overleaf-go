@@ -58,6 +58,10 @@ func (m *manager) getPage(ctx context.Context, path string) (*pageContent, bool,
 	}
 	freshPc, err := m.fetchPage(ctx, path)
 	if err != nil {
+		if exists {
+			// fallback to cache
+			return pc, true, nil
+		}
 		return nil, false, err
 	}
 
