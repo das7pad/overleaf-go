@@ -106,7 +106,7 @@ services:
       - ${TMP_DIR}/assets:${TMP_DIR}/assets:ro
 
   build-linked-url-proxy:
-    image: golang:1.19.6
+    image: golang:1.19.8
     network_mode: bridge
     working_dir: /go/src/services/linked-url-proxy
     command: go build -o ${TMP_DIR}/binaries/linked-url-proxy
@@ -131,7 +131,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-pull-texlive-images:
-    image: golang:1.19.6
+    image: golang:1.19.8
     network_mode: bridge
     working_dir: /go/src/cmd/pull-texlive-images
     command: go build -o ${TMP_DIR}/binaries/pull-texlive-images
@@ -157,7 +157,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-execAgent:
-    image: golang:1.19.6
+    image: golang:1.19.8
     network_mode: bridge
     working_dir: /go/src/services/clsi
     command:
@@ -169,7 +169,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
 
   build-overleaf:
-    image: golang:1.19.6
+    image: golang:1.19.8
     network_mode: bridge
     working_dir: /go/src/cmd/overleaf
     command: go build -o ${TMP_DIR}/binaries/overleaf
