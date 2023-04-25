@@ -22,9 +22,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/constants"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
 func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool, start time.Time) error {

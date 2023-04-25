@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,24 +17,17 @@
 package httpUtils
 
 import (
-	"encoding/json"
-
+	"github.com/das7pad/overleaf-go/pkg/constants"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func MustParseJSON(dst interface{}, c *Context) bool {
-	defer func() {
-		_ = c.Request.Body.Close()
-	}()
-	if err := validateContentLength(c); err != nil {
-		RespondErr(c, err)
-		return false
+func validateContentLength(c *Context) error {
+	if cl := c.Request.ContentLength; cl == -1 {
+		return &errors.UnprocessableEntityError{
+			Msg: "missing Content-Length header",
+		}
+	} else if cl > constants.MaxUploadSize {
+		return &errors.BodyTooLargeError{}
 	}
-	if err := json.NewDecoder(c.Request.Body).Decode(dst); err != nil {
-		RespondErr(c, &errors.ValidationError{
-			Msg: "invalid body: " + err.Error(),
-		})
-		return false
-	}
-	return true
+	return nil
 }

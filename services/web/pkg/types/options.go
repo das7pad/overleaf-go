@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/assets"
+	"github.com/das7pad/overleaf-go/pkg/constants"
 	"github.com/das7pad/overleaf-go/pkg/csp"
 	"github.com/das7pad/overleaf-go/pkg/email"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -33,7 +34,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 )
 
 type Options struct {

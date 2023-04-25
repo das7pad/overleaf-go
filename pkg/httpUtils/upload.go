@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,64 +17,88 @@
 package httpUtils
 
 import (
+	"bytes"
+	"io"
+	"mime"
 	"mime/multipart"
+	"net/http"
+	"os"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type UploadDetails struct {
-	File     multipart.File
-	FileName sharedTypes.Filename
-	Size     int64
+	File        multipart.File
+	tmpFileName string
+	FileName    sharedTypes.Filename
+	Size        int64
 }
 
 func (d *UploadDetails) Cleanup() {
 	if f := d.File; f != nil {
 		_ = f.Close()
 	}
+	if d.tmpFileName != "" {
+		_ = os.Remove(d.tmpFileName)
+	}
 }
 
-const multipartHeaderOverhead = 5 * 1024
-
-func ProcessFileUpload(d *UploadDetails, c *Context, sizeLimit, memoryLimit int64) bool {
-	if c.Request.ContentLength > sizeLimit+multipartHeaderOverhead {
-		RespondErr(c, &errors.BodyTooLargeError{})
-		return false
-	}
-	if err := c.Request.ParseMultipartForm(memoryLimit); err != nil {
-		RespondErr(c, &errors.ValidationError{
-			Msg: "cannot parse multipart form",
-		})
-		return false
-	}
-
-	//goland:noinspection SpellCheckingInspection
-	fileHeaders := c.Request.MultipartForm.File["qqfile"]
-	if len(fileHeaders) == 0 {
-		RespondErr(c, &errors.ValidationError{Msg: "missing file"})
-		return false
-	}
-	fh := fileHeaders[0]
-	if fh.Size > sizeLimit {
-		RespondErr(c, &errors.BodyTooLargeError{})
-		return false
-	}
-
-	filename := sharedTypes.Filename(fh.Filename)
-	if err := filename.Validate(); err != nil {
+func ProcessFileUpload(d *UploadDetails, c *Context, memoryLimit int64) bool {
+	if err := tryProcessFileUpload(d, c, memoryLimit); err != nil {
 		RespondErr(c, err)
 		return false
 	}
-
-	f, err := fh.Open()
-	if err != nil {
-		RespondErr(c, errors.Tag(err, "cannot open file"))
-		return false
-	}
-
-	d.File = f
-	d.FileName = filename
-	d.Size = fh.Size
 	return true
+}
+
+func parseFilenameFromCD(cd string) (sharedTypes.Filename, error) {
+	_, params, err := mime.ParseMediaType(cd)
+	if err != nil {
+		return "", &errors.ValidationError{Msg: "invalid Content-Disposition"}
+	}
+	name := sharedTypes.Filename(params["filename"])
+	if err = name.Validate(); err != nil {
+		return "", errors.Tag(err, "invalid Content-Disposition")
+	}
+	return name, nil
+}
+
+func tryProcessFileUpload(d *UploadDetails, c *Context, memoryLimit int64) error {
+	if err := validateContentLength(c); err != nil {
+		return err
+	}
+	name, err := parseFilenameFromCD(c.Request.Header.Get("Content-Disposition"))
+	if err != nil {
+		return err
+	}
+	d.FileName = name
+
+	r := http.MaxBytesReader(c.Writer, c.Request.Body, c.Request.ContentLength)
+	if c.Request.ContentLength <= memoryLimit {
+		buf := bytes.Buffer{}
+		if d.Size, err = io.Copy(&buf, r); err != nil {
+			return errors.Tag(err, "copy body")
+		}
+		d.File = &bufferedFile{bytes.NewReader(buf.Bytes())}
+	} else {
+		var f *os.File
+		if f, err = os.CreateTemp("", "upload"); err != nil {
+			return errors.Tag(err, "create tmp file")
+		}
+		d.File = f
+		d.tmpFileName = f.Name()
+		if d.Size, err = io.Copy(f, r); err != nil {
+			return errors.Tag(err, "copy body")
+		}
+	}
+	return nil
+}
+
+type bufferedFile struct {
+	*bytes.Reader
+}
+
+func (*bufferedFile) Close() error {
+	return nil
 }

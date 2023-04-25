@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/asyncForm"
+	"github.com/das7pad/overleaf-go/pkg/constants"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/loggedInUserJWT"
@@ -35,7 +36,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/session"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
-	"github.com/das7pad/overleaf-go/services/web/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -930,10 +930,10 @@ func (h *httpController) addFolderToProject(c *httpUtils.Context) {
 func (h *httpController) uploadFile(c *httpUtils.Context) {
 	j := projectJWT.MustGet(c)
 	d := &httpUtils.UploadDetails{}
-	if !httpUtils.ProcessFileUpload(d, c, constants.MaxUploadSize, sharedTypes.MaxDocSizeBytes) {
+	defer d.Cleanup()
+	if !httpUtils.ProcessFileUpload(d, c, sharedTypes.MaxDocSizeBytes) {
 		return
 	}
-	defer d.Cleanup()
 	request := &types.UploadFileRequest{
 		ProjectId:      j.ProjectId,
 		UserId:         j.UserId,
@@ -1269,7 +1269,8 @@ func (h *httpController) createFromZip(c *httpUtils.Context) {
 	}
 
 	d := &httpUtils.UploadDetails{}
-	if !httpUtils.ProcessFileUpload(d, c, constants.MaxUploadSize, sharedTypes.MaxDocSizeBytes) {
+	defer d.Cleanup()
+	if !httpUtils.ProcessFileUpload(d, c, sharedTypes.MaxDocSizeBytes) {
 		return
 	}
 	request.UploadDetails = types.UploadDetails{
@@ -1277,7 +1278,6 @@ func (h *httpController) createFromZip(c *httpUtils.Context) {
 		FileName: d.FileName,
 		Size:     d.Size,
 	}
-	defer d.Cleanup()
 	response := &types.CreateProjectResponse{}
 	err := h.wm.CreateFromZip(c, request, response)
 	if err != nil && errors.IsValidationError(err) {
