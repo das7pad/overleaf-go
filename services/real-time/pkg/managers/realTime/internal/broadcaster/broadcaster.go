@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -43,7 +43,7 @@ func New(c channel.Manager, newRoom NewRoom) Broadcaster {
 		c:        c,
 		newRoom:  newRoom,
 		allQueue: make(chan string),
-		queue:    make(chan action),
+		queue:    make(chan func()),
 		mux:      sync.RWMutex{},
 		rooms:    make(map[sharedTypes.UUID]Room),
 	}
@@ -56,28 +56,9 @@ type broadcaster struct {
 	allQueue chan string
 
 	newRoom NewRoom
-	queue   chan action
+	queue   chan func()
 	mux     sync.RWMutex
 	rooms   map[sharedTypes.UUID]Room
-}
-
-type operation int
-
-const (
-	cleanup operation = iota
-	join
-	leave
-	pause
-)
-
-type onDone chan pendingOperation.PendingOperation
-
-type action struct {
-	operation operation
-	id        sharedTypes.UUID
-	ctx       context.Context
-	client    *types.Client
-	onDone    onDone
 }
 
 //goland:noinspection SpellCheckingInspection
@@ -115,31 +96,17 @@ func (b *broadcaster) TriggerGracefulReconnect() int {
 }
 
 func (b *broadcaster) pauseQueueFor(fn func()) {
-	done := make(onDone)
-	defer close(done)
-	a := action{
-		operation: pause,
-		onDone:    done,
+	done := make(chan struct{})
+	b.queue <- func() {
+		fn()
+		close(done)
 	}
-	b.queue <- a
 	<-done
-	fn()
-	go b.processQueue()
 }
 
 func (b *broadcaster) processQueue() {
-	for a := range b.queue {
-		switch a.operation {
-		case cleanup:
-			b.cleanup(a.id)
-		case join:
-			a.onDone <- b.join(a)
-		case leave:
-			a.onDone <- b.leave(a)
-		case pause:
-			a.onDone <- nil
-			return
-		}
+	for fn := range b.queue {
+		fn()
 	}
 }
 
@@ -188,18 +155,18 @@ func (b *broadcaster) createNewRoom() Room {
 	return r
 }
 
-func (b *broadcaster) join(a action) pendingOperation.WithCancel {
+func (b *broadcaster) join(ctx context.Context, id sharedTypes.UUID, client *types.Client) pendingOperation.WithCancel {
 	// No need for read locking, we are the only potential writer.
-	r, exists := b.rooms[a.id]
+	r, exists := b.rooms[id]
 	if !exists {
 		r = b.createNewRoom()
 		b.mux.Lock()
-		b.rooms[a.id] = r
+		b.rooms[id] = r
 		b.mux.Unlock()
 	}
 
 	roomWasEmpty := r.isEmpty()
-	r.add(a.client)
+	r.add(client)
 
 	pending := r.pendingOperation()
 	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
@@ -208,21 +175,21 @@ func (b *broadcaster) join(a action) pendingOperation.WithCancel {
 	}
 
 	op := pendingOperation.TrackOperationWithCancel(
-		a.ctx,
+		ctx,
 		func(ctx context.Context) error {
 			if pending != nil && pending.IsPending() {
 				pending.Cancel()
 				_ = pending.Wait(ctx)
 			}
-			return b.c.Subscribe(ctx, a.id)
+			return b.c.Subscribe(ctx, id)
 		})
 	r.setPendingOperation(op)
 	return op
 }
 
-func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
+func (b *broadcaster) leave(ctx context.Context, id sharedTypes.UUID, client *types.Client) pendingOperation.WithCancel {
 	// No need for read locking, we are the only potential writer.
-	r, exists := b.rooms[a.id]
+	r, exists := b.rooms[id]
 	if !exists {
 		// Already left.
 		return nil
@@ -232,7 +199,7 @@ func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
 		return nil
 	}
 
-	r.remove(a.client)
+	r.remove(client)
 
 	if !r.isEmpty() {
 		// Do not unsubscribe yet.
@@ -241,13 +208,13 @@ func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
 
 	subscribe := r.pendingOperation()
 	op := pendingOperation.TrackOperationWithCancel(
-		a.ctx,
+		ctx,
 		func(ctx context.Context) error {
 			if subscribe != nil && subscribe.IsPending() {
 				subscribe.Cancel()
 				_ = subscribe.Wait(ctx)
 			}
-			return b.c.Unsubscribe(ctx, a.id)
+			return b.c.Unsubscribe(ctx, id)
 		},
 	)
 	r.setPendingOperation(op)
@@ -255,18 +222,20 @@ func (b *broadcaster) leave(a action) pendingOperation.WithCancel {
 }
 
 func (b *broadcaster) Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error {
-	return b.doJoinLeave(ctx, client, id, join)
+	return b.doJoinLeave(ctx, client, id, true)
 }
 
-func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id sharedTypes.UUID, target operation) error {
-	done := make(onDone)
+func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id sharedTypes.UUID, isJoin bool) error {
+	done := make(chan pendingOperation.PendingOperation)
 	defer close(done)
-	b.queue <- action{
-		operation: target,
-		id:        id,
-		ctx:       ctx,
-		client:    client,
-		onDone:    done,
+	if isJoin {
+		b.queue <- func() {
+			done <- b.join(ctx, id, client)
+		}
+	} else {
+		b.queue <- func() {
+			done <- b.leave(ctx, id, client)
+		}
 	}
 	select {
 	case <-ctx.Done():
@@ -286,7 +255,7 @@ func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id 
 }
 
 func (b *broadcaster) Leave(client *types.Client, id sharedTypes.UUID) error {
-	return b.doJoinLeave(context.Background(), client, id, leave)
+	return b.doJoinLeave(context.Background(), client, id, false)
 }
 
 func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {
@@ -323,9 +292,8 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 		for raw := range c {
 			switch raw.Action {
 			case channel.Unsubscribed:
-				b.queue <- action{
-					operation: cleanup,
-					id:        raw.Channel,
+				b.queue <- func() {
+					b.cleanup(raw.Channel)
 				}
 			case channel.IncomingMessage:
 				if raw.Channel.IsZero() {
