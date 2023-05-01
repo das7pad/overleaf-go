@@ -186,7 +186,7 @@ func (i *UnprocessableEntityError) Error() string {
 
 func (i *UnprocessableEntityError) IsUserFacing() {}
 
-func IsUnprocessableEntity(err error) bool {
+func IsUnprocessableEntityError(err error) bool {
 	_, ok := GetCause(err).(*UnprocessableEntityError)
 	return ok
 }
@@ -203,7 +203,7 @@ func (i *InvalidStateError) Error() string {
 
 func (i *InvalidStateError) IsUserFacing() {}
 
-func IsInvalidState(err error) bool {
+func IsInvalidStateError(err error) bool {
 	_, ok := GetCause(err).(*InvalidStateError)
 	return ok
 }

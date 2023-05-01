@@ -219,7 +219,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		switch {
 		case err == nil:
 			syncType = clsiTypes.SyncTypeIncremental
-		case errors.IsInvalidState(err):
+		case errors.IsInvalidStateError(err):
 			syncType = clsiTypes.SyncTypeFullIncremental
 			fetchContentPerf.Begin()
 			resources, rootDocPath, err = m.fromDB(ctx, request)
@@ -266,7 +266,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		response.Timings.FetchContent = fetchContentPerf
 		response.PDFDownloadDomain = m.pdfDownloadDomain
 		if err != nil {
-			if errors.IsInvalidState(err) && !syncType.IsFull() {
+			if errors.IsInvalidStateError(err) && !syncType.IsFull() {
 				continue // retry as full sync
 			}
 			if errors.IsAlreadyCompilingError(err) {
