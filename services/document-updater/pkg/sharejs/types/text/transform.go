@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -40,7 +40,7 @@ const (
 )
 
 var deleteOpsDeleteDifferentText = &errors.CodedError{
-	Description: "Delete ops delete different text in the same region of the document",
+	Msg: "Delete ops delete different text in the same region of the document",
 }
 
 func transformPosition(p int, c sharedTypes.Component, insertAfter bool) int {

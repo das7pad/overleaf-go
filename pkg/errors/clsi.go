@@ -25,11 +25,7 @@ func (m MissingOutputFileError) Error() string {
 }
 
 func IsMissingOutputFileError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*MissingOutputFileError)
+	_, ok := GetCause(err).(*MissingOutputFileError)
 	return ok
 }
 
@@ -40,11 +36,7 @@ func (a AlreadyCompilingError) Error() string {
 }
 
 func IsAlreadyCompilingError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*AlreadyCompilingError)
+	_, ok := GetCause(err).(*AlreadyCompilingError)
 	return ok
 }
 
@@ -55,10 +47,6 @@ func (a CompilerUnavailableError) Error() string {
 }
 
 func IsCompilerUnavailableError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*CompilerUnavailableError)
+	_, ok := GetCause(err).(*CompilerUnavailableError)
 	return ok
 }

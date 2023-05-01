@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,27 +22,29 @@ import (
 	"time"
 )
 
-type PublicError interface {
-	error
-	Public() *JavaScriptError
+type UserFacingError interface {
+	IsUserFacing()
 }
 
-type PotentiallyFatalError interface {
-	IsFatal() bool
+type FatalError interface {
+	IsFatal()
 }
 
 type Causer interface {
 	Cause() error
 }
 
-func GetPublicMessage(err error) string {
-	if pErr, ok := err.(PublicError); ok {
-		return pErr.Error()
+func IsFatalError(err error) bool {
+	_, ok := GetCause(err).(FatalError)
+	return ok
+}
+
+func GetPublicMessage(err error, fallback string) string {
+	if _, ok := GetCause(err).(UserFacingError); ok {
+		// Include tags
+		return err.Error()
 	}
-	if cErr, ok := err.(Causer); ok {
-		return GetPublicMessage(cErr.Cause())
-	}
-	return "internal server error"
+	return fallback
 }
 
 type JavaScriptError struct {
@@ -123,9 +125,6 @@ func Tag(err error, msg string) *TaggedError {
 }
 
 func GetCause(err error) error {
-	if err == nil {
-		return nil
-	}
 	if causer, ok := err.(Causer); ok {
 		return GetCause(causer.Cause())
 	}
@@ -145,12 +144,8 @@ func MarkAsReported(err error) error {
 }
 
 func IsAlreadyReported(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, isAlreadyReported := err.(*AlreadyReportedError)
-	return isAlreadyReported
+	_, ok := GetCause(err).(*AlreadyReportedError)
+	return ok
 }
 
 type ValidationError struct {
@@ -161,19 +156,11 @@ func (v *ValidationError) Error() string {
 	return v.Msg
 }
 
-func (v *ValidationError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: v.Error(),
-	}
-}
+func (v *ValidationError) IsUserFacing() {}
 
 func IsValidationError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, isValidationError := err.(*ValidationError)
-	return isValidationError
+	_, ok := GetCause(err).(*ValidationError)
+	return ok
 }
 
 type RateLimitedError struct {
@@ -185,12 +172,8 @@ func (e RateLimitedError) Error() string {
 }
 
 func IsRateLimitedError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, isRateLimitedError := err.(*RateLimitedError)
-	return isRateLimitedError
+	_, ok := GetCause(err).(*RateLimitedError)
+	return ok
 }
 
 type UnprocessableEntityError struct {
@@ -201,18 +184,10 @@ func (i *UnprocessableEntityError) Error() string {
 	return "unprocessable entity: " + i.Msg
 }
 
-func (i *UnprocessableEntityError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: i.Error(),
-	}
-}
+func (i *UnprocessableEntityError) IsUserFacing() {}
 
 func IsUnprocessableEntity(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*UnprocessableEntityError)
+	_, ok := GetCause(err).(*UnprocessableEntityError)
 	return ok
 }
 
@@ -220,26 +195,16 @@ type InvalidStateError struct {
 	Msg string
 }
 
-func (i *InvalidStateError) IsFatal() bool {
-	return true
-}
+func (i *InvalidStateError) IsFatal() {}
 
 func (i *InvalidStateError) Error() string {
 	return "invalid state: " + i.Msg
 }
 
-func (i *InvalidStateError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: i.Error(),
-	}
-}
+func (i *InvalidStateError) IsUserFacing() {}
 
 func IsInvalidState(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*InvalidStateError)
+	_, ok := GetCause(err).(*InvalidStateError)
 	return ok
 }
 
@@ -251,22 +216,12 @@ func (e *UnauthorizedError) Error() string {
 	return "unauthorized: " + e.Reason
 }
 
-func (e *UnauthorizedError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: e.Error(),
-	}
-}
+func (e *UnauthorizedError) IsUserFacing() {}
 
-func (e *UnauthorizedError) IsFatal() bool {
-	return true
-}
+func (e *UnauthorizedError) IsFatal() {}
 
 func IsUnauthorizedError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*UnauthorizedError)
+	_, ok := GetCause(err).(*UnauthorizedError)
 	return ok
 }
 
@@ -276,22 +231,12 @@ func (e *NotAuthorizedError) Error() string {
 	return "not authorized"
 }
 
-func (e *NotAuthorizedError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: e.Error(),
-	}
-}
+func (e *NotAuthorizedError) IsUserFacing() {}
 
-func (e *NotAuthorizedError) IsFatal() bool {
-	return true
-}
+func (e *NotAuthorizedError) IsFatal() {}
 
 func IsNotAuthorizedError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*NotAuthorizedError)
+	_, ok := GetCause(err).(*NotAuthorizedError)
 	return ok
 }
 
@@ -301,36 +246,22 @@ func (e *NotFoundError) Error() string {
 	return "not found"
 }
 
-func (e *NotFoundError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: e.Error(),
-	}
-}
+func (e *NotFoundError) IsUserFacing() {}
 
 func IsNotFoundError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*NotFoundError)
+	_, ok := GetCause(err).(*NotFoundError)
 	return ok
 }
 
 type CodedError struct {
-	Description string
-	Code        string
+	Msg string
 }
 
 func (e *CodedError) Error() string {
-	return e.Description + " (" + e.Code + ")"
+	return e.Msg
 }
 
-func (e *CodedError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: e.Description,
-		Code:    e.Code,
-	}
-}
+func (e *CodedError) IsUserFacing() {}
 
 // New is a re-export of the built-in errors.New function.
 var New = errors.New

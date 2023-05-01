@@ -120,16 +120,13 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 		"user %s: %s: %s",
 		rpc.Client.User.Id.String(), rpc.Request.Action, err.Error(),
 	)
-	cause := errors.GetCause(err)
-	if potentiallyFatalError, ok := cause.(errors.PotentiallyFatalError); ok {
-		rpc.Response.FatalError = potentiallyFatalError.IsFatal()
+	if errors.IsFatalError(err) {
+		rpc.Response.FatalError = true
 	}
-	if publicError, ok := cause.(errors.PublicError); ok {
-		rpc.Response.Error = publicError.Public()
-	} else {
-		rpc.Response.Error = &errors.JavaScriptError{
-			Message: "Something went wrong in real-time service",
-		}
+	rpc.Response.Error = &errors.JavaScriptError{
+		Message: errors.GetPublicMessage(
+			err, "Something went wrong in real-time service",
+		),
 	}
 }
 
@@ -272,18 +269,10 @@ func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 		_ = rpc.Client.QueueResponse(&types.RPCResponse{
 			Callback: rpc.Request.Callback,
 		})
-
-		// Then fire an otUpdateError.
-		codedError := &errors.CodedError{
-			Description: "update is too large",
-			Code:        "otUpdateError",
-		}
-		// Turn into broadcast.
+		// Then fire an otUpdateError as broadcast.
 		rpc.Response.Callback = 0
 		rpc.Response.Name = "otUpdateError"
-
-		rpc.Response.FatalError = true
-		return codedError
+		return &errors.BodyTooLargeError{}
 	}
 	var args sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {

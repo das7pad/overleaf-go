@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,7 +36,7 @@ func Apply(snapshot sharedTypes.Snapshot, ops sharedTypes.Op) (sharedTypes.Snaps
 		deletionActual := snapshot.Slice(start, end)
 		if !op.Deletion.Equals(deletionActual) {
 			return nil, &errors.CodedError{
-				Description: fmt.Sprintf(
+				Msg: fmt.Sprintf(
 					"%d: delete component %q does not match deleted text %q",
 					i, string(op.Deletion), string(deletionActual),
 				),

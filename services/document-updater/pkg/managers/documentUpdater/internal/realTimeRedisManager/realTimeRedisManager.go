@@ -127,14 +127,11 @@ func (m *manager) ReportError(ctx context.Context, docId sharedTypes.UUID, err e
 	message := &sharedTypes.AppliedOpsMessage{
 		DocId:       docId,
 		ProcessedBy: m.hostname,
-	}
-	if publicErr, ok := err.(errors.PublicError); ok {
-		message.Error = publicErr.Public()
-	} else {
-		message.Error = &errors.JavaScriptError{
-			Message: "hidden error in document-updater",
-			Code:    "hidden",
-		}
+		Error: &errors.JavaScriptError{
+			Message: errors.GetPublicMessage(
+				err, "hidden error in document-updater",
+			),
+		},
 	}
 	return m.c.Publish(ctx, message)
 }

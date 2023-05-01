@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,25 +18,15 @@ package errors
 
 type UpdateRangeNotAvailableError struct{}
 
-func (i *UpdateRangeNotAvailableError) IsFatal() bool {
-	return true
-}
+func (i *UpdateRangeNotAvailableError) IsFatal() {}
 
 func (i *UpdateRangeNotAvailableError) Error() string {
 	return "doc ops range is not loaded in redis"
 }
 
-func (i *UpdateRangeNotAvailableError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: i.Error(),
-	}
-}
+func (i *UpdateRangeNotAvailableError) IsUserFacing() {}
 
 func IsUpdateRangeNotAvailableError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*UpdateRangeNotAvailableError)
+	_, ok := GetCause(err).(*UpdateRangeNotAvailableError)
 	return ok
 }

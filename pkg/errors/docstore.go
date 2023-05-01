@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,28 +22,18 @@ func (e BodyTooLargeError) Error() string {
 	return "body too large"
 }
 
-func (e BodyTooLargeError) Public() *JavaScriptError {
-	return &JavaScriptError{
-		Message: e.Error(),
-	}
-}
+func (e BodyTooLargeError) IsUserFacing() {}
+
+func (e BodyTooLargeError) IsFatal() {}
 
 func IsBodyTooLargeError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, isBodyTooLargeError := err.(*BodyTooLargeError)
-	return isBodyTooLargeError
+	_, ok := GetCause(err).(*BodyTooLargeError)
+	return ok
 }
 
 func IsDocNotFoundError(err error) bool {
-	err = GetCause(err)
-	if err == nil {
-		return false
-	}
-	_, isNotFoundErr := err.(*DocNotFoundError)
-	return isNotFoundErr
+	_, ok := GetCause(err).(*DocNotFoundError)
+	return ok
 }
 
 type DocNotFoundError struct{}
