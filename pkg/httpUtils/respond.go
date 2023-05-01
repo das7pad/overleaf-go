@@ -103,48 +103,48 @@ func respondJSON(c *Context, code int, body interface{}, err error, indent bool)
 }
 
 func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
-	code := http.StatusInternalServerError
-	errMessage := err.Error()
-	switch {
-	case errors.IsValidationError(err):
-		code = http.StatusBadRequest
-	case errors.IsUnauthorizedError(err):
-		code = http.StatusUnauthorized
-	case errors.IsNotAuthorizedError(err):
-		code = http.StatusForbidden
-	case errors.IsDocNotFoundError(err):
-		code = http.StatusNotFound
-	case errors.IsMissingOutputFileError(err):
-		code = http.StatusNotFound
-	case errors.IsNotFoundError(err):
-		code = http.StatusNotFound
-	case errors.IsInvalidState(err):
-		code = http.StatusConflict
-	case errors.IsBodyTooLargeError(err):
-		code = http.StatusRequestEntityTooLarge
-	case errors.IsUnprocessableEntity(err):
-		code = http.StatusUnprocessableEntity
-	case errors.IsUpdateRangeNotAvailableError(err):
-		code = http.StatusUnprocessableEntity
-	case errors.IsAlreadyCompilingError(err):
-		code = http.StatusLocked
-	case errors.IsRateLimitedError(err):
-		code = http.StatusTooManyRequests
-	case c.Err() == context.Canceled &&
-		errors.GetCause(err) == context.Canceled:
-		// Unfortunately HTTP does define a response status code for the case
-		//  of an aborted request before the server produced a response.
+	if c.Err() == context.Canceled &&
+		errors.GetCause(err) == context.Canceled {
+		// Unfortunately HTTP does not define a response status code for the
+		//  case of an aborted request before the server produced a response.
 		// The next best option is "Client Closed Request" from nginx.
-		code = 499
+		return 499, context.Canceled.Error()
+	}
+
+	code := http.StatusInternalServerError
+	switch errors.GetCause(err).(type) {
+	case *errors.ValidationError:
+		code = http.StatusBadRequest
+	case *errors.UnauthorizedError:
+		code = http.StatusUnauthorized
+	case *errors.NotAuthorizedError:
+		code = http.StatusForbidden
+	case *errors.DocNotFoundError:
+		code = http.StatusNotFound
+	case *errors.MissingOutputFileError:
+		code = http.StatusNotFound
+	case *errors.NotFoundError:
+		code = http.StatusNotFound
+	case *errors.InvalidStateError:
+		code = http.StatusConflict
+	case *errors.BodyTooLargeError:
+		code = http.StatusRequestEntityTooLarge
+	case *errors.UnprocessableEntityError:
+		code = http.StatusUnprocessableEntity
+	case *errors.UpdateRangeNotAvailableError:
+		code = http.StatusUnprocessableEntity
+	case *errors.AlreadyCompilingError:
+		code = http.StatusLocked
+	case *errors.RateLimitedError:
+		code = http.StatusTooManyRequests
 	default:
 		log.Printf(
 			"%s %s: %s",
-			c.Request.Method, c.Request.URL.Path, errMessage,
+			c.Request.Method, c.Request.URL.Path, err.Error(),
 		)
 		code = http.StatusInternalServerError
-		errMessage = "internal server error"
 	}
-	return code, errMessage
+	return code, errors.GetPublicMessage(err, "internal server error")
 }
 
 func init() {
