@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -175,7 +175,7 @@ func (l *locker) tryGetLock(ctx context.Context, key string, lockValue string) (
 
 func (l *locker) releaseLock(key string, lockValue string, lockExpiredAfter time.Time) error {
 	if time.Now().After(lockExpiredAfter) {
-		// The lock has expired. There is no need for explicit redis calls.
+		// The lock expired. There is no need to run any redis commands.
 		return nil
 	}
 
@@ -184,11 +184,11 @@ func (l *locker) releaseLock(key string, lockValue string, lockExpiredAfter time
 	ctx, done := context.WithDeadline(context.Background(), lockExpiredAfter)
 	defer done()
 	res, err := unlockScript.Run(ctx, l.client, keys, lockValue).Result()
+	if time.Now().After(lockExpiredAfter) {
+		// The lock expired. There is no need to look at the result or fail.
+		return nil
+	}
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			// Release request timed out, but the redis value expired as well.
-			return nil
-		}
 		return err
 	}
 	switch returnValue := res.(type) {
