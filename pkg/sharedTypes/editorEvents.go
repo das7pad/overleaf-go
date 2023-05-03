@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,9 +23,10 @@ import (
 )
 
 type EditorEventsMessage struct {
-	RoomId  UUID            `json:"room_id"`
-	Message string          `json:"message"`
-	Payload json.RawMessage `json:"payload"`
+	RoomId      UUID            `json:"room_id"`
+	Message     string          `json:"message"`
+	Payload     json.RawMessage `json:"payload"`
+	ProcessedBy string          `json:"processedBy,omitempty"`
 }
 
 func (m *EditorEventsMessage) ChannelId() UUID {

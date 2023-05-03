@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -188,6 +188,10 @@ func (d *DocumentUpdate) CheckVersion(current Version) error {
 type DocumentUpdateAck struct {
 	DocId   UUID    `json:"doc"`
 	Version Version `json:"v"`
+}
+
+type AppliedOpsErrorMeta struct {
+	DocId UUID `json:"doc_id"`
 }
 
 type AppliedOpsMessage struct {

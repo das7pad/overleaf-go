@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -50,7 +50,7 @@ func (r *DocRoom) Handle(raw string) {
 	if msg.Error != nil {
 		err = r.handleError(msg)
 	} else {
-		err = r.handleUpdate(msg)
+		err = r.HandleUpdate(msg.Update, msg.ProcessedBy)
 	}
 	if err != nil {
 		log.Println("cannot handle appliedOps message: " + err.Error())
@@ -82,8 +82,7 @@ func (r *DocRoom) handleError(msg sharedTypes.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) handleUpdate(msg sharedTypes.AppliedOpsMessage) error {
-	update := msg.Update
+func (r *DocRoom) HandleUpdate(update sharedTypes.DocumentUpdate, processedBy string) error {
 	latency := sharedTypes.Timed{}
 	if update.Meta.IngestionTime != nil {
 		latency.SetBegin(*update.Meta.IngestionTime)
@@ -99,7 +98,7 @@ func (r *DocRoom) handleUpdate(msg sharedTypes.AppliedOpsMessage) error {
 		Name:        "otUpdateApplied",
 		Body:        blob,
 		Latency:     latency,
-		ProcessedBy: msg.ProcessedBy,
+		ProcessedBy: processedBy,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -107,7 +106,7 @@ func (r *DocRoom) handleUpdate(msg sharedTypes.AppliedOpsMessage) error {
 	}
 	for _, client := range r.Clients() {
 		if client.PublicId == source {
-			r.sendAckToSender(client, msg, latency)
+			r.sendAckToSender(client, update, latency, processedBy)
 			if update.Dup {
 				// Only send an ack to the sender, then stop.
 				break
@@ -123,10 +122,10 @@ func (r *DocRoom) handleUpdate(msg sharedTypes.AppliedOpsMessage) error {
 	return nil
 }
 
-func (r *DocRoom) sendAckToSender(client *types.Client, msg sharedTypes.AppliedOpsMessage, latency sharedTypes.Timed) {
+func (r *DocRoom) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpdate, latency sharedTypes.Timed, processedBy string) {
 	minUpdate := sharedTypes.DocumentUpdateAck{
-		DocId:   msg.Update.DocId,
-		Version: msg.Update.Version,
+		DocId:   msg.DocId,
+		Version: msg.Version,
 	}
 	body, err := json.Marshal(minUpdate)
 	if err != nil {
@@ -137,7 +136,7 @@ func (r *DocRoom) sendAckToSender(client *types.Client, msg sharedTypes.AppliedO
 		Body:        body,
 		Name:        "otUpdateApplied",
 		Latency:     latency,
-		ProcessedBy: msg.ProcessedBy,
+		ProcessedBy: processedBy,
 	}
 	client.EnsureQueueResponse(&resp)
 }

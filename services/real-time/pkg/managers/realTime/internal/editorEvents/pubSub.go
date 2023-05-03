@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,6 +25,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -60,13 +61,30 @@ func (r *ProjectRoom) Handle(raw string) {
 		err = r.refreshClientPositions()
 	case ClientTrackingClientUpdated:
 		err = r.handleClientTrackingUpdated(msg)
+	case "otUpdateApplied":
+		err = r.handleUpdate(msg)
 	default:
 		err = r.handleMessage(msg)
 	}
 	if err != nil {
-		log.Println("cannot handle appliedOps message: " + err.Error())
+		log.Println("cannot handle editorEvents message: " + err.Error())
 		return
 	}
+}
+
+func (r *ProjectRoom) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
+	var update sharedTypes.DocumentUpdate
+	if err := json.Unmarshal(msg.Payload, &update); err != nil {
+		return errors.Tag(err, "parse document update")
+	}
+	if err := update.Validate(); err != nil {
+		return errors.Tag(err, "validate document update")
+	}
+	r2 := appliedOps.DocRoom{TrackingRoom: r.TrackingRoom}
+	if err := r2.HandleUpdate(update, msg.ProcessedBy); err != nil {
+		return errors.Tag(err, "handle document update")
+	}
+	return nil
 }
 
 func (r *ProjectRoom) StopPeriodicTasks() {
@@ -138,8 +156,9 @@ func (r *ProjectRoom) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 
 func (r *ProjectRoom) handleMessageFromSource(msg sharedTypes.EditorEventsMessage, id sharedTypes.PublicId) error {
 	resp := types.RPCResponse{
-		Name: msg.Message,
-		Body: msg.Payload,
+		Name:        msg.Message,
+		Body:        msg.Payload,
+		ProcessedBy: msg.ProcessedBy,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -175,6 +194,10 @@ func isNonRestrictedMessage(message string) bool {
 		"projectNameUpdated",
 		"rootDocUpdated",
 		"toggle-track-changes",
+
+		// Updates
+		"otUpdateError",
+		"otUpdateApplied",
 
 		// Project deleted
 		"projectRenamedOrDeletedByExternalSource",
