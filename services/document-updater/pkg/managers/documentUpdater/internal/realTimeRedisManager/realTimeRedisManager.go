@@ -29,10 +29,10 @@ import (
 )
 
 type Manager interface {
-	ConfirmUpdates(ctx context.Context, processed []sharedTypes.DocumentUpdate) error
+	ConfirmUpdates(ctx context.Context, projectId sharedTypes.UUID, processed []sharedTypes.DocumentUpdate) error
 	GetPendingUpdatesForDoc(ctx context.Context, docId sharedTypes.UUID) ([]sharedTypes.DocumentUpdate, error)
 	GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) (int64, error)
-	ReportError(ctx context.Context, docId sharedTypes.UUID, err error) error
+	ReportError(ctx context.Context, projectId, docId sharedTypes.UUID, err error) error
 }
 
 func New(client redis.UniversalClient) (Manager, error) {
@@ -42,7 +42,7 @@ func New(client redis.UniversalClient) (Manager, error) {
 	}
 
 	return &manager{
-		c:        channel.NewWriter(client, "applied-ops"),
+		c:        channel.NewWriter(client, "editor-events"),
 		client:   client,
 		hostname: hostname,
 	}, nil
@@ -93,7 +93,7 @@ func (m *manager) GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) 
 	return n, nil
 }
 
-func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.DocumentUpdate) error {
+func (m *manager) ConfirmUpdates(ctx context.Context, projectId sharedTypes.UUID, processed []sharedTypes.DocumentUpdate) error {
 	_, err := m.client.Pipelined(ctx, func(p redis.Pipeliner) error {
 		for _, update := range processed {
 			if update.Dup {
@@ -109,9 +109,14 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 				}
 			}
 
-			_, err := m.c.PublishVia(ctx, p, &sharedTypes.AppliedOpsMessage{
-				DocId:       update.DocId,
-				Update:      update,
+			blob, err := json.Marshal(update)
+			if err != nil {
+				return err
+			}
+			_, err = m.c.PublishVia(ctx, p, &sharedTypes.EditorEventsMessage{
+				RoomId:      projectId,
+				Message:     "otUpdateApplied",
+				Payload:     blob,
 				ProcessedBy: m.hostname,
 			})
 			if err != nil {
@@ -123,15 +128,22 @@ func (m *manager) ConfirmUpdates(ctx context.Context, processed []sharedTypes.Do
 	return err
 }
 
-func (m *manager) ReportError(ctx context.Context, docId sharedTypes.UUID, err error) error {
-	message := &sharedTypes.AppliedOpsMessage{
-		DocId:       docId,
-		ProcessedBy: m.hostname,
-		Error: &errors.JavaScriptError{
+func (m *manager) ReportError(ctx context.Context, projectId, docId sharedTypes.UUID, err error) error {
+	blob, err := json.Marshal([]interface{}{
+		errors.JavaScriptError{
 			Message: errors.GetPublicMessage(
 				err, "hidden error in document-updater",
 			),
 		},
+		sharedTypes.AppliedOpsErrorMeta{DocId: docId},
+	})
+	if err != nil {
+		return err
 	}
-	return m.c.Publish(ctx, message)
+	return m.c.Publish(ctx, &sharedTypes.EditorEventsMessage{
+		RoomId:      projectId,
+		Message:     "otUpdateError",
+		Payload:     blob,
+		ProcessedBy: m.hostname,
+	})
 }

@@ -394,7 +394,7 @@ func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId 
 		confirmCtx, cancel := context.WithTimeout(
 			context.Background(), time.Second*10,
 		)
-		err = m.rtRm.ConfirmUpdates(confirmCtx, processed)
+		err = m.rtRm.ConfirmUpdates(confirmCtx, projectId, processed)
 		cancel()
 		if err != nil {
 			ids := projectId.String() + "/" + docId.String()
@@ -425,7 +425,7 @@ func (m *manager) reportError(projectId, docId sharedTypes.UUID, err error) {
 	reportCtx, cancel := context.WithTimeout(
 		context.Background(), time.Second*10,
 	)
-	err2 := m.rtRm.ReportError(reportCtx, docId, err)
+	err2 := m.rtRm.ReportError(reportCtx, projectId, docId, err)
 	cancel()
 	if err2 != nil {
 		ids := projectId.String() + "/" + docId.String()
