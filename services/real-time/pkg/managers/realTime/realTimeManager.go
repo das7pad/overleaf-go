@@ -30,7 +30,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/webApi"
@@ -52,10 +51,6 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 
-	a := appliedOps.New(client, dum)
-	if err := a.StartListening(ctx); err != nil {
-		return nil, err
-	}
 	ct := clientTracking.New(client)
 	e := editorEvents.New(client, ct)
 	if err := e.StartListening(ctx); err != nil {
@@ -63,10 +58,9 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 	}
 	w := webApi.New(db)
 	return &manager{
-		appliedOps:              a,
 		clientTracking:          ct,
 		editorEvents:            e,
-		documentUpdater:         dum,
+		dum:                     dum,
 		webApi:                  w,
 		gracefulShutdownDelay:   options.GracefulShutdown.Delay,
 		gracefulShutdownTimeout: options.GracefulShutdown.Timeout,
@@ -76,11 +70,10 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 type manager struct {
 	shuttingDown atomic.Bool
 
-	clientTracking  clientTracking.Manager
-	appliedOps      appliedOps.Manager
-	editorEvents    editorEvents.Manager
-	documentUpdater documentUpdater.Manager
-	webApi          webApi.Manager
+	clientTracking clientTracking.Manager
+	editorEvents   editorEvents.Manager
+	dum            documentUpdater.Manager
+	webApi         webApi.Manager
 
 	gracefulShutdownDelay   time.Duration
 	gracefulShutdownTimeout time.Duration
@@ -117,8 +110,9 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 		return
 	}
 	log.Printf(
-		"user %s: %s: %s",
-		rpc.Client.User.Id.String(), rpc.Request.Action, err.Error(),
+		"user=%s project=%s doc=%s action=%s err=%s",
+		rpc.Client.User.Id, rpc.Client.ProjectId, rpc.Request.DocId,
+		rpc.Request.Action, err.Error(),
 	)
 	if errors.IsFatalError(err) {
 		rpc.Response.FatalError = true
@@ -163,9 +157,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	}()
 
 	if err = m.editorEvents.Join(ctx, client, projectId); err != nil {
-		return nil, errors.Tag(
-			err, "editorEvents.Join failed for "+projectId.String(),
-		)
+		return nil, errors.Tag(err, "subscribe")
 	}
 
 	// Wait for the fetch, but ignore any fetch errors.
@@ -180,10 +172,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	}
 	body, err := json.Marshal(res)
 	if err != nil {
-		return nil, errors.Tag(
-			err,
-			"encoding JoinProjectResponse failed for "+projectId.String(),
-		)
+		return nil, errors.Tag(err, "serialize response")
 	}
 	return body, nil
 }
@@ -193,43 +182,13 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
-	args.DocId = rpc.Request.DocId
+	docId := rpc.Request.DocId
 
-	if !rpc.Client.IsKnownDoc(rpc.Request.DocId) {
-		err := m.documentUpdater.CheckDocExists(
-			ctx,
-			rpc.Client.ProjectId,
-			args.DocId,
-		)
-		if err != nil {
-			return errors.Tag(
-				err,
-				"documentUpdater.CheckDocExists failed for "+args.DocId.String(),
-			)
-		}
-		rpc.Client.AddKnownDoc(rpc.Request.DocId)
-	}
-
-	// For cleanup purposes: mark as joined before actually joining.
-	rpc.Client.DocId = args.DocId
-
-	if err := m.appliedOps.Join(ctx, rpc.Client, args.DocId); err != nil {
-		return errors.Tag(
-			err, "appliedOps.Join failed for "+args.DocId.String(),
-		)
-	}
-
-	r, err := m.documentUpdater.GetDoc(
-		ctx,
-		rpc.Client.ProjectId,
-		args.DocId,
-		args.FromVersion,
-	)
+	r, err := m.dum.GetDoc(ctx, rpc.Client.ProjectId, docId, args.FromVersion)
 	if err != nil {
-		return errors.Tag(
-			err, "documentUpdater.GetDoc failed for "+args.DocId.String(),
-		)
+		return errors.Tag(err, "get doc")
 	}
+	rpc.Client.MarkAsJoined(rpc.Request.DocId)
 
 	body := &types.JoinDocResponse{
 		Snapshot: sharedTypes.Snapshot(r.Snapshot),
@@ -238,24 +197,14 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	}
 	blob, err := json.Marshal(body)
 	if err != nil {
-		return errors.Tag(
-			err,
-			"encoding JoinDocResponse failed for "+args.DocId.String(),
-		)
+		return errors.Tag(err, "serialize response")
 	}
 	rpc.Response.Body = blob
 	return nil
 }
 
 func (m *manager) leaveDoc(rpc *types.RPC) error {
-	docId := rpc.Request.DocId
-	err := m.appliedOps.Leave(rpc.Client, docId)
-	if err != nil {
-		return errors.Tag(
-			err, "appliedOps.Leave failed for "+docId.String(),
-		)
-	}
-	rpc.Client.DocId = sharedTypes.UUID{}
+	rpc.Client.MarkAsLeftDoc()
 	return nil
 }
 
@@ -269,29 +218,23 @@ func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 		_ = rpc.Client.QueueResponse(&types.RPCResponse{
 			Callback: rpc.Request.Callback,
 		})
-		// Then fire an otUpdateError as broadcast.
+		// Then fire an otUpdateError as broadcast to this very client only.
 		rpc.Response.Callback = 0
 		rpc.Response.Name = "otUpdateError"
 		return &errors.BodyTooLargeError{}
 	}
-	var args sharedTypes.DocumentUpdate
-	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
+	var update sharedTypes.DocumentUpdate
+	if err := json.Unmarshal(rpc.Request.Body, &update); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
 	// Hard code document and user identifier.
-	args.DocId = rpc.Request.DocId
-	args.Meta.Source = rpc.Client.PublicId
-	args.Meta.UserId = rpc.Client.User.Id
-	// Dup is an output only field
-	args.Dup = false
-	// Ingestion time is tracked internally only
-	now := time.Now()
-	args.Meta.IngestionTime = &now
+	update.DocId = rpc.Request.DocId
+	update.Meta.Source = rpc.Client.PublicId
+	update.Meta.UserId = rpc.Client.User.Id
 
-	if err := args.Validate(); err != nil {
-		return err
-	}
-	return m.appliedOps.QueueUpdate(ctx, rpc, &args)
+	return m.dum.QueueUpdate(
+		ctx, rpc.Client.ProjectId, rpc.Request.DocId, update,
+	)
 }
 
 func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
@@ -343,10 +286,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 }
 
 func (m *manager) Disconnect(client *types.Client) error {
-	var errAppliedOps, errEditorEvents, errClientTracking error
-	if !client.DocId.IsZero() {
-		errAppliedOps = m.appliedOps.Leave(client, client.DocId)
-	}
+	var errEditorEvents, errClientTracking error
 	if !client.ProjectId.IsZero() {
 		errEditorEvents = m.editorEvents.Leave(client, client.ProjectId)
 
@@ -359,9 +299,6 @@ func (m *manager) Disconnect(client *types.Client) error {
 		}
 	}
 
-	if errAppliedOps != nil {
-		return errAppliedOps
-	}
 	if errEditorEvents != nil {
 		return errEditorEvents
 	}
@@ -394,7 +331,7 @@ func (m *manager) backgroundFlush(client *types.Client) {
 	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
 	defer done()
 
-	err := m.documentUpdater.FlushProject(ctx, client.ProjectId)
+	err := m.dum.FlushProject(ctx, client.ProjectId)
 	if err != nil {
 		log.Println(
 			errors.Tag(

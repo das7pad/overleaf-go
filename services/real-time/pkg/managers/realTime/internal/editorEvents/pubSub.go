@@ -25,7 +25,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/appliedOps"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -70,21 +69,6 @@ func (r *ProjectRoom) Handle(raw string) {
 		log.Println("cannot handle editorEvents message: " + err.Error())
 		return
 	}
-}
-
-func (r *ProjectRoom) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
-	var update sharedTypes.DocumentUpdate
-	if err := json.Unmarshal(msg.Payload, &update); err != nil {
-		return errors.Tag(err, "parse document update")
-	}
-	if err := update.Validate(); err != nil {
-		return errors.Tag(err, "validate document update")
-	}
-	r2 := appliedOps.DocRoom{TrackingRoom: r.TrackingRoom}
-	if err := r2.HandleUpdate(update, msg.ProcessedBy); err != nil {
-		return errors.Tag(err, "handle document update")
-	}
-	return nil
 }
 
 func (r *ProjectRoom) StopPeriodicTasks() {

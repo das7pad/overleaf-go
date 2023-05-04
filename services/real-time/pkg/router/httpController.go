@@ -19,6 +19,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -225,6 +226,10 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 			return // connection aborted
 		}
 		if err != nil {
+			err = errors.Tag(err, fmt.Sprintf(
+				"user=%s project=%s",
+				claimsProjectJWT.UserId, claimsProjectJWT.ProjectId,
+			))
 			if errors.IsUnauthorizedError(err) {
 				log.Println("jwt auth failed: " + err.Error())
 				sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)

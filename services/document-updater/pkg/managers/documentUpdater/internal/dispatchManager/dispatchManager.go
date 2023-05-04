@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ package dispatchManager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -35,7 +36,7 @@ import (
 
 type Manager interface {
 	ProcessDocumentUpdates(ctx context.Context)
-	GetPendingUpdatesListKey() types.PendingUpdatesListKey
+	QueueUpdate(ctx context.Context, projectId, docId sharedTypes.UUID, update sharedTypes.DocumentUpdate) error
 }
 
 const (
@@ -143,4 +144,35 @@ func (m *manager) worker(queue <-chan string) {
 			log.Println(err.Error())
 		}
 	}
+}
+
+func (m *manager) QueueUpdate(ctx context.Context, projectId, docId sharedTypes.UUID, update sharedTypes.DocumentUpdate) error {
+	// Hard code document id
+	update.DocId = docId
+	// Dup is an output only field
+	update.Dup = false
+	// Ingestion time is tracked internally only
+	now := time.Now()
+	update.Meta.IngestionTime = &now
+
+	if err := update.Validate(); err != nil {
+		return err
+	}
+
+	blob, err := json.Marshal(update)
+	if err != nil {
+		return errors.Tag(err, "encode update")
+	}
+
+	pendingUpdateKey := "PendingUpdates:{" + docId.String() + "}"
+	if err = m.client.RPush(ctx, pendingUpdateKey, blob).Err(); err != nil {
+		return errors.Tag(err, "queue update")
+	}
+
+	shardKey := m.GetPendingUpdatesListKey().String()
+	docKey := projectId.String() + ":" + docId.String()
+	if err = m.client.RPush(ctx, shardKey, docKey).Err(); err != nil {
+		return errors.Tag(err, "notify shard about new queue entry")
+	}
+	return nil
 }

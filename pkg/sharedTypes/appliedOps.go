@@ -193,24 +193,3 @@ type DocumentUpdateAck struct {
 type AppliedOpsErrorMeta struct {
 	DocId UUID `json:"doc_id"`
 }
-
-type AppliedOpsMessage struct {
-	DocId       UUID                    `json:"doc_id"`
-	Error       *errors.JavaScriptError `json:"error,omitempty"`
-	Update      DocumentUpdate          `json:"op,omitempty"`
-	ProcessedBy string                  `json:"processed_by,omitempty"`
-}
-
-func (m *AppliedOpsMessage) ChannelId() UUID {
-	return m.DocId
-}
-
-func (m *AppliedOpsMessage) Validate() error {
-	if m.Error != nil {
-		return nil
-	}
-	if err := m.Update.Validate(); err != nil {
-		return err
-	}
-	return nil
-}

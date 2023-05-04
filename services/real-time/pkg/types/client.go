@@ -17,11 +17,11 @@
 package types
 
 import (
-	secureRand "crypto/rand"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	weakRand "math/rand"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -89,7 +89,7 @@ type WriteQueue chan<- WriteQueueEntry
 // another 16 hex char long random string.
 func generatePublicId() (sharedTypes.PublicId, error) {
 	buf := make([]byte, 8)
-	if _, err := secureRand.Read(buf); err != nil {
+	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	now := time.Now().UnixNano()
@@ -104,23 +104,24 @@ func NewClient(writerChanges chan bool, writeQueue WriteQueue, disconnect func()
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	c := &Client{
 		PublicId:      publicId,
 		writerChanges: writerChanges,
 		writeQueue:    writeQueue,
 		disconnect:    disconnect,
-	}, nil
+	}
+	c.MarkAsLeftDoc()
+	return c, nil
 }
 
 type Client struct {
 	capabilities Capabilities
 
-	DocId     sharedTypes.UUID
 	PublicId  sharedTypes.PublicId
 	ProjectId sharedTypes.UUID
 	User      User
 
-	knownDocs []sharedTypes.UUID
+	docId atomic.Pointer[sharedTypes.UUID]
 
 	writerChanges chan bool
 	writeQueue    WriteQueue
@@ -135,26 +136,18 @@ func (c *Client) RemoveWriter() {
 	c.writerChanges <- false
 }
 
-func (c *Client) IsKnownDoc(id sharedTypes.UUID) bool {
-	if c.knownDocs == nil {
-		return false
-	}
-	for _, doc := range c.knownDocs {
-		if doc == id {
-			return true
-		}
-	}
-	return false
+func (c *Client) HasJoinedDoc(id sharedTypes.UUID) bool {
+	return id == *c.docId.Load()
 }
 
-const MaxKnownDocsToKeep = 100
-
-func (c *Client) AddKnownDoc(id sharedTypes.UUID) {
-	if len(c.knownDocs) < MaxKnownDocsToKeep {
-		c.knownDocs = append(c.knownDocs, id)
-	} else {
-		c.knownDocs[weakRand.Int63n(MaxKnownDocsToKeep)] = id
+func (c *Client) MarkAsJoined(id sharedTypes.UUID) {
+	if !c.HasJoinedDoc(id) {
+		c.docId.Store(&id)
 	}
+}
+
+func (c *Client) MarkAsLeftDoc() {
+	c.docId.Store(&sharedTypes.UUID{})
 }
 
 func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser) {
@@ -194,14 +187,19 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	case Ping:
 		return nil
 	case JoinDoc:
-		if !c.DocId.IsZero() && c.DocId != docId {
+		if current := *c.docId.Load(); !current.IsZero() && current != docId {
 			return &errors.InvalidStateError{Msg: "leave other doc first"}
 		}
 		return nil
 	case LeaveDoc:
+		if !c.HasJoinedDoc(docId) {
+			return &errors.ValidationError{
+				Msg: "ignoring leaveDoc operation for non-joined doc",
+			}
+		}
 		return nil
 	case ApplyUpdate:
-		if c.DocId.IsZero() {
+		if !c.HasJoinedDoc(docId) {
 			return &errors.InvalidStateError{Msg: "join doc first"}
 		}
 		if err := c.CheckHasCapability(CanEditContent); err != nil {
@@ -214,8 +212,10 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		}
 		return nil
 	case UpdatePosition:
-		if c.DocId != docId {
-			return &errors.ValidationError{Msg: "stale position update"}
+		if !c.HasJoinedDoc(docId) {
+			return &errors.ValidationError{
+				Msg: "ignoring position update in non-joined doc",
+			}
 		}
 		if err := c.CheckHasCapability(CanSeeOtherClients); err != nil {
 			return err

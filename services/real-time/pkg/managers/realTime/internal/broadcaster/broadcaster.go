@@ -135,7 +135,7 @@ type roomQueueEntry struct {
 }
 
 func (b *broadcaster) createNewRoom() Room {
-	c := make(chan roomQueueEntry)
+	c := make(chan roomQueueEntry, 10)
 	tr := &TrackingRoom{c: c}
 	tr.clients.Store(&noClients)
 	r := b.newRoom(tr)

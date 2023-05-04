@@ -14,75 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package appliedOps
+package editorEvents
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type DocRoom struct {
-	*broadcaster.TrackingRoom
-}
+func (r *ProjectRoom) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
+	var update sharedTypes.DocumentUpdate
+	if err := json.Unmarshal(msg.Payload, &update); err != nil {
+		return errors.Tag(err, "parse document update")
+	}
+	if err := update.Validate(); err != nil {
+		return errors.Tag(err, "validate document update")
+	}
 
-func newRoom(room *broadcaster.TrackingRoom) broadcaster.Room {
-	return &DocRoom{
-		TrackingRoom: room,
-	}
-}
-
-func (r *DocRoom) Handle(raw string) {
-	var msg sharedTypes.AppliedOpsMessage
-	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
-		log.Println("cannot parse appliedOps message: " + err.Error())
-		return
-	}
-	if err := msg.Validate(); err != nil {
-		log.Println("cannot validate appliedOps message: " + err.Error())
-		return
-	}
-	var err error
-	if msg.Error != nil {
-		err = r.handleError(msg)
-	} else {
-		err = r.HandleUpdate(msg.Update, msg.ProcessedBy)
-	}
-	if err != nil {
-		log.Println("cannot handle appliedOps message: " + err.Error())
-		return
-	}
-}
-
-func (r *DocRoom) handleError(msg sharedTypes.AppliedOpsMessage) error {
-	blob, err := json.Marshal(sharedTypes.AppliedOpsMessage{
-		DocId: msg.DocId,
-	})
-	if err != nil {
-		return errors.Tag(err, "cannot compose minimal error message")
-	}
-	resp := types.RPCResponse{
-		Error:       msg.Error,
-		Name:        "otUpdateError",
-		Body:        blob,
-		ProcessedBy: msg.ProcessedBy,
-		FatalError:  true,
-	}
-	bulkMessage, err := types.PrepareBulkMessage(&resp)
-	if err != nil {
-		return err
-	}
-	for _, client := range r.Clients() {
-		client.EnsureQueueMessage(bulkMessage)
-	}
-	return nil
-}
-
-func (r *DocRoom) HandleUpdate(update sharedTypes.DocumentUpdate, processedBy string) error {
 	latency := sharedTypes.Timed{}
 	if update.Meta.IngestionTime != nil {
 		latency.SetBegin(*update.Meta.IngestionTime)
@@ -98,7 +48,7 @@ func (r *DocRoom) HandleUpdate(update sharedTypes.DocumentUpdate, processedBy st
 		Name:        "otUpdateApplied",
 		Body:        blob,
 		Latency:     latency,
-		ProcessedBy: processedBy,
+		ProcessedBy: msg.ProcessedBy,
 	}
 	bulkMessage, err := types.PrepareBulkMessage(&resp)
 	if err != nil {
@@ -106,7 +56,7 @@ func (r *DocRoom) HandleUpdate(update sharedTypes.DocumentUpdate, processedBy st
 	}
 	for _, client := range r.Clients() {
 		if client.PublicId == source {
-			r.sendAckToSender(client, update, latency, processedBy)
+			r.sendAckToSender(client, update, latency, msg.ProcessedBy)
 			if update.Dup {
 				// Only send an ack to the sender, then stop.
 				break
@@ -117,12 +67,15 @@ func (r *DocRoom) HandleUpdate(update sharedTypes.DocumentUpdate, processedBy st
 			// Only send an ack to the sender.
 			continue
 		}
+		if !client.HasJoinedDoc(update.DocId) {
+			continue
+		}
 		client.EnsureQueueMessage(bulkMessage)
 	}
 	return nil
 }
 
-func (r *DocRoom) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpdate, latency sharedTypes.Timed, processedBy string) {
+func (r *ProjectRoom) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpdate, latency sharedTypes.Timed, processedBy string) {
 	minUpdate := sharedTypes.DocumentUpdateAck{
 		DocId:   msg.DocId,
 		Version: msg.Version,

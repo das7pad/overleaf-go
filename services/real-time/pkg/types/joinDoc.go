@@ -21,7 +21,6 @@ import (
 )
 
 type JoinDocRequest struct {
-	DocId       sharedTypes.UUID    `json:"doc_id"`
 	FromVersion sharedTypes.Version `json:"fromVersion"`
 }
 
