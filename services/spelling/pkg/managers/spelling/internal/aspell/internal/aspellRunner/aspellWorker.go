@@ -123,6 +123,7 @@ func (w *worker) CheckWords(ctx context.Context, words []string) (Suggestions, e
 	// Cancel the context once any sub-task errored or the parent ctx errored.
 	eg, writerContext := errgroup.WithContext(ctx)
 
+	out := make(Suggestions, len(words))
 	eg.Go(func() error {
 		if err := w.startBatch(); err != nil {
 			return err
@@ -142,7 +143,6 @@ func (w *worker) CheckWords(ctx context.Context, words []string) (Suggestions, e
 		return nil
 	})
 
-	out := make(Suggestions, len(words))
 	hasReadEndOfBatchMarker := make(chan struct{})
 	eg.Go(func() error {
 		defer close(hasReadEndOfBatchMarker)
