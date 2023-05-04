@@ -38,7 +38,7 @@ func (t *Timed) End() *Timed {
 	if t.t0.IsZero() {
 		return t
 	}
-	t.diff = time.Since(t.t0)
+	t.diff = time.Since(t.t0).Truncate(time.Microsecond)
 	t.t0 = time.Time{}
 	return t
 }
