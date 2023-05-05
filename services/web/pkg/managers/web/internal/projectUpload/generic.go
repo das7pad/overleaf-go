@@ -202,15 +202,10 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	}
 	{
 		// Populate ids
-		nElements := 1
-		t.WalkFull(func(_ project.TreeElement) {
-			nElements++
-		})
-		b, err := sharedTypes.GenerateUUIDBulk(nElements)
+		b, err := sharedTypes.GenerateUUIDBulk(t.CountNodes())
 		if err != nil {
 			return err
 		}
-		t.Id = b.Next()
 		t.WalkFull(func(e project.TreeElement) {
 			switch el := e.(type) {
 			case *project.Doc:
