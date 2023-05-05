@@ -20,7 +20,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"strings"
 	"unicode"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -95,10 +94,6 @@ func (s Snapshot) Hash() Hash {
 	return Hash(hex.EncodeToString(d.Sum(nil)))
 }
 
-func (s Snapshot) ToLines() Lines {
-	return strings.Split(string(s), "\n")
-}
-
 func (s Snapshot) Slice(start, end int) Snippet {
 	l := len(s)
 	if l < start {
@@ -135,22 +130,4 @@ func (s *Snippet) UnmarshalJSON(bytes []byte) error {
 
 func (s Snippet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(string(s))
-}
-
-type Lines []string
-
-func (l Lines) Equals(other Lines) bool {
-	if len(l) != len(other) {
-		return false
-	}
-	for i, line := range l {
-		if line != other[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func (l Lines) ToSnapshot() Snapshot {
-	return Snapshot(strings.Join(l, "\n"))
 }

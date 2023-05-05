@@ -82,22 +82,22 @@ type ForPQ struct {
 	VersionField                     `bson:"inline"`
 }
 
-func deserializeDocArchive(r io.ReadCloser) (sharedTypes.Lines, error) {
+func deserializeDocArchive(r io.ReadCloser) ([]string, error) {
 	blob, err2 := io.ReadAll(r)
+	_ = r.Close()
 	if err2 != nil {
 		return nil, errors.Tag(err2, "consume doc archive")
 	}
-	_ = r.Close()
 	{
 		var archiveV1 struct {
-			Lines sharedTypes.Lines `json:"lines"`
+			Lines []string `json:"lines"`
 		}
 		if err := json.Unmarshal(blob, &archiveV1); err == nil {
 			return archiveV1.Lines, nil
 		}
 	}
 	{
-		var archiveV0 sharedTypes.Lines
+		var archiveV0 []string
 		if err := json.Unmarshal(blob, &archiveV0); err == nil {
 			return archiveV0, nil
 		}
