@@ -235,19 +235,6 @@ func (t *Folder) WalkFolders(fn DirWalker) error {
 	return t.walkDirs(fn, t.Path)
 }
 
-func (t *Folder) WalkFull(fn func(e TreeElement)) {
-	fnDir := func(f *Folder, path sharedTypes.DirName) error {
-		fn(f)
-		return nil
-	}
-	fnTree := func(e TreeElement, path sharedTypes.PathName) error {
-		fn(e)
-		return nil
-	}
-	_ = t.walkDirs(fnDir, t.Path)
-	_ = t.walk(fnTree, t.Path, walkModeAny)
-}
-
 type walkMode int
 
 const (
@@ -292,6 +279,19 @@ func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) err
 		}
 	}
 	return nil
+}
+
+func (t *Folder) PopulateIds(b *sharedTypes.UUIDBatch) {
+	t.Id = b.Next()
+	for i := range t.Docs {
+		t.Docs[i].Id = b.Next()
+	}
+	for i := range t.FileRefs {
+		t.FileRefs[i].Id = b.Next()
+	}
+	for i := range t.Folders {
+		t.Folders[i].PopulateIds(b)
+	}
 }
 
 func (p *ForTree) GetRootFolder() *Folder {

@@ -206,16 +206,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		if err != nil {
 			return err
 		}
-		t.WalkFull(func(e project.TreeElement) {
-			switch el := e.(type) {
-			case *project.Doc:
-				el.Id = b.Next()
-			case *project.FileRef:
-				el.Id = b.Next()
-			case *project.Folder:
-				el.Id = b.Next()
-			}
-		})
+		t.PopulateIds(b)
 
 		if rootDocPath != "" {
 			parent, _ := t.CreateParents(rootDocPath.Dir())
