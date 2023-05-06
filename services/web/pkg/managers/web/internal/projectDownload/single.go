@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -82,49 +82,49 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 	if errBuff != nil {
 		return errors.Tag(errBuff, "cannot get buffer")
 	}
-	f := zip.NewWriter(buffer)
+	z := zip.NewWriter(buffer)
 
 	t := p.GetRootFolder()
-	{
-		err := t.WalkFolders(func(_ *project.Folder, path sharedTypes.DirName) error {
-			if _, err := f.Create(path.String() + "/"); err != nil {
-				return errors.Tag(err, "create folder: "+path.String())
+	err := t.WalkFolders(func(f *project.Folder, folderPath sharedTypes.DirName) error {
+		if _, err := z.Create(folderPath.String() + "/"); err != nil {
+			return errors.Tag(err, "create folder: "+folderPath.String())
+		}
+
+		for _, d := range f.Docs {
+			path := folderPath.Join(d.Name).String()
+			w, err := z.Create(path)
+			if err != nil {
+				return errors.Tag(err, "create doc: "+path)
 			}
-			return nil
-		})
-		if err != nil {
-			_ = f.Close()
-			return err
+			if _, err = w.Write([]byte(d.Snapshot)); err != nil {
+				return errors.Tag(err, "write doc: "+path)
+			}
 		}
-	}
-	err := t.Walk(func(e project.TreeElement, path sharedTypes.PathName) error {
-		w, err := f.Create(path.String())
-		if err != nil {
-			return errors.Tag(err, "create element: "+path.String())
-		}
-		switch el := e.(type) {
-		case *project.Doc:
-			_, err = w.Write([]byte(el.Snapshot))
-		case *project.FileRef:
-			var reader io.ReadCloser
-			_, reader, err = m.fm.GetReadStreamForProjectFile(
-				ctx, projectId, el.Id,
+
+		for _, fileRef := range f.FileRefs {
+			path := folderPath.Join(fileRef.Name).String()
+			w, err := z.Create(path)
+			if err != nil {
+				return errors.Tag(err, "create file: "+path)
+			}
+			_, reader, err := m.fm.GetReadStreamForProjectFile(
+				ctx, projectId, fileRef.Id,
 			)
 			if err != nil {
-				return errors.Tag(err, "get file: "+el.Id.String())
+				return errors.Tag(err, "get file: "+fileRef.Id.String())
 			}
-			_, err = io.Copy(w, reader)
+			_, errCopy := io.Copy(w, reader)
 			errClose := reader.Close()
-			if err == nil && errClose != nil {
-				err = errors.Tag(errClose, "cannot close file")
+			if errCopy != nil {
+				return errors.Tag(errCopy, "write file: "+path)
 			}
-		}
-		if err != nil {
-			return errors.Tag(err, "cannot write: "+path.String())
+			if errClose != nil {
+				return errors.Tag(errClose, "close file: "+path)
+			}
 		}
 		return nil
 	})
-	errClose := f.Close()
+	errClose := z.Close()
 	if err != nil {
 		return err
 	}

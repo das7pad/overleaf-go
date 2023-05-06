@@ -219,10 +219,6 @@ func (t *Folder) CountNodes() int {
 	return n
 }
 
-func (t *Folder) Walk(fn TreeWalker) error {
-	return t.walk(fn, t.Path, walkModeAny)
-}
-
 func (t *Folder) WalkDocs(fn TreeWalker) error {
 	return t.walk(fn, t.Path, walkModeDoc)
 }
@@ -240,7 +236,6 @@ type walkMode int
 const (
 	walkModeDoc walkMode = iota
 	walkModeFiles
-	walkModeAny
 )
 
 func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
@@ -257,14 +252,14 @@ func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
 }
 
 func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) error {
-	if m == walkModeDoc || m == walkModeAny {
+	if m == walkModeDoc {
 		for i, doc := range t.Docs {
 			if err := fn(&t.Docs[i], parent.Join(doc.Name)); err != nil {
 				return err
 			}
 		}
 	}
-	if m == walkModeFiles || m == walkModeAny {
+	if m == walkModeFiles {
 		for i, fileRef := range t.FileRefs {
 			err := fn(&t.FileRefs[i], parent.Join(fileRef.Name))
 			if err != nil {
