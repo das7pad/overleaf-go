@@ -187,23 +187,23 @@ FROM p
 	rows = append(rows, []interface{}{
 		p.CreatedAt, deletedAt, t.Id, TreeNodeKindFolder, nil, "", p.Id,
 	})
-	_ = t.WalkFolders(func(f *Folder, path sharedTypes.DirName) error {
+	_ = t.WalkFolders(func(f *Folder) error {
 		for _, d := range f.Docs {
 			rows = append(rows, []interface{}{
 				p.CreatedAt, deletedAt, d.Id, TreeNodeKindDoc, f.Id,
-				path.Join(d.Name), p.Id,
+				f.Path.Join(d.Name), p.Id,
 			})
 		}
 		for _, r := range f.FileRefs {
 			rows = append(rows, []interface{}{
 				r.CreatedAt, deletedAt, r.Id, TreeNodeKindFile, f.Id,
-				path.Join(r.Name), p.Id,
+				f.Path.Join(r.Name), p.Id,
 			})
 		}
 		for _, ff := range f.Folders {
 			rows = append(rows, []interface{}{
 				p.CreatedAt, deletedAt, ff.Id, TreeNodeKindFolder, f.Id,
-				ff.Path + "/", p.Id,
+				f.Path.Join(ff.Name) + "/", p.Id,
 			})
 		}
 		return nil
@@ -222,9 +222,10 @@ FROM p
 	}
 
 	rows = rows[:0]
-	_ = t.WalkDocs(func(e TreeElement, _ sharedTypes.PathName) error {
-		d := e.(*Doc)
-		rows = append(rows, []interface{}{d.Id, d.Snapshot, d.Version})
+	_ = t.WalkFolders(func(f *Folder) error {
+		for _, d := range f.Docs {
+			rows = append(rows, []interface{}{d.Id, d.Snapshot, d.Version})
+		}
 		return nil
 	})
 	_, err = tx.CopyFrom(
@@ -238,11 +239,12 @@ FROM p
 	}
 
 	rows = rows[:0]
-	_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
-		d := e.(*FileRef)
-		rows = append(rows, []interface{}{
-			d.Id, d.Hash, d.LinkedFileData, d.Size, false,
-		})
+	_ = t.WalkFolders(func(f *Folder) error {
+		for i, ff := range f.FileRefs {
+			rows = append(rows, []interface{}{
+				ff.Id, ff.Hash, f.FileRefs[i].LinkedFileData, ff.Size, false,
+			})
+		}
 		return nil
 	})
 	_, err = tx.CopyFrom(

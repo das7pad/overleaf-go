@@ -85,13 +85,13 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 	z := zip.NewWriter(buffer)
 
 	t := p.GetRootFolder()
-	err := t.WalkFolders(func(f *project.Folder, folderPath sharedTypes.DirName) error {
-		if _, err := z.Create(folderPath.String() + "/"); err != nil {
-			return errors.Tag(err, "create folder: "+folderPath.String())
+	err := t.WalkFolders(func(f *project.Folder) error {
+		if _, err := z.Create(f.Path.String() + "/"); err != nil {
+			return errors.Tag(err, "create folder: "+f.Path.String())
 		}
 
 		for _, d := range f.Docs {
-			path := folderPath.Join(d.Name).String()
+			path := f.Path.Join(d.Name).String()
 			w, err := z.Create(path)
 			if err != nil {
 				return errors.Tag(err, "create doc: "+path)
@@ -102,7 +102,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 		}
 
 		for _, fileRef := range f.FileRefs {
-			path := folderPath.Join(fileRef.Name).String()
+			path := f.Path.Join(fileRef.Name).String()
 			w, err := z.Create(path)
 			if err != nil {
 				return errors.Tag(err, "create file: "+path)

@@ -162,10 +162,6 @@ func NewFolder(name sharedTypes.Filename) Folder {
 	}
 }
 
-type DirWalker func(folder *Folder, path sharedTypes.DirName) error
-
-type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
-
 var ErrDuplicateNameInFolder = &errors.InvalidStateError{
 	Msg: "folder already has entry with given name",
 }
@@ -219,57 +215,12 @@ func (t *Folder) CountNodes() int {
 	return n
 }
 
-func (t *Folder) WalkDocs(fn TreeWalker) error {
-	return t.walk(fn, t.Path, walkModeDoc)
-}
-
-func (t *Folder) WalkFiles(fn TreeWalker) error {
-	return t.walk(fn, t.Path, walkModeFiles)
-}
-
-func (t *Folder) WalkFolders(fn DirWalker) error {
-	return t.walkDirs(fn, t.Path)
-}
-
-type walkMode int
-
-const (
-	walkModeDoc walkMode = iota
-	walkModeFiles
-)
-
-func (t *Folder) walkDirs(fn DirWalker, parent sharedTypes.DirName) error {
-	if err := fn(t, parent); err != nil {
+func (t *Folder) WalkFolders(fn func(*Folder) error) error {
+	if err := fn(t); err != nil {
 		return err
 	}
-	for i, folder := range t.Folders {
-		branch := parent.JoinDir(folder.Name)
-		if err := t.Folders[i].walkDirs(fn, branch); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *Folder) walk(fn TreeWalker, parent sharedTypes.DirName, m walkMode) error {
-	if m == walkModeDoc {
-		for i, doc := range t.Docs {
-			if err := fn(&t.Docs[i], parent.Join(doc.Name)); err != nil {
-				return err
-			}
-		}
-	}
-	if m == walkModeFiles {
-		for i, fileRef := range t.FileRefs {
-			err := fn(&t.FileRefs[i], parent.Join(fileRef.Name))
-			if err != nil {
-				return err
-			}
-		}
-	}
-	for i, folder := range t.Folders {
-		branch := parent.JoinDir(folder.Name)
-		if err := t.Folders[i].walk(fn, branch, m); err != nil {
+	for i := range t.Folders {
+		if err := t.Folders[i].WalkFolders(fn); err != nil {
 			return err
 		}
 	}
