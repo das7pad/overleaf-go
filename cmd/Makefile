@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.19.8-alpine3.16 \
+	$(BUILD_IN) golang:1.19.9-alpine3.16 \
 		go list -f '{{ join .Deps "\n" }}' ./cmd/... \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
@@ -63,7 +63,7 @@ check-not-changed:
 bin.tar: build_cmds_in_bulk
 build_cmds_in_bulk:
 	rm -rf ../.cache/target/ && mkdir ../.cache/target/
-	$(BUILD_IN) golang:1.19.8 go build -o .cache/target/ ./cmd/...
+	$(BUILD_IN) golang:1.19.9 go build -o .cache/target/ ./cmd/...
 
 bin.tar: execAgent
 execAgent:
@@ -103,4 +103,4 @@ docker/clean:
 	$(MAKE) -C ../services/spelling docker/clean
 
 test:
-	$(BUILD_IN) golang:1.19.8 go test ./...
+	$(BUILD_IN) golang:1.19.9 go test ./...
