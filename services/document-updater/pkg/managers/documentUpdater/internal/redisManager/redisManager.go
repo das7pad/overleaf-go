@@ -290,14 +290,12 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId shar
 func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) ([]sharedTypes.DocumentUpdate, error) {
 	updates := make([]sharedTypes.DocumentUpdate, len(raw))
 	for i, s := range raw {
-		update := sharedTypes.DocumentUpdate{}
-		if err := json.Unmarshal([]byte(s), &update); err != nil {
+		if err := json.Unmarshal([]byte(s), &updates[i]); err != nil {
 			return nil, errors.Tag(err, "parse update")
 		}
-		if i == 0 && start != update.Version {
+		if i == 0 && start != updates[i].Version {
 			return nil, ErrUpdateRangeNotAvailable
 		}
-		updates[i] = update
 	}
 	return updates, nil
 }
