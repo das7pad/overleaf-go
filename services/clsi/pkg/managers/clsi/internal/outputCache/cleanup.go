@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,10 +30,7 @@ func cleanupExpired(dir types.OutputDir, keepBuildId types.BuildId, namespace ty
 		if os.IsNotExist(scanErr) {
 			return
 		}
-		log.Printf(
-			"cannot scan outputDir %s for cleanup: %s",
-			dir, scanErr,
-		)
+		log.Printf("scan outputDir %s for cleanup: %s", dir, scanErr)
 		return
 	}
 
@@ -52,7 +49,7 @@ func cleanupExpired(dir types.OutputDir, keepBuildId types.BuildId, namespace ty
 
 		if age, err := buildId.Age(); err != nil {
 			log.Printf(
-				"cannot parse age from buildId %q in %s: %s",
+				"parse age from buildId %q in %s: %s",
 				buildId, dir, err,
 			)
 			// Delete this directory unconditionally.
@@ -66,7 +63,7 @@ func cleanupExpired(dir types.OutputDir, keepBuildId types.BuildId, namespace ty
 
 		compileOutputDir := dir.CompileOutputDir(buildId)
 		if err := os.RemoveAll(string(compileOutputDir)); err != nil {
-			log.Printf("cannot cleanup %s: %s", compileOutputDir, err)
+			log.Printf("cleanup %s: %s", compileOutputDir, err)
 		}
 	}
 }

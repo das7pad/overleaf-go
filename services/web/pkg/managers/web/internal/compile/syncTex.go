@@ -47,17 +47,17 @@ func (m *manager) genericPOST(ctx context.Context, endpoint string, options shar
 
 	blob, err := json.Marshal(request)
 	if err != nil {
-		return errors.Tag(err, "cannot serialize request")
+		return errors.Tag(err, "serialize request")
 	}
 	body := bytes.NewReader(blob)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
 	if err != nil {
-		return errors.Tag(err, "cannot create request")
+		return errors.Tag(err, "create request")
 	}
 	res, err := m.doStaticRequest(clsiServerId, r)
 	if err != nil {
-		return errors.Tag(err, "cannot action request")
+		return errors.Tag(err, "action request")
 	}
 	defer func() {
 		_ = res.Body.Close()

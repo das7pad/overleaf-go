@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -47,22 +47,22 @@ func New(options *types.Options, client redis.UniversalClient, um user.Manager, 
 		Password: options.SmokeTest.Password,
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "cannot marshal login body")
+		return nil, errors.Tag(err, "marshal login body")
 	}
 	projectIdMeta, err := regexp.Compile(
 		"<meta\\s+name=\"ol-project_id\"\\s+data-type=\"string\"\\s+content=\"" + options.SmokeTest.ProjectId.String() + "\"\\s*/>",
 	)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot compile projectId meta regex")
+		return nil, errors.Tag(err, "compile projectId meta regex")
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get hostname")
+		return nil, errors.Tag(err, "get hostname")
 	}
 	rawRand := make([]byte, 4)
 	if _, err = rand.Read(rawRand); err != nil {
-		return nil, errors.Tag(err, "cannot get random blob")
+		return nil, errors.Tag(err, "get random blob")
 	}
 	rnd := hex.EncodeToString(rawRand)
 

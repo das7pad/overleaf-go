@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,7 +30,7 @@ func (m *manager) RestoreDocVersion(ctx context.Context, r *types.RestoreDocVers
 
 	s, _, err := m.getDocFrom(ctx, projectId, r.UserId, docId, r.FromV, -1)
 	if err != nil {
-		return errors.Tag(err, "cannot get old doc version")
+		return errors.Tag(err, "get old doc version")
 	}
 
 	err = m.dum.SetDoc(ctx, projectId, docId, documentUpdaterTypes.SetDocRequest{
@@ -39,7 +39,7 @@ func (m *manager) RestoreDocVersion(ctx context.Context, r *types.RestoreDocVers
 		UserId:   r.UserId,
 	})
 	if err != nil {
-		return errors.Tag(err, "cannot persist restored doc version")
+		return errors.Tag(err, "persist restored doc version")
 	}
 	return nil
 }

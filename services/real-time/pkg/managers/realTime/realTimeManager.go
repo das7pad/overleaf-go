@@ -245,7 +245,7 @@ func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
 	body := types.GetConnectedUsersResponse{ConnectedClients: clients}
 	blob, err := json.Marshal(body)
 	if err != nil {
-		return errors.Tag(err, "cannot serialize users")
+		return errors.Tag(err, "serialize users")
 	}
 	rpc.Response.Body = blob
 	return nil
@@ -261,7 +261,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 
 	err := m.clientTracking.UpdateClientPosition(ctx, rpc.Client, &args)
 	if err != nil {
-		return errors.Tag(err, "cannot persist position update")
+		return errors.Tag(err, "persist position update")
 	}
 
 	notification := types.ClientPositionUpdateNotification{
@@ -272,7 +272,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	}
 	body, err := json.Marshal(notification)
 	if err != nil {
-		return errors.Tag(err, "cannot encode notification")
+		return errors.Tag(err, "encode notification")
 	}
 	msg := &sharedTypes.EditorEventsMessage{
 		RoomId:  rpc.Client.ProjectId,
@@ -280,7 +280,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 		Payload: body,
 	}
 	if err = m.editorEvents.Publish(ctx, msg); err != nil {
-		return errors.Tag(err, "cannot send notification")
+		return errors.Tag(err, "send notification")
 	}
 	return nil
 }
@@ -321,7 +321,7 @@ func (m *manager) cleanupClientTracking(client *types.Client) (bool, error) {
 	defer done()
 	if err := m.editorEvents.Publish(ctx, msg); err != nil {
 		return nowEmpty, errors.Tag(
-			err, "cannot send notification for disconnect",
+			err, "send notification for disconnect",
 		)
 	}
 	return nowEmpty, nil

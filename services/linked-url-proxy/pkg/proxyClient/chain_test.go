@@ -27,7 +27,7 @@ func Test_chainURL(t *testing.T) {
 	mustParse := func(s string) *sharedTypes.URL {
 		u, err := sharedTypes.ParseAndValidateURL(s)
 		if err != nil {
-			t.Fatalf("cannot parse url: %q: %q", s, err.Error())
+			t.Fatalf("parse url: %q: %q", s, err.Error())
 		}
 		return u
 	}
@@ -105,7 +105,7 @@ func Test_chainURL(t *testing.T) {
 			}
 			if v.String() != tt.args.u.String() {
 				t.Errorf(
-					"cannot round trip url: got %v, want %v",
+					"round trip url: got %v, want %v",
 					v.String(), tt.args.u.String(),
 				)
 				return

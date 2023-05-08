@@ -33,7 +33,7 @@ func (m *manager) ConfirmEmail(ctx context.Context, r *types.ConfirmEmailRequest
 	}
 	err := m.oTTm.ResolveAndExpireEmailConfirmationToken(ctx, r.Token)
 	if err != nil {
-		return errors.Tag(err, "cannot resolve token")
+		return errors.Tag(err, "resolve token")
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 
 	token, err := m.oTTm.NewForEmailConfirmation(ctx, userId, r.Email)
 	if err != nil {
-		return errors.Tag(err, "cannot get one time token")
+		return errors.Tag(err, "get one time token")
 	}
 
 	u := r.Session.User.ToPublicUserInfo()
@@ -85,7 +85,7 @@ func (m *manager) ResendEmailConfirmation(ctx context.Context, r *types.ResendEm
 		},
 	}
 	if err = e.Send(ctx, m.emailOptions.Send); err != nil {
-		return errors.Tag(err, "cannot send email confirmation token")
+		return errors.Tag(err, "send email confirmation token")
 	}
 	return nil
 }

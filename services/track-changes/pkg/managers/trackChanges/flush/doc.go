@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -47,7 +47,7 @@ func (m *manager) RecordAndFlushHistoryOps(ctx context.Context, projectId, docId
 	key := getProjectTrackingKey(projectId)
 	err := m.client.SAdd(ctx, key, docId.String()).Err()
 	if err != nil {
-		return errors.Tag(err, "cannot record doc has history")
+		return errors.Tag(err, "record doc has history")
 	}
 
 	if shouldFlush(nUpdates, queueDepth) {
@@ -61,7 +61,7 @@ func (m *manager) FlushDocInBackground(projectId, docId sharedTypes.UUID) {
 		err := m.FlushDoc(context.Background(), projectId, docId)
 		if err != nil {
 			ids := projectId.String() + "/" + docId.String()
-			err = errors.Tag(err, "cannot flush history for "+ids)
+			err = errors.Tag(err, "flush history for "+ids)
 			log.Println(err.Error())
 		}
 	}()
@@ -79,22 +79,21 @@ func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUI
 				batchSizeProcessUpdates,
 			).Result()
 			if err != nil {
-				return errors.Tag(err, "cannot get updates from redis")
+				return errors.Tag(err, "get updates from redis")
 			}
 			updates := make([]sharedTypes.DocumentUpdate, len(rawUpdates))
 			for i, update := range rawUpdates {
 				err = json.Unmarshal([]byte(update), &updates[i])
 				if err != nil {
 					return errors.Tag(
-						err,
-						fmt.Sprintf("cannot decode update %d", i),
+						err, fmt.Sprintf("decode update %d", i),
 					)
 				}
 			}
 
 			err = m.persistUpdates(ctx, projectId, docId, updates)
 			if err != nil {
-				return errors.Tag(err, "cannot persist updates")
+				return errors.Tag(err, "persist updates")
 			}
 
 			var queueDepthCmd *redis.IntCmd
@@ -106,7 +105,7 @@ func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUI
 				return nil
 			})
 			if err != nil {
-				return errors.Tag(err, "cannot pop from redis queue")
+				return errors.Tag(err, "pop from redis queue")
 			}
 
 			if d, _ := queueDepthCmd.Result(); d != 0 {
@@ -167,7 +166,7 @@ func (m *manager) persistUpdates(ctx context.Context, projectId, docId sharedTyp
 
 	// insert
 	if err = m.dhm.InsertBulk(ctx, docId, dh); err != nil {
-		return errors.Tag(err, "cannot insert history into db")
+		return errors.Tag(err, "insert history into db")
 	}
 	return nil
 }

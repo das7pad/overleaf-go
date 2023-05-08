@@ -161,7 +161,7 @@ func (d *UploadDetails) Validate() error {
 func (d *UploadDetails) SeekFileToStart() error {
 	_, err := d.File.Seek(0, io.SeekStart)
 	if err != nil {
-		return errors.Tag(err, "cannot seek to start")
+		return errors.Tag(err, "seek to start")
 	}
 	return nil
 }

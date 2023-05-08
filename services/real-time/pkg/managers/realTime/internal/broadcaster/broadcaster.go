@@ -282,7 +282,7 @@ func (b *broadcaster) processAllMessages() {
 func (b *broadcaster) StartListening(ctx context.Context) error {
 	c, err := b.c.Listen(ctx)
 	if err != nil {
-		return errors.Tag(err, "cannot listen on all channel")
+		return errors.Tag(err, "listen on all channel")
 	}
 
 	go b.processQueue()

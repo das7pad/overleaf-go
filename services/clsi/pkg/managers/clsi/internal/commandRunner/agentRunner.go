@@ -155,7 +155,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			// - cycle: we lost track of expected/max container life-time.
 			err = a.stopContainer(namespace)
 			if err != nil {
-				return nil, errors.Tag(err, "cannot stop old container")
+				return nil, errors.Tag(err, "stop old container")
 			}
 			// The container is not gone immediately. Delay and retry 3 times.
 			for i := 1; i < 4; i++ {
@@ -167,7 +167,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 				}
 			}
 			if err != nil {
-				return nil, errors.Tag(err, "cannot re-create old container")
+				return nil, errors.Tag(err, "re-create old container")
 			}
 		} else {
 			// The container is running, but expired. Reset it.
@@ -180,12 +180,12 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 				validUntil, err = a.createContainer(ctx, namespace, imageName)
 				if err != nil {
 					return nil, errors.Tag(
-						err, "cannot re-create expired container",
+						err, "re-create expired container",
 					)
 				}
 			default:
 				return nil, errors.Tag(
-					err, "cannot restart expired container",
+					err, "restart expired container",
 				)
 			}
 		}
@@ -297,7 +297,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		name,
 	)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot create container")
+		return nil, errors.Tag(err, "create container")
 	}
 
 	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
@@ -308,7 +308,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		dockerTypes.ContainerStartOptions{},
 	)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot start container")
+		return nil, errors.Tag(err, "start container")
 	}
 	return &validUntil, nil
 }
@@ -316,7 +316,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Namespace) (string, error) {
 	res, err := a.dockerClient.ContainerInspect(ctx, containerName(namespace))
 	if err != nil {
-		return "", errors.Tag(err, "cannot get container epoch")
+		return "", errors.Tag(err, "get container epoch")
 	}
 	if res.Config == nil {
 		return "", errors.New("container config missing")
@@ -352,7 +352,7 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 		Timeout: &restartTimeout,
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "cannot restart container")
+		return nil, errors.Tag(err, "restart container")
 	}
 	return &validUntil, nil
 }
@@ -372,7 +372,7 @@ func (a *agentRunner) stopContainer(namespace types.Namespace) error {
 	if errdefs.IsNotFound(err) {
 		return nil
 	}
-	return errors.Tag(err, "cannot stop container")
+	return errors.Tag(err, "stop container")
 }
 
 func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, options *types.CommandOptions) (types.ExitCode, error) {

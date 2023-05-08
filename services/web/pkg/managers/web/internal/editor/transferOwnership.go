@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,16 +35,14 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 	previousOwnerId := request.UserId
 
 	if previousOwnerId == newOwnerId {
-		return &errors.ValidationError{
-			Msg: "cannot transfer ownership to self",
-		}
+		return &errors.ValidationError{Msg: "transfer ownership to self"}
 	}
 
 	previousOwner, newOwner, name, err := m.pm.TransferOwnership(
 		ctx, projectId, previousOwnerId, newOwnerId,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot transfer ownership")
+		return errors.Tag(err, "transfer ownership")
 	}
 
 	go m.notifyEditorAboutAccessChanges(projectId, refreshMembershipDetails{
@@ -115,7 +113,7 @@ func (m *manager) ownershipTransferConfirmationNewOwner(ctx context.Context, d t
 		},
 	}
 	if err := e.Send(ctx, d.emailOptions.Send); err != nil {
-		return errors.Tag(err, "cannot email new owner")
+		return errors.Tag(err, "email new owner")
 	}
 	return nil
 }
@@ -152,7 +150,7 @@ func (m *manager) ownershipTransferConfirmationPreviousOwner(ctx context.Context
 		},
 	}
 	if err := e.Send(ctx, d.emailOptions.Send); err != nil {
-		return errors.Tag(err, "cannot email previous owner")
+		return errors.Tag(err, "email previous owner")
 	}
 	return nil
 }

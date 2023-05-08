@@ -60,7 +60,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 			ctx, projectId, userId, anonymousAccessToken,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot get project/user details")
+			return errors.Tag(err, "get project/user details")
 		}
 		p = &d.Project
 		if isAnonymous {
@@ -82,7 +82,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		c.UserId = userId
 		s, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 		if err != nil {
-			return errors.Tag(err, "cannot get LoggedInUserJWT")
+			return errors.Tag(err, "get LoggedInUserJWT")
 		}
 		response.JWTLoggedInUser = s
 		response.SystemMessages, _ = m.smm.GetAllCachedOnly(userId)
@@ -101,7 +101,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 
 		s, err := m.jwtProject.SetExpiryAndSign(c)
 		if err != nil {
-			return errors.Tag(err, "cannot get compile jwt")
+			return errors.Tag(err, "get compile jwt")
 		}
 		response.JWTProject = s
 	}
@@ -114,7 +114,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 			err := m.cm.StartInBackground(bCtx, signedOptions, p.ImageName)
 			if err != nil {
 				log.Printf(
-					"%s/%s: cannot start compile container: %s",
+					"%s/%s: start compile container: %s",
 					projectId, userId, err.Error(),
 				)
 			}
@@ -144,7 +144,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		err := m.pm.BumpLastOpened(bCtx, projectId)
 		if err != nil {
 			log.Printf(
-				"%s/%s: cannot bump last opened time: %s",
+				"%s/%s: bump last opened time: %s",
 				projectId, userId, err,
 			)
 		}
@@ -162,7 +162,7 @@ func (m *manager) ProjectEditorDetached(ctx context.Context, request *types.Proj
 		ctx, projectId, userId, anonymousAccessToken,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot get project/user details")
+		return errors.Tag(err, "get project/user details")
 	}
 	if isAnonymous {
 		d.User = *defaultUser

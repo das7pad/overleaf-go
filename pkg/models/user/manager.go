@@ -277,7 +277,7 @@ FROM ids
 func (m *manager) TrackClearSessions(ctx context.Context, userId sharedTypes.UUID, ip string, info interface{}) error {
 	blob, err := json.Marshal(info)
 	if err != nil {
-		return errors.Tag(err, "cannot serialize audit log info")
+		return errors.Tag(err, "serialize audit log info")
 	}
 	return getErr(m.db.Exec(ctx, `
 WITH u AS (
@@ -306,7 +306,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, u ForEmailChange, ip s
 		NewPrimaryEmail: newEmail,
 	})
 	if err != nil {
-		return errors.Tag(err, "cannot serialize audit log info")
+		return errors.Tag(err, "serialize audit log info")
 	}
 	err = getErr(m.db.Exec(ctx, `
 WITH u AS (

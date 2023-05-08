@@ -98,11 +98,11 @@ func getFlushAndDeleteQueueKey() string {
 func (m *manager) PutDocInMemory(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc) error {
 	err := m.rClient.SAdd(ctx, getDocsInProjectKey(projectId), docId.String()).Err()
 	if err != nil {
-		return errors.Tag(err, "cannot record doc in project")
+		return errors.Tag(err, "record doc in project")
 	}
 	coreBlob, err := doc.DocCore.DoMarshalJSON()
 	if err != nil {
-		return errors.Tag(err, "cannot serialize DocCore")
+		return errors.Tag(err, "serialize DocCore")
 	}
 	vars := map[string]interface{}{
 		getDocCoreKey(docId):    coreBlob,
@@ -112,7 +112,7 @@ func (m *manager) PutDocInMemory(ctx context.Context, projectId sharedTypes.UUID
 		vars[getUnFlushedTimeKey(docId)] = int64(doc.UnFlushedTime)
 	}
 	if err = m.rClient.MSet(ctx, vars).Err(); err != nil {
-		return errors.Tag(err, "cannot persist in redis")
+		return errors.Tag(err, "persist in redis")
 	}
 	return nil
 }
@@ -126,12 +126,12 @@ func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId sharedTypes
 		getLastUpdatedCtxKey(docId),
 	).Err()
 	if err != nil {
-		return errors.Tag(err, "cannot cleanup doc details")
+		return errors.Tag(err, "cleanup doc details")
 	}
 
 	err = m.rClient.SRem(ctx, getDocsInProjectKey(projectId), docId.String()).Err()
 	if err != nil {
-		return errors.Tag(err, "cannot cleanup project tracking")
+		return errors.Tag(err, "cleanup project tracking")
 	}
 	return nil
 }
@@ -145,7 +145,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId 
 		getLastUpdatedCtxKey(docId),
 	)
 	if err := res.Err(); err != nil {
-		return nil, errors.Tag(err, "cannot get doc details from redis")
+		return nil, errors.Tag(err, "get doc details from redis")
 	}
 	results := res.Val()
 	if len(results) != 4 {
@@ -171,23 +171,23 @@ func (m *manager) GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId 
 		DocId: docId,
 	}
 	if err := doc.DocCore.DoUnmarshalJSON(blobs[0]); err != nil {
-		return nil, errors.Tag(err, "cannot parse doc core")
+		return nil, errors.Tag(err, "parse doc core")
 	}
 	if doc.ProjectId != projectId {
 		return nil, &errors.NotAuthorizedError{}
 	}
 
 	if err := json.Unmarshal(blobs[1], &doc.Version); err != nil {
-		return nil, errors.Tag(err, "cannot parse doc version")
+		return nil, errors.Tag(err, "parse doc version")
 	}
 	if len(blobs[2]) != 0 {
 		if err := json.Unmarshal(blobs[2], &doc.UnFlushedTime); err != nil {
-			return nil, errors.Tag(err, "cannot parse doc un-flushed time")
+			return nil, errors.Tag(err, "parse doc un-flushed time")
 		}
 	}
 	if len(blobs[3]) > 2 {
 		if err := json.Unmarshal(blobs[3], &doc.LastUpdatedCtx); err != nil {
-			return nil, errors.Tag(err, "cannot parse last updated ctx")
+			return nil, errors.Tag(err, "parse last updated ctx")
 		}
 	}
 	return doc, nil
@@ -199,11 +199,11 @@ func (m *manager) GetDocVersion(ctx context.Context, docId sharedTypes.UUID) (sh
 		if err == redis.Nil {
 			err = &errors.NotFoundError{}
 		}
-		return 0, errors.Tag(err, "cannot get version from redis")
+		return 0, errors.Tag(err, "get version from redis")
 	}
 	var v sharedTypes.Version
 	if err = json.Unmarshal([]byte(raw), &v); err != nil {
-		return 0, errors.Tag(err, "cannot parse version")
+		return 0, errors.Tag(err, "parse version")
 	}
 	return v, nil
 }
@@ -243,7 +243,7 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId sharedTypes.U
 		if strings.Contains(err.Error(), "overleaf:") {
 			return nil, ErrUpdateRangeNotAvailable
 		}
-		return nil, errors.Tag(err, "cannot get previous updates from redis")
+		return nil, errors.Tag(err, "get previous updates from redis")
 	}
 	stage0, isArr := res.([]interface{})
 	if !isArr {
@@ -279,7 +279,7 @@ func (m *manager) GetPreviousDocUpdatesUnderLock(ctx context.Context, docId shar
 		ctx, getDocUpdatesKey(docId), start, stop,
 	).Result()
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get previous updates from redis")
+		return nil, errors.Tag(err, "get previous updates from redis")
 	}
 	if len(raw) != int(n) {
 		return nil, ErrUpdateRangeNotAvailable
@@ -292,7 +292,7 @@ func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) 
 	for i, s := range raw {
 		update := sharedTypes.DocumentUpdate{}
 		if err := json.Unmarshal([]byte(s), &update); err != nil {
-			return nil, errors.Tag(err, "cannot parse update")
+			return nil, errors.Tag(err, "parse update")
 		}
 		if i == 0 && start != update.Version {
 			return nil, ErrUpdateRangeNotAvailable
@@ -305,7 +305,7 @@ func (m *manager) parseDocumentUpdates(start sharedTypes.Version, raw []string) 
 func (m *manager) UpdateDocument(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, appliedUpdates []sharedTypes.DocumentUpdate) (int64, error) {
 	currentVersion, err := m.GetDocVersion(ctx, docId)
 	if err != nil {
-		return 0, errors.Tag(err, "cannot get doc version for validation")
+		return 0, errors.Tag(err, "get doc version for validation")
 	}
 	nUpdatesOffset := sharedTypes.Version(len(appliedUpdates))
 	if currentVersion != doc.Version-nUpdatesOffset {
@@ -321,19 +321,19 @@ func (m *manager) UpdateDocument(ctx context.Context, docId sharedTypes.UUID, do
 
 	coreBlob, err := doc.DocCore.DoMarshalJSON()
 	if err != nil {
-		return 0, errors.Tag(err, "cannot serialize doc core")
+		return 0, errors.Tag(err, "serialize doc core")
 	}
 	appliedUpdatesBlobs := make([]interface{}, len(appliedUpdates))
 	for i, update := range appliedUpdates {
 		appliedUpdateBlob, err2 := json.Marshal(update)
 		if err2 != nil {
-			return 0, errors.Tag(err2, "cannot serialize applied update")
+			return 0, errors.Tag(err2, "serialize applied update")
 		}
 		appliedUpdatesBlobs[i] = appliedUpdateBlob
 	}
 	lastUpdatedCtxBlob, err := json.Marshal(doc.LastUpdatedCtx)
 	if err != nil {
-		return 0, errors.Tag(err, "cannot serialize last updated ctx")
+		return 0, errors.Tag(err, "serialize last updated ctx")
 	}
 	var uncompressedHistoryOpsRes *redis.IntCmd
 	_, err = m.rClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
@@ -367,7 +367,7 @@ func (m *manager) UpdateDocument(ctx context.Context, docId sharedTypes.UUID, do
 		return nil
 	})
 	if err != nil {
-		return 0, errors.Tag(err, "cannot update doc in redis")
+		return 0, errors.Tag(err, "update doc in redis")
 	}
 	if uncompressedHistoryOpsRes != nil {
 		return uncompressedHistoryOpsRes.Val(), nil
@@ -378,7 +378,7 @@ func (m *manager) UpdateDocument(ctx context.Context, docId sharedTypes.UUID, do
 func (m *manager) RenameDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc, newPath sharedTypes.PathName) error {
 	doc.PathName = newPath
 	if err := m.PutDocInMemory(ctx, projectId, docId, doc); err != nil {
-		return errors.Tag(err, "cannot rewrite doc in redis")
+		return errors.Tag(err, "rewrite doc in redis")
 	}
 	return nil
 }
@@ -390,14 +390,14 @@ func (m *manager) ClearUnFlushedTime(ctx context.Context, docId sharedTypes.UUID
 func (m *manager) GetDocIdsInProject(ctx context.Context, projectId sharedTypes.UUID) ([]sharedTypes.UUID, error) {
 	res := m.rClient.SMembers(ctx, getDocsInProjectKey(projectId))
 	if err := res.Err(); err != nil {
-		return nil, errors.Tag(err, "cannot get docs from redis")
+		return nil, errors.Tag(err, "get docs from redis")
 	}
 	rawIds := res.Val()
 	docIds := make([]sharedTypes.UUID, len(rawIds))
 	for i, raw := range rawIds {
 		id, err := sharedTypes.ParseUUID(raw)
 		if err != nil {
-			return nil, errors.Tag(err, "cannot parse raw docId: "+raw)
+			return nil, errors.Tag(err, "parse raw docId: "+raw)
 		}
 		docIds[i] = id
 	}
@@ -429,7 +429,7 @@ func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime
 	).Result()
 	if err != nil {
 		return sharedTypes.UUID{}, 0, 0, errors.Tag(
-			err, "cannot get old entries by score",
+			err, "get old entries by score",
 		)
 	}
 	if len(potentialOldEntries) == 0 {

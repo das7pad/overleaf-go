@@ -43,11 +43,11 @@ type Locker interface {
 func New(client redis.UniversalClient, namespace string) (Locker, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get hostname")
+		return nil, errors.Tag(err, "get hostname")
 	}
 	rawRand := make([]byte, 4)
 	if _, err = rand.Read(rawRand); err != nil {
-		return nil, errors.Tag(err, "cannot get random salt")
+		return nil, errors.Tag(err, "get random salt")
 	}
 	rnd := hex.EncodeToString(rawRand)
 	pid := strconv.FormatInt(int64(os.Getpid()), 10)
@@ -132,7 +132,7 @@ func (l *locker) runWithLock(ctx context.Context, docId sharedTypes.UUID, runner
 			if poll && timedOut && err2 == nil && acquireLockCtx.Err() == nil {
 				continue
 			}
-			return errors.Tag(err, "cannot check/acquire lock")
+			return errors.Tag(err, "check/acquire lock")
 		}
 		if gotLock {
 			break

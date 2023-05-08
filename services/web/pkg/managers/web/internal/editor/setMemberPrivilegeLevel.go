@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,7 +31,7 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, r *types
 		ctx, r.ProjectId, r.UserId, r.MemberId, r.PrivilegeLevel,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot update project member")
+		return errors.Tag(err, "update project member")
 	}
 
 	go m.notifyEditorAboutAccessChanges(r.ProjectId, refreshMembershipDetails{

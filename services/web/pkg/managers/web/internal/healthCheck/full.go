@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -59,7 +59,7 @@ func expectAsyncFormWithRedirect(res *http.Response, to string) error {
 	}
 	b := asyncForm.Response{}
 	if err := json.NewDecoder(res.Body).Decode(&b); err != nil {
-		return errors.Tag(err, "cannot decode body")
+		return errors.Tag(err, "decode body")
 	}
 	if b.Message != nil {
 		return errors.Tag(
@@ -78,12 +78,12 @@ func expectAsyncFormWithRedirect(res *http.Response, to string) error {
 func (s *smokeTestSession) request(ctx context.Context, method, url string, body io.Reader) (*http.Response, error) {
 	r, err := http.NewRequestWithContext(ctx, method, s.baseURL+url, body)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot compose request")
+		return nil, errors.Tag(err, "compose request")
 	}
 	r.Header.Set("X-Forwarded-Proto", "https")
 	res, err := s.client.Do(r)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot send request")
+		return nil, errors.Tag(err, "send request")
 	}
 	if res.StatusCode != http.StatusOK {
 		_ = res.Body.Close()
@@ -104,7 +104,7 @@ func (s *smokeTestSession) html(ctx context.Context, url string) ([]byte, error)
 	}()
 	blob, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot consume body")
+		return nil, errors.Tag(err, "consume body")
 	}
 	return blob, nil
 }

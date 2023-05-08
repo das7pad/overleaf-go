@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -32,17 +32,17 @@ import (
 func (m *manager) smokeTestRedis(ctx context.Context) error {
 	rawRand := make([]byte, 4)
 	if _, err := rand.Read(rawRand); err != nil {
-		return errors.Tag(err, "cannot get random blob")
+		return errors.Tag(err, "get random blob")
 	}
 	perRequestRnd := hex.EncodeToString(rawRand)
 	key := m.randomPrefix + ":" + perRequestRnd
 	err := m.client.SetEX(ctx, key, perRequestRnd, 10*time.Second).Err()
 	if err != nil {
-		return errors.Tag(err, "cannot write")
+		return errors.Tag(err, "write")
 	}
 	res, err := m.client.Get(ctx, key).Result()
 	if err != nil {
-		return errors.Tag(err, "cannot read")
+		return errors.Tag(err, "read")
 	}
 	if res != perRequestRnd {
 		return &failure{Msg: "read mismatch"}

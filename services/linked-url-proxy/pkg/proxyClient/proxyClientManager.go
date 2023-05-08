@@ -58,11 +58,11 @@ func (m *manager) Fetch(ctx context.Context, src *sharedTypes.URL) (io.ReadClose
 		ctx, http.MethodGet, chainURL(src, m.chain), nil,
 	)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "cannot prepare http request")
+		return nil, nil, errors.Tag(err, "prepare http request")
 	}
 	res, err := m.client.Do(req)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "cannot send http request")
+		return nil, nil, errors.Tag(err, "send http request")
 	}
 	cleanup := func() {
 		// Just close the body. In case the body has not been consumed in full

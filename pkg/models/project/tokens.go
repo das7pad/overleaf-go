@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -114,7 +114,7 @@ func randomStringFrom(source string, max *big.Int, n int) (string, error) {
 	for i := 0; i < n; i++ {
 		v, err := rand.Int(rand.Reader, max)
 		if err != nil {
-			return "", errors.Tag(err, "cannot get random int")
+			return "", errors.Tag(err, "get random int")
 		}
 		target.WriteByte(source[v.Int64()])
 	}

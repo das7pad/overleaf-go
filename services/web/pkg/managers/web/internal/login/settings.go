@@ -31,7 +31,7 @@ func (m *manager) SettingsPage(ctx context.Context, request *types.SettingsPageR
 	}
 	u := user.ForSettingsPage{}
 	if err := m.um.GetUser(ctx, request.Session.User.Id, &u); err != nil {
-		return errors.Tag(err, "cannot get user details")
+		return errors.Tag(err, "get user details")
 	}
 
 	response.Data = &templates.UserSettingsData{

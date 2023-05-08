@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -86,7 +86,7 @@ var validLanguages Languages
 func init() {
 	dirEntries, errListing := _locales.ReadDir("locales")
 	if errListing != nil {
-		panic(errors.Tag(errListing, "cannot list locales"))
+		panic(errors.Tag(errListing, "list locales"))
 	}
 	for _, dirEntry := range dirEntries {
 		language := strings.TrimSuffix(dirEntry.Name(), ".json")
@@ -168,12 +168,12 @@ func merge(dst, src map[string]renderer) map[string]renderer {
 func load(language string, appName string) (map[string]renderer, error) {
 	f, errOpen := _locales.Open("locales/" + language + ".json")
 	if errOpen != nil {
-		return nil, errors.Tag(errOpen, "cannot open "+language)
+		return nil, errors.Tag(errOpen, "open "+language)
 	}
 	defer func() { _ = f.Close() }()
 	raw := make(map[string]string)
 	if err := json.NewDecoder(f).Decode(&raw); err != nil {
-		return nil, errors.Tag(err, "cannot consume "+language)
+		return nil, errors.Tag(err, "consume "+language)
 	}
 	d, err := parseLocales(raw, appName)
 	if err != nil {
@@ -196,7 +196,7 @@ func parseLocales(raw map[string]string, appName string) (map[string]renderer, e
 	for key, s := range raw {
 		t, err := template.New(key).Parse(s)
 		if err != nil {
-			return nil, errors.Tag(err, "cannot parse locale: "+key)
+			return nil, errors.Tag(err, "parse locale: "+key)
 		}
 		buffer.Reset()
 		// Escape the template and identify static locales.

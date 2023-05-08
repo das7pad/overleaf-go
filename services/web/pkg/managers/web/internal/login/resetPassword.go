@@ -42,7 +42,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 		if errors.IsNotFoundError(err) {
 			res.SetCustomFormMessage("token-expired", err)
 		}
-		return errors.Tag(err, "cannot get token data")
+		return errors.Tag(err, "get token data")
 	}
 	if err := r.Password.CheckForEmailMatch(u.Email); err != nil {
 		res.SetCustomFormMessage("invalid-password", err)
@@ -51,9 +51,7 @@ func (m *manager) SetPassword(ctx context.Context, r *types.SetPasswordRequest, 
 	{
 		errSamePW := CheckPassword(u.HashedPasswordField, r.Password)
 		if errSamePW == nil {
-			return &errors.ValidationError{
-				Msg: "cannot re-use same password",
-			}
+			return &errors.ValidationError{Msg: "password re-use not allowed"}
 		}
 		if !errors.IsNotAuthorizedError(errSamePW) {
 			return errSamePW
@@ -130,11 +128,11 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 				Msg: "That email address is not registered, sorry.",
 			}
 		}
-		return errors.Tag(err, "cannot get user")
+		return errors.Tag(err, "get user")
 	}
 	token, err := m.oTTm.NewForPasswordReset(ctx, u.Id, r.Email)
 	if err != nil {
-		return errors.Tag(err, "cannot create one time token")
+		return errors.Tag(err, "create one time token")
 	}
 
 	e := email.Email{
@@ -166,7 +164,7 @@ func (m *manager) RequestPasswordReset(ctx context.Context, r *types.RequestPass
 		},
 	}
 	if err = e.Send(ctx, m.emailOptions.Send); err != nil {
-		return errors.Tag(err, "cannot email password reset token")
+		return errors.Tag(err, "email password reset token")
 	}
 	return nil
 }

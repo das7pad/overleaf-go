@@ -60,7 +60,7 @@ func (m *manager) CreateFromZip(ctx context.Context, request *types.CreateProjec
 
 	r, errNewReader := zip.NewReader(request.File, request.Size)
 	if errNewReader != nil {
-		return errors.Tag(errNewReader, "cannot open zip")
+		return errors.Tag(errNewReader, "open zip")
 	}
 	if len(r.File) > 10_000 {
 		return &errors.ValidationError{

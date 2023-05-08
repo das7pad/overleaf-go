@@ -49,7 +49,7 @@ type manager struct {
 func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
 	updates, err := m.rtRm.GetPendingUpdatesForDoc(ctx, docId)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "cannot get work")
+		return nil, nil, errors.Tag(err, "get work")
 	}
 	return m.ProcessUpdates(ctx, docId, doc, updates, transformUpdatesCache)
 }
@@ -79,7 +79,7 @@ func (m *manager) ProcessUpdates(ctx context.Context, docId sharedTypes.UUID, do
 			ctx, docId, minVersion, maxVersion, doc.Version,
 		)
 		if err2 != nil {
-			return nil, nil, errors.Tag(err2, "cannot get transform updates")
+			return nil, nil, errors.Tag(err2, "get transform updates")
 		}
 		transformUpdatesCache = append(
 			missingTransformUpdates, transformUpdatesCache...,

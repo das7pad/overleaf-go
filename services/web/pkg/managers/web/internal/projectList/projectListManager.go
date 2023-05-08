@@ -70,7 +70,7 @@ func (m *manager) GetUserProjects(ctx context.Context, request *types.GetUserPro
 	userId := request.Session.User.Id
 	l, err := m.pm.ListProjectsWithName(ctx, userId)
 	if err != nil {
-		return errors.Tag(err, "cannot get projects")
+		return errors.Tag(err, "get projects")
 	}
 
 	projects := make([]types.GetUserProjectsEntry, len(l))
@@ -94,7 +94,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		Projects: make(project.List, 0),
 	}
 	if err := m.pm.GetProjectListDetails(ctx, userId, &u); err != nil {
-		return errors.Tag(err, "cannot get user with projects")
+		return errors.Tag(err, "get user with projects")
 	}
 
 	projects := make([]templates.ProjectListProjectView, len(u.Projects))
@@ -133,7 +133,7 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 		c.UserId = userId
 		b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 		if err != nil {
-			return errors.Tag(err, "cannot get LoggedInUserJWT")
+			return errors.Tag(err, "get LoggedInUserJWT")
 		}
 		jwtLoggedInUser = b
 	}

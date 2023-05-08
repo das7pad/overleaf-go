@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -56,11 +56,11 @@ func (m *manager) getCacheEntry(ctx context.Context, projectId sharedTypes.UUID)
 func (m *manager) setCacheEntry(ctx context.Context, projectId sharedTypes.UUID, entry cacheEntry) error {
 	blob, err := json.Marshal(entry)
 	if err != nil {
-		return errors.Tag(err, "cannot serialize cache entry")
+		return errors.Tag(err, "serialize cache entry")
 	}
 	err = m.client.Set(ctx, getCacheKey(projectId), blob, cacheExpiry).Err()
 	if err != nil {
-		return errors.Tag(err, "cannot populate cache entry")
+		return errors.Tag(err, "populate cache entry")
 	}
 	return nil
 }
@@ -78,7 +78,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 		var err error
 		projectVersionFlushed, err = m.pm.GetLastUpdatedAt(pCtx, projectId)
 		if err != nil {
-			return errors.Tag(err, "cannot get project from db")
+			return errors.Tag(err, "get project from db")
 		}
 		return nil
 	})
@@ -88,7 +88,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 			projectId,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot get docs from redis")
+			return errors.Tag(err, "get docs from redis")
 		}
 		recentlyEdited = docs
 		return nil

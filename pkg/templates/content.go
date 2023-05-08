@@ -46,7 +46,7 @@ func (m metaEntry) ContentAsString() (string, error) {
 		}
 		b, err := json.Marshal(m.Content)
 		if err != nil {
-			return "", errors.Tag(err, "cannot marshal .Content for "+m.Name)
+			return "", errors.Tag(err, "marshal .Content for "+m.Name)
 		}
 		return string(b), nil
 	default:

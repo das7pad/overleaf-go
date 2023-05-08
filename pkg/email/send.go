@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -77,16 +77,16 @@ func writePart(m *multipart.Writer, contentType string, gen generator) error {
 	}
 	p, err := m.CreatePart(h)
 	if err != nil {
-		return errors.Tag(err, "cannot create new part")
+		return errors.Tag(err, "create new part")
 	}
 	q := quotedprintable.NewWriter(p)
 	err = gen(q)
 	errClose := q.Close()
 	if err != nil {
-		return errors.Tag(err, "cannot generate content")
+		return errors.Tag(err, "generate content")
 	}
 	if errClose != nil {
-		return errors.Tag(errClose, "cannot finalize part")
+		return errors.Tag(errClose, "finalize part")
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 	//  encodes the literal character '=' as '=3D'.
 	// It is hence impossible to get the sequence '==' in the encoded output.
 	if err := m.SetBoundary("==" + rndHex + "=="); err != nil {
-		return errors.Tag(err, "cannot set robust boundary")
+		return errors.Tag(err, "set robust boundary")
 	}
 
 	now := time.Now()
@@ -133,22 +133,22 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 	}
 	for k, s := range headers {
 		if _, err := io.WriteString(w, k+": "+s+crlf); err != nil {
-			return errors.Tag(err, "cannot write header")
+			return errors.Tag(err, "write header")
 		}
 	}
 
 	if _, err := io.WriteString(w, crlf); err != nil {
-		return errors.Tag(err, "cannot write start of body")
+		return errors.Tag(err, "write start of body")
 	}
 	if err := writePart(m, plainTextContent, e.writePlainText); err != nil {
-		return errors.Tag(err, "cannot write plain text part")
+		return errors.Tag(err, "write plain text part")
 	}
 	if err := writePart(m, htmlContent, e.writeHTML); err != nil {
-		return errors.Tag(err, "cannot write html part")
+		return errors.Tag(err, "write html part")
 	}
 
 	if err := m.Close(); err != nil {
-		return errors.Tag(err, "cannot finalize body")
+		return errors.Tag(err, "finalize body")
 	}
 
 	if o.SMTPAddress == "log" {
@@ -159,9 +159,9 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		ctx, o.SMTPAddress, o.SMTPAuth, o.SMTPHello, o.From, e.To, b.Bytes(),
 	)
 	if err != nil {
-		log.Printf("cannot send email: %s", err)
+		log.Printf("send email: %s", err)
 		// Ensure that we do not expose details on the email infrastructure.
-		return errors.New("cannot send email")
+		return errors.New("internal error sending email")
 	}
 	return nil
 }

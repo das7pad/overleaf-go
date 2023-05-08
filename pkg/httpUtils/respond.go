@@ -89,7 +89,7 @@ func respondJSON(c *Context, code int, body interface{}, err error, indent bool)
 	}
 	if err != nil {
 		GetAndLogErrResponseDetails(
-			c, errors.Tag(err, "cannot serialize body"),
+			c, errors.Tag(err, "serialize body"),
 		)
 		code = http.StatusInternalServerError
 		blob = fatalSerializeError
@@ -153,6 +153,6 @@ func init() {
 		map[string]string{"message": "internal server error"},
 	)
 	if err != nil {
-		panic(errors.Tag(err, "cannot build fatalSerializeError"))
+		panic(errors.Tag(err, "build fatalSerializeError"))
 	}
 }

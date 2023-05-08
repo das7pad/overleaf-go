@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,12 +28,12 @@ import (
 func (m *manager) DeleteUsersOwnedProjects(ctx context.Context, userId sharedTypes.UUID, ipAddress string) error {
 	projects, err := m.pm.GetOwnedProjects(ctx, userId)
 	if err != nil {
-		return errors.Tag(err, "cannot get projects")
+		return errors.Tag(err, "get projects")
 	}
 	for _, pId := range projects {
 		if err = m.dum.FlushAndDeleteProject(ctx, pId); err != nil {
 			return errors.Tag(
-				err, "cannot flush project "+pId.String(),
+				err, "flush project "+pId.String(),
 			)
 		}
 	}
@@ -56,7 +56,7 @@ func (m *manager) DeleteProject(ctx context.Context, request *types.DeleteProjec
 	{
 		d, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, "")
 		if err != nil {
-			return errors.Tag(err, "cannot get project")
+			return errors.Tag(err, "get project")
 		}
 		if e := request.EpochHint; e != nil && d.Epoch != *e {
 			return project.ErrEpochIsNotStable
@@ -67,11 +67,11 @@ func (m *manager) DeleteProject(ctx context.Context, request *types.DeleteProjec
 		}
 	}
 	if err := m.dum.FlushAndDeleteProject(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot flush project")
+		return errors.Tag(err, "flush project")
 	}
 	projectIds := []sharedTypes.UUID{projectId}
 	if err := m.pm.SoftDelete(ctx, projectIds, userId, ipAddress); err != nil {
-		return errors.Tag(err, "cannot delete project")
+		return errors.Tag(err, "delete project")
 	}
 	return nil
 }

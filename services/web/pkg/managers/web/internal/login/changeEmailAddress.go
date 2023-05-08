@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -37,7 +37,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 
 	u := user.ForEmailChange{}
 	if err := m.um.GetUser(ctx, userId, &u); err != nil {
-		return errors.Tag(err, "cannot get user")
+		return errors.Tag(err, "get user")
 	}
 	oldEmail := u.Email
 	newEmail := r.Email
@@ -50,7 +50,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 	{
 		err := m.um.ChangeEmailAddress(ctx, u, r.IPAddress, newEmail)
 		if err != nil {
-			return errors.Tag(err, "cannot change email")
+			return errors.Tag(err, "change email")
 		}
 	}
 	r.Session.User.Email = newEmail
@@ -67,7 +67,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 		uOld.Email = oldEmail
 		err := m.emailSecurityAlert(ctx, uOld, action, actionDescribed)
 		if err != nil {
-			mergedErr.Add(errors.Tag(err, "cannot notify old email"))
+			mergedErr.Add(errors.Tag(err, "notify old email"))
 		}
 	}
 	{
@@ -75,7 +75,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 		uNew.Email = newEmail
 		err := m.emailSecurityAlert(ctx, uNew, action, actionDescribed)
 		if err != nil {
-			mergedErr.Add(errors.Tag(err, "cannot notify new email"))
+			mergedErr.Add(errors.Tag(err, "notify new email"))
 		}
 	}
 	return mergedErr.Finalize()

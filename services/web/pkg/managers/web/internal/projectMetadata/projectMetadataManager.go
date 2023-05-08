@@ -76,7 +76,7 @@ func (m *manager) BroadcastMetadataForDocFromSnapshot(projectId, docId sharedTyp
 func (m *manager) GetMetadataForDoc(ctx context.Context, request *types.GetMetadataForDocRequest, response *types.GetMetadataForDocResponse) error {
 	d, err := m.dum.GetDoc(ctx, request.ProjectId, request.DocId, -1)
 	if err != nil {
-		return errors.Tag(err, "cannot get doc")
+		return errors.Tag(err, "get doc")
 	}
 	meta := inflate(m.parseDoc(d.Snapshot))
 
@@ -95,7 +95,7 @@ func (m *manager) broadcast(ctx context.Context, projectId, docId sharedTypes.UU
 		ProjectDocMetadata: &meta,
 	})
 	if err != nil {
-		return errors.Tag(err, "cannot serialize meta")
+		return errors.Tag(err, "serialize meta")
 	}
 	err = m.c.Publish(ctx, &sharedTypes.EditorEventsMessage{
 		RoomId:  projectId,
@@ -103,7 +103,7 @@ func (m *manager) broadcast(ctx context.Context, projectId, docId sharedTypes.UU
 		Payload: blob,
 	})
 	if err != nil {
-		return errors.Tag(err, "cannot publish meta")
+		return errors.Tag(err, "publish meta")
 	}
 	return nil
 }
@@ -111,7 +111,7 @@ func (m *manager) broadcast(ctx context.Context, projectId, docId sharedTypes.UU
 func (m *manager) getForProjectWithoutCache(ctx context.Context, projectId sharedTypes.UUID, recentlyEdited documentUpdaterTypes.DocContentSnapshots) (types.LightProjectMetadata, error) {
 	docs, _, err := m.pm.GetProjectWithContent(ctx, projectId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get docs from db")
+		return nil, errors.Tag(err, "get docs from db")
 	}
 	meta := make(types.LightProjectMetadata, len(docs))
 	for _, d := range recentlyEdited {

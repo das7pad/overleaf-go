@@ -68,7 +68,7 @@ func (m *manager) ViewProjectInvite(ctx context.Context, r *types.ViewProjectInv
 		case errors.IsNotFoundError(err):
 			valid = false
 		default:
-			return errors.Tag(err, "cannot get invite")
+			return errors.Tag(err, "get invite")
 		}
 	}
 

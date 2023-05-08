@@ -45,7 +45,7 @@ func (s *OpenInOverleafSnippet) Validate() error {
 		}
 		if len(s.Snapshot) > 0 {
 			return &errors.ValidationError{
-				Msg: "cannot specify snapshot and url",
+				Msg: "specify either snapshot or url, not both",
 			}
 		}
 	} else {

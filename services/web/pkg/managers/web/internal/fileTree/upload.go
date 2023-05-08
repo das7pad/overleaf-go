@@ -84,7 +84,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			ctx, projectId, userId, folderId, &doc,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot create populated doc")
+			return errors.Tag(err, "create populated doc")
 		}
 		if !existingId.IsZero() && existingIsDoc {
 			// This a text file upload on a doc. Just upsert the content.
@@ -97,7 +97,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 				},
 			)
 			if err != nil {
-				return errors.Tag(err, "cannot upsert doc")
+				return errors.Tag(err, "upsert doc")
 			}
 			_ = m.projectMetadata.BroadcastMetadataForDocFromSnapshot(
 				projectId, existingId, doc.Snapshot,
@@ -134,7 +134,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			request.Size,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot upload new file")
+			return errors.Tag(err, "upload new file")
 		}
 		existingId, existingIsDoc, v, err = m.pm.FinalizeFileCreation(
 			uploadCtx, projectId, userId, &file,
@@ -181,7 +181,7 @@ func HashFile(reader io.Reader, size int64) (sharedTypes.Hash, error) {
 		"blob " + strconv.FormatInt(size, 10) + "\x00",
 	))
 	if _, err := io.Copy(d, reader); err != nil {
-		return "", errors.Tag(err, "cannot compute hash")
+		return "", errors.Tag(err, "compute hash")
 	}
 	return sharedTypes.Hash(hex.EncodeToString(d.Sum(nil))), nil
 }

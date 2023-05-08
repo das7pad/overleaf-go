@@ -33,7 +33,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 		ctx, projectId, userId, accessToken,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot get project/user details")
+		return errors.Tag(err, "get project/user details")
 	}
 
 	authorizationDetails, err := p.GetPrivilegeLevel(userId, accessToken)
@@ -55,7 +55,7 @@ func (m *manager) GetProjectJWT(ctx context.Context, request *types.GetProjectJW
 
 	s, err := m.jwtProject.SetExpiryAndSign(c)
 	if err != nil {
-		return errors.Tag(err, "cannot sign jwt")
+		return errors.Tag(err, "sign jwt")
 	}
 	*response = types.GetProjectJWTResponse(s)
 	return nil

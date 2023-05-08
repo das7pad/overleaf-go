@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -84,7 +84,7 @@ func loadSource(sourceDirs []string) []byte {
 	for _, src := range sourceDirs {
 		err := filepath.Walk(src, func(path string, f fs.FileInfo, err error) error {
 			if err != nil {
-				return errors.Tag(err, "cannot walk past "+path)
+				return errors.Tag(err, "walk past "+path)
 			}
 			if !strings.HasSuffix(path, ".go") &&
 				!strings.HasSuffix(path, ".gohtml") {
@@ -92,13 +92,13 @@ func loadSource(sourceDirs []string) []byte {
 			}
 			blob, err := os.ReadFile(path)
 			if err != nil {
-				return errors.Tag(err, "cannot read "+path)
+				return errors.Tag(err, "read "+path)
 			}
 			sourceBlob = append(sourceBlob, blob...)
 			return nil
 		})
 		if err != nil {
-			panic(errors.Tag(err, "cannot walk "+src))
+			panic(errors.Tag(err, "walk "+src))
 		}
 	}
 	return sourceBlob
@@ -107,10 +107,10 @@ func loadSource(sourceDirs []string) []byte {
 func loadLocalesInto(inLocales *map[string]string, from string) error {
 	f, err := os.Open(from)
 	if err != nil {
-		return errors.Tag(err, "cannot open input file "+from)
+		return errors.Tag(err, "open input file "+from)
 	}
 	if err = json.NewDecoder(f).Decode(inLocales); err != nil {
-		return errors.Tag(err, "cannot decode input file "+from)
+		return errors.Tag(err, "decode input file "+from)
 	}
 	_ = f.Close()
 	return nil
@@ -143,13 +143,13 @@ func findLocales(src string, sourceCodeBlob []byte) []string {
 func writeLocales(out string, locales map[string]string) error {
 	f, err := os.Create(out)
 	if err != nil {
-		return errors.Tag(err, "cannot open output file")
+		return errors.Tag(err, "open output file")
 	}
 	e := json.NewEncoder(f)
 	e.SetIndent("", "  ")
 	e.SetEscapeHTML(false)
 	if err = e.Encode(locales); err != nil {
-		return errors.Tag(err, "cannot write locales")
+		return errors.Tag(err, "write locales")
 	}
 	_ = f.Close()
 	return nil

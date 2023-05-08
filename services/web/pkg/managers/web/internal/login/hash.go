@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,7 +36,7 @@ func CheckPassword(u user.HashedPasswordField, password types.UserPassword) erro
 		if err == bcrypt.ErrMismatchedHashAndPassword {
 			return &errors.NotAuthorizedError{}
 		}
-		return errors.Tag(err, "cannot check user credentials")
+		return errors.Tag(err, "check user credentials")
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func HashPassword(password types.UserPassword, cost int) (string, error) {
 		[]byte(password), cost,
 	)
 	if err != nil {
-		return "", errors.Tag(err, "cannot hash password")
+		return "", errors.Tag(err, "hash password")
 	}
 	return string(hashed), nil
 }

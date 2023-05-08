@@ -84,7 +84,7 @@ func (s *Session) PrepareLogin(ctx context.Context, u user.ForSession, ip string
 	}
 	id, blob, err := s.newSessionId(ctx)
 	if err != nil {
-		return "", nil, errors.Tag(err, "cannot cycle session")
+		return "", nil, errors.Tag(err, "cycle session")
 	}
 	if redirect == "" {
 		redirect = "/project"
@@ -173,7 +173,7 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 
 	allKeys, err := s.client.SMembers(ctx, userSessionsKey(s.User.Id)).Result()
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get list of sessions")
+		return nil, errors.Tag(err, "get list of sessions")
 	}
 
 	otherIds := make([]Id, 0, len(allKeys))
@@ -199,7 +199,7 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 		return nil
 	})
 	if err != nil && err != redis.Nil {
-		return nil, errors.Tag(err, "cannot fetch other session data")
+		return nil, errors.Tag(err, "fetch other session data")
 	}
 	sessions := make([]LoginMetadata, 0, len(otherIds))
 	validSessionIds := make([]Id, 0, len(otherIds))
@@ -210,7 +210,7 @@ func (s *Session) GetOthers(ctx context.Context) (*OtherSessionsDetails, error) 
 				// Already deleted
 				continue
 			}
-			return nil, errors.Tag(err, "cannot fetch other session data")
+			return nil, errors.Tag(err, "fetch other session data")
 		}
 		var data *Data
 		if data, err = deSerializeSession(id, blob); err != nil {
@@ -247,7 +247,7 @@ func (s *Session) DestroyOthers(ctx context.Context, d *OtherSessionsDetails) er
 		return nil
 	})
 	if err != nil {
-		return errors.Tag(err, "cannot clear session data")
+		return errors.Tag(err, "clear session data")
 	}
 	return nil
 }
@@ -287,7 +287,7 @@ func (s *Session) Save(ctx context.Context) (bool, error) {
 	}
 
 	if err = s.client.SetXX(ctx, s.id.toKey(), b, s.expiry).Err(); err != nil {
-		return false, errors.Tag(err, "cannot update session data")
+		return false, errors.Tag(err, "update session data")
 	}
 	s.persisted = b
 	return false, nil

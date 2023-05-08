@@ -147,7 +147,7 @@ func (wp *workerPool) getWorker(language types.SpellCheckLanguage) (Worker, erro
 		wp.l.Lock()
 		wp.freeSlots++
 		wp.l.Unlock()
-		return nil, errors.Tag(err, "cannot create worker")
+		return nil, errors.Tag(err, "create worker")
 	}
 	return w, nil
 }

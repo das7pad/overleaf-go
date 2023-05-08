@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -37,7 +37,7 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 
 	f, err := os.CreateTemp("", "linked-file")
 	if err != nil {
-		return errors.Tag(err, "cannot create temp file")
+		return errors.Tag(err, "create temp file")
 	}
 	defer func() {
 		_ = f.Close()
@@ -48,11 +48,11 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 	if isDoc {
 		d, err2 := m.dum.GetDoc(ctx, sourceProjectId, elementId, -1)
 		if err2 != nil {
-			return errors.Tag(err2, "cannot get doc")
+			return errors.Tag(err2, "get doc")
 		}
 		n, err2 := f.WriteString(d.Snapshot)
 		if err2 != nil {
-			return errors.Tag(err2, "cannot buffer doc")
+			return errors.Tag(err2, "buffer doc")
 		}
 		size = int64(n)
 	} else {
@@ -60,16 +60,16 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 			ctx, sourceProjectId, elementId,
 		)
 		if err2 != nil {
-			return errors.Tag(err2, "cannot get file")
+			return errors.Tag(err2, "get file")
 		}
 		size, err = io.Copy(f, reader)
 		_ = reader.Close()
 		if err != nil {
-			return errors.Tag(err, "cannot buffer file")
+			return errors.Tag(err, "buffer file")
 		}
 	}
 	if _, err = f.Seek(0, io.SeekStart); err != nil {
-		return errors.Tag(err, "cannot reset buffer to start")
+		return errors.Tag(err, "reset buffer to start")
 	}
 
 	return m.ftm.UploadFile(ctx, &types.UploadFileRequest{

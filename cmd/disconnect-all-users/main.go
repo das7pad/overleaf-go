@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,7 +42,7 @@ func main() {
 
 	payload, err := json.Marshal([]interface{}{"not-used", delay.Seconds()})
 	if err != nil {
-		panic(errors.Tag(err, "cannot serialize payload"))
+		panic(errors.Tag(err, "serialize payload"))
 	}
 	log.Println("Broadcasting message.")
 	err = editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
@@ -50,7 +50,7 @@ func main() {
 		Payload: payload,
 	})
 	if err != nil {
-		panic(errors.Tag(err, "cannot broadcast message"))
+		panic(errors.Tag(err, "broadcast message"))
 	}
 	log.Println("done.")
 }

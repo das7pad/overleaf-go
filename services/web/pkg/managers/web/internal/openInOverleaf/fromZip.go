@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,7 +27,7 @@ import (
 func (m *manager) createFromZip(ctx context.Context, request *types.OpenInOverleafRequest, response *types.CreateProjectResponse) error {
 	f, err := m.proxy.DownloadFile(ctx, request.ZipURL)
 	if err != nil {
-		return errors.Tag(err, "cannot download file")
+		return errors.Tag(err, "download file")
 	}
 	defer f.Cleanup()
 

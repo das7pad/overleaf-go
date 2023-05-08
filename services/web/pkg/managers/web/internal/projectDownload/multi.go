@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,7 +35,7 @@ func (m *manager) CreateMultiProjectZIP(ctx context.Context, request *types.Crea
 
 	buffer, err := os.CreateTemp("", "zip-download")
 	if err != nil {
-		return errors.Tag(err, "cannot create buffer")
+		return errors.Tag(err, "create buffer")
 	}
 	response.FSPath = buffer.Name()
 	f := zip.NewWriter(buffer)
@@ -58,10 +58,10 @@ func (m *manager) CreateMultiProjectZIP(ctx context.Context, request *types.Crea
 		return err
 	}
 	if errCloseZIP != nil {
-		return errors.Tag(errCloseZIP, "cannot close zip")
+		return errors.Tag(errCloseZIP, "close zip")
 	}
 	if errCloseBuffer != nil {
-		return errors.Tag(errCloseBuffer, "cannot close buffer")
+		return errors.Tag(errCloseBuffer, "close buffer")
 	}
 	response.Filename = sharedTypes.Filename(fmt.Sprintf(
 		"Overleaf Projects (%d items).zip", len(request.ProjectIds),

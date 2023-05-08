@@ -47,16 +47,16 @@ type uploadQueueEntry struct {
 func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
 	if seeker, ok := f.(io.Seeker); ok {
 		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			return f, errors.Tag(err, "cannot seek to start")
+			return f, errors.Tag(err, "seek to start")
 		}
 		return f, nil
 	}
 	if err := f.Close(); err != nil {
-		return f, errors.Tag(err, "cannot close file")
+		return f, errors.Tag(err, "close file")
 	}
 	newF, err := file.Open()
 	if err != nil {
-		return f, errors.Tag(err, "cannot re-open file")
+		return f, errors.Tag(err, "re-open file")
 	}
 	return newF, nil
 }
@@ -95,7 +95,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		func(ctx context.Context) error {
 			names, err := m.pm.GetProjectNames(ctx, request.UserId)
 			if err != nil {
-				return errors.Tag(err, "cannot get project names")
+				return errors.Tag(err, "get project names")
 			}
 			existingProjectNames = names
 			return nil
@@ -145,7 +145,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			size := file.Size()
 			f, err := file.Open()
 			if err != nil {
-				return errors.Tag(err, "cannot open file")
+				return errors.Tag(err, "open file")
 			}
 			s, isDoc, consumedFile, err := fileTree.IsTextFile(name, size, f)
 			if err != nil {
@@ -154,7 +154,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			}
 			if isDoc {
 				if err = f.Close(); err != nil {
-					return errors.Tag(err, "cannot close file")
+					return errors.Tag(err, "close file")
 				}
 				d := project.NewDoc(name)
 				if path == "main.tex" ||
@@ -244,7 +244,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 							mErr.Clear()
 							break
 						}
-						mErr.Add(errors.Tag(err, "cannot copy file"))
+						mErr.Add(errors.Tag(err, "copy file"))
 						continue
 					}
 					err := m.fm.SendStreamForProjectFile(
@@ -258,14 +258,14 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 						mErr.Clear()
 						break
 					}
-					mErr.Add(errors.Tag(err, "cannot upload file"))
+					mErr.Add(errors.Tag(err, "upload file"))
 					e.reader, err = seekToStart(e.file, e.reader)
 					mErr.Add(err)
 					continue
 				}
 				if e.reader != nil {
 					if err := e.reader.Close(); err != nil {
-						mErr.Add(errors.Tag(err, "cannot close file"))
+						mErr.Add(errors.Tag(err, "close file"))
 					}
 				}
 				if err := mErr.Finalize(); err != nil {
@@ -294,7 +294,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	})
 	eg.Go(func() error {
 		if err := getProjectNames.Wait(pCtx); err != nil {
-			return errors.Tag(err, "cannot get project names")
+			return errors.Tag(err, "get project names")
 		}
 		p.Name = existingProjectNames.MakeUnique(p.Name)
 		return nil
@@ -311,7 +311,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		return cleanupBestEffort(err)
 	}
 	if err := m.pm.FinalizeProjectCreation(ctx, &p); err != nil {
-		return cleanupBestEffort(errors.Tag(err, "cannot finalize project"))
+		return cleanupBestEffort(errors.Tag(err, "finalize project"))
 	}
 
 	response.Success = true

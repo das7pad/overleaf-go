@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -65,11 +65,11 @@ func (a *AllFilesAndDirs) Delete(entry sharedTypes.DirEntry, compileDir types.Co
 	p := compileDir.Join(entry)
 	if entry.IsDir() {
 		if err := syscall.Rmdir(p); err != nil {
-			return errors.Tag(err, "cannot delete directory "+p)
+			return errors.Tag(err, "delete directory "+p)
 		}
 	} else {
 		if err := syscall.Unlink(p); err != nil {
-			return errors.Tag(err, "cannot delete file "+p)
+			return errors.Tag(err, "delete file "+p)
 		}
 	}
 	delete(a.DirEntries, entry.String())
@@ -108,7 +108,7 @@ func (a *AllFilesAndDirs) EnsureIsDir(name sharedTypes.DirName, compileDir types
 	// Step 2: create the directory.
 	p := compileDir.Join(name)
 	if err := os.Mkdir(p, 0o755); err != nil {
-		return errors.Tag(err, fmt.Sprintf("cannot create directory %q", p))
+		return errors.Tag(err, fmt.Sprintf("create directory %q", p))
 	}
 
 	// Step 3: persist new state in the in-memory view of the fs.

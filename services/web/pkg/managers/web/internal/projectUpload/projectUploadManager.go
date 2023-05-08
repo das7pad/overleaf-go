@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -59,7 +59,7 @@ func (m *manager) purgeFilestoreData(projectId sharedTypes.UUID) error {
 	defer done()
 
 	if err := m.fm.DeleteProject(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot cleanup filestore data")
+		return errors.Tag(err, "cleanup filestore data")
 	}
 	return nil
 }

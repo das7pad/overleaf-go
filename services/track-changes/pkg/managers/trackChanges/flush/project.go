@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -34,7 +34,7 @@ func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) 
 	projectTracking := getProjectTrackingKey(projectId)
 	docIdsRaw, errList := m.client.SMembers(ctx, projectTracking).Result()
 	if errList != nil {
-		return errors.Tag(errList, "cannot list docs in project")
+		return errors.Tag(errList, "list docs in project")
 	}
 	if len(docIdsRaw) == 0 {
 		return nil
@@ -50,7 +50,7 @@ func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) 
 		if err != nil {
 			close(queue)
 			return errors.Tag(
-				err, fmt.Sprintf("cannot parse %s as doc id", s),
+				err, fmt.Sprintf("parse %s as doc id", s),
 			)
 		}
 		queue <- id

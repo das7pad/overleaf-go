@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -63,10 +63,10 @@ func (m *manager) HardDeleteExpiredProjects(ctx context.Context, dryRun bool, st
 
 func (m *manager) HardDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	if err := m.fm.DeleteProject(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot destroy files")
+		return errors.Tag(err, "destroy files")
 	}
 	if err := m.pm.HardDelete(ctx, projectId); err != nil {
-		return errors.Tag(err, "cannot expire deleted project")
+		return errors.Tag(err, "expire deleted project")
 	}
 	return nil
 }

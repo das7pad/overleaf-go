@@ -97,7 +97,7 @@ func (m *manager) producer(ctx context.Context, queue chan<- string, key string)
 			break
 		}
 		if err != nil {
-			err = errors.Tag(err, "cannot get work from redis list "+key)
+			err = errors.Tag(err, "get work from redis list "+key)
 			log.Println(err.Error())
 			continue
 		}

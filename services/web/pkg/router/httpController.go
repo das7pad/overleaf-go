@@ -1815,9 +1815,7 @@ func (h *httpController) openInOverleafGatewayPage(c *httpUtils.Context) {
 			}
 		}
 		if err != nil {
-			err = &errors.UnprocessableEntityError{
-				Msg: "cannot read POST body",
-			}
+			err = &errors.UnprocessableEntityError{Msg: "read POST body"}
 			templates.RespondHTML(c, nil, err, request.Session, h.ps, h.wm.Flush)
 			return
 		}

@@ -97,7 +97,7 @@ func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*buff
 	f, err := os.CreateTemp("", "download-buffer")
 	if err != nil {
 		return nil, errors.Tag(
-			err, "cannot open temp file for buffering",
+			err, "open temp file for buffering",
 		)
 	}
 	file := bufferedFile{
@@ -107,12 +107,12 @@ func (m *manager) DownloadFile(ctx context.Context, src *sharedTypes.URL) (*buff
 	n, err := io.Copy(f, body)
 	if err != nil {
 		file.Cleanup()
-		return nil, errors.Tag(err, "cannot pipe file")
+		return nil, errors.Tag(err, "pipe file")
 	}
 	file.size = n
 	if _, err = f.Seek(0, io.SeekStart); err != nil {
 		file.Cleanup()
-		return nil, errors.Tag(err, "cannot seek buffer to start")
+		return nil, errors.Tag(err, "seek buffer to start")
 	}
 	path := sharedTypes.PathName(src.FileNameFromPath())
 	if err = path.Validate(); err == nil {

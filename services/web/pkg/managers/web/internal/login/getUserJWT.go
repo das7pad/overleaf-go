@@ -31,7 +31,7 @@ func (m *manager) GetLoggedInUserJWT(_ context.Context, request *types.GetLogged
 	c.UserId = request.Session.User.Id
 	b, err := m.jwtLoggedInUser.SetExpiryAndSign(c)
 	if err != nil {
-		return errors.Tag(err, "cannot get LoggedInUserJWT")
+		return errors.Tag(err, "get LoggedInUserJWT")
 	}
 	*response = types.GetLoggedInUserJWTResponse(b)
 	return nil

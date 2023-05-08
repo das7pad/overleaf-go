@@ -47,11 +47,11 @@ const (
 func (r *ProjectRoom) Handle(raw string) {
 	var msg sharedTypes.EditorEventsMessage
 	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
-		log.Println("cannot parse editorEvents message: " + err.Error())
+		log.Println("parse editorEvents message: " + err.Error())
 		return
 	}
 	if err := msg.Validate(); err != nil {
-		log.Println("cannot validate editorEvents message: " + err.Error())
+		log.Println("validate editorEvents message: " + err.Error())
 		return
 	}
 	var err error
@@ -66,7 +66,7 @@ func (r *ProjectRoom) Handle(raw string) {
 		err = r.handleMessage(msg)
 	}
 	if err != nil {
-		log.Println("cannot handle editorEvents message: " + err.Error())
+		log.Println("handle editorEvents message: " + err.Error())
 		return
 	}
 }
@@ -129,7 +129,7 @@ func (r *ProjectRoom) refreshClientPositions() error {
 func (r *ProjectRoom) handleClientTrackingUpdated(msg sharedTypes.EditorEventsMessage) error {
 	var notification types.ClientPositionUpdateNotification
 	if err := json.Unmarshal(msg.Payload, &notification); err != nil {
-		return errors.Tag(err, "cannot decode notification")
+		return errors.Tag(err, "decode notification")
 	}
 	return r.handleMessageFromSource(msg, notification.Source)
 }

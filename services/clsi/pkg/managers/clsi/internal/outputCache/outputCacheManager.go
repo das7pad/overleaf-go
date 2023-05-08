@@ -144,13 +144,11 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 					// Optimization: Steal the file from the compileDir.
 					// The next compile request would delete it anyway.
 					if err2 := syscall.Rename(src, dest); err2 != nil {
-						return errors.Tag(
-							err2, "cannot rename "+src+" -> "+dest,
-						)
+						return errors.Tag(err2, "rename "+src+" -> "+dest)
 					}
 				} else {
 					if err2 := copyFile.NonAtomic(dest, src); err2 != nil {
-						return errors.Tag(err2, "cannot copy "+src+" -> "+dest)
+						return errors.Tag(err2, "copy "+src+" -> "+dest)
 					}
 				}
 			}

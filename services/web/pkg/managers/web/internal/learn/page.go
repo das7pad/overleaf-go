@@ -44,7 +44,7 @@ func (m *manager) fetchPage(ctx context.Context, path string) (*pageContent, err
 	defer cleanup()
 	raw := pageContentRaw{}
 	if err = json.NewDecoder(body).Decode(&raw); err != nil {
-		return nil, errors.Tag(err, "cannot parse api response")
+		return nil, errors.Tag(err, "parse api response")
 	}
 	return raw.parse(m.ps), nil
 }
@@ -103,7 +103,7 @@ func (m *manager) LearnPage(ctx context.Context, r *types.LearnPageRequest, resp
 	eg.Go(func() error {
 		content, _, err := m.getPage(pCtx, "Contents")
 		if err != nil {
-			return errors.Tag(err, "cannot get contents")
+			return errors.Tag(err, "get contents")
 		}
 		cc = content
 		return nil
@@ -111,7 +111,7 @@ func (m *manager) LearnPage(ctx context.Context, r *types.LearnPageRequest, resp
 	eg.Go(func() error {
 		content, hit, err := m.getPage(pCtx, r.WikiPage())
 		if err != nil {
-			return errors.Tag(err, "cannot get contents")
+			return errors.Tag(err, "get page")
 		}
 		pc = content
 		response.Age = pc.Age(hit)

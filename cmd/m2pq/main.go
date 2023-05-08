@@ -63,10 +63,10 @@ func main() {
 
 		mClient, err := mongo.Connect(ctx, mOptions)
 		if err != nil {
-			panic(errors.Tag(err, "cannot talk to mongo"))
+			panic(errors.Tag(err, "connect to mongo"))
 		}
 		if err = mClient.Ping(ctx, nil); err != nil {
-			panic(errors.Tag(err, "cannot talk to mongo"))
+			panic(errors.Tag(err, "ping to mongo"))
 		}
 		done()
 		mDB = mClient.Database(dbName)

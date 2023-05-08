@@ -79,9 +79,7 @@ WHERE user_id = $1
 
 func (m *manager) Resend(ctx context.Context, n Notification) error {
 	if n.Key == "" {
-		return &errors.ValidationError{
-			Msg: "cannot add notification: missing key",
-		}
+		return &errors.ValidationError{Msg: "add notification: missing key"}
 	}
 	return getErr(m.db.Exec(ctx, `
 UPDATE notifications

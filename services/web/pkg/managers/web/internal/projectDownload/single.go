@@ -31,7 +31,7 @@ import (
 func (m *manager) CreateProjectZIP(ctx context.Context, request *types.CreateProjectZIPRequest, response *types.CreateProjectZIPResponse) error {
 	buffer, errCreateBuffer := os.CreateTemp("", "zip-download")
 	if errCreateBuffer != nil {
-		return errors.Tag(errCreateBuffer, "cannot create buffer")
+		return errors.Tag(errCreateBuffer, "create buffer")
 	}
 	response.FSPath = buffer.Name()
 
@@ -45,7 +45,7 @@ func (m *manager) CreateProjectZIP(ctx context.Context, request *types.CreatePro
 		return errCreate
 	}
 	if errClose != nil {
-		return errors.Tag(errClose, "cannot close buffer")
+		return errors.Tag(errClose, "close buffer")
 	}
 	return nil
 }
@@ -55,16 +55,16 @@ type bufferGetter func(filename sharedTypes.Filename) (io.Writer, error)
 func (m *manager) getProjectForZip(ctx context.Context, projectId, userId sharedTypes.UUID, token project.AccessToken) (*project.ForZip, error) {
 	_, err := m.pm.GetAuthorizationDetails(ctx, projectId, userId, token)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot check auth")
+		return nil, errors.Tag(err, "check auth")
 	}
 
 	if err = m.dum.FlushProject(ctx, projectId); err != nil {
-		return nil, errors.Tag(err, "cannot flush project")
+		return nil, errors.Tag(err, "flush project")
 	}
 
 	p, err := m.pm.GetForZip(ctx, projectId, userId, token)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get project")
+		return nil, errors.Tag(err, "get project")
 	}
 	return p, nil
 }
@@ -80,7 +80,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 
 	buffer, errBuff := getBuffer(sharedTypes.Filename(string(p.Name) + ".zip"))
 	if errBuff != nil {
-		return errors.Tag(errBuff, "cannot get buffer")
+		return errors.Tag(errBuff, "get buffer")
 	}
 	z := zip.NewWriter(buffer)
 
@@ -129,7 +129,7 @@ func (m *manager) createProjectZIP(ctx context.Context, request *types.CreatePro
 		return err
 	}
 	if errClose != nil {
-		return errors.Tag(errClose, "cannot close zip")
+		return errors.Tag(errClose, "close zip")
 	}
 	return nil
 }

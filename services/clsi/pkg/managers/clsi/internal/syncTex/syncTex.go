@@ -151,7 +151,7 @@ func (m *manager) runSyncTex(ctx context.Context, run commandRunner.NamespacedRu
 	)
 	if _, statErr := os.Lstat(p); os.IsNotExist(statErr) {
 		return nil, &errors.MissingOutputFileError{
-			Msg: "cannot sync code/pdf: output.synctex.gz missing",
+			Msg: "sync code/pdf: output.synctex.gz missing",
 		}
 	}
 

@@ -84,13 +84,13 @@ func (m *manager) DestroyAllForUser(ctx context.Context, userId sharedTypes.UUID
 	})
 	others, err := s.GetOthers(ctx)
 	if err != nil {
-		return errors.Tag(err, "cannot get other sessions")
+		return errors.Tag(err, "get other sessions")
 	}
 	if len(others.sessionIds) == 0 {
 		return nil
 	}
 	if err = s.DestroyOthers(ctx, others); err != nil {
-		return errors.Tag(err, "cannot destroy other sessions")
+		return errors.Tag(err, "destroy other sessions")
 	}
 	return nil
 }

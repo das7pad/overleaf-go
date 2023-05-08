@@ -90,7 +90,7 @@ func (m *manager) grantTokenAccess(ctx context.Context, request *types.GrantToke
 				ctx, projectId, userId, token, fromToken.PrivilegeLevel,
 			)
 			if err != nil {
-				return errors.Tag(err, "cannot grant access")
+				return errors.Tag(err, "grant access")
 			}
 		}
 	} else {
@@ -160,7 +160,7 @@ func (m *manager) lookupProjectByToken(ctx context.Context, userId sharedTypes.U
 	defer func() { m.lookupSlots <- struct{}{} }()
 	p, d, err := m.pm.GetTokenAccessDetails(ctx, userId, privilegeLevel, token)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "cannot get project")
+		return nil, nil, errors.Tag(err, "get project")
 	}
 	return p, d, nil
 }

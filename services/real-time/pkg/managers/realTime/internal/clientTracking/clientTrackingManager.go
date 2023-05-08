@@ -123,7 +123,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 		err = json.Unmarshal([]byte(userRaw), &user)
 		if err != nil {
 			staleClients = append(staleClients, id)
-			return nil, errors.Tag(err, "cannot deserialize user: "+userRaw)
+			return nil, errors.Tag(err, "deserialize user: "+userRaw)
 		}
 		cc := types.ConnectedClient{
 			ClientId: id,
@@ -137,7 +137,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 			if err != nil {
 				staleClients = append(staleClients, id)
 				return nil, errors.Tag(
-					err, "cannot deserialize pos: "+posRaw,
+					err, "deserialize pos: "+posRaw,
 				)
 			}
 			cc.ClientPosition = &pos
@@ -223,7 +223,7 @@ func (m *manager) UpdateClientPosition(ctx context.Context, client *types.Client
 
 	user, err := json.Marshal(client.User)
 	if err != nil {
-		return errors.Tag(err, "cannot serialize user")
+		return errors.Tag(err, "serialize user")
 	}
 
 	details := make(map[string]interface{})
@@ -232,7 +232,7 @@ func (m *manager) UpdateClientPosition(ctx context.Context, client *types.Client
 	if position != nil {
 		pos, err2 := json.Marshal(position)
 		if err2 != nil {
-			return errors.Tag(err2, "cannot serialize position")
+			return errors.Tag(err2, "serialize position")
 		}
 		details[positionField] = pos
 	}

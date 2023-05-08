@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,7 +42,7 @@ func (m *manager) ChangePassword(ctx context.Context, r *types.ChangePasswordReq
 
 	u := user.ForPasswordChange{}
 	if err := m.um.GetUser(ctx, userId, &u); err != nil {
-		return errors.Tag(err, "cannot get user")
+		return errors.Tag(err, "get user")
 	}
 
 	errPW := CheckPassword(u.HashedPasswordField, r.CurrentPassword)
@@ -82,7 +82,7 @@ func (m *manager) changePassword(ctx context.Context, u user.ForPasswordChange, 
 	}
 	errChange := m.um.ChangePassword(ctx, u, ip, action, hashedPassword)
 	if errChange != nil {
-		return errors.Tag(errChange, "cannot change password")
+		return errors.Tag(errChange, "change password")
 	}
 	return nil
 }
@@ -98,13 +98,13 @@ func (m *manager) postProcessPasswordChange(u user.ForPasswordChange, s *session
 		}
 		otherSessions, err := s.GetOthers(ctx)
 		if err != nil {
-			return errors.Tag(err, "cannot get other sessions")
+			return errors.Tag(err, "get other sessions")
 		}
 		if len(otherSessions.Sessions) == 0 {
 			return nil
 		}
 		if err = s.DestroyOthers(ctx, otherSessions); err != nil {
-			return errors.Tag(err, "cannot destroy other sessions")
+			return errors.Tag(err, "destroy other sessions")
 		}
 		return nil
 	})
@@ -117,13 +117,13 @@ func (m *manager) postProcessPasswordChange(u user.ForPasswordChange, s *session
 			),
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot notify user")
+			return errors.Tag(err, "notify user")
 		}
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
 		log.Printf(
-			"%s: cannot finalize password change: %s",
+			"%s: finalize password change: %s",
 			u.Id.String(), err.Error(),
 		)
 	}

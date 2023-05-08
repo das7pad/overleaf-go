@@ -60,10 +60,10 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 	}
 	db, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
+		panic(errors.Tag(err, "connect to postgres"))
 	}
 	if err = db.Ping(ctx); err != nil {
-		panic(errors.Tag(err, "cannot talk to postgres"))
+		panic(errors.Tag(err, "ping to postgres"))
 	}
 	return db
 }

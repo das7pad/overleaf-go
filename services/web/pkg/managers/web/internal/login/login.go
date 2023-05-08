@@ -40,7 +40,7 @@ func (m *manager) Login(ctx context.Context, r *types.LoginRequest, res *types.L
 		if errors.IsNotFoundError(err) {
 			res.SetCustomFormMessage("user-not-found", err)
 		}
-		return errors.Tag(err, "cannot get user from db")
+		return errors.Tag(err, "get user from db")
 	}
 	if err := CheckPassword(u.HashedPasswordField, r.Password); err != nil {
 		if errors.IsNotAuthorizedError(err) {

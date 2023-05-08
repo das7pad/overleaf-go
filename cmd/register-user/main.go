@@ -75,7 +75,7 @@ func main() {
 	req := webTypes.NewCMDCreateUserRequest(email, initiatorUserId)
 	res := webTypes.CMDCreateUserResponse{}
 	if err = webManager.CMDCreateUser(ctx, &req, &res); err != nil {
-		panic(errors.Tag(err, "cannot create user"))
+		panic(errors.Tag(err, "create user"))
 	}
 	if quiet {
 		fmt.Println(res.SetNewPasswordURL)

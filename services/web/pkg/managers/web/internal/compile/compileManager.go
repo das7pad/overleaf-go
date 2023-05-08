@@ -117,11 +117,11 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
 	if err != nil {
-		return errors.Tag(err, "cannot create clear cache request")
+		return errors.Tag(err, "create clear cache request")
 	}
 	res, err := m.doStaticRequest(request.ClsiServerId, r)
 	if err != nil {
-		return errors.Tag(err, "cannot action clear cache request")
+		return errors.Tag(err, "action clear cache request")
 	}
 	defer func() {
 		_ = res.Body.Close()
@@ -151,25 +151,25 @@ func (m *manager) StartInBackground(ctx context.Context, options sharedTypes.Sig
 	u := m.getURL(options.ProjectId, options.UserId, "/status")
 
 	blob, err := json.Marshal(request)
-	body := bytes.NewReader(blob)
 	if err != nil {
-		return errors.New("cannot serialize start request body")
+		return errors.Tag(err, "serialize start request body")
 	}
 
+	body := bytes.NewReader(blob)
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
 	if err != nil {
-		return errors.Tag(err, "cannot create start request")
+		return errors.Tag(err, "create start request")
 	}
 	clsiServerId, err := m.getServerId(ctx, options)
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		log.Printf("cannot get clsi persistence: %s", err)
+		log.Printf("get clsi persistence: %s", err)
 	}
 	res, _, err := m.doPersistentRequest(ctx, options, clsiServerId, r)
 	if err != nil {
-		return errors.Tag(err, "cannot action start request")
+		return errors.Tag(err, "action start request")
 	}
 	defer func() {
 		_ = res.Body.Close()
@@ -225,10 +225,10 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			resources, rootDocPath, err = m.fromDB(ctx, request)
 			fetchContentPerf.End()
 			if err != nil {
-				return errors.Tag(err, "cannot get docs from db")
+				return errors.Tag(err, "get docs from db")
 			}
 		default:
-			return errors.Tag(err, "cannot get docs from redis")
+			return errors.Tag(err, "get docs from redis")
 		}
 
 		clsiRequest := &clsiTypes.CompileRequest{
@@ -250,7 +250,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			log.Printf("cannot get clsi persistence: %s", err)
+			log.Printf("get clsi persistence: %s", err)
 		}
 		if m.bundle != nil {
 			err = m.bundle.Compile(
@@ -277,7 +277,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 				response.Status = "clsi-maintenance"
 				return nil
 			}
-			return errors.Tag(err, "cannot compile")
+			return errors.Tag(err, "compile")
 		}
 		return nil
 	}
@@ -286,11 +286,11 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, sharedTypes.PathName, error) {
 	err := m.dum.FlushProject(ctx, request.ProjectId)
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot flush docs to db")
+		return nil, "", errors.Tag(err, "flush docs to db")
 	}
 	docs, files, err := m.pm.GetProjectWithContent(ctx, request.ProjectId)
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot get folder from db")
+		return nil, "", errors.Tag(err, "get files from db")
 	}
 	rootDocPath := request.RootDocPath
 	resources := make(clsiTypes.Resources, 0, 10)
@@ -309,7 +309,7 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 			ctx, request.ProjectId, f.Id,
 		)
 		if err2 != nil {
-			return nil, "", errors.Tag(err, "cannot sign file download")
+			return nil, "", errors.Tag(err, "sign file download")
 		}
 		resources = append(resources, &clsiTypes.Resource{
 			Path: f.Path,
@@ -328,7 +328,7 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 		request.ProjectId,
 	)
 	if err != nil {
-		return nil, "", errors.Tag(err, "cannot get docs from redis")
+		return nil, "", errors.Tag(err, "get docs from redis")
 	}
 	if len(docs) == 0 {
 		return nil, "", &errors.InvalidStateError{Msg: "no docs found"}
@@ -370,21 +370,21 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 
 	blob, err := json.Marshal(compileRequestBody{Request: requestBody})
 	if err != nil {
-		return errors.Tag(err, "cannot serialize compile request")
+		return errors.Tag(err, "serialize compile request")
 	}
 
 	body := bytes.NewReader(blob)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
 	if err != nil {
-		return errors.Tag(err, "cannot create compile request")
+		return errors.Tag(err, "create compile request")
 	}
 	res, clsiServerId, err := m.doPersistentRequest(
 		ctx, request.SignedCompileProjectRequestOptions, clsiServerId, r,
 	)
 	response.ClsiServerId = clsiServerId
 	if err != nil {
-		return errors.Tag(err, "cannot action compile request")
+		return errors.Tag(err, "action compile request")
 	}
 	defer func() {
 		_ = res.Body.Close()

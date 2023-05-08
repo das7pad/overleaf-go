@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,7 +29,7 @@ func (m *manager) ResendProjectInvite(ctx context.Context, request *types.Resend
 
 	pi, err := m.pim.GetById(ctx, projectId, inviteId, request.UserId)
 	if err != nil {
-		return errors.Tag(err, "cannot get invite")
+		return errors.Tag(err, "get invite")
 	}
 
 	d, err := m.getDetails(ctx, pi, request.UserId)
@@ -38,7 +38,7 @@ func (m *manager) ResendProjectInvite(ctx context.Context, request *types.Resend
 	}
 
 	if err = m.resendNotification(ctx, d); err != nil {
-		return errors.Tag(err, "cannot create notification")
+		return errors.Tag(err, "create notification")
 	}
 
 	if err = m.sendEmail(ctx, d); err != nil {

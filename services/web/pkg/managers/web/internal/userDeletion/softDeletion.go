@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -41,7 +41,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 		if errors.IsNotFoundError(err) {
 			m.destroySessionInBackground(request.Session)
 		}
-		return errors.Tag(err, "cannot get user")
+		return errors.Tag(err, "get user")
 	}
 	if err := login.CheckPassword(u, request.Password); err != nil {
 		return err
@@ -59,14 +59,14 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	eg.Go(func() error {
 		otherSessions, err := request.Session.GetOthers(pCtx)
 		if err != nil {
-			return errors.Tag(err, "cannot get other sessions")
+			return errors.Tag(err, "get other sessions")
 		}
 		if len(otherSessions.Sessions) == 0 {
 			return nil
 		}
 		err = request.Session.DestroyOthers(pCtx, otherSessions)
 		if err != nil {
-			return errors.Tag(err, "cannot clear other sessions")
+			return errors.Tag(err, "clear other sessions")
 		}
 		return nil
 	})
@@ -75,7 +75,7 @@ func (m *manager) DeleteUser(ctx context.Context, request *types.DeleteUserReque
 	}
 
 	if err := m.um.SoftDelete(ctx, userId, ipAddress); err != nil {
-		return errors.Tag(err, "cannot delete user")
+		return errors.Tag(err, "delete user")
 	}
 
 	// The user has been deleted by now.

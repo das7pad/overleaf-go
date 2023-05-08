@@ -63,7 +63,7 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 			err := m.client.Expire(backgroundCtx, k, persistenceTTL).Err()
 			done()
 			if err != nil {
-				log.Printf("cannot bump clsi persistence: %s", err.Error())
+				log.Printf("bump clsi persistence: %s", err.Error())
 			}
 		}()
 	} else {
@@ -72,7 +72,7 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 		err := m.client.Set(ctx, k, string(clsiServerId), persistenceTTL).Err()
 		if err != nil {
 			// Persistence is a performance optimization and ok to fail.
-			log.Printf("cannot update clsi persistence: %s", err.Error())
+			log.Printf("update clsi persistence: %s", err.Error())
 		}
 	}
 	return clsiServerId
@@ -85,7 +85,7 @@ func (m *manager) getServerId(ctx context.Context, options sharedTypes.SignedCom
 	k := getPersistenceKey(options)
 	s, err := m.client.Get(ctx, k).Result()
 	if err != nil && err != redis.Nil {
-		return "", errors.Tag(err, "cannot get persistence id from redis")
+		return "", errors.Tag(err, "get persistence id from redis")
 	}
 	return types.ClsiServerId(s), nil
 }
@@ -97,7 +97,7 @@ func (m *manager) clearServerId(ctx context.Context, options sharedTypes.SignedC
 	k := getPersistenceKey(options)
 	err := m.client.Del(ctx, k).Err()
 	if err != nil && err != redis.Nil {
-		return errors.Tag(err, "cannot clear persistence in redis")
+		return errors.Tag(err, "clear persistence in redis")
 	}
 	return nil
 }

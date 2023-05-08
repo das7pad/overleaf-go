@@ -43,7 +43,7 @@ func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLink
 				Msg: "output file is not available for importing",
 			}
 		}
-		return errors.Tag(err, "cannot download file")
+		return errors.Tag(err, "download file")
 	}
 	defer f.Cleanup()
 

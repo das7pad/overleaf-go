@@ -152,15 +152,15 @@ func (m *manager) getDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 		return d, nil
 	}
 	if !errors.IsNotFoundError(err) {
-		return nil, errors.Tag(err, "cannot get doc from redis")
+		return nil, errors.Tag(err, "get doc from redis")
 	}
 	flushedDoc, err := m.pm.GetDoc(ctx, projectId, docId)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get doc from db")
+		return nil, errors.Tag(err, "get doc from db")
 	}
 	d = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
 	if err = m.rm.PutDocInMemory(ctx, projectId, docId, d); err != nil {
-		return nil, errors.Tag(err, "cannot put doc in memory")
+		return nil, errors.Tag(err, "put doc in memory")
 	}
 	return d, nil
 }
@@ -398,7 +398,7 @@ func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId 
 		cancel()
 		if err != nil {
 			ids := projectId.String() + "/" + docId.String()
-			err = errors.Tag(err, "cannot confirm updates in "+ids)
+			err = errors.Tag(err, "confirm updates in "+ids)
 			log.Println(err.Error())
 		}
 	}
@@ -413,7 +413,7 @@ func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId 
 			ctx, projectId, docId, int64(len(appliedUpdates)), queueDepth,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot record and flush history")
+			return errors.Tag(err, "record and flush history")
 		}
 	}
 	return nil
@@ -429,8 +429,7 @@ func (m *manager) reportError(projectId, docId sharedTypes.UUID, err error) {
 	cancel()
 	if err2 != nil {
 		ids := projectId.String() + "/" + docId.String()
-		err2 = errors.Tag(err2, "cannot report error in "+ids)
-		log.Println(err2.Error())
+		log.Println(errors.Tag(err2, "report error in "+ids).Error())
 	}
 }
 
@@ -496,7 +495,7 @@ func (m *manager) doFlushAndMaybeDelete(ctx context.Context, projectId, docId sh
 	if doc.UnFlushedTime != 0 {
 		err := m.dm.UpdateDoc(ctx, projectId, docId, doc.ToForDocUpdate())
 		if err != nil {
-			return errors.Tag(err, "cannot persist doc in db")
+			return errors.Tag(err, "persist doc in db")
 		}
 	}
 	if deleteFromRedis {

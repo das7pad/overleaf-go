@@ -38,7 +38,7 @@ type Manager interface {
 func New(client redis.UniversalClient) (Manager, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Tag(err, "cannot get hostname")
+		return nil, errors.Tag(err, "get hostname")
 	}
 
 	return &manager{
@@ -69,14 +69,14 @@ func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId sharedTypes
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "cannot fetch pending updates")
+		return nil, errors.Tag(err, "fetch pending updates")
 	}
 	raw := result.Val()
 	updates := make([]sharedTypes.DocumentUpdate, len(raw))
 	for i, blob := range raw {
 		err = json.Unmarshal([]byte(blob), &updates[i])
 		if err != nil {
-			return nil, errors.Tag(err, "cannot deserialize update")
+			return nil, errors.Tag(err, "deserialize update")
 		}
 		if err = updates[i].Validate(); err != nil {
 			return nil, errors.Tag(err, "update invalid")
@@ -88,7 +88,7 @@ func (m *manager) GetPendingUpdatesForDoc(ctx context.Context, docId sharedTypes
 func (m *manager) GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) (int64, error) {
 	n, err := m.client.LLen(ctx, getPendingUpdatesKey(docId)).Result()
 	if err != nil {
-		return 0, errors.Tag(err, "cannot get updates queue depth")
+		return 0, errors.Tag(err, "get updates queue depth")
 	}
 	return n, nil
 }

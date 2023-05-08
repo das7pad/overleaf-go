@@ -46,7 +46,7 @@ func New(options *types.Options, ps *templates.PublicSettings, proxy linkedURLPr
 
 	err = os.MkdirAll(options.LearnImageCacheBase.String(), 0o755)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot create image cache")
+		return nil, errors.Tag(err, "create image cache")
 	}
 	m := &manager{
 		apiURL:        upstreamURL.WithPath("/learn-scripts/api.php"),

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -48,7 +48,7 @@ func (m *manager) CreateProjectInvite(ctx context.Context, request *types.Create
 	}
 
 	if err = m.pim.Create(ctx, &pi); err != nil {
-		return errors.Tag(err, "cannot create invite")
+		return errors.Tag(err, "create invite")
 	}
 
 	// Possible false negative error, request refresh.

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -52,7 +52,7 @@ type manager struct {
 func (m *manager) getDocFrom(ctx context.Context, projectId, userId, docId sharedTypes.UUID, from, to sharedTypes.Version) (sharedTypes.Snapshot, *docHistory.GetForDocResult, error) {
 	d, err := m.dum.GetDoc(ctx, projectId, docId, -1)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "cannot get latest doc version")
+		return nil, nil, errors.Tag(err, "get latest doc version")
 	}
 	// NOTE: The flush could get replaced with a more complex catch-up process:
 	//       Assume that only the editor UI requests diffs, and it flushes
@@ -62,7 +62,7 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, userId, docId share
 	//        db state for building diffs.
 	//       With retries: get latest doc + pending history queue and catch up
 	if err = m.fm.FlushDoc(ctx, projectId, docId); err != nil {
-		return nil, nil, errors.Tag(err, "cannot flush doc history")
+		return nil, nil, errors.Tag(err, "flush doc history")
 	}
 	dh := docHistory.GetForDocResult{
 		History: make([]docHistory.DocHistory, 0, 1+d.Version-from),
@@ -70,7 +70,7 @@ func (m *manager) getDocFrom(ctx context.Context, projectId, userId, docId share
 	}
 	err = m.dhm.GetForDoc(ctx, projectId, userId, docId, from, d.Version, &dh)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "cannot get flushed history")
+		return nil, nil, errors.Tag(err, "get flushed history")
 	}
 	s := sharedTypes.Snapshot(d.Snapshot)
 	dropFrom := len(dh.History)

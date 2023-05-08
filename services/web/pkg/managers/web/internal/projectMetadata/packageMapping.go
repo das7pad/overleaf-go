@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,7 +31,7 @@ var packageMapping types.LatexPackages
 func init() {
 	err := json.Unmarshal(_packageMappingRaw, &packageMapping)
 	if err != nil {
-		panic(errors.Tag(err, "cannot load package metadata mapping"))
+		panic(errors.Tag(err, "load package metadata mapping"))
 	}
 	_packageMappingRaw = nil
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -43,7 +43,7 @@ func (m *manager) SetCompiler(ctx context.Context, request *types.SetCompilerReq
 		ctx, request.ProjectId, request.UserId, request.Compiler,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot update compiler")
+		return errors.Tag(err, "update compiler")
 	}
 	go m.notifyEditor(
 		request.ProjectId, "compilerUpdated", request.Compiler,
@@ -63,7 +63,7 @@ func (m *manager) SetImageName(ctx context.Context, request *types.SetImageNameR
 		ctx, request.ProjectId, request.UserId, request.ImageName,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot update compiler")
+		return errors.Tag(err, "update compiler")
 	}
 	go m.notifyEditor(
 		request.ProjectId, "imageNameUpdated", request.ImageName,
@@ -81,7 +81,7 @@ func (m *manager) SetSpellCheckLanguage(ctx context.Context, request *types.SetS
 		ctx, request.ProjectId, request.UserId, request.SpellCheckLanguage,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot update compiler")
+		return errors.Tag(err, "update spell check language")
 	}
 	go m.notifyEditor(
 		request.ProjectId,
@@ -97,7 +97,7 @@ func (m *manager) SetRootDocId(ctx context.Context, r *types.SetRootDocIdRequest
 	}
 	err := m.pm.SetRootDoc(ctx, r.ProjectId, r.UserId, r.RootDocId)
 	if err != nil {
-		return errors.Tag(err, "cannot update rootDoc")
+		return errors.Tag(err, "update rootDoc")
 	}
 	go m.notifyEditor(r.ProjectId, "rootDocUpdated", r.RootDocId)
 	return nil
@@ -121,7 +121,7 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, request *types.SetPu
 			ctx, request.ProjectId, request.UserId,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot populate tokens")
+			return errors.Tag(err, "populate tokens")
 		}
 		if changed {
 			go m.notifyEditor(
@@ -136,7 +136,7 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, request *types.SetPu
 		ctx, request.ProjectId, request.UserId, request.PublicAccessLevel,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot update PublicAccessLevel")
+		return errors.Tag(err, "update PublicAccessLevel")
 	}
 
 	go m.notifyEditor(

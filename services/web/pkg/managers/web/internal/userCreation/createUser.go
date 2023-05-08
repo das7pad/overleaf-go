@@ -53,7 +53,7 @@ func (m *manager) createUser(ctx context.Context, u *user.ForCreation, pw types.
 				allErrors.Add(err)
 				continue
 			}
-			return errors.Tag(err, "cannot create user")
+			return errors.Tag(err, "create user")
 		}
 		return nil
 	}

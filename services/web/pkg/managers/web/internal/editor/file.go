@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,11 +30,11 @@ func (m *manager) GetProjectFile(ctx context.Context, request *types.GetProjectF
 	token := request.Session.GetAnonTokenAccess(projectId)
 	f, err := m.pm.GetFile(ctx, projectId, userId, token, fileId)
 	if err != nil {
-		return errors.Tag(err, "cannot get file tree")
+		return errors.Tag(err, "get file")
 	}
 	s, r, err := m.fm.GetReadStreamForProjectFile(ctx, projectId, fileId)
 	if err != nil {
-		return errors.Tag(err, "cannot get filestream")
+		return errors.Tag(err, "get filestream")
 	}
 	response.Filename = f.Name
 	response.Reader = r
@@ -49,7 +49,7 @@ func (m *manager) GetProjectFileSize(ctx context.Context, request *types.GetProj
 	token := request.Session.GetAnonTokenAccess(projectId)
 	f, err := m.pm.GetFile(ctx, projectId, userId, token, fileId)
 	if err != nil {
-		return errors.Tag(err, "cannot get file tree")
+		return errors.Tag(err, "get file")
 	}
 	response.Filename = f.Name
 	response.Size = f.Size

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -75,7 +75,7 @@ func (m *manager) GetProjectHistoryUpdates(ctx context.Context, r *types.GetProj
 			ctx, r.ProjectId, r.UserId, before, fetchAtLeastNUpdates, &batch,
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot get next batch of history")
+			return errors.Tag(err, "get next batch of history")
 		}
 		if len(batch.History) == 0 {
 			if res.Updates == nil {

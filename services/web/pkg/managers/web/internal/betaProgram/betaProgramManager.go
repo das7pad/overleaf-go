@@ -63,7 +63,7 @@ func (m *manager) BetaProgramParticipatePage(ctx context.Context, request *types
 	}
 	u := user.BetaProgramField{}
 	if err := m.um.GetUser(ctx, request.Session.User.Id, &u); err != nil {
-		return errors.Tag(err, "cannot get user")
+		return errors.Tag(err, "get user")
 	}
 	response.Data = &templates.BetaProgramParticipate{
 		MarketingLayoutData: templates.MarketingLayoutData{

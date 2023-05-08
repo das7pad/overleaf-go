@@ -32,7 +32,7 @@ import (
 func randomPassword() (types.UserPassword, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		return "", errors.Tag(err, "cannot generate random password")
+		return "", errors.Tag(err, "generate random password")
 	}
 	return types.UserPassword(hex.EncodeToString(b)), nil
 }

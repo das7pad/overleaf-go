@@ -107,7 +107,7 @@ func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sh
 		var err error
 		f, err = os.Open(manifestPath)
 		if err != nil {
-			return errors.Tag(err, "cannot open manifest")
+			return errors.Tag(err, "open manifest")
 		}
 	}
 	defer func() { _ = f.Close() }()
@@ -117,7 +117,7 @@ func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sh
 func (m *manager) loadFrom(f io.Reader) error {
 	var raw manifest
 	if err := json.NewDecoder(f).Decode(&raw); err != nil {
-		return errors.Tag(err, "cannot consume manifest")
+		return errors.Tag(err, "consume manifest")
 	}
 	entrypointChunks := make(map[string][]template.URL, len(raw.EntrypointChunks))
 	for s, urls := range raw.EntrypointChunks {

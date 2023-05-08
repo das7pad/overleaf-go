@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -41,7 +41,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 		ctx, projectId, request.UserId, parentFolderId, &folder,
 	)
 	if err != nil {
-		return errors.Tag(err, "cannot insert folder")
+		return errors.Tag(err, "insert folder")
 	}
 
 	*response = folder

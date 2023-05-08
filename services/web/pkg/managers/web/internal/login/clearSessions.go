@@ -30,7 +30,7 @@ import (
 
 func (m *manager) bumpEpoch(ctx context.Context, userId sharedTypes.UUID) error {
 	if err := m.um.BumpEpoch(ctx, userId); err != nil {
-		return errors.Tag(err, "cannot bump user epoch in db")
+		return errors.Tag(err, "bump user epoch in db")
 	}
 	return nil
 }
@@ -46,7 +46,7 @@ func (m *manager) ClearSessions(ctx context.Context, request *types.ClearSession
 	userId := request.Session.User.Id
 	u := user.WithPublicInfo{}
 	if err := m.um.GetUser(ctx, userId, &u); err != nil {
-		return errors.Tag(err, "cannot get user")
+		return errors.Tag(err, "get user")
 	}
 
 	// Do the actual cleanup and keep track of it in the audit log.
@@ -62,10 +62,10 @@ func (m *manager) ClearSessions(ctx context.Context, request *types.ClearSession
 	// Confirm cleanup with another bump of the user epoch.
 	errBump := m.bumpEpoch(ctx, userId)
 	if errDestroy == nil && errBump != nil {
-		return errors.Tag(errBump, "cannot bump epoch after of destroying")
+		return errors.Tag(errBump, "bump epoch after of destroying")
 	}
 	if errDestroy != nil {
-		return errors.Tag(errDestroy, "cannot destroy other sessions")
+		return errors.Tag(errDestroy, "destroy other sessions")
 	}
 
 	return m.emailSecurityAlert(
@@ -86,7 +86,7 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	userId := request.Session.User.Id
 	d, err := request.Session.GetOthers(ctx)
 	if err != nil {
-		return errors.Tag(err, "cannot get other sessions")
+		return errors.Tag(err, "get other sessions")
 	}
 	if len(d.Sessions) == 0 {
 		return errNothingToClear
@@ -96,7 +96,7 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 	// Add audit log entry and bump user epoch.
 	err = m.um.TrackClearSessions(ctx, userId, request.IPAddress, info)
 	if err != nil {
-		return errors.Tag(err, "cannot track session clearing in db")
+		return errors.Tag(err, "track session clearing in db")
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {
@@ -108,7 +108,7 @@ func (m *manager) destroySessionsOnce(ctx context.Context, request *types.ClearS
 
 	// Do the actual cleanup
 	if err = request.Session.DestroyOthers(ctx, d); err != nil {
-		return errors.Tag(err, "cannot destroy other sessions")
+		return errors.Tag(err, "destroy other sessions")
 	}
 	return nil
 }

@@ -48,7 +48,7 @@ func (m *manager) fillImageCache() error {
 		return nil
 	})
 	if err != nil {
-		return errors.Tag(err, "cannot fill image cache")
+		return errors.Tag(err, "fill image cache")
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (m *manager) getImage(ctx context.Context, request *types.LearnImageRequest
 			// fallback to cache
 			return target, fetchedAt, nil
 		}
-		return "", time.Time{}, errors.Tag(err, "cannot download")
+		return "", time.Time{}, errors.Tag(err, "download")
 	}
 	if err = f.Move(target); err != nil {
 		f.Cleanup()
@@ -112,7 +112,7 @@ func (m *manager) getImage(ctx context.Context, request *types.LearnImageRequest
 			// fallback to cache
 			return target, fetchedAt, nil
 		}
-		return "", time.Time{}, errors.Tag(err, "cannot move target")
+		return "", time.Time{}, errors.Tag(err, "move target")
 	}
 	m.imageMux.Lock()
 	m.imageCache[target] = now

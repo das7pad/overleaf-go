@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -105,7 +105,7 @@ func (m *manager) Publish(ctx context.Context, msg Message) error {
 		return err
 	}
 	if err = cmd.Err(); err != nil {
-		return errors.Tag(err, "cannot send message")
+		return errors.Tag(err, "publish message")
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (m *manager) Publish(ctx context.Context, msg Message) error {
 func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Message) (*redis.IntCmd, error) {
 	body, err := json.Marshal(msg)
 	if err != nil {
-		return nil, errors.Tag(err, "cannot encode message for publishing")
+		return nil, errors.Tag(err, "encode message for publishing")
 	}
 	id := msg.ChannelId()
 	return runner.Publish(ctx, string(m.base.join(id)), body), nil

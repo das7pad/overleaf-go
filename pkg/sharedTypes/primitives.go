@@ -50,7 +50,7 @@ func GenerateUUID() (UUID, error) {
 
 func PopulateUUID(u *UUID) error {
 	if _, err := rand.Read(u[:]); err != nil {
-		return errors.Tag(err, "cannot generate new UUID")
+		return errors.Tag(err, "generate new UUID")
 	}
 
 	// Reset bits and populate version (4) and variant (10).
@@ -74,7 +74,7 @@ func (b *UUIDBatch) Next() UUID {
 func GenerateUUIDBulk(n int) (*UUIDBatch, error) {
 	buf := make([]byte, n*16)
 	if _, err := rand.Read(buf); err != nil {
-		return nil, errors.Tag(err, "cannot generate new UUIDs")
+		return nil, errors.Tag(err, "generate new UUIDs")
 	}
 
 	for i := 0; i < n; i++ {

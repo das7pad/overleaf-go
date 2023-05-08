@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,7 +35,7 @@ func (t Token) Validate() error {
 func generateNewToken() (Token, error) {
 	b := make([]byte, 24)
 	if _, err := rand.Read(b); err != nil {
-		return "", errors.Tag(err, "cannot generate new token")
+		return "", errors.Tag(err, "generate new token")
 	}
 	return Token(hex.EncodeToString(b)), nil
 }

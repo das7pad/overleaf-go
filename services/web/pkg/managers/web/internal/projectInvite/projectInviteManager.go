@@ -116,12 +116,12 @@ func (m *manager) resendNotification(ctx context.Context, d *projectInviteDetail
 			"token":       d.invite.Token,
 		})
 		if err != nil {
-			return errors.Tag(err, "cannot serialize notification options")
+			return errors.Tag(err, "serialize notification options")
 		}
 		n.MessageOptions = blob
 	}
 	if err := m.nm.Resend(ctx, n); err != nil {
-		return errors.Tag(err, "cannot create invite notification")
+		return errors.Tag(err, "create invite notification")
 	}
 	return nil
 }
@@ -175,7 +175,7 @@ func (m *manager) sendEmail(ctx context.Context, d *projectInviteDetails) error 
 		},
 	}
 	if err := e.Send(ctx, m.emailOptions.Send); err != nil {
-		return errors.Tag(err, "cannot send email")
+		return errors.Tag(err, "send email")
 	}
 	return nil
 }

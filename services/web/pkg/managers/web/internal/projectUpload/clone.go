@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -68,15 +68,15 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 	userId := request.Session.User.Id
 
 	if _, err := m.pm.GetAuthorizationDetails(ctx, sourceProjectId, userId, ""); err != nil {
-		return errors.Tag(err, "cannot check auth")
+		return errors.Tag(err, "check auth")
 	}
 	if err := m.dum.FlushProject(ctx, sourceProjectId); err != nil {
-		return errors.Tag(err, "cannot flush docs to db")
+		return errors.Tag(err, "flush docs to db")
 	}
 
 	p, err := m.pm.GetForClone(ctx, sourceProjectId, userId)
 	if err != nil {
-		return errors.Tag(err, "cannot get source project")
+		return errors.Tag(err, "get source project")
 	}
 	sourceDocs, sourceFiles := p.GetDocsAndFiles()
 

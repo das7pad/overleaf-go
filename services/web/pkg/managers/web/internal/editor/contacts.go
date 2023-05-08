@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,7 +29,7 @@ func (m *manager) GetUserContacts(ctx context.Context, request *types.GetUserCon
 	}
 	users, err := m.um.GetContacts(ctx, request.Session.User.Id)
 	if err != nil {
-		return errors.Tag(err, "cannot get users")
+		return errors.Tag(err, "get users")
 	}
 	userContacts := make([]types.UserContact, len(users))
 	for i, user := range users {

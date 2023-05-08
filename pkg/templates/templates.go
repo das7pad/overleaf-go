@@ -53,7 +53,7 @@ func render(p string, estimate int, data Renderer) ([]byte, string, error) {
 	resourceHints.RenderingStart()
 	defer resourceHints.RenderingEnd()
 	if err := templates[p].Execute(buffer, data); err != nil {
-		return nil, "", errors.Tag(err, "cannot render "+p)
+		return nil, "", errors.Tag(err, "render "+p)
 	}
 	return buffer.Bytes(), data.ResourceHints(), nil
 }
@@ -68,7 +68,7 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 			appName, i18nOptions.DefaultLang, i18nOptions.Languages(),
 		)
 		if err != nil {
-			return errors.Tag(err, "cannot load translations")
+			return errors.Tag(err, "load translations")
 		}
 		funcMap["getTranslationURL"] = tm.GetTranslationURL
 		funcMap["translate"] = tm.Translate
@@ -103,7 +103,7 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 			_fs, "layout/head.gohtml", p,
 		)
 		if err != nil {
-			return nil, errors.Tag(err, "cannot parse "+p)
+			return nil, errors.Tag(err, "parse "+p)
 		}
 		return l, nil
 	}
@@ -122,13 +122,13 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 
 	paths, errGlob := fs.Glob(_fs, "*/*.gohtml")
 	if errGlob != nil {
-		return errors.Tag(errGlob, "cannot glob")
+		return errors.Tag(errGlob, "glob gohtml templates")
 	}
 	m := newMinifier()
 	loadTemplate := func(p string) (*template.Template, error) {
 		blob, err := fs.ReadFile(_fs, p)
 		if err != nil {
-			return nil, errors.Tag(err, "cannot read")
+			return nil, errors.Tag(err, "read")
 		}
 		s := string(blob)
 		var c *template.Template
@@ -143,11 +143,11 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 			return nil, errors.New("missing parent template")
 		}
 		if err != nil {
-			return nil, errors.Tag(err, "cannot clone layout")
+			return nil, errors.Tag(err, "clone layout")
 		}
 		t, err := c.New(filepath.Base(p)).Parse(s)
 		if err != nil {
-			return nil, errors.Tag(err, "cannot parse")
+			return nil, errors.Tag(err, "parse")
 		}
 		if t, err = m.MinifyTemplate(t, funcMap); err != nil {
 			return nil, errors.Tag(err, "minify")
