@@ -77,7 +77,7 @@ type locker struct {
 }
 
 const (
-	LockTestInterval      = 50 * time.Millisecond
+	LockTestInterval      = 10 * time.Millisecond
 	MaxTestInterval       = 1 * time.Second
 	MaxLockWaitTime       = 10 * time.Second
 	MaxRedisRequestLength = 5 * time.Second
