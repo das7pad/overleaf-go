@@ -145,7 +145,7 @@ func (l *locker) runWithLock(ctx context.Context, docId sharedTypes.UUID, runner
 		}
 		time.Sleep(testInterval)
 		testInterval = time.Duration(
-			math.Max(float64(testInterval*2), float64(MaxTestInterval)),
+			math.Min(float64(testInterval*2), float64(MaxTestInterval)),
 		)
 	}
 	doneAcquireLock()
