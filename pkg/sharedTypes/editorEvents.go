@@ -27,6 +27,7 @@ type EditorEventsMessage struct {
 	Message     string          `json:"message"`
 	Payload     json.RawMessage `json:"payload"`
 	ProcessedBy string          `json:"processedBy,omitempty"`
+	Source      PublicId        `json:"source,omitempty"`
 }
 
 func (m *EditorEventsMessage) ChannelId() UUID {

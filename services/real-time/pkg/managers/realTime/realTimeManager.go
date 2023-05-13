@@ -275,6 +275,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 		return errors.Tag(err, "encode notification")
 	}
 	msg := &sharedTypes.EditorEventsMessage{
+		Source:  rpc.Client.PublicId,
 		RoomId:  rpc.Client.ProjectId,
 		Message: editorEvents.ClientTrackingClientUpdated,
 		Payload: body,

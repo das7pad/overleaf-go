@@ -58,8 +58,6 @@ func (r *ProjectRoom) Handle(raw string) {
 	switch msg.Message {
 	case ClientTrackingRefresh:
 		err = r.refreshClientPositions()
-	case ClientTrackingClientUpdated:
-		err = r.handleClientTrackingUpdated(msg)
 	case "otUpdateApplied":
 		err = r.handleUpdate(msg)
 	default:
@@ -126,19 +124,7 @@ func (r *ProjectRoom) refreshClientPositions() error {
 	return nil
 }
 
-func (r *ProjectRoom) handleClientTrackingUpdated(msg sharedTypes.EditorEventsMessage) error {
-	var notification types.ClientPositionUpdateNotification
-	if err := json.Unmarshal(msg.Payload, &notification); err != nil {
-		return errors.Tag(err, "decode notification")
-	}
-	return r.handleMessageFromSource(msg, notification.Source)
-}
-
 func (r *ProjectRoom) handleMessage(msg sharedTypes.EditorEventsMessage) error {
-	return r.handleMessageFromSource(msg, "")
-}
-
-func (r *ProjectRoom) handleMessageFromSource(msg sharedTypes.EditorEventsMessage, id sharedTypes.PublicId) error {
 	resp := types.RPCResponse{
 		Name:        msg.Message,
 		Body:        msg.Payload,
@@ -150,7 +136,7 @@ func (r *ProjectRoom) handleMessageFromSource(msg sharedTypes.EditorEventsMessag
 	}
 	nonRestricted := isNonRestrictedMessage(msg.Message)
 	for _, client := range r.Clients() {
-		if client.PublicId == id {
+		if client.PublicId == msg.Source {
 			continue
 		}
 		if !clientCanSeeMessage(client, nonRestricted) {
