@@ -18,31 +18,34 @@ package clientTracking
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Manager interface {
-	DeleteClientPosition(client *types.Client) bool
+	Disconnect(client *types.Client) bool
 	GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error)
-	InitializeClientPosition(client *types.Client)
+	ConnectInBackground(client *types.Client)
 	RefreshClientPositions(ctx context.Context, client []*types.Client, refreshProjectExpiry bool) error
-	UpdateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition) error
+	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
 }
 
-func New(client redis.UniversalClient) Manager {
-	return &manager{redisClient: client}
+func New(client redis.UniversalClient, c channel.Writer) Manager {
+	return &manager{
+		redisClient: client,
+		c:           c,
+	}
 }
 
 type manager struct {
 	redisClient redis.UniversalClient
+	c           channel.Writer
 }
 
 const (
@@ -50,199 +53,38 @@ const (
 	RefreshProjectEvery = ProjectExpiry - 12*time.Hour
 	UserExpiry          = 15 * time.Minute
 	RefreshUserEvery    = UserExpiry - 1*time.Minute
-
-	userField     = "user"
-	positionField = "cursorData"
 )
 
-func getConnectedUserKey(projectId sharedTypes.UUID, id sharedTypes.PublicId) string {
-	return "connected_user:{" + projectId.String() + "}:" + string(id)
-}
-
-func getProjectKey(projectId sharedTypes.UUID) string {
-	return "clients_in_project:{" + projectId.String() + "}"
-}
-
-func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
-	projectId := client.ProjectId
-	rawIds, err := m.redisClient.SMembers(ctx, getProjectKey(projectId)).Result()
-	if err != nil {
-		return nil, err
-	}
-	if len(rawIds) == 0 ||
-		len(rawIds) == 1 && rawIds[0] == string(client.PublicId) {
-		// Fast path: no connected clients or just the RPC client.
-		return make(types.ConnectedClients, 0), nil
-	}
-	ids := make([]sharedTypes.PublicId, len(rawIds))
-	idxSelf := -1
-	for idx, rawId := range rawIds {
-		id := sharedTypes.PublicId(rawId)
-		ids[idx] = id
-		if id == client.PublicId {
-			idxSelf = idx
-		}
-	}
-	if idxSelf != -1 {
-		if len(ids) > 1 {
-			ids[idxSelf] = ids[len(ids)-1]
-			ids = ids[:len(ids)-1]
-		}
-	}
-
-	if err = ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	users := make([]*redis.StringStringMapCmd, len(ids))
-	_, err = m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		for idx, id := range ids {
-			userKey := getConnectedUserKey(projectId, id)
-			users[idx] = p.HGetAll(ctx, userKey)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	connectedClients := make(types.ConnectedClients, 0)
-	staleClients := make([]sharedTypes.PublicId, 0)
-	defer func() {
-		if len(staleClients) != 0 {
-			go m.cleanupStaleClients(client.ProjectId, staleClients)
-		}
-	}()
-	for idx, id := range ids {
-		userDetails := users[idx].Val()
-		userRaw := userDetails[userField]
-		if userRaw == "" {
-			staleClients = append(staleClients, id)
-			continue
-		}
-		var user types.User
-		err = json.Unmarshal([]byte(userRaw), &user)
-		if err != nil {
-			staleClients = append(staleClients, id)
-			return nil, errors.Tag(err, "deserialize user: "+userRaw)
-		}
-		cc := types.ConnectedClient{
-			ClientId: id,
-			User:     user,
-		}
-
-		posRaw := userDetails[positionField]
-		if posRaw != "" {
-			var pos types.ClientPosition
-			err = json.Unmarshal([]byte(posRaw), &pos)
-			if err != nil {
-				staleClients = append(staleClients, id)
-				return nil, errors.Tag(
-					err, "deserialize pos: "+posRaw,
-				)
-			}
-			cc.ClientPosition = &pos
-		}
-		connectedClients = append(connectedClients, cc)
-	}
-	return connectedClients, nil
-}
-
-func (m *manager) cleanupStaleClients(projectId sharedTypes.UUID, staleClients []sharedTypes.PublicId) {
-	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
-	defer done()
-
-	projectKey := getProjectKey(projectId)
-	rawIds := make([]interface{}, len(staleClients))
-	for idx, id := range staleClients {
-		rawIds[idx] = string(id)
-	}
-	rawUserKeys := make([]string, len(staleClients))
-	for idx, id := range staleClients {
-		rawUserKeys[idx] = getConnectedUserKey(projectId, id)
-	}
-	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		p.Del(ctx, rawUserKeys...)
-		p.SRem(ctx, projectKey, rawIds...)
-		return nil
-	})
-	if err != nil {
-		log.Println(
-			errors.Tag(err, "error clearing stale clients").Error(),
-		)
-	}
-}
-
-func (m *manager) DeleteClientPosition(client *types.Client) bool {
+func (m *manager) Disconnect(client *types.Client) bool {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	projectKey := getProjectKey(client.ProjectId)
-	userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
-	var nowEmpty *redis.IntCmd
-	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		p.SRem(ctx, projectKey, string(client.PublicId))
-		nowEmpty = p.SCard(ctx, projectKey)
-		p.Del(ctx, userKey)
-		return nil
-	})
-	if err != nil {
-		log.Println("error deleting client position: " + err.Error())
+	nowEmpty, errUpdate := m.deleteClientPosition(ctx, client)
+	errNotify := m.notifyDisconnected(ctx, client)
+	if err := errors.Merge(errNotify, errUpdate); err != nil {
+		err = errors.Tag(err, "disconnect connected client")
+		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
 		return true
 	}
-	return nowEmpty.Val() == 0
+	return nowEmpty
 }
 
-func (m *manager) InitializeClientPosition(client *types.Client) {
+func (m *manager) ConnectInBackground(client *types.Client) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	_ = m.UpdateClientPosition(ctx, client, nil)
+	if err := m.updateClientPosition(ctx, client, nil); err != nil {
+		err = errors.Tag(err, "initialize connected client")
+		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
+	}
 }
 
-func (m *manager) RefreshClientPositions(ctx context.Context, clients []*types.Client, refreshProjectExpiry bool) error {
-	if len(clients) == 0 {
-		return nil
+func (m *manager) UpdatePosition(ctx context.Context, client *types.Client, p types.ClientPosition) error {
+	if err := m.notifyUpdated(ctx, client, p); err != nil {
+		return err
 	}
-	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		for idx, client := range clients {
-			if idx == 0 && refreshProjectExpiry {
-				projectKey := getProjectKey(client.ProjectId)
-				p.Expire(ctx, projectKey, ProjectExpiry)
-			}
-			userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
-			p.Expire(ctx, userKey, UserExpiry)
-		}
-		return nil
-	})
-	return err
-}
-
-func (m *manager) UpdateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition) error {
-	projectKey := getProjectKey(client.ProjectId)
-	userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
-
-	user, err := json.Marshal(client.User)
-	if err != nil {
-		return errors.Tag(err, "serialize user")
+	if err := m.updateClientPosition(ctx, client, &p); err != nil {
+		return err
 	}
-
-	details := make(map[string]interface{})
-	details[userField] = string(user)
-
-	if position != nil {
-		pos, err2 := json.Marshal(position)
-		if err2 != nil {
-			return errors.Tag(err2, "serialize position")
-		}
-		details[positionField] = pos
-	}
-
-	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		p.SAdd(ctx, projectKey, string(client.PublicId))
-		p.Expire(ctx, projectKey, ProjectExpiry)
-		p.HSet(ctx, userKey, details)
-		p.Expire(ctx, userKey, UserExpiry)
-		return nil
-	})
-	return err
+	return nil
 }

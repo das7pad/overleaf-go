@@ -28,6 +28,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
+	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
@@ -51,8 +52,9 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 
-	ct := clientTracking.New(client)
-	e := editorEvents.New(client, ct)
+	c := channel.New(client, "editor-events")
+	ct := clientTracking.New(client, c)
+	e := editorEvents.New(c, ct)
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
@@ -151,10 +153,8 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 		doneFetchingUsers()
 	}
 
-	go func() {
-		// Mark the user as joined in the background.
-		m.clientTracking.InitializeClientPosition(client)
-	}()
+	// Mark the user as joined in the background.
+	go m.clientTracking.ConnectInBackground(client)
 
 	if err = m.editorEvents.Join(ctx, client, projectId); err != nil {
 		return nil, errors.Tag(err, "subscribe")
@@ -252,50 +252,26 @@ func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
 }
 
 func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
-	var args types.ClientPosition
-	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
+	var p types.ClientPosition
+	if err := json.Unmarshal(rpc.Request.Body, &p); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
 	// Hard code document identifier.
-	args.DocId = rpc.Request.DocId
+	p.DocId = rpc.Request.DocId
 
-	err := m.clientTracking.UpdateClientPosition(ctx, rpc.Client, &args)
-	if err != nil {
-		return errors.Tag(err, "persist position update")
-	}
-
-	notification := types.ClientPositionUpdateNotification{
-		Source: rpc.Client.PublicId,
-		Row:    args.Row,
-		Column: args.Column,
-		DocId:  args.DocId,
-	}
-	body, err := json.Marshal(notification)
-	if err != nil {
-		return errors.Tag(err, "encode notification")
-	}
-	msg := &sharedTypes.EditorEventsMessage{
-		Source:  rpc.Client.PublicId,
-		RoomId:  rpc.Client.ProjectId,
-		Message: editorEvents.ClientTrackingClientUpdated,
-		Payload: body,
-	}
-	if err = m.editorEvents.Publish(ctx, msg); err != nil {
-		return errors.Tag(err, "send notification")
+	if err := m.clientTracking.UpdatePosition(ctx, rpc.Client, p); err != nil {
+		return errors.Tag(err, "handle position update")
 	}
 	return nil
 }
 
 func (m *manager) Disconnect(client *types.Client) error {
-	var errEditorEvents, errClientTracking error
+	var errEditorEvents error
 	if !client.ProjectId.IsZero() {
 		errEditorEvents = m.editorEvents.Leave(client, client.ProjectId)
 
-		// Skip cleanup when not joined yet.
-		var nowEmpty bool
-		nowEmpty, errClientTracking = m.cleanupClientTracking(client)
-		// Flush eagerly on error.
-		if nowEmpty || errClientTracking != nil {
+		if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
+			// Flush eagerly when no other clients are online (and on error).
 			m.backgroundFlush(client)
 		}
 	}
@@ -303,29 +279,7 @@ func (m *manager) Disconnect(client *types.Client) error {
 	if errEditorEvents != nil {
 		return errEditorEvents
 	}
-	if errClientTracking != nil {
-		return errClientTracking
-	}
 	return nil
-}
-
-func (m *manager) cleanupClientTracking(client *types.Client) (bool, error) {
-	nowEmpty := m.clientTracking.DeleteClientPosition(client)
-
-	body := json.RawMessage("\"" + client.PublicId + "\"")
-	msg := &sharedTypes.EditorEventsMessage{
-		RoomId:  client.ProjectId,
-		Message: "clientTracking.clientDisconnected",
-		Payload: body,
-	}
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-	if err := m.editorEvents.Publish(ctx, msg); err != nil {
-		return nowEmpty, errors.Tag(
-			err, "send notification for disconnect",
-		)
-	}
-	return nowEmpty, nil
 }
 
 func (m *manager) backgroundFlush(client *types.Client) {

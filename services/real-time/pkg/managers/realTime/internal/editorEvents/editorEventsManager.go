@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,8 +19,6 @@ package editorEvents
 import (
 	"time"
 
-	"github.com/go-redis/redis/v8"
-
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
@@ -28,11 +26,9 @@ import (
 
 type Manager interface {
 	broadcaster.Broadcaster
-	channel.Writer
 }
 
-func New(client redis.UniversalClient, clientTracking clientTracking.Manager) Manager {
-	c := channel.New(client, "editor-events")
+func New(c channel.Manager, clientTracking clientTracking.Manager) Manager {
 	newRoom := func(room *broadcaster.TrackingRoom) broadcaster.Room {
 		now := time.Now()
 		return &ProjectRoom{
@@ -45,11 +41,9 @@ func New(client redis.UniversalClient, clientTracking clientTracking.Manager) Ma
 	b := broadcaster.New(c, newRoom)
 	return &manager{
 		Broadcaster: b,
-		Writer:      c,
 	}
 }
 
 type manager struct {
 	broadcaster.Broadcaster
-	channel.Writer
 }

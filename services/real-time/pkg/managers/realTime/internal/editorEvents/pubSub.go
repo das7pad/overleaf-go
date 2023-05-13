@@ -39,11 +39,6 @@ type ProjectRoom struct {
 	clientTracking     clientTracking.Manager
 }
 
-const (
-	ClientTrackingRefresh       = "clientTracking.refresh"
-	ClientTrackingClientUpdated = "clientTracking.clientUpdated"
-)
-
 func (r *ProjectRoom) Handle(raw string) {
 	var msg sharedTypes.EditorEventsMessage
 	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
@@ -56,7 +51,7 @@ func (r *ProjectRoom) Handle(raw string) {
 	}
 	var err error
 	switch msg.Message {
-	case ClientTrackingRefresh:
+	case clientTracking.Refresh:
 		err = r.refreshClientPositions()
 	case "otUpdateApplied":
 		err = r.handleUpdate(msg)
