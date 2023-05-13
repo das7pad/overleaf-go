@@ -59,23 +59,31 @@ func (m *manager) Disconnect(client *types.Client) bool {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	nowEmpty, errUpdate := m.deleteClientPosition(ctx, client)
-	errNotify := m.notifyDisconnected(ctx, client)
-	if err := errors.Merge(errNotify, errUpdate); err != nil {
+	n, err := m.deleteClientPosition(ctx, client)
+	if err != nil || n > 0 {
+		if errNotify := m.notifyDisconnected(ctx, client); errNotify != nil {
+			err = errors.Merge(err, errNotify)
+		}
+	}
+	if err != nil {
 		err = errors.Tag(err, "disconnect connected client")
 		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
 		return true
 	}
-	return nowEmpty
+	return n == 0
 }
 
 func (m *manager) ConnectInBackground(client *types.Client) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	errInitUser := m.updateClientPosition(ctx, client, nil)
-	errNotify := m.notifyConnected(ctx, client)
-	if err := errors.Merge(errNotify, errInitUser); err != nil {
+	n, err := m.updateClientPosition(ctx, client, nil)
+	if err != nil || n > 0 {
+		if errNotify := m.notifyConnected(ctx, client); errNotify != nil {
+			err = errors.Merge(errNotify, err)
+		}
+	}
+	if err != nil {
 		err = errors.Tag(err, "initialize connected client")
 		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
 	}
@@ -85,7 +93,7 @@ func (m *manager) UpdatePosition(ctx context.Context, client *types.Client, p ty
 	if err := m.notifyUpdated(ctx, client, p); err != nil {
 		return err
 	}
-	if err := m.updateClientPosition(ctx, client, &p); err != nil {
+	if _, err := m.updateClientPosition(ctx, client, &p); err != nil {
 		return err
 	}
 	return nil

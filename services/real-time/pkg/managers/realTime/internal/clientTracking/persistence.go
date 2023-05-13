@@ -42,7 +42,7 @@ func getProjectKey(projectId sharedTypes.UUID) string {
 	return "clients_in_project:{" + projectId.String() + "}"
 }
 
-func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client) (bool, error) {
+func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client) (int64, error) {
 	projectKey := getProjectKey(client.ProjectId)
 	userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
 
@@ -54,18 +54,18 @@ func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client
 		return nil
 	})
 	if err != nil {
-		return true, errors.Tag(err, "delete client position")
+		return -1, errors.Tag(err, "delete client position")
 	}
-	return remainingClients.Val() == 0, nil
+	return remainingClients.Val(), nil
 }
 
-func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition) error {
+func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition) (int64, error) {
 	projectKey := getProjectKey(client.ProjectId)
 	userKey := getConnectedUserKey(client.ProjectId, client.PublicId)
 
 	userBlob, err := json.Marshal(client.User)
 	if err != nil {
-		return errors.Tag(err, "serialize user")
+		return -1, errors.Tag(err, "serialize user")
 	}
 
 	details := make([]interface{}, 0, 4)
@@ -74,19 +74,29 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 	if position != nil {
 		positionBlob, err2 := json.Marshal(position)
 		if err2 != nil {
-			return errors.Tag(err2, "serialize position")
+			return -1, errors.Tag(err2, "serialize position")
 		}
 		details = append(details, positionField, positionBlob)
 	}
 
+	var existingClients *redis.IntCmd
 	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		if position == nil {
+			existingClients = p.SCard(ctx, projectKey)
+		}
 		p.SAdd(ctx, projectKey, string(client.PublicId))
 		p.Expire(ctx, projectKey, ProjectExpiry)
 		p.HSet(ctx, userKey, details...)
 		p.Expire(ctx, userKey, UserExpiry)
 		return nil
 	})
-	return err
+	if err != nil {
+		return -1, errors.Tag(err, "persist client details")
+	}
+	if position == nil {
+		return existingClients.Val(), nil
+	}
+	return -1, nil
 }
 
 func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
