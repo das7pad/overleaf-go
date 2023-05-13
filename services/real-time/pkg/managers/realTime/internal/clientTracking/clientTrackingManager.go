@@ -73,7 +73,9 @@ func (m *manager) ConnectInBackground(client *types.Client) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	if err := m.updateClientPosition(ctx, client, nil); err != nil {
+	errInitUser := m.updateClientPosition(ctx, client, nil)
+	errNotify := m.notifyConnected(ctx, client)
+	if err := errors.Merge(errNotify, errInitUser); err != nil {
 		err = errors.Tag(err, "initialize connected client")
 		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
 	}

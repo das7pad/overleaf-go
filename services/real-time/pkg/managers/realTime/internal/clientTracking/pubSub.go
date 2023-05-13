@@ -27,6 +27,7 @@ import (
 
 const (
 	Refresh            = "clientTracking.refresh"
+	ClientConnected    = "clientTracking.clientConnected"
 	ClientDisconnected = "clientTracking.clientDisconnected"
 	ClientUpdated      = "clientTracking.clientUpdated"
 )
@@ -61,6 +62,26 @@ func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p typ
 	}
 	if err = m.c.Publish(ctx, msg); err != nil {
 		return errors.Tag(err, "send notification for client updated")
+	}
+	return nil
+}
+
+func (m *manager) notifyConnected(ctx context.Context, client *types.Client) error {
+	body, err := json.Marshal(types.ConnectedClient{
+		ClientId: client.PublicId,
+		User:     client.User,
+	})
+	if err != nil {
+		return errors.Tag(err, "serialize connected client")
+	}
+	msg := &sharedTypes.EditorEventsMessage{
+		Source:  client.PublicId,
+		RoomId:  client.ProjectId,
+		Message: ClientConnected,
+		Payload: body,
+	}
+	if err = m.c.Publish(ctx, msg); err != nil {
+		return errors.Tag(err, "send notification for client connected")
 	}
 	return nil
 }
