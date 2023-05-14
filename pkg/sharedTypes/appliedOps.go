@@ -27,7 +27,7 @@ type PublicId string
 
 func (p PublicId) Validate() error {
 	if p == "" {
-		return &errors.ValidationError{Msg: "missing source"}
+		return &errors.ValidationError{Msg: "missing client id"}
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ type DocumentUpdateMeta struct {
 
 func (d *DocumentUpdateMeta) Validate() error {
 	if err := d.Source.Validate(); err != nil {
-		return err
+		return errors.Tag(err, "source")
 	}
 	return nil
 }
@@ -191,5 +191,6 @@ type DocumentUpdateAck struct {
 }
 
 type AppliedOpsErrorMeta struct {
-	DocId UUID `json:"doc_id"`
+	Error errors.JavaScriptError `json:"error"`
+	DocId UUID                   `json:"docId"`
 }

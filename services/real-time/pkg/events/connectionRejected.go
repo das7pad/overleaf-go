@@ -23,32 +23,32 @@ import (
 
 var ConnectionRejectedBadWsBootstrapPrepared = mustPrepareBulkMessageOffline(
 	&types.RPCResponse{
-		Name: "connectionRejected",
-		Error: &errors.JavaScriptError{
-			Message: "bad wsBootstrap blob",
-			Code:    "BadWsBootstrapBlob",
-		},
+		Name:       "connectionRejected",
 		FatalError: true,
+	},
+	errors.JavaScriptError{
+		Message: "bad wsBootstrap blob",
+		Code:    "BadWsBootstrapBlob",
 	},
 )
 
 var ConnectionRejectedInternalErrorPrepared = mustPrepareBulkMessageOffline(
 	&types.RPCResponse{
-		Name: "connectionRejected",
-		Error: &errors.JavaScriptError{
-			Message: "internal error",
-		},
+		Name:       "connectionRejected",
 		FatalError: true,
+	},
+	errors.JavaScriptError{
+		Message: "internal error",
 	},
 )
 
 var ConnectionRejectedRetryPrepared = mustPrepareBulkMessageOffline(
 	&types.RPCResponse{
-		Name: "connectionRejected",
-		Error: &errors.JavaScriptError{
-			Message: "retry",
-		},
+		Name:       "connectionRejected",
 		FatalError: true,
+	},
+	errors.JavaScriptError{
+		Message: "retry",
 	},
 )
 
@@ -56,4 +56,5 @@ var ReconnectGracefullyPrepared = mustPrepareBulkMessageOffline(
 	&types.RPCResponse{
 		Name: "reconnectGracefully",
 	},
+	nil,
 )

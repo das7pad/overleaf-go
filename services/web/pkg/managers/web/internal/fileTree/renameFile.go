@@ -39,10 +39,10 @@ func (m *manager) RenameFileInProject(ctx context.Context, request *types.Rename
 		return err
 	}
 
-	//goland:noinspection SpellCheckingInspection
-	m.notifyEditor(
-		projectId, "reciveEntityRename",
-		fileRef.Id, fileRef.Name, projectVersion,
-	)
+	m.notifyEditor(projectId, "receiveEntityRename", renameTreeElementUpdate{
+		EntityId:       fileRef.Id,
+		Name:           fileRef.Name,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

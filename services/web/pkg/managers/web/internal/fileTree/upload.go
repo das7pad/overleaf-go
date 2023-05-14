@@ -35,7 +35,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	folderId := request.ParentFolderId
+	parentFolderId := request.ParentFolderId
 	projectId := request.ProjectId
 	userId := request.UserId
 	source := "upload"
@@ -81,7 +81,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 			return err
 		}
 		existingId, existingIsDoc, v, err = m.pm.EnsureIsDoc(
-			ctx, projectId, userId, folderId, &doc,
+			ctx, projectId, userId, parentFolderId, &doc,
 		)
 		if err != nil {
 			return errors.Tag(err, "create populated doc")
@@ -121,7 +121,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		uploadCtx, done := context.WithTimeout(ctx, fileUploadsStaleAfter)
 		defer done()
 		err = m.pm.PrepareFileCreation(
-			uploadCtx, projectId, userId, folderId, &file,
+			uploadCtx, projectId, userId, parentFolderId, &file,
 		)
 		if err != nil {
 			return errors.Tag(err, "prepare tree entry")
@@ -149,28 +149,26 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	// Failing the request and retrying now would result in duplicates.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	if !existingId.IsZero() {
-		if existingIsDoc {
-			m.cleanupDocDeletion(ctx, projectId, existingId)
-		}
-		m.notifyEditor(
-			projectId, "removeEntity",
-			existingId, source, v,
-		)
+	if !existingId.IsZero() && existingIsDoc {
+		m.cleanupDocDeletion(ctx, projectId, existingId)
 	}
-	if f := uploadedFileRef; f != nil {
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveNewFile",
-			folderId, f, source, f.LinkedFileData, userId, v,
-		)
+	if uploadedFileRef != nil {
+		m.notifyEditor(projectId, "receiveNewFile", newTreeElementUpdate{
+			File:           uploadedFileRef,
+			ProjectVersion: v,
+			ParentFolderId: parentFolderId,
+			ExistingId:     existingId,
+			ClientId:       request.ClientId,
+		})
 	} else {
 		uploadedDoc.Snapshot = ""
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveNewDoc",
-			folderId, uploadedDoc, v,
-		)
+		m.notifyEditor(projectId, "receiveNewDoc", newTreeElementUpdate{
+			Doc:            uploadedDoc,
+			ParentFolderId: parentFolderId,
+			ProjectVersion: v,
+			ExistingId:     existingId,
+			ClientId:       request.ClientId,
+		})
 	}
 	return nil
 }

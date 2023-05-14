@@ -46,9 +46,10 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 
 	*response = folder
 
-	//goland:noinspection SpellCheckingInspection
-	m.notifyEditor(
-		projectId, "reciveNewFolder", parentFolderId, folder, projectVersion,
-	)
+	m.notifyEditor(projectId, "receiveNewFolder", newTreeElementUpdate{
+		Folder:         &folder,
+		ProjectVersion: projectVersion,
+		ParentFolderId: parentFolderId,
+	})
 	return nil
 }

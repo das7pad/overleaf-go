@@ -23,10 +23,10 @@ import (
 
 var BadRequestBulkMessage = mustPrepareBulkMessageOffline(
 	&types.RPCResponse{
-		Name: "error",
-		Error: &errors.JavaScriptError{
-			Message: "bad request",
-		},
+		Name:       "error",
 		FatalError: true,
+	},
+	errors.JavaScriptError{
+		Message: "bad request",
 	},
 )

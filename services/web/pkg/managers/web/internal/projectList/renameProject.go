@@ -19,6 +19,7 @@ package projectList
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -35,16 +36,15 @@ func (m *manager) RenameProject(ctx context.Context, request *types.RenameProjec
 	if err := m.pm.Rename(ctx, projectId, userId, name); err != nil {
 		return errors.Tag(err, "rename project")
 	}
-	{
-		// Notify real-time
-		payload := []interface{}{name}
-		if b, err2 := json.Marshal(payload); err2 == nil {
-			_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-				RoomId:  projectId,
-				Message: "projectNameUpdated",
-				Payload: b,
-			})
-		}
+
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	if blob, err := json.Marshal(name); err == nil {
+		_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
+			RoomId:  projectId,
+			Message: "projectNameUpdated",
+			Payload: blob,
+		})
 	}
 
 	return nil

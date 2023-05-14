@@ -26,7 +26,7 @@ import (
 )
 
 func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequest, response *types.AddDocResponse) error {
-	if err := request.Name.Validate(); err != nil {
+	if err := request.Validate(); err != nil {
 		return err
 	}
 	projectId := request.ProjectId
@@ -45,9 +45,11 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	}
 	*response = doc
 
-	//goland:noinspection SpellCheckingInspection
-	m.notifyEditor(projectId, "reciveNewDoc",
-		parentFolderId, doc, projectVersion,
-	)
+	m.notifyEditor(projectId, "receiveNewDoc", newTreeElementUpdate{
+		Doc:            &doc,
+		ParentFolderId: parentFolderId,
+		ProjectVersion: projectVersion,
+		ClientId:       request.ClientId,
+	})
 	return nil
 }

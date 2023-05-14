@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -66,10 +66,37 @@ type manager struct {
 	projectMetadata projectMetadata.Manager
 }
 
-func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, args ...interface{}) {
+type deleteTreeElementUpdate struct {
+	EntityId       sharedTypes.UUID    `json:"entityId"`
+	ProjectVersion sharedTypes.Version `json:"projectVersion"`
+}
+
+type moveTreeElementUpdate struct {
+	EntityId       sharedTypes.UUID    `json:"entityId"`
+	TargetFolderId sharedTypes.UUID    `json:"targetFolderId"`
+	ProjectVersion sharedTypes.Version `json:"projectVersion"`
+}
+
+type newTreeElementUpdate struct {
+	Doc            *project.Doc         `json:"doc,omitempty"`
+	File           *project.FileRef     `json:"file,omitempty"`
+	Folder         *project.Folder      `json:"folder,omitempty"`
+	ProjectVersion sharedTypes.Version  `json:"projectVersion"`
+	ParentFolderId sharedTypes.UUID     `json:"parentFolderId"`
+	ExistingId     sharedTypes.UUID     `json:"existingId"`
+	ClientId       sharedTypes.PublicId `json:"clientId,omitempty"`
+}
+
+type renameTreeElementUpdate struct {
+	EntityId       sharedTypes.UUID     `json:"entityId"`
+	Name           sharedTypes.Filename `json:"name"`
+	ProjectVersion sharedTypes.Version  `json:"projectVersion"`
+}
+
+func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, payload interface{}) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	blob, err := json.Marshal(args)
+	blob, err := json.Marshal(payload)
 	if err != nil {
 		return
 	}

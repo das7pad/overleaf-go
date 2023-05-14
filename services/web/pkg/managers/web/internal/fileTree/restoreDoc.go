@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,9 +27,10 @@ func (m *manager) RestoreDeletedDocInProject(ctx context.Context, request *types
 	if err := request.Name.Validate(); err != nil {
 		return err
 	}
+	projectId := request.ProjectId
 
 	projectVersion, rootFolderId, err := m.pm.RestoreDoc(
-		ctx, request.ProjectId, request.UserId, request.DocId, request.Name,
+		ctx, projectId, request.UserId, request.DocId, request.Name,
 	)
 	if err != nil {
 		return err
@@ -39,10 +40,10 @@ func (m *manager) RestoreDeletedDocInProject(ctx context.Context, request *types
 	d := project.NewDoc(request.Name)
 	d.Id = request.DocId
 
-	//goland:noinspection SpellCheckingInspection
-	m.notifyEditor(
-		request.ProjectId, "reciveNewDoc",
-		rootFolderId, d, projectVersion,
-	)
+	m.notifyEditor(projectId, "receiveNewDoc", newTreeElementUpdate{
+		Doc:            &d,
+		ParentFolderId: rootFolderId,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

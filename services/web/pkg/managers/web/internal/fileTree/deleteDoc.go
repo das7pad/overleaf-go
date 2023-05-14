@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -34,14 +34,12 @@ func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.Delet
 		return err
 	}
 
-	{
-		// Notify real-time first, triggering users to leave the doc.
-		source := "editor"
-		m.notifyEditor(
-			projectId, "removeEntity",
-			docId, source, projectVersion,
-		)
-	}
+	// Notify real-time first, triggering users to leave the doc.
+	m.notifyEditor(projectId, "removeEntity", deleteTreeElementUpdate{
+		EntityId:       docId,
+		ProjectVersion: projectVersion,
+	})
+
 	// The doc has been deleted.
 	// Failing the request and retrying now would result in a 404.
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)

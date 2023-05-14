@@ -47,7 +47,6 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	if len(docs) > 0 {
-		// Notify document-updater
 		updates := make([]documentUpdaterTypes.RenameDocUpdate, len(docs))
 		for i, doc := range docs {
 			updates[i] = documentUpdaterTypes.RenameDocUpdate{
@@ -57,13 +56,11 @@ func (m *manager) RenameFolderInProject(ctx context.Context, request *types.Rena
 		}
 		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
-	{
-		// Notify real-time
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveEntityRename",
-			folder.Id, folder.Name, projectVersion,
-		)
-	}
+
+	m.notifyEditor(projectId, "receiveEntityRename", renameTreeElementUpdate{
+		EntityId:       folder.Id,
+		Name:           folder.Name,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

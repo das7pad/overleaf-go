@@ -129,16 +129,16 @@ func (m *manager) ConfirmUpdates(ctx context.Context, projectId sharedTypes.UUID
 }
 
 func (m *manager) ReportError(ctx context.Context, projectId, docId sharedTypes.UUID, err error) error {
-	blob, err := json.Marshal([]interface{}{
-		errors.JavaScriptError{
+	blob, err := json.Marshal(sharedTypes.AppliedOpsErrorMeta{
+		DocId: docId,
+		Error: errors.JavaScriptError{
 			Message: errors.GetPublicMessage(
 				err, "hidden error in document-updater",
 			),
 		},
-		sharedTypes.AppliedOpsErrorMeta{DocId: docId},
 	})
 	if err != nil {
-		return err
+		return errors.Tag(err, "serialize error meta")
 	}
 	return m.c.Publish(ctx, &sharedTypes.EditorEventsMessage{
 		RoomId:      projectId,

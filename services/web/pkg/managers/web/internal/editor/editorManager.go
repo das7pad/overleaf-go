@@ -111,10 +111,10 @@ type manager struct {
 	smokeTestUserId           sharedTypes.UUID
 }
 
-func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, args ...interface{}) {
+func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, payload interface{}) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
-	blob, err := json.Marshal(args)
+	blob, err := json.Marshal(payload)
 	if err != nil {
 		return
 	}

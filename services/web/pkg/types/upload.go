@@ -34,6 +34,7 @@ type UploadFileRequest struct {
 	UserId         sharedTypes.UUID        `json:"-"`
 	ParentFolderId sharedTypes.UUID        `json:"-"`
 	LinkedFileData *project.LinkedFileData `json:"-"`
+	ClientId       sharedTypes.PublicId    `json:"-"`
 	UploadDetails
 }
 

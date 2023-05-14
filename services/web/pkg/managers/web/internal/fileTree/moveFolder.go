@@ -42,7 +42,6 @@ func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFo
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	if len(docs) > 0 {
-		// Notify document-updater
 		updates := make([]documentUpdaterTypes.RenameDocUpdate, len(docs))
 		for i, doc := range docs {
 			updates[i] = documentUpdaterTypes.RenameDocUpdate{
@@ -52,13 +51,11 @@ func (m *manager) MoveFolderInProject(ctx context.Context, request *types.MoveFo
 		}
 		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
-	{
-		// Notify real-time
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveEntityMove",
-			folderId, targetFolderId, projectVersion,
-		)
-	}
+
+	m.notifyEditor(projectId, "receiveEntityMove", moveTreeElementUpdate{
+		EntityId:       folderId,
+		TargetFolderId: targetFolderId,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

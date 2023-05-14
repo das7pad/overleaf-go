@@ -144,15 +144,13 @@ func (r *ProjectRoom) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 
 func isNonRestrictedMessage(message string) bool {
 	switch message {
-	//goland:noinspection SpellCheckingInspection
 	case
 		// File Tree events
-		// NOTE: The actual event names have a typo.
-		"reciveNewDoc",
-		"reciveNewFile",
-		"reciveNewFolder",
-		"reciveEntityMove",
-		"reciveEntityRename",
+		"receiveNewDoc",
+		"receiveNewFile",
+		"receiveNewFolder",
+		"receiveEntityMove",
+		"receiveEntityRename",
 		"removeEntity",
 
 		// Core project details

@@ -86,7 +86,7 @@ func (m *manager) CreateLinkedFile(ctx context.Context, request *types.CreateLin
 
 func (m *manager) RefreshLinkedFile(ctx context.Context, request *types.RefreshLinkedFileRequest) error {
 	fileRef, err := m.pm.GetFile(
-		ctx, request.ProjectId, request.UserId, "", request.FileId,
+		ctx, request.ProjectId, request.UserId, "", request.File.Id,
 	)
 	if err != nil {
 		return err

@@ -77,6 +77,7 @@ func (m *manager) fromProjectFile(ctx context.Context, request *types.CreateLink
 		UserId:         request.UserId,
 		ParentFolderId: request.ParentFolderId,
 		LinkedFileData: request.LinkedFileData(),
+		ClientId:       request.ClientId,
 		UploadDetails: types.UploadDetails{
 			File:     f,
 			FileName: request.Name,
@@ -95,5 +96,6 @@ func (m *manager) refreshProjectFile(ctx context.Context, r *types.RefreshLinked
 			SourceProjectId:  r.File.LinkedFileData.SourceProjectId,
 			SourceEntityPath: r.File.LinkedFileData.SourceEntityPath,
 		},
+		ClientId: r.ClientId,
 	})
 }

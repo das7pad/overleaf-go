@@ -35,13 +35,10 @@ func (m *manager) MoveFileInProject(ctx context.Context, request *types.MoveFile
 		return err
 	}
 
-	{
-		// Notify real-time
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveEntityMove",
-			fileId, targetFolderId, projectVersion,
-		)
-	}
+	m.notifyEditor(projectId, "receiveEntityMove", moveTreeElementUpdate{
+		EntityId:       fileId,
+		TargetFolderId: targetFolderId,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

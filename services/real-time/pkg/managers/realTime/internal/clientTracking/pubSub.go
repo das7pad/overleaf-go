@@ -33,24 +33,26 @@ const (
 )
 
 func (m *manager) notifyDisconnected(ctx context.Context, client *types.Client) error {
-	body := json.RawMessage("\"" + client.PublicId + "\"")
+	body, err := json.Marshal(client.PublicId)
+	if err != nil {
+		return errors.Tag(err, "serialize public id")
+	}
 	msg := &sharedTypes.EditorEventsMessage{
 		RoomId:  client.ProjectId,
 		Message: ClientDisconnected,
 		Payload: body,
 	}
-	if err := m.c.Publish(ctx, msg); err != nil {
+	if err = m.c.Publish(ctx, msg); err != nil {
 		return errors.Tag(err, "send notification for client disconnect")
 	}
 	return nil
 }
 
 func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p types.ClientPosition) error {
-	notification := types.ClientPositionUpdateNotification{
+	body, err := json.Marshal(types.ClientPositionUpdateNotification{
 		Source:         client.PublicId,
 		ClientPosition: p,
-	}
-	body, err := json.Marshal(notification)
+	})
 	if err != nil {
 		return errors.Tag(err, "encode notification")
 	}

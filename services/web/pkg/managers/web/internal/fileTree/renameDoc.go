@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -46,7 +46,6 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	{
-		// Notify document-updater
 		updates := []documentUpdaterTypes.RenameDocUpdate{
 			{
 				DocId:   d.Id,
@@ -55,13 +54,11 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		}
 		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
-	{
-		// Notify real-time
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveEntityRename",
-			d.Id, d.Name, projectVersion,
-		)
-	}
+
+	m.notifyEditor(projectId, "receiveEntityRename", renameTreeElementUpdate{
+		EntityId:       d.Id,
+		Name:           d.Name,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

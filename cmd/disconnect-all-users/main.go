@@ -40,7 +40,7 @@ func main() {
 	client := utils.MustConnectRedis(ctx)
 	editorEvents := channel.NewWriter(client, "editor-events")
 
-	payload, err := json.Marshal([]interface{}{"not-used", delay.Seconds()})
+	payload, err := json.Marshal(delay.Seconds())
 	if err != nil {
 		panic(errors.Tag(err, "serialize payload"))
 	}

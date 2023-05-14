@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,7 +42,6 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	{
-		// Notify document-updater
 		updates := []documentUpdaterTypes.RenameDocUpdate{
 			{
 				DocId:   docId,
@@ -51,13 +50,11 @@ func (m *manager) MoveDocInProject(ctx context.Context, request *types.MoveDocRe
 		}
 		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
-	{
-		// Notify real-time
-		//goland:noinspection SpellCheckingInspection
-		m.notifyEditor(
-			projectId, "reciveEntityMove",
-			docId, targetFolderId, projectVersion,
-		)
-	}
+
+	m.notifyEditor(projectId, "receiveEntityMove", moveTreeElementUpdate{
+		EntityId:       docId,
+		TargetFolderId: targetFolderId,
+		ProjectVersion: projectVersion,
+	})
 	return nil
 }

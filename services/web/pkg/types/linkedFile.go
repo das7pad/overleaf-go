@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -38,14 +38,14 @@ type CreateLinkedFileRequest struct {
 	Name           sharedTypes.Filename              `json:"name"`
 	Provider       project.LinkedFileProvider        `json:"provider"`
 	Parameter      CreateLinkedFileProviderParameter `json:"data"`
+	ClientId       sharedTypes.PublicId              `json:"clientId"`
 }
 
 type RefreshLinkedFileRequest struct {
 	WithProjectIdAndUserId
-	FileId sharedTypes.UUID `json:"-"`
-
-	ParentFolderId sharedTypes.UUID `json:"-"`
-	File           project.FileRef  `json:"-"`
+	ParentFolderId sharedTypes.UUID     `json:"-"`
+	File           project.FileRef      `json:"-"`
+	ClientId       sharedTypes.PublicId `json:"clientId"`
 }
 
 func (r *CreateLinkedFileRequest) LinkedFileData() *project.LinkedFileData {
@@ -67,6 +67,9 @@ func (r *CreateLinkedFileRequest) Validate() error {
 		return err
 	}
 	if err := r.Name.Validate(); err != nil {
+		return err
+	}
+	if err := r.ClientId.Validate(); err != nil {
 		return err
 	}
 

@@ -55,6 +55,7 @@ func (m *manager) fromProjectOutputFile(ctx context.Context, r *types.CreateLink
 		ParentFolderId: r.ParentFolderId,
 		LinkedFileData: r.LinkedFileData(),
 		UploadDetails:  uploadDetails,
+		ClientId:       r.ClientId,
 	})
 }
 

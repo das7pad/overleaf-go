@@ -88,8 +88,7 @@ func (m *manager) notifyEditorAboutChanges(projectId sharedTypes.UUID, r refresh
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
-	payload := []interface{}{r}
-	if b, err2 := json.Marshal(payload); err2 == nil {
+	if b, err := json.Marshal(r); err == nil {
 		_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
 			RoomId:  projectId,
 			Message: "project:membership:changed",

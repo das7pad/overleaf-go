@@ -39,6 +39,7 @@ func (m *manager) fromURL(ctx context.Context, request *types.CreateLinkedFileRe
 		ParentFolderId: request.ParentFolderId,
 		LinkedFileData: request.LinkedFileData(),
 		UploadDetails:  uploadDetails,
+		ClientId:       request.ClientId,
 	})
 }
 

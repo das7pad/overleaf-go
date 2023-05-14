@@ -943,6 +943,7 @@ func (h *httpController) uploadFile(c *httpUtils.Context) {
 			FileName: d.FileName,
 			Size:     d.Size,
 		},
+		ClientId: sharedTypes.PublicId(c.Request.Header.Get("X-OL-Client-Id")),
 	}
 	err := h.wm.UploadFile(c, request)
 	httpUtils.Respond(c, http.StatusOK, asyncForm.Response{}, err)
@@ -1358,9 +1359,11 @@ func (h *httpController) createLinkedFile(c *httpUtils.Context) {
 }
 
 func (h *httpController) refreshLinkedFile(c *httpUtils.Context) {
-	request := &types.RefreshLinkedFileRequest{
-		FileId: httpUtils.GetId(c, "fileId"),
+	request := &types.RefreshLinkedFileRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
 	}
+	request.File.Id = httpUtils.GetId(c, "fileId")
 	h.mustProcessSignedOptions(request, c)
 	err := h.wm.RefreshLinkedFile(c, request)
 	httpUtils.Respond(c, http.StatusNoContent, nil, err)

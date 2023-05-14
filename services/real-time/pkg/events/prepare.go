@@ -17,10 +17,19 @@
 package events
 
 import (
+	"encoding/json"
+
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func mustPrepareBulkMessageOffline(response *types.RPCResponse) types.WriteQueueEntry {
+func mustPrepareBulkMessageOffline(response *types.RPCResponse, payload interface{}) types.WriteQueueEntry {
+	if payload != nil {
+		blob, err := json.Marshal(payload)
+		if err != nil {
+			panic(err)
+		}
+		response.Body = blob
+	}
 	entry, err := types.PrepareBulkMessage(response)
 	if err != nil {
 		panic(err)
