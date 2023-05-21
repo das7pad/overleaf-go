@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -43,7 +43,7 @@ type CollaboratorRefsField struct {
 }
 
 type CompilerField struct {
-	Compiler sharedTypes.Compiler `json:"compiler" bson:"compiler"`
+	Compiler sharedTypes.Compiler `bson:"compiler"`
 }
 
 type EpochField struct {
@@ -51,11 +51,11 @@ type EpochField struct {
 }
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id primitive.ObjectID `bson:"_id"`
 }
 
 type ImageNameField struct {
-	ImageName sharedTypes.ImageName `json:"imageName" bson:"imageName"`
+	ImageName sharedTypes.ImageName `bson:"imageName"`
 }
 
 type LastOpenedField struct {
@@ -71,16 +71,16 @@ type LastUpdatedByField struct {
 }
 
 type NameField struct {
-	Name Name `json:"name" bson:"name"`
+	Name Name `bson:"name"`
 }
 
 type OwnerRefField struct {
-	OwnerRef primitive.ObjectID `bson:"owner_ref" json:"owner_ref"`
+	OwnerRef primitive.ObjectID `bson:"owner_ref"`
 }
 
 //goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
-	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel" bson:"publicAccesLevel"`
+	PublicAccessLevel PublicAccessLevel `bson:"publicAccesLevel"`
 }
 
 type ReadOnlyRefsField struct {
@@ -88,11 +88,11 @@ type ReadOnlyRefsField struct {
 }
 
 type RootDocIdField struct {
-	RootDocId primitive.ObjectID `json:"rootDoc_id" bson:"rootDoc_id"`
+	RootDocId primitive.ObjectID `bson:"rootDoc_id"`
 }
 
 type SpellCheckLanguageField struct {
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `bson:"spellCheckLanguage"`
 }
 
 type TokenAccessReadAndWriteRefsField struct {
@@ -104,7 +104,7 @@ type TokenAccessReadOnlyRefsField struct {
 }
 
 type TokensField struct {
-	Tokens Tokens `json:"tokens" bson:"tokens"`
+	Tokens Tokens `bson:"tokens"`
 }
 
 type TrashedByField struct {
@@ -112,9 +112,9 @@ type TrashedByField struct {
 }
 
 type TreeField struct {
-	RootFolder []*Folder `json:"rootFolder" bson:"rootFolder"`
+	RootFolder []*Folder `bson:"rootFolder"`
 }
 
 type VersionField struct {
-	Version sharedTypes.Version `json:"version" bson:"version"`
+	Version sharedTypes.Version `bson:"version"`
 }

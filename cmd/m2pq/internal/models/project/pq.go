@@ -37,17 +37,18 @@ import (
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/status"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type DeletedFileDeletedAtField struct {
-	DeletedAt time.Time `json:"deletedAt" bson:"deletedAt"`
+	DeletedAt time.Time `bson:"deletedAt"`
 }
 
 type DeletedFileProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"projectId" bson:"projectId"`
+	ProjectId primitive.ObjectID `bson:"projectId"`
 }
 
 type DeletedFile struct {
@@ -483,30 +484,28 @@ SELECT $16,
 		rows = rows[:0]
 		_ = t.WalkFiles(func(e TreeElement, _ sharedTypes.PathName) error {
 			f := e.(*FileRef)
-			if err = f.MigrateLinkedFileData(); err != nil {
+			var lfd *project.LinkedFileData
+			if lfd, err = f.MigrateLinkedFileData(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{
-				m2pq.ObjectID2UUID(f.Id), f.Created, f.Hash, f.LinkedFileData,
-				*f.Size, false,
+				m2pq.ObjectID2UUID(f.Id), f.Hash, lfd, *f.Size, false,
 			})
 			return nil
 		})
 		for _, f := range deletedFiles {
-			if err = f.MigrateLinkedFileData(); err != nil {
+			var lfd *project.LinkedFileData
+			if lfd, err = f.MigrateLinkedFileData(); err != nil {
 				return err
 			}
 			rows = append(rows, []interface{}{
-				m2pq.ObjectID2UUID(f.Id), f.Hash, f.LinkedFileData,
-				*f.Size, false,
+				m2pq.ObjectID2UUID(f.Id), f.Hash, lfd, *f.Size, false,
 			})
 		}
 		_, err = tx.CopyFrom(
 			ctx,
 			pgx.Identifier{"files"},
-			[]string{
-				"id", "hash", "linked_file_data", "size", "pending",
-			},
+			[]string{"id", "hash", "linked_file_data", "size", "pending"},
 			pgx.CopyFromRows(rows),
 		)
 		if err != nil {

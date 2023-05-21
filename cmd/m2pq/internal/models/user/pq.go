@@ -176,24 +176,24 @@ LIMIT 1
 		}
 
 		users = append(users, []interface{}{
-			u.BetaProgram,           // beta_program
-			u.SignUpDate,            // created_at
-			nil,                     // deleted_at
-			u.EditorConfig,          // editor_config
-			u.Email,                 // email
-			u.Emails[0].ConfirmedAt, // email_confirmed_at
-			u.Emails[0].CreatedAt,   // email_created_at
-			u.Epoch,                 // epoch
-			u.Features,              // features
-			u.FirstName,             // first_name
-			uId,                     // id
-			u.LastLoggedIn,          // last_login_at
-			u.LastLoginIP,           // last_login_ip
-			u.LastName,              // last_name
-			lw,                      // learned_words
-			u.LoginCount,            // login_count
-			u.MustReconfirm,         // must_reconfirm
-			u.HashedPassword,        // password_hash
+			u.BetaProgram,            // beta_program
+			u.SignUpDate,             // created_at
+			nil,                      // deleted_at
+			u.EditorConfig.Migrate(), // editor_config
+			u.Email,                  // email
+			u.Emails[0].ConfirmedAt,  // email_confirmed_at
+			u.Emails[0].CreatedAt,    // email_created_at
+			u.Epoch,                  // epoch
+			u.Features.Migrate(),     // features
+			u.FirstName,              // first_name
+			uId,                      // id
+			u.LastLoggedIn,           // last_login_at
+			u.LastLoginIP,            // last_login_ip
+			u.LastName,               // last_name
+			lw,                       // learned_words
+			u.LoginCount,             // login_count
+			u.MustReconfirm,          // must_reconfirm
+			u.HashedPassword,         // password_hash
 		})
 		if err != nil {
 			return errors.Tag(err, "queue user")

@@ -19,6 +19,7 @@ package docHistory
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -37,13 +38,14 @@ import (
 )
 
 type ForPQ struct {
+	Id        primitive.ObjectID `bson:"_id"`
 	ProjectId primitive.ObjectID `bson:"project_id"`
 	DocId     primitive.ObjectID `bson:"doc_id"`
 	Pack      []struct {
 		Op []struct {
-			Deletion  string `bson:"d" json:"d,omitempty"`
-			Insertion string `bson:"i" json:"i,omitempty"`
-			Position  int    `bson:"p" json:"p"`
+			Deletion  string `bson:"d"`
+			Insertion string `bson:"i"`
+			Position  int    `bson:"p"`
 		} `bson:"op"`
 		Meta struct {
 			StartTS int64              `bson:"start_ts"`
@@ -172,16 +174,25 @@ WHERE d.id = $1
 		if err != nil {
 			return errors.Tag(err, "generate insert ids")
 		}
-		for _, pack := range dh.Pack {
+		for j, pack := range dh.Pack {
 			hasBigDelete := false
-			for _, component := range pack.Op {
-				if len(component.Deletion) > 16 {
+			op := make(sharedTypes.Op, len(pack.Op))
+			for idx, component := range pack.Op {
+				op[idx].Deletion = sharedTypes.Snippet(component.Deletion)
+				op[idx].Insertion = sharedTypes.Snippet(component.Insertion)
+				op[idx].Position = component.Position
+				if len(op[idx].Deletion) > 16 {
 					hasBigDelete = true
 					break
 				}
 			}
+			if err = op.Validate(); err != nil {
+				return errors.Tag(
+					err, fmt.Sprintf("%s/pack=%d: bad op", dh.Id, j),
+				)
+			}
 			var blob []byte
-			blob, err = json.Marshal(pack.Op)
+			blob, err = json.Marshal(op)
 			if err != nil {
 				return errors.Tag(err, "serialize op")
 			}

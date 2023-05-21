@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,33 +25,33 @@ import (
 )
 
 type CreatedAtField struct {
-	CreatedAt time.Time `json:"createdAt" bson:"createdAt"`
+	CreatedAt time.Time `bson:"createdAt"`
 }
 
 type EmailField struct {
-	Email sharedTypes.Email `json:"email" bson:"email"`
+	Email sharedTypes.Email `bson:"email"`
 }
 
 type ExpiresAtField struct {
-	Expires time.Time `json:"expires" bson:"expires"`
+	Expires time.Time `bson:"expires"`
 }
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id primitive.ObjectID `bson:"_id"`
 }
 
 type PrivilegeLevelField struct {
-	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privileges" bson:"privileges"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `bson:"privileges"`
 }
 
 type ProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"projectId" bson:"projectId"`
+	ProjectId primitive.ObjectID `bson:"projectId"`
 }
 
 type SendingUserIdField struct {
-	SendingUserId primitive.ObjectID `json:"sendingUserId" bson:"sendingUserId"`
+	SendingUserId primitive.ObjectID `bson:"sendingUserId"`
 }
 
 type TokenField struct {
-	Token Token `json:"-" bson:"token"`
+	Token Token `bson:"token"`
 }

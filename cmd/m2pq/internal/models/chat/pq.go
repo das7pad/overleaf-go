@@ -36,11 +36,11 @@ import (
 )
 
 type Message struct {
-	Id        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Content   string             `json:"content" bson:"content"`
-	Timestamp int64              `json:"timestamp" bson:"timestamp"`
-	UserId    primitive.ObjectID `json:"user_id" bson:"user_id"`
-	RoomId    primitive.ObjectID `json:"room_id,omitempty" bson:"room_id"`
+	Id        primitive.ObjectID `bson:"_id"`
+	Content   string             `bson:"content"`
+	Timestamp int64              `bson:"timestamp"`
+	UserId    primitive.ObjectID `bson:"user_id"`
+	RoomId    primitive.ObjectID `bson:"room_id"`
 }
 
 type Room struct {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,25 +24,25 @@ import (
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
+	Id primitive.ObjectID `bson:"_id,omitempty"`
 }
 
 type KeyField struct {
-	Key string `json:"key" bson:"key"`
+	Key string `bson:"key"`
 }
 
 type UserIdField struct {
-	UserId primitive.ObjectID `json:"user_id" bson:"user_id"`
+	UserId primitive.ObjectID `bson:"user_id"`
 }
 
 type ExpiresField struct {
-	Expires time.Time `json:"expires,omitempty" bson:"expires,omitempty"`
+	Expires time.Time `bson:"expires,omitempty"`
 }
 
 type TemplateKeyField struct {
-	TemplateKey string `json:"templateKey,omitempty" bson:"templateKey,omitempty"`
+	TemplateKey string `bson:"templateKey,omitempty"`
 }
 
 type MessageOptsField struct {
-	MessageOptions *bson.M `json:"messageOpts,omitempty" bson:"messageOpts,omitempty"`
+	MessageOptions *bson.M `bson:"messageOpts,omitempty"`
 }

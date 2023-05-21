@@ -17,14 +17,24 @@
 package user
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators,omitempty" bson:"collaborators"`
-	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout" bson:"compileTimeout"`
-	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup" bson:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges,omitempty" bson:"trackChanges"`
-	TrackChangesVisible bool                       `json:"trackChangesVisible,omitempty"`
-	Versioning          bool                       `json:"versioning,omitempty" bson:"versioning"`
+	Collaborators  int                        `bson:"collaborators"`
+	CompileTimeout sharedTypes.ComputeTimeout `bson:"compileTimeout"`
+	CompileGroup   sharedTypes.CompileGroup   `bson:"compileGroup"`
+	TrackChanges   bool                       `bson:"trackChanges"`
+	Versioning     bool                       `bson:"versioning"`
+}
+
+func (f Features) Migrate() user.Features {
+	return user.Features{
+		Collaborators:  f.Collaborators,
+		CompileTimeout: f.CompileTimeout,
+		CompileGroup:   f.CompileGroup,
+		TrackChanges:   f.TrackChanges,
+		Versioning:     f.Versioning,
+	}
 }

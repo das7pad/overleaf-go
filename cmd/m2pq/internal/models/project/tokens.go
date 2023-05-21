@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,7 @@ package project
 type AccessToken string
 
 type Tokens struct {
-	ReadOnly           AccessToken `json:"readOnly" bson:"readOnly"`
-	ReadAndWrite       AccessToken `json:"readAndWrite" bson:"readAndWrite"`
-	ReadAndWritePrefix string      `json:"readAndWritePrefix" bson:"readAndWritePrefix"`
+	ReadOnly           AccessToken `bson:"readOnly"`
+	ReadAndWrite       AccessToken `bson:"readAndWrite"`
+	ReadAndWritePrefix string      `bson:"readAndWritePrefix"`
 }

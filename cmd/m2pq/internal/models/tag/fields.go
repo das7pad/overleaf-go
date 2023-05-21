@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,17 +21,17 @@ import (
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id primitive.ObjectID `bson:"_id"`
 }
 
 type NameField struct {
-	Name string `json:"name" bson:"name"`
+	Name string `bson:"name"`
 }
 
 type ProjectIdsField struct {
-	ProjectIds []primitive.ObjectID `json:"project_ids" bson:"project_ids"`
+	ProjectIds []primitive.ObjectID `bson:"project_ids"`
 }
 
 type UserIdField struct {
-	UserId string `json:"user_id" bson:"user_id"`
+	UserId string `bson:"user_id"`
 }

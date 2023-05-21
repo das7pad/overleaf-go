@@ -25,33 +25,33 @@ import (
 )
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id primitive.ObjectID `bson:"_id"`
 }
 
 type ProjectIdField struct {
-	ProjectId primitive.ObjectID `json:"project_id" bson:"project_id"`
+	ProjectId primitive.ObjectID `bson:"project_id"`
 }
 
 type LinesField struct {
-	Lines []string `json:"lines" bson:"lines"`
+	Lines []string `bson:"lines"`
 }
 
 type NameField struct {
-	Name sharedTypes.Filename `json:"name" bson:"name"`
+	Name sharedTypes.Filename `bson:"name"`
 }
 
 type DeletedField struct {
-	Deleted bool `json:"deleted" bson:"deleted"`
+	Deleted bool `bson:"deleted"`
 }
 
 type DeletedAtField struct {
-	DeletedAt time.Time `json:"deletedAt" bson:"deletedAt"`
+	DeletedAt time.Time `bson:"deletedAt"`
 }
 
 type InS3Field struct {
-	InS3 bool `json:"inS3" bson:"inS3"`
+	InS3 bool `bson:"inS3"`
 }
 
 type VersionField struct {
-	Version sharedTypes.Version `json:"version" bson:"version"`
+	Version sharedTypes.Version `bson:"version"`
 }

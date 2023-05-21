@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,19 +29,19 @@ type AuditLogField struct {
 }
 
 type BetaProgramField struct {
-	BetaProgram bool `json:"betaProgram" bson:"betaProgram"`
+	BetaProgram bool `bson:"betaProgram"`
 }
 
 type EditorConfigField struct {
-	EditorConfig EditorConfig `json:"ace" bson:"ace"`
+	EditorConfig EditorConfig `bson:"ace"`
 }
 
 type EmailField struct {
-	Email sharedTypes.Email `json:"email" bson:"email"`
+	Email sharedTypes.Email `bson:"email"`
 }
 
 type EmailsField struct {
-	Emails []EmailDetails `json:"emails" bson:"emails"`
+	Emails []EmailDetails `bson:"emails"`
 }
 
 type EpochField struct {
@@ -49,19 +49,19 @@ type EpochField struct {
 }
 
 type FeaturesField struct {
-	Features Features `json:"features" bson:"features"`
+	Features Features `bson:"features"`
 }
 
 type FirstNameField struct {
-	FirstName string `json:"first_name" bson:"first_name"`
+	FirstName string `bson:"first_name"`
 }
 
 type IdField struct {
-	Id primitive.ObjectID `json:"_id" bson:"_id"`
+	Id primitive.ObjectID `bson:"_id"`
 }
 
 type HashedPasswordField struct {
-	HashedPassword string `json:"-" bson:"hashedPassword"`
+	HashedPassword string `bson:"hashedPassword"`
 }
 
 type LastLoggedInField struct {
@@ -73,7 +73,7 @@ type LastLoginIPField struct {
 }
 
 type LastNameField struct {
-	LastName string `json:"last_name" bson:"last_name"`
+	LastName string `bson:"last_name"`
 }
 
 type LoginCountField struct {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -26,9 +26,9 @@ import (
 
 type EmailDetails struct {
 	Id               primitive.ObjectID           `bson:"_id"`
-	CreatedAt        time.Time                    `json:"createdAt" bson:"createdAt"`
-	ConfirmedAt      *time.Time                   `json:"confirmedAt" bson:"confirmedAt"`
-	ReconfirmedAt    *time.Time                   `json:"reconfirmedAt" bson:"reconfirmedAt"`
-	Email            sharedTypes.Email            `json:"email" bson:"email"`
-	ReversedHostname sharedTypes.ReversedHostname `json:"reversedHostname" bson:"reversedHostname"`
+	CreatedAt        time.Time                    `bson:"createdAt"`
+	ConfirmedAt      *time.Time                   `bson:"confirmedAt"`
+	ReconfirmedAt    *time.Time                   `bson:"reconfirmedAt"`
+	Email            sharedTypes.Email            `bson:"email"`
+	ReversedHostname sharedTypes.ReversedHostname `bson:"reversedHostname"`
 }

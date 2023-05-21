@@ -25,6 +25,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/m2pq"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -33,8 +34,8 @@ type TreeElement interface {
 }
 
 type CommonTreeFields struct {
-	Id   primitive.ObjectID   `json:"_id" bson:"_id"`
-	Name sharedTypes.Filename `json:"name" bson:"name"`
+	Id   primitive.ObjectID   `bson:"_id"`
+	Name sharedTypes.Filename `bson:"name"`
 }
 
 func (c CommonTreeFields) GetId() primitive.ObjectID {
@@ -48,74 +49,77 @@ type Doc struct {
 	Version  sharedTypes.Version
 }
 
-type LinkedFileProvider string
-
 type LinkedFileData struct {
-	Provider             LinkedFileProvider `json:"provider" bson:"provider"`
-	SourceProjectId      string             `json:"source_project_id,omitempty" bson:"source_project_id,omitempty"`
-	SourceEntityPath     string             `json:"source_entity_path,omitempty" bson:"source_entity_path,omitempty"`
-	SourceOutputFilePath string             `json:"source_output_file_path,omitempty" bson:"source_output_file_path,omitempty"`
-	URL                  string             `json:"url,omitempty" bson:"url,omitempty"`
+	Provider             project.LinkedFileProvider `bson:"provider"`
+	SourceProjectId      string                     `bson:"source_project_id,omitempty"`
+	SourceEntityPath     string                     `bson:"source_entity_path,omitempty"`
+	SourceOutputFilePath string                     `bson:"source_output_file_path,omitempty"`
+	URL                  string                     `bson:"url,omitempty"`
 }
 
-func (f *FileRef) MigrateLinkedFileData() error {
-	if f.LinkedFileData == nil {
-		return nil
-	}
-	if f.LinkedFileData.Provider == "" {
+func (f *FileRef) MigrateLinkedFileData() (*project.LinkedFileData, error) {
+	if f.LinkedFileData == nil || f.LinkedFileData.Provider == "" {
 		f.LinkedFileData = nil
-		return nil
+		return nil, nil
 	}
-	d := f.LinkedFileData
+	if err := f.LinkedFileData.Provider.Validate(); err != nil {
+		return nil, err
+	}
+	raw := f.LinkedFileData
+	d := project.LinkedFileData{
+		Provider: raw.Provider,
+	}
 
 	// The NodeJS implementation stored these as absolute paths.
-	if d.SourceEntityPath != "" {
-		d.SourceEntityPath = strings.TrimPrefix(
-			d.SourceEntityPath, "/",
-		)
+	if raw.SourceEntityPath != "" {
+		d.SourceEntityPath = sharedTypes.PathName(strings.TrimPrefix(
+			raw.SourceEntityPath, "/",
+		))
 	}
-	if d.SourceOutputFilePath != "" {
-		d.SourceOutputFilePath = strings.TrimPrefix(
-			d.SourceOutputFilePath, "/",
-		)
+	if raw.SourceOutputFilePath != "" {
+		d.SourceOutputFilePath = sharedTypes.PathName(strings.TrimPrefix(
+			raw.SourceOutputFilePath, "/",
+		))
 	}
 
-	if d.SourceProjectId != "" {
-		id, err := m2pq.ParseID(d.SourceProjectId)
+	if raw.SourceProjectId != "" {
+		id, err := m2pq.ParseID(raw.SourceProjectId)
 		if err != nil {
-			return errors.Tag(err, "invalid source project id")
+			return nil, errors.Tag(err, "invalid source project id")
 		}
-		d.SourceProjectId = id.String()
+		d.SourceProjectId = id
 	}
-	return nil
+
+	if raw.URL != "" {
+		u, err := sharedTypes.ParseAndValidateURL(raw.URL)
+		if err != nil {
+			return nil, errors.Tag(err, "invalid source url")
+		}
+		d.URL = u.String()
+	}
+	return &d, nil
 }
 
 type FileRef struct {
 	CommonTreeFields `bson:"inline"`
 
-	LinkedFileData *LinkedFileData  `json:"linkedFileData,omitempty" bson:"linkedFileData,omitempty"`
-	Hash           sharedTypes.Hash `json:"hash" bson:"hash"`
-	Created        time.Time        `json:"created" bson:"created"`
-	Size           *int64           `json:"size" bson:"size"`
+	LinkedFileData *LinkedFileData  `bson:"linkedFileData,omitempty"`
+	Hash           sharedTypes.Hash `bson:"hash"`
+	Created        time.Time        `bson:"created"`
+	Size           *int64           `bson:"size"`
 }
 
 type Folder struct {
 	CommonTreeFields `bson:"inline"`
 
-	Docs     []*Doc     `json:"docs" bson:"docs"`
-	FileRefs []*FileRef `json:"fileRefs" bson:"fileRefs"`
-	Folders  []*Folder  `json:"folders" bson:"folders"`
+	Docs     []*Doc     `bson:"docs"`
+	FileRefs []*FileRef `bson:"fileRefs"`
+	Folders  []*Folder  `bson:"folders"`
 }
-
-type MongoPath string
 
 type DirWalker func(folder *Folder, path sharedTypes.DirName) error
 
-type DirWalkerMongo func(parent, folder *Folder, path sharedTypes.DirName, mongoPath MongoPath) error
-
 type TreeWalker func(element TreeElement, path sharedTypes.PathName) error
-
-type TreeWalkerMongo func(parent *Folder, element TreeElement, path sharedTypes.PathName, mongoPath MongoPath) error
 
 func (t *Folder) CountNodes() int {
 	n := 1 + len(t.Docs) + len(t.FileRefs)

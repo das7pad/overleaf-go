@@ -17,19 +17,36 @@
 package user
 
 import (
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
 )
 
 type EditorConfig struct {
-	FontFamily         string                           `json:"fontFamily" bson:"fontFamily"`
-	FontSize           int64                            `json:"fontSize" bson:"fontSize"`
-	LineHeight         string                           `json:"lineHeight" bson:"lineHeight"`
-	Mode               string                           `json:"mode" bson:"mode"`
-	OverallTheme       string                           `json:"overallTheme" bson:"overallTheme"`
-	PDFViewer          string                           `json:"pdfViewer" bson:"pdfViewer"`
-	SpellCheckLanguage spellingTypes.SpellCheckLanguage `json:"spellCheckLanguage" bson:"spellCheckLanguage"`
-	Theme              string                           `json:"theme" bson:"theme"`
-	AutoComplete       bool                             `json:"autoComplete" bson:"autoComplete"`
-	AutoPairDelimiters bool                             `json:"autoPairDelimiters" bson:"autoPairDelimiters"`
-	SyntaxValidation   bool                             `json:"syntaxValidation" bson:"syntaxValidation"`
+	FontFamily         string                           `bson:"fontFamily"`
+	FontSize           int64                            `bson:"fontSize"`
+	LineHeight         string                           `bson:"lineHeight"`
+	Mode               string                           `bson:"mode"`
+	OverallTheme       string                           `bson:"overallTheme"`
+	PDFViewer          string                           `bson:"pdfViewer"`
+	SpellCheckLanguage spellingTypes.SpellCheckLanguage `bson:"spellCheckLanguage"`
+	Theme              string                           `bson:"theme"`
+	AutoComplete       bool                             `bson:"autoComplete"`
+	AutoPairDelimiters bool                             `bson:"autoPairDelimiters"`
+	SyntaxValidation   bool                             `bson:"syntaxValidation"`
+}
+
+func (e EditorConfig) Migrate() user.EditorConfig {
+	return user.EditorConfig{
+		AutoComplete:       e.AutoComplete,
+		AutoPairDelimiters: e.AutoPairDelimiters,
+		FontFamily:         e.FontFamily,
+		FontSize:           e.FontSize,
+		LineHeight:         e.LineHeight,
+		Mode:               e.Mode,
+		OverallTheme:       e.OverallTheme,
+		PDFViewer:          e.PDFViewer,
+		SpellCheckLanguage: e.SpellCheckLanguage,
+		SyntaxValidation:   e.SyntaxValidation,
+		Theme:              e.Theme,
+	}
 }
