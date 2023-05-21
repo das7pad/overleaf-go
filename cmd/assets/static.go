@@ -1,0 +1,135 @@
+// Golang port of Overleaf
+// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package main
+
+import (
+	"io"
+	"path"
+	"strings"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
+)
+
+type staticCopyPattern struct {
+	From string
+	To   string
+}
+
+func (cp staticCopyPattern) IsStatic() bool {
+	return strings.HasPrefix(cp.From, "/")
+}
+
+func joinKeepTrailing(parts ...string) string {
+	p := path.Join(parts...)
+	if strings.HasSuffix(parts[len(parts)-1], "/") {
+		p += "/"
+	}
+	return p
+}
+
+func writeStaticFiles(p string, o *outputCollector) error {
+	var pattern []staticCopyPattern
+	pattern = append(pattern, staticCopyPattern{
+		From: path.Join(p, "LICENSE"),
+		To:   path.Join(p, "public/LICENSE"),
+	})
+	// public/
+	pattern = append(pattern, staticCopyPattern{
+		From: joinKeepTrailing(p, "public/"),
+		To:   joinKeepTrailing(p, "public/"),
+	})
+	// PDF.js
+	pattern = append(pattern, staticCopyPattern{
+		From: "pdfjs-dist/build/pdf.worker.min.js",
+		To:   path.Join(p, "public/vendor/pdfjs-dist/build/pdf.worker.min.js"),
+	}, staticCopyPattern{
+		From: "pdfjs-dist/cmaps/",
+		To:   joinKeepTrailing(p, "public/vendor/pdfjs-dist/cmaps/"),
+	})
+	// Ace
+	pattern = append(pattern, staticCopyPattern{
+		From: "ace-builds/src-min-noconflict/",
+		To:   joinKeepTrailing(p, "public/vendor/ace-builds/src-min-noconflict/"),
+	})
+	// MathJax
+	for _, s := range []string{
+		"extensions/a11y/",
+		"extensions/HelpDialog.js",
+		"fonts/HTML-CSS/TeX/woff/",
+		"jax/output/HTML-CSS/autoload/",
+		"jax/output/HTML-CSS/fonts/TeX/",
+	} {
+		pattern = append(pattern, staticCopyPattern{
+			From: "mathjax/" + s,
+			To:   joinKeepTrailing(p, "public/vendor/mathjax-2-7-9", s),
+		})
+	}
+	// OpenInOverleaf
+	pattern = append(pattern, staticCopyPattern{
+		From: path.Join(p, "frontend/js/vendor/libs/highlight.pack.js"),
+		To:   path.Join(p, "public/vendor/highlight.pack.js"),
+	}, staticCopyPattern{
+		From: path.Join(p, "frontend/stylesheets/vendor/highlight-github.css"),
+		To:   path.Join(p, "public/vendor/stylesheets/highlight-github.css"),
+	})
+
+	packages := make(map[string]bool)
+	for _, cp := range pattern {
+		if cp.IsStatic() {
+			continue
+		}
+		pkg, _, _ := strings.Cut(cp.From, "/")
+		packages[pkg] = true
+	}
+	r := yarnPNPReader{}
+	if err := r.load(p, packages); err != nil {
+		return errors.Tag(err, "load yarn reader")
+	}
+	for _, cp := range pattern {
+		if cp.IsStatic() {
+			if strings.HasSuffix(cp.From, "/") {
+				if err := o.copyFolder(cp.From, cp.To); err != nil {
+					return err
+				}
+			} else {
+				if err := o.copyFile(cp.From, cp.To); err != nil {
+					return err
+				}
+			}
+		} else {
+			pkg, prefix, _ := strings.Cut(cp.From, "/")
+			for s, file := range r.Match(pkg, prefix) {
+				f, err := file.Open()
+				if err != nil {
+					return errors.Tag(err, s)
+				}
+				blob, err := io.ReadAll(f)
+				if err != nil {
+					return errors.Tag(err, s)
+				}
+				if err = f.Close(); err != nil {
+					return errors.Tag(err, s)
+				}
+				if err = o.write(cp.To+s, blob); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
