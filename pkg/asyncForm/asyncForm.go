@@ -32,10 +32,9 @@ type Message struct {
 	Key  string      `json:"key,omitempty"`
 }
 
-//goland:noinspection SpellCheckingInspection
 type Response struct {
 	Message    *Message `json:"message,omitempty"`
-	RedirectTo string   `json:"redir,omitempty"`
+	RedirectTo string   `json:"redirectTo,omitempty"`
 }
 
 func (r *Response) SetCustomFormMessage(key string, err error) {
