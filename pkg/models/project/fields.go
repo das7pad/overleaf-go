@@ -83,9 +83,8 @@ type OwnerFeaturesField struct {
 	OwnerFeatures user.Features `json:"features"`
 }
 
-//goland:noinspection SpellCheckingInspection
 type PublicAccessLevelField struct {
-	PublicAccessLevel PublicAccessLevel `json:"publicAccesLevel"`
+	PublicAccessLevel PublicAccessLevel `json:"publicAccessLevel"`
 }
 
 type RootDocIdField struct {
