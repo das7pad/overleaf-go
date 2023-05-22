@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"os"
 	"runtime"
 
 	"github.com/evanw/esbuild/pkg/api"
@@ -54,46 +53,53 @@ func main() {
 					return errors.Tag(err, cfg.Description)
 				}
 			} else {
-				r := c.Rebuild()
-				fmt.Println(cfg.Description, r.Warnings)
-				fmt.Println(cfg.Description, r.Errors)
+				t := &sharedTypes.Timed{}
+				t.Begin()
+				c.Rebuild()
+				fmt.Println(cfg.Description, t.Stage())
 				c.Dispose()
 			}
 			return nil
 		})
 	}
 
+	total := &sharedTypes.Timed{}
+	total.Begin()
+
 	t := &sharedTypes.Timed{}
 	t.Begin()
 	if err := eg.Wait(); err != nil {
 		panic(err)
 	}
-	fmt.Println(t.Stage())
+	fmt.Println("build", t.Stage())
 	if err := writeStaticFiles(p, o); err != nil {
 		panic(err)
 	}
-	fmt.Println(t.Stage())
+	fmt.Println("static", t.Stage())
 	if err := o.Close(); err != nil {
 		panic(err)
 	}
+	fmt.Println("close", t.Stage())
 
-	fmt.Println("assets")
-	for s, s2 := range o.manifest.Assets {
-		fmt.Println(s, "->", s2)
-	}
-	fmt.Println()
-	fmt.Println()
-	fmt.Println("entrypoints")
-	for s, strings := range o.manifest.EntryPoints {
-		fmt.Println(s, "->", strings)
-	}
+	// fmt.Println("assets")
+	// for s, s2 := range o.manifest.Assets {
+	// 	fmt.Println(s, "->", s2)
+	// }
+	// fmt.Println()
+	// fmt.Println()
+	// fmt.Println("entrypoints")
+	// for s, strings := range o.manifest.EntryPoints {
+	// 	fmt.Println(s, "->", strings)
+	// }
 
 	tarGz, err := compress(buf.Bytes())
 	fmt.Println(len(tarGz), len(buf.Bytes()), err)
-	fmt.Println(t.Stage())
+	fmt.Println("gz", t.Stage())
 
-	err = os.WriteFile("/tmp/go.tar.gz", tarGz, 0o644)
-	fmt.Println(err)
+	fmt.Println(total.Stage())
+
+	// err = os.WriteFile("/tmp/go.tar.gz", tarGz, 0o644)
+	// fmt.Println(err)
 }
 
 func compress(blob []byte) ([]byte, error) {
