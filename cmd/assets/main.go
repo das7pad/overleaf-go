@@ -19,14 +19,16 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 func main() {
@@ -53,53 +55,42 @@ func main() {
 					return errors.Tag(err, cfg.Description)
 				}
 			} else {
-				t := &sharedTypes.Timed{}
-				t.Begin()
+				t0 := time.Now()
 				c.Rebuild()
-				fmt.Println(cfg.Description, t.Stage())
+				fmt.Println(cfg.Description, time.Since(t0).String())
 				c.Dispose()
 			}
 			return nil
 		})
 	}
 
-	total := &sharedTypes.Timed{}
-	total.Begin()
-
-	t := &sharedTypes.Timed{}
-	t.Begin()
+	t0 := time.Now()
+	t := time.Now()
 	if err := eg.Wait(); err != nil {
 		panic(err)
 	}
-	fmt.Println("build", t.Stage())
+	fmt.Println("build", time.Since(t).String())
+	t = time.Now()
 	if err := writeStaticFiles(p, o); err != nil {
 		panic(err)
 	}
-	fmt.Println("static", t.Stage())
+	fmt.Println("static", time.Since(t).String())
+	t = time.Now()
 	if err := o.Close(); err != nil {
 		panic(err)
 	}
-	fmt.Println("close", t.Stage())
-
-	// fmt.Println("assets")
-	// for s, s2 := range o.manifest.Assets {
-	// 	fmt.Println(s, "->", s2)
-	// }
-	// fmt.Println()
-	// fmt.Println()
-	// fmt.Println("entrypoints")
-	// for s, strings := range o.manifest.EntryPoints {
-	// 	fmt.Println(s, "->", strings)
-	// }
+	fmt.Println("close", time.Since(t).String())
+	t = time.Now()
 
 	tarGz, err := compress(buf.Bytes())
 	fmt.Println(len(tarGz), len(buf.Bytes()), err)
-	fmt.Println("gz", t.Stage())
+	fmt.Println("gz", time.Since(t).String())
 
-	fmt.Println(total.Stage())
+	fmt.Println("total", time.Since(t0).String())
 
 	// err = os.WriteFile("/tmp/go.tar.gz", tarGz, 0o644)
 	// fmt.Println(err)
+	fmt.Println(hash(tarGz))
 }
 
 func compress(blob []byte) ([]byte, error) {
@@ -115,4 +106,9 @@ func compress(blob []byte) ([]byte, error) {
 		return nil, errors.Tag(err, "close gzip")
 	}
 	return buf.Bytes(), err
+}
+
+func hash(blob []byte) string {
+	d := sha256.Sum256(blob)
+	return hex.EncodeToString(d[:])
 }

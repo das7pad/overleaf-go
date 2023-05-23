@@ -19,12 +19,15 @@ package main
 import (
 	"archive/tar"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
@@ -35,10 +38,9 @@ func newOutputCollector(p string, w io.Writer) *outputCollector {
 	o := outputCollector{p: path.Join(p, "public")}
 	o.manifest.Assets = make(map[string]string)
 	o.manifest.EntryPoints = make(map[string][]string)
+	o.mem = make(map[string][]byte)
 	if w != nil {
-		o.o = tar.NewWriter(w)
-	} else {
-		o.oo = make(map[string][]byte)
+		o.tar = tar.NewWriter(w)
 	}
 	return &o
 }
@@ -79,15 +81,15 @@ type outputCollector struct {
 
 	previous map[string]interface{}
 
-	o  *tar.Writer
-	oo map[string][]byte
+	tar *tar.Writer
+	mem map[string][]byte
 }
 
 func (o *outputCollector) Close() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.o != nil {
+	if o.tar != nil {
 		blob, err := json.Marshal(o.manifest)
 		if err != nil {
 			return errors.Tag(err, "serialize manifest")
@@ -96,7 +98,21 @@ func (o *outputCollector) Close() error {
 		if err = o.write(file, blob); err != nil {
 			return err
 		}
-		if err = o.o.Close(); err != nil {
+
+		t0 := time.Now()
+		ordered := make([]string, 0, len(o.mem))
+		for s := range o.mem {
+			ordered = append(ordered, s)
+		}
+		sort.Strings(ordered)
+		for _, s := range ordered {
+			if err = o.append(s, o.mem[s]); err != nil {
+				return err
+			}
+		}
+		fmt.Println("build tar", time.Since(t0).String())
+
+		if err = o.tar.Close(); err != nil {
 			return errors.Tag(err, "close tar")
 		}
 	}
@@ -115,7 +131,7 @@ func (o *outputCollector) Plugin(options buildOptions) api.Plugin {
 }
 
 func (o *outputCollector) append(p string, blob []byte) error {
-	err := o.o.WriteHeader(&tar.Header{
+	err := o.tar.WriteHeader(&tar.Header{
 		Name: p,
 		Size: int64(len(blob)),
 		Mode: 0o444,
@@ -123,7 +139,7 @@ func (o *outputCollector) append(p string, blob []byte) error {
 	if err != nil {
 		return errors.Tag(err, p+": write tar header")
 	}
-	if _, err = o.o.Write(blob); err != nil {
+	if _, err = o.tar.Write(blob); err != nil {
 		return errors.Tag(err, p+": write tar body")
 	}
 	return nil
@@ -131,13 +147,9 @@ func (o *outputCollector) append(p string, blob []byte) error {
 
 func (o *outputCollector) write(p string, blob []byte) error {
 	p = "." + p[len(o.p):]
-	if o.o == nil {
-		o.oo[p] = blob
+	o.mem[p] = blob
+	if o.tar == nil {
 		return nil
-	}
-
-	if err := o.append(p, blob); err != nil {
-		return err
 	}
 
 	gz, err := compress(blob)
@@ -145,7 +157,7 @@ func (o *outputCollector) write(p string, blob []byte) error {
 		return errors.Tag(err, p)
 	}
 	if len(gz) < len(blob) {
-		return o.append(p+".gz", gz)
+		o.mem[p+".gz"] = gz
 	}
 	return nil
 }
