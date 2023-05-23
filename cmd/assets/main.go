@@ -22,6 +22,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path"
 	"runtime"
 	"time"
 
@@ -33,11 +35,13 @@ import (
 
 func main() {
 	p := os.Getenv("WEB_ROOT")
+	dst := "/tmp"
 	watch := false
+	bundle := false
 	concurrency := runtime.NumCPU()
 
-	buf := bytes.NewBuffer(make([]byte, 0, 50_000_000))
-	o := newOutputCollector(p, buf)
+	buf := bytes.NewBuffer(make([]byte, 0, 30_000_000))
+	o := newOutputCollector(p, bundle)
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(concurrency)
@@ -63,34 +67,49 @@ func main() {
 			return nil
 		})
 	}
+	eg.Go(func() error {
+		t0 := time.Now()
+		if err := writeStaticFiles(p, o); err != nil {
+			return err
+		}
+		fmt.Println("static", time.Since(t0).String())
+		return nil
+	})
 
 	t0 := time.Now()
+	defer func() {
+		fmt.Println("total", time.Since(t0).String())
+	}()
+
 	t := time.Now()
 	if err := eg.Wait(); err != nil {
 		panic(err)
 	}
 	fmt.Println("build", time.Since(t).String())
+
+	if !bundle {
+		return
+	}
+
 	t = time.Now()
-	if err := writeStaticFiles(p, o); err != nil {
+	if err := o.Bundle(buf); err != nil {
 		panic(err)
 	}
-	fmt.Println("static", time.Since(t).String())
-	t = time.Now()
-	if err := o.Close(); err != nil {
+	fmt.Println("bundle", time.Since(t).String())
+
+	tarGz := buf.Bytes()
+	sum := []byte(hash(tarGz))
+	fmt.Println(string(sum), len(tarGz))
+
+	err := os.WriteFile(path.Join(dst, "public.tar.gz"), tarGz, 0o644)
+	if err != nil {
 		panic(err)
 	}
-	fmt.Println("close", time.Since(t).String())
-	t = time.Now()
 
-	tarGz, err := compress(buf.Bytes())
-	fmt.Println(len(tarGz), len(buf.Bytes()), err)
-	fmt.Println("gz", time.Since(t).String())
-
-	fmt.Println("total", time.Since(t0).String())
-
-	// err = os.WriteFile("/tmp/go.tar.gz", tarGz, 0o644)
-	// fmt.Println(err)
-	fmt.Println(hash(tarGz))
+	err = os.WriteFile(path.Join(dst, "public.tar.gz.checksum.txt"), sum, 0o644)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func compress(blob []byte) ([]byte, error) {

@@ -18,8 +18,8 @@ package main
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -27,22 +27,38 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func newOutputCollector(p string, w io.Writer) *outputCollector {
-	o := outputCollector{p: path.Join(p, "public")}
-	o.manifest.Assets = make(map[string]string)
-	o.manifest.EntryPoints = make(map[string][]string)
-	o.mem = make(map[string][]byte)
-	if w != nil {
-		o.tar = tar.NewWriter(w)
+func newOutputCollector(p string, preCompress bool) *outputCollector {
+	return &outputCollector{
+		manifest: manifest{
+			Assets:      make(map[string]string),
+			EntryPoints: make(map[string][]string),
+		},
+		mem:         make(map[string][]byte),
+		p:           path.Join(p, "public"),
+		preCompress: preCompress,
 	}
-	return &o
+}
+
+type manifest struct {
+	Assets      map[string]string   `json:"assets"`
+	EntryPoints map[string][]string `json:"entryPoints"`
+}
+
+type outputCollector struct {
+	manifest
+	mu          sync.Mutex
+	p           string
+	preCompress bool
+
+	previous map[string]interface{}
+
+	mem map[string][]byte
 }
 
 func (o *outputCollector) copyFile(from, to string) error {
@@ -71,50 +87,57 @@ func (o *outputCollector) copyFolder(from, to string) error {
 	})
 }
 
-type outputCollector struct {
-	manifest struct {
-		Assets      map[string]string   `json:"assets"`
-		EntryPoints map[string][]string `json:"entryPoints"`
+func (o *outputCollector) writeManifest() error {
+	o.mu.Lock()
+	blob, err := json.Marshal(o.manifest)
+	o.mu.Unlock()
+	if err != nil {
+		return errors.Tag(err, "serialize manifest")
 	}
-	mu sync.Mutex
-	p  string
-
-	previous map[string]interface{}
-
-	tar *tar.Writer
-	mem map[string][]byte
+	file := path.Join(o.p, "public/manifest.json")
+	if err = o.write(file, blob); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (o *outputCollector) Close() error {
+func (o *outputCollector) Bundle(w io.Writer) error {
+	gz, errGz := gzip.NewWriterLevel(w, 6)
+	if errGz != nil {
+		return errGz
+	}
+	t := tar.NewWriter(gz)
+
+	if err := o.writeManifest(); err != nil {
+		return err
+	}
+
 	o.mu.Lock()
 	defer o.mu.Unlock()
-
-	if o.tar != nil {
-		blob, err := json.Marshal(o.manifest)
+	ordered := make([]string, 0, len(o.mem))
+	for f := range o.mem {
+		ordered = append(ordered, f)
+	}
+	sort.Strings(ordered)
+	for _, f := range ordered {
+		err := t.WriteHeader(&tar.Header{
+			Name: f,
+			Size: int64(len(o.mem[f])),
+			Mode: 0o444,
+		})
 		if err != nil {
-			return errors.Tag(err, "serialize manifest")
+			return errors.Tag(err, f+": write tar header")
 		}
-		file := path.Join(o.p, "public/manifest.json")
-		if err = o.write(file, blob); err != nil {
-			return err
+		if _, err = t.Write(o.mem[f]); err != nil {
+			return errors.Tag(err, f+": write tar body")
 		}
+	}
 
-		t0 := time.Now()
-		ordered := make([]string, 0, len(o.mem))
-		for s := range o.mem {
-			ordered = append(ordered, s)
-		}
-		sort.Strings(ordered)
-		for _, s := range ordered {
-			if err = o.append(s, o.mem[s]); err != nil {
-				return err
-			}
-		}
-		fmt.Println("build tar", time.Since(t0).String())
-
-		if err = o.tar.Close(); err != nil {
-			return errors.Tag(err, "close tar")
-		}
+	if err := t.Close(); err != nil {
+		return errors.Tag(err, "close tar")
+	}
+	if err := gz.Close(); err != nil {
+		return errors.Tag(err, "close gzip")
 	}
 	return nil
 }
@@ -130,39 +153,28 @@ func (o *outputCollector) Plugin(options buildOptions) api.Plugin {
 	}
 }
 
-func (o *outputCollector) append(p string, blob []byte) error {
-	err := o.tar.WriteHeader(&tar.Header{
-		Name: p,
-		Size: int64(len(blob)),
-		Mode: 0o444,
-	})
-	if err != nil {
-		return errors.Tag(err, p+": write tar header")
-	}
-	if _, err = o.tar.Write(blob); err != nil {
-		return errors.Tag(err, p+": write tar body")
-	}
-	return nil
-}
-
 func (o *outputCollector) write(p string, blob []byte) error {
 	p = "." + p[len(o.p):]
+	o.mu.Lock()
 	o.mem[p] = blob
-	if o.tar == nil {
+	o.mu.Unlock()
+
+	if !o.preCompress {
 		return nil
 	}
-
 	gz, err := compress(blob)
 	if err != nil {
 		return errors.Tag(err, p)
 	}
 	if len(gz) < len(blob) {
+		o.mu.Lock()
 		o.mem[p+".gz"] = gz
+		o.mu.Unlock()
 	}
 	return nil
 }
 
-type manifest struct {
+type rawManifest struct {
 	Outputs map[string]struct {
 		Inputs     map[string]struct{}
 		Entrypoint string
@@ -175,16 +187,14 @@ type manifest struct {
 }
 
 func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEndResult, error) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
 	// TODO track previous
 
-	m := manifest{}
+	m := rawManifest{}
 	if err := json.Unmarshal([]byte(r.Metafile), &m); err != nil {
 		return api.OnEndResult{}, errors.Tag(err, "deserialize metafile")
 	}
 
+	o.mu.Lock()
 	for s, file := range m.Outputs {
 		ext := filepath.Ext(s)
 		switch ext {
@@ -213,11 +223,16 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 			o.manifest.Assets[bundle+".css"] = file.CssBundle[len("public"):]
 		}
 	}
+	o.mu.Unlock()
 
 	for _, file := range r.OutputFiles {
 		if err := o.write(file.Path, file.Contents); err != nil {
 			return api.OnEndResult{}, err
 		}
+	}
+
+	if err := o.writeManifest(); err != nil {
+		return api.OnEndResult{}, err
 	}
 
 	return api.OnEndResult{}, nil
