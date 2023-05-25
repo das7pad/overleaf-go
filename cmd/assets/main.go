@@ -18,9 +18,9 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -34,14 +34,20 @@ import (
 )
 
 func main() {
+	addr := ":54321"
+	flag.StringVar(&addr, "addr", addr, "")
 	p := os.Getenv("WEB_ROOT")
-	dst := "/tmp"
-	watch := false
-	bundle := false
+	flag.StringVar(&p, "src", p, "path to node-monorepo")
+	dst := "/tmp/public.tar.gz"
+	flag.StringVar(&dst, "dst", dst, "")
+	watch := true
+	flag.BoolVar(&watch, "watch", watch, "")
 	concurrency := runtime.NumCPU()
+	flag.IntVar(&concurrency, "concurrency", concurrency, "")
+	flag.Parse()
 
-	buf := bytes.NewBuffer(make([]byte, 0, 30_000_000))
-	o := newOutputCollector(p, bundle)
+	t0 := time.Now()
+	o := newOutputCollector(p, !watch)
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(concurrency)
@@ -49,82 +55,72 @@ func main() {
 	for _, options := range getConfigs(p) {
 		cfg := options
 		cfg.Plugins = append(cfg.Plugins, o.Plugin(cfg))
+		if watch && cfg.ListenForRebuild {
+			cfg.Inject = append(
+				cfg.Inject, path.Join(p, "esbuild/inject/listenForRebuild.js"),
+			)
+		}
 		eg.Go(func() error {
 			c, ctxErr := api.Context(cfg.BuildOptions)
 			if ctxErr != nil {
 				return errors.Tag(ctxErr, cfg.Description)
 			}
+			t1 := time.Now()
+			c.Rebuild()
+			fmt.Println(cfg.Description, time.Since(t1).String())
 			if watch {
 				if err := c.Watch(api.WatchOptions{}); err != nil {
 					return errors.Tag(err, cfg.Description)
 				}
 			} else {
-				t0 := time.Now()
-				c.Rebuild()
-				fmt.Println(cfg.Description, time.Since(t0).String())
 				c.Dispose()
 			}
 			return nil
 		})
 	}
 	eg.Go(func() error {
-		t0 := time.Now()
+		t1 := time.Now()
 		if err := writeStaticFiles(p, o); err != nil {
 			return err
 		}
-		fmt.Println("static", time.Since(t0).String())
+		fmt.Println("static", time.Since(t1).String())
 		return nil
 	})
 
-	t0 := time.Now()
 	defer func() {
 		fmt.Println("total", time.Since(t0).String())
 	}()
 
-	t := time.Now()
 	if err := eg.Wait(); err != nil {
 		panic(err)
 	}
-	fmt.Println("build", time.Since(t).String())
+	fmt.Println("build", time.Since(t0).String())
 
-	if !bundle {
+	if watch {
+		serve(addr, o)
 		return
 	}
 
-	t = time.Now()
+	t1 := time.Now()
+	buf := bytes.NewBuffer(make([]byte, 0, 30_000_000))
 	if err := o.Bundle(buf); err != nil {
 		panic(err)
 	}
-	fmt.Println("bundle", time.Since(t).String())
+	fmt.Println("bundle", time.Since(t1).String())
 
 	tarGz := buf.Bytes()
-	sum := []byte(hash(tarGz))
-	fmt.Println(string(sum), len(tarGz))
+	sum := hash(tarGz)
+	fmt.Println(sum, len(tarGz))
 
-	err := os.WriteFile(path.Join(dst, "public.tar.gz"), tarGz, 0o644)
+	err := os.WriteFile(dst, tarGz, 0o644)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile(path.Join(dst, "public.tar.gz.checksum.txt"), sum, 0o644)
+	err = os.WriteFile(dst+".checksum.txt", []byte(sum), 0o644)
 	if err != nil {
 		panic(err)
 	}
-}
-
-func compress(blob []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(make([]byte, 0, len(blob)))
-	gz, err := gzip.NewWriterLevel(buf, 6)
-	if err != nil {
-		return nil, errors.Tag(err, "init gzip")
-	}
-	if _, err = gz.Write(blob); err != nil {
-		return nil, errors.Tag(err, "gzip")
-	}
-	if err = gz.Close(); err != nil {
-		return nil, errors.Tag(err, "close gzip")
-	}
-	return buf.Bytes(), err
 }
 
 func hash(blob []byte) string {

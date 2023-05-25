@@ -21,6 +21,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/evanw/esbuild/pkg/api"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -29,8 +31,8 @@ type staticCopyPattern struct {
 	To   string
 }
 
-func (cp staticCopyPattern) IsStatic() bool {
-	return strings.HasPrefix(cp.From, "/")
+func (cp staticCopyPattern) FromNPMPackage() bool {
+	return !strings.HasPrefix(cp.From, "/")
 }
 
 func joinKeepTrailing(parts ...string) string {
@@ -87,32 +89,22 @@ func writeStaticFiles(p string, o *outputCollector) error {
 		To:   path.Join(p, "public/vendor/stylesheets/highlight-github.css"),
 	})
 
-	packages := make(map[string]bool)
+	wantedPackages := make(map[string]bool)
 	for _, cp := range pattern {
-		if cp.IsStatic() {
-			continue
+		if cp.FromNPMPackage() {
+			pkg, _, _ := strings.Cut(cp.From, "/")
+			wantedPackages[pkg] = true
 		}
-		pkg, _, _ := strings.Cut(cp.From, "/")
-		packages[pkg] = true
 	}
 	r := yarnPNPReader{}
-	if err := r.load(p, packages); err != nil {
+	defer r.Close()
+	if err := r.load(p, wantedPackages); err != nil {
 		return errors.Tag(err, "load yarn reader")
 	}
 	for _, cp := range pattern {
-		if cp.IsStatic() {
-			if strings.HasSuffix(cp.From, "/") {
-				if err := o.copyFolder(cp.From, cp.To); err != nil {
-					return err
-				}
-			} else {
-				if err := o.copyFile(cp.From, cp.To); err != nil {
-					return err
-				}
-			}
-		} else {
+		if cp.FromNPMPackage() {
 			pkg, prefix, _ := strings.Cut(cp.From, "/")
-			for s, file := range r.Match(pkg, prefix) {
+			for s, file := range r.GetMatching(pkg, prefix) {
 				f, err := file.Open()
 				if err != nil {
 					return errors.Tag(err, s)
@@ -128,7 +120,24 @@ func writeStaticFiles(p string, o *outputCollector) error {
 					return err
 				}
 			}
+		} else {
+			if strings.HasSuffix(cp.From, "/") {
+				if err := o.copyFolder(cp.From, cp.To); err != nil {
+					return err
+				}
+			} else {
+				if err := o.copyFile(cp.From, cp.To); err != nil {
+					return err
+				}
+			}
 		}
+	}
+
+	if err := o.writeManifest(); err != nil {
+		return err
+	}
+	if err := o.notifyAboutBuild("static", &api.BuildResult{}); err != nil {
+		return err
 	}
 
 	return nil

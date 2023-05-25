@@ -34,7 +34,7 @@ type yarnPNPData struct {
 	PackageRegistryData [][]interface{}
 }
 
-func (r *yarnPNPReader) load(p string, needle map[string]bool) error {
+func (r *yarnPNPReader) load(p string, wanted map[string]bool) error {
 	d := yarnPNPData{}
 	blob, err := os.ReadFile(path.Join(p, ".yarn/.pnp.data.json"))
 	if err != nil {
@@ -50,7 +50,7 @@ func (r *yarnPNPReader) load(p string, needle map[string]bool) error {
 			continue
 		}
 		name := l1[0].(string)
-		if !needle[name] {
+		if !wanted[name] {
 			continue
 		}
 		for _, l2 := range l1[1].([]interface{}) {
@@ -77,7 +77,7 @@ func (r *yarnPNPReader) Close() {
 	}
 }
 
-func (r *yarnPNPReader) Match(name, prefix string) map[string]*zip.File {
+func (r *yarnPNPReader) GetMatching(name, prefix string) map[string]*zip.File {
 	out := make(map[string]*zip.File, 0)
 	inZip := "node_modules/" + name + "/"
 	for _, file := range r.m[name].File {

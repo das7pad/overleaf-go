@@ -18,6 +18,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
@@ -36,18 +37,19 @@ import (
 func newOutputCollector(p string, preCompress bool) *outputCollector {
 	return &outputCollector{
 		manifest: manifest{
-			Assets:      make(map[string]string),
-			EntryPoints: make(map[string][]string),
+			Assets:           make(map[string]string),
+			EntrypointChunks: make(map[string][]string),
 		},
 		mem:         make(map[string][]byte),
+		old:         make(map[string]map[string]bool),
 		p:           path.Join(p, "public"),
 		preCompress: preCompress,
 	}
 }
 
 type manifest struct {
-	Assets      map[string]string   `json:"assets"`
-	EntryPoints map[string][]string `json:"entryPoints"`
+	Assets           map[string]string   `json:"assets"`
+	EntrypointChunks map[string][]string `json:"entrypointChunks"`
 }
 
 type outputCollector struct {
@@ -56,9 +58,35 @@ type outputCollector struct {
 	p           string
 	preCompress bool
 
-	previous map[string]interface{}
+	onBuild []chan<- buildNotification
+	old     map[string]map[string]bool
+	mem     map[string][]byte
+}
 
-	mem map[string][]byte
+func (o *outputCollector) AddListener(c chan buildNotification) func() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.onBuild = append(o.onBuild, c)
+	return func() {
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		for i, c2 := range o.onBuild {
+			if c == c2 {
+				o.onBuild[i] = o.onBuild[len(o.onBuild)-1]
+				o.onBuild = o.onBuild[:len(o.onBuild)-1]
+			}
+		}
+		close(c)
+		for range c {
+		}
+	}
+}
+
+func (o *outputCollector) GET(p string) ([]byte, bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	blob, ok := o.mem[p]
+	return blob, ok
 }
 
 func (o *outputCollector) copyFile(from, to string) error {
@@ -94,7 +122,7 @@ func (o *outputCollector) writeManifest() error {
 	if err != nil {
 		return errors.Tag(err, "serialize manifest")
 	}
-	file := path.Join(o.p, "public/manifest.json")
+	file := path.Join(o.p, "manifest.json")
 	if err = o.write(file, blob); err != nil {
 		return err
 	}
@@ -107,10 +135,6 @@ func (o *outputCollector) Bundle(w io.Writer) error {
 		return errGz
 	}
 	t := tar.NewWriter(gz)
-
-	if err := o.writeManifest(); err != nil {
-		return err
-	}
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -154,7 +178,7 @@ func (o *outputCollector) Plugin(options buildOptions) api.Plugin {
 }
 
 func (o *outputCollector) write(p string, blob []byte) error {
-	p = "." + p[len(o.p):]
+	p = p[len(o.p)+1:]
 	o.mu.Lock()
 	o.mem[p] = blob
 	o.mu.Unlock()
@@ -186,12 +210,17 @@ type rawManifest struct {
 	}
 }
 
-func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEndResult, error) {
-	// TODO track previous
+type buildNotification struct {
+	manifest []byte
+	rebuild  []byte
+}
 
+func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEndResult, error) {
 	m := rawManifest{}
-	if err := json.Unmarshal([]byte(r.Metafile), &m); err != nil {
-		return api.OnEndResult{}, errors.Tag(err, "deserialize metafile")
+	if r.Metafile != "" {
+		if err := json.Unmarshal([]byte(r.Metafile), &m); err != nil {
+			return api.OnEndResult{}, errors.Tag(err, "deserialize metafile")
+		}
 	}
 
 	o.mu.Lock()
@@ -217,7 +246,7 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 			}
 		}
 		e = append(e, s[len("public"):])
-		o.manifest.EntryPoints[bundle] = e
+		o.manifest.EntrypointChunks[bundle] = e
 
 		if file.CssBundle != "" {
 			o.manifest.Assets[bundle+".css"] = file.CssBundle[len("public"):]
@@ -225,15 +254,44 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 	}
 	o.mu.Unlock()
 
+	written := make(map[string]bool, len(r.OutputFiles))
 	for _, file := range r.OutputFiles {
+		written[file.Path[len(o.p)+1:]] = true
 		if err := o.write(file.Path, file.Contents); err != nil {
 			return api.OnEndResult{}, err
 		}
 	}
 
+	o.mu.Lock()
+	for s := range o.old[desc] {
+		if !written[s] {
+			delete(o.mem, s)
+		}
+	}
+	o.old[desc] = written
+	o.mu.Unlock()
+
 	if err := o.writeManifest(); err != nil {
+		return api.OnEndResult{}, err
+	}
+	if err := o.notifyAboutBuild(desc, r); err != nil {
 		return api.OnEndResult{}, err
 	}
 
 	return api.OnEndResult{}, nil
+}
+
+func compress(blob []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(make([]byte, 0, len(blob)))
+	gz, err := gzip.NewWriterLevel(buf, 6)
+	if err != nil {
+		return nil, errors.Tag(err, "init gzip")
+	}
+	if _, err = gz.Write(blob); err != nil {
+		return nil, errors.Tag(err, "gzip")
+	}
+	if err = gz.Close(); err != nil {
+		return nil, errors.Tag(err, "close gzip")
+	}
+	return buf.Bytes(), err
 }

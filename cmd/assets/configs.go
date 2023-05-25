@@ -25,7 +25,8 @@ import (
 
 type buildOptions struct {
 	api.BuildOptions
-	Description string
+	Description      string
+	ListenForRebuild bool
 }
 
 func baseConfig(p string, desc string) buildOptions {
@@ -46,6 +47,7 @@ func baseConfig(p string, desc string) buildOptions {
 			Engines:          []api.Engine{}, // TODO
 			Outdir:           path.Join(p, "public"),
 			Tsconfig:         path.Join(p, "tsconfig.json"),
+			LogLevel:         api.LogLevelInfo,
 			Loader: map[string]api.Loader{
 				".js":    api.LoaderJSX,
 				".woff":  api.LoaderFile,
@@ -61,6 +63,7 @@ func baseConfig(p string, desc string) buildOptions {
 
 func mainBundlesConfig(p string) buildOptions {
 	c := baseConfig(p, "main bundles")
+	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
 	c.EntryPoints = []string{
@@ -86,6 +89,7 @@ func mainBundlesConfig(p string) buildOptions {
 
 func marketingBundlesConfig(p string) buildOptions {
 	c := baseConfig(p, "marketing bundles")
+	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
 	c.EntryPoints = []string{
