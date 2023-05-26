@@ -18,7 +18,10 @@ package main
 
 import (
 	"io"
+	"io/fs"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
@@ -43,7 +46,34 @@ func joinKeepTrailing(parts ...string) string {
 	return p
 }
 
-func writeStaticFiles(p string, o *outputCollector) error {
+func (o *outputCollector) copyFile(from, to string) error {
+	blob, err := os.ReadFile(from)
+	if err != nil {
+		return errors.Tag(err, from)
+	}
+	if err = o.write(to, blob); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o *outputCollector) copyFolder(from, to string) error {
+	return filepath.Walk(from, func(file string, s fs.FileInfo, err error) error {
+		if err != nil {
+			return errors.Tag(err, file)
+		}
+		if s.IsDir() {
+			return nil
+		}
+		if err = o.copyFile(file, to+file[len(from):]); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (o *outputCollector) writeStaticFiles() error {
+	p := o.p
 	var pattern []staticCopyPattern
 	pattern = append(pattern, staticCopyPattern{
 		From: path.Join(p, "LICENSE"),

@@ -22,12 +22,12 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"io/fs"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
@@ -42,8 +42,10 @@ func newOutputCollector(p string, preCompress bool) *outputCollector {
 		},
 		mem:         make(map[string][]byte),
 		old:         make(map[string]map[string]bool),
-		p:           path.Join(p, "public"),
+		p:           p,
+		public:      path.Join(p, "public"),
 		preCompress: preCompress,
+		epochBlob:   []byte(strconv.FormatInt(time.Now().UnixMilli(), 10)),
 	}
 }
 
@@ -56,63 +58,13 @@ type outputCollector struct {
 	manifest
 	mu          sync.Mutex
 	p           string
+	public      string
 	preCompress bool
+	epochBlob   []byte
 
 	onBuild []chan<- buildNotification
 	old     map[string]map[string]bool
 	mem     map[string][]byte
-}
-
-func (o *outputCollector) AddListener(c chan buildNotification) func() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.onBuild = append(o.onBuild, c)
-	return func() {
-		o.mu.Lock()
-		defer o.mu.Unlock()
-		for i, c2 := range o.onBuild {
-			if c == c2 {
-				o.onBuild[i] = o.onBuild[len(o.onBuild)-1]
-				o.onBuild = o.onBuild[:len(o.onBuild)-1]
-			}
-		}
-		close(c)
-		for range c {
-		}
-	}
-}
-
-func (o *outputCollector) GET(p string) ([]byte, bool) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	blob, ok := o.mem[p]
-	return blob, ok
-}
-
-func (o *outputCollector) copyFile(from, to string) error {
-	blob, err := os.ReadFile(from)
-	if err != nil {
-		return errors.Tag(err, from)
-	}
-	if err = o.write(to, blob); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (o *outputCollector) copyFolder(from, to string) error {
-	return filepath.Walk(from, func(file string, s fs.FileInfo, err error) error {
-		if err != nil {
-			return errors.Tag(err, file)
-		}
-		if s.IsDir() {
-			return nil
-		}
-		if err = o.copyFile(file, to+file[len(from):]); err != nil {
-			return err
-		}
-		return nil
-	})
 }
 
 func (o *outputCollector) writeManifest() error {
@@ -122,7 +74,7 @@ func (o *outputCollector) writeManifest() error {
 	if err != nil {
 		return errors.Tag(err, "serialize manifest")
 	}
-	file := path.Join(o.p, "manifest.json")
+	file := path.Join(o.public, "manifest.json")
 	if err = o.write(file, blob); err != nil {
 		return err
 	}
@@ -178,7 +130,7 @@ func (o *outputCollector) Plugin(options buildOptions) api.Plugin {
 }
 
 func (o *outputCollector) write(p string, blob []byte) error {
-	p = p[len(o.p)+1:]
+	p = p[len(o.public)+1:]
 	o.mu.Lock()
 	o.mem[p] = blob
 	o.mu.Unlock()
@@ -208,11 +160,6 @@ type rawManifest struct {
 			Path string
 		}
 	}
-}
-
-type buildNotification struct {
-	manifest []byte
-	rebuild  []byte
 }
 
 func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEndResult, error) {
@@ -256,7 +203,7 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 
 	written := make(map[string]bool, len(r.OutputFiles))
 	for _, file := range r.OutputFiles {
-		written[file.Path[len(o.p)+1:]] = true
+		written[file.Path[len(o.public)+1:]] = true
 		if err := o.write(file.Path, file.Contents); err != nil {
 			return api.OnEndResult{}, err
 		}

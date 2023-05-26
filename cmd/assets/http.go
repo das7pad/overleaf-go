@@ -22,30 +22,28 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"time"
 )
 
-func serve(addr string, o *outputCollector) {
-	epoch := time.Now()
-	err := http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/event-source") {
-			handleEventSource(w, r, epoch, o)
+func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.URL.Path, "/event-source") {
+		o.handleEventSource(w, r)
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		blob, ok := o.GET(strings.TrimPrefix(r.URL.Path, "/"))
+		if ok {
+			ct := mime.TypeByExtension(path.Ext(r.URL.Path))
+			w.Header().Set("Content-Type", ct)
+			_, _ = w.Write(blob)
 		} else {
-			blob, ok := o.GET(strings.TrimPrefix(r.URL.Path, "/"))
-			if ok {
-				ct := mime.TypeByExtension(path.Ext(r.URL.Path))
-				if s := r.Header.Get("Origin"); s != "" {
-					w.Header().Set("Access-Control-Allow-Origin", "*")
-				}
-				w.Header().Set("Content-Type", ct)
-				_, _ = w.Write(blob)
-			} else {
-				log.Printf("GET %s 404", r.URL.Path)
-				w.WriteHeader(http.StatusNotFound)
-			}
+			log.Printf("GET %s 404", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
 		}
-	}))
-	if err != nil {
-		panic(err)
 	}
+}
+
+func (o *outputCollector) GET(p string) ([]byte, bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	blob, ok := o.mem[p]
+	return blob, ok
 }

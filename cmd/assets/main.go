@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"runtime"
@@ -80,7 +81,7 @@ func main() {
 	}
 	eg.Go(func() error {
 		t1 := time.Now()
-		if err := writeStaticFiles(p, o); err != nil {
+		if err := o.writeStaticFiles(); err != nil {
 			return err
 		}
 		fmt.Println("static", time.Since(t1).String())
@@ -97,7 +98,9 @@ func main() {
 	fmt.Println("build", time.Since(t0).String())
 
 	if watch {
-		serve(addr, o)
+		if err := http.ListenAndServe(addr, o); err != nil {
+			panic(err)
+		}
 		return
 	}
 

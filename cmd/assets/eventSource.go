@@ -20,13 +20,16 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
-	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
+
+type buildNotification struct {
+	manifest []byte
+	rebuild  []byte
+}
 
 type minimalLocation struct {
 	File       string `json:"file"`
@@ -66,6 +69,25 @@ func convertMessages(in []api.Message) []minimalMessage {
 	return out
 }
 
+func (o *outputCollector) addListener(c chan buildNotification) func() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.onBuild = append(o.onBuild, c)
+	return func() {
+		o.mu.Lock()
+		for i, c2 := range o.onBuild {
+			if c == c2 {
+				o.onBuild[i] = o.onBuild[len(o.onBuild)-1]
+				o.onBuild = o.onBuild[:len(o.onBuild)-1]
+			}
+		}
+		o.mu.Unlock()
+		close(c)
+		for range c {
+		}
+	}
+}
+
 func (o *outputCollector) notifyAboutBuild(name string, r *api.BuildResult) error {
 	rebuild, err := json.Marshal(rebuildMessage{
 		Name:     name,
@@ -88,12 +110,11 @@ func (o *outputCollector) notifyAboutBuild(name string, r *api.BuildResult) erro
 	return nil
 }
 
-func handleEventSource(w http.ResponseWriter, r *http.Request, epoch time.Time, o *outputCollector) {
+func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Request) {
 	c := make(chan buildNotification, 10)
-	defer o.AddListener(c)()
+	defer o.addListener(c)()
 	w.Header().Set("Content-Type", "text/event-stream")
-	blob := []byte(strconv.FormatInt(epoch.UnixMilli(), 10))
-	if err := writeSSE(w, "epoch", blob); err != nil {
+	if err := writeSSE(w, "epoch", o.epochBlob); err != nil {
 		log.Println(r.RequestURI, err)
 		return
 	}
