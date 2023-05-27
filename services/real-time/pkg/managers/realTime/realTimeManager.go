@@ -128,9 +128,9 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 		return
 	}
 	log.Printf(
-		"user=%s project=%s doc=%s action=%s err=%s",
+		"user=%s project=%s doc=%s action=%s body=%d err=%s",
 		rpc.Client.User.Id, rpc.Client.ProjectId, rpc.Request.DocId,
-		rpc.Request.Action, err.Error(),
+		rpc.Request.Action, len(rpc.Request.Body), err.Error(),
 	)
 	if errors.IsFatalError(err) {
 		rpc.Response.FatalError = true
@@ -207,21 +207,7 @@ func (m *manager) leaveDoc(rpc *types.RPC) error {
 	return nil
 }
 
-const (
-	maxUpdateSize = 7*1024*1024 + 64*1024
-)
-
 func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
-	if len(rpc.Request.Body) > maxUpdateSize {
-		// Accept the update RPC at first, keep going on error.
-		_ = rpc.Client.QueueResponse(&types.RPCResponse{
-			Callback: rpc.Request.Callback,
-		})
-		// Then fire an otUpdateError as broadcast to this very client only.
-		rpc.Response.Callback = 0
-		rpc.Response.Name = "otUpdateError"
-		return &errors.BodyTooLargeError{}
-	}
 	var update sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &update); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}

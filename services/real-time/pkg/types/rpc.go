@@ -92,5 +92,8 @@ func (r *RPC) Validate() error {
 	if err := r.Client.CanDo(r.Request.Action, r.Request.DocId); err != nil {
 		return err
 	}
+	if len(r.Request.Body) > sharedTypes.MaxDocSizeBytes {
+		return &errors.BodyTooLargeError{}
+	}
 	return nil
 }
