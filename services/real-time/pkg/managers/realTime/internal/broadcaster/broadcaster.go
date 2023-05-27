@@ -142,7 +142,7 @@ func (b *broadcaster) createNewRoom() Room {
 	go func() {
 		for entry := range c {
 			if entry.leavingClient != nil {
-				entry.leavingClient.RemoveWriter()
+				entry.leavingClient.CloseWriteQueue()
 				continue
 			}
 
@@ -192,10 +192,12 @@ func (b *broadcaster) leave(ctx context.Context, id sharedTypes.UUID, client *ty
 	r, exists := b.rooms[id]
 	if !exists {
 		// Already left.
+		client.CloseWriteQueue()
 		return nil
 	}
 	if r.isEmpty() {
 		// Already left.
+		client.CloseWriteQueue()
 		return nil
 	}
 

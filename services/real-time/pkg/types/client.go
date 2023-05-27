@@ -99,16 +99,15 @@ func generatePublicId() (sharedTypes.PublicId, error) {
 	return id, nil
 }
 
-func NewClient(writerChanges chan bool, writeQueue WriteQueue, disconnect func()) (*Client, error) {
+func NewClient(writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	publicId, err := generatePublicId()
 	if err != nil {
 		return nil, err
 	}
 	c := &Client{
-		PublicId:      publicId,
-		writerChanges: writerChanges,
-		writeQueue:    writeQueue,
-		disconnect:    disconnect,
+		PublicId:   publicId,
+		writeQueue: writeQueue,
+		disconnect: disconnect,
 	}
 	c.MarkAsLeftDoc()
 	return c, nil
@@ -123,17 +122,12 @@ type Client struct {
 
 	docId atomic.Pointer[sharedTypes.UUID]
 
-	writerChanges chan bool
-	writeQueue    WriteQueue
-	disconnect    func()
+	writeQueue WriteQueue
+	disconnect func()
 }
 
-func (c *Client) AddWriter() {
-	c.writerChanges <- true
-}
-
-func (c *Client) RemoveWriter() {
-	c.writerChanges <- false
+func (c *Client) CloseWriteQueue() {
+	close(c.writeQueue)
 }
 
 func (c *Client) HasJoinedDoc(id sharedTypes.UUID) bool {

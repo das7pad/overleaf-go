@@ -100,11 +100,14 @@ func (r *TrackingRoom) add(client *types.Client) {
 	f := make(Clients, n)
 	copy(f, clients)
 	f[n-1] = client
-	client.AddWriter()
 	r.clients.Store(&f)
 }
 
 func (r *TrackingRoom) remove(client *types.Client) {
+	defer func() {
+		r.c <- roomQueueEntry{leavingClient: client}
+	}()
+
 	clients := *r.clients.Load()
 	idx := -1
 	for i, c := range clients {
@@ -117,10 +120,6 @@ func (r *TrackingRoom) remove(client *types.Client) {
 		// Not found.
 		return
 	}
-
-	defer func() {
-		r.c <- roomQueueEntry{leavingClient: client}
-	}()
 
 	n := len(clients)
 	if n == 1 {

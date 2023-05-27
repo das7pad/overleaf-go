@@ -121,30 +121,12 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		return
 	}
 
-	writerChanges := make(chan bool)
 	writeQueue := make(chan types.WriteQueueEntry, 10)
-	go func() {
-		defer close(writeQueue)
-		pendingWriters := 1
-		for addWriter := range writerChanges {
-			if addWriter {
-				pendingWriters++
-			} else {
-				pendingWriters--
-			}
-			if pendingWriters == 0 {
-				close(writerChanges)
-			}
-		}
-	}()
-	defer func() {
-		writerChanges <- false
-	}()
 
 	ctx, disconnect := context.WithCancel(requestCtx)
 	defer disconnect()
 
-	c, clientErr := types.NewClient(writerChanges, writeQueue, disconnect)
+	c, clientErr := types.NewClient(writeQueue, disconnect)
 	if clientErr != nil {
 		log.Println("client setup failed: " + clientErr.Error())
 		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
@@ -169,7 +151,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 			_ = conn.Close()
 			for range writeQueue {
 				// Flush the queue.
-				// Eventually the main goroutine will close the channel.
+				// Eventually the room cleanup will close the channel.
 			}
 		}()
 		var lsr []types.LazySuccessResponse
