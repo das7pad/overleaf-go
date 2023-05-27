@@ -19,13 +19,11 @@ package broadcaster
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -34,7 +32,6 @@ type Broadcaster interface {
 	Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error
 	Leave(client *types.Client, id sharedTypes.UUID) error
 	StartListening(ctx context.Context) error
-	TriggerGracefulReconnect() int
 }
 
 type NewRoom func(room *TrackingRoom) Room
@@ -60,40 +57,6 @@ type broadcaster struct {
 	queue   chan func()
 	mux     sync.RWMutex
 	rooms   map[sharedTypes.UUID]Room
-}
-
-//goland:noinspection SpellCheckingInspection
-const hexChars = "0123456789abcdef"
-
-func (b *broadcaster) TriggerGracefulReconnect() int {
-	total := 0
-	for _, c := range hexChars {
-		suffix := uint8(c)
-		n := 0
-		b.pauseQueueFor(func() {
-			for _, r := range b.rooms {
-				for _, client := range r.Clients() {
-					// The last character is a random hex char.
-					if client.PublicId[32] != suffix {
-						continue
-					}
-					n++
-					_ = client.QueueMessage(events.ReconnectGracefullyPrepared)
-				}
-			}
-		})
-		total += n
-		if n > 100 {
-			// Estimate > 1600 clients.
-			// Worst case for the shutdown is ~2min per full cycle.
-			time.Sleep(10 * time.Second)
-		} else if n > 10 {
-			// Estimate 160 < total < 1600 clients.
-			// Worst case for the shutdown is ~2s per full cycle.
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
-	return total
 }
 
 func (b *broadcaster) pauseQueueFor(fn func()) {
