@@ -128,6 +128,10 @@ func main() {
 		dum.ProcessDocumentUpdates(processDocumentUpdatesCtx)
 		return nil
 	})
+	eg.Go(func() error {
+		rtm.PeriodicCleanup(ctx)
+		return nil
+	})
 
 	server := http.Server{
 		Addr:    addr,
