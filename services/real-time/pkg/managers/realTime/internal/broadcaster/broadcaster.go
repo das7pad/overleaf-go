@@ -110,6 +110,12 @@ func (b *broadcaster) processQueue() {
 	}
 }
 
+func (b *broadcaster) queueCleanup(id sharedTypes.UUID) {
+	b.queue <- func() {
+		b.cleanup(id)
+	}
+}
+
 func (b *broadcaster) cleanup(id sharedTypes.UUID) {
 	r, exists := b.rooms[id]
 	if !exists {
@@ -294,9 +300,7 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 		for raw := range c {
 			switch raw.Action {
 			case channel.Unsubscribed:
-				b.queue <- func() {
-					b.cleanup(raw.Channel)
-				}
+				b.queueCleanup(raw.Channel)
 			case channel.IncomingMessage:
 				if raw.Channel.IsZero() {
 					b.allQueue <- raw.Msg
