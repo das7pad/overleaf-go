@@ -51,8 +51,6 @@ func (r *ProjectRoom) Handle(raw string) {
 	}
 	var err error
 	switch msg.Message {
-	case clientTracking.Refresh:
-		err = r.refreshClientPositions()
 	case "otUpdateApplied":
 		err = r.handleUpdate(msg)
 	default:

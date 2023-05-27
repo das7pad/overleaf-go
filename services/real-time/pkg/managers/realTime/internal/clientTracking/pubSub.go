@@ -26,7 +26,6 @@ import (
 )
 
 const (
-	Refresh            = "clientTracking.refresh"
 	ClientConnected    = "clientTracking.clientConnected"
 	ClientDisconnected = "clientTracking.clientDisconnected"
 	ClientUpdated      = "clientTracking.clientUpdated"
