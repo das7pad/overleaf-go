@@ -287,11 +287,7 @@ func (m *manager) backgroundFlush(client *types.Client) {
 
 	err := m.dum.FlushProject(ctx, client.ProjectId)
 	if err != nil {
-		log.Println(
-			errors.Tag(
-				err, "background flush failed for "+client.ProjectId.String(),
-			).Error(),
-		)
+		log.Printf("background flush failed: %s: %s", client.ProjectId, err)
 	}
 }
 

@@ -122,7 +122,7 @@ func (m *manager) getForProjectWithCache(ctx context.Context, projectId sharedTy
 			ProjectMeta:    meta,
 		})
 		if err2 != nil {
-			log.Println(errors.Tag(err2, projectId.String()).Error())
+			log.Printf("cache project metadata: %s: %s", projectId, err2)
 		}
 	}()
 	return meta, nil

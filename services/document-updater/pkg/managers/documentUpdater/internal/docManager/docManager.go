@@ -421,15 +421,14 @@ func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId 
 
 func (m *manager) reportError(projectId, docId sharedTypes.UUID, err error) {
 	// NOTE: This used to be in the background in Node.JS.
-	//       Move in foreground to avoid race-conditions.
+	//       Move in foreground to avoid out-of-order messages.
 	reportCtx, cancel := context.WithTimeout(
 		context.Background(), time.Second*10,
 	)
 	err2 := m.rtRm.ReportError(reportCtx, projectId, docId, err)
 	cancel()
 	if err2 != nil {
-		ids := projectId.String() + "/" + docId.String()
-		log.Println(errors.Tag(err2, "report error in "+ids).Error())
+		log.Printf("%s/%s: report error: %s", projectId, docId, err2)
 	}
 }
 
