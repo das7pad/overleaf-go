@@ -17,25 +17,18 @@
 package editorEvents
 
 import (
-	"time"
-
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 )
 
 type Manager interface {
 	broadcaster.Broadcaster
 }
 
-func New(c channel.Manager, clientTracking clientTracking.Manager) Manager {
+func New(c channel.Manager) Manager {
 	newRoom := func(room *broadcaster.TrackingRoom) broadcaster.Room {
-		now := time.Now()
 		return &ProjectRoom{
-			TrackingRoom:       room,
-			clientTracking:     clientTracking,
-			nextProjectRefresh: now,
-			nextClientRefresh:  now,
+			TrackingRoom: room,
 		}
 	}
 	b := broadcaster.New(c, newRoom)

@@ -23,15 +23,13 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type Clients []*types.Client
+type Clients = []*types.Client
 
 var noClients = make(Clients, 0)
 
 type Room interface {
 	Handle(msg string)
 	Clients() Clients
-	StartPeriodicTasks()
-	StopPeriodicTasks()
 	isEmpty() bool
 	add(client *types.Client)
 	remove(client *types.Client)
@@ -54,14 +52,6 @@ func (r *TrackingRoom) Handle(_ string) {
 
 func (r *TrackingRoom) Clients() Clients {
 	return *r.clients.Load()
-}
-
-func (r *TrackingRoom) StartPeriodicTasks() {
-	// Noop
-}
-
-func (r *TrackingRoom) StopPeriodicTasks() {
-	// Noop
 }
 
 func (r *TrackingRoom) pendingOperation() pendingOperation.WithCancel {

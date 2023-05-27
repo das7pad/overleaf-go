@@ -25,14 +25,15 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type Manager interface {
 	Disconnect(client *types.Client) bool
 	GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error)
-	ConnectInBackground(client *types.Client)
-	RefreshClientPositions(ctx context.Context, client []*types.Client, refreshProjectExpiry bool) error
+	Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients
+	RefreshClientPositions(ctx context.Context, client map[sharedTypes.UUID][]*types.Client) error
 	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
 }
 
@@ -49,10 +50,9 @@ type manager struct {
 }
 
 const (
-	ProjectExpiry       = 4 * 24 * time.Hour
-	RefreshProjectEvery = ProjectExpiry - 12*time.Hour
-	UserExpiry          = 15 * time.Minute
-	RefreshUserEvery    = UserExpiry - 1*time.Minute
+	ProjectExpiry    = 4 * 24 * time.Hour
+	UserExpiry       = 15 * time.Minute
+	RefreshUserEvery = UserExpiry - 1*time.Minute
 )
 
 func (m *manager) Disconnect(client *types.Client) bool {
@@ -73,12 +73,9 @@ func (m *manager) Disconnect(client *types.Client) bool {
 	return n == 0
 }
 
-func (m *manager) ConnectInBackground(client *types.Client) {
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-
-	n, err := m.updateClientPosition(ctx, client, nil)
-	if err != nil || n > 0 {
+func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients {
+	clients, err := m.updateClientPosition(ctx, client, nil, fetchConnectedUsers)
+	if err != nil || len(clients) > 0 {
 		if errNotify := m.notifyConnected(ctx, client); errNotify != nil {
 			err = errors.Merge(errNotify, err)
 		}
@@ -87,13 +84,14 @@ func (m *manager) ConnectInBackground(client *types.Client) {
 		err = errors.Tag(err, "initialize connected client")
 		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
 	}
+	return clients
 }
 
 func (m *manager) UpdatePosition(ctx context.Context, client *types.Client, p types.ClientPosition) error {
 	if err := m.notifyUpdated(ctx, client, p); err != nil {
 		return err
 	}
-	if _, err := m.updateClientPosition(ctx, client, &p); err != nil {
+	if _, err := m.updateClientPosition(ctx, client, &p, false); err != nil {
 		return err
 	}
 	return nil

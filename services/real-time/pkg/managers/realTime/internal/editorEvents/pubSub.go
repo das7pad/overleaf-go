@@ -17,26 +17,16 @@
 package editorEvents
 
 import (
-	"context"
 	"encoding/json"
 	"log"
-	"math/rand"
-	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 type ProjectRoom struct {
 	*broadcaster.TrackingRoom
-
-	nextClientRefresh  time.Time
-	nextProjectRefresh time.Time
-	periodicRefresh    *time.Ticker
-	clientTracking     clientTracking.Manager
 }
 
 func (r *ProjectRoom) Handle(raw string) {
@@ -60,61 +50,6 @@ func (r *ProjectRoom) Handle(raw string) {
 		log.Println("handle editorEvents message: " + err.Error())
 		return
 	}
-}
-
-func (r *ProjectRoom) StopPeriodicTasks() {
-	if t := r.periodicRefresh; t != nil {
-		t.Stop()
-	}
-}
-
-func (r *ProjectRoom) StartPeriodicTasks() {
-	jitter := time.Duration(rand.Int63n(int64(30 * time.Second)))
-	baseInter := clientTracking.RefreshUserEvery - jitter
-
-	t := time.NewTicker(baseInter)
-	r.periodicRefresh = t
-	go func() {
-		failedAttempts := 0
-		for range t.C {
-			err := r.refreshClientPositions()
-			if err != nil {
-				if failedAttempts == 0 {
-					// Retry soon.
-					t.Reset(baseInter / 3)
-				}
-				failedAttempts++
-				if failedAttempts%10 == 0 {
-					err = errors.Tag(
-						err, "repeatedly failed to refresh clients",
-					)
-					log.Println(err.Error())
-				}
-				continue
-			}
-			if failedAttempts > 0 {
-				failedAttempts = 0
-				t.Reset(baseInter)
-			}
-		}
-	}()
-}
-
-func (r *ProjectRoom) refreshClientPositions() error {
-	t := time.Now()
-	if t.Before(r.nextClientRefresh) {
-		return nil
-	}
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-	refreshProjectExpiry := t.After(r.nextProjectRefresh)
-	err := r.clientTracking.RefreshClientPositions(ctx, r.Clients(), refreshProjectExpiry)
-	if err != nil {
-		return err
-	}
-	r.nextClientRefresh = t.Add(clientTracking.RefreshUserEvery)
-	r.nextProjectRefresh = t.Add(clientTracking.RefreshProjectEvery)
-	return nil
 }
 
 func (r *ProjectRoom) handleMessage(msg sharedTypes.EditorEventsMessage) error {

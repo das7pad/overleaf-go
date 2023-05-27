@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math/rand"
 	"sync/atomic"
 	"time"
 
@@ -54,7 +55,7 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 
 	c := channel.New(client, "editor-events")
 	ct := clientTracking.New(client, c)
-	e := editorEvents.New(c, ct)
+	e := editorEvents.New(c)
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
@@ -86,7 +87,22 @@ func (m *manager) IsShuttingDown() bool {
 }
 
 func (m *manager) PeriodicCleanup(ctx context.Context) {
-	<-ctx.Done()
+	jitter := time.Duration(rand.Int63n(int64(30 * time.Second)))
+	inter := clientTracking.RefreshUserEvery - jitter
+	t := time.NewTicker(inter)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			clients := m.editorEvents.GetClients()
+			err := m.clientTracking.RefreshClientPositions(ctx, clients)
+			if err != nil {
+				log.Printf("refresh client positions: %s", err)
+			}
+		}
+	}
 }
 
 func (m *manager) InitiateGracefulShutdown() {
@@ -137,32 +153,15 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	client.User = u
 	client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
 
-	// Fetch connected users in the background.
-	var connectedClients types.ConnectedClients
-	fetchUsersCtx, doneFetchingUsers := context.WithTimeout(ctx, time.Second)
-	if client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil {
-		defer doneFetchingUsers()
-		go func() {
-			connectedClients, _ = m.clientTracking.GetConnectedClients(
-				fetchUsersCtx, client,
-			)
-			doneFetchingUsers()
-		}()
-	} else {
+	getConnectedUsers := client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil
+	connectedClients := m.clientTracking.Connect(ctx, client, getConnectedUsers)
+	if !getConnectedUsers {
 		connectedClients = make(types.ConnectedClients, 0)
-		doneFetchingUsers()
 	}
-
-	// Mark the user as joined in the background.
-	go m.clientTracking.ConnectInBackground(client)
 
 	if err = m.editorEvents.Join(ctx, client, projectId); err != nil {
 		return nil, errors.Tag(err, "subscribe")
 	}
-
-	// Wait for the fetch, but ignore any fetch errors.
-	// Instead, let the client fetch any connectedClients via a 2nd rpc call.
-	<-fetchUsersCtx.Done()
 
 	res := &types.JoinProjectResponse{
 		Project:          r.Project,

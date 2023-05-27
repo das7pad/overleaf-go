@@ -30,6 +30,7 @@ import (
 )
 
 type Broadcaster interface {
+	GetClients() map[sharedTypes.UUID]Clients
 	Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error
 	Leave(client *types.Client, id sharedTypes.UUID) error
 	StartListening(ctx context.Context) error
@@ -131,7 +132,6 @@ func (b *broadcaster) cleanup(id sharedTypes.UUID) {
 	b.mux.Lock()
 	delete(b.rooms, id)
 	b.mux.Unlock()
-	r.StopPeriodicTasks()
 	r.close()
 }
 
@@ -311,4 +311,18 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+func (b *broadcaster) GetClients() map[sharedTypes.UUID]Clients {
+	n := 0
+	b.pauseQueueFor(func() {
+		n = len(b.rooms)
+	})
+	clients := make(map[sharedTypes.UUID]Clients, n+1000)
+	b.pauseQueueFor(func() {
+		for id, r := range b.rooms {
+			clients[id] = r.Clients()
+		}
+	})
+	return clients
 }
