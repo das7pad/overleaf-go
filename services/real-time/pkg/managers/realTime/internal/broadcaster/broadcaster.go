@@ -29,8 +29,8 @@ import (
 
 type Broadcaster interface {
 	GetClients() map[sharedTypes.UUID]Clients
-	Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error
-	Leave(client *types.Client, id sharedTypes.UUID) error
+	Join(ctx context.Context, client *types.Client) error
+	Leave(client *types.Client) error
 	StartListening(ctx context.Context) error
 }
 
@@ -124,13 +124,14 @@ func (b *broadcaster) createNewRoom() Room {
 	return r
 }
 
-func (b *broadcaster) join(ctx context.Context, id sharedTypes.UUID, client *types.Client) pendingOperation.WithCancel {
-	// No need for read locking, we are the only potential writer.
-	r, exists := b.rooms[id]
+func (b *broadcaster) join(ctx context.Context, client *types.Client) pendingOperation.WithCancel {
+	projectId := client.ProjectId
+	// There is no need for read locking, we are the only potential writer.
+	r, exists := b.rooms[projectId]
 	if !exists {
 		r = b.createNewRoom()
 		b.mux.Lock()
-		b.rooms[id] = r
+		b.rooms[projectId] = r
 		b.mux.Unlock()
 	}
 
@@ -150,15 +151,16 @@ func (b *broadcaster) join(ctx context.Context, id sharedTypes.UUID, client *typ
 				pending.Cancel()
 				_ = pending.Wait(ctx)
 			}
-			return b.c.Subscribe(ctx, id)
+			return b.c.Subscribe(ctx, projectId)
 		})
 	r.setPendingOperation(op)
 	return op
 }
 
-func (b *broadcaster) leave(ctx context.Context, id sharedTypes.UUID, client *types.Client) pendingOperation.WithCancel {
-	// No need for read locking, we are the only potential writer.
-	r, exists := b.rooms[id]
+func (b *broadcaster) leave(client *types.Client) pendingOperation.WithCancel {
+	projectId := client.ProjectId
+	// There is no need for read locking, we are the only potential writer.
+	r, exists := b.rooms[projectId]
 	if !exists {
 		// Already left.
 		client.CloseWriteQueue()
@@ -179,34 +181,24 @@ func (b *broadcaster) leave(ctx context.Context, id sharedTypes.UUID, client *ty
 
 	subscribe := r.pendingOperation()
 	op := pendingOperation.TrackOperationWithCancel(
-		ctx,
+		context.Background(),
 		func(ctx context.Context) error {
 			if subscribe != nil && subscribe.IsPending() {
 				subscribe.Cancel()
 				_ = subscribe.Wait(ctx)
 			}
-			return b.c.Unsubscribe(ctx, id)
+			return b.c.Unsubscribe(ctx, projectId)
 		},
 	)
 	r.setPendingOperation(op)
 	return op
 }
 
-func (b *broadcaster) Join(ctx context.Context, client *types.Client, id sharedTypes.UUID) error {
-	return b.doJoinLeave(ctx, client, id, true)
-}
-
-func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id sharedTypes.UUID, isJoin bool) error {
+func (b *broadcaster) Join(ctx context.Context, client *types.Client) error {
 	done := make(chan pendingOperation.PendingOperation)
 	defer close(done)
-	if isJoin {
-		b.queue <- func() {
-			done <- b.join(ctx, id, client)
-		}
-	} else {
-		b.queue <- func() {
-			done <- b.leave(ctx, id, client)
-		}
+	b.queue <- func() {
+		done <- b.join(ctx, client)
 	}
 	select {
 	case <-ctx.Done():
@@ -225,8 +217,17 @@ func (b *broadcaster) doJoinLeave(ctx context.Context, client *types.Client, id 
 	}
 }
 
-func (b *broadcaster) Leave(client *types.Client, id sharedTypes.UUID) error {
-	return b.doJoinLeave(context.Background(), client, id, false)
+func (b *broadcaster) Leave(client *types.Client) error {
+	done := make(chan pendingOperation.PendingOperation)
+	defer close(done)
+	b.queue <- func() {
+		done <- b.leave(client)
+	}
+	if pending := <-done; pending != nil {
+		<-pending.Done()
+		return pending.Err()
+	}
+	return nil
 }
 
 func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {

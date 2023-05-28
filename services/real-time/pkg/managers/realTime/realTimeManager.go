@@ -189,7 +189,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 		connectedClients = make(types.ConnectedClients, 0)
 	}
 
-	if err = m.editorEvents.Join(ctx, client, projectId); err != nil {
+	if err = m.editorEvents.Join(ctx, client); err != nil {
 		return nil, errors.Tag(err, "subscribe")
 	}
 
@@ -283,7 +283,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 func (m *manager) Disconnect(client *types.Client) error {
 	var errEditorEvents error
 	if !client.ProjectId.IsZero() {
-		errEditorEvents = m.editorEvents.Leave(client, client.ProjectId)
+		errEditorEvents = m.editorEvents.Leave(client)
 
 		if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
 			// Flush eagerly when no other clients are online (and on error).
