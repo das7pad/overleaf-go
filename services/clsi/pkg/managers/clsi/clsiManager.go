@@ -192,7 +192,9 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 		}
 		select {
 		case <-ctx.Done():
-			nextCleanup.Stop()
+			if !nextCleanup.Stop() {
+				<-nextCleanup.C
+			}
 			return
 		case <-nextCleanup.C:
 		}
