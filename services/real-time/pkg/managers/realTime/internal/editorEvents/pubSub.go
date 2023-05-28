@@ -53,13 +53,16 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 		Body:        msg.Payload,
 		ProcessedBy: msg.ProcessedBy,
 	}
+	var capability types.CapabilityComponent
 	var bulkMessage types.WriteQueueEntry
-	nonRestricted := isNonRestrictedMessage(msg.Message)
 	for _, client := range r.Clients() {
 		if client.PublicId == msg.Source {
 			continue
 		}
-		if !clientCanSeeMessage(client, nonRestricted) {
+		if capability == 0 {
+			capability = getRequiredCapabilityForMessage(msg.Message)
+		}
+		if !client.HasCapability(capability) {
 			continue
 		}
 		if bulkMessage.Msg == nil {
@@ -73,7 +76,7 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 	return nil
 }
 
-func isNonRestrictedMessage(message string) bool {
+func getRequiredCapabilityForMessage(message string) types.CapabilityComponent {
 	switch message {
 	case
 		// File Tree events
@@ -102,15 +105,8 @@ func isNonRestrictedMessage(message string) bool {
 		// System
 		"forceDisconnect",
 		"unregisterServiceWorker":
-		return true
+		return types.CanSeeNonRestrictedEvents
 	default:
-		return false
+		return types.CanSeeAllEditorEvents
 	}
-}
-
-func clientCanSeeMessage(client *types.Client, nonRestrictedMessage bool) bool {
-	if nonRestrictedMessage {
-		return client.HasCapability(types.CanSeeNonRestrictedEvents)
-	}
-	return client.HasCapability(types.CanSeeAllEditorEvents)
 }
