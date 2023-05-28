@@ -38,7 +38,7 @@ func New(c channel.Manager) Manager {
 	b := &manager{
 		c:        c,
 		allQueue: make(chan string),
-		queue:    make(chan func()),
+		sem:      make(chan struct{}, 1),
 		mux:      sync.RWMutex{},
 		rooms:    make(map[sharedTypes.UUID]*room),
 	}
@@ -50,29 +50,28 @@ type manager struct {
 
 	allQueue chan string
 
-	queue chan func()
+	sem   chan struct{}
 	mux   sync.RWMutex
 	rooms map[sharedTypes.UUID]*room
 }
 
 func (m *manager) pauseQueueFor(fn func()) {
-	done := make(chan struct{})
-	m.queue <- func() {
-		fn()
-		close(done)
-	}
-	<-done
-}
-
-func (m *manager) processQueue() {
-	for fn := range m.queue {
-		fn()
-	}
+	m.sem <- struct{}{}
+	fn()
+	<-m.sem
 }
 
 func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	if !r.isEmpty() {
 		// Someone else joined again.
+		return
+	}
+
+	m.sem <- struct{}{}
+	defer func() { <-m.sem }()
+
+	if !r.isEmpty() {
+		// Someone else joined while we acquired the sem.
 		return
 	}
 
@@ -175,16 +174,12 @@ func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
-	done := make(chan pendingOperation.PendingOperation)
-	defer close(done)
-	m.queue <- func() {
-		done <- m.join(ctx, client)
-	}
 	select {
 	case <-ctx.Done():
-		<-done
 		return ctx.Err()
-	case pending := <-done:
+	case m.sem <- struct{}{}:
+		pending := m.join(ctx, client)
+		<-m.sem
 		if pending == nil {
 			return nil
 		}
@@ -198,12 +193,10 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 }
 
 func (m *manager) Leave(client *types.Client) {
-	done := make(chan pendingOperation.PendingOperation)
-	defer close(done)
-	m.queue <- func() {
-		done <- m.leave(client)
-	}
-	if pending := <-done; pending != nil {
+	m.sem <- struct{}{}
+	pending := m.leave(client)
+	<-m.sem
+	if pending != nil {
 		<-pending.Done()
 	}
 }
@@ -216,9 +209,7 @@ func (m *manager) handleMessage(message channel.PubSubMessage) {
 		return
 	}
 	if len(message.Msg) == 0 {
-		m.pauseQueueFor(func() {
-			m.cleanup(r, message.Channel)
-		})
+		m.cleanup(r, message.Channel)
 	} else {
 		r.broadcast(message.Msg)
 	}
@@ -241,7 +232,6 @@ func (m *manager) StartListening(ctx context.Context) error {
 		return errors.Tag(err, "listen on all channel")
 	}
 
-	go m.processQueue()
 	go m.processAllMessages()
 	go func() {
 		defer close(m.allQueue)
