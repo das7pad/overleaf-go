@@ -25,7 +25,7 @@ import (
 
 type Clients = []*types.Client
 
-var noClients = make(Clients, 0)
+var noClients = &Clients{}
 
 type room struct {
 	clients atomic.Pointer[Clients]
@@ -51,21 +51,20 @@ func (r *room) close() {
 }
 
 func (r *room) isEmpty() bool {
-	return len(*r.clients.Load()) == 0
+	return r.clients.Load() == noClients
 }
 
 func (r *room) add(client *types.Client) {
-	clients := *r.clients.Load()
-	for _, c := range clients {
-		if c == client {
-			return
-		}
+	p := r.clients.Load()
+	if p == noClients {
+		r.clients.Store(&Clients{client})
+		return
 	}
-
-	n := len(clients) + 1
-	f := make(Clients, n)
+	clients := *p
+	n := len(clients)
+	f := make(Clients, n+1)
 	copy(f, clients)
-	f[n-1] = client
+	f[n] = client
 	r.clients.Store(&f)
 }
 
@@ -74,7 +73,11 @@ func (r *room) remove(client *types.Client) {
 		r.c <- roomQueueEntry{leavingClient: client}
 	}()
 
-	clients := *r.clients.Load()
+	p := r.clients.Load()
+	if p == noClients {
+		return
+	}
+	clients := *p
 	idx := -1
 	for i, c := range clients {
 		if c == client {
@@ -89,7 +92,7 @@ func (r *room) remove(client *types.Client) {
 
 	n := len(clients)
 	if n == 1 {
-		r.clients.Store(&noClients)
+		r.clients.Store(noClients)
 		return
 	}
 

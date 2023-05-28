@@ -102,7 +102,7 @@ type roomQueueEntry struct {
 func (m *manager) createNewRoom() *room {
 	c := make(chan roomQueueEntry, 10)
 	r := &room{c: c}
-	r.clients.Store(&noClients)
+	r.clients.Store(noClients)
 	go func() {
 		for entry := range c {
 			if entry.leavingClient != nil {
