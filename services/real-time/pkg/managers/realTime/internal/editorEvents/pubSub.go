@@ -53,10 +53,7 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 		Body:        msg.Payload,
 		ProcessedBy: msg.ProcessedBy,
 	}
-	bulkMessage, err := types.PrepareBulkMessage(&resp)
-	if err != nil {
-		return err
-	}
+	var bulkMessage types.WriteQueueEntry
 	nonRestricted := isNonRestrictedMessage(msg.Message)
 	for _, client := range r.Clients() {
 		if client.PublicId == msg.Source {
@@ -64,6 +61,12 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 		}
 		if !clientCanSeeMessage(client, nonRestricted) {
 			continue
+		}
+		if bulkMessage.Msg == nil {
+			var err error
+			if bulkMessage, err = types.PrepareBulkMessage(&resp); err != nil {
+				return err
+			}
 		}
 		client.EnsureQueueMessage(bulkMessage)
 	}

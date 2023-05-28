@@ -50,10 +50,7 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 		Latency:     latency,
 		ProcessedBy: msg.ProcessedBy,
 	}
-	bulkMessage, err := types.PrepareBulkMessage(&resp)
-	if err != nil {
-		return err
-	}
+	var bulkMessage types.WriteQueueEntry
 	for _, client := range r.Clients() {
 		if client.PublicId == source {
 			r.sendAckToSender(client, update, latency, msg.ProcessedBy)
@@ -69,6 +66,11 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 		}
 		if !client.HasJoinedDoc(update.DocId) {
 			continue
+		}
+		if bulkMessage.Msg == nil {
+			if bulkMessage, err = types.PrepareBulkMessage(&resp); err != nil {
+				return err
+			}
 		}
 		client.EnsureQueueMessage(bulkMessage)
 	}
