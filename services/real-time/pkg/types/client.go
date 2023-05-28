@@ -186,11 +186,6 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		}
 		return nil
 	case LeaveDoc:
-		if !c.HasJoinedDoc(docId) {
-			return &errors.ValidationError{
-				Msg: "ignoring leaveDoc operation for non-joined doc",
-			}
-		}
 		return nil
 	case ApplyUpdate:
 		if !c.HasJoinedDoc(docId) {
