@@ -23,9 +23,32 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type Clients = []*types.Client
+func newRoom() *room {
+	c := make(chan roomQueueEntry, 10)
+	r := &room{c: c}
+	r.clients.Store(noClients)
+	go func() {
+		for entry := range c {
+			if entry.leavingClient != nil {
+				entry.leavingClient.CloseWriteQueue()
+				continue
+			}
 
-var noClients = &Clients{}
+			if r.isEmpty() {
+				continue
+			}
+			r.Handle(entry.msg)
+		}
+	}()
+	return r
+}
+
+type roomQueueEntry struct {
+	msg           string
+	leavingClient *types.Client
+}
+
+type Clients = []*types.Client
 
 type room struct {
 	clients atomic.Pointer[Clients]
@@ -33,6 +56,8 @@ type room struct {
 
 	pending pendingOperation.WithCancel
 }
+
+var noClients = &Clients{}
 
 func (r *room) Clients() Clients {
 	return *r.clients.Load()
@@ -50,11 +75,11 @@ func (r *room) isEmpty() bool {
 	return r.clients.Load() == noClients
 }
 
-func (r *room) add(client *types.Client) {
+func (r *room) add(client *types.Client) bool {
 	p := r.clients.Load()
 	if p == noClients {
 		r.clients.Store(&Clients{client})
-		return
+		return true
 	}
 	clients := *p
 	n := len(clients)
@@ -62,16 +87,17 @@ func (r *room) add(client *types.Client) {
 	copy(f, clients)
 	f[n] = client
 	r.clients.Store(&f)
+	return false
 }
 
-func (r *room) remove(client *types.Client) {
+func (r *room) remove(client *types.Client) bool {
 	defer func() {
 		r.c <- roomQueueEntry{leavingClient: client}
 	}()
 
 	p := r.clients.Load()
 	if p == noClients {
-		return
+		return true
 	}
 	clients := *p
 	idx := -1
@@ -83,13 +109,13 @@ func (r *room) remove(client *types.Client) {
 	}
 	if idx == -1 {
 		// Not found.
-		return
+		return false
 	}
 
 	n := len(clients)
 	if n == 1 {
 		r.clients.Store(noClients)
-		return
+		return true
 	}
 
 	f := make(Clients, n-1)
@@ -98,4 +124,5 @@ func (r *room) remove(client *types.Client) {
 		f[idx] = clients[n-1]
 	}
 	r.clients.Store(&f)
+	return false
 }

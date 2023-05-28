@@ -36,19 +36,16 @@ type Manager interface {
 
 func New(c channel.Manager) Manager {
 	b := &manager{
-		c:        c,
-		allQueue: make(chan string),
-		sem:      make(chan struct{}, 1),
-		mux:      sync.RWMutex{},
-		rooms:    make(map[sharedTypes.UUID]*room),
+		c:     c,
+		sem:   make(chan struct{}, 1),
+		mux:   sync.RWMutex{},
+		rooms: make(map[sharedTypes.UUID]*room),
 	}
 	return b
 }
 
 type manager struct {
 	c channel.Manager
-
-	allQueue chan string
 
 	sem   chan struct{}
 	mux   sync.RWMutex
@@ -82,44 +79,18 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	r.close()
 }
 
-type roomQueueEntry struct {
-	msg           string
-	leavingClient *types.Client
-}
-
-func (m *manager) createNewRoom() *room {
-	c := make(chan roomQueueEntry, 10)
-	r := &room{c: c}
-	r.clients.Store(noClients)
-	go func() {
-		for entry := range c {
-			if entry.leavingClient != nil {
-				entry.leavingClient.CloseWriteQueue()
-				continue
-			}
-
-			if r.isEmpty() {
-				continue
-			}
-			r.Handle(entry.msg)
-		}
-	}()
-	return r
-}
-
 func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.WithCancel {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists {
-		r = m.createNewRoom()
+		r = newRoom()
 		m.mux.Lock()
 		m.rooms[projectId] = r
 		m.mux.Unlock()
 	}
 
-	roomWasEmpty := r.isEmpty()
-	r.add(client)
+	roomWasEmpty := r.add(client)
 
 	pending := r.pending
 	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
@@ -150,9 +121,8 @@ func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 		return nil
 	}
 
-	r.remove(client)
-
-	if !r.isEmpty() {
+	roomIsEmpty := r.remove(client)
+	if !roomIsEmpty {
 		// Do not unsubscribe yet.
 		return nil
 	}
@@ -215,8 +185,8 @@ func (m *manager) handleMessage(message channel.PubSubMessage) {
 	}
 }
 
-func (m *manager) processAllMessages() {
-	for message := range m.allQueue {
+func (m *manager) processAllMessages(allQueue <-chan string) {
+	for message := range allQueue {
 		msg := message
 		m.pauseQueueFor(func() {
 			for _, r := range m.rooms {
@@ -232,12 +202,13 @@ func (m *manager) StartListening(ctx context.Context) error {
 		return errors.Tag(err, "listen on all channel")
 	}
 
-	go m.processAllMessages()
+	allQueue := make(chan string)
+	go m.processAllMessages(allQueue)
 	go func() {
-		defer close(m.allQueue)
+		defer close(allQueue)
 		for msg := range c {
 			if msg.Channel.IsZero() {
-				m.allQueue <- msg.Msg
+				allQueue <- msg.Msg
 			} else {
 				m.handleMessage(msg)
 			}

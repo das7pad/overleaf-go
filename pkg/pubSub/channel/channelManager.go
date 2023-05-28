@@ -148,8 +148,7 @@ func (m *manager) Listen(ctx context.Context) (<-chan PubSubMessage, error) {
 				continue
 			}
 			nFailed = 0
-			switch msg := raw.(type) {
-			case *redis.Message:
+			if msg, ok := raw.(*redis.Message); ok {
 				id, errId := m.base.parseIdFromChannel(msg.Channel)
 				if errId != nil {
 					continue
