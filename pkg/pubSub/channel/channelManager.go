@@ -46,7 +46,7 @@ type Writer interface {
 type Manager interface {
 	Writer
 	Subscribe(ctx context.Context, id sharedTypes.UUID) error
-	Unsubscribe(ctx context.Context, id sharedTypes.UUID) error
+	Unsubscribe(ctx context.Context, id sharedTypes.UUID)
 	Listen(ctx context.Context) (<-chan PubSubMessage, error)
 	Close()
 }
@@ -81,14 +81,23 @@ type manager struct {
 	client redis.UniversalClient
 	p      *redis.PubSub
 	base   BaseChannel
+	c      chan PubSubMessage
 }
 
 func (m *manager) Subscribe(ctx context.Context, id sharedTypes.UUID) error {
 	return m.p.Subscribe(ctx, string(m.base.join(id)))
 }
 
-func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) error {
-	return m.p.Unsubscribe(ctx, string(m.base.join(id)))
+func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) {
+	// The pub/sub instance immediately "forgets" the channels that
+	//  were unsubscribed from. When the operation fails, e.g. on
+	//  connection errors, the pub/sub instance reconnects without the
+	//  just "forgotten"  channels, hence we can ignore any errors.
+	_ = m.p.Unsubscribe(ctx, string(m.base.join(id)))
+	// We need to drop the room right away as we might never get a
+	//  confirmation about the unsubscribe action -- e.g. when the
+	//  connection errored.
+	m.c <- PubSubMessage{Channel: id}
 }
 
 func (m *manager) Publish(ctx context.Context, msg Message) error {
@@ -118,6 +127,7 @@ func (m *manager) Listen(ctx context.Context) (<-chan PubSubMessage, error) {
 	}
 
 	rawC := make(chan PubSubMessage, 100)
+	m.c = rawC
 	go func() {
 		defer close(rawC)
 		nFailed := 0

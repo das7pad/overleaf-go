@@ -70,12 +70,7 @@ func (m *manager) processQueue() {
 	}
 }
 
-func (m *manager) cleanup(id sharedTypes.UUID) {
-	r, exists := m.rooms[id]
-	if !exists {
-		// Someone else cleaned it up already.
-		return
-	}
+func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	if !r.isEmpty() {
 		// Someone else joined again.
 		return
@@ -171,17 +166,7 @@ func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 				subscribe.Cancel()
 				_ = subscribe.Wait(ctx)
 			}
-			// The pub/sub instance immediately "forgets" the channels that
-			//  were unsubscribed from. When the operation fails, e.g. on
-			//  connection errors, the pub/sub instance reconnects without the
-			//  just "forgotten"  channels, hence we can ignore any errors.
-			_ = m.c.Unsubscribe(ctx, projectId)
-			// We need to drop the room right away as we might never get a
-			//  confirmation about the unsubscribe action -- e.g. when the
-			//  connection errored.
-			m.queue <- func() {
-				m.cleanup(projectId)
-			}
+			m.c.Unsubscribe(ctx, projectId)
 			return nil
 		},
 	)
@@ -230,7 +215,13 @@ func (m *manager) handleMessage(message channel.PubSubMessage) {
 	if !exists {
 		return
 	}
-	r.broadcast(message.Msg)
+	if len(message.Msg) == 0 {
+		m.pauseQueueFor(func() {
+			m.cleanup(r, message.Channel)
+		})
+	} else {
+		r.broadcast(message.Msg)
+	}
 }
 
 func (m *manager) processAllMessages() {

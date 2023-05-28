@@ -39,10 +39,6 @@ func (r *room) Clients() Clients {
 }
 
 func (r *room) broadcast(msg string) {
-	if r.isEmpty() {
-		// Safeguard for dead room.
-		return
-	}
 	r.c <- roomQueueEntry{msg: msg}
 }
 
