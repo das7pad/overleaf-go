@@ -24,7 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func (r *ProjectRoom) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
+func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 	var update sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(msg.Payload, &update); err != nil {
 		return errors.Tag(err, "parse document update")
@@ -75,7 +75,7 @@ func (r *ProjectRoom) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 	return nil
 }
 
-func (r *ProjectRoom) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpdate, latency sharedTypes.Timed, processedBy string) {
+func (r *room) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpdate, latency sharedTypes.Timed, processedBy string) {
 	minUpdate := sharedTypes.DocumentUpdateAck{
 		DocId:   msg.DocId,
 		Version: msg.Version,

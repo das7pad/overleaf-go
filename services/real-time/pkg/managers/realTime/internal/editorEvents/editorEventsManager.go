@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package broadcaster
+package editorEvents
 
 import (
 	"context"
@@ -27,61 +27,57 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type Broadcaster interface {
+type Manager interface {
 	GetClients() map[sharedTypes.UUID]Clients
 	Join(ctx context.Context, client *types.Client) error
 	Leave(client *types.Client) error
 	StartListening(ctx context.Context) error
 }
 
-type NewRoom func(room *TrackingRoom) Room
-
-func New(c channel.Manager, newRoom NewRoom) Broadcaster {
-	b := &broadcaster{
+func New(c channel.Manager) Manager {
+	b := &manager{
 		c:        c,
-		newRoom:  newRoom,
 		allQueue: make(chan string),
 		queue:    make(chan func()),
 		mux:      sync.RWMutex{},
-		rooms:    make(map[sharedTypes.UUID]Room),
+		rooms:    make(map[sharedTypes.UUID]*room),
 	}
 	return b
 }
 
-type broadcaster struct {
+type manager struct {
 	c channel.Manager
 
 	allQueue chan string
 
-	newRoom NewRoom
-	queue   chan func()
-	mux     sync.RWMutex
-	rooms   map[sharedTypes.UUID]Room
+	queue chan func()
+	mux   sync.RWMutex
+	rooms map[sharedTypes.UUID]*room
 }
 
-func (b *broadcaster) pauseQueueFor(fn func()) {
+func (m *manager) pauseQueueFor(fn func()) {
 	done := make(chan struct{})
-	b.queue <- func() {
+	m.queue <- func() {
 		fn()
 		close(done)
 	}
 	<-done
 }
 
-func (b *broadcaster) processQueue() {
-	for fn := range b.queue {
+func (m *manager) processQueue() {
+	for fn := range m.queue {
 		fn()
 	}
 }
 
-func (b *broadcaster) queueCleanup(id sharedTypes.UUID) {
-	b.queue <- func() {
-		b.cleanup(id)
+func (m *manager) queueCleanup(id sharedTypes.UUID) {
+	m.queue <- func() {
+		m.cleanup(id)
 	}
 }
 
-func (b *broadcaster) cleanup(id sharedTypes.UUID) {
-	r, exists := b.rooms[id]
+func (m *manager) cleanup(id sharedTypes.UUID) {
+	r, exists := m.rooms[id]
 	if !exists {
 		// Someone else cleaned it up already.
 		return
@@ -92,9 +88,9 @@ func (b *broadcaster) cleanup(id sharedTypes.UUID) {
 	}
 
 	// Get write lock while we are removing the empty room.
-	b.mux.Lock()
-	delete(b.rooms, id)
-	b.mux.Unlock()
+	m.mux.Lock()
+	delete(m.rooms, id)
+	m.mux.Unlock()
 	r.close()
 }
 
@@ -103,11 +99,10 @@ type roomQueueEntry struct {
 	leavingClient *types.Client
 }
 
-func (b *broadcaster) createNewRoom() Room {
+func (m *manager) createNewRoom() *room {
 	c := make(chan roomQueueEntry, 10)
-	tr := &TrackingRoom{c: c}
-	tr.clients.Store(&noClients)
-	r := b.newRoom(tr)
+	r := &room{c: c}
+	r.clients.Store(&noClients)
 	go func() {
 		for entry := range c {
 			if entry.leavingClient != nil {
@@ -124,21 +119,21 @@ func (b *broadcaster) createNewRoom() Room {
 	return r
 }
 
-func (b *broadcaster) join(ctx context.Context, client *types.Client) pendingOperation.WithCancel {
+func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.WithCancel {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
-	r, exists := b.rooms[projectId]
+	r, exists := m.rooms[projectId]
 	if !exists {
-		r = b.createNewRoom()
-		b.mux.Lock()
-		b.rooms[projectId] = r
-		b.mux.Unlock()
+		r = m.createNewRoom()
+		m.mux.Lock()
+		m.rooms[projectId] = r
+		m.mux.Unlock()
 	}
 
 	roomWasEmpty := r.isEmpty()
 	r.add(client)
 
-	pending := r.pendingOperation()
+	pending := r.pending
 	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
 		// Already subscribed or subscribe is still pending.
 		return pending
@@ -151,16 +146,16 @@ func (b *broadcaster) join(ctx context.Context, client *types.Client) pendingOpe
 				pending.Cancel()
 				_ = pending.Wait(ctx)
 			}
-			return b.c.Subscribe(ctx, projectId)
+			return m.c.Subscribe(ctx, projectId)
 		})
-	r.setPendingOperation(op)
+	r.pending = op
 	return op
 }
 
-func (b *broadcaster) leave(client *types.Client) pendingOperation.WithCancel {
+func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
-	r, exists := b.rooms[projectId]
+	r, exists := m.rooms[projectId]
 	if !exists {
 		// Already left.
 		client.CloseWriteQueue()
@@ -179,7 +174,7 @@ func (b *broadcaster) leave(client *types.Client) pendingOperation.WithCancel {
 		return nil
 	}
 
-	subscribe := r.pendingOperation()
+	subscribe := r.pending
 	op := pendingOperation.TrackOperationWithCancel(
 		context.Background(),
 		func(ctx context.Context) error {
@@ -187,18 +182,18 @@ func (b *broadcaster) leave(client *types.Client) pendingOperation.WithCancel {
 				subscribe.Cancel()
 				_ = subscribe.Wait(ctx)
 			}
-			return b.c.Unsubscribe(ctx, projectId)
+			return m.c.Unsubscribe(ctx, projectId)
 		},
 	)
-	r.setPendingOperation(op)
+	r.pending = op
 	return op
 }
 
-func (b *broadcaster) Join(ctx context.Context, client *types.Client) error {
+func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	done := make(chan pendingOperation.PendingOperation)
 	defer close(done)
-	b.queue <- func() {
-		done <- b.join(ctx, client)
+	m.queue <- func() {
+		done <- m.join(ctx, client)
 	}
 	select {
 	case <-ctx.Done():
@@ -217,11 +212,11 @@ func (b *broadcaster) Join(ctx context.Context, client *types.Client) error {
 	}
 }
 
-func (b *broadcaster) Leave(client *types.Client) error {
+func (m *manager) Leave(client *types.Client) error {
 	done := make(chan pendingOperation.PendingOperation)
 	defer close(done)
-	b.queue <- func() {
-		done <- b.leave(client)
+	m.queue <- func() {
+		done <- m.leave(client)
 	}
 	if pending := <-done; pending != nil {
 		<-pending.Done()
@@ -230,46 +225,46 @@ func (b *broadcaster) Leave(client *types.Client) error {
 	return nil
 }
 
-func (b *broadcaster) handleMessage(message *channel.PubSubMessage) {
-	b.mux.RLock()
-	r, exists := b.rooms[message.Channel]
-	b.mux.RUnlock()
+func (m *manager) handleMessage(message *channel.PubSubMessage) {
+	m.mux.RLock()
+	r, exists := m.rooms[message.Channel]
+	m.mux.RUnlock()
 	if !exists {
 		return
 	}
 	r.broadcast(message.Msg)
 }
 
-func (b *broadcaster) processAllMessages() {
-	for message := range b.allQueue {
+func (m *manager) processAllMessages() {
+	for message := range m.allQueue {
 		msg := message
-		b.pauseQueueFor(func() {
-			for _, r := range b.rooms {
+		m.pauseQueueFor(func() {
+			for _, r := range m.rooms {
 				r.broadcast(msg)
 			}
 		})
 	}
 }
 
-func (b *broadcaster) StartListening(ctx context.Context) error {
-	c, err := b.c.Listen(ctx)
+func (m *manager) StartListening(ctx context.Context) error {
+	c, err := m.c.Listen(ctx)
 	if err != nil {
 		return errors.Tag(err, "listen on all channel")
 	}
 
-	go b.processQueue()
-	go b.processAllMessages()
+	go m.processQueue()
+	go m.processAllMessages()
 	go func() {
-		defer close(b.allQueue)
+		defer close(m.allQueue)
 		for raw := range c {
 			switch raw.Action {
 			case channel.Unsubscribed:
-				b.queueCleanup(raw.Channel)
+				m.queueCleanup(raw.Channel)
 			case channel.IncomingMessage:
 				if raw.Channel.IsZero() {
-					b.allQueue <- raw.Msg
+					m.allQueue <- raw.Msg
 				} else {
-					b.handleMessage(raw)
+					m.handleMessage(raw)
 				}
 			}
 		}
@@ -277,14 +272,14 @@ func (b *broadcaster) StartListening(ctx context.Context) error {
 	return nil
 }
 
-func (b *broadcaster) GetClients() map[sharedTypes.UUID]Clients {
+func (m *manager) GetClients() map[sharedTypes.UUID]Clients {
 	n := 0
-	b.pauseQueueFor(func() {
-		n = len(b.rooms)
+	m.pauseQueueFor(func() {
+		n = len(m.rooms)
 	})
 	clients := make(map[sharedTypes.UUID]Clients, n+1000)
-	b.pauseQueueFor(func() {
-		for id, r := range b.rooms {
+	m.pauseQueueFor(func() {
+		for id, r := range m.rooms {
 			clients[id] = r.Clients()
 		}
 	})

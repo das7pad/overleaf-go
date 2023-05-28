@@ -21,15 +21,10 @@ import (
 	"log"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/broadcaster"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type ProjectRoom struct {
-	*broadcaster.TrackingRoom
-}
-
-func (r *ProjectRoom) Handle(raw string) {
+func (r *room) Handle(raw string) {
 	var msg sharedTypes.EditorEventsMessage
 	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
 		log.Println("parse editorEvents message: " + err.Error())
@@ -52,7 +47,7 @@ func (r *ProjectRoom) Handle(raw string) {
 	}
 }
 
-func (r *ProjectRoom) handleMessage(msg sharedTypes.EditorEventsMessage) error {
+func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 	resp := types.RPCResponse{
 		Name:        msg.Message,
 		Body:        msg.Payload,

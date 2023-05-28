@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package broadcaster
+package editorEvents
 
 import (
 	"sync/atomic"
@@ -27,42 +27,18 @@ type Clients = []*types.Client
 
 var noClients = make(Clients, 0)
 
-type Room interface {
-	Handle(msg string)
-	Clients() Clients
-	isEmpty() bool
-	add(client *types.Client)
-	remove(client *types.Client)
-	broadcast(msg string)
-	close()
-	pendingOperation() pendingOperation.WithCancel
-	setPendingOperation(p pendingOperation.WithCancel)
-}
-
-type TrackingRoom struct {
+type room struct {
 	clients atomic.Pointer[Clients]
 	c       chan roomQueueEntry
 
 	pending pendingOperation.WithCancel
 }
 
-func (r *TrackingRoom) Handle(_ string) {
-	panic("not implemented")
-}
-
-func (r *TrackingRoom) Clients() Clients {
+func (r *room) Clients() Clients {
 	return *r.clients.Load()
 }
 
-func (r *TrackingRoom) pendingOperation() pendingOperation.WithCancel {
-	return r.pending
-}
-
-func (r *TrackingRoom) setPendingOperation(p pendingOperation.WithCancel) {
-	r.pending = p
-}
-
-func (r *TrackingRoom) broadcast(msg string) {
+func (r *room) broadcast(msg string) {
 	if r.isEmpty() {
 		// Safeguard for dead room.
 		return
@@ -70,15 +46,15 @@ func (r *TrackingRoom) broadcast(msg string) {
 	r.c <- roomQueueEntry{msg: msg}
 }
 
-func (r *TrackingRoom) close() {
+func (r *room) close() {
 	close(r.c)
 }
 
-func (r *TrackingRoom) isEmpty() bool {
+func (r *room) isEmpty() bool {
 	return len(*r.clients.Load()) == 0
 }
 
-func (r *TrackingRoom) add(client *types.Client) {
+func (r *room) add(client *types.Client) {
 	clients := *r.clients.Load()
 	for _, c := range clients {
 		if c == client {
@@ -93,7 +69,7 @@ func (r *TrackingRoom) add(client *types.Client) {
 	r.clients.Store(&f)
 }
 
-func (r *TrackingRoom) remove(client *types.Client) {
+func (r *room) remove(client *types.Client) {
 	defer func() {
 		r.c <- roomQueueEntry{leavingClient: client}
 	}()
