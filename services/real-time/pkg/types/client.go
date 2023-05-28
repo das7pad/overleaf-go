@@ -135,9 +135,7 @@ func (c *Client) HasJoinedDoc(id sharedTypes.UUID) bool {
 }
 
 func (c *Client) MarkAsJoined(id sharedTypes.UUID) {
-	if !c.HasJoinedDoc(id) {
-		c.docId.Store(&id)
-	}
+	c.docId.Store(&id)
 }
 
 var docIdNotJoined = &sharedTypes.UUID{}
