@@ -140,8 +140,10 @@ func (c *Client) MarkAsJoined(id sharedTypes.UUID) {
 	}
 }
 
+var docIdNotJoined = &sharedTypes.UUID{}
+
 func (c *Client) MarkAsLeftDoc() {
-	c.docId.Store(&sharedTypes.UUID{})
+	c.docId.Store(docIdNotJoined)
 }
 
 func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser) {
