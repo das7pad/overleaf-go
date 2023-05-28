@@ -30,7 +30,7 @@ import (
 type Manager interface {
 	GetClients() map[sharedTypes.UUID]Clients
 	Join(ctx context.Context, client *types.Client) error
-	Leave(client *types.Client) error
+	Leave(client *types.Client)
 	StartListening(ctx context.Context) error
 }
 
@@ -67,12 +67,6 @@ func (m *manager) pauseQueueFor(fn func()) {
 func (m *manager) processQueue() {
 	for fn := range m.queue {
 		fn()
-	}
-}
-
-func (m *manager) queueCleanup(id sharedTypes.UUID) {
-	m.queue <- func() {
-		m.cleanup(id)
 	}
 }
 
@@ -156,13 +150,8 @@ func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
-	if !exists {
-		// Already left.
-		client.CloseWriteQueue()
-		return nil
-	}
-	if r.isEmpty() {
-		// Already left.
+	if !exists || r.isEmpty() {
+		// Not joined yet.
 		client.CloseWriteQueue()
 		return nil
 	}
@@ -182,7 +171,18 @@ func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 				subscribe.Cancel()
 				_ = subscribe.Wait(ctx)
 			}
-			return m.c.Unsubscribe(ctx, projectId)
+			// The pub/sub instance immediately "forgets" the channels that
+			//  were unsubscribed from. When the operation fails, e.g. on
+			//  connection errors, the pub/sub instance reconnects without the
+			//  just "forgotten"  channels, hence we can ignore any errors.
+			_ = m.c.Unsubscribe(ctx, projectId)
+			// We need to drop the room right away as we might never get a
+			//  confirmation about the unsubscribe action -- e.g. when the
+			//  connection errored.
+			m.queue <- func() {
+				m.cleanup(projectId)
+			}
+			return nil
 		},
 	)
 	r.pending = op
@@ -212,7 +212,7 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	}
 }
 
-func (m *manager) Leave(client *types.Client) error {
+func (m *manager) Leave(client *types.Client) {
 	done := make(chan pendingOperation.PendingOperation)
 	defer close(done)
 	m.queue <- func() {
@@ -220,12 +220,10 @@ func (m *manager) Leave(client *types.Client) error {
 	}
 	if pending := <-done; pending != nil {
 		<-pending.Done()
-		return pending.Err()
 	}
-	return nil
 }
 
-func (m *manager) handleMessage(message *channel.PubSubMessage) {
+func (m *manager) handleMessage(message channel.PubSubMessage) {
 	m.mux.RLock()
 	r, exists := m.rooms[message.Channel]
 	m.mux.RUnlock()
@@ -256,16 +254,11 @@ func (m *manager) StartListening(ctx context.Context) error {
 	go m.processAllMessages()
 	go func() {
 		defer close(m.allQueue)
-		for raw := range c {
-			switch raw.Action {
-			case channel.Unsubscribed:
-				m.queueCleanup(raw.Channel)
-			case channel.IncomingMessage:
-				if raw.Channel.IsZero() {
-					m.allQueue <- raw.Msg
-				} else {
-					m.handleMessage(raw)
-				}
+		for msg := range c {
+			if msg.Channel.IsZero() {
+				m.allQueue <- msg.Msg
+			} else {
+				m.handleMessage(msg)
 			}
 		}
 	}()

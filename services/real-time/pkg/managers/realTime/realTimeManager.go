@@ -46,7 +46,7 @@ type Manager interface {
 	PeriodicCleanup(ctx context.Context)
 	BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error)
 	RPC(ctx context.Context, rpc *types.RPC)
-	Disconnect(client *types.Client) error
+	Disconnect(client *types.Client)
 }
 
 func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
@@ -275,21 +275,16 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	return nil
 }
 
-func (m *manager) Disconnect(client *types.Client) error {
-	var errEditorEvents error
-	if !client.ProjectId.IsZero() {
-		errEditorEvents = m.editorEvents.Leave(client)
-
-		if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
-			// Flush eagerly when no other clients are online (and on error).
-			m.backgroundFlush(client)
-		}
+func (m *manager) Disconnect(client *types.Client) {
+	if client.ProjectId.IsZero() {
+		// Disconnect before bootstrap finished.
+		return
 	}
-
-	if errEditorEvents != nil {
-		return errEditorEvents
+	m.editorEvents.Leave(client)
+	if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
+		// Flush eagerly when no other clients are online (and on error).
+		m.backgroundFlush(client)
 	}
-	return nil
 }
 
 func (m *manager) backgroundFlush(client *types.Client) {

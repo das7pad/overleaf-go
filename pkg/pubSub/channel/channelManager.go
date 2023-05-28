@@ -29,17 +29,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type Action int
-
-const (
-	IncomingMessage Action = iota
-	Unsubscribed
-)
-
 type PubSubMessage struct {
 	Msg     string
 	Channel sharedTypes.UUID
-	Action  Action
 }
 
 type Message interface {
@@ -55,7 +47,7 @@ type Manager interface {
 	Writer
 	Subscribe(ctx context.Context, id sharedTypes.UUID) error
 	Unsubscribe(ctx context.Context, id sharedTypes.UUID) error
-	Listen(ctx context.Context) (<-chan *PubSubMessage, error)
+	Listen(ctx context.Context) (<-chan PubSubMessage, error)
 	Close()
 }
 
@@ -119,13 +111,13 @@ func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Mess
 	return runner.Publish(ctx, string(m.base.join(id)), body), nil
 }
 
-func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
+func (m *manager) Listen(ctx context.Context) (<-chan PubSubMessage, error) {
 	m.p = m.client.Subscribe(ctx, string(m.base.join(sharedTypes.UUID{})))
 	if _, err := m.p.Receive(ctx); err != nil {
 		return nil, err
 	}
 
-	rawC := make(chan *PubSubMessage, 100)
+	rawC := make(chan PubSubMessage, 100)
 	go func() {
 		defer close(rawC)
 		nFailed := 0
@@ -147,27 +139,14 @@ func (m *manager) Listen(ctx context.Context) (<-chan *PubSubMessage, error) {
 			}
 			nFailed = 0
 			switch msg := raw.(type) {
-			case *redis.Subscription:
-				if msg.Kind != "unsubscribe" {
-					continue
-				}
-				id, errId := m.base.parseIdFromChannel(msg.Channel)
-				if errId != nil {
-					continue
-				}
-				rawC <- &PubSubMessage{
-					Channel: id,
-					Action:  Unsubscribed,
-				}
 			case *redis.Message:
 				id, errId := m.base.parseIdFromChannel(msg.Channel)
 				if errId != nil {
 					continue
 				}
-				rawC <- &PubSubMessage{
+				rawC <- PubSubMessage{
 					Msg:     msg.Payload,
 					Channel: id,
-					Action:  IncomingMessage,
 				}
 			}
 		}

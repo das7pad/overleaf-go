@@ -143,7 +143,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 	defer func() {
 		disconnect()
 		_ = conn.Close()
-		_ = h.rtm.Disconnect(c)
+		h.rtm.Disconnect(c)
 	}()
 	go func() {
 		defer func() {
