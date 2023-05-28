@@ -201,6 +201,9 @@ func (w *worker) CheckWords(ctx context.Context, words []string) (Suggestions, e
 				}
 				return processError
 			case <-hasReadEndOfBatchMarker:
+				if !t.Stop() {
+					<-t.C
+				}
 				return nil
 			}
 			return writerContext.Err()
