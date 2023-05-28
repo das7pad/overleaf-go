@@ -232,11 +232,6 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	return nil
 }
 
-func (m *manager) leaveDoc(rpc *types.RPC) error {
-	rpc.Client.MarkAsLeftDoc()
-	return nil
-}
-
 func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	var update sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &update); err != nil {
@@ -318,7 +313,7 @@ func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {
 	case types.JoinDoc:
 		return m.joinDoc(ctx, rpc)
 	case types.LeaveDoc:
-		return m.leaveDoc(rpc)
+		return nil
 	case types.ApplyUpdate:
 		return m.applyUpdate(ctx, rpc)
 	case types.GetConnectedUsers:
