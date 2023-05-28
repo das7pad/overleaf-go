@@ -82,11 +82,8 @@ func (r *room) add(client *types.Client) bool {
 		return true
 	}
 	clients := *p
-	n := len(clients)
-	f := make(Clients, n+1)
-	copy(f, clients)
-	f[n] = client
-	r.clients.Store(&f)
+	clients = append(clients, client)
+	r.clients.Store(&clients)
 	return false
 }
 
@@ -118,7 +115,7 @@ func (r *room) remove(client *types.Client) bool {
 		return true
 	}
 
-	f := make(Clients, n-1)
+	f := make(Clients, n-1, n)
 	copy(f, clients[:n-1])
 	if idx != n-1 {
 		f[idx] = clients[n-1]
