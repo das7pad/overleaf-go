@@ -181,9 +181,6 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	case Ping:
 		return nil
 	case JoinDoc:
-		if current := *c.docId.Load(); !current.IsZero() && current != docId {
-			return &errors.InvalidStateError{Msg: "leave other doc first"}
-		}
 		return nil
 	case LeaveDoc:
 		return nil
