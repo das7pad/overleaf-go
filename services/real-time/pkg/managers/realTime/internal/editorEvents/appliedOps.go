@@ -51,7 +51,11 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 		ProcessedBy: msg.ProcessedBy,
 	}
 	var bulkMessage types.WriteQueueEntry
-	for _, client := range r.Clients() {
+	clients := r.Clients()
+	for i, client := range clients.All {
+		if i == clients.Removed {
+			continue
+		}
 		if client.PublicId == source {
 			r.sendAckToSender(client, update, latency, msg.ProcessedBy)
 			if update.Dup {

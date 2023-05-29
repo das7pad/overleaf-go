@@ -113,6 +113,17 @@ func NewClient(writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	return c, nil
 }
 
+type Clients []*Client
+
+func (c Clients) Index(needle *Client) int {
+	for i, client := range c {
+		if client == needle {
+			return i
+		}
+	}
+	return -1
+}
+
 type Client struct {
 	capabilities Capabilities
 
@@ -124,6 +135,10 @@ type Client struct {
 
 	writeQueue WriteQueue
 	disconnect func()
+}
+
+func (c *Client) String() string {
+	return string(c.PublicId)
 }
 
 func (c *Client) CloseWriteQueue() {

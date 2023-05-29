@@ -17,6 +17,7 @@
 package editorEvents
 
 import (
+	"strconv"
 	"sync/atomic"
 
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
@@ -54,7 +55,22 @@ type roomQueueEntry struct {
 	gracefulReconnect uint8
 }
 
-type Clients = []*types.Client
+type Clients struct {
+	All     types.Clients
+	Removed int
+}
+
+func (c Clients) String() string {
+	s := "all=["
+	for i, client := range c.All {
+		if i > 0 {
+			s += ", "
+		}
+		s += client.String()
+	}
+	s += "] removed=" + strconv.FormatInt(int64(c.Removed), 10)
+	return s
+}
 
 type room struct {
 	clients atomic.Pointer[Clients]
@@ -63,7 +79,7 @@ type room struct {
 	pending pendingOperation.WithCancel
 }
 
-var noClients = &Clients{}
+var noClients = &Clients{Removed: -1}
 
 func (r *room) Clients() Clients {
 	return *r.clients.Load()
@@ -92,11 +108,11 @@ func (r *room) isEmpty() bool {
 func (r *room) add(client *types.Client) bool {
 	p := r.clients.Load()
 	if p == noClients {
-		r.clients.Store(&Clients{client})
+		r.clients.Store(&Clients{All: []*types.Client{client}, Removed: -1})
 		return true
 	}
 	clients := *p
-	clients = append(clients, client)
+	clients.All = append(clients.All, client)
 	r.clients.Store(&clients)
 	return false
 }
@@ -108,9 +124,8 @@ func (r *room) remove(client *types.Client) bool {
 	if p == noClients {
 		return true
 	}
-	clients := *p
 	idx := -1
-	for i, c := range clients {
+	for i, c := range p.All {
 		if c == client {
 			idx = i
 			break
@@ -121,23 +136,45 @@ func (r *room) remove(client *types.Client) bool {
 		return false
 	}
 
-	n := len(clients)
-	if n == 1 {
+	n := len(p.All)
+	if n == 1 || (n == 2 && p.Removed != -1 && p.Removed != idx) {
 		r.clients.Store(noClients)
 		return true
 	}
 
-	f := make(Clients, n-1, n)
-	copy(f, clients[:n-1])
-	if idx != n-1 {
-		f[idx] = clients[n-1]
+	clients := *p
+	if p.Removed == -1 {
+		clients.Removed = idx
+	} else {
+		f := make([]*types.Client, n-2, n)
+		copy(f, clients.All[:n-2])
+		if idx < n-2 {
+			if clients.Removed == n-1 {
+				f[idx] = clients.All[n-2]
+			} else {
+				f[idx] = clients.All[n-1]
+			}
+		}
+		if clients.Removed < n-2 {
+			if idx == n-1 || idx < n-2 {
+				f[clients.Removed] = clients.All[n-2]
+			} else {
+				f[clients.Removed] = clients.All[n-1]
+			}
+		}
+		clients.All = f
+		clients.Removed = -1
 	}
-	r.clients.Store(&f)
+	r.clients.Store(&clients)
 	return false
 }
 
 func (r *room) handleGracefulReconnect(suffix uint8) {
-	for _, client := range r.Clients() {
+	clients := r.Clients()
+	for i, client := range clients.All {
+		if i == clients.Removed {
+			continue
+		}
 		// The last character of a PublicId is a random hex char.
 		if client.PublicId[32] != suffix {
 			continue

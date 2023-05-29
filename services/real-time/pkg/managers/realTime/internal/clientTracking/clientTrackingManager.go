@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -33,7 +34,7 @@ type Manager interface {
 	Disconnect(client *types.Client) bool
 	GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error)
 	Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients
-	RefreshClientPositions(ctx context.Context, client map[sharedTypes.UUID][]*types.Client) error
+	RefreshClientPositions(ctx context.Context, client map[sharedTypes.UUID]editorEvents.Clients) error
 	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
 }
 

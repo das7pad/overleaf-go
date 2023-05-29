@@ -28,6 +28,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -136,23 +137,28 @@ func (m *manager) parseConnectedClients(client *types.Client, cmd *redis.StringS
 	return clients, nil
 }
 
-func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTypes.UUID][]*types.Client) error {
+func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTypes.UUID]editorEvents.Clients) error {
 	merged := errors.MergedError{}
 	for len(rooms) > 0 {
 		_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
+			now := strconv.FormatInt(time.Now().Unix(), 36)
 			n := 0
 			for projectId, clients := range rooms {
-				fields := make([]interface{}, 2*len(clients))
-				now := strconv.FormatInt(time.Now().Unix(), 36)
-				for i, client := range clients {
+				fields := make([]interface{}, 2*len(clients.All))
+				for i, client := range clients.All {
 					fields[2*i] = string(client.PublicId) + ":age"
 					fields[2*i+1] = now
+				}
+				if clients.Removed != -1 {
+					fields[2*clients.Removed] = fields[len(fields)-2]
+					fields[2*clients.Removed+1] = fields[len(fields)-1]
+					fields = fields[:len(fields)-2]
 				}
 				projectKey := getProjectKey(projectId)
 				p.HSet(ctx, projectKey, fields...)
 				p.Expire(ctx, projectKey, ProjectExpiry)
 				delete(rooms, projectId)
-				n += len(clients)
+				n += len(clients.All)
 				if n >= 100 {
 					break
 				}

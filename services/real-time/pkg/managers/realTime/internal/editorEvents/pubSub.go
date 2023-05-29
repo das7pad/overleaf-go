@@ -55,7 +55,11 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 	}
 	var capability types.CapabilityComponent
 	var bulkMessage types.WriteQueueEntry
-	for _, client := range r.Clients() {
+	clients := r.Clients()
+	for i, client := range clients.All {
+		if i == clients.Removed {
+			continue
+		}
 		if client.PublicId == msg.Source {
 			continue
 		}
