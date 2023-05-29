@@ -45,6 +45,7 @@ type Writer interface {
 
 type Manager interface {
 	Writer
+	String() string
 	Subscribe(ctx context.Context, id sharedTypes.UUID) error
 	Unsubscribe(ctx context.Context, id sharedTypes.UUID)
 	Listen(ctx context.Context) (<-chan PubSubMessage, error)
@@ -66,11 +67,30 @@ func (c BaseChannel) parseIdFromChannel(s string) (sharedTypes.UUID, error) {
 	return sharedTypes.ParseUUID(s[len(c)+1:])
 }
 
-func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
-	return &manager{
-		client: client,
-		base:   baseChannel,
+func newBatchGeneration() batchGeneration {
+	return batchGeneration{
+		queue: make(chan string, 1),
+		done:  make(chan struct{}),
 	}
+}
+
+type batchGeneration struct {
+	queue      chan string
+	done       chan struct{}
+	err        error
+	processing bool
+}
+
+func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
+	m := &manager{
+		client:     client,
+		base:       baseChannel,
+		subQueue:   make(chan batchGeneration, 1),
+		unSubQueue: make(chan batchGeneration, 1),
+	}
+	m.subQueue <- newBatchGeneration()
+	m.unSubQueue <- newBatchGeneration()
+	return m
 }
 
 func NewWriter(client redis.UniversalClient, baseChannel BaseChannel) Writer {
@@ -78,14 +98,20 @@ func NewWriter(client redis.UniversalClient, baseChannel BaseChannel) Writer {
 }
 
 type manager struct {
-	client redis.UniversalClient
-	p      *redis.PubSub
-	base   BaseChannel
-	c      chan PubSubMessage
+	subQueue   chan batchGeneration
+	unSubQueue chan batchGeneration
+	client     redis.UniversalClient
+	p          *redis.PubSub
+	base       BaseChannel
+	c          chan PubSubMessage
+}
+
+func (m *manager) String() string {
+	return m.p.String()
 }
 
 func (m *manager) Subscribe(ctx context.Context, id sharedTypes.UUID) error {
-	return m.p.Subscribe(ctx, string(m.base.join(id)))
+	return m.batchSubscriptionChanges(ctx, id, m.subQueue, m.p.Subscribe)
 }
 
 func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) {
@@ -93,11 +119,61 @@ func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) {
 	//  were unsubscribed from. When the operation fails, e.g. on
 	//  connection errors, the pub/sub instance reconnects without the
 	//  just "forgotten"  channels, hence we can ignore any errors.
-	_ = m.p.Unsubscribe(ctx, string(m.base.join(id)))
+	_ = m.batchSubscriptionChanges(ctx, id, m.unSubQueue, m.p.Unsubscribe)
 	// We need to drop the room right away as we might never get a
 	//  confirmation about the unsubscribe action -- e.g. when the
 	//  connection errored.
 	m.c <- PubSubMessage{Channel: id}
+}
+
+func (m *manager) batchSubscriptionChanges(ctx context.Context, id sharedTypes.UUID, queue chan batchGeneration, fn func(ctx context.Context, channels ...string) error) error {
+	bg := <-queue
+	bg.queue <- string(m.base.join(id))
+	if bg.processing == true {
+		queue <- bg
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-bg.done:
+			return bg.err
+		}
+	}
+	bg.processing = true
+	queue <- bg
+
+	t := time.NewTimer(time.Millisecond)
+	batch := []string{<-bg.queue}
+waitForOthers:
+	for {
+		select {
+		case other := <-bg.queue:
+			batch = append(batch, other)
+		case <-t.C:
+			break waitForOthers
+		}
+	}
+flush:
+	for {
+		select {
+		case other, ok := <-bg.queue:
+			if !ok {
+				break flush
+			}
+			batch = append(batch, other)
+		case <-queue:
+			close(bg.queue)
+		}
+	}
+	queue <- newBatchGeneration()
+	if len(batch) > 1 {
+		// Context cancellation should not abort the entire batch.
+		ctx = context.Background()
+	}
+	ctx, done := context.WithTimeout(ctx, 10*time.Second)
+	bg.err = fn(ctx, batch...)
+	done()
+	close(bg.done)
+	return bg.err
 }
 
 func (m *manager) Publish(ctx context.Context, msg Message) error {

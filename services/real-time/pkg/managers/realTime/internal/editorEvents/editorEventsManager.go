@@ -80,7 +80,7 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	r.close()
 }
 
-func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.WithCancel {
+func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.PendingOperation {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
@@ -99,20 +99,17 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 		return pending
 	}
 
-	op := pendingOperation.TrackOperationWithCancel(
-		ctx,
-		func(ctx context.Context) error {
-			if pending != nil && pending.IsPending() {
-				pending.Cancel()
-				_ = pending.Wait(ctx)
-			}
-			return m.c.Subscribe(ctx, projectId)
-		})
+	op := pendingOperation.TrackOperation(func() error {
+		if pending != nil && pending.IsPending() {
+			_ = pending.Wait(ctx)
+		}
+		return m.c.Subscribe(ctx, projectId)
+	})
 	r.pending = op
 	return op
 }
 
-func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
+func (m *manager) leave(client *types.Client) pendingOperation.PendingOperation {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
@@ -129,17 +126,13 @@ func (m *manager) leave(client *types.Client) pendingOperation.WithCancel {
 	}
 
 	subscribe := r.pending
-	op := pendingOperation.TrackOperationWithCancel(
-		context.Background(),
-		func(ctx context.Context) error {
-			if subscribe != nil && subscribe.IsPending() {
-				subscribe.Cancel()
-				_ = subscribe.Wait(ctx)
-			}
-			m.c.Unsubscribe(ctx, projectId)
-			return nil
-		},
-	)
+	op := pendingOperation.TrackOperation(func() error {
+		if subscribe != nil && subscribe.IsPending() {
+			_ = subscribe.Wait(context.Background())
+		}
+		m.c.Unsubscribe(context.Background(), projectId)
+		return nil
+	})
 	r.pending = op
 	return op
 }

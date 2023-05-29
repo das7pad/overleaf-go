@@ -76,7 +76,7 @@ type room struct {
 	clients atomic.Pointer[Clients]
 	c       chan roomQueueEntry
 
-	pending pendingOperation.WithCancel
+	pending pendingOperation.PendingOperation
 }
 
 var noClients = &Clients{Removed: -1}
