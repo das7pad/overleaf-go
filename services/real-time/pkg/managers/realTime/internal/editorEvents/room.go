@@ -20,11 +20,12 @@ import (
 	"sync/atomic"
 
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 func newRoom() *room {
-	c := make(chan roomQueueEntry, 10)
+	c := make(chan roomQueueEntry, 20)
 	r := &room{c: c}
 	r.clients.Store(noClients)
 	go func() {
@@ -37,6 +38,10 @@ func newRoom() *room {
 			if r.isEmpty() {
 				continue
 			}
+			if entry.gracefulReconnect != 0 {
+				r.handleGracefulReconnect(entry.gracefulReconnect)
+				continue
+			}
 			r.Handle(entry.msg)
 		}
 	}()
@@ -44,8 +49,9 @@ func newRoom() *room {
 }
 
 type roomQueueEntry struct {
-	msg           string
-	leavingClient *types.Client
+	msg               string
+	leavingClient     *types.Client
+	gracefulReconnect uint8
 }
 
 type Clients = []*types.Client
@@ -65,6 +71,14 @@ func (r *room) Clients() Clients {
 
 func (r *room) broadcast(msg string) {
 	r.c <- roomQueueEntry{msg: msg}
+}
+
+func (r *room) queueLeavingClient(client *types.Client) {
+	r.c <- roomQueueEntry{leavingClient: client}
+}
+
+func (r *room) broadcastGracefulReconnect(suffix uint8) {
+	r.c <- roomQueueEntry{gracefulReconnect: suffix}
 }
 
 func (r *room) close() {
@@ -88,9 +102,7 @@ func (r *room) add(client *types.Client) bool {
 }
 
 func (r *room) remove(client *types.Client) bool {
-	defer func() {
-		r.c <- roomQueueEntry{leavingClient: client}
-	}()
+	defer r.queueLeavingClient(client)
 
 	p := r.clients.Load()
 	if p == noClients {
@@ -122,4 +134,14 @@ func (r *room) remove(client *types.Client) bool {
 	}
 	r.clients.Store(&f)
 	return false
+}
+
+func (r *room) handleGracefulReconnect(suffix uint8) {
+	for _, client := range r.Clients() {
+		// The last character of a PublicId is a random hex char.
+		if client.PublicId[32] != suffix {
+			continue
+		}
+		client.EnsureQueueMessage(events.ReconnectGracefullyPrepared)
+	}
 }

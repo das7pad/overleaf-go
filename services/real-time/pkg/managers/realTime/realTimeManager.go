@@ -32,7 +32,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/webApi"
@@ -124,32 +123,21 @@ func (m *manager) TriggerGracefulReconnect() {
 const hexChars = "0123456789abcdef"
 
 func (m *manager) triggerGracefulReconnectOnce() int {
-	total := 0
+	nRooms := 0
 	for _, c := range hexChars {
 		suffix := uint8(c)
-		n := 0
-		for _, clients := range m.editorEvents.GetClients() {
-			for _, client := range clients {
-				// The last character is a random hex char.
-				if client.PublicId[32] != suffix {
-					continue
-				}
-				n++
-				client.EnsureQueueMessage(events.ReconnectGracefullyPrepared)
-			}
-		}
-		total += n
-		if n > 100 {
-			// Estimate more than hex*100 ~ 1600 clients.
-			// Worst case delay for the shutdown is ~2min per full cycle.
+		nRooms = m.editorEvents.BroadcastGracefulReconnect(suffix)
+		if nRooms > 10_000 {
+			// Worst case sleep delay for the shutdown is ~2min per full cycle.
 			time.Sleep(10 * time.Second)
-		} else if n > 10 {
-			// Estimate between hex*10 ~ 160 and hex*100 ~ 1600 clients.
-			// Worst case delay for the shutdown is ~2s per full cycle.
+		} else if nRooms > 1_000 {
+			// Worst case sleep delay for the shutdown is ~2s per full cycle.
 			time.Sleep(100 * time.Millisecond)
+		} else if nRooms == 0 {
+			break
 		}
 	}
-	return total
+	return nRooms
 }
 
 func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {

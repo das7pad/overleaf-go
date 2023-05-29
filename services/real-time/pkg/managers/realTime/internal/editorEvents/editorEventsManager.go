@@ -28,6 +28,7 @@ import (
 )
 
 type Manager interface {
+	BroadcastGracefulReconnect(suffix uint8) int
 	GetClients() map[sharedTypes.UUID]Clients
 	Join(ctx context.Context, client *types.Client) error
 	Leave(client *types.Client)
@@ -215,6 +216,16 @@ func (m *manager) StartListening(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+func (m *manager) BroadcastGracefulReconnect(suffix uint8) int {
+	m.sem <- struct{}{}
+	n := len(m.rooms)
+	for _, r := range m.rooms {
+		r.broadcastGracefulReconnect(suffix)
+	}
+	<-m.sem
+	return n
 }
 
 func (m *manager) GetClients() map[sharedTypes.UUID]Clients {
