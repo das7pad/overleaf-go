@@ -124,13 +124,7 @@ func (r *room) remove(client *types.Client) bool {
 	if p == noClients {
 		return true
 	}
-	idx := -1
-	for i, c := range p.All {
-		if c == client {
-			idx = i
-			break
-		}
-	}
+	idx := p.All.Index(client)
 	if idx == -1 {
 		// Not found.
 		return false
@@ -146,7 +140,7 @@ func (r *room) remove(client *types.Client) bool {
 	if p.Removed == -1 {
 		clients.Removed = idx
 	} else {
-		f := make([]*types.Client, n-2, n)
+		f := make(types.Clients, n-2, n)
 		copy(f, clients.All[:n-2])
 		if idx < n-2 {
 			if clients.Removed == n-1 {

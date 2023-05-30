@@ -44,31 +44,31 @@ func Test_room_remove(t *testing.T) {
 		t.Fatal(err)
 	}
 	d.PublicId = "d"
-	all := []*types.Client{a, b, c, d}
+	all := types.Clients{a, b, c, d}
 	var permutations []types.Clients
 	for _, c0 := range all {
-		permutations = append(permutations, []*types.Client{
+		permutations = append(permutations, types.Clients{
 			c0,
 		})
 		for _, c1 := range all {
 			if c1 == c0 {
 				continue
 			}
-			permutations = append(permutations, []*types.Client{
+			permutations = append(permutations, types.Clients{
 				c0, c1,
 			})
 			for _, c2 := range all {
 				if c2 == c0 || c2 == c1 {
 					continue
 				}
-				permutations = append(permutations, []*types.Client{
+				permutations = append(permutations, types.Clients{
 					c0, c1, c2,
 				})
 				for _, c3 := range all {
 					if c3 == c0 || c3 == c1 || c3 == c2 {
 						continue
 					}
-					permutations = append(permutations, []*types.Client{
+					permutations = append(permutations, types.Clients{
 						c0, c1, c2, c3,
 					})
 				}

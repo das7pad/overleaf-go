@@ -1375,11 +1375,14 @@ WHERE p.id = $1
 	if err != nil {
 		return nil, err
 	}
-	for i, id := range deletedDocIds {
-		d.Project.DeletedDocs = append(d.Project.DeletedDocs, CommonTreeFields{
-			Id:   id,
-			Name: sharedTypes.Filename(deletedDocNames[i]),
-		})
+	if n := len(deletedDocIds); n > 0 {
+		d.Project.DeletedDocs = make([]CommonTreeFields, n)
+		for i, id := range deletedDocIds {
+			d.Project.DeletedDocs[i].Id = id
+			d.Project.DeletedDocs[i].Name = sharedTypes.Filename(
+				deletedDocNames[i],
+			)
+		}
 	}
 	d.Owner.Id = d.Project.OwnerId
 	return d, nil
