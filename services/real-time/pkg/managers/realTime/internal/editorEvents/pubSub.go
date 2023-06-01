@@ -92,23 +92,20 @@ func getRequiredCapabilityForMessage(message string) types.CapabilityComponent {
 		"removeEntity",
 
 		// Core project details
+		"compilerUpdated",
+		"imageNameUpdated",
 		"projectNameUpdated",
 		"rootDocUpdated",
-		"toggle-track-changes",
 
 		// Updates
 		"otUpdateError",
 		"otUpdateApplied",
 
-		// Project deleted
-		"projectRenamedOrDeletedByExternalSource",
-
 		// Auth
 		"project:publicAccessLevel:changed",
 
 		// System
-		"forceDisconnect",
-		"unregisterServiceWorker":
+		"forceDisconnect":
 		return types.CanSeeNonRestrictedEvents
 	default:
 		return types.CanSeeAllEditorEvents
