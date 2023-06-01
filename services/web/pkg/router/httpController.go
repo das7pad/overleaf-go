@@ -288,6 +288,7 @@ func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUti
 		r := projectJWTRouter.Group("")
 		r.Use(requireProjectAdminAccess)
 
+		r.GET("/accessTokens", h.getAccessTokens)
 		r.PUT("/settings/admin/publicAccessLevel", h.setPublicAccessLevel)
 
 		r.POST("/invite", h.createProjectInvite)
@@ -1217,9 +1218,17 @@ func (h *httpController) setPublicAccessLevel(c *httpUtils.Context) {
 		return
 	}
 	h.mustProcessSignedOptions(request, c)
-	request.Epoch = projectJWT.MustGet(c).Epoch
-	err := h.wm.SetPublicAccessLevel(c, request)
-	httpUtils.Respond(c, http.StatusNoContent, nil, err)
+	response := &types.SetPublicAccessLevelResponse{}
+	err := h.wm.SetPublicAccessLevel(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) getAccessTokens(c *httpUtils.Context) {
+	request := &types.GetAccessTokensRequest{}
+	h.mustProcessSignedOptions(request, c)
+	response := &types.GetAccessTokensResponse{}
+	err := h.wm.GetAccessTokens(c, request, response)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) clearSessions(c *httpUtils.Context) {

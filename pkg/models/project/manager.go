@@ -71,7 +71,8 @@ type Manager interface {
 	GetProjectMembers(ctx context.Context, projectId sharedTypes.UUID) ([]user.AsProjectMember, error)
 	GrantTokenAccess(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, privilegeLevel sharedTypes.PrivilegeLevel) error
 	GrantMemberAccess(ctx context.Context, projectId, ownerId, userId sharedTypes.UUID, privilegeLevel sharedTypes.PrivilegeLevel) error
-	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, bool, error)
+	GetAccessTokens(ctx context.Context, projectId, userId sharedTypes.UUID, tokens *Tokens) error
+	PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error)
 	GetProjectNames(ctx context.Context, userId sharedTypes.UUID) (Names, error)
 	SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error
 	SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error
@@ -278,7 +279,16 @@ WHERE id = $1
 `, p.Id, p.Name, rootDocId, p.RootFolder.Id))
 }
 
-func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, bool, error) {
+func (m *manager) GetAccessTokens(ctx context.Context, projectId, userId sharedTypes.UUID, tokens *Tokens) error {
+	return m.db.QueryRow(ctx, `
+SELECT coalesce(token_ro, ''), coalesce(token_rw, '')
+FROM projects
+WHERE id = $1
+  AND owner_id = $2
+`, projectId, userId).Scan(&tokens.ReadOnly, &tokens.ReadAndWrite)
+}
+
+func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
 	allErrors := &errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		tokens, err := generateTokens()
@@ -307,15 +317,11 @@ RETURNING token_ro, token_rw
 				allErrors.Add(err)
 				continue
 			}
-			return nil, false, err
+			return nil, err
 		}
-		// Technically we do not need a timing safe comparison, but doing so
-		//  keeps code audits simple -- all token comparisons are timing safe!
-		changed := tokens.ReadOnly.EqualsTimingSafe(persisted.ReadOnly) &&
-			tokens.ReadAndWrite.EqualsTimingSafe(persisted.ReadAndWrite)
-		return &persisted, changed, nil
+		return &persisted, nil
 	}
-	return nil, false, errors.Tag(allErrors, "bad random source")
+	return nil, errors.Tag(allErrors, "bad random source")
 }
 
 func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
@@ -1308,8 +1314,6 @@ SELECT p.compiler,
        coalesce(p.root_doc_id, '00000000-0000-0000-0000-000000000000'::UUID),
        p.root_folder_id,
        p.spell_check_language,
-       coalesce(p.token_ro, ''),
-       coalesce(p.token_rw, ''),
        p.tree_version,
        o.features,
        o.email,
@@ -1349,8 +1353,6 @@ WHERE p.id = $1
 		&d.Project.RootDoc.Id,
 		&d.Project.RootFolder.Id,
 		&d.Project.SpellCheckLanguage,
-		&d.Project.Tokens.ReadOnly,
-		&d.Project.Tokens.ReadAndWrite,
 		&d.Project.Version,
 		&d.Project.OwnerFeatures,
 		&d.Owner.Email,

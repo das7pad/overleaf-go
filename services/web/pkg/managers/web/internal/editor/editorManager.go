@@ -55,7 +55,8 @@ type Manager interface {
 	SetImageName(ctx context.Context, request *types.SetImageNameRequest) error
 	SetSpellCheckLanguage(ctx context.Context, request *types.SetSpellCheckLanguageRequest) error
 	SetRootDocId(ctx context.Context, request *types.SetRootDocIdRequest) error
-	SetPublicAccessLevel(ctx context.Context, request *types.SetPublicAccessLevelRequest) error
+	GetAccessTokens(ctx context.Context, r *types.GetAccessTokensRequest, response *types.GetAccessTokensResponse) error
+	SetPublicAccessLevel(ctx context.Context, request *types.SetPublicAccessLevelRequest, response *types.SetPublicAccessLevelResponse) error
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 

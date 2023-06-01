@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,7 +17,6 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	spellingTypes "github.com/das7pad/overleaf-go/services/spelling/pkg/types"
@@ -46,10 +45,4 @@ type SetSpellCheckLanguageRequest struct {
 type SetRootDocIdRequest struct {
 	WithProjectIdAndUserId
 	RootDocId sharedTypes.UUID `json:"rootDocId"`
-}
-
-type SetPublicAccessLevelRequest struct {
-	WithProjectIdAndUserId
-	Epoch             int64                     `json:"-"`
-	PublicAccessLevel project.PublicAccessLevel `json:"publicAccessLevel"`
 }

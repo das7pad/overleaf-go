@@ -93,7 +93,7 @@ func (t AccessToken) ValidateReadOnly() error {
 type Tokens struct {
 	ReadOnly           AccessToken `json:"readOnly"`
 	ReadAndWrite       AccessToken `json:"readAndWrite"`
-	ReadAndWritePrefix string      `json:"readAndWritePrefix"`
+	ReadAndWritePrefix string      `json:"-"`
 }
 
 //goland:noinspection SpellCheckingInspection

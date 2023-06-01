@@ -25,7 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/models/projectInvite"
 	"github.com/das7pad/overleaf-go/pkg/models/user"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -54,15 +53,6 @@ func (m *manager) BootstrapWS(ctx context.Context, claims projectJWT.Claims) (ty
 	p := &d.Project
 	authorizationDetails := claims.AuthorizationDetails
 
-	var tokens project.Tokens
-	if authorizationDetails.PrivilegeLevel == sharedTypes.PrivilegeLevelOwner {
-		// Expose all tokens to the owner
-		tokens = p.Tokens
-	} else if authorizationDetails.IsRestrictedUser() {
-		// Expose read-only token to read-only token user.
-		tokens = project.Tokens{ReadOnly: p.Tokens.ReadOnly}
-	}
-
 	// Hide owner details from token users
 	owner := user.WithPublicInfo{}
 	owner.Id = p.OwnerId
@@ -80,7 +70,6 @@ func (m *manager) BootstrapWS(ctx context.Context, claims projectJWT.Claims) (ty
 		JoinProjectViewPublic:  p.JoinProjectViewPublic,
 		Invites:                make([]projectInvite.WithoutToken, 0),
 		Members:                make([]user.AsProjectMember, 0),
-		TokensField:            project.TokensField{Tokens: tokens},
 		PublicAccessLevelField: p.PublicAccessLevelField,
 		Owner:                  owner,
 		RootDocIdField: project.RootDocIdField{
