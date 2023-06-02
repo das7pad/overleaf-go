@@ -66,14 +66,13 @@ func (d *ProjectViewInviteData) Render() ([]byte, string, error) {
 type ProjectListProjectView struct {
 	Id                sharedTypes.UUID                    `json:"id"`
 	Name              project.Name                        `json:"name"`
-	LastUpdatedAt     *time.Time                          `json:"lastUpdated"`
+	LastUpdatedAt     time.Time                           `json:"lastUpdated"`
 	LastUpdatedBy     user.WithPublicInfoAndNonStandardId `json:"lastUpdatedBy"`
 	PublicAccessLevel project.PublicAccessLevel           `json:"publicAccessLevel"`
 	AccessLevel       sharedTypes.PrivilegeLevel          `json:"accessLevel"`
 	AccessSource      project.AccessSource                `json:"source"`
 	Archived          bool                                `json:"archived"`
 	Trashed           bool                                `json:"trashed"`
-	OwnerRef          sharedTypes.UUID                    `json:"owner_ref"`
 	Owner             user.WithPublicInfoAndNonStandardId `json:"owner"`
 }
 

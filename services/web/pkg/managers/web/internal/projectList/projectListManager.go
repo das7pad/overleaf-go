@@ -112,7 +112,6 @@ func (m *manager) ProjectListPage(ctx context.Context, request *types.ProjectLis
 			AccessSource:      authorizationDetails.AccessSource,
 			Archived:          p.Archived,
 			Trashed:           p.Trashed,
-			OwnerRef:          p.OwnerId,
 		}
 		if authorizationDetails.IsRestrictedUser() {
 			if p.LastUpdatedBy == userId {

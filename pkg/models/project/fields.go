@@ -64,7 +64,7 @@ type LastOpenedField struct {
 }
 
 type LastUpdatedAtField struct {
-	LastUpdatedAt *time.Time
+	LastUpdatedAt time.Time
 }
 
 type LastUpdatedByField struct {
