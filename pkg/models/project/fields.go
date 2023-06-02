@@ -79,6 +79,10 @@ type OwnerIdField struct {
 	OwnerId sharedTypes.UUID `json:"owner_ref"`
 }
 
+type OwnerField struct {
+	Owner user.WithPublicInfo `json:"owner"`
+}
+
 type OwnerFeaturesField struct {
 	OwnerFeatures user.Features `json:"features"`
 }

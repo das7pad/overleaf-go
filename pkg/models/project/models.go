@@ -24,12 +24,8 @@ import (
 )
 
 type JoinProjectViewPrivate struct {
-	PublicAccessLevelField
-	TokensField
 	ForTree
 	JoinProjectViewPublic
-	OwnerIdField
-	RootDocField
 }
 
 type JoinProjectViewPublic struct {
@@ -38,14 +34,15 @@ type JoinProjectViewPublic struct {
 	IdField
 	ImageNameField
 	NameField
-	OwnerFeaturesField
+	OwnerField
+	PublicAccessLevelField
+	RootDocIdField
 	SpellCheckLanguageField
 	VersionField
 }
 
 type GetBootstrapWSDetails struct {
 	Project JoinProjectViewPrivate
-	Owner   user.WithPublicInfo
 	User    user.ForBootstrapWS
 }
 

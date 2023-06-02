@@ -45,6 +45,7 @@ type manager struct {
 func (m *manager) BootstrapWS(ctx context.Context, claims projectJWT.Claims) (types.User, *types.JoinProjectWebApiResponse, error) {
 	d, err := m.pm.GetBootstrapWSDetails(
 		ctx, claims.ProjectId, claims.UserId, claims.Epoch, claims.EpochUser,
+		claims.AccessSource,
 	)
 	if err != nil {
 		return types.User{}, nil, err
@@ -53,28 +54,19 @@ func (m *manager) BootstrapWS(ctx context.Context, claims projectJWT.Claims) (ty
 	p := &d.Project
 	authorizationDetails := claims.AuthorizationDetails
 
-	// Hide owner details from token users
-	owner := user.WithPublicInfo{}
-	owner.Id = p.OwnerId
-	if authorizationDetails.AccessSource != project.AccessSourceToken {
-		owner = d.Owner
-	}
-
-	// Populate fake feature flags
-	p.OwnerFeatures.Collaborators = -1
-	p.OwnerFeatures.Versioning = true
-
 	details := types.JoinProjectDetails{
-		JoinProjectViewPublic:  p.JoinProjectViewPublic,
-		Invites:                make([]projectInvite.WithoutToken, 0),
-		Members:                make([]user.AsProjectMember, 0),
-		PublicAccessLevelField: p.PublicAccessLevelField,
-		Owner:                  owner,
-		RootDocIdField: project.RootDocIdField{
-			RootDocId: p.RootDoc.Id,
+		JoinProjectViewPublic: p.JoinProjectViewPublic,
+		Invites:               make([]projectInvite.WithoutToken, 0),
+		Members:               make([]user.AsProjectMember, 0),
+		OwnerFeaturesField: project.OwnerFeaturesField{
+			OwnerFeatures: user.Features{
+				Collaborators:  -1,
+				CompileTimeout: claims.Timeout,
+				CompileGroup:   claims.CompileGroup,
+				Versioning:     true,
+			},
 		},
-		VersionField: p.VersionField,
-		RootFolder:   []*project.Folder{p.GetRootFolder()},
+		RootFolder: []*project.Folder{p.GetRootFolder()},
 	}
 
 	return types.User{

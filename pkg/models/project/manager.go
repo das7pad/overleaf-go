@@ -62,7 +62,7 @@ type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
-	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) (*GetBootstrapWSDetails, error)
+	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource) (*GetBootstrapWSDetails, error)
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
@@ -1274,7 +1274,7 @@ WHERE p.id = $1
 	)
 }
 
-func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) (*GetBootstrapWSDetails, error) {
+func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource) (*GetBootstrapWSDetails, error) {
 	d := &GetBootstrapWSDetails{}
 	d.Project.Id = projectId
 	d.Project.RootFolder = NewFolder("")
@@ -1315,10 +1315,9 @@ SELECT p.compiler,
        p.root_folder_id,
        p.spell_check_language,
        p.tree_version,
-       o.features,
-       o.email,
-       o.first_name,
-       o.last_name,
+       coalesce(o.email, ''),
+       coalesce(o.first_name, ''),
+       coalesce(o.last_name, ''),
        coalesce(u.email, ''),
        coalesce(u.epoch, 0),
        coalesce(u.first_name, ''),
@@ -1332,7 +1331,8 @@ SELECT p.compiler,
        deleted_docs.ids,
        deleted_docs.names
 FROM projects p
-         INNER JOIN users o ON p.owner_id = o.id
+         LEFT JOIN users o
+                   ON (p.owner_id = o.id AND $5::AccessSource > 'token')
          LEFT JOIN tree ON (p.id = tree.project_id)
          LEFT JOIN deleted_docs ON (p.id = deleted_docs.project_id)
          LEFT JOIN project_members pm ON (p.id = pm.project_id AND
@@ -1344,20 +1344,19 @@ FROM projects p
 WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.epoch = $3
-`, projectId, userId, projectEpoch, userEpoch).Scan(
+`, projectId, userId, projectEpoch, userEpoch, source).Scan(
 		&d.Project.Compiler,
 		&d.Project.ImageName,
 		&d.Project.Name,
-		&d.Project.OwnerId,
+		&d.Project.Owner.Id,
 		&d.Project.PublicAccessLevel,
-		&d.Project.RootDoc.Id,
+		&d.Project.RootDocId,
 		&d.Project.RootFolder.Id,
 		&d.Project.SpellCheckLanguage,
 		&d.Project.Version,
-		&d.Project.OwnerFeatures,
-		&d.Owner.Email,
-		&d.Owner.FirstName,
-		&d.Owner.LastName,
+		&d.Project.Owner.Email,
+		&d.Project.Owner.FirstName,
+		&d.Project.Owner.LastName,
 		&d.User.Email,
 		&d.User.Epoch,
 		&d.User.FirstName,
@@ -1386,7 +1385,6 @@ WHERE p.id = $1
 			)
 		}
 	}
-	d.Owner.Id = d.Project.OwnerId
 	return d, nil
 }
 
