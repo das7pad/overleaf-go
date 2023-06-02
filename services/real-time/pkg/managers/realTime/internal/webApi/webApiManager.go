@@ -62,8 +62,6 @@ func (m *manager) BootstrapWS(ctx context.Context, claims projectJWT.Claims) (ty
 
 	// Populate fake feature flags
 	p.OwnerFeatures.Collaborators = -1
-	p.OwnerFeatures.TrackChangesVisible = false
-	p.OwnerFeatures.TrackChanges = false
 	p.OwnerFeatures.Versioning = true
 
 	details := types.JoinProjectDetails{

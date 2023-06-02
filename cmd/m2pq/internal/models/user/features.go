@@ -25,7 +25,6 @@ type Features struct {
 	Collaborators  int                        `bson:"collaborators"`
 	CompileTimeout sharedTypes.ComputeTimeout `bson:"compileTimeout"`
 	CompileGroup   sharedTypes.CompileGroup   `bson:"compileGroup"`
-	TrackChanges   bool                       `bson:"trackChanges"`
 	Versioning     bool                       `bson:"versioning"`
 }
 
@@ -34,7 +33,6 @@ func (f Features) Migrate() user.Features {
 		Collaborators:  f.Collaborators,
 		CompileTimeout: f.CompileTimeout,
 		CompileGroup:   f.CompileGroup,
-		TrackChanges:   f.TrackChanges,
 		Versioning:     f.Versioning,
 	}
 }

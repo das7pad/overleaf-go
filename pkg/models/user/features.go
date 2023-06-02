@@ -21,10 +21,8 @@ import (
 )
 
 type Features struct {
-	Collaborators       int                        `json:"collaborators,omitempty"`
-	CompileTimeout      sharedTypes.ComputeTimeout `json:"compileTimeout"`
-	CompileGroup        sharedTypes.CompileGroup   `json:"compileGroup"`
-	TrackChanges        bool                       `json:"trackChanges,omitempty"`
-	TrackChangesVisible bool                       `json:"trackChangesVisible,omitempty"`
-	Versioning          bool                       `json:"versioning,omitempty"`
+	Collaborators  int                        `json:"collaborators,omitempty"`
+	CompileTimeout sharedTypes.ComputeTimeout `json:"compileTimeout"`
+	CompileGroup   sharedTypes.CompileGroup   `json:"compileGroup"`
+	Versioning     bool                       `json:"versioning,omitempty"`
 }
