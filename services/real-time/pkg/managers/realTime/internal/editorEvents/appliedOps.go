@@ -38,24 +38,6 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 		latency.SetBegin(update.Meta.IngestionTime)
 		latency.End()
 	}
-	blob, err := json.Marshal(sharedTypes.AppliedDocumentUpdate{
-		DocId: update.DocId,
-		Meta: sharedTypes.AppliedDocumentUpdateMeta{
-			Source: update.Meta.Source,
-			Type:   update.Meta.Type,
-		},
-		Op:      update.Op,
-		Version: update.Version,
-	})
-	if err != nil {
-		return errors.Tag(err, "serialize update")
-	}
-	resp := types.RPCResponse{
-		Name:        "otUpdateApplied",
-		Body:        blob,
-		Latency:     latency,
-		ProcessedBy: msg.ProcessedBy,
-	}
 	var bulkMessage types.WriteQueueEntry
 	clients := r.Clients()
 	for i, client := range clients.All {
@@ -78,6 +60,24 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 			continue
 		}
 		if bulkMessage.Msg == nil {
+			blob, err := json.Marshal(sharedTypes.AppliedDocumentUpdate{
+				DocId: update.DocId,
+				Meta: sharedTypes.AppliedDocumentUpdateMeta{
+					Source: update.Meta.Source,
+					Type:   update.Meta.Type,
+				},
+				Op:      update.Op,
+				Version: update.Version,
+			})
+			if err != nil {
+				return errors.Tag(err, "serialize otUpdateApplied body")
+			}
+			resp := types.RPCResponse{
+				Name:        "otUpdateApplied",
+				Body:        blob,
+				Latency:     latency,
+				ProcessedBy: msg.ProcessedBy,
+			}
 			if bulkMessage, err = types.PrepareBulkMessage(&resp); err != nil {
 				return err
 			}
