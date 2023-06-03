@@ -152,8 +152,7 @@ func (m *manager) QueueUpdate(ctx context.Context, projectId, docId sharedTypes.
 	// Dup is an output only field
 	update.Dup = false
 	// Ingestion time is tracked internally only
-	now := time.Now()
-	update.Meta.IngestionTime = &now
+	update.Meta.IngestionTime = time.Now()
 
 	if err := update.Validate(); err != nil {
 		return err

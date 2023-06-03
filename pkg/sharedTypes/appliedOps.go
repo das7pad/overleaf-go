@@ -61,13 +61,17 @@ func (t Timestamp) ToTime() time.Time {
 	return time.Unix(ms/1000, ms%1000*int64(time.Millisecond))
 }
 
+type AppliedDocumentUpdateMeta struct {
+	Source PublicId `json:"source"`
+	Type   string   `json:"type,omitempty"`
+}
+
 type DocumentUpdateMeta struct {
-	Type      string    `json:"type,omitempty"`
-	Source    PublicId  `json:"source"`
-	Timestamp Timestamp `json:"ts,omitempty"`
-	UserId    UUID      `json:"user_id,omitempty"`
-	// Ingestion time is tracked internally only. Allow nil for public blob.
-	IngestionTime *time.Time `json:"ingestion_time,omitempty"`
+	IngestionTime time.Time `json:"ingestion_time,omitempty"`
+	Source        PublicId  `json:"source"`
+	Type          string    `json:"type,omitempty"`
+	Timestamp     Timestamp `json:"ts,omitempty"`
+	UserId        UUID      `json:"user_id,omitempty"`
 }
 
 func (d *DocumentUpdateMeta) Validate() error {
@@ -132,6 +136,13 @@ func (d DupIfSource) Contains(id PublicId) bool {
 		}
 	}
 	return false
+}
+
+type AppliedDocumentUpdate struct {
+	DocId   UUID                      `json:"doc"`
+	Meta    AppliedDocumentUpdateMeta `json:"meta"`
+	Op      Op                        `json:"op"`
+	Version Version                   `json:"v"`
 }
 
 type DocumentUpdate struct {

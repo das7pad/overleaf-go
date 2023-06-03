@@ -189,7 +189,6 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 			}
 
 			if len(op) > 0 {
-				now := time.Now()
 				updates := []sharedTypes.DocumentUpdate{{
 					Version: d.Version,
 					DocId:   docId,
@@ -199,7 +198,7 @@ func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 						Type:          "external",
 						Source:        sharedTypes.PublicId(request.Source),
 						UserId:        request.UserId,
-						IngestionTime: &now,
+						IngestionTime: time.Now(),
 					},
 				}}
 

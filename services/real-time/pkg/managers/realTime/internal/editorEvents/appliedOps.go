@@ -34,13 +34,19 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 	}
 
 	latency := sharedTypes.Timed{}
-	if update.Meta.IngestionTime != nil {
-		latency.SetBegin(*update.Meta.IngestionTime)
+	if !update.Meta.IngestionTime.IsZero() {
+		latency.SetBegin(update.Meta.IngestionTime)
 		latency.End()
-		update.Meta.IngestionTime = nil
 	}
-	source := update.Meta.Source
-	blob, err := json.Marshal(update)
+	blob, err := json.Marshal(sharedTypes.AppliedDocumentUpdate{
+		DocId: update.DocId,
+		Meta: sharedTypes.AppliedDocumentUpdateMeta{
+			Source: update.Meta.Source,
+			Type:   update.Meta.Type,
+		},
+		Op:      update.Op,
+		Version: update.Version,
+	})
 	if err != nil {
 		return errors.Tag(err, "serialize update")
 	}
@@ -56,7 +62,7 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
 		if i == clients.Removed {
 			continue
 		}
-		if client.PublicId == source {
+		if client.PublicId == update.Meta.Source {
 			r.sendAckToSender(client, update, latency, msg.ProcessedBy)
 			if update.Dup {
 				// Only send an ack to the sender, then stop.
