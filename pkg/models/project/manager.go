@@ -62,7 +62,7 @@ type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
-	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource) (*GetBootstrapWSDetails, error)
+	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource, p *ForBootstrapWS, u *user.WithPublicInfo) error
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
@@ -1274,14 +1274,15 @@ WHERE p.id = $1
 	)
 }
 
-func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource) (*GetBootstrapWSDetails, error) {
-	d := &GetBootstrapWSDetails{}
-	d.Project.Id = projectId
-	d.Project.RootFolder = NewFolder("")
-	d.Project.DeletedDocs = make([]CommonTreeFields, 0)
+func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource, p *ForBootstrapWS, u *user.WithPublicInfo) error {
+	p.Id = projectId
+	p.RootFolder = NewFolder("")
+	p.DeletedDocs = make([]CommonTreeFields, 0)
+	u.Id = userId
 
 	var deletedDocIds sharedTypes.UUIDs
 	var deletedDocNames []string
+	var userEpochLive int64
 
 	err := m.db.QueryRow(ctx, `
 WITH tree AS
@@ -1345,47 +1346,47 @@ WHERE p.id = $1
   AND p.deleted_at IS NULL
   AND p.epoch = $3
 `, projectId, userId, projectEpoch, userEpoch, source).Scan(
-		&d.Project.Compiler,
-		&d.Project.ImageName,
-		&d.Project.Name,
-		&d.Project.Owner.Id,
-		&d.Project.PublicAccessLevel,
-		&d.Project.RootDocId,
-		&d.Project.RootFolder.Id,
-		&d.Project.SpellCheckLanguage,
-		&d.Project.Version,
-		&d.Project.Owner.Email,
-		&d.Project.Owner.FirstName,
-		&d.Project.Owner.LastName,
-		&d.User.Email,
-		&d.User.Epoch,
-		&d.User.FirstName,
-		&d.User.LastName,
-		&d.Project.treeIds,
-		&d.Project.treeKinds,
-		&d.Project.treePaths,
-		&d.Project.createdAts,
-		&d.Project.linkedFileData,
-		&d.Project.sizes,
+		&p.Compiler,
+		&p.ImageName,
+		&p.Name,
+		&p.Owner.Id,
+		&p.PublicAccessLevel,
+		&p.RootDocId,
+		&p.RootFolder.Id,
+		&p.SpellCheckLanguage,
+		&p.Version,
+		&p.Owner.Email,
+		&p.Owner.FirstName,
+		&p.Owner.LastName,
+		&u.Email,
+		&userEpochLive,
+		&u.FirstName,
+		&u.LastName,
+		&p.treeIds,
+		&p.treeKinds,
+		&p.treePaths,
+		&p.createdAts,
+		&p.linkedFileData,
+		&p.sizes,
 		&deletedDocIds,
 		&deletedDocNames,
 	)
-	if err == pgx.ErrNoRows || (!userId.IsZero() && d.User.Epoch != userEpoch) {
-		return nil, &errors.UnauthorizedError{}
+	if err == pgx.ErrNoRows || (!userId.IsZero() && userEpochLive != userEpoch) {
+		return &errors.UnauthorizedError{}
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if n := len(deletedDocIds); n > 0 {
-		d.Project.DeletedDocs = make([]CommonTreeFields, n)
+		p.DeletedDocs = make([]CommonTreeFields, n)
 		for i, id := range deletedDocIds {
-			d.Project.DeletedDocs[i].Id = id
-			d.Project.DeletedDocs[i].Name = sharedTypes.Filename(
+			p.DeletedDocs[i].Id = id
+			p.DeletedDocs[i].Name = sharedTypes.Filename(
 				deletedDocNames[i],
 			)
 		}
 	}
-	return d, nil
+	return nil
 }
 
 func (m *manager) BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error {

@@ -56,8 +56,8 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 	projectKey := getProjectKey(client.ProjectId)
 
 	userBlob, err := json.Marshal(types.ConnectedClient{
-		User:           client.User,
 		ClientPosition: position,
+		WithPublicInfo: client.User,
 	})
 	if err != nil {
 		return nil, errors.Tag(err, "serialize connected user")

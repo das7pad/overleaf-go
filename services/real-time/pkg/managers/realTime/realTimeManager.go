@@ -29,12 +29,13 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/clientTracking"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/webApi"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -59,12 +60,11 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	w := webApi.New(db)
 	return &manager{
 		clientTracking:          ct,
 		editorEvents:            e,
 		dum:                     dum,
-		webApi:                  w,
+		pm:                      project.New(db),
 		gracefulShutdownDelay:   options.GracefulShutdown.Delay,
 		gracefulShutdownTimeout: options.GracefulShutdown.Timeout,
 	}, nil
@@ -76,7 +76,7 @@ type manager struct {
 	clientTracking clientTracking.Manager
 	editorEvents   editorEvents.Manager
 	dum            documentUpdater.Manager
-	webApi         webApi.Manager
+	pm             project.Manager
 
 	gracefulShutdownDelay   time.Duration
 	gracefulShutdownTimeout time.Duration
@@ -161,32 +161,39 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 }
 
 func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error) {
-	u, r, err := m.webApi.BootstrapWS(ctx, claims)
+	res := types.BootstrapWSResponse{
+		PrivilegeLevel: claims.PrivilegeLevel,
+		PublicId:       client.PublicId,
+	}
+	err := m.pm.GetBootstrapWSDetails(
+		ctx, claims.ProjectId, claims.UserId, claims.Epoch, claims.EpochUser,
+		claims.AccessSource, &res.Project.ForBootstrapWS, &client.User,
+	)
 	if err != nil {
 		return nil, err
 	}
-	projectId := r.Project.Id
+	res.Project.OwnerFeatures = user.Features{
+		Collaborators:  -1,
+		CompileTimeout: claims.Timeout / sharedTypes.ComputeTimeout(time.Second),
+		CompileGroup:   claims.CompileGroup,
+		Versioning:     true,
+	}
+	res.Project.RootFolder = []*project.Folder{res.Project.GetRootFolder()}
 
-	client.ProjectId = projectId
-	client.User = u
-	client.ResolveCapabilities(r.PrivilegeLevel, r.IsRestrictedUser)
+	client.ProjectId = res.Project.Id
+	client.ResolveCapabilities(claims.PrivilegeLevel, claims.IsRestrictedUser())
 
 	getConnectedUsers := client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil
 	connectedClients := m.clientTracking.Connect(ctx, client, getConnectedUsers)
 	if !getConnectedUsers {
 		connectedClients = make(types.ConnectedClients, 0)
 	}
+	res.ConnectedClients = connectedClients
 
 	if err = m.editorEvents.Join(ctx, client); err != nil {
 		return nil, errors.Tag(err, "subscribe")
 	}
 
-	res := &types.JoinProjectResponse{
-		Project:          r.Project,
-		PrivilegeLevel:   r.PrivilegeLevel,
-		ConnectedClients: connectedClients,
-		PublicId:         client.PublicId,
-	}
 	body, err := json.Marshal(res)
 	if err != nil {
 		return nil, errors.Tag(err, "serialize response")

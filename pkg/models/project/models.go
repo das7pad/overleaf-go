@@ -23,12 +23,9 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type JoinProjectViewPrivate struct {
-	ForTree
-	JoinProjectViewPublic
-}
+type ForBootstrapWS struct {
+	ForTree `json:"-"`
 
-type JoinProjectViewPublic struct {
 	CompilerField
 	DeletedDocsField
 	IdField
@@ -39,11 +36,6 @@ type JoinProjectViewPublic struct {
 	RootDocIdField
 	SpellCheckLanguageField
 	VersionField
-}
-
-type GetBootstrapWSDetails struct {
-	Project JoinProjectViewPrivate
-	User    user.ForBootstrapWS
 }
 
 type ListViewPrivate struct {

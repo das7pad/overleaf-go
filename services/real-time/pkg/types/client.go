@@ -28,6 +28,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -129,7 +130,7 @@ type Client struct {
 
 	PublicId  sharedTypes.PublicId
 	ProjectId sharedTypes.UUID
-	User      User
+	User      user.WithPublicInfo
 
 	docId atomic.Pointer[sharedTypes.UUID]
 
