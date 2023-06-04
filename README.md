@@ -25,8 +25,8 @@ https://github.com/das7pad/overleaf-node).
 - Highly optimized compile process (<200ms are possible for incremental
   compiles, <20ms for synctex aka navigating between code/PDF location, zero
   content is fetched from Postgres for incremental compiles)
-- Homegrown real-time service with minimal overhead for connection startup (
-  zero server round trips inside the websocket for "joining" a project)
+- Homegrown real-time service with minimal overhead for connection startup
+  (zero server round trips inside the websocket for "joining" a project)
 - JWT based authentication and authorization for many endpoints (epochs in the
   DB enable invalidation of tokens ahead of their expiry)
 - Highly optimized document updating process (merged redis keys reduce redis
@@ -42,13 +42,13 @@ https://github.com/das7pad/overleaf-node).
 - Minify and compile HTML templates at boot-time in well under 1s
 - Caching for documentation content and images
 - Website translations on a single domain
-- No local filesystem backend for storing binary files (all major provider
+- No local filesystem backend for storing binary files (all major providers
   expose an S3 compatible API today and min.io can be used for self-hosting)
 
 ## Getting started
 
 There are little to no run-time defaults and strict validation of options
-flags missed details in your config.
+is in place for flagging missed/invalid directives in your config.
 
 You can use the config generator which has opinionated options and
 auto-detection for Docker details (rootful, rootless, Mac).
