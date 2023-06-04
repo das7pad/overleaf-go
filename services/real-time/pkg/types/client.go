@@ -214,11 +214,6 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		}
 		return nil
 	case UpdatePosition:
-		if !c.HasJoinedDoc(docId) {
-			return &errors.ValidationError{
-				Msg: "ignoring position update in non-joined doc",
-			}
-		}
 		if err := c.CheckHasCapability(CanSeeOtherClients); err != nil {
 			return err
 		}

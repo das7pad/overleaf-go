@@ -264,9 +264,6 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	if err := json.Unmarshal(rpc.Request.Body, &p); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
-	// Hard code document identifier.
-	p.DocId = rpc.Request.DocId
-
 	if err := m.clientTracking.UpdatePosition(ctx, rpc.Client, p); err != nil {
 		return errors.Tag(err, "handle position update")
 	}
