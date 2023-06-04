@@ -110,7 +110,10 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 	b := bytes.NewBuffer(make([]byte, 0, 30*1024))
 
 	m := multipart.NewWriter(b)
-	rndHex := m.Boundary()
+	rndHex := e.boundary
+	if rndHex == "" {
+		rndHex = m.Boundary()
+	}
 
 	// The body parts are 'quoted-printable' encoded. The encoding uses '=' for
 	//  denoting forced line breaks and encoding non-ASCII characters. It
@@ -120,7 +123,10 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		return errors.Tag(err, "set robust boundary")
 	}
 
-	now := time.Now()
+	now := e.now
+	if now.IsZero() {
+		now = time.Now()
+	}
 	headers := map[string]string{
 		"Content-Type": fmt.Sprintf(
 			"multipart/alternative; boundary=%q", m.Boundary(),
