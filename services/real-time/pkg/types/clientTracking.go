@@ -17,7 +17,6 @@
 package types
 
 import (
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -33,8 +32,8 @@ type ClientPositionUpdateNotification struct {
 }
 
 type ConnectedClient struct {
-	ClientId sharedTypes.PublicId `json:"client_id,omitempty"`
-	user.WithPublicInfo
+	ClientId    sharedTypes.PublicId `json:"client_id,omitempty"`
+	DisplayName string               `json:"name"`
 
 	ClientPosition *ClientPosition `json:"cursorData,omitempty"`
 }

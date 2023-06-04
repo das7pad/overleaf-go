@@ -57,7 +57,7 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 
 	userBlob, err := json.Marshal(types.ConnectedClient{
 		ClientPosition: position,
-		WithPublicInfo: client.User,
+		DisplayName:    client.DisplayName,
 	})
 	if err != nil {
 		return nil, errors.Tag(err, "serialize connected user")

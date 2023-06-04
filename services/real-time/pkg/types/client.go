@@ -28,7 +28,6 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
-	"github.com/das7pad/overleaf-go/pkg/models/user"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -128,9 +127,10 @@ func (c Clients) Index(needle *Client) int {
 type Client struct {
 	capabilities Capabilities
 
-	PublicId  sharedTypes.PublicId
-	ProjectId sharedTypes.UUID
-	User      user.WithPublicInfo
+	PublicId    sharedTypes.PublicId
+	ProjectId   sharedTypes.UUID
+	UserId      sharedTypes.UUID
+	DisplayName string
 
 	docId atomic.Pointer[sharedTypes.UUID]
 

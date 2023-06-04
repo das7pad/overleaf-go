@@ -147,7 +147,7 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 	}
 	log.Printf(
 		"user=%s project=%s doc=%s action=%s body=%d err=%s",
-		rpc.Client.User.Id, rpc.Client.ProjectId, rpc.Request.DocId,
+		rpc.Client.UserId, rpc.Client.ProjectId, rpc.Request.DocId,
 		rpc.Request.Action, len(rpc.Request.Body), err.Error(),
 	)
 	if errors.IsFatalError(err) {
@@ -165,9 +165,10 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 		PrivilegeLevel: claims.PrivilegeLevel,
 		PublicId:       client.PublicId,
 	}
+	u := user.WithPublicInfo{}
 	err := m.pm.GetBootstrapWSDetails(
 		ctx, claims.ProjectId, claims.UserId, claims.Epoch, claims.EpochUser,
-		claims.AccessSource, &res.Project.ForBootstrapWS, &client.User,
+		claims.AccessSource, &res.Project.ForBootstrapWS, &u,
 	)
 	if err != nil {
 		return nil, err
@@ -180,7 +181,9 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	}
 	res.Project.RootFolder = []*project.Folder{res.Project.GetRootFolder()}
 
+	client.DisplayName = u.DisplayName()
 	client.ProjectId = res.Project.Id
+	client.UserId = u.Id
 	client.ResolveCapabilities(claims.PrivilegeLevel, claims.IsRestrictedUser())
 
 	getConnectedUsers := client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil
@@ -235,7 +238,7 @@ func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	// Hard code document and user identifier.
 	update.DocId = rpc.Request.DocId
 	update.Meta.Source = rpc.Client.PublicId
-	update.Meta.UserId = rpc.Client.User.Id
+	update.Meta.UserId = rpc.Client.UserId
 
 	return m.dum.QueueUpdate(
 		ctx, rpc.Client.ProjectId, rpc.Request.DocId, update,

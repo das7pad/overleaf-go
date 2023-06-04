@@ -69,8 +69,8 @@ func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p typ
 
 func (m *manager) notifyConnected(ctx context.Context, client *types.Client) error {
 	body, err := json.Marshal(types.ConnectedClient{
-		ClientId:       client.PublicId,
-		WithPublicInfo: client.User,
+		ClientId:    client.PublicId,
+		DisplayName: client.DisplayName,
 	})
 	if err != nil {
 		return errors.Tag(err, "serialize connected client")
