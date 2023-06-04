@@ -19,15 +19,12 @@ package email
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
-	"net"
-	"net/smtp"
 	"net/textproto"
 	"strings"
 	"time"
@@ -43,8 +40,17 @@ func (a SMTPAddress) Host() string {
 	return s[0:idx]
 }
 
+func (a SMTPAddress) IsSpecial() bool {
+	switch a {
+	case "log":
+		return true
+	default:
+		return false
+	}
+}
+
 func (a SMTPAddress) Validate() error {
-	if a == "log" {
+	if a.IsSpecial() {
 		return nil
 	}
 	if !strings.ContainsRune(string(a), ':') {
@@ -56,24 +62,23 @@ func (a SMTPAddress) Validate() error {
 type SendOptions struct {
 	From            Identity
 	FallbackReplyTo Identity
-	SMTPAddress     SMTPAddress
-	SMTPHello       string
-	SMTPAuth        smtp.Auth
+	Sender          Sender
 }
 
 type generator func(w io.Writer) error
 
 const (
-	crlf = "\r\n"
+	colonSpace = ": "
+	crlf       = "\r\n"
 
-	htmlContent      = "text/html"
-	plainTextContent = "text/plain"
+	htmlContent      = "text/html; charset=UTF-8"
+	plainTextContent = "text/plain; charset=UTF-8"
 )
 
 func writePart(m *multipart.Writer, contentType string, gen generator) error {
 	h := textproto.MIMEHeader{
 		"Content-Transfer-Encoding": {"quoted-printable"},
-		"Content-Type":              {contentType + "; charset=UTF-8"},
+		"Content-Type":              {contentType},
 	}
 	p, err := m.CreatePart(h)
 	if err != nil {
@@ -104,8 +109,7 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 	// A minimal CTA email weights 27 KB, use a larger value to avoid growing.
 	b := bytes.NewBuffer(make([]byte, 0, 30*1024))
 
-	w := b
-	m := multipart.NewWriter(w)
+	m := multipart.NewWriter(b)
 	rndHex := m.Boundary()
 
 	// The body parts are 'quoted-printable' encoded. The encoding uses '=' for
@@ -132,12 +136,13 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		"To":           e.To.String(),
 	}
 	for k, s := range headers {
-		if _, err := io.WriteString(w, k+": "+s+crlf); err != nil {
-			return errors.Tag(err, "write header")
-		}
+		b.WriteString(k)
+		b.WriteString(colonSpace)
+		b.WriteString(s)
+		b.WriteString(crlf)
 	}
 
-	if _, err := io.WriteString(w, crlf); err != nil {
+	if _, err := b.WriteString(crlf); err != nil {
 		return errors.Tag(err, "write start of body")
 	}
 	if err := writePart(m, plainTextContent, e.writePlainText); err != nil {
@@ -151,73 +156,10 @@ func (e *Email) Send(ctx context.Context, o *SendOptions) error {
 		return errors.Tag(err, "finalize body")
 	}
 
-	if o.SMTPAddress == "log" {
-		log.Println(w.String())
-		return nil
-	}
-	err := sendMail(
-		ctx, o.SMTPAddress, o.SMTPAuth, o.SMTPHello, o.From, e.To, b.Bytes(),
-	)
-	if err != nil {
+	if err := o.Sender.Send(ctx, o.From, e.To, b.Bytes()); err != nil {
 		log.Printf("send email: %s", err)
 		// Ensure that we do not expose details on the email infrastructure.
 		return errors.New("internal error sending email")
-	}
-	return nil
-}
-
-func sendMail(ctx context.Context, addr SMTPAddress, a smtp.Auth, hello string, from, to Identity, blob []byte) error {
-	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", string(addr))
-	if err != nil {
-		return errors.Tag(err, "connect")
-	}
-	ctx, done := context.WithCancel(ctx)
-	defer done()
-	go func() {
-		<-ctx.Done()
-		_ = conn.Close()
-	}()
-	c, err := smtp.NewClient(conn, addr.Host())
-	if err != nil {
-		return errors.Tag(err, "create client")
-	}
-	defer func() { _ = c.Close() }()
-
-	if err = c.Hello(hello); err != nil {
-		return errors.Tag(err, "hello")
-	}
-	if ok, _ := c.Extension("STARTTLS"); ok {
-		if err = c.StartTLS(&tls.Config{ServerName: addr.Host()}); err != nil {
-			return errors.Tag(err, "starttls")
-		}
-	}
-	if a != nil {
-		if ok, _ := c.Extension("AUTH"); !ok {
-			return errors.New("expected AUTH support")
-		}
-		if err = c.Auth(a); err != nil {
-			return errors.Tag(err, "auth")
-		}
-	}
-	if err = c.Mail(string(from.Address)); err != nil {
-		return errors.Tag(err, "mail")
-	}
-	if err = c.Rcpt(string(to.Address)); err != nil {
-		return errors.Tag(err, "receipt")
-	}
-	w, err := c.Data()
-	if err != nil {
-		return errors.Tag(err, "data")
-	}
-	if _, err = w.Write(blob); err != nil {
-		return errors.Tag(err, "write")
-	}
-	if err = w.Close(); err != nil {
-		return errors.Tag(err, "flush write")
-	}
-	if err = c.Quit(); err != nil {
-		return errors.Tag(err, "quit")
 	}
 	return nil
 }

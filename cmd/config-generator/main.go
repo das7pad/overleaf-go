@@ -316,6 +316,7 @@ func main() {
 			FallbackReplyTo  email.Identity    `json:"fallback_reply_to"`
 			SMTPAddress      email.SMTPAddress `json:"smtp_address"`
 			SMTPHello        string            `json:"smtp_hello"`
+			SMTPIdentity     string            `json:"smtp_identity"`
 			SMTPUser         string            `json:"smtp_user"`
 			SMTPPassword     string            `json:"smtp_password"`
 		}{

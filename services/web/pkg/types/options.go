@@ -52,6 +52,7 @@ type Options struct {
 		FallbackReplyTo  email.Identity    `json:"fallback_reply_to"`
 		SMTPAddress      email.SMTPAddress `json:"smtp_address"`
 		SMTPHello        string            `json:"smtp_hello"`
+		SMTPIdentity     string            `json:"smtp_identity"`
 		SMTPUser         string            `json:"smtp_user"`
 		SMTPPassword     string            `json:"smtp_password"`
 	} `json:"email"`
@@ -180,7 +181,7 @@ func (o *Options) Validate() error {
 	if err := o.Email.SMTPAddress.Validate(); err != nil {
 		return errors.Tag(err, "email.smtp_address is invalid")
 	}
-	if o.Email.SMTPAddress != "log" {
+	if !o.Email.SMTPAddress.IsSpecial() {
 		if o.Email.SMTPUser == "" {
 			return &errors.ValidationError{Msg: "email.smtp_user is missing"}
 		}
@@ -245,9 +246,9 @@ type EmailOptions struct {
 
 func (o *Options) EmailOptions() *EmailOptions {
 	var a smtp.Auth
-	if o.Email.SMTPAddress != "log" {
+	if !o.Email.SMTPAddress.IsSpecial() {
 		a = smtp.PlainAuth(
-			"",
+			o.Email.SMTPIdentity,
 			o.Email.SMTPUser,
 			o.Email.SMTPPassword,
 			o.Email.SMTPAddress.Host(),
@@ -263,9 +264,9 @@ func (o *Options) EmailOptions() *EmailOptions {
 		Send: &email.SendOptions{
 			From:            o.Email.From,
 			FallbackReplyTo: o.Email.FallbackReplyTo,
-			SMTPAddress:     o.Email.SMTPAddress,
-			SMTPAuth:        a,
-			SMTPHello:       o.Email.SMTPHello,
+			Sender: email.NewSender(
+				o.Email.SMTPAddress, o.Email.SMTPHello, a,
+			),
 		},
 	}
 }
