@@ -149,7 +149,7 @@ func main() {
 
 	flag.Parse()
 
-	if smtpAddress != "log" {
+	if !email.SMTPAddress(smtpAddress).IsSpecial() {
 		handlePromptInput(&smtpPassword, "SMTP Password")
 	}
 	handlePromptInput(&filestoreOptions.Secret, "S3 secret key")
