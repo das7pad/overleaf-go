@@ -78,7 +78,7 @@ func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnec
 	clients, err := m.updateClientPosition(
 		ctx, client, types.ClientPosition{}, fetchConnectedUsers,
 	)
-	if err != nil || len(clients) > 0 {
+	if err != nil || len(clients) > 0 || !fetchConnectedUsers {
 		if errNotify := m.notifyConnected(ctx, client); errNotify != nil {
 			err = errors.Merge(errNotify, err)
 		}
