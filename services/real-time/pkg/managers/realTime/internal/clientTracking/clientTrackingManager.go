@@ -75,7 +75,9 @@ func (m *manager) Disconnect(client *types.Client) bool {
 }
 
 func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients {
-	clients, err := m.updateClientPosition(ctx, client, nil, fetchConnectedUsers)
+	clients, err := m.updateClientPosition(
+		ctx, client, types.ClientPosition{}, fetchConnectedUsers,
+	)
 	if err != nil || len(clients) > 0 {
 		if errNotify := m.notifyConnected(ctx, client); errNotify != nil {
 			err = errors.Merge(errNotify, err)
@@ -92,7 +94,7 @@ func (m *manager) UpdatePosition(ctx context.Context, client *types.Client, p ty
 	if err := m.notifyUpdated(ctx, client, p); err != nil {
 		return err
 	}
-	if _, err := m.updateClientPosition(ctx, client, &p, false); err != nil {
+	if _, err := m.updateClientPosition(ctx, client, p, false); err != nil {
 		return err
 	}
 	return nil

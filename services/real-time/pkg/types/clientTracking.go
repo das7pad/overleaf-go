@@ -21,21 +21,15 @@ import (
 )
 
 type ClientPosition struct {
-	Row    sharedTypes.Row    `json:"row"`
-	Column sharedTypes.Column `json:"column"`
-	DocId  sharedTypes.UUID   `json:"doc_id"`
-}
-
-type ClientPositionUpdateNotification struct {
-	Source sharedTypes.PublicId `json:"id"`
-	ClientPosition
+	Row    sharedTypes.Row    `json:"r,omitempty"`
+	Column sharedTypes.Column `json:"c,omitempty"`
+	DocId  sharedTypes.UUID   `json:"d"`
 }
 
 type ConnectedClient struct {
-	ClientId    sharedTypes.PublicId `json:"client_id,omitempty"`
-	DisplayName string               `json:"name"`
-
-	ClientPosition *ClientPosition `json:"cursorData,omitempty"`
+	ClientId    sharedTypes.PublicId `json:"i,omitempty"`
+	DisplayName string               `json:"n,omitempty"`
+	ClientPosition
 }
 
 type ConnectedClients []ConnectedClient

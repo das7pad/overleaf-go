@@ -52,7 +52,7 @@ func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client
 	return remainingClients.Val(), nil
 }
 
-func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position *types.ClientPosition, fetchConnectedUsers bool) (types.ConnectedClients, error) {
+func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition, fetchConnectedUsers bool) (types.ConnectedClients, error) {
 	projectKey := getProjectKey(client.ProjectId)
 
 	userBlob, err := json.Marshal(types.ConnectedClient{

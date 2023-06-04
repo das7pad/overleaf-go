@@ -48,8 +48,8 @@ func (m *manager) notifyDisconnected(ctx context.Context, client *types.Client) 
 }
 
 func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p types.ClientPosition) error {
-	body, err := json.Marshal(types.ClientPositionUpdateNotification{
-		Source:         client.PublicId,
+	body, err := json.Marshal(types.ConnectedClient{
+		ClientId:       client.PublicId,
 		ClientPosition: p,
 	})
 	if err != nil {
