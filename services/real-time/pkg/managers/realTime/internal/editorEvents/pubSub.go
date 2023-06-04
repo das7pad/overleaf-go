@@ -48,12 +48,7 @@ func (r *room) Handle(raw string) {
 }
 
 func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
-	resp := types.RPCResponse{
-		Name:        msg.Message,
-		Body:        msg.Payload,
-		ProcessedBy: msg.ProcessedBy,
-	}
-	var capability types.CapabilityComponent
+	var requiredCapability types.CapabilityComponent
 	var bulkMessage types.WriteQueueEntry
 	clients := r.Clients()
 	for i, client := range clients.All {
@@ -63,13 +58,18 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 		if client.PublicId == msg.Source {
 			continue
 		}
-		if capability == 0 {
-			capability = getRequiredCapabilityForMessage(msg.Message)
+		if requiredCapability == 0 {
+			requiredCapability = getRequiredCapabilityForMessage(msg.Message)
 		}
-		if !client.HasCapability(capability) {
+		if !client.HasCapability(requiredCapability) {
 			continue
 		}
 		if bulkMessage.Msg == nil {
+			resp := types.RPCResponse{
+				Name:        msg.Message,
+				Body:        msg.Payload,
+				ProcessedBy: msg.ProcessedBy,
+			}
 			var err error
 			if bulkMessage, err = types.PrepareBulkMessage(&resp); err != nil {
 				return err
