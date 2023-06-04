@@ -17,10 +17,15 @@
 package email
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"io"
 	"log"
+	"mime"
+	"mime/multipart"
 	"net"
+	"net/mail"
 	"net/smtp"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -32,6 +37,10 @@ type Sender interface {
 
 func NewSender(address SMTPAddress, smtpHello string, smtpAuth smtp.Auth) Sender {
 	switch address {
+	case "collect":
+		return &collectingSender{}
+	case "discard":
+		return discardSender{}
 	case "log":
 		return loggingSender{}
 	default:
@@ -41,6 +50,59 @@ func NewSender(address SMTPAddress, smtpHello string, smtpAuth smtp.Auth) Sender
 			hello: smtpHello,
 		}
 	}
+}
+
+type ParsedEmail struct {
+	mail.Header
+	Parts map[string]string
+}
+
+type collectingSender struct {
+	blobs [][]byte
+}
+
+func (c *collectingSender) Send(_ context.Context, _, _ Identity, blob []byte) error {
+	c.blobs = append(c.blobs, blob)
+	return nil
+}
+
+func (c *collectingSender) Parse() ([]ParsedEmail, error) {
+	emails := make([]ParsedEmail, len(c.blobs))
+	for i, blob := range c.blobs {
+		m, err := mail.ReadMessage(bytes.NewReader(blob))
+		if err != nil {
+			return nil, err
+		}
+		_, params, err := mime.ParseMediaType(m.Header.Get("Content-Type"))
+		if err != nil {
+			return nil, err
+		}
+		r := multipart.NewReader(m.Body, params["boundary"])
+		parts := make(map[string]string, 2)
+		for {
+			p, err2 := r.NextPart()
+			if err2 == io.EOF {
+				break
+			}
+			if err2 != nil {
+				return nil, err2
+			}
+			body, err2 := io.ReadAll(p)
+			if err2 != nil {
+				return nil, err2
+			}
+			parts[p.Header.Get("Content-Type")] = string(body)
+		}
+		emails[i] = ParsedEmail{Header: m.Header, Parts: parts}
+	}
+	return emails, nil
+}
+
+type discardSender struct {
+}
+
+func (discardSender) Send(_ context.Context, _, _ Identity, _ []byte) error {
+	return nil
 }
 
 type loggingSender struct {

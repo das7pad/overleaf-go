@@ -175,7 +175,7 @@ func (o *Options) Validate() error {
 	}
 	if o.Email.SMTPAddress == "" {
 		return &errors.ValidationError{
-			Msg: "email.smtp_address is missing, use 'log' as no-op",
+			Msg: "email.smtp_address is missing, use 'discard'/'log' as no-op",
 		}
 	}
 	if err := o.Email.SMTPAddress.Validate(); err != nil {

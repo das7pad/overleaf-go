@@ -42,7 +42,7 @@ func (a SMTPAddress) Host() string {
 
 func (a SMTPAddress) IsSpecial() bool {
 	switch a {
-	case "log":
+	case "collect", "discard", "log":
 		return true
 	default:
 		return false
