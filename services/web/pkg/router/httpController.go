@@ -226,6 +226,7 @@ func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUti
 	projectJWTRouter.POST("/sync/pdf", h.syncFromPDF)
 	projectJWTRouter.POST("/wordcount", h.wordCount)
 
+	projectJWTRouter.GET("/accessTokens", h.getAccessTokens)
 	projectJWTRouter.GET("/metadata", h.getMetadataForProject)
 
 	{
@@ -288,7 +289,6 @@ func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUti
 		r := projectJWTRouter.Group("")
 		r.Use(requireProjectAdminAccess)
 
-		r.GET("/accessTokens", h.getAccessTokens)
 		r.PUT("/settings/admin/publicAccessLevel", h.setPublicAccessLevel)
 
 		r.POST("/invite", h.createProjectInvite)

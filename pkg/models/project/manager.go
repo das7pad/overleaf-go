@@ -280,12 +280,26 @@ WHERE id = $1
 }
 
 func (m *manager) GetAccessTokens(ctx context.Context, projectId, userId sharedTypes.UUID, tokens *Tokens) error {
-	return m.db.QueryRow(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT coalesce(token_ro, ''), coalesce(token_rw, '')
 FROM projects
 WHERE id = $1
   AND owner_id = $2
+UNION
+-- readOnly token access users can see the previously used token
+SELECT coalesce(token_ro, ''), ''
+FROM projects p
+         INNER JOIN project_members pm ON (p.id = pm.project_id AND
+                                           pm.user_id = $2)
+WHERE p.id = $1
+  AND p.public_access_level = 'tokenBased'
+  AND pm.access_source = 'token'
+  AND pm.privilege_level = 'readOnly'
 `, projectId, userId).Scan(&tokens.ReadOnly, &tokens.ReadAndWrite)
+	if err == pgx.ErrNoRows {
+		return &errors.NotAuthorizedError{}
+	}
+	return err
 }
 
 func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
