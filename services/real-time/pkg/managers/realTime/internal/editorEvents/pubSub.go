@@ -42,7 +42,15 @@ func (r *room) Handle(raw string) {
 		err = r.handleMessage(msg)
 	}
 	if err != nil {
-		log.Println("handle editorEvents message: " + err.Error())
+		clients := r.Clients()
+		var projectId sharedTypes.UUID
+		for i, client := range clients.All {
+			if i == clients.Removed {
+				continue
+			}
+			projectId = client.ProjectId
+		}
+		log.Printf("%s: handle editorEvents message: %s", projectId, err)
 		return
 	}
 }
