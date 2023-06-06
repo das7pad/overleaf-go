@@ -127,9 +127,10 @@ func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, paylo
 }
 
 type refreshMembershipDetails struct {
-	Invites bool `json:"invites,omitempty"`
-	Members bool `json:"members,omitempty"`
-	Owner   bool `json:"owner,omitempty"`
+	Invites bool             `json:"invites,omitempty"`
+	Members bool             `json:"members,omitempty"`
+	Owner   bool             `json:"owner,omitempty"`
+	UserId  sharedTypes.UUID `json:"userId"`
 }
 
 func (m *manager) notifyEditorAboutAccessChanges(projectId sharedTypes.UUID, r refreshMembershipDetails) {

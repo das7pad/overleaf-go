@@ -36,6 +36,7 @@ func (m *manager) SetMemberPrivilegeLevelInProject(ctx context.Context, r *types
 
 	go m.notifyEditorAboutAccessChanges(r.ProjectId, refreshMembershipDetails{
 		Members: true,
+		UserId:  r.MemberId,
 	})
 	return nil
 }

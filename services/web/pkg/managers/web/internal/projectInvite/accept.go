@@ -41,6 +41,7 @@ func (m *manager) AcceptProjectInvite(ctx context.Context, request *types.Accept
 	go m.notifyEditorAboutChanges(projectId, refreshMembershipDetails{
 		Invites: true,
 		Members: true,
+		UserId:  userId,
 	})
 
 	response.RedirectTo = "/project/" + projectId.String()

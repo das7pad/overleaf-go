@@ -38,6 +38,12 @@ func (r *room) Handle(raw string) {
 	switch msg.Message {
 	case "otUpdateApplied":
 		err = r.handleUpdate(msg)
+	case "project:publicAccessLevel:changed":
+		r.handleProjectPublicAccessLevelChanged()
+		fallthrough
+	case "project:membership:changed":
+		r.handleProjectMembershipChanged(msg.Payload)
+		fallthrough
 	default:
 		err = r.handleMessage(msg)
 	}
@@ -52,6 +58,37 @@ func (r *room) Handle(raw string) {
 		}
 		log.Printf("%s: handle editorEvents message: %s", projectId, err)
 		return
+	}
+}
+
+func (r *room) handleProjectPublicAccessLevelChanged() {
+	clients := r.Clients()
+	for i, client := range clients.All {
+		if i == clients.Removed {
+			continue
+		}
+		if !client.HasCapability(types.CanSeeOtherClients) {
+			// This is a restricted user aka a token user who just lost access.
+			client.TriggerDisconnect()
+		}
+	}
+}
+
+type projectMembershipChangedPayload struct {
+	UserId sharedTypes.UUID `json:"userId"`
+}
+
+func (r *room) handleProjectMembershipChanged(blob []byte) {
+	p := projectMembershipChangedPayload{}
+	err := json.Unmarshal(blob, &p)
+	clients := r.Clients()
+	for i, client := range clients.All {
+		if i == clients.Removed {
+			continue
+		}
+		if err != nil || p.UserId == client.UserId {
+			client.TriggerDisconnect()
+		}
 	}
 }
 

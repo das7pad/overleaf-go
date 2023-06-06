@@ -80,8 +80,9 @@ func getKey(inviteId sharedTypes.UUID) string {
 }
 
 type refreshMembershipDetails struct {
-	Invites bool `json:"invites,omitempty"`
-	Members bool `json:"members,omitempty"`
+	Invites bool             `json:"invites,omitempty"`
+	Members bool             `json:"members,omitempty"`
+	UserId  sharedTypes.UUID `json:"userId"`
 }
 
 func (m *manager) notifyEditorAboutChanges(projectId sharedTypes.UUID, r refreshMembershipDetails) {

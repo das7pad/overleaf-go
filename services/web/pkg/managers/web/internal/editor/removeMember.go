@@ -45,6 +45,7 @@ func (m *manager) removeMemberFromProject(ctx context.Context, projectId sharedT
 	}
 	go m.notifyEditorAboutAccessChanges(projectId, refreshMembershipDetails{
 		Members: true,
+		UserId:  userId,
 	})
 	return nil
 }
