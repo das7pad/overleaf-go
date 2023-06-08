@@ -14,14 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package configGenerator
 
 import (
-	"bufio"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"flag"
 	"fmt"
 	"html/template"
 	"os"
@@ -44,27 +41,7 @@ import (
 	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func main() {
-	defer func() {
-		err := recover()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, "Error:", err)
-			flag.CommandLine.Usage()
-			os.Exit(101)
-		}
-	}()
-	jwtOptionsLoggedInUser := jwtOptions.JWTOptions{
-		Algorithm: "HS512",
-		Key:       genSecret(32),
-		ExpiresIn: 24 * time.Hour,
-	}
-	jwtOptionsProject := jwtOptions.JWTOptions{
-		Algorithm: "HS512",
-		Key:       genSecret(32),
-		ExpiresIn: time.Hour,
-	}
-	linkedURLProxyToken := genSecret(32)
-
+func NewFlags() Flags {
 	dockerSocketRootLess := fmt.Sprintf(
 		"/run/user/%d/docker.sock", os.Getuid(),
 	)
@@ -79,111 +56,131 @@ func main() {
 		dockerSocket = dockerSocketRootLess
 	}
 
-	dockerComposeSetup := true
-	flag.BoolVar(&dockerComposeSetup, "docker-compose-setup", dockerComposeSetup, "generate config for docker-compose setup (hostnames refer to services in docker-compose config)")
-
-	nginxPublicListenAddress := "127.0.0.1:8080"
-	flag.StringVar(&nginxPublicListenAddress, "nginx-external-listen-address", nginxPublicListenAddress, "docker-compose only: public bind address for nginx plain HTTP server")
-	nginxInternalPort := "8080"
-	flag.StringVar(&nginxInternalPort, "nginx-internal-port", nginxInternalPort, "docker-compose only: container internal port for nginx plain HTTP server")
-
-	flag.StringVar(&dockerSocket, "docker-socket", dockerSocket, "docker socket path")
-	dockerSocketGroupId := -1
-	flag.IntVar(&dockerSocketGroupId, "docker-socket-group-id", dockerSocketGroupId, "docker socket group-id (default: auto-detect from socket)")
-	dockerContainerUser := "nobody"
-	flag.StringVar(&dockerContainerUser, "docker-container-user", dockerContainerUser, "user inside the docker containers running texlive and services/clsi or cmd/overleaf")
-
-	texLiveImages := "texlive/texlive:TL2021-historic"
-	flag.StringVar(&texLiveImages, "texlive-images", texLiveImages, "comma separated list of texlive docker images, first image is default image")
-
-	tmpDir := "/tmp/ol"
-	flag.StringVar(&tmpDir, "tmp-dir", tmpDir, "base dir for ephemeral files")
-
-	manifestPath := ""
-	flag.StringVar(&manifestPath, "frontend-manifest-path", manifestPath, "frontend manifest path, use 'cdn' for download at boot time")
-
-	siteURLRaw := "http://localhost:8080"
-	flag.StringVar(&siteURLRaw, "site-url", siteURLRaw, "site url")
-
-	cdnURLRaw := ""
-	flag.StringVar(&cdnURLRaw, "cdn-url", cdnURLRaw, "cdn url")
-
-	linkedURLProxyChainRaw := ""
-	flag.StringVar(&linkedURLProxyChainRaw, "linked-url-proxy-chain", linkedURLProxyChainRaw, "proxy chain (comma separated list, first item is first proxy hop)")
-
-	clsiURLRaw := "http://127.0.0.1:3013"
-	flag.StringVar(&clsiURLRaw, "clsi-url", clsiURLRaw, "clsi url (required when load balancing compiles)")
-
-	pdfDownloadURLRaw := ""
-	flag.StringVar(&pdfDownloadURLRaw, "pdf-download-url", pdfDownloadURLRaw, "pdf download url")
-
-	clsiCookieName := ""
-	flag.StringVar(&clsiCookieName, "clsi-cookie-name", clsiCookieName, "clsi cookie name (required when load balancing compiles)")
-
-	sessionCookieName := "ol.go"
-	flag.StringVar(&sessionCookieName, "session-cookie-name", sessionCookieName, "session cookie name")
-
-	smtpAddress := "log"
-	flag.StringVar(&smtpAddress, "email-smtp-address", smtpAddress, "address:port of email provider")
-	smtpUser := ""
-	flag.StringVar(&smtpUser, "email-smtp-user", smtpUser, "login user name at email provider")
-	smtpPassword := "-"
-	flag.StringVar(&smtpPassword, "email-smtp-password", smtpPassword, "login password at email provider, use '-' for prompt")
-
-	filestoreOptions := objectStorage.Options{
-		Bucket:          "overleaf-files",
-		Provider:        "minio",
-		Endpoint:        "127.0.0.1:9000",
-		Region:          "us-east-1",
-		Secure:          false,
-		Key:             "",
-		Secret:          "",
-		SignedURLExpiry: 15 * time.Minute,
+	return Flags{
+		CDNURLRaw:           "",
+		CLSICookieName:      "",
+		CLSIURLRaw:          "http://127.0.0.1:3013",
+		DockerComposeSetup:  true,
+		DockerContainerUser: "nobody",
+		DockerSocket:        dockerSocket,
+		DockerSocketGroupId: -1,
+		DockerSocketRootful: dockerSocketRootful,
+		FilestoreOptions: objectStorage.Options{
+			Bucket:          "overleaf-files",
+			Provider:        "minio",
+			Endpoint:        "127.0.0.1:9000",
+			Region:          "us-east-1",
+			Secure:          false,
+			Key:             genSecret(32),
+			Secret:          genSecret(32),
+			SignedURLExpiry: 15 * time.Minute,
+		},
+		JWTOptionsLoggedInUser: jwtOptions.JWTOptions{
+			Algorithm: "HS512",
+			Key:       genSecret(32),
+			ExpiresIn: 24 * time.Hour,
+		},
+		JWTOptionsProject: jwtOptions.JWTOptions{
+			Algorithm: "HS512",
+			Key:       genSecret(32),
+			ExpiresIn: time.Hour,
+		},
+		LinkedURLProxyChainRaw:   "",
+		LinkedURLProxyToken:      genSecret(32),
+		ManifestPath:             "",
+		MinioRootPassword:        genSecret(32),
+		MinioRootUser:            genSecret(32),
+		NginxInternalPort:        "8080",
+		NginxPublicListenAddress: "127.0.0.1:8080",
+		PDFDownloadDomainRaw:     "",
+		SiteURLRaw:               "http://localhost:8080",
+		SMTPAddress:              "log",
+		SMTPPassword:             "-",
+		SMTPUser:                 "",
+		SessionCookieName:        "ol.go",
+		SessionCookieSecretsRaw:  genSecret(32),
+		SmokeTestUserPassword:    genSecret(72 / 2),
+		TexLiveImagesRaw:         "texlive/texlive:TL2022-historic",
+		TmpDir:                   "/tmp/ol",
 	}
-	flag.StringVar(&filestoreOptions.Bucket, "filestore-bucket", filestoreOptions.Bucket, "bucket for binary files")
-	flag.StringVar(&filestoreOptions.Endpoint, "s3-endpoint", filestoreOptions.Endpoint, "endpoint of s3 compatible storage backend (e.g. minio)")
-	flag.BoolVar(&filestoreOptions.Secure, "s3-https", filestoreOptions.Secure, "toggle to use https on s3-endpoint")
-	flag.StringVar(&filestoreOptions.Region, "s3-region", filestoreOptions.Region, "region of s3 bucket")
-	flag.StringVar(&filestoreOptions.Key, "s3-key", filestoreOptions.Key, "s3 access key (default: generate)")
-	flag.StringVar(&filestoreOptions.Secret, "s3-secret", filestoreOptions.Secret, "s3 secret key, use '-' for prompt (default: generate)")
+}
 
-	flag.Parse()
+type Flags struct {
+	CDNURLRaw                string
+	CLSICookieName           string
+	CLSIURLRaw               string
+	DockerComposeSetup       bool
+	DockerContainerUser      string
+	DockerSocket             string
+	DockerSocketGroupId      int
+	DockerSocketRootful      string
+	FilestoreOptions         objectStorage.Options
+	JWTOptionsLoggedInUser   jwtOptions.JWTOptions
+	JWTOptionsProject        jwtOptions.JWTOptions
+	LinkedURLProxyChainRaw   string
+	LinkedURLProxyToken      string
+	ManifestPath             string
+	MinioRootPassword        string
+	MinioRootUser            string
+	NginxInternalPort        string
+	NginxPublicListenAddress string
+	PDFDownloadDomainRaw     string
+	SMTPAddress              string
+	SMTPPassword             string
+	SMTPUser                 string
+	SessionCookieName        string
+	SessionCookieSecretsRaw  string
+	SiteURLRaw               string
+	SmokeTestUserEmail       string
+	SmokeTestUserPassword    string
+	TexLiveImagesRaw         string
+	TmpDir                   string
+}
 
-	if !email.SMTPAddress(smtpAddress).IsSpecial() {
-		handlePromptInput(&smtpPassword, "SMTP Password")
+type Config struct {
+	CLSIOptions              clsiTypes.Options
+	DockerSocket             string
+	DockerSocketGroupId      int
+	DockerUser               string
+	DocumentUpdaterOptions   documentUpdaterTypes.Options
+	FilestoreOptions         objectStorage.Options
+	LinkedURLProxyToken      string
+	MinioRootPassword        string
+	MinioRootUser            string
+	NginxInternalPort        string
+	NginxPublicListenAddress string
+	RealTimeOptions          realTimeTypes.Options
+	S3Policy                 string
+	SiteURL                  sharedTypes.URL
+	SpellingOptions          spellingTypes.Options
+	TmpDir                   string
+	WebOptions               webTypes.Options
+}
+
+func Generate(f Flags) Config {
+	siteURL := mustParseURL("site-url", f.SiteURLRaw)
+
+	if f.CDNURLRaw == "" {
+		f.CDNURLRaw = siteURL.JoinPath("/assets/").String()
 	}
-	handlePromptInput(&filestoreOptions.Secret, "S3 secret key")
-
-	if filestoreOptions.Key == "" {
-		filestoreOptions.Key = genSecret(32)
-	}
-	if filestoreOptions.Secret == "" {
-		filestoreOptions.Secret = genSecret(32)
-	}
-
-	siteURL := mustParseURL("site-url", siteURLRaw)
-
-	if cdnURLRaw == "" {
-		cdnURLRaw = siteURL.JoinPath("/assets/").String()
-	}
-	cdnURL := mustParseURL("cdn-url", cdnURLRaw)
+	cdnURL := mustParseURL("cdn-url", f.CDNURLRaw)
 
 	var clsiURL sharedTypes.URL
-	if clsiURLRaw != "" {
-		clsiURL = mustParseURL("clsi-url", clsiURLRaw)
+	if f.CLSIURLRaw != "" {
+		clsiURL = mustParseURL("clsi-url", f.CLSIURLRaw)
 	}
 
-	if dockerComposeSetup && linkedURLProxyChainRaw == "" {
-		linkedURLProxyChainRaw = "http://linked-url-proxy:8080/proxy/" + linkedURLProxyToken
+	if f.DockerComposeSetup && f.LinkedURLProxyChainRaw == "" {
+		f.LinkedURLProxyChainRaw = "http://linked-url-proxy:8080/proxy/" + f.LinkedURLProxyToken
 	}
 	linkedURLProxyChain := make([]sharedTypes.URL, 0)
-	for i, s := range strings.Split(linkedURLProxyChainRaw, ",") {
+	for i, s := range strings.Split(f.LinkedURLProxyChainRaw, ",") {
 		s = strings.Trim(s, `"' `)
 		u := mustParseURL(fmt.Sprintf("linked-url-proxy-chain idx=%d", i), s)
 		linkedURLProxyChain = append(linkedURLProxyChain, u)
 	}
 
-	rawImages := strings.Split(texLiveImages, ",")
+	rawImages := strings.Split(f.TexLiveImagesRaw, ",")
 	allowedImages := make([]sharedTypes.ImageName, 0, len(rawImages))
 	allowedImageNames := make([]templates.AllowedImageName, 0, len(rawImages))
 	for i, s := range rawImages {
@@ -197,39 +194,23 @@ func main() {
 			Desc: imageName.Year(),
 		})
 	}
-	agentPathHost := path.Join(tmpDir, "exec-agent")
+	agentPathHost := path.Join(f.TmpDir, "exec-agent")
 
-	if manifestPath == "" {
-		manifestPath = path.Join(tmpDir, "assets/manifest.json")
+	if f.ManifestPath == "" {
+		f.ManifestPath = path.Join(f.TmpDir, "assets/manifest.json")
 	}
 
-	if dockerComposeSetup && filestoreOptions.Endpoint == "127.0.0.1:9000" {
-		filestoreOptions.Endpoint = "minio:9000"
+	if f.DockerComposeSetup && f.FilestoreOptions.Endpoint == "127.0.0.1:9000" {
+		f.FilestoreOptions.Endpoint = "minio:9000"
 	}
 
-	if dockerSocketGroupId == -1 {
+	if f.DockerSocketGroupId == -1 {
 		s := syscall.Stat_t{}
-		if err := syscall.Stat(dockerSocketRootful, &s); err != nil {
+		if err := syscall.Stat(f.DockerSocketRootful, &s); err != nil {
 			panic(errors.Tag(err, "detect docker group-id on docker socket"))
 		}
-		dockerSocketGroupId = int(s.Gid)
+		f.DockerSocketGroupId = int(s.Gid)
 	}
-
-	fmt.Println("# docker")
-	fmt.Printf("DOCKER_SOCKET=%s\n", dockerSocket)
-	fmt.Printf("DOCKER_SOCKET_GROUP_ID=%d\n", dockerSocketGroupId)
-	fmt.Printf("DOCKER_USER=%s\n", dockerContainerUser)
-	fmt.Printf("NGINX_PUBLIC_LISTEN_ADDRESS=%s\n", nginxPublicListenAddress)
-	fmt.Printf("NGINX_INTERNAL_PORT=%s\n", nginxInternalPort)
-	fmt.Printf("TMP_DIR=%s\n", tmpDir)
-
-	fmt.Println("# services/spelling or services/web or cmd/overleaf:")
-	fmt.Printf("PUBLIC_URL=%s\n", siteURL.String())
-	fmt.Println()
-
-	fmt.Println("# services/linked-url-proxy:")
-	fmt.Printf("PROXY_TOKEN=%s\n", linkedURLProxyToken)
-	fmt.Println()
 
 	clsiOptions := clsiTypes.Options{
 		AllowedImages:             allowedImages,
@@ -242,14 +223,14 @@ func main() {
 		URLDownloadRetries:        3,
 		URLDownloadTimeout:        10 * time.Second,
 		Paths: clsiTypes.Paths{
-			CacheBaseDir:   clsiTypes.CacheBaseDir(path.Join(tmpDir, "cache")),
-			CompileBaseDir: clsiTypes.CompileBaseDir(path.Join(tmpDir, "compiles")),
-			OutputBaseDir:  clsiTypes.OutputBaseDir(path.Join(tmpDir, "output")),
+			CacheBaseDir:   clsiTypes.CacheBaseDir(path.Join(f.TmpDir, "cache")),
+			CompileBaseDir: clsiTypes.CompileBaseDir(path.Join(f.TmpDir, "compiles")),
+			OutputBaseDir:  clsiTypes.OutputBaseDir(path.Join(f.TmpDir, "output")),
 		},
 		LatexBaseEnv: nil,
 		Runner:       "agent",
 		DockerContainerOptions: clsiTypes.DockerContainerOptions{
-			User:                   dockerContainerUser,
+			User:                   f.DockerContainerUser,
 			Env:                    nil,
 			AgentPathContainer:     agentPathHost,
 			AgentPathHost:          agentPathHost,
@@ -257,22 +238,15 @@ func main() {
 			AgentRestartAttempts:   3,
 			Runtime:                "",
 			SeccompPolicyPath:      "",
-			CompileBaseDir:         clsiTypes.CompileBaseDir(path.Join(tmpDir, "compiles")),
-			OutputBaseDir:          clsiTypes.OutputBaseDir(path.Join(tmpDir, "output")),
+			CompileBaseDir:         clsiTypes.CompileBaseDir(path.Join(f.TmpDir, "compiles")),
+			OutputBaseDir:          clsiTypes.OutputBaseDir(path.Join(f.TmpDir, "output")),
 		},
 	}
-	fmt.Println("# services/clsi or cmd/overleaf:")
-	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(&clsiOptions, "clsi options"))
-	fmt.Printf("DOCKER_HOST=unix://%s\n", dockerSocket)
-	fmt.Println()
 
 	documentUpdaterOptions := documentUpdaterTypes.Options{
 		Workers:                      20,
 		PendingUpdatesListShardCount: 1,
 	}
-	fmt.Println("# services/document-updater or cmd/overleaf:")
-	fmt.Printf("DOCUMENT_UPDATER_OPTIONS=%s\n", serialize(&documentUpdaterOptions, "document updater options"))
-	fmt.Println()
 
 	realTimeOptions := realTimeTypes.Options{
 		GracefulShutdown: struct {
@@ -285,21 +259,18 @@ func main() {
 		JWT: struct {
 			Project jwtOptions.JWTOptions `json:"project"`
 		}{
-			Project: jwtOptionsProject,
+			Project: f.JWTOptionsProject,
 		},
 	}
-	fmt.Println("# services/real-time or cmd/overleaf:")
-	fmt.Printf("REAL_TIME_OPTIONS=%s\n", serialize(&realTimeOptions, "realtime options"))
-	fmt.Println()
 
 	spellingOptions := spellingTypes.Options{
 		LRUSize: 10_000,
 	}
-	fmt.Println("# services/spelling or cmd/overleaf:")
-	fmt.Printf("SPELLING_OPTIONS=%s\n", serialize(&spellingOptions, "spelling options"))
-	fmt.Println()
 
 	emailHost := siteURL.Hostname()
+	if f.SmokeTestUserEmail == "" {
+		f.SmokeTestUserEmail = "smoke-test@" + emailHost
+	}
 	webOptions := webTypes.Options{
 		AdminEmail:        sharedTypes.Email("support@" + emailHost),
 		AllowedImages:     allowedImages,
@@ -326,10 +297,10 @@ func main() {
 			FallbackReplyTo: email.Identity{
 				Address: sharedTypes.Email("support@" + emailHost),
 			},
-			SMTPAddress:  email.SMTPAddress(smtpAddress),
+			SMTPAddress:  email.SMTPAddress(f.SMTPAddress),
 			SMTPHello:    "localhost",
-			SMTPUser:     smtpUser,
-			SMTPPassword: smtpPassword,
+			SMTPUser:     f.SMTPUser,
+			SMTPPassword: f.SMTPPassword,
 		},
 		I18n: templates.I18nOptions{
 			DefaultLang: "en",
@@ -341,10 +312,10 @@ func main() {
 			},
 		},
 		LearnCacheDuration:  31 * 24 * time.Hour,
-		LearnImageCacheBase: sharedTypes.DirName(path.Join(tmpDir, "learn-images")),
-		ManifestPath:        manifestPath,
+		LearnImageCacheBase: sharedTypes.DirName(path.Join(f.TmpDir, "learn-images")),
+		ManifestPath:        f.ManifestPath,
 		Nav:                 templates.NavOptions{},
-		PDFDownloadDomain:   webTypes.PDFDownloadDomain(pdfDownloadURLRaw),
+		PDFDownloadDomain:   webTypes.PDFDownloadDomain(f.PDFDownloadDomainRaw),
 		Sentry:              webTypes.SentryOptions{},
 		SiteURL:             siteURL,
 		SmokeTest: struct {
@@ -353,8 +324,8 @@ func main() {
 			ProjectId sharedTypes.UUID      `json:"projectId"`
 			UserId    sharedTypes.UUID      `json:"userId"`
 		}{
-			Email:     sharedTypes.Email("smoke-test@" + emailHost),
-			Password:  webTypes.UserPassword(genSecret(72 / 2)),
+			Email:     sharedTypes.Email(f.SmokeTestUserEmail),
+			Password:  webTypes.UserPassword(f.SmokeTestUserPassword),
 			ProjectId: sharedTypes.UUID{42},
 			UserId:    sharedTypes.UUID{13, 37},
 		},
@@ -388,11 +359,11 @@ func main() {
 					CookieName string        `json:"cookie_name"`
 					TTL        time.Duration `json:"ttl"`
 				}{
-					CookieName: clsiCookieName,
+					CookieName: f.CLSICookieName,
 					TTL:        6 * time.Hour,
 				},
 			},
-			Filestore: filestoreOptions,
+			Filestore: f.FilestoreOptions,
 			LinkedURLProxy: struct {
 				Chain []sharedTypes.URL `json:"chain"`
 			}{
@@ -403,15 +374,15 @@ func main() {
 			Compile      jwtOptions.JWTOptions `json:"compile"`
 			LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
 		}{
-			Compile:      jwtOptionsProject,
-			LoggedInUser: jwtOptionsLoggedInUser,
+			Compile:      f.JWTOptionsProject,
+			LoggedInUser: f.JWTOptionsLoggedInUser,
 		},
 		SessionCookie: signedCookie.Options{
 			Domain:  siteURL.Hostname(),
 			Expiry:  7 * 24 * time.Hour,
-			Name:    sessionCookieName,
+			Name:    f.SessionCookieName,
 			Path:    siteURL.Path,
-			Secrets: []string{genSecret(32)},
+			Secrets: strings.Split(f.SessionCookieSecretsRaw, ","),
 		},
 		RateLimits: struct {
 			LinkSharingTokenLookupConcurrency int64 `json:"link_sharing_token_lookup_concurrency"`
@@ -420,28 +391,6 @@ func main() {
 		},
 	}
 
-	fmt.Println("# services/web or cmd/overleaf:")
-	fmt.Printf("WEB_OPTIONS=%s\n", serialize(&webOptions, "web options"))
-	fmt.Println()
-
-	fmt.Println("# s3:")
-	fmt.Printf("BUCKET=%s\n", filestoreOptions.Bucket)
-	fmt.Printf("ACCESS_KEY=%s\n", filestoreOptions.Key)
-	fmt.Printf("SECRET_KEY=%s\n", filestoreOptions.Secret)
-	fmt.Println()
-	minioRootUser := genSecret(32)
-	minioRootPassword := genSecret(32)
-	fmt.Println("# s3 alternative 'minio':")
-	fmt.Printf("# Run minio on MINIO_ENDPOINT\n")
-	fmt.Printf("MINIO_ENDPOINT=%s\n", filestoreOptions.Endpoint)
-	fmt.Printf("MINIO_SECURE=%t\n", filestoreOptions.Secure)
-	fmt.Printf("MINIO_ROOT_USER=%s\n", minioRootUser)
-	fmt.Printf("MINIO_ROOT_PASSWORD=%s\n", minioRootPassword)
-	fmt.Printf("MINIO_REGION=%s\n", filestoreOptions.Region)
-	fmt.Println()
-	fmt.Println("# s3 and minio:")
-	fmt.Println("# Setup an privileged user using the ACCESS_KEY/SECRET_KEY and restrict access with a policy.")
-	fmt.Println("# Below is a minimal policy that allows delete/listing/read/write access:")
 	policy := fmt.Sprintf(`
 {
   "Version": "2012-10-17",
@@ -464,9 +413,27 @@ func main() {
     }
   ]
 }
-`, filestoreOptions.Bucket, filestoreOptions.Bucket)
-	fmt.Printf("S3_POLICY=%s", strings.Join(strings.Fields(policy), ""))
-	fmt.Println()
+`, f.FilestoreOptions.Bucket, f.FilestoreOptions.Bucket)
+
+	return Config{
+		DockerSocket:             f.DockerSocket,
+		DockerSocketGroupId:      f.DockerSocketGroupId,
+		DockerUser:               f.DockerContainerUser,
+		NginxInternalPort:        f.NginxInternalPort,
+		NginxPublicListenAddress: f.NginxPublicListenAddress,
+		TmpDir:                   f.TmpDir,
+		SiteURL:                  siteURL,
+		CLSIOptions:              clsiOptions,
+		DocumentUpdaterOptions:   documentUpdaterOptions,
+		FilestoreOptions:         f.FilestoreOptions,
+		LinkedURLProxyToken:      f.LinkedURLProxyToken,
+		RealTimeOptions:          realTimeOptions,
+		SpellingOptions:          spellingOptions,
+		WebOptions:               webOptions,
+		MinioRootUser:            f.MinioRootUser,
+		MinioRootPassword:        f.MinioRootPassword,
+		S3Policy:                 policy,
+	}
 }
 
 func genSecret(n int) string {
@@ -475,24 +442,6 @@ func genSecret(n int) string {
 		panic(errors.Tag(err, "generate secret"))
 	}
 	return hex.EncodeToString(b)
-}
-
-func handlePromptInput(dst *string, label string) {
-	if *dst != "-" {
-		return
-	}
-	_, _ = fmt.Fprintf(
-		os.Stderr,
-		"Please type the %s and confirm with ENTER: ",
-		label,
-	)
-	s := bufio.NewScanner(os.Stdin)
-	if !s.Scan() {
-		fmt.Println()
-		panic(errors.Tag(s.Err(), "read "+label))
-	}
-	*dst = s.Text()
-	fmt.Println()
 }
 
 func isSocket(p string) bool {
@@ -511,15 +460,4 @@ func mustParseURL(label, s string) sharedTypes.URL {
 		panic(errors.Tag(err, label))
 	}
 	return *u
-}
-
-func serialize(d interface{ Validate() error }, label string) string {
-	if err := d.Validate(); err != nil {
-		panic(errors.Tag(err, "validate "+label))
-	}
-	blob, err := json.Marshal(d)
-	if err != nil {
-		panic(errors.Tag(err, "serialize "+label))
-	}
-	return string(blob)
 }
