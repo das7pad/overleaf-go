@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,7 +25,7 @@ import (
 
 type JWTOptions struct {
 	Algorithm string        `json:"algo"`
-	Key       interface{}   `json:"key"`
+	Key       string        `json:"key"`
 	ExpiresIn time.Duration `json:"expires_in"`
 }
 
@@ -33,7 +33,7 @@ func (j *JWTOptions) Validate() error {
 	if j.Algorithm == "" {
 		return &errors.ValidationError{Msg: "missing algo"}
 	}
-	if j.Key == nil {
+	if j.Key == "" {
 		return &errors.ValidationError{Msg: "missing key"}
 	}
 	if j.ExpiresIn == 0 {
@@ -43,15 +43,9 @@ func (j *JWTOptions) Validate() error {
 }
 
 func (j *JWTOptions) FillFromEnv(name string) {
-	if j.Algorithm != "" || j.Key != nil {
+	if j.Algorithm != "" || j.Key != "" {
 		return
 	}
 	j.Algorithm = "HS512"
-	j.Key = []byte(env.MustGetString(name))
-}
-
-func Parse(key string) JWTOptions {
-	j := &JWTOptions{}
-	j.FillFromEnv(key)
-	return *j
+	j.Key = env.MustGetString(name)
 }

@@ -38,10 +38,7 @@ type NewClaims[T JWT] func() T
 
 func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandler[T] {
 	method := jwt.GetSigningMethod(options.Algorithm)
-	key := options.Key
-	if s, isString := key.(string); isString {
-		key = []byte(s)
-	}
+	key := []byte(options.Key)
 
 	p := jwt.NewParser(jwt.WithValidMethods([]string{method.Alg()}))
 	var keyFn jwt.Keyfunc = func(_ *jwt.Token) (interface{}, error) {
