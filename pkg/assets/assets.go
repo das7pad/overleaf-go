@@ -17,6 +17,7 @@
 package assets
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"html/template"
@@ -93,7 +94,8 @@ type manifest struct {
 
 func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) error {
 	var f io.ReadCloser
-	if manifestPath == "cdn" {
+	switch manifestPath {
+	case "cdn":
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
 		u := cdnURL.WithPath("/manifest.json")
@@ -103,7 +105,9 @@ func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sh
 		}
 		defer cleanup()
 		f = body
-	} else {
+	case "empty":
+		f = io.NopCloser(bytes.NewReader([]byte("{}")))
+	default:
 		var err error
 		f, err = os.Open(manifestPath)
 		if err != nil {
