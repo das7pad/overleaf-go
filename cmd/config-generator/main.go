@@ -95,6 +95,14 @@ func main() {
 	handlePromptInput(&f.JWTOptionsProject.Key, "JWT project key")
 	handlePromptInput(&f.SmokeTestUserPassword, "Smoke test user password")
 
+	fmt.Println("# Generated using")
+	fmt.Printf("# $ %s", os.Args[0])
+	flag.VisitAll(func(f *flag.Flag) {
+		fmt.Printf(" --%s=%s", f.Name, f.Value)
+	})
+	fmt.Println()
+	fmt.Println()
+
 	c := configGenerator.Generate(f)
 
 	fmt.Println("# docker")
