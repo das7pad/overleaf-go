@@ -51,27 +51,39 @@ services:
     volumes:
       - ~/overleaf-go/minio:/data
 
+  build-minio-setup:
+    image: golang:1.19.9
+    network_mode: bridge
+    working_dir: /go/src/cmd/minio-setup
+    command: go build -o ${TMP_DIR}/binaries/minio-setup
+    volumes:
+      - ./:/go/src
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
+
   minio-setup:
     depends_on:
       minio:
         condition: service_started
+      build-minio-setup:
+        condition: service_completed_successfully
     networks:
       - internal
-    image: minio/mc:RELEASE.2022-10-29T10-09-23Z
-    entrypoint: sh
-    command: /minio_setup.sh
+    image: debian:buster-slim
+    entrypoint: ${TMP_DIR}/binaries/minio-setup
     environment:
       - ACCESS_KEY
       - BUCKET
+      - CLEANUP_OTHER_S3_KEYS
       - MINIO_ENDPOINT
       - MINIO_REGION
       - MINIO_ROOT_USER
       - MINIO_ROOT_PASSWORD
       - MINIO_SECURE
-      - S3_POLICY
+      - S3_POLICY_NAME
+      - S3_POLICY_CONTENT
       - SECRET_KEY
     volumes:
-      - ./bin/minio_setup.sh:/minio_setup.sh:ro
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   assets:
     build: https://github.com/das7pad/overleaf-node.git#main

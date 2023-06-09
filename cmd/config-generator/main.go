@@ -158,7 +158,11 @@ func main() {
 	fmt.Println("# s3 and minio:")
 	fmt.Println("# Setup an privileged user using the ACCESS_KEY/SECRET_KEY and restrict access with a policy.")
 	fmt.Println("# Below is a minimal policy that allows delete/listing/read/write access:")
-	fmt.Printf("S3_POLICY=%s", strings.Join(strings.Fields(c.S3Policy), ""))
+	fmt.Printf("S3_POLICY_CONTENT=%s\n", strings.Join(strings.Fields(c.S3PolicyContent), ""))
+	fmt.Printf("S3_POLICY_NAME=%s\n", c.S3PolicyName)
+	fmt.Println()
+	fmt.Println("# Cleanup prior minio users, e.g. after cycling s3 credentials")
+	fmt.Printf("CLEANUP_OTHER_S3_KEYS=%t\n", c.CleanupOtherS3Keys)
 	fmt.Println()
 }
 

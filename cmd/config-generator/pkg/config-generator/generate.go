@@ -60,6 +60,7 @@ func NewFlags() Flags {
 		CDNURLRaw:           "",
 		CLSICookieName:      "",
 		CLSIURLRaw:          "http://127.0.0.1:3013",
+		CleanupOtherS3Keys:  true,
 		DockerComposeSetup:  true,
 		DockerContainerUser: "nobody",
 		DockerSocket:        dockerSocket,
@@ -93,6 +94,7 @@ func NewFlags() Flags {
 		NginxInternalPort:        "8080",
 		NginxPublicListenAddress: "127.0.0.1:8080",
 		PDFDownloadDomainRaw:     "",
+		S3PolicyName:             "overleaf-go",
 		SiteURLRaw:               "http://localhost:8080",
 		SMTPAddress:              "log",
 		SMTPPassword:             "-",
@@ -109,6 +111,7 @@ type Flags struct {
 	CDNURLRaw                string
 	CLSICookieName           string
 	CLSIURLRaw               string
+	CleanupOtherS3Keys       bool
 	DockerComposeSetup       bool
 	DockerContainerUser      string
 	DockerSocket             string
@@ -125,6 +128,7 @@ type Flags struct {
 	NginxInternalPort        string
 	NginxPublicListenAddress string
 	PDFDownloadDomainRaw     string
+	S3PolicyName             string
 	SMTPAddress              string
 	SMTPPassword             string
 	SMTPUser                 string
@@ -139,6 +143,7 @@ type Flags struct {
 
 type Config struct {
 	CLSIOptions              clsiTypes.Options
+	CleanupOtherS3Keys       bool
 	DockerSocket             string
 	DockerSocketGroupId      int
 	DockerUser               string
@@ -150,7 +155,8 @@ type Config struct {
 	NginxInternalPort        string
 	NginxPublicListenAddress string
 	RealTimeOptions          realTimeTypes.Options
-	S3Policy                 string
+	S3PolicyContent          string
+	S3PolicyName             string
 	SiteURL                  sharedTypes.URL
 	SpellingOptions          spellingTypes.Options
 	TmpDir                   string
@@ -430,9 +436,11 @@ func Generate(f Flags) Config {
 		RealTimeOptions:          realTimeOptions,
 		SpellingOptions:          spellingOptions,
 		WebOptions:               webOptions,
+		CleanupOtherS3Keys:       f.CleanupOtherS3Keys,
 		MinioRootUser:            f.MinioRootUser,
 		MinioRootPassword:        f.MinioRootPassword,
-		S3Policy:                 policy,
+		S3PolicyContent:          policy,
+		S3PolicyName:             f.S3PolicyName,
 	}
 }
 
