@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,27 +14,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package redisOptions
+package dbSchema
 
 import (
-	"strings"
-
-	"github.com/go-redis/redis/v8"
-
-	"github.com/das7pad/overleaf-go/pkg/options/env"
+	"embed"
 )
 
-func Parse() *redis.UniversalOptions {
-	return &redis.UniversalOptions{
-		Addrs: strings.Split(
-			env.GetString("REDIS_HOST", "localhost:6379"),
-			",",
-		),
-		Password: env.GetString("REDIS_PASSWORD", ""),
-		MaxRetries: env.GetInt(
-			"REDIS_MAX_RETRIES_PER_REQUEST", 20,
-		),
-		PoolSize: env.GetInt("REDIS_POOL_SIZE", 0),
-		DB:       env.GetInt("REDIS_DB", 0),
+//go:embed *.sql
+var files embed.FS
+
+var S string
+
+func init() {
+	blob, err := files.ReadFile("schema.sql")
+	if err != nil {
+		panic(err)
 	}
+	S = string(blob)
+	files = embed.FS{}
 }

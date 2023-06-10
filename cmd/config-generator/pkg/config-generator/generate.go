@@ -19,6 +19,7 @@ package configGenerator
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"os"
@@ -57,6 +58,7 @@ func NewFlags() Flags {
 	}
 
 	return Flags{
+		BcryptCosts:         13,
 		CDNURLRaw:           "",
 		CLSICookieName:      "",
 		CLSIURLRaw:          "http://127.0.0.1:3013",
@@ -108,6 +110,7 @@ func NewFlags() Flags {
 }
 
 type Flags struct {
+	BcryptCosts              int
 	CDNURLRaw                string
 	CLSICookieName           string
 	CLSIURLRaw               string
@@ -144,6 +147,7 @@ type Flags struct {
 type Config struct {
 	CLSIOptions              clsiTypes.Options
 	CleanupOtherS3Keys       bool
+	DockerHost               string
 	DockerSocket             string
 	DockerSocketGroupId      int
 	DockerUser               string
@@ -161,6 +165,17 @@ type Config struct {
 	SpellingOptions          spellingTypes.Options
 	TmpDir                   string
 	WebOptions               webTypes.Options
+}
+
+func (c Config) PopulateEnv() {
+	mustSetEnv("PUBLIC_URL", c.SiteURL.String())
+	validateAndSetEnv("CLSI_OPTIONS", &c.CLSIOptions)
+	mustSetEnv("DOCKER_HOST", c.DockerHost)
+	validateAndSetEnv("DOCUMENT_UPDATER_OPTIONS", &c.DocumentUpdaterOptions)
+	mustSetEnv("PROXY_TOKEN", c.LinkedURLProxyToken)
+	validateAndSetEnv("REAL_TIME_OPTIONS", &c.RealTimeOptions)
+	validateAndSetEnv("SPELLING_OPTIONS", &c.SpellingOptions)
+	validateAndSetEnv("WEB_OPTIONS", &c.WebOptions)
 }
 
 func Generate(f Flags) Config {
@@ -282,7 +297,7 @@ func Generate(f Flags) Config {
 		AllowedImages:     allowedImages,
 		AllowedImageNames: allowedImageNames,
 		AppName:           "Overleaf Go",
-		BcryptCost:        13,
+		BcryptCost:        f.BcryptCosts,
 		CDNURL:            cdnURL,
 		CSPReportURL:      nil,
 		DefaultImage:      allowedImages[0],
@@ -422,6 +437,7 @@ func Generate(f Flags) Config {
 `, f.FilestoreOptions.Bucket, f.FilestoreOptions.Bucket)
 
 	return Config{
+		DockerHost:               fmt.Sprintf("unix://%s", f.DockerSocket),
 		DockerSocket:             f.DockerSocket,
 		DockerSocketGroupId:      f.DockerSocketGroupId,
 		DockerUser:               f.DockerContainerUser,
@@ -468,4 +484,21 @@ func mustParseURL(label, s string) sharedTypes.URL {
 		panic(errors.Tag(err, label))
 	}
 	return *u
+}
+
+func mustSetEnv(key, value string) {
+	if err := os.Setenv(key, value); err != nil {
+		panic(errors.Tag(err, "set "+key))
+	}
+}
+
+func validateAndSetEnv(name string, d interface{ Validate() error }) {
+	if err := d.Validate(); err != nil {
+		panic(errors.Tag(err, "validate "+name))
+	}
+	blob, err := json.Marshal(d)
+	if err != nil {
+		panic(errors.Tag(err, "serialize "+name))
+	}
+	mustSetEnv(name, string(blob))
 }

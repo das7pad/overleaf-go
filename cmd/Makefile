@@ -103,4 +103,16 @@ docker/clean:
 	$(MAKE) -C ../services/spelling docker/clean
 
 test:
-	$(BUILD_IN) golang:1.19.9 go test ./...
+	mkdir -p /tmp/ol-go-ci-pg
+	docker run \
+		--rm \
+		--volume $(ROOT):$(ROOT_DOCKER) \
+		--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
+		--volume /var/run/docker.sock:/var/run/docker.sock \
+		--volume /tmp/ol-go-ci-pg:/tmp/ol-go-ci-pg \
+		--workdir $(PWD_DOCKER) \
+		--env GOFLAGS='-buildvcs=false' \
+		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
+		--user $(shell id -u) \
+		--group-add $(shell stat -c '%g' /var/run/docker.sock) \
+		golang:1.19.9 go test ./... -test.v=true

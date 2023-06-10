@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,27 +14,34 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package redisOptions
+package main
 
 import (
-	"strings"
+	"context"
+	"os"
+	"testing"
 
-	"github.com/go-redis/redis/v8"
-
-	"github.com/das7pad/overleaf-go/pkg/options/env"
+	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
+	"github.com/das7pad/overleaf-go/pkg/integrationTests"
+	"github.com/das7pad/overleaf-go/pkg/models/user"
 )
 
-func Parse() *redis.UniversalOptions {
-	return &redis.UniversalOptions{
-		Addrs: strings.Split(
-			env.GetString("REDIS_HOST", "localhost:6379"),
-			",",
-		),
-		Password: env.GetString("REDIS_PASSWORD", ""),
-		MaxRetries: env.GetInt(
-			"REDIS_MAX_RETRIES_PER_REQUEST", 20,
-		),
-		PoolSize: env.GetInt("REDIS_POOL_SIZE", 0),
-		DB:       env.GetInt("REDIS_DB", 0),
+func TestMain(m *testing.M) {
+	integrationTests.Setup(m)
+}
+
+func TestMainFn(t *testing.T) {
+	const email = "foo@bar.com"
+
+	os.Args = []string{"exec", "--email=foo@bar.com"}
+	main()
+
+	ctx := context.Background()
+
+	db := utils.MustConnectPostgres(ctx)
+	um := user.New(db)
+	u := user.WithPublicInfo{}
+	if err := um.GetUserByEmail(ctx, email, &u); err != nil {
+		t.Fatalf("find user by email: %s", err)
 	}
 }

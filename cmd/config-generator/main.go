@@ -119,7 +119,7 @@ func main() {
 
 	fmt.Println("# services/clsi or cmd/overleaf:")
 	fmt.Printf("CLSI_OPTIONS=%s\n", serialize(&c.CLSIOptions, "clsi options"))
-	fmt.Printf("DOCKER_HOST=unix://%s\n", c.DockerSocket)
+	fmt.Printf("DOCKER_HOST=%s\n", c.DockerHost)
 	fmt.Println()
 
 	fmt.Println("# services/document-updater or cmd/overleaf:")
