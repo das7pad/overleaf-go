@@ -238,6 +238,7 @@ func setupPg(ctx context.Context, c *client.Client) func(code *int) {
 -- creating DBs from a template is very cheap + we can discard data when done
 CREATE DATABASE %s WITH TEMPLATE postgres OWNER postgres
 `, dbName))
+		errClose := db.Close(ctx)
 		if err2 == nil {
 			// happy path
 		} else if e, ok := err2.(*pgconn.PgError); ok && e.Code == "42P04" {
@@ -247,8 +248,8 @@ CREATE DATABASE %s WITH TEMPLATE postgres OWNER postgres
 			time.Sleep(time.Second)
 			continue
 		}
-		if err2 = db.Close(ctx); err2 != nil {
-			err = errors.Tag(err2, "close db")
+		if errClose != nil {
+			err = errors.Tag(errClose, "close db")
 			time.Sleep(time.Second)
 			continue
 		}
@@ -268,7 +269,7 @@ CREATE DATABASE %s WITH TEMPLATE postgres OWNER postgres
 		if *code != 0 {
 			return
 		}
-		db, err2 := pgx.Connect(ctx, buildPGDSN("postgres"))
+		db, err2 := pgx.Connect(context.Background(), buildPGDSN("postgres"))
 		if err2 != nil {
 			panic(errors.Tag(err2, "connect to pgx"))
 		}
@@ -277,11 +278,12 @@ CREATE DATABASE %s WITH TEMPLATE postgres OWNER postgres
 -- FORCE terminates any pending connections
 DROP DATABASE %s WITH (FORCE)
 `, dbName))
+		errClose := db.Close(context.Background())
 		if err2 != nil {
 			panic(errors.Tag(err2, "drop db"))
 		}
-		if err2 = db.Close(ctx); err != nil {
-			panic(errors.Tag(err2, "close db"))
+		if errClose != nil {
+			panic(errors.Tag(errClose, "close db"))
 		}
 	}
 }
@@ -350,6 +352,19 @@ func getIP(i *dockerTypes.ContainerJSON) string {
 }
 
 func createAndStartContainer(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string) (*dockerTypes.ContainerJSON, error) {
+	var i *dockerTypes.ContainerJSON
+	var err error
+	for j := 0; j < 5; j++ {
+		i, err = createAndStartContainerOnce(ctx, c, containerConfig, hostConfig, name)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	return i, err
+}
+
+func createAndStartContainerOnce(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string) (*dockerTypes.ContainerJSON, error) {
 	i, err := c.ContainerInspect(ctx, name)
 	if err == nil && i.State != nil && i.State.Running {
 		t, err2 := time.Parse(time.RFC3339, i.State.StartedAt)
