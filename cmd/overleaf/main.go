@@ -153,12 +153,15 @@ func main() {
 		})
 		// - Ask clients to tear down websocket connections
 		rtm.TriggerGracefulReconnect()
+		// - Wait for existing HTTP requests to finish processing
+		err2 := pendingShutdown.Wait(ctx2)
+		// - Close remaining websockets
+		rtm.DisconnectAll()
 		// - Stop processing of document-updates -- keep going until after all
 		//    editor sessions had time to flush ahead of disconnecting their
 		//    websocket connection.
 		stopProcessingDocumentUpdates()
-		// - Wait for existing HTTP requests to finish processing
-		return pendingShutdown.Wait(ctx2)
+		return err2
 	})
 	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)

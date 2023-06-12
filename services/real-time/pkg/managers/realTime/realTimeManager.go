@@ -42,6 +42,7 @@ import (
 type Manager interface {
 	InitiateGracefulShutdown()
 	TriggerGracefulReconnect()
+	DisconnectAll()
 	IsShuttingDown() bool
 	PeriodicCleanup(ctx context.Context)
 	BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error)
@@ -61,12 +62,11 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 	return &manager{
-		clientTracking:          ct,
-		editorEvents:            e,
-		dum:                     dum,
-		pm:                      project.New(db),
-		gracefulShutdownDelay:   options.GracefulShutdown.Delay,
-		gracefulShutdownTimeout: options.GracefulShutdown.Timeout,
+		clientTracking:   ct,
+		editorEvents:     e,
+		dum:              dum,
+		pm:               project.New(db),
+		gracefulShutdown: options.GracefulShutdown,
 	}, nil
 }
 
@@ -78,8 +78,7 @@ type manager struct {
 	dum            documentUpdater.Manager
 	pm             project.Manager
 
-	gracefulShutdownDelay   time.Duration
-	gracefulShutdownTimeout time.Duration
+	gracefulShutdown types.GracefulShutdownOptions
 }
 
 func (m *manager) IsShuttingDown() bool {
@@ -110,13 +109,31 @@ func (m *manager) InitiateGracefulShutdown() {
 	m.shuttingDown.Store(true)
 
 	// Wait for the LB to pick up the 500 and stop sending new traffic to us.
-	time.Sleep(m.gracefulShutdownDelay)
+	time.Sleep(m.gracefulShutdown.Delay)
 }
 
 func (m *manager) TriggerGracefulReconnect() {
-	deadLine := time.Now().Add(m.gracefulShutdownTimeout)
+	deadLine := time.Now().Add(m.gracefulShutdown.Timeout)
 	for m.triggerGracefulReconnectOnce() > 0 && time.Now().Before(deadLine) {
 		time.Sleep(3 * time.Second)
+	}
+}
+
+func (m *manager) DisconnectAll() {
+	deadLine := time.Now().Add(m.gracefulShutdown.CleanupTimeout)
+	for time.Now().Before(deadLine) {
+		rooms := m.editorEvents.GetClients()
+		if len(rooms) == 0 {
+			break
+		}
+		for _, clients := range rooms {
+			for i, client := range clients.All {
+				if i != clients.Removed {
+					client.TriggerDisconnect()
+				}
+			}
+		}
+		time.Sleep(time.Second)
 	}
 }
 
@@ -275,11 +292,12 @@ func (m *manager) Disconnect(client *types.Client) {
 		// Disconnect before bootstrap finished.
 		return
 	}
-	m.editorEvents.Leave(client)
+	client.MarkAsLeftDoc()
 	if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
 		// Flush eagerly when no other clients are online (and on error).
 		m.backgroundFlush(client)
 	}
+	m.editorEvents.Leave(client)
 }
 
 func (m *manager) backgroundFlush(client *types.Client) {

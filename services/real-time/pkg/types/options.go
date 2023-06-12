@@ -24,11 +24,26 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 )
 
+type GracefulShutdownOptions struct {
+	Delay          time.Duration `json:"delay"`
+	Timeout        time.Duration `json:"timeout"`
+	CleanupTimeout time.Duration `json:"cleanup_timeout"`
+}
+
+func (o *GracefulShutdownOptions) Validate() error {
+	if o.Timeout <= 0 {
+		return &errors.ValidationError{Msg: "timeout must be greater than 0"}
+	}
+	if o.CleanupTimeout <= 0 {
+		return &errors.ValidationError{
+			Msg: "cleanup_timeout must be greater than 0",
+		}
+	}
+	return nil
+}
+
 type Options struct {
-	GracefulShutdown struct {
-		Delay   time.Duration `json:"delay"`
-		Timeout time.Duration `json:"timeout"`
-	} `json:"graceful_shutdown"`
+	GracefulShutdown GracefulShutdownOptions `json:"graceful_shutdown"`
 
 	JWT struct {
 		Project jwtOptions.JWTOptions `json:"project"`
@@ -41,10 +56,8 @@ func (o *Options) FillFromEnv() {
 }
 
 func (o *Options) Validate() error {
-	if o.GracefulShutdown.Timeout <= 0 {
-		return &errors.ValidationError{
-			Msg: "graceful_shutdown.timeout must be greater than 0",
-		}
+	if err := o.GracefulShutdown.Validate(); err != nil {
+		return errors.Tag(err, "graceful_shutdown")
 	}
 	return nil
 }

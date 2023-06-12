@@ -87,7 +87,9 @@ func main() {
 			return server.Shutdown(ctx2)
 		})
 		rtm.TriggerGracefulReconnect()
-		return pendingShutdown.Wait(ctx2)
+		err2 := pendingShutdown.Wait(ctx2)
+		rtm.DisconnectAll()
+		return err2
 	})
 	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)

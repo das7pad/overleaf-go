@@ -270,12 +270,10 @@ func Generate(f Flags) Config {
 	}
 
 	realTimeOptions := realTimeTypes.Options{
-		GracefulShutdown: struct {
-			Delay   time.Duration `json:"delay"`
-			Timeout time.Duration `json:"timeout"`
-		}{
-			Delay:   3 * time.Second,
-			Timeout: 10 * time.Second,
+		GracefulShutdown: realTimeTypes.GracefulShutdownOptions{
+			Delay:          3 * time.Second,
+			Timeout:        10 * time.Second,
+			CleanupTimeout: 10 * time.Second,
 		},
 		JWT: struct {
 			Project jwtOptions.JWTOptions `json:"project"`
