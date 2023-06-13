@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -76,10 +76,9 @@ func init() {
 					f := &binaryFile{
 						path: path,
 						blob: blob,
-						size: int64(len(blob)),
 					}
 					r := bytes.NewReader(blob)
-					hash, err := fileTree.HashFile(r, f.size)
+					hash, err := fileTree.HashFile(r, f.Size())
 					if errRead != nil {
 						panic(errors.Tag(err, "hash: "+pathInFS))
 					}

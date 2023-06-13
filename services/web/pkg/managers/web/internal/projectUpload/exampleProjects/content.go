@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,7 +36,6 @@ type textFile struct {
 type renderedTextFile struct {
 	path sharedTypes.PathName
 	blob []byte
-	size int64
 }
 
 func (f *renderedTextFile) Open() (io.ReadCloser, error) {
@@ -44,7 +43,7 @@ func (f *renderedTextFile) Open() (io.ReadCloser, error) {
 }
 
 func (f *renderedTextFile) Size() int64 {
-	return f.size
+	return int64(len(f.blob))
 }
 
 func (f *renderedTextFile) Path() sharedTypes.PathName {
@@ -63,7 +62,6 @@ type binaryFile struct {
 	path sharedTypes.PathName
 	blob []byte
 	hash sharedTypes.Hash
-	size int64
 }
 
 func (f *binaryFile) Open() (io.ReadCloser, error) {
@@ -71,7 +69,7 @@ func (f *binaryFile) Open() (io.ReadCloser, error) {
 }
 
 func (f *binaryFile) Size() int64 {
-	return f.size
+	return int64(len(f.blob))
 }
 
 func (f *binaryFile) Path() sharedTypes.PathName {
@@ -102,7 +100,6 @@ func (p *projectContent) Render(data *ViewData) ([]types.CreateProjectFile, erro
 		files[i] = &renderedTextFile{
 			path: doc.path,
 			blob: b.Bytes(),
-			size: int64(b.Len()),
 		}
 	}
 	for i, file := range p.binaryFiles {
