@@ -136,6 +136,7 @@ func TestParseUUID(t *testing.T) {
 }
 
 func BenchmarkUUID_IsZero(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		_ = u.IsZero()
@@ -143,6 +144,7 @@ func BenchmarkUUID_IsZero(b *testing.B) {
 }
 
 func BenchmarkUUID_String(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		_ = u.String()
@@ -150,6 +152,7 @@ func BenchmarkUUID_String(b *testing.B) {
 }
 
 func BenchmarkUUID_StringNaive(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		_ = fmt.Sprintf(
@@ -160,6 +163,7 @@ func BenchmarkUUID_StringNaive(b *testing.B) {
 }
 
 func BenchmarkUUID_MarshalJSON(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		_, _ = u.MarshalJSON()
@@ -167,6 +171,7 @@ func BenchmarkUUID_MarshalJSON(b *testing.B) {
 }
 
 func BenchmarkUUID_MarshalJSONNaive(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(u.String()); err != nil {
@@ -176,6 +181,7 @@ func BenchmarkUUID_MarshalJSONNaive(b *testing.B) {
 }
 
 func BenchmarkUUID_UnmarshalJSON(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	blob, err := json.Marshal(u)
 	if err != nil {
@@ -194,6 +200,7 @@ func BenchmarkUUID_UnmarshalJSON(b *testing.B) {
 }
 
 func BenchmarkUUID_UnmarshalJSONNaive(b *testing.B) {
+	b.ReportAllocs()
 	u := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}
 	blob, err := json.Marshal(u)
 	if err != nil {
@@ -219,8 +226,17 @@ func BenchmarkUUID_UnmarshalJSONNaive(b *testing.B) {
 }
 
 func BenchmarkParseUUID(b *testing.B) {
+	b.ReportAllocs()
 	s := UUID{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 255}.String()
 	for i := 0; i < b.N; i++ {
 		_, _ = ParseUUID(s)
+	}
+}
+
+func BenchmarkPopulateUUID(b *testing.B) {
+	b.ReportAllocs()
+	u := UUID{}
+	for i := 0; i < b.N; i++ {
+		_ = PopulateUUID(&u)
 	}
 }
