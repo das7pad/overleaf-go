@@ -48,11 +48,6 @@ func (m *manager) TransferProjectOwnership(ctx context.Context, request *types.T
 	go m.notifyEditorAboutAccessChanges(projectId, refreshMembershipDetails{
 		Members: true,
 		Owner:   true,
-		UserId:  previousOwnerId,
-	})
-	go m.notifyEditorAboutAccessChanges(projectId, refreshMembershipDetails{
-		Members: true,
-		UserId:  newOwnerId,
 	})
 
 	projectURL := m.siteURL.WithPath("/project/" + projectId.String())
