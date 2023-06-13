@@ -117,7 +117,7 @@ func main() {
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	processDocumentUpdatesCtx, stopProcessingDocumentUpdates := context.WithCancel(context.Background())
 	eg.Go(func() error {
-		webManager.Cron(ctx, false)
+		webManager.Cron(ctx, false, time.Minute)
 		return nil
 	})
 	eg.Go(func() error {

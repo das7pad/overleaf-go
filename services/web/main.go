@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -83,10 +82,7 @@ func main() {
 
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	eg.Go(func() error {
-		time.Sleep(time.Duration(rand.Int63n(int64(time.Hour))))
-		if !webManager.CronOnce(ctx, false) {
-			log.Println("cron failed")
-		}
+		webManager.Cron(ctx, false, time.Hour)
 		return nil
 	})
 

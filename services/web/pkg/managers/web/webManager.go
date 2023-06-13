@@ -67,7 +67,7 @@ import (
 )
 
 type Manager interface {
-	Cron(ctx context.Context, dryRun bool)
+	Cron(ctx context.Context, dryRun bool, initialJitter time.Duration)
 	CronOnce(ctx context.Context, dryRun bool) bool
 	GetPublicSettings() *templates.PublicSettings
 	GetProjectJWTHandler() projectJWT.JWTHandler
@@ -311,11 +311,12 @@ func (m *manager) GetLoggedInUserJWTHandler() loggedInUserJWT.JWTHandler {
 	return m.loggedInUserJWTHandler
 }
 
-func (m *manager) Cron(ctx context.Context, dryRun bool) {
+func (m *manager) Cron(ctx context.Context, dryRun bool, jitter time.Duration) {
 	for {
 		t := time.NewTimer(
-			15*time.Minute - time.Duration(rand.Int63n(int64(time.Minute))),
+			14*time.Minute + time.Duration(rand.Int63n(int64(jitter))),
 		)
+		jitter = time.Minute
 		select {
 		case <-ctx.Done():
 			if !t.Stop() {
