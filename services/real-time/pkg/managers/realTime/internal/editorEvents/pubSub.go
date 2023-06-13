@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
@@ -39,57 +41,64 @@ func (r *room) Handle(raw string) {
 	case "otUpdateApplied":
 		err = r.handleUpdate(msg)
 	case "project:publicAccessLevel:changed":
-		r.handleProjectPublicAccessLevelChanged()
-		fallthrough
+		err = r.handleProjectPublicAccessLevelChanged(msg)
 	case "project:membership:changed":
-		r.handleProjectMembershipChanged(msg.Payload)
-		fallthrough
+		err = r.handleProjectMembershipChanged(msg)
 	default:
 		err = r.handleMessage(msg)
 	}
 	if err != nil {
-		clients := r.Clients()
-		var projectId sharedTypes.UUID
-		for i, client := range clients.All {
-			if i == clients.Removed {
-				continue
-			}
-			projectId = client.ProjectId
-		}
-		log.Printf("%s: handle editorEvents message: %s", projectId, err)
+		log.Printf(
+			"%s: handle editorEvents message: %s: %s",
+			msg.RoomId, msg.Message, err,
+		)
 		return
 	}
 }
 
-func (r *room) handleProjectPublicAccessLevelChanged() {
-	clients := r.Clients()
-	for i, client := range clients.All {
-		if i == clients.Removed {
-			continue
-		}
-		if !client.HasCapability(types.CanSeeOtherClients) {
-			// This is a restricted user aka a token user who just lost access.
-			client.TriggerDisconnect()
+type publicAccessLevelChangedPayload struct {
+	NewAccessLevel project.PublicAccessLevel `json:"newAccessLevel"`
+}
+
+func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEventsMessage) error {
+	p := publicAccessLevelChangedPayload{}
+	if err := json.Unmarshal(msg.Payload, &p); err != nil {
+		return errors.Tag(err, "deserialize payload")
+	}
+	if p.NewAccessLevel == project.PrivateAccess {
+		clients := r.Clients()
+		for i, client := range clients.All {
+			if i == clients.Removed {
+				continue
+			}
+			if !client.HasCapability(types.CanSeeOtherClients) {
+				// This is a restricted user aka a token user who lost access.
+				client.TriggerDisconnect()
+			}
 		}
 	}
+	return r.handleMessage(msg)
 }
 
 type projectMembershipChangedPayload struct {
 	UserId sharedTypes.UUID `json:"userId"`
 }
 
-func (r *room) handleProjectMembershipChanged(blob []byte) {
+func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEventsMessage) error {
 	p := projectMembershipChangedPayload{}
-	err := json.Unmarshal(blob, &p)
+	if err := json.Unmarshal(msg.Payload, &p); err != nil {
+		return errors.Tag(err, "deserialize payload")
+	}
 	clients := r.Clients()
 	for i, client := range clients.All {
 		if i == clients.Removed {
 			continue
 		}
-		if err != nil || p.UserId == client.UserId {
+		if p.UserId == client.UserId {
 			client.TriggerDisconnect()
 		}
 	}
+	return r.handleMessage(msg)
 }
 
 func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
