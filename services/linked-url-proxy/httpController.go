@@ -139,10 +139,6 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 	defer func() {
 		_ = response.Body.Close()
 	}()
-	if response.ContentLength > maxProxySize {
-		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
-		return
-	}
 	if statusCode := response.StatusCode; statusCode != http.StatusOK {
 		via := response.Header.Get("Via")
 		if q.Get(constants.QueryNameProxyChainMarker) == "true" &&
@@ -170,16 +166,18 @@ func (h *httpController) proxy(c *httpUtils.Context) {
 		})
 		return
 	}
-	body := response.Body.(io.Reader)
-	if response.ContentLength == -1 {
-		body = io.LimitReader(response.Body, maxProxySize)
-	}
 	if err = c.Err(); err != nil {
 		httpUtils.RespondErr(c, err)
 		return
 	}
-	if response.ContentLength != -1 {
-		// Not used by client, but used by std lib for identifying de-sync.
+	if response.ContentLength > maxProxySize {
+		httpUtils.RespondErr(c, &errors.BodyTooLargeError{})
+		return
+	}
+	body := response.Body.(io.Reader)
+	if response.ContentLength == -1 {
+		body = io.LimitReader(response.Body, maxProxySize)
+	} else {
 		c.Writer.Header().Set(
 			"Content-Length",
 			strconv.FormatInt(response.ContentLength, 10),
