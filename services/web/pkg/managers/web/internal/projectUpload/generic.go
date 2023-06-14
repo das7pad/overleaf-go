@@ -39,24 +39,26 @@ const (
 
 type uploadQueueEntry struct {
 	file         types.CreateProjectFile
-	reader       io.ReadCloser
+	f            io.ReadCloser
 	sourceFileId sharedTypes.UUID
-	ref          *project.FileRef
+	fileRef      *project.FileRef
 }
 
-func seekToStart(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
-	if seeker, ok := f.(io.Seeker); ok {
-		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			return f, errors.Tag(err, "seek to start")
+func tryReuseReader(file types.CreateProjectFile, f io.ReadCloser) (io.ReadCloser, error) {
+	if f != nil {
+		if seeker, ok := f.(io.Seeker); ok {
+			if _, err := seeker.Seek(0, io.SeekStart); err == nil {
+				return f, nil
+			}
+			// Fall back to close and re-open.
 		}
-		return f, nil
+		if err := f.Close(); err != nil {
+			return nil, errors.Tag(err, "close file")
+		}
 	}
-	if err := f.Close(); err != nil {
-		return f, errors.Tag(err, "close file")
-	}
-	newF, err := file.Open()
+	newF, _, err := file.Open()
 	if err != nil {
-		return f, errors.Tag(err, "re-open file")
+		return nil, errors.Tag(err, "re-open file")
 	}
 	return newF, nil
 }
@@ -103,11 +105,11 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	)
 	defer getProjectNames.Cancel()
 
-	openReader := make(map[sharedTypes.PathName]uploadQueueEntry)
+	fileUploads := make([]uploadQueueEntry, 0, 10)
 	defer func() {
-		for _, e := range openReader {
-			if f := e.reader; f != nil {
-				_ = f.Close()
+		for _, e := range fileUploads {
+			if e.f != nil {
+				_ = e.f.Close()
 			}
 		}
 	}()
@@ -135,15 +137,15 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					parent.Docs = append(parent.Docs, el)
 				case project.FileRef:
 					parent.FileRefs = append(parent.FileRefs, el)
-					openReader[path] = uploadQueueEntry{
+					fileUploads = append(fileUploads, uploadQueueEntry{
 						sourceFileId: el.Id,
-						ref:          &parent.FileRefs[len(parent.FileRefs)-1],
-					}
+						fileRef:      &parent.FileRefs[len(parent.FileRefs)-1],
+					})
 				}
 				continue
 			}
 			size := file.Size()
-			f, err := file.Open()
+			f, backedByOwnInode, err := file.Open()
 			if err != nil {
 				return errors.Tag(err, "open file")
 			}
@@ -172,31 +174,32 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				d.Snapshot = string(s)
 				parent.Docs = append(parent.Docs, d)
 			} else {
-				if consumedFile {
-					if f, err = seekToStart(file, f); err != nil {
-						_ = f.Close()
-						return err
+				hash := file.PreComputedHash()
+				if hash == "" {
+					if consumedFile {
+						if f, err = tryReuseReader(file, f); err != nil {
+							return err
+						}
 					}
-				}
-				var hash sharedTypes.Hash
-				if hash = file.PreComputedHash(); hash == "" {
 					if hash, err = fileTree.HashFile(f, size); err != nil {
 						_ = f.Close()
 						return err
 					}
-					if f, err = seekToStart(file, f); err != nil {
-						_ = f.Close()
-						return err
+				}
+				if backedByOwnInode {
+					if err = f.Close(); err != nil {
+						return errors.Tag(err, "close file")
 					}
+					f = nil
 				}
 				fileRef := project.NewFileRef(name, hash, size)
 				fileRef.CreatedAt = time.Now().Truncate(time.Microsecond)
 				parent.FileRefs = append(parent.FileRefs, fileRef)
-				openReader[path] = uploadQueueEntry{
-					file:   file,
-					reader: f,
-					ref:    &parent.FileRefs[len(parent.FileRefs)-1],
-				}
+				fileUploads = append(fileUploads, uploadQueueEntry{
+					file:    file,
+					f:       f,
+					fileRef: &parent.FileRefs[len(parent.FileRefs)-1],
+				})
 			}
 		}
 	}
@@ -219,54 +222,53 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	}
 
 	eg, pCtx := errgroup.WithContext(ctx)
-	uploadQueue := make(chan sharedTypes.PathName, parallelUploads)
+	uploadQueue := make(chan int, parallelUploads)
 	uploadEg, uploadCtx := errgroup.WithContext(pCtx)
 	for i := 0; i < parallelUploads; i++ {
 		uploadEg.Go(func() error {
-			for path := range uploadQueue {
-				e := openReader[path]
-				fileRef := e.ref
-				mErr := &errors.MergedError{}
+			for idx := range uploadQueue {
+				e := fileUploads[idx]
+				mErr := errors.MergedError{}
 				for j := 0; j < retryUploads; j++ {
 					if err := uploadCtx.Err(); err != nil {
 						mErr.Add(err)
 						break
 					}
-					if e.reader == nil {
+					if !e.sourceFileId.IsZero() {
 						err := m.fm.CopyProjectFile(
 							uploadCtx,
-							request.SourceProjectId,
-							e.sourceFileId,
-							p.Id,
-							fileRef.Id,
+							request.SourceProjectId, e.sourceFileId,
+							p.Id, e.fileRef.Id,
 						)
-						if err == nil {
-							mErr.Clear()
-							break
+						if err != nil {
+							mErr.Add(errors.Tag(err, "copy file"))
+							continue
 						}
-						mErr.Add(errors.Tag(err, "copy file"))
-						continue
-					}
-					err := m.fm.SendStreamForProjectFile(
-						uploadCtx,
-						p.Id,
-						fileRef.Id,
-						e.reader,
-						fileRef.Size,
-					)
-					if err == nil {
 						mErr.Clear()
 						break
 					}
-					mErr.Add(errors.Tag(err, "upload file"))
-					e.reader, err = seekToStart(e.file, e.reader)
-					mErr.Add(err)
-					continue
+					{
+						var err error
+						if e.f, err = tryReuseReader(e.file, e.f); err != nil {
+							mErr.Add(err)
+							break
+						}
+					}
+					err := m.fm.SendStreamForProjectFile(
+						uploadCtx, p.Id, e.fileRef.Id, e.f, e.fileRef.Size,
+					)
+					if err != nil {
+						mErr.Add(errors.Tag(err, "upload file"))
+						continue
+					}
+					mErr.Clear()
+					break
 				}
-				if e.reader != nil {
-					if err := e.reader.Close(); err != nil {
+				if e.f != nil {
+					if err := e.f.Close(); err != nil {
 						mErr.Add(errors.Tag(err, "close file"))
 					}
+					e.f = nil // Mark as cleaned up.
 				}
 				if err := mErr.Finalize(); err != nil {
 					return err
@@ -286,8 +288,8 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		return uploadEg.Wait()
 	})
 	eg.Go(func() error {
-		for path := range openReader {
-			uploadQueue <- path
+		for idx := range fileUploads {
+			uploadQueue <- idx
 		}
 		close(uploadQueue)
 		return nil

@@ -46,11 +46,12 @@ func (f *projectFile) Path() sharedTypes.PathName {
 	return f.s.File.Path()
 }
 
-func (f *projectFile) Open() (io.ReadCloser, error) {
+func (f *projectFile) Open() (io.ReadCloser, bool, error) {
 	if f.s.File != nil {
 		return f.s.File.Open()
 	}
-	return io.NopCloser(bytes.NewBuffer([]byte(string(f.s.Snapshot)))), nil
+	r := io.NopCloser(bytes.NewBuffer([]byte(string(f.s.Snapshot))))
+	return r, false, nil
 }
 
 func (f *projectFile) PreComputedHash() sharedTypes.Hash {
@@ -99,6 +100,7 @@ func (m *manager) createFromSnippets(ctx context.Context, request *types.OpenInO
 				if err != nil {
 					return err
 				}
+				_ = f.CloseTempFile() // Limit the number of open files.
 				snippet.File = f
 				readyQueue <- snippet
 			}

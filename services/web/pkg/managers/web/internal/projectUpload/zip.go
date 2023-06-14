@@ -20,6 +20,7 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/constants"
@@ -31,6 +32,11 @@ import (
 
 type zipFile struct {
 	*zip.File
+}
+
+func (z *zipFile) Open() (io.ReadCloser, bool, error) {
+	f, err := z.File.Open()
+	return f, false, err
 }
 
 func (z *zipFile) Size() int64 {

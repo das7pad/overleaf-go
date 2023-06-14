@@ -45,8 +45,8 @@ func (c cloneProjectFile) Size() int64 {
 	return 0
 }
 
-func (c cloneProjectFile) Open() (io.ReadCloser, error) {
-	return nil, errors.New("must clone instead")
+func (c cloneProjectFile) Open() (io.ReadCloser, bool, error) {
+	return nil, false, errors.New("must clone instead")
 }
 
 func (c cloneProjectFile) PreComputedHash() sharedTypes.Hash {

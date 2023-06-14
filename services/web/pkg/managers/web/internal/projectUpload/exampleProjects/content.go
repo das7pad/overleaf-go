@@ -38,8 +38,8 @@ type renderedTextFile struct {
 	blob []byte
 }
 
-func (f *renderedTextFile) Open() (io.ReadCloser, error) {
-	return io.NopCloser(bytes.NewReader(f.blob)), nil
+func (f *renderedTextFile) Open() (io.ReadCloser, bool, error) {
+	return io.NopCloser(bytes.NewReader(f.blob)), false, nil
 }
 
 func (f *renderedTextFile) Size() int64 {
@@ -64,8 +64,8 @@ type binaryFile struct {
 	hash sharedTypes.Hash
 }
 
-func (f *binaryFile) Open() (io.ReadCloser, error) {
-	return io.NopCloser(bytes.NewReader(f.blob)), nil
+func (f *binaryFile) Open() (io.ReadCloser, bool, error) {
+	return io.NopCloser(bytes.NewReader(f.blob)), false, nil
 }
 
 func (f *binaryFile) Size() int64 {

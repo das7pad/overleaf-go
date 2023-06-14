@@ -51,13 +51,23 @@ func (b *bufferedFile) SourceElement() project.TreeElement {
 	return nil
 }
 
-func (b *bufferedFile) Open() (io.ReadCloser, error) {
+func (b *bufferedFile) Open() (io.ReadCloser, bool, error) {
 	if f := b.tempFile; f != nil {
 		// Give ownership on tempFile to caller.
 		b.tempFile = nil
-		return f, nil
+		return f, true, nil
 	}
-	return os.Open(b.fsPath)
+	f, err := os.Open(b.fsPath)
+	return f, true, err
+}
+
+func (b *bufferedFile) CloseTempFile() error {
+	if b.tempFile != nil {
+		err := b.tempFile.Close()
+		b.tempFile = nil
+		return err
+	}
+	return nil
 }
 
 func (b *bufferedFile) File() *os.File {
@@ -65,16 +75,12 @@ func (b *bufferedFile) File() *os.File {
 }
 
 func (b *bufferedFile) Cleanup() {
-	if b.tempFile != nil {
-		_ = b.tempFile.Close()
-	}
+	_ = b.CloseTempFile()
 	_ = os.Remove(b.fsPath)
 }
 
 func (b *bufferedFile) Move(target string) error {
-	if b.tempFile != nil {
-		_ = b.tempFile.Close()
-	}
+	_ = b.CloseTempFile()
 	return syscall.Rename(b.fsPath, target)
 }
 

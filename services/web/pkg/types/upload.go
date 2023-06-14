@@ -73,7 +73,7 @@ type AddHeaderFn = func(s sharedTypes.Snapshot) sharedTypes.Snapshot
 type CreateProjectFile interface {
 	Size() int64
 	Path() sharedTypes.PathName
-	Open() (io.ReadCloser, error)
+	Open() (io.ReadCloser, bool, error)
 	PreComputedHash() sharedTypes.Hash
 	SourceElement() project.TreeElement
 }
