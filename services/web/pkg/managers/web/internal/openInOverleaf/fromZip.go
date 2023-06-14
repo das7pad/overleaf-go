@@ -36,6 +36,7 @@ func (m *manager) createFromZip(ctx context.Context, request *types.OpenInOverle
 	}
 	return m.pum.CreateFromZip(ctx, &types.CreateProjectFromZipRequest{
 		AddHeader:      m.addHeader,
+		Compiler:       request.Compiler,
 		WithSession:    types.WithSession{Session: request.Session},
 		HasDefaultName: request.HasDefaultName,
 		Name:           request.ProjectName,

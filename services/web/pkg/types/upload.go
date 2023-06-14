@@ -40,9 +40,10 @@ type UploadFileRequest struct {
 
 type CreateProjectFromZipRequest struct {
 	WithSession
-	AddHeader      AddHeaderFn  `json:"-"`
-	HasDefaultName bool         `json:"-"`
-	Name           project.Name `json:"-"`
+	AddHeader      AddHeaderFn          `json:"-"`
+	Compiler       sharedTypes.Compiler `json:"-"`
+	HasDefaultName bool                 `json:"-"`
+	Name           project.Name         `json:"-"`
 	UploadDetails
 }
 
