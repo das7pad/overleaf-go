@@ -198,8 +198,6 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 		return nil
 	case JoinDoc:
 		return nil
-	case LeaveDoc:
-		return nil
 	case ApplyUpdate:
 		if !c.HasJoinedDoc(docId) {
 			return &errors.InvalidStateError{Msg: "join doc first"}

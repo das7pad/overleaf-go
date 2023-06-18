@@ -27,7 +27,6 @@ type Action string
 
 const (
 	JoinDoc           = Action("joinDoc")
-	LeaveDoc          = Action("leaveDoc")
 	GetConnectedUsers = Action("clientTracking.getConnectedUsers")
 	UpdatePosition    = Action("clientTracking.updatePosition")
 	ApplyUpdate       = Action("applyUpdate")

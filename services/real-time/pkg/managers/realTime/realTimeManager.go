@@ -320,8 +320,6 @@ func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {
 		return nil
 	case types.JoinDoc:
 		return m.joinDoc(ctx, rpc)
-	case types.LeaveDoc:
-		return nil
 	case types.ApplyUpdate:
 		return m.applyUpdate(ctx, rpc)
 	case types.GetConnectedUsers:
