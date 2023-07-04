@@ -21,9 +21,9 @@ import (
 )
 
 type ClientPosition struct {
-	Row      sharedTypes.Row    `json:"r,omitempty"`
-	Column   sharedTypes.Column `json:"c,omitempty"`
-	EntityId sharedTypes.UUID   `json:"e"`
+	Row      int64            `json:"r,omitempty"`
+	Column   int64            `json:"c,omitempty"`
+	EntityId sharedTypes.UUID `json:"e"`
 }
 
 type ConnectedClient struct {

@@ -19,33 +19,15 @@ package sharedTypes
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"strconv"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 var ErrInvalidUUID = &errors.ValidationError{Msg: "invalid uuid"}
 
-type Float float64
-
-func (j Float) String() string {
-	return strconv.FormatFloat(float64(j), 'f', -1, 64)
-}
-
-type Int int64
-
-func (i Int) String() string {
-	return strconv.FormatInt(int64(i), 10)
-}
-
 func ParseUUID(s string) (UUID, error) {
 	u := UUID{}
 	return u, u.writeHexEncoded([]byte(s))
-}
-
-func GenerateUUID() (UUID, error) {
-	u := UUID{}
-	return u, PopulateUUID(&u)
 }
 
 func PopulateUUID(u *UUID) error {

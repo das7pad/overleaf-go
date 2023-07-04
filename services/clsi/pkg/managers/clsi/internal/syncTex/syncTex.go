@@ -72,7 +72,7 @@ func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun,
 			if parseErr != nil {
 				return parseErr
 			}
-			p.Page = types.Page(i)
+			p.Page = i
 		case "h", "v", "H", "W":
 			f, parseErr := strconv.ParseFloat(raw, 64)
 			if parseErr != nil {
@@ -82,13 +82,13 @@ func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun,
 			f = math.Round(f*100) / 100
 			switch label {
 			case "h":
-				p.Horizontal = types.Horizontal(f)
+				p.Horizontal = f
 			case "v":
-				p.Vertical = types.Vertical(f)
+				p.Vertical = f
 			case "H":
-				p.Height = types.Height(f)
+				p.Height = f
 			case "W":
-				p.Width = types.Width(f)
+				p.Width = f
 			}
 		}
 	}
@@ -128,9 +128,9 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 			}
 			switch label {
 			case "Line":
-				p.Row = sharedTypes.Row(i)
+				p.Row = i
 			case "Column":
-				p.Column = sharedTypes.Column(i)
+				p.Column = i
 			}
 		}
 	}

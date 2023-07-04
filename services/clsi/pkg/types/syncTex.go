@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,46 +17,26 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 )
 
-type Page int64
-
-func (p Page) String() string {
-	return sharedTypes.Int(p).String()
-}
-
-type Horizontal float64
-
-func (h Horizontal) String() string {
-	return sharedTypes.Float(h).String()
-}
-
-type Vertical float64
-
-func (v Vertical) String() string {
-	return sharedTypes.Float(v).String()
-}
-
 type CodePosition struct {
 	FileName sharedTypes.PathName `json:"file"`
-	Row      sharedTypes.Row      `json:"line"`
-	Column   sharedTypes.Column   `json:"column"`
+	Row      int64                `json:"line"`
+	Column   int64                `json:"column"`
 }
 
 type CodePositions []*CodePosition
 
-type Height float64
-
-type Width float64
-
 type PDFPosition struct {
-	Page       Page       `json:"page"`
-	Horizontal Horizontal `json:"h"`
-	Vertical   Vertical   `json:"v"`
-	Height     Height     `json:"height"`
-	Width      Width      `json:"width"`
+	Page       int64   `json:"page"`
+	Horizontal float64 `json:"h"`
+	Vertical   float64 `json:"v"`
+	Height     float64 `json:"height"`
+	Width      float64 `json:"width"`
 }
 type PDFPositions []*PDFPosition
 
@@ -97,8 +77,8 @@ func (o SyncTexOptions) OutputSyncTexGzPath() string {
 type SyncFromCodeRequest struct {
 	SyncTexOptions
 	FileName sharedTypes.PathName `json:"fileName"`
-	Row      sharedTypes.Row      `json:"line"`
-	Column   sharedTypes.Column   `json:"column"`
+	Row      int64                `json:"line"`
+	Column   int64                `json:"column"`
 }
 
 func (r *SyncFromCodeRequest) Options() *SyncTexOptions {
@@ -106,14 +86,14 @@ func (r *SyncFromCodeRequest) Options() *SyncTexOptions {
 }
 
 func (r *SyncFromCodeRequest) CommandLine() CommandLine {
-	line := r.Row.String()
-	column := r.Column.String()
-	input := string(constants.CompileDirPlaceHolder + "/" + r.FileName)
 	return CommandLine{
 		"synctex",
 		"view",
 		"-i",
-		line + ":" + column + ":" + input,
+		fmt.Sprintf(
+			"%d:%d:%s",
+			r.Row, r.Column, constants.CompileDirPlaceHolder+"/"+r.FileName,
+		),
 		"-o",
 		r.SyncTexOptions.OutputPDFPath(),
 	}
@@ -131,9 +111,9 @@ func (r *SyncFromCodeRequest) Validate() error {
 
 type SyncFromPDFRequest struct {
 	SyncTexOptions
-	Page       Page       `json:"page"`
-	Horizontal Horizontal `json:"horizontal"`
-	Vertical   Vertical   `json:"vertical"`
+	Page       int64   `json:"page"`
+	Horizontal float64 `json:"horizontal"`
+	Vertical   float64 `json:"vertical"`
 }
 
 func (r *SyncFromPDFRequest) Options() *SyncTexOptions {
@@ -141,14 +121,14 @@ func (r *SyncFromPDFRequest) Options() *SyncTexOptions {
 }
 
 func (r *SyncFromPDFRequest) CommandLine() CommandLine {
-	page := r.Page.String()
-	x := r.Horizontal.String()
-	y := r.Vertical.String()
 	return CommandLine{
 		"synctex",
 		"edit",
 		"-o",
-		page + ":" + x + ":" + y + ":" + r.SyncTexOptions.OutputPDFPath(),
+		fmt.Sprintf(
+			"%d:%f:%f:%s",
+			r.Page, r.Horizontal, r.Vertical, r.SyncTexOptions.OutputPDFPath(),
+		),
 	}
 }
 

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,8 +22,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type Revision int64
-
 type Version int64
 
 func (v Version) Equals(other Version) bool {
@@ -31,7 +29,7 @@ func (v Version) Equals(other Version) bool {
 }
 
 func (v Version) String() string {
-	return Int(v).String()
+	return strconv.FormatInt(int64(v), 10)
 }
 
 func (v *Version) ParseIfSet(s string) error {
