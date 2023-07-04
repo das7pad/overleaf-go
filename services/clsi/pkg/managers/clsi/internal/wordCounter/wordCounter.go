@@ -31,7 +31,7 @@ import (
 )
 
 type Counter interface {
-	Count(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.WordCountRequest, words *types.Words) error
+	Count(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.WordCountRequest, response *types.WordCountResponse) error
 }
 
 func New(options *types.Options) Counter {
@@ -46,7 +46,7 @@ type counter struct {
 
 const timeout = 60 * time.Second
 
-func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.WordCountRequest, words *types.Words) error {
+func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.WordCountRequest, response *types.WordCountResponse) error {
 	compileDir := c.compileBaseDir.CompileDir(namespace)
 	doc := constants.CompileDirPlaceHolder + "/" + string(request.FileName)
 
@@ -87,6 +87,7 @@ func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, na
 		return err
 	}
 
+	words := types.Words{}
 	for _, line := range strings.Split(string(blob), "\n") {
 		if line == "" ||
 			line[0] == ' ' ||
@@ -136,5 +137,6 @@ func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, na
 			words.MathDisplay = n
 		}
 	}
+	response.TexCount = words
 	return nil
 }

@@ -36,9 +36,9 @@ type Manager interface {
 	HealthCheck(ctx context.Context) error
 	PeriodicCleanup(ctx context.Context)
 	StartInBackground(ctx context.Context, projectId, userId sharedTypes.UUID, request *types.StartInBackgroundRequest) error
-	SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error
-	SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error
-	WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.WordCountRequest, words *types.Words) error
+	SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error
+	SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error
+	WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.WordCountRequest, response *types.WordCountResponse) error
 }
 
 func New(options *types.Options) (Manager, error) {
@@ -217,7 +217,7 @@ func (m *manager) StartInBackground(ctx context.Context, projectId, userId share
 	)
 }
 
-func (m *manager) SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
+func (m *manager) SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -227,12 +227,12 @@ func (m *manager) SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, 
 		projectId,
 		userId,
 		func(p project.Project) error {
-			return p.SyncFromCode(ctx, request, positions)
+			return p.SyncFromCode(ctx, request, response)
 		},
 	)
 }
 
-func (m *manager) SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
+func (m *manager) SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error {
 	if err := request.Validate(); err != nil {
 		return err
 	}
@@ -242,12 +242,12 @@ func (m *manager) SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, u
 		projectId,
 		userId,
 		func(p project.Project) error {
-			return p.SyncFromPDF(ctx, request, positions)
+			return p.SyncFromPDF(ctx, request, response)
 		},
 	)
 }
 
-func (m *manager) WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.WordCountRequest, words *types.Words) error {
+func (m *manager) WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.WordCountRequest, response *types.WordCountResponse) error {
 	if err := request.Preprocess(); err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (m *manager) WordCount(ctx context.Context, projectId sharedTypes.UUID, use
 		projectId,
 		userId,
 		func(p project.Project) error {
-			return p.WordCount(ctx, request, words)
+			return p.WordCount(ctx, request, response)
 		},
 	)
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -99,15 +99,15 @@ func (h *httpController) syncFromCode(c *httpUtils.Context) {
 		return
 	}
 
-	body := make(types.PDFPositions, 0)
+	response := &types.SyncFromCodeResponse{}
 	err := h.cm.SyncFromCode(
 		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
-		&body,
+		response,
 	)
-	httpUtils.Respond(c, http.StatusOK, body, err)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) syncFromPDF(c *httpUtils.Context) {
@@ -116,15 +116,15 @@ func (h *httpController) syncFromPDF(c *httpUtils.Context) {
 		return
 	}
 
-	body := make(types.CodePositions, 0)
+	response := &types.SyncFromPDFResponse{}
 	err := h.cm.SyncFromPDF(
 		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
-		&body,
+		response,
 	)
-	httpUtils.Respond(c, http.StatusOK, body, err)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) wordCount(c *httpUtils.Context) {
@@ -133,15 +133,15 @@ func (h *httpController) wordCount(c *httpUtils.Context) {
 		return
 	}
 
-	var body types.Words
+	response := &types.WordCountResponse{}
 	err := h.cm.WordCount(
 		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
 		request,
-		&body,
+		response,
 	)
-	httpUtils.Respond(c, http.StatusOK, body, err)
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }
 
 func (h *httpController) cookieStatus(c *httpUtils.Context) {

@@ -39,10 +39,10 @@ type Project interface {
 	ClearCache() error
 	Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error
 	StartInBackground(imageName sharedTypes.ImageName)
-	SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error
-	SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *types.CodePositions) error
+	SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error
+	SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error
 	Touch()
-	WordCount(ctx context.Context, request *types.WordCountRequest, words *types.Words) error
+	WordCount(ctx context.Context, request *types.WordCountRequest, response *types.WordCountResponse) error
 }
 
 func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers, paths types.Paths) (Project, error) {
@@ -187,29 +187,29 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	return nil
 }
 
-func (p *project) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
+func (p *project) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error {
 	p.stateMux.RLock()
 	defer p.stateMux.RUnlock()
 	if err := p.checkIsDead(); err != nil {
 		return err
 	}
-	return p.syncTex.FromCode(ctx, p.run, p.namespace, request, positions)
+	return p.syncTex.FromCode(ctx, p.run, p.namespace, request, response)
 }
 
-func (p *project) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
+func (p *project) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error {
 	p.stateMux.RLock()
 	defer p.stateMux.RUnlock()
 	if err := p.checkIsDead(); err != nil {
 		return err
 	}
-	return p.syncTex.FromPDF(ctx, p.run, p.namespace, request, positions)
+	return p.syncTex.FromPDF(ctx, p.run, p.namespace, request, response)
 }
 
 func (p *project) Touch() {
 	p.lastAccess.Store(time.Now().Unix())
 }
 
-func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest, words *types.Words) error {
+func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest, response *types.WordCountResponse) error {
 	p.stateMux.RLock()
 	defer p.stateMux.RUnlock()
 	if err := p.checkIsDead(); err != nil {
@@ -226,7 +226,7 @@ func (p *project) WordCount(ctx context.Context, request *types.WordCountRequest
 		p.run,
 		p.namespace,
 		request,
-		words,
+		response,
 	)
 }
 

@@ -29,7 +29,7 @@ type CodePosition struct {
 	Column   int64                `json:"column"`
 }
 
-type CodePositions []*CodePosition
+type CodePositions []CodePosition
 
 type PDFPosition struct {
 	Page       int64   `json:"page"`
@@ -38,7 +38,7 @@ type PDFPosition struct {
 	Height     float64 `json:"height"`
 	Width      float64 `json:"width"`
 }
-type PDFPositions []*PDFPosition
+type PDFPositions []PDFPosition
 
 type SyncTexRequestCommon interface {
 	Options() *SyncTexOptions
@@ -109,6 +109,10 @@ func (r *SyncFromCodeRequest) Validate() error {
 	return nil
 }
 
+type SyncFromCodeResponse struct {
+	PDF PDFPositions `json:"pdf"`
+}
+
 type SyncFromPDFRequest struct {
 	SyncTexOptions
 	Page       int64   `json:"page"`
@@ -137,4 +141,8 @@ func (r *SyncFromPDFRequest) Validate() error {
 		return err
 	}
 	return nil
+}
+
+type SyncFromPDFResponse struct {
+	Code CodePositions `json:"code"`
 }

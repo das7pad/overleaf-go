@@ -31,7 +31,7 @@ type ClsiManager interface {
 	HealthCheck(ctx context.Context) error
 	PeriodicCleanup(ctx context.Context)
 	StartInBackground(ctx context.Context, projectId, userId sharedTypes.UUID, request *clsiTypes.StartInBackgroundRequest) error
-	SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.SyncFromCodeRequest, positions *clsiTypes.PDFPositions) error
-	SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.SyncFromPDFRequest, positions *clsiTypes.CodePositions) error
-	WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.WordCountRequest, words *clsiTypes.Words) error
+	SyncFromCode(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.SyncFromCodeRequest, response *clsiTypes.SyncFromCodeResponse) error
+	SyncFromPDF(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.SyncFromPDFRequest, response *clsiTypes.SyncFromPDFResponse) error
+	WordCount(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.WordCountRequest, response *clsiTypes.WordCountResponse) error
 }

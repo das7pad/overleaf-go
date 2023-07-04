@@ -31,8 +31,8 @@ import (
 )
 
 type Manager interface {
-	FromCode(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error
-	FromPDF(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromPDFRequest, positions *types.CodePositions) error
+	FromCode(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error
+	FromPDF(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error
 }
 
 func New(options *types.Options, runner commandRunner.Runner) Manager {
@@ -47,14 +47,14 @@ type manager struct {
 	runner commandRunner.Runner
 }
 
-func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromCodeRequest, positions *types.PDFPositions) error {
+func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error {
 	lines, err := m.runSyncTex(ctx, run, namespace, request)
 	if err != nil {
 		return err
 	}
 
-	*positions = types.PDFPositions{}
-	p := &types.PDFPosition{}
+	positions := make(types.PDFPositions, 0, 1)
+	var p *types.PDFPosition
 	for _, line := range lines {
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
@@ -64,8 +64,8 @@ func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun,
 		label, raw := parts[0], parts[1]
 		switch label {
 		case "Output":
-			p = &types.PDFPosition{}
-			*positions = append(*positions, p)
+			positions = append(positions, types.PDFPosition{})
+			p = &positions[len(positions)-1]
 
 		case "Page":
 			i, parseErr := strconv.ParseInt(raw, 10, 64)
@@ -92,17 +92,18 @@ func (m *manager) FromCode(ctx context.Context, run commandRunner.NamespacedRun,
 			}
 		}
 	}
+	response.PDF = positions
 	return nil
 }
 
-func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromPDFRequest, positions *types.CodePositions) error {
+func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, namespace types.Namespace, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error {
 	lines, err := m.runSyncTex(ctx, run, namespace, request)
 	if err != nil {
 		return err
 	}
 
-	*positions = types.CodePositions{}
-	p := &types.CodePosition{}
+	positions := make(types.CodePositions, 0, 1)
+	var p *types.CodePosition
 	for _, line := range lines {
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
@@ -112,8 +113,8 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 		label, raw := parts[0], parts[1]
 		switch label {
 		case "Output":
-			p = &types.CodePosition{}
-			*positions = append(*positions, p)
+			positions = append(positions, types.CodePosition{})
+			p = &positions[len(positions)-1]
 
 		case "Input":
 			f, resolveErr := m.runner.Resolve(raw, namespace)
@@ -134,6 +135,7 @@ func (m *manager) FromPDF(ctx context.Context, run commandRunner.NamespacedRun, 
 			}
 		}
 	}
+	response.Code = positions
 	return nil
 }
 
