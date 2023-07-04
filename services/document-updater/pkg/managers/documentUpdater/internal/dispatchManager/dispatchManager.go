@@ -18,7 +18,6 @@ package dispatchManager
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
 
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
@@ -43,10 +43,11 @@ const (
 	maxProcessingTime = 30 * time.Second
 )
 
-func New(options *types.Options, client redis.UniversalClient, dm docManager.Manager) Manager {
+func New(options *types.Options, client redis.UniversalClient, dm docManager.Manager, rtRm realTimeRedisManager.Manager) Manager {
 	return &manager{
 		client:                       client,
 		dm:                           dm,
+		rtRm:                         rtRm,
 		pendingUpdatesListShardCount: options.PendingUpdatesListShardCount,
 		workersPerShard:              options.Workers,
 	}
@@ -55,6 +56,7 @@ func New(options *types.Options, client redis.UniversalClient, dm docManager.Man
 type manager struct {
 	client                       redis.UniversalClient
 	dm                           docManager.Manager
+	rtRm                         realTimeRedisManager.Manager
 	pendingUpdatesListShardCount int
 	workersPerShard              int
 }
@@ -147,30 +149,13 @@ func (m *manager) worker(queue <-chan string) {
 }
 
 func (m *manager) QueueUpdate(ctx context.Context, projectId, docId sharedTypes.UUID, update sharedTypes.DocumentUpdate) error {
-	// Hard code document id
-	update.DocId = docId
-	// Dup is an output only field
-	update.Dup = false
-	// Ingestion time is tracked internally only
-	update.Meta.IngestionTime = time.Now()
-
-	if err := update.Validate(); err != nil {
+	if err := m.rtRm.QueueUpdate(ctx, docId, update); err != nil {
 		return err
-	}
-
-	blob, err := json.Marshal(update)
-	if err != nil {
-		return errors.Tag(err, "encode update")
-	}
-
-	pendingUpdateKey := "PendingUpdates:{" + docId.String() + "}"
-	if err = m.client.RPush(ctx, pendingUpdateKey, blob).Err(); err != nil {
-		return errors.Tag(err, "queue update")
 	}
 
 	shardKey := m.GetPendingUpdatesListKey().String()
 	docKey := projectId.String() + ":" + docId.String()
-	if err = m.client.RPush(ctx, shardKey, docKey).Err(); err != nil {
+	if err := m.client.RPush(ctx, shardKey, docKey).Err(); err != nil {
 		return errors.Tag(err, "notify shard about new queue entry")
 	}
 	return nil

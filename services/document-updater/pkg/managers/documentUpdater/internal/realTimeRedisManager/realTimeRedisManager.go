@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 
@@ -32,6 +33,7 @@ type Manager interface {
 	ConfirmUpdates(ctx context.Context, projectId sharedTypes.UUID, processed []sharedTypes.DocumentUpdate) error
 	GetPendingUpdatesForDoc(ctx context.Context, docId sharedTypes.UUID) ([]sharedTypes.DocumentUpdate, error)
 	GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) (int64, error)
+	QueueUpdate(ctx context.Context, docId sharedTypes.UUID, update sharedTypes.DocumentUpdate) error
 	ReportError(ctx context.Context, projectId, docId sharedTypes.UUID, err error) error
 }
 
@@ -91,6 +93,30 @@ func (m *manager) GetUpdatesLength(ctx context.Context, docId sharedTypes.UUID) 
 		return 0, errors.Tag(err, "get updates queue depth")
 	}
 	return n, nil
+}
+
+func (m *manager) QueueUpdate(ctx context.Context, docId sharedTypes.UUID, update sharedTypes.DocumentUpdate) error {
+	// Hard code document id
+	update.DocId = docId
+	// Dup is an output only field
+	update.Dup = false
+	// Ingestion time is tracked internally only
+	update.Meta.IngestionTime = time.Now()
+
+	if err := update.Validate(); err != nil {
+		return err
+	}
+
+	blob, err := json.Marshal(update)
+	if err != nil {
+		return errors.Tag(err, "encode update")
+	}
+
+	err = m.client.RPush(ctx, getPendingUpdatesKey(docId), blob).Err()
+	if err != nil {
+		return errors.Tag(err, "queue update")
+	}
+	return nil
 }
 
 func (m *manager) ConfirmUpdates(ctx context.Context, projectId sharedTypes.UUID, processed []sharedTypes.DocumentUpdate) error {

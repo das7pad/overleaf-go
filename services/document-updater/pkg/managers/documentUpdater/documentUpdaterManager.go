@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/dispatchManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/docManager"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater/internal/realTimeRedisManager"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 )
 
@@ -45,13 +46,16 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient)
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
-
-	dm, err := docManager.New(db, client)
+	rtRm, err := realTimeRedisManager.New(client)
+	if err != nil {
+		return nil, err
+	}
+	dm, err := docManager.New(db, client, rtRm)
 	if err != nil {
 		return nil, err
 	}
 	return &manager{
-		dispatcher: dispatchManager.New(options, client, dm),
+		dispatcher: dispatchManager.New(options, client, dm, rtRm),
 		dm:         dm,
 	}, nil
 }

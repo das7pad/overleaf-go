@@ -252,8 +252,7 @@ func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	if err := json.Unmarshal(rpc.Request.Body, &update); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
-	// Hard code document and user identifier.
-	update.DocId = rpc.Request.DocId
+	// Hard code user identifier.
 	update.Meta.Source = rpc.Client.PublicId
 	update.Meta.UserId = rpc.Client.UserId
 
