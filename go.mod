@@ -10,7 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/hashicorp/golang-lru/v2 v2.0.2
+	github.com/hashicorp/golang-lru/v2 v2.0.4
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/minio/madmin-go/v2 v2.2.1
 	github.com/minio/minio-go/v7 v7.0.52
