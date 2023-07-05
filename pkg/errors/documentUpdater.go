@@ -25,8 +25,3 @@ func (i *UpdateRangeNotAvailableError) Error() string {
 }
 
 func (i *UpdateRangeNotAvailableError) IsUserFacing() {}
-
-func IsUpdateRangeNotAvailableError(err error) bool {
-	_, ok := GetCause(err).(*UpdateRangeNotAvailableError)
-	return ok
-}

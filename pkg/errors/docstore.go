@@ -26,16 +26,6 @@ func (e BodyTooLargeError) IsUserFacing() {}
 
 func (e BodyTooLargeError) IsFatal() {}
 
-func IsBodyTooLargeError(err error) bool {
-	_, ok := GetCause(err).(*BodyTooLargeError)
-	return ok
-}
-
-func IsDocNotFoundError(err error) bool {
-	_, ok := GetCause(err).(*DocNotFoundError)
-	return ok
-}
-
 type DocNotFoundError struct{}
 
 func (e DocNotFoundError) Error() string {

@@ -171,11 +171,6 @@ func (e RateLimitedError) Error() string {
 	return "rate limited, try again in " + e.RetryIn.String()
 }
 
-func IsRateLimitedError(err error) bool {
-	_, ok := GetCause(err).(*RateLimitedError)
-	return ok
-}
-
 type UnprocessableEntityError struct {
 	Msg string
 }

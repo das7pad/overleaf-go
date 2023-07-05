@@ -24,11 +24,6 @@ func (m MissingOutputFileError) Error() string {
 	return m.Msg
 }
 
-func IsMissingOutputFileError(err error) bool {
-	_, ok := GetCause(err).(*MissingOutputFileError)
-	return ok
-}
-
 type AlreadyCompilingError struct{}
 
 func (a AlreadyCompilingError) Error() string {

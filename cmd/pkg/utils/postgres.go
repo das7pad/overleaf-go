@@ -69,6 +69,7 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 }
 
 func registerEnumTypes(ctx context.Context, m *pgtype.Map, conn *pgx.Conn) error {
+	//goland:noinspection SpellCheckingInspection
 	rows, err := conn.Query(
 		ctx, `SELECT oid, typname FROM pg_type WHERE typtype = 'e'`,
 	)

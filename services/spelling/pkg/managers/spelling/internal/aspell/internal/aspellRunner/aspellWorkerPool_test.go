@@ -55,6 +55,7 @@ func benchmarkWorkerPoolCheckWords(b *testing.B, p int) {
 				case i%17 == 0:
 					lng = "pt_PT"
 				}
+				//goland:noinspection SpellCheckingInspection
 				_, err := wp.CheckWords(ctx, lng, []string{"Helllo"})
 				if err != nil {
 					return errors.Tag(err, string(lng))

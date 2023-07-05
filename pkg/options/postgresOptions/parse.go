@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -31,6 +31,7 @@ func Parse() string {
 	u.User = url.User("postgres")
 	u.Host = env.GetString("POSTGRES_HOST", "localhost:5432")
 	u.Path = "/postgres"
+	//goland:noinspection SpellCheckingInspection
 	u.WithQuery(url.Values{
 		"sslmode":        {"disable"},
 		"pool_max_conns": {strconv.FormatInt(int64(poolSize), 10)},

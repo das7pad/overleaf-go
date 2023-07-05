@@ -35,6 +35,7 @@ func main() {
 		panic(errors.New("--app is a required argument"))
 	}
 
+	//goland:noinspection SpellCheckingInspection
 	t := template.Must(template.New("").Parse(strings.TrimLeft(`
 app = {{ printf "%q" .App }}
 kill_signal = "SIGINT"

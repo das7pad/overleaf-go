@@ -37,8 +37,8 @@ func Test_parseFilenameFromCD(t *testing.T) {
 		},
 		{
 			name:    "utf-8",
-			cd:      `attachment; filename*=UTF-8''foo%2D%C3%A4%2D%E2%82%AC%2Etex`,
-			want:    "foo-ä-€.tex",
+			cd:      `attachment; filename*=UTF-8''foo%2D%C3%A4%2D%E2%82%AC`,
+			want:    "foo-ä-€",
 			wantErr: false,
 		},
 		{

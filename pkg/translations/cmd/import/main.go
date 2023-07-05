@@ -193,6 +193,7 @@ func processLocale(key, v string) string {
 	case "reconnecting_in_x_secs":
 		v = strings.ReplaceAll(v, "__seconds__", "{{ `{{ connection.reconnection_countdown }}` }}")
 	case "saving_notification_with_seconds":
+		//goland:noinspection SpellCheckingInspection
 		v = strings.ReplaceAll(v, "__docname__", "{{ `{{ state.doc.name }}` }}")
 		v = strings.ReplaceAll(v, "__seconds__", "{{ `{{ state.unsavedSeconds }}` }}")
 	case "file_has_been_deleted", "file_restored":

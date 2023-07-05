@@ -30,6 +30,7 @@ import (
 )
 
 func getPersistenceKey(options sharedTypes.ProjectOptions) string {
+	//goland:noinspection SpellCheckingInspection
 	return "clsiserver" +
 		":" + string(options.CompileGroup) +
 		":" + options.ProjectId.String() +

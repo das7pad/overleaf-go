@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,6 +23,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+//goland:noinspection SpellCheckingInspection
 var (
 	labelRegex          = regexp.MustCompile(`\\label{([^}]{1,80})}`)
 	usePackageRegex     = regexp.MustCompile(`\\usepackage(?:\[[^]]{0,80}?])?{([^}]{1,80})}`)
