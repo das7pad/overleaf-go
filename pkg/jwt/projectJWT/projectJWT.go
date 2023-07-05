@@ -35,7 +35,7 @@ type Claims struct {
 
 	expiringJWT.Claims
 	project.AuthorizationDetails
-	sharedTypes.SignedCompileProjectRequestOptions
+	sharedTypes.ProjectOptions
 	EpochUser int64 `json:"eu"`
 }
 

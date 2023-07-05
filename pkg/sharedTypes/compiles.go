@@ -135,7 +135,7 @@ func (i ImageName) Validate() error {
 	return nil
 }
 
-type SignedCompileProjectRequestOptions struct {
+type ProjectOptions struct {
 	CompileGroup CompileGroup   `json:"c"`
 	ProjectId    UUID           `json:"p"`
 	UserId       UUID           `json:"u"`

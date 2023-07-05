@@ -26,7 +26,7 @@ type WithProjectIdAndUserId struct {
 	UserId    sharedTypes.UUID `json:"-"`
 }
 
-func (w *WithProjectIdAndUserId) FromSignedOptions(o sharedTypes.SignedCompileProjectRequestOptions) {
+func (w *WithProjectIdAndUserId) FromSignedProjectOptions(o sharedTypes.ProjectOptions) {
 	w.ProjectId = o.ProjectId
 	w.UserId = o.UserId
 }

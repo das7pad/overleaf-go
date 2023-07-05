@@ -22,9 +22,9 @@ import (
 )
 
 type WordCountRequest struct {
+	sharedTypes.ProjectOptions `json:"-"`
 	clsiTypes.WordCountRequest
-	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
-	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId ClsiServerId `json:"clsiServerId"`
 }
 
 type WordCountResponse = clsiTypes.WordCountResponse

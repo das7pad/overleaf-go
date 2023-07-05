@@ -22,17 +22,17 @@ import (
 )
 
 type SyncFromCodeRequest struct {
+	sharedTypes.ProjectOptions `json:"-"`
 	clsiTypes.SyncFromCodeRequest
-	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
-	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId ClsiServerId `json:"clsiServerId"`
 }
 
 type SyncFromCodeResponse = clsiTypes.SyncFromCodeResponse
 
 type SyncFromPDFRequest struct {
+	sharedTypes.ProjectOptions `json:"-"`
 	clsiTypes.SyncFromPDFRequest
-	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
-	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
+	ClsiServerId ClsiServerId `json:"clsiServerId"`
 }
 
 type SyncFromPDFResponse = clsiTypes.SyncFromPDFResponse

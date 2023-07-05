@@ -29,7 +29,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
-func getPersistenceKey(options sharedTypes.SignedCompileProjectRequestOptions) string {
+func getPersistenceKey(options sharedTypes.ProjectOptions) string {
 	return "clsiserver" +
 		":" + string(options.CompileGroup) +
 		":" + options.ProjectId.String() +
@@ -40,7 +40,7 @@ func (m *manager) persistenceDisabled() bool {
 	return m.persistenceCookieName == ""
 }
 
-func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options sharedTypes.SignedCompileProjectRequestOptions) types.ClsiServerId {
+func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Response, options sharedTypes.ProjectOptions) types.ClsiServerId {
 	if m.persistenceDisabled() {
 		return ""
 	}
@@ -78,7 +78,7 @@ func (m *manager) populateServerIdFromResponse(ctx context.Context, res *http.Re
 	return clsiServerId
 }
 
-func (m *manager) getServerId(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions) (types.ClsiServerId, error) {
+func (m *manager) getServerId(ctx context.Context, options sharedTypes.ProjectOptions) (types.ClsiServerId, error) {
 	if m.persistenceDisabled() {
 		return "", nil
 	}
@@ -90,7 +90,7 @@ func (m *manager) getServerId(ctx context.Context, options sharedTypes.SignedCom
 	return types.ClsiServerId(s), nil
 }
 
-func (m *manager) clearServerId(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions) error {
+func (m *manager) clearServerId(ctx context.Context, options sharedTypes.ProjectOptions) error {
 	if m.persistenceDisabled() {
 		return nil
 	}
@@ -102,7 +102,7 @@ func (m *manager) clearServerId(ctx context.Context, options sharedTypes.SignedC
 	return nil
 }
 
-func (m *manager) doPersistentRequest(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, types.ClsiServerId, error) {
+func (m *manager) doPersistentRequest(ctx context.Context, options sharedTypes.ProjectOptions, clsiServerId types.ClsiServerId, r *http.Request) (*http.Response, types.ClsiServerId, error) {
 	if clsiServerId != "" {
 		r.AddCookie(&http.Cookie{
 			Name:  m.persistenceCookieName,

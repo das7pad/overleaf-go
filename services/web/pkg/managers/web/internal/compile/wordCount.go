@@ -24,7 +24,7 @@ import (
 
 func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest, response *types.WordCountResponse) error {
 	err := m.preprocessGenericPOST(
-		request.SignedCompileProjectRequestOptions,
+		request.ProjectOptions,
 		request.ImageName,
 		request,
 	)
@@ -40,7 +40,7 @@ func (m *manager) WordCount(ctx context.Context, request *types.WordCountRequest
 	return m.genericPOST(
 		ctx,
 		"/wordcount",
-		request.SignedCompileProjectRequestOptions,
+		request.ProjectOptions,
 		request.ClsiServerId,
 		&request.WordCountRequest,
 		response,

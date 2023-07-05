@@ -35,7 +35,7 @@ func (m *manager) CompileHeadLess(ctx context.Context, r *types.CompileProjectHe
 	}
 
 	return m.Compile(ctx, &types.CompileProjectRequest{
-		SignedCompileProjectRequestOptions: sharedTypes.SignedCompileProjectRequestOptions{
+		ProjectOptions: sharedTypes.ProjectOptions{
 			CompileGroup: p.OwnerFeatures.CompileGroup,
 			ProjectId:    r.ProjectId,
 			UserId:       r.UserId,

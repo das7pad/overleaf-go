@@ -44,7 +44,7 @@ type Manager interface {
 	Compile(ctx context.Context, request *types.CompileProjectRequest, response *types.CompileProjectResponse) error
 	CompileHeadLess(ctx context.Context, request *types.CompileProjectHeadlessRequest, response *types.CompileProjectResponse) error
 	ClearCache(ctx context.Context, request *types.ClearCompileCacheRequest) error
-	StartInBackground(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName) error
+	StartInBackground(ctx context.Context, options sharedTypes.ProjectOptions, imageName sharedTypes.ImageName) error
 	SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error
 	SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error
 	WordCount(ctx context.Context, request *types.WordCountRequest, response *types.WordCountResponse) error
@@ -109,9 +109,7 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 	if m.bundle != nil {
 		return m.bundle.ClearCache(request.ProjectId, request.UserId)
 	}
-	clearPersistenceError := m.clearServerId(
-		ctx, request.SignedCompileProjectRequestOptions,
-	)
+	clearPersistenceError := m.clearServerId(ctx, request.ProjectOptions)
 
 	u := m.getURL(request.ProjectId, request.UserId, "")
 
@@ -138,7 +136,7 @@ func (m *manager) ClearCache(ctx context.Context, request *types.ClearCompileCac
 	}
 }
 
-func (m *manager) StartInBackground(ctx context.Context, options sharedTypes.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName) error {
+func (m *manager) StartInBackground(ctx context.Context, options sharedTypes.ProjectOptions, imageName sharedTypes.ImageName) error {
 	request := clsiTypes.StartInBackgroundRequest{
 		ImageName: m.getImageName(imageName),
 	}
@@ -194,9 +192,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		ctx,
 		func(ctx context.Context) error {
 			var err error
-			clsiServerId, err = m.getServerId(
-				ctx, request.SignedCompileProjectRequestOptions,
-			)
+			clsiServerId, err = m.getServerId(ctx, request.ProjectOptions)
 			return err
 		},
 	)
@@ -380,7 +376,7 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 		return errors.Tag(err, "create compile request")
 	}
 	res, clsiServerId, err := m.doPersistentRequest(
-		ctx, request.SignedCompileProjectRequestOptions, clsiServerId, r,
+		ctx, request.ProjectOptions, clsiServerId, r,
 	)
 	response.ClsiServerId = clsiServerId
 	if err != nil {

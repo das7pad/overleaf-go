@@ -33,7 +33,7 @@ type genericPOSTRequest interface {
 	Validate() error
 }
 
-func (m *manager) preprocessGenericPOST(options sharedTypes.SignedCompileProjectRequestOptions, imageName sharedTypes.ImageName, request genericPOSTRequest) error {
+func (m *manager) preprocessGenericPOST(options sharedTypes.ProjectOptions, imageName sharedTypes.ImageName, request genericPOSTRequest) error {
 	request.SetCompileGroup(options.CompileGroup)
 	if err := request.Validate(); err != nil {
 		return err
@@ -42,7 +42,7 @@ func (m *manager) preprocessGenericPOST(options sharedTypes.SignedCompileProject
 	return nil
 }
 
-func (m *manager) genericPOST(ctx context.Context, endpoint string, options sharedTypes.SignedCompileProjectRequestOptions, clsiServerId types.ClsiServerId, request genericPOSTRequest, response interface{}) error {
+func (m *manager) genericPOST(ctx context.Context, endpoint string, options sharedTypes.ProjectOptions, clsiServerId types.ClsiServerId, request genericPOSTRequest, response interface{}) error {
 	u := m.getURL(options.ProjectId, options.UserId, endpoint)
 
 	blob, err := json.Marshal(request)
@@ -73,7 +73,7 @@ func (m *manager) genericPOST(ctx context.Context, endpoint string, options shar
 
 func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeRequest, response *types.SyncFromCodeResponse) error {
 	err := m.preprocessGenericPOST(
-		request.SignedCompileProjectRequestOptions,
+		request.ProjectOptions,
 		request.ImageName,
 		request,
 	)
@@ -89,7 +89,7 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 	return m.genericPOST(
 		ctx,
 		"/sync/code",
-		request.SignedCompileProjectRequestOptions,
+		request.ProjectOptions,
 		request.ClsiServerId,
 		&request.SyncFromCodeRequest,
 		response,
@@ -98,7 +98,7 @@ func (m *manager) SyncFromCode(ctx context.Context, request *types.SyncFromCodeR
 
 func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFRequest, response *types.SyncFromPDFResponse) error {
 	err := m.preprocessGenericPOST(
-		request.SignedCompileProjectRequestOptions,
+		request.ProjectOptions,
 		request.ImageName,
 		request,
 	)
@@ -114,7 +114,7 @@ func (m *manager) SyncFromPDF(ctx context.Context, request *types.SyncFromPDFReq
 	return m.genericPOST(
 		ctx,
 		"/sync/pdf",
-		request.SignedCompileProjectRequestOptions,
+		request.ProjectOptions,
 		request.ClsiServerId,
 		&request.SyncFromPDFRequest,
 		response,

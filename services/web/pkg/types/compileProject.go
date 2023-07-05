@@ -28,12 +28,12 @@ type CompileProjectHeadlessRequest struct {
 }
 
 type ClearCompileCacheRequest struct {
-	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
-	ClsiServerId                                   ClsiServerId `json:"clsiServerId"`
+	sharedTypes.ProjectOptions `json:"-"`
+	ClsiServerId               ClsiServerId `json:"clsiServerId"`
 }
 
 type CompileProjectRequest struct {
-	sharedTypes.SignedCompileProjectRequestOptions `json:"-"`
+	sharedTypes.ProjectOptions `json:"-"`
 
 	CheckMode                  clsiTypes.CheckMode     `json:"checkMode"`
 	Compiler                   sharedTypes.Compiler    `json:"compiler"`

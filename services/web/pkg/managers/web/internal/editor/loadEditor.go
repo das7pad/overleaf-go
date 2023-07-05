@@ -87,7 +87,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		response.JWTLoggedInUser = s
 		response.SystemMessages, _ = m.smm.GetAllCachedOnly(userId)
 	}
-	signedOptions := sharedTypes.SignedCompileProjectRequestOptions{
+	projectOptions := sharedTypes.ProjectOptions{
 		CompileGroup: p.OwnerFeatures.CompileGroup,
 		ProjectId:    projectId,
 		UserId:       userId,
@@ -97,7 +97,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 		c := m.jwtProject.New()
 		c.EpochUser = u.Epoch
 		c.AuthorizationDetails = *authorizationDetails
-		c.SignedCompileProjectRequestOptions = signedOptions
+		c.ProjectOptions = projectOptions
 
 		s, err := m.jwtProject.SetExpiryAndSign(c)
 		if err != nil {
@@ -111,7 +111,7 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 				context.Background(), 10*time.Second,
 			)
 			defer done()
-			err := m.cm.StartInBackground(bCtx, signedOptions, p.ImageName)
+			err := m.cm.StartInBackground(bCtx, projectOptions, p.ImageName)
 			if err != nil {
 				log.Printf(
 					"%s/%s: start compile container: %s",

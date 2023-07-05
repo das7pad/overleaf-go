@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -53,6 +53,11 @@ func (r *GetDocDiffRequest) Validate() error {
 		return &errors.ValidationError{Msg: "from/to flipped"}
 	}
 	return nil
+}
+
+func (r *GetDocDiffRequest) FromSignedProjectOptions(o sharedTypes.ProjectOptions) {
+	r.ProjectId = o.ProjectId
+	r.UserId = o.UserId
 }
 
 func (r *GetDocDiffRequest) FromQuery(q url.Values) error {
