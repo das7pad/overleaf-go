@@ -16,7 +16,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.52
 	github.com/moby/term v0.5.0
 	github.com/sergi/go-diff v1.3.1
-	go.mongodb.org/mongo-driver v1.11.6
+	go.mongodb.org/mongo-driver v1.12.0
 	golang.org/x/crypto v0.8.0
 	golang.org/x/net v0.9.0
 	golang.org/x/sync v0.2.0
@@ -60,8 +60,8 @@ require (
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
-	github.com/xdg-go/scram v1.1.1 // indirect
-	github.com/xdg-go/stringprep v1.0.3 // indirect
+	github.com/xdg-go/scram v1.1.2 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/mod v0.8.0 // indirect
@@ -75,6 +75,3 @@ require (
 
 // Cut down allocations
 replace github.com/gorilla/mux v1.8.0 => github.com/das7pad/mux v1.8.1-0.20220716131946-5aa07c8586d7
-
-// Drop kr/pretty dependency
-replace go.mongodb.org/mongo-driver v1.11.6 => github.com/das7pad/mongo-go-driver v1.11.7-0.20230507184359-dc4345459f2d
