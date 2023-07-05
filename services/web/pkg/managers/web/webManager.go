@@ -139,7 +139,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		return nil, err
 	}
 	projectJWTHandler := projectJWT.New(
-		options.JWT.Compile, pm.ValidateProjectJWTEpochs,
+		options.JWT.Project, pm.ValidateProjectJWTEpochs,
 	)
 	loggedInUserJWTHandler := loggedInUserJWT.New(options.JWT.LoggedInUser)
 	em := editor.New(

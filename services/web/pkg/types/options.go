@@ -92,7 +92,7 @@ type Options struct {
 	} `json:"apis"`
 
 	JWT struct {
-		Compile      jwtOptions.JWTOptions `json:"compile"`
+		Project      jwtOptions.JWTOptions `json:"project"`
 		LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
 	} `json:"jwt"`
 
@@ -105,7 +105,7 @@ type Options struct {
 
 func (o *Options) FillFromEnv() {
 	env.MustParseJSON(o, "WEB_OPTIONS")
-	o.JWT.Compile.FillFromEnv("JWT_WEB_VERIFY_SECRET")
+	o.JWT.Project.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.JWT.LoggedInUser.FillFromEnv("JWT_WEB_VERIFY_SECRET")
 	o.SessionCookie.FillFromEnv("SESSION_SECRET")
 }
@@ -211,8 +211,8 @@ func (o *Options) Validate() error {
 		}
 	}
 
-	if err := o.JWT.Compile.Validate(); err != nil {
-		return errors.Tag(err, "jwt.compile is invalid")
+	if err := o.JWT.Project.Validate(); err != nil {
+		return errors.Tag(err, "jwt.project is invalid")
 	}
 	if err := o.JWT.LoggedInUser.Validate(); err != nil {
 		return errors.Tag(err, "jwt.logged_in_user is invalid")

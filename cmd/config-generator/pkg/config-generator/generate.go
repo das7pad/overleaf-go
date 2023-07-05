@@ -390,10 +390,10 @@ func Generate(f Flags) Config {
 			},
 		},
 		JWT: struct {
-			Compile      jwtOptions.JWTOptions `json:"compile"`
+			Project      jwtOptions.JWTOptions `json:"project"`
 			LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
 		}{
-			Compile:      f.JWTOptionsProject,
+			Project:      f.JWTOptionsProject,
 			LoggedInUser: f.JWTOptionsLoggedInUser,
 		},
 		SessionCookie: signedCookie.Options{
