@@ -25,11 +25,13 @@ import (
 )
 
 func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	if strings.HasSuffix(r.URL.Path, "/event-source") {
 		o.handleEventSource(w, r)
 	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		blob, ok := o.GET(strings.TrimPrefix(r.URL.Path, "/"))
+		o.mu.Lock()
+		blob, ok := o.mem[strings.TrimPrefix(r.URL.Path, "/")]
+		o.mu.Unlock()
 		if ok {
 			ct := mime.TypeByExtension(path.Ext(r.URL.Path))
 			w.Header().Set("Content-Type", ct)
@@ -39,11 +41,4 @@ func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}
-}
-
-func (o *outputCollector) GET(p string) ([]byte, bool) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	blob, ok := o.mem[p]
-	return blob, ok
 }

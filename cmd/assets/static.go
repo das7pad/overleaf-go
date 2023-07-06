@@ -72,7 +72,7 @@ func (o *outputCollector) copyFolder(from, to string) error {
 	})
 }
 
-func (o *outputCollector) writeStaticFiles() error {
+func (o *outputCollector) WriteStaticFiles() error {
 	var pattern []staticCopyPattern
 	pattern = append(pattern, staticCopyPattern{
 		From: join(o.root, "LICENSE"),
@@ -127,7 +127,7 @@ func (o *outputCollector) writeStaticFiles() error {
 	}
 	r := yarnPNPReader{}
 	defer r.Close()
-	if err := r.load(o.root, wantedPackages); err != nil {
+	if err := r.Load(o.root, wantedPackages); err != nil {
 		return errors.Tag(err, "load yarn reader")
 	}
 	for _, cp := range pattern {

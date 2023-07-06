@@ -33,7 +33,7 @@ type yarnPNPData struct {
 	PackageRegistryData [][]interface{}
 }
 
-func (r *yarnPNPReader) load(root string, wanted map[string]bool) error {
+func (r *yarnPNPReader) Load(root string, wanted map[string]bool) error {
 	d := yarnPNPData{}
 	blob, err := os.ReadFile(join(root, ".yarn/.pnp.data.json"))
 	if err != nil {

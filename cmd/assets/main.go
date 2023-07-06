@@ -80,7 +80,7 @@ func main() {
 	}
 	eg.Go(func() error {
 		t1 := time.Now()
-		if err := o.writeStaticFiles(); err != nil {
+		if err := o.WriteStaticFiles(); err != nil {
 			return err
 		}
 		fmt.Println("static", time.Since(t1).String())
@@ -114,12 +114,11 @@ func main() {
 	sum := hash(tarGz)
 	fmt.Println(sum, len(tarGz))
 
-	err := os.WriteFile(dst, tarGz, 0o644)
-	if err != nil {
+	if err := os.WriteFile(dst, tarGz, 0o644); err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile(dst+".checksum.txt", []byte(sum), 0o644)
+	err := os.WriteFile(dst+".checksum.txt", []byte(sum), 0o644)
 	if err != nil {
 		panic(err)
 	}
