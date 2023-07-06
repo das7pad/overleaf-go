@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"runtime"
 	"time"
 
@@ -37,8 +36,8 @@ import (
 func main() {
 	addr := ":54321"
 	flag.StringVar(&addr, "addr", addr, "")
-	p := os.Getenv("WEB_ROOT")
-	flag.StringVar(&p, "src", p, "path to node-monorepo")
+	root := os.Getenv("WEB_ROOT")
+	flag.StringVar(&root, "src", root, "path to node-monorepo")
 	dst := "/tmp/public.tar.gz"
 	flag.StringVar(&dst, "dst", dst, "")
 	watch := true
@@ -48,17 +47,17 @@ func main() {
 	flag.Parse()
 
 	t0 := time.Now()
-	o := newOutputCollector(p, !watch)
+	o := newOutputCollector(root, !watch)
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(concurrency)
 
-	for _, options := range getConfigs(p) {
+	for _, options := range getConfigs(root) {
 		cfg := options
 		cfg.Plugins = append(cfg.Plugins, o.Plugin(cfg))
 		if watch && cfg.ListenForRebuild {
 			cfg.Inject = append(
-				cfg.Inject, path.Join(p, "esbuild/inject/listenForRebuild.js"),
+				cfg.Inject, join(root, "esbuild/inject/listenForRebuild.js"),
 			)
 		}
 		eg.Go(func() error {

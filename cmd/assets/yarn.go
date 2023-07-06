@@ -20,7 +20,6 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -34,9 +33,9 @@ type yarnPNPData struct {
 	PackageRegistryData [][]interface{}
 }
 
-func (r *yarnPNPReader) load(p string, wanted map[string]bool) error {
+func (r *yarnPNPReader) load(root string, wanted map[string]bool) error {
 	d := yarnPNPData{}
-	blob, err := os.ReadFile(path.Join(p, ".yarn/.pnp.data.json"))
+	blob, err := os.ReadFile(join(root, ".yarn/.pnp.data.json"))
 	if err != nil {
 		return errors.Tag(err, "read .pnp.data.json")
 	}
@@ -61,7 +60,7 @@ func (r *yarnPNPReader) load(p string, wanted map[string]bool) error {
 				continue
 			}
 			pl = strings.TrimSuffix(pl, "/node_modules/"+name+"/")
-			z, err2 := zip.OpenReader(path.Join(p, pl))
+			z, err2 := zip.OpenReader(join(root, pl))
 			if err2 != nil {
 				return errors.Tag(err, pl+": open zip")
 			}

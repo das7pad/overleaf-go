@@ -17,7 +17,6 @@
 package main
 
 import (
-	"path"
 	"path/filepath"
 
 	"github.com/evanw/esbuild/pkg/api"
@@ -29,11 +28,11 @@ type buildOptions struct {
 	ListenForRebuild bool
 }
 
-func baseConfig(p string, desc string) buildOptions {
+func baseConfig(root string, desc string) buildOptions {
 	return buildOptions{
 		Description: desc,
 		BuildOptions: api.BuildOptions{
-			AbsWorkingDir:    p,
+			AbsWorkingDir:    root,
 			AssetNames:       "assets/[name]-[hash]",
 			Bundle:           true,
 			ChunkNames:       "chunks/[name]-[hash]",
@@ -45,8 +44,8 @@ func baseConfig(p string, desc string) buildOptions {
 			Sourcemap:        api.SourceMapLinked,
 			Target:           api.DefaultTarget,
 			Engines:          []api.Engine{}, // TODO
-			Outdir:           path.Join(p, "public"),
-			Tsconfig:         path.Join(p, "tsconfig.json"),
+			Outdir:           join(root, "public"),
+			Tsconfig:         join(root, "tsconfig.json"),
 			LogLevel:         api.LogLevelInfo,
 			Loader: map[string]api.Loader{
 				".js":    api.LoaderJSX,
@@ -61,18 +60,18 @@ func baseConfig(p string, desc string) buildOptions {
 	}
 }
 
-func mainBundlesConfig(p string) buildOptions {
-	c := baseConfig(p, "main bundles")
+func mainBundlesConfig(root string) buildOptions {
+	c := baseConfig(root, "main bundles")
 	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
 	c.EntryPoints = []string{
-		path.Join(p, "frontend/js/ide.js"),
-		path.Join(p, "frontend/js/main.js"),
+		join(root, "frontend/js/ide.js"),
+		join(root, "frontend/js/main.js"),
 	}
-	c.Outbase = path.Join(p, "frontend/js/")
-	c.Outdir = path.Join(p, "public/js/")
-	c.Inject = []string{path.Join(p, "esbuild/inject/bootstrap.js")}
+	c.Outbase = join(root, "frontend/js/")
+	c.Outdir = join(root, "public/js/")
+	c.Inject = []string{join(root, "esbuild/inject/bootstrap.js")}
 	c.Define = map[string]string{
 		"process.env.NODE_ENV": `"production"`,
 		// work around 'process' usage in algoliasearch
@@ -87,29 +86,29 @@ func mainBundlesConfig(p string) buildOptions {
 	return c
 }
 
-func marketingBundlesConfig(p string) buildOptions {
-	c := baseConfig(p, "marketing bundles")
+func marketingBundlesConfig(root string) buildOptions {
+	c := baseConfig(root, "marketing bundles")
 	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
 	c.EntryPoints = []string{
-		path.Join(p, "frontend/js/marketing.js"),
+		join(root, "frontend/js/marketing.js"),
 	}
-	pages, err := filepath.Glob(path.Join(p, "frontend/js/pages/*/*.js"))
+	pages, err := filepath.Glob(join(root, "frontend/js/pages/*/*.js"))
 	if err != nil {
 		panic(err)
 	}
 	c.EntryPoints = append(c.EntryPoints, pages...)
 
-	pages, err = filepath.Glob(path.Join(p, "modules/*/frontend/js/pages/*.js"))
+	pages, err = filepath.Glob(join(root, "modules/*/frontend/js/pages/*.js"))
 	if err != nil {
 		panic(err)
 	}
 	c.EntryPoints = append(c.EntryPoints, pages...)
 
-	c.Outbase = path.Join(p, "frontend/js/")
-	c.Outdir = path.Join(p, "public/js/")
-	c.Inject = []string{path.Join(p, "esbuild/inject/bootstrapMarketing.js")}
+	c.Outbase = join(root, "frontend/js/")
+	c.Outdir = join(root, "public/js/")
+	c.Inject = []string{join(root, "esbuild/inject/bootstrapMarketing.js")}
 	c.Define = map[string]string{
 		"process.env.NODE_ENV": `"production"`,
 		// work around 'process' usage in algoliasearch
@@ -121,46 +120,46 @@ func marketingBundlesConfig(p string) buildOptions {
 	return c
 }
 
-func mathJaxBundleConfig(p string) buildOptions {
-	c := baseConfig(p, "MathJax bundle")
-	c.EntryPoints = []string{path.Join(p, "frontend/js/MathJaxBundle.js")}
-	c.Outbase = path.Join(p, "frontend/js/")
-	c.Outdir = path.Join(p, "public/js/")
-	c.Tsconfig = path.Join(p, "esbuild/tsconfig-no-strict.json")
+func mathJaxBundleConfig(root string) buildOptions {
+	c := baseConfig(root, "MathJax bundle")
+	c.EntryPoints = []string{join(root, "frontend/js/MathJaxBundle.js")}
+	c.Outbase = join(root, "frontend/js/")
+	c.Outdir = join(root, "public/js/")
+	c.Tsconfig = join(root, "esbuild/tsconfig-no-strict.json")
 	return c
 }
 
-func translationsBundlesConfig(p string) buildOptions {
-	entryPoints, err := filepath.Glob(path.Join(p, "generated/lng/*.js"))
+func translationsBundlesConfig(root string) buildOptions {
+	entryPoints, err := filepath.Glob(join(root, "generated/lng/*.js"))
 	if err != nil {
 		panic(err)
 	}
 
-	c := baseConfig(p, "translations bundles")
+	c := baseConfig(root, "translations bundles")
 	c.EntryPoints = entryPoints
-	c.Outbase = path.Join(p, "generated/lng/")
-	c.Outdir = path.Join(p, "public/js/t/")
+	c.Outbase = join(root, "generated/lng/")
+	c.Outdir = join(root, "public/js/t/")
 	return c
 }
 
-func stylesheetsConfig(p string) buildOptions {
-	c := baseConfig(p, "stylesheet bundles")
-	c.Plugins = []api.Plugin{lessLoaderPlugin(p)}
+func stylesheetsConfig(root string) buildOptions {
+	c := baseConfig(root, "stylesheet bundles")
+	c.Plugins = []api.Plugin{lessLoaderPlugin(root)}
 	c.EntryPoints = []string{
-		path.Join(p, "frontend/stylesheets/style.less"),
-		path.Join(p, "frontend/stylesheets/light-style.less"),
+		join(root, "frontend/stylesheets/style.less"),
+		join(root, "frontend/stylesheets/light-style.less"),
 	}
-	c.Outbase = path.Join(p, "frontend/stylesheets/")
-	c.Outdir = path.Join(p, "public/stylesheets/")
+	c.Outbase = join(root, "frontend/stylesheets/")
+	c.Outdir = join(root, "public/stylesheets/")
 	return c
 }
 
-func getConfigs(p string) []buildOptions {
+func getConfigs(root string) []buildOptions {
 	return []buildOptions{
-		mainBundlesConfig(p),
-		marketingBundlesConfig(p),
-		translationsBundlesConfig(p),
-		mathJaxBundleConfig(p),
-		stylesheetsConfig(p),
+		mainBundlesConfig(root),
+		marketingBundlesConfig(root),
+		translationsBundlesConfig(root),
+		mathJaxBundleConfig(root),
+		stylesheetsConfig(root),
 	}
 }

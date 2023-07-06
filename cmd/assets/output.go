@@ -22,7 +22,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -34,7 +33,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func newOutputCollector(p string, preCompress bool) *outputCollector {
+func newOutputCollector(root string, preCompress bool) *outputCollector {
 	return &outputCollector{
 		manifest: manifest{
 			Assets:           make(map[string]string),
@@ -42,8 +41,7 @@ func newOutputCollector(p string, preCompress bool) *outputCollector {
 		},
 		mem:         make(map[string][]byte),
 		old:         make(map[string]map[string]bool),
-		p:           p,
-		public:      path.Join(p, "public"),
+		root:        root,
 		preCompress: preCompress,
 		epochBlob:   []byte(strconv.FormatInt(time.Now().UnixMilli(), 10)),
 	}
@@ -57,8 +55,7 @@ type manifest struct {
 type outputCollector struct {
 	manifest
 	mu          sync.Mutex
-	p           string
-	public      string
+	root        string
 	preCompress bool
 	epochBlob   []byte
 
@@ -74,8 +71,7 @@ func (o *outputCollector) writeManifest() error {
 	if err != nil {
 		return errors.Tag(err, "serialize manifest")
 	}
-	file := path.Join(o.public, "manifest.json")
-	if err = o.write(file, blob); err != nil {
+	if err = o.write(join(o.root, "public/manifest.json"), blob); err != nil {
 		return err
 	}
 	return nil
@@ -130,7 +126,7 @@ func (o *outputCollector) Plugin(options buildOptions) api.Plugin {
 }
 
 func (o *outputCollector) write(p string, blob []byte) error {
-	p = p[len(o.public)+1:]
+	p = p[len(join(o.root, "public"))+1:]
 	o.mu.Lock()
 	o.mem[p] = blob
 	o.mu.Unlock()
@@ -203,7 +199,7 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 
 	written := make(map[string]bool, len(r.OutputFiles))
 	for _, file := range r.OutputFiles {
-		written[file.Path[len(o.public)+1:]] = true
+		written[file.Path[len(join(o.root, "public"))+1:]] = true
 		if err := o.write(file.Path, file.Contents); err != nil {
 			return api.OnEndResult{}, err
 		}

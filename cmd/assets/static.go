@@ -38,7 +38,7 @@ func (cp staticCopyPattern) FromNPMPackage() bool {
 	return !strings.HasPrefix(cp.From, "/")
 }
 
-func joinKeepTrailing(parts ...string) string {
+func join(parts ...string) string {
 	p := path.Join(parts...)
 	if strings.HasSuffix(parts[len(parts)-1], "/") {
 		p += "/"
@@ -73,29 +73,28 @@ func (o *outputCollector) copyFolder(from, to string) error {
 }
 
 func (o *outputCollector) writeStaticFiles() error {
-	p := o.p
 	var pattern []staticCopyPattern
 	pattern = append(pattern, staticCopyPattern{
-		From: path.Join(p, "LICENSE"),
-		To:   path.Join(p, "public/LICENSE"),
+		From: join(o.root, "LICENSE"),
+		To:   join(o.root, "public/LICENSE"),
 	})
 	// public/
 	pattern = append(pattern, staticCopyPattern{
-		From: joinKeepTrailing(p, "public/"),
-		To:   joinKeepTrailing(p, "public/"),
+		From: join(o.root, "public/"),
+		To:   join(o.root, "public/"),
 	})
 	// PDF.js
 	pattern = append(pattern, staticCopyPattern{
 		From: "pdfjs-dist/build/pdf.worker.min.js",
-		To:   path.Join(p, "public/vendor/pdfjs-dist/build/pdf.worker.min.js"),
+		To:   join(o.root, "public/vendor/pdfjs-dist/build/pdf.worker.min.js"),
 	}, staticCopyPattern{
 		From: "pdfjs-dist/cmaps/",
-		To:   joinKeepTrailing(p, "public/vendor/pdfjs-dist/cmaps/"),
+		To:   join(o.root, "public/vendor/pdfjs-dist/cmaps/"),
 	})
 	// Ace
 	pattern = append(pattern, staticCopyPattern{
 		From: "ace-builds/src-min-noconflict/",
-		To:   joinKeepTrailing(p, "public/vendor/ace-builds/src-min-noconflict/"),
+		To:   join(o.root, "public/vendor/ace-builds/src-min-noconflict/"),
 	})
 	// MathJax
 	for _, s := range []string{
@@ -107,16 +106,16 @@ func (o *outputCollector) writeStaticFiles() error {
 	} {
 		pattern = append(pattern, staticCopyPattern{
 			From: "mathjax/" + s,
-			To:   joinKeepTrailing(p, "public/vendor/mathjax-2-7-9", s),
+			To:   join(o.root, "public/vendor/mathjax-2-7-9", s),
 		})
 	}
 	// OpenInOverleaf
 	pattern = append(pattern, staticCopyPattern{
-		From: path.Join(p, "frontend/js/vendor/libs/highlight.pack.js"),
-		To:   path.Join(p, "public/vendor/highlight.pack.js"),
+		From: join(o.root, "frontend/js/vendor/libs/highlight.pack.js"),
+		To:   join(o.root, "public/vendor/highlight.pack.js"),
 	}, staticCopyPattern{
-		From: path.Join(p, "frontend/stylesheets/vendor/highlight-github.css"),
-		To:   path.Join(p, "public/vendor/stylesheets/highlight-github.css"),
+		From: join(o.root, "frontend/stylesheets/vendor/highlight-github.css"),
+		To:   join(o.root, "public/vendor/stylesheets/highlight-github.css"),
 	})
 
 	wantedPackages := make(map[string]bool)
@@ -128,7 +127,7 @@ func (o *outputCollector) writeStaticFiles() error {
 	}
 	r := yarnPNPReader{}
 	defer r.Close()
-	if err := r.load(p, wantedPackages); err != nil {
+	if err := r.load(o.root, wantedPackages); err != nil {
 		return errors.Tag(err, "load yarn reader")
 	}
 	for _, cp := range pattern {
