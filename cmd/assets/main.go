@@ -21,16 +21,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"flag"
-	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"runtime"
 	"time"
-
-	"github.com/evanw/esbuild/pkg/api"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 func main() {
@@ -49,52 +44,9 @@ func main() {
 	t0 := time.Now()
 	o := newOutputCollector(root, !watch)
 
-	eg := &errgroup.Group{}
-	eg.SetLimit(concurrency)
-
-	for _, options := range getConfigs(root) {
-		cfg := options
-		cfg.Plugins = append(cfg.Plugins, o.Plugin(cfg))
-		if watch && cfg.ListenForRebuild {
-			cfg.Inject = append(
-				cfg.Inject, join(root, "esbuild/inject/listenForRebuild.js"),
-			)
-		}
-		eg.Go(func() error {
-			c, ctxErr := api.Context(cfg.BuildOptions)
-			if ctxErr != nil {
-				return errors.Tag(ctxErr, cfg.Description)
-			}
-			t1 := time.Now()
-			c.Rebuild()
-			fmt.Println(cfg.Description, time.Since(t1).String())
-			if watch {
-				if err := c.Watch(api.WatchOptions{}); err != nil {
-					return errors.Tag(err, cfg.Description)
-				}
-			} else {
-				c.Dispose()
-			}
-			return nil
-		})
-	}
-	eg.Go(func() error {
-		t1 := time.Now()
-		if err := o.WriteStaticFiles(); err != nil {
-			return err
-		}
-		fmt.Println("static", time.Since(t1).String())
-		return nil
-	})
-
-	defer func() {
-		fmt.Println("total", time.Since(t0).String())
-	}()
-
-	if err := eg.Wait(); err != nil {
+	if err := o.Build(concurrency, watch); err != nil {
 		panic(err)
 	}
-	fmt.Println("build", time.Since(t0).String())
 
 	if watch {
 		if err := http.ListenAndServe(addr, o); err != nil {
@@ -108,11 +60,11 @@ func main() {
 	if err := o.Bundle(buf); err != nil {
 		panic(err)
 	}
-	fmt.Println("bundle", time.Since(t1).String())
+	log.Println("bundle", time.Since(t1).String())
 
 	tarGz := buf.Bytes()
 	sum := hash(tarGz)
-	fmt.Println(sum, len(tarGz))
+	log.Printf("public.tar.gz hash=%s size=%d", sum, len(tarGz))
 
 	if err := os.WriteFile(dst, tarGz, 0o644); err != nil {
 		panic(err)
@@ -122,6 +74,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.Println("total", time.Since(t0).String())
 }
 
 func hash(blob []byte) string {

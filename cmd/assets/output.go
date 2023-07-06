@@ -114,7 +114,7 @@ func (o *outputCollector) Bundle(w io.Writer) error {
 	return nil
 }
 
-func (o *outputCollector) Plugin(options buildOptions) api.Plugin {
+func (o *outputCollector) plugin(options buildOptions) api.Plugin {
 	return api.Plugin{
 		Name: "output",
 		Setup: func(build api.PluginBuild) {

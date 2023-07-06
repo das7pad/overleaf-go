@@ -72,7 +72,7 @@ func (o *outputCollector) copyFolder(from, to string) error {
 	})
 }
 
-func (o *outputCollector) WriteStaticFiles() error {
+func (o *outputCollector) writeStaticFiles() error {
 	var pattern []staticCopyPattern
 	pattern = append(pattern, staticCopyPattern{
 		From: join(o.root, "LICENSE"),
