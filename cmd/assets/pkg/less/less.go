@@ -52,7 +52,7 @@ type node struct {
 	directives []directive
 	children   []*node
 	imports    []string
-	vars       map[string]string
+	vars       []map[string]string
 	mixins     map[string][]node
 }
 
@@ -110,7 +110,7 @@ nextChar:
 				name := strings.TrimSpace(s[i+1 : i+nameEnd])
 				valueEnd := strings.IndexRune(s[i+nameEnd:], ';')
 				value := strings.TrimSpace(s[i+nameEnd+1 : i+nameEnd+valueEnd])
-				n.vars[name] = value
+				n.vars[0][name] = value
 				i += nameEnd + valueEnd
 				continue
 			}
@@ -122,7 +122,7 @@ nextChar:
 		if open != -1 && len(s) > open && (semi == -1 || open < semi) {
 			n1 := node{
 				f:      n.f,
-				vars:   n.vars,
+				vars:   append([]map[string]string{{}}, n.vars...),
 				mixins: n.mixins,
 			}
 			n1.matcher = strings.TrimSpace(s[i : i+open])
@@ -194,7 +194,7 @@ func (n *node) evalMatcher() {
 			if isAtRule(nested[0]) {
 				continue
 			}
-			s = strings.ReplaceAll(s, nested[0], n.vars[nested[2]])
+			s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
 		}
 		n.matcher = s
 
@@ -203,12 +203,6 @@ func (n *node) evalMatcher() {
 	}
 	for _, child := range n.children {
 		child.evalMatcher()
-	}
-}
-
-func (n *node) evalVars() {
-	for name := range n.vars {
-		n.evalVar(name)
 	}
 }
 
@@ -243,10 +237,7 @@ func (n *node) evalDirective(s string) string {
 			n1 := m
 			params := getArgs(n1.matcher)
 			if len(params) > 0 {
-				vars := make(map[string]string, len(n.vars)+len(params))
-				for k, v := range n.vars {
-					vars[k] = v
-				}
+				vars := make(map[string]string, len(params))
 				for i, param := range params {
 					if strings.HasPrefix(param, "@") {
 						vars[param[1:]] = args[i]
@@ -254,7 +245,7 @@ func (n *node) evalDirective(s string) string {
 						continue nextMixin
 					}
 				}
-				n1.vars = vars
+				n1.vars = append([]map[string]string{vars}, m.vars...)
 			}
 			n1.matcher = ""
 			n.children = append(n.children, &n1)
@@ -265,15 +256,21 @@ func (n *node) evalDirective(s string) string {
 }
 
 func (n *node) evalVar(name string) string {
-	s := n.vars[name]
-	if isConstant(s) {
+	for _, vars := range n.vars {
+		s, ok := vars[name]
+		if !ok {
+			continue
+		}
+		if isConstant(s) {
+			return s
+		}
+		for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+			s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
+		}
+		vars[name] = s
 		return s
 	}
-	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
-		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
-	}
-	n.vars[name] = s
-	return s
+	return "@" + name
 }
 
 func (n *node) print(w *strings.Builder) {
@@ -310,7 +307,7 @@ type parser struct {
 func (p *parser) parse(f string) error {
 	p.root = &node{
 		f:      f,
-		vars:   make(map[string]string),
+		vars:   []map[string]string{{}},
 		mixins: make(map[string][]node),
 	}
 	return p.root.parse(p.read, f)
@@ -346,7 +343,6 @@ func (p *parser) getImports() []string {
 }
 
 func (p *parser) eval() {
-	p.root.evalVars()
 	p.root.evalMatcher()
 	p.root.evalDirectives()
 }
