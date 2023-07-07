@@ -155,6 +155,102 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin no args",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red() { color: red; } .btn { .red(); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin static arg",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c) { color: @c; } .btn { .red(red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin static arg use global",
+			args: args{
+				read: fakeFS{
+					"in.less": "@blue: blue; .red(@c) { color: @c; background-color: @blue; } .btn { .red(red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; background-color: blue; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin var arg",
+			args: args{
+				read: fakeFS{
+					"in.less": "@red: red; .red(@c) { color: @c; } .btn { .red(@red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin match arg",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(red) { color: red; } .red(blue) { color: blue; } .btn { .red(red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin two args",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1, @c2) { color: @c1; padding: @c2; } .btn { .red(red, 2px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin two args match one",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1, @c2) { color: @c1; padding: @c2; } .red(blue, @c2) { background-color: blue; margin: @c2; } .btn { .red(red, 2px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin two args match both",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1, @c2) { color: @c1; padding: @c2; } .red(red, @c2) { background-color: red; margin: @c2; } .btn { .red(red, 2px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; padding: 2px; background-color: red; margin: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "keyframes",
 			args: args{
 				read: fakeFS{

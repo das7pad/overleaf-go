@@ -53,6 +53,7 @@ type node struct {
 	children   []*node
 	imports    []string
 	vars       map[string]string
+	mixins     map[string][]node
 }
 
 var importPrefixes = []string{"@import '", "@import (less) '"}
@@ -115,21 +116,33 @@ nextChar:
 			}
 		}
 
-		fmt.Println(s[i:])
 		open := strings.IndexRune(s[i:], '{')
 		semi := strings.IndexRune(s[i:], ';')
+		parensClose := strings.IndexRune(s[i:], ')')
 		if open != -1 && len(s) > open && (semi == -1 || open < semi) {
 			n1 := node{
-				f:    n.f,
-				vars: n.vars,
+				f:      n.f,
+				vars:   n.vars,
+				mixins: n.mixins,
 			}
 			n1.matcher = strings.TrimSpace(s[i : i+open])
-			n.children = append(n.children, &n1)
 			off, err := n1.consume(read, s[i+open+1:])
+			if strings.HasPrefix(n1.matcher, ".") && strings.HasSuffix(n1.matcher, ")") {
+				name, args, _ := strings.Cut(n1.matcher, "(")
+				n1.matcher = strings.TrimSuffix(args, ")")
+				n.mixins[name] = append(n.mixins[name], n1)
+			} else {
+				n.children = append(n.children, &n1)
+			}
 			if err != nil {
 				return i, err
 			}
 			i += open + off
+		} else if parensClose == semi-1 {
+			n.directives = append(n.directives, directive{
+				value: strings.TrimSpace(s[i : i+semi]),
+			})
+			i += semi
 		} else {
 			colon := strings.IndexRune(s[i:i+semi], ':')
 			if colon == -1 {
@@ -199,6 +212,20 @@ func (n *node) evalVars() {
 	}
 }
 
+func getArgs(s string) []string {
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == ',' || r == ';'
+	})
+	out := make([]string, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if len(part) > 0 {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
 var varRegex = regexp.MustCompile(`(\${)?@([\w-]+)(})?`)
 
 func (n *node) evalDirective(s string) string {
@@ -206,7 +233,33 @@ func (n *node) evalDirective(s string) string {
 		return s
 	}
 	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
-		s = strings.ReplaceAll(s, nested[0], n.vars[nested[2]])
+		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
+	}
+	if strings.HasPrefix(s, ".") && strings.HasSuffix(s, ")") {
+		name, argsRaw, _ := strings.Cut(s, "(")
+		args := getArgs(strings.TrimSuffix(argsRaw, ")"))
+	nextMixin:
+		for _, m := range n.mixins[name] {
+			n1 := m
+			params := getArgs(n1.matcher)
+			if len(params) > 0 {
+				vars := make(map[string]string, len(n.vars)+len(params))
+				for k, v := range n.vars {
+					vars[k] = v
+				}
+				for i, param := range params {
+					if strings.HasPrefix(param, "@") {
+						vars[param[1:]] = args[i]
+					} else if param != args[i] {
+						continue nextMixin
+					}
+				}
+				n1.vars = vars
+			}
+			n1.matcher = ""
+			n.children = append(n.children, &n1)
+		}
+		return ""
 	}
 	return s
 }
@@ -227,13 +280,18 @@ func (n *node) print(w *strings.Builder) {
 	if n.matcher != "" {
 		w.WriteString(n.matcher)
 		w.WriteString(" {")
-		for _, d := range n.directives {
-			w.WriteString(" ")
-			w.WriteString(d.name)
-			w.WriteString(": ")
-			w.WriteString(d.value)
-			w.WriteString(";")
+	}
+	for i, d := range n.directives {
+		if d.name == "" {
+			continue // mixin
 		}
+		if i > 0 || n.matcher != "" {
+			w.WriteString(" ")
+		}
+		w.WriteString(d.name)
+		w.WriteString(": ")
+		w.WriteString(d.value)
+		w.WriteString(";")
 	}
 	for _, child := range n.children {
 		w.WriteString(" ")
@@ -251,8 +309,9 @@ type parser struct {
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		f:    f,
-		vars: make(map[string]string),
+		f:      f,
+		vars:   make(map[string]string),
+		mixins: make(map[string][]node),
 	}
 	return p.root.parse(p.read, f)
 }
