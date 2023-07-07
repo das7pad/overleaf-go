@@ -105,6 +105,68 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "variable same file",
+			args: args{
+				read: fakeFS{
+					"in.less": "@red: red; .btn { color: @red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "variable other file",
+			args: args{
+				read: fakeFS{
+					"in.less":    "@import 'other.less'; .btn { color: @red; }",
+					"other.less": "@red: red;",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less", "other.less"},
+			wantErr: false,
+		},
+		{
+			name: "variable overwrite",
+			args: args{
+				read: fakeFS{
+					"in.less":    "@red: blue; @import 'other.less'; .btn { color: @red; }",
+					"other.less": "@red: red;",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less", "other.less"},
+			wantErr: false,
+		},
+		{
+			name: "variable nested",
+			args: args{
+				read: fakeFS{
+					"in.less": "@red: @r1; @r1: red; .btn { color: @red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "keyframes",
+			args: args{
+				read: fakeFS{
+					"in.less": "@keyframes foo { 0% {} 50% { background-color: transparent; } 100% {} }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@keyframes foo { 0% { } 50% { background-color: transparent; } 100% { } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "import less",
 			args: args{
 				read: fakeFS{

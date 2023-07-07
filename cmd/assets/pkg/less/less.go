@@ -18,8 +18,10 @@ package less
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -32,8 +34,10 @@ func ParseUsing(read func(name string) ([]byte, error), f string) (string, []str
 		read: read,
 	}
 	if err := p.parse(f); err != nil {
+		fmt.Println(p.print())
 		return "", p.getImports(), err
 	}
+	p.eval()
 	return p.print(), p.getImports(), nil
 }
 
@@ -53,12 +57,26 @@ type node struct {
 
 var importPrefixes = []string{"@import '", "@import (less) '"}
 
+func isAtRule(s string) bool {
+	switch s {
+	case
+		"@media",
+		"@font-face",
+		"@keyframes", "@-moz-keyframes", "@-webkit-keyframes":
+		return true
+	default:
+		return false
+	}
+}
+
 func (n *node) consume(read func(name string) ([]byte, error), s string) (int, error) {
 nextChar:
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case ' ', '\n':
 			continue
+		case '}':
+			return i + 1, nil
 		case '/':
 			if len(s) > i && s[i+1] == '/' {
 				end := strings.IndexRune(s[i:], '\n')
@@ -84,46 +102,125 @@ nextChar:
 					continue nextChar
 				}
 			}
-			i++ // skip @
-			nameEnd := strings.IndexRune(s[i:], ':')
-			valueEnd := strings.IndexRune(s[i+nameEnd:], ';')
-			name := strings.TrimSpace(s[i : i+nameEnd])
-			value := strings.TrimSpace(s[i+nameEnd : i+valueEnd])
-			if n.vars == nil {
-				n.vars = make(map[string]string, 1)
+			nextWord, _, _ := strings.Cut(s[i:], " ")
+			if !isAtRule(nextWord) {
+				// variable
+				nameEnd := strings.IndexRune(s[i:], ':')
+				name := strings.TrimSpace(s[i+1 : i+nameEnd])
+				valueEnd := strings.IndexRune(s[i+nameEnd:], ';')
+				value := strings.TrimSpace(s[i+nameEnd+1 : i+nameEnd+valueEnd])
+				n.vars[name] = value
+				i += nameEnd + valueEnd
+				continue
 			}
-			n.vars[name] = value
-			i += nameEnd + valueEnd
-		case '}':
-			return i + 1, nil
-		default:
-			open := strings.IndexRune(s[i:], '{')
-			semi := strings.IndexRune(s[i:], ';')
-			if open != -1 && len(s) > open && open < semi {
-				n1 := node{
-					f: n.f,
-				}
-				n1.matcher = strings.TrimSpace(s[i : i+open])
-				n.children = append(n.children, &n1)
-				off, err := n1.consume(read, s[i+open+1:])
-				if err != nil {
-					return i, err
-				}
-				i += open + off
-			} else {
-				colon := strings.IndexRune(s[i:i+semi], ':')
-				if colon == -1 {
-					return i, errors.New("expected colon before next semi")
-				}
-				n.directives = append(n.directives, directive{
-					name:  strings.TrimSpace(s[i : i+colon]),
-					value: strings.TrimSpace(s[i+colon+1 : i+semi]),
-				})
-				i += semi
+		}
+
+		fmt.Println(s[i:])
+		open := strings.IndexRune(s[i:], '{')
+		semi := strings.IndexRune(s[i:], ';')
+		if open != -1 && len(s) > open && (semi == -1 || open < semi) {
+			n1 := node{
+				f:    n.f,
+				vars: n.vars,
 			}
+			n1.matcher = strings.TrimSpace(s[i : i+open])
+			n.children = append(n.children, &n1)
+			off, err := n1.consume(read, s[i+open+1:])
+			if err != nil {
+				return i, err
+			}
+			i += open + off
+		} else {
+			colon := strings.IndexRune(s[i:i+semi], ':')
+			if colon == -1 {
+				return i, errors.New("expected colon before next semi")
+			}
+			n.directives = append(n.directives, directive{
+				name:  strings.TrimSpace(s[i : i+colon]),
+				value: strings.TrimSpace(s[i+colon+1 : i+semi]),
+			})
+			i += semi
 		}
 	}
 	return len(s), nil
+}
+
+func isConstant(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	if strings.ContainsRune(s, '@') {
+		return false
+	}
+	if fn, _, ok := strings.Cut(s, "("); ok {
+		switch fn {
+		case "rgb", "rgba", "hsl", "hsla", "hwb":
+			return true
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func (n *node) evalDirectives() {
+	// TODO: skip when WHEN=false
+
+	for i, d := range n.directives {
+		n.directives[i].value = n.evalDirective(d.value)
+	}
+	for _, child := range n.children {
+		child.evalDirectives()
+	}
+}
+
+func (n *node) evalMatcher() {
+	if len(n.matcher) > 0 {
+		s := n.matcher
+		for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+			if isAtRule(nested[0]) {
+				continue
+			}
+			s = strings.ReplaceAll(s, nested[0], n.vars[nested[2]])
+		}
+		n.matcher = s
+
+		// TODO: mixin
+		// TODO: flag WHEN
+	}
+	for _, child := range n.children {
+		child.evalMatcher()
+	}
+}
+
+func (n *node) evalVars() {
+	for name := range n.vars {
+		n.evalVar(name)
+	}
+}
+
+var varRegex = regexp.MustCompile(`(\${)?@([\w-]+)(})?`)
+
+func (n *node) evalDirective(s string) string {
+	if isConstant(s) {
+		return s
+	}
+	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+		s = strings.ReplaceAll(s, nested[0], n.vars[nested[2]])
+	}
+	return s
+}
+
+func (n *node) evalVar(name string) string {
+	s := n.vars[name]
+	if isConstant(s) {
+		return s
+	}
+	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
+	}
+	n.vars[name] = s
+	return s
 }
 
 func (n *node) print(w *strings.Builder) {
@@ -154,7 +251,8 @@ type parser struct {
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		f: f,
+		f:    f,
+		vars: make(map[string]string),
 	}
 	return p.root.parse(p.read, f)
 }
@@ -186,6 +284,12 @@ func (n *node) collectImports(c []string) []string {
 
 func (p *parser) getImports() []string {
 	return p.root.collectImports(nil)
+}
+
+func (p *parser) eval() {
+	p.root.evalVars()
+	p.root.evalMatcher()
+	p.root.evalDirectives()
 }
 
 func (p *parser) print() string {
