@@ -227,10 +227,58 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "mixin two args",
+			name: "mixin two args comma",
 			args: args{
 				read: fakeFS{
 					"in.less": ".red(@c1, @c2) { color: @c1; padding: @c2; } .btn { .red(red, 2px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin two args semicolon",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1; @c2) { color: @c1; padding: @c2; } .btn { .red(red; 2px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin function call arg",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1, @c2) { color: @c1; padding: @c2; } .btn { .red(rgb(255, 0, 0), 2px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: rgb(255, 0, 0); padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin named",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1, @c2) { color: @c1; padding: @c2; } .btn { .red(@c2: 2px, @c1: red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin default",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red(@c1, @c2: 2px) { color: @c1; padding: @c2; } .btn { .red(red); }",
 				}.ReadFile,
 				p: "in.less",
 			},
@@ -259,6 +307,18 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; background-color: red; margin: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin named class",
+			args: args{
+				read: fakeFS{
+					"in.less": ".gen(@var) { &.@{var} { color: @var; } } .render { .gen(red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".render { &.red { color: red; } }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
