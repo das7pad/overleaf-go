@@ -17,6 +17,7 @@
 package integrationTests
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -106,7 +107,7 @@ func setupMinio(ctx context.Context, c *client.Client) func(code *int) {
 			fmt.Sprintf("MINIO_REGION=%s", F.FilestoreOptions.Region),
 		},
 		Cmd:   []string{"server", "/data"},
-		Image: "minio/minio",
+		Image: "minio/minio:RELEASE.2023-07-07T07-13-57Z",
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "bridge",
@@ -114,7 +115,7 @@ func setupMinio(ctx context.Context, c *client.Client) func(code *int) {
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			"9000/tcp": {{HostIP: "127.0.1.1", HostPort: "9000"}},
 		},
-	}, minioContainerName)
+	}, minioContainerName, []string{"1 Online"})
 	if err != nil {
 		panic(errors.Tag(err, "create minio container"))
 	}
@@ -201,7 +202,7 @@ func setupPg(ctx context.Context, c *client.Client) func(code *int) {
 			"POSTGRES_HOST_AUTH_METHOD=trust",
 		},
 		Cmd:   []string{"-c", "log_connections=yes"},
-		Image: "postgres",
+		Image: "postgres:14",
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "none",
@@ -219,7 +220,10 @@ func setupPg(ctx context.Context, c *client.Client) func(code *int) {
 				Target: "/var/run/postgresql",
 			},
 		},
-	}, postgresContainerName)
+	}, postgresContainerName, []string{
+		"PostgreSQL init process complete; ready for start up.",
+		"database system is ready to accept connections",
+	})
 	if err != nil {
 		panic(errors.Tag(err, "create postgres container"))
 	}
@@ -291,7 +295,7 @@ DROP DATABASE %s WITH (FORCE)
 func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
 	i, err := createAndStartContainer(ctx, c, &container.Config{
 		Cmd:   []string{"--databases", "1024"},
-		Image: "redis",
+		Image: "redis:6",
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "bridge",
@@ -299,7 +303,7 @@ func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			"6379/tcp": {{HostIP: "127.0.1.1", HostPort: "6379"}},
 		},
-	}, redisContainerName)
+	}, redisContainerName, []string{"Ready to accept connections"})
 	if err != nil {
 		panic(errors.Tag(err, "create redis container"))
 	}
@@ -351,7 +355,7 @@ func getIP(i *dockerTypes.ContainerJSON) string {
 	return i.NetworkSettings.Networks["bridge"].IPAddress
 }
 
-func createAndStartContainer(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string) (*dockerTypes.ContainerJSON, error) {
+func createAndStartContainer(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string, msg []string) (*dockerTypes.ContainerJSON, error) {
 	var i *dockerTypes.ContainerJSON
 	var err error
 	for j := 0; j < 5; j++ {
@@ -360,6 +364,12 @@ func createAndStartContainer(ctx context.Context, c *client.Client, containerCon
 			break
 		}
 		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err = waitForContainerLogMessage(ctx, c, name, msg); err != nil {
+		return nil, err
 	}
 	return i, err
 }
@@ -427,7 +437,6 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 	switch {
 	case err == nil:
 		// happy path
-		time.Sleep(time.Second)
 	case errdefs.IsConflict(err):
 		// already running
 	default:
@@ -460,4 +469,35 @@ func monitorContainer(ctx context.Context, c *client.Client, id string) {
 			panic(errors.Tag(err, "wait for container"))
 		}
 	}
+}
+
+func waitForContainerLogMessage(ctx context.Context, c *client.Client, id string, msg []string) error {
+	delay := 100 * time.Millisecond
+	for i := 0; i < 20; i++ {
+		r, err := c.ContainerLogs(ctx, id, dockerTypes.ContainerLogsOptions{
+			ShowStderr: true,
+			ShowStdout: true,
+		})
+		if err != nil {
+			return errors.Tag(err, "get container logs")
+		}
+		blob, err := io.ReadAll(r)
+		_ = r.Close()
+		if err != nil {
+			return errors.Tag(err, "consume container logs")
+		}
+		idx := 0
+		for _, s := range msg {
+			if idx = bytes.Index(blob[idx:], []byte(s)); idx == -1 {
+				break
+			}
+		}
+		if idx != -1 {
+			return nil
+		}
+		log.Printf("waiting %s for %q to emit %q", delay, id, msg)
+		time.Sleep(delay)
+		delay += 100 * time.Millisecond
+	}
+	return errors.New(fmt.Sprintf("container did not emit %q", msg))
 }
