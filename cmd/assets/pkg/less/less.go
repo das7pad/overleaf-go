@@ -35,11 +35,10 @@ func ParseUsing(read func(name string) ([]byte, error), f string) (string, []str
 		read: read,
 	}
 	if err := p.parse(f); err != nil {
-		fmt.Println(p.print())
 		fmt.Println(p.printMixins())
+		fmt.Println(p.print())
 		return "", p.getImports(), err
 	}
-	fmt.Println(p.printMixins())
 	return p.print(), p.getImports(), nil
 }
 
@@ -127,7 +126,7 @@ nextChar:
 
 		dot := strings.IndexRune(s[i:], '.')
 		open := strings.IndexRune(s[i:], '{')
-		if open > 0 && s[i+open-1] == '@' {
+		for open > 0 && s[i+open-1] == '@' {
 			// .mixin(@var) { .@{var} {} }
 			next := strings.IndexRune(s[i+open+1:], '{')
 			if next == -1 {
@@ -209,7 +208,7 @@ func isConstant(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
-	if strings.ContainsRune(s, '@') {
+	if strings.ContainsAny(s, "@+-*/") {
 		return false
 	}
 	if fn, _, ok := strings.Cut(s, "("); ok {
@@ -241,6 +240,33 @@ func (n *node) evalMatcher(pv []map[string]string) string {
 		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 	}
 	return s
+}
+
+func evalMath(s string) string {
+	if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
+		s = strings.TrimPrefix(strings.TrimSuffix(s, ")"), "(")
+	}
+	parts := strings.Fields(s)
+	if len(parts) != 3 {
+		return s
+	}
+	a, operator, b := parts[0], parts[1], parts[2]
+	aInt, _ := strconv.ParseInt(a, 10, 64)
+	bInt, _ := strconv.ParseInt(b, 10, 64)
+	var r int64
+	switch operator {
+	case "+":
+		r = aInt + bInt
+	case "-":
+		r = aInt - bInt
+	case "/":
+		r = aInt / bInt
+	case "*":
+		r = aInt * bInt
+	default:
+		return s
+	}
+	return strconv.FormatInt(r, 10)
 }
 
 func (n *node) evalWhen(pv []map[string]string) bool {
@@ -318,9 +344,12 @@ func getArgs(s string) []string {
 
 var varRegex = regexp.MustCompile(`(\${)?@{?([\w-]+)}?`)
 
-func (n *node) evalMixin(s string) []node {
+func (n *node) evalMixin(s string, pv []map[string]string) []node {
 	name, argsRaw, _ := strings.Cut(s, "(")
 	args := getArgs(strings.TrimSuffix(argsRaw, ")"))
+	for i, arg := range args {
+		args[i] = n.evalDirective(arg, pv)
+	}
 	var nodes []node
 
 	for _, mixins := range n.mixins {
@@ -368,11 +397,13 @@ func (n *node) evalDirective(s string, pv []map[string]string) string {
 	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
 		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 	}
+	s = evalMath(s)
 	return s
 }
 
 func (n *node) evalVar(name string, pv []map[string]string) string {
 	for _, source := range [][]map[string]string{pv, n.vars} {
+	nextSource:
 		for _, vars := range source {
 			s, ok := vars[name]
 			if !ok {
@@ -383,10 +414,11 @@ func (n *node) evalVar(name string, pv []map[string]string) string {
 			}
 			for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
 				if nested[2] == name {
-					panic(fmt.Sprintf("loop in @%s=%q", name, s))
+					continue nextSource
 				}
 				s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 			}
+			s = evalMath(s)
 			vars[name] = s
 			return s
 		}
@@ -416,7 +448,7 @@ func (n *node) print(w *strings.Builder, pv []map[string]string, addSpace bool) 
 	}
 	for _, d := range n.directives {
 		if d.name == "" {
-			for _, child := range n.evalMixin(d.value) {
+			for _, child := range n.evalMixin(d.value, pv) {
 				addSpace = child.print(w, pv, addSpace)
 			}
 			continue

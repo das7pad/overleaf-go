@@ -395,6 +395,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin named class many vars",
+			args: args{
+				read: fakeFS{
+					"in.less": ".gen(@c1, @c2, @c3, @c4) { &.p-@{c1}-@{c2}-@{c3}-@{c4} { padding: @c1 @c2 @c3 @c4; } } .render { .gen(1, 2, 3, 4); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".render { &.p-1-2-3-4 { padding: 1 2 3 4; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "mixin two named classes",
 			args: args{
 				read: fakeFS{
@@ -451,6 +463,18 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".red { color: red; } .blue { color: blue; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin recursion",
+			args: args{
+				read: fakeFS{
+					"in.less": ".m(@c) when (@c = 1) { color: red; } .m(@c) when (@c > 1) { .m(@c - 1); } .red { .m(2); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".red { color: red; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
