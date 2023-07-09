@@ -443,6 +443,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin nested same name",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red { .cell() { color: red; } .cell(); } .blue { .cell() { color: blue; } .cell(); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".red { color: red; } .blue { color: blue; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "keyframes",
 			args: args{
 				read: fakeFS{

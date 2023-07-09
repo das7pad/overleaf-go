@@ -57,7 +57,7 @@ type node struct {
 	imports    []string
 	vars       []map[string]string
 	paramVars  map[string]string
-	mixins     map[string][]node
+	mixins     []map[string][]node
 }
 
 var importPrefixes = []string{"@import '", "@import (less) '"}
@@ -145,7 +145,7 @@ nextChar:
 			n1 := node{
 				f:      n.f,
 				vars:   append([]map[string]string{{}}, n.vars...),
-				mixins: n.mixins,
+				mixins: append([]map[string][]node{{}}, n.mixins...),
 			}
 			n1.matcher, n1.when, _ = strings.Cut(s[i:i+open], " when")
 			n1.when = strings.TrimSpace(n1.when)
@@ -156,8 +156,13 @@ nextChar:
 			if strings.HasPrefix(n1.matcher, ".") && strings.HasSuffix(n1.matcher, ")") {
 				name, args, _ := strings.Cut(n1.matcher, "(")
 				n1.matcher = strings.TrimSuffix(args, ")")
-				n.mixins[name] = append(n.mixins[name], n1)
-				n.mixins[n.matcher+" > "+name] = n.mixins[name]
+				n.mixins[0][name] = append(n.mixins[0][name], n1)
+				if strings.HasPrefix(n.matcher, "#") {
+					chain := n.matcher + " > " + name
+					n.mixins[len(n.mixins)-1][chain] = append(
+						n.mixins[len(n.mixins)-1][chain], n1,
+					)
+				}
 			} else {
 				n.children = append(n.children, n1)
 			}
@@ -318,37 +323,42 @@ func (n *node) evalMixin(s string) []node {
 	args := getArgs(strings.TrimSuffix(argsRaw, ")"))
 	var nodes []node
 
-nextMixin:
-	for _, m := range n.mixins[name] {
-		n1 := m
-		params := getArgs(n1.matcher)
-		if len(params) > 0 {
-			vars := make(map[string]string, len(params))
-			for i, param := range params {
-				if strings.HasPrefix(param, "@") {
-					pName, defaultValue, _ := strings.Cut(param, ":")
-					v := strings.TrimSpace(defaultValue)
-					if len(args) > i {
-						v = args[i]
-					}
-					for _, arg := range args {
-						named, namedVal, ok := strings.Cut(arg, ":")
-						if ok && named == pName {
-							v = strings.TrimSpace(namedVal)
-							break
+	for _, mixins := range n.mixins {
+	nextMixin:
+		for _, m := range mixins[name] {
+			n1 := m
+			params := getArgs(n1.matcher)
+			if len(params) > 0 {
+				vars := make(map[string]string, len(params))
+				for i, param := range params {
+					if strings.HasPrefix(param, "@") {
+						pName, defaultValue, _ := strings.Cut(param, ":")
+						v := strings.TrimSpace(defaultValue)
+						if len(args) > i {
+							v = args[i]
 						}
+						for _, arg := range args {
+							named, namedVal, ok := strings.Cut(arg, ":")
+							if ok && named == pName {
+								v = strings.TrimSpace(namedVal)
+								break
+							}
+						}
+						vars[pName[1:]] = v
+					} else if param != args[i] {
+						continue nextMixin
 					}
-					vars[pName[1:]] = v
-				} else if param != args[i] {
-					continue nextMixin
 				}
+				n1.paramVars = vars
 			}
-			n1.paramVars = vars
+			n1.matcher = ""
+			nodes = append(nodes, n1)
 		}
-		n1.matcher = ""
-		nodes = append(nodes, n1)
+		if len(nodes) != 0 {
+			return nodes
+		}
 	}
-	return nodes
+	panic(fmt.Sprintf("mixin %q is unknown", name))
 }
 
 func (n *node) evalDirective(s string, pv []map[string]string) string {
@@ -438,7 +448,7 @@ func (p *parser) parse(f string) error {
 	p.root = &node{
 		f:      f,
 		vars:   []map[string]string{{}},
-		mixins: make(map[string][]node),
+		mixins: []map[string][]node{{}},
 	}
 	return p.root.parse(p.read, f)
 }
@@ -478,26 +488,42 @@ func (p *parser) print() string {
 	return strings.TrimLeft(w.String(), " ")
 }
 
-func (p *parser) printMixins() string {
-	w := strings.Builder{}
-	for name, nodes := range p.root.mixins {
-		for _, n := range nodes {
+func (n *node) printMixins(w *strings.Builder) {
+	if len(n.mixins[0]) == 0 {
+		return
+	}
+	if len(n.matcher) > 0 {
+		w.WriteString(n.matcher)
+		w.WriteString(" {")
+	}
+	for name, nodes := range n.mixins[0] {
+		for _, n1 := range nodes {
 			w.WriteString(" ")
 			w.WriteString(name)
 			w.WriteString("(")
-			w.WriteString(n.matcher)
+			w.WriteString(n1.matcher)
 			w.WriteString(") ")
-			if n.when != "" {
+			if n1.when != "" {
 				w.WriteString("when ")
-				w.WriteString(n.when)
+				w.WriteString(n1.when)
 				w.WriteString(" ")
 			}
 			w.WriteString("{ ")
-			n.matcher = ""
-			n.when = ""
-			n.print(&w, nil, false)
+			n1.matcher = ""
+			n1.when = ""
+			n1.vars = nil
+			n1.print(w, nil, false)
+			n1.printMixins(w)
 			w.WriteString(" }")
 		}
 	}
+	if len(n.matcher) > 0 {
+		w.WriteString(" }")
+	}
+}
+
+func (p *parser) printMixins() string {
+	w := strings.Builder{}
+	p.root.printMixins(&w)
 	return strings.TrimLeft(w.String(), " ")
 }
