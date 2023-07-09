@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -39,7 +40,6 @@ func ParseUsing(read func(name string) ([]byte, error), f string) (string, []str
 		return "", p.getImports(), err
 	}
 	fmt.Println(p.printMixins())
-	p.eval()
 	return p.print(), p.getImports(), nil
 }
 
@@ -51,8 +51,9 @@ type directive struct {
 type node struct {
 	f          string
 	matcher    string
+	when       string
 	directives []directive
-	children   []*node
+	children   []node
 	imports    []string
 	vars       []map[string]string
 	paramVars  map[string]string
@@ -124,6 +125,7 @@ nextChar:
 			}
 		}
 
+		dot := strings.IndexRune(s[i:], '.')
 		open := strings.IndexRune(s[i:], '{')
 		if open > 0 && s[i+open-1] == '@' {
 			// .mixin(@var) { .@{var} {} }
@@ -138,13 +140,15 @@ nextChar:
 		parensOpen := strings.IndexRune(s[i:], '(')
 		parensClose := strings.IndexRune(s[i:], ')')
 		colon := strings.IndexRune(s[i:i+semi+1], ':')
-		if open != -1 && len(s) > open && (semi == -1 || open < semi || ((colon == -1 || parensOpen < colon) && parensOpen < semi && semi < parensClose && parensClose < open)) {
+		if open != -1 && len(s) > open && (semi == -1 || open < semi || (dot == 0 && (colon == -1 || parensOpen < colon) && parensOpen < semi && semi < parensClose && parensClose < open)) {
 			n1 := node{
 				f:      n.f,
 				vars:   append([]map[string]string{{}}, n.vars...),
 				mixins: n.mixins,
 			}
-			n1.matcher = strings.TrimSpace(s[i : i+open])
+			n1.matcher, n1.when, _ = strings.Cut(s[i:i+open], " when")
+			n1.when = strings.TrimSpace(n1.when)
+			n1.matcher = strings.TrimSpace(n1.matcher)
 			n1.matcher = strings.ReplaceAll(n1.matcher, "\n", " ")
 			n1.matcher = strings.ReplaceAll(n1.matcher, "  ", " ")
 			off, err := n1.consume(read, s[i+open+1:])
@@ -153,23 +157,23 @@ nextChar:
 				n1.matcher = strings.TrimSuffix(args, ")")
 				n.mixins[name] = append(n.mixins[name], n1)
 			} else {
-				n.children = append(n.children, &n1)
+				n.children = append(n.children, n1)
 			}
 			if err != nil {
 				return i, err
 			}
 			i += open + off
-		} else if parensClose == semi-1 {
+		} else if dot == 0 && parensClose == semi-1 {
 			n.directives = append(n.directives, directive{
 				value: strings.TrimSpace(s[i : i+semi]),
 			})
 			i += semi
-		} else if len(s) > i+parensClose && s[i+parensClose+1] == ';' && parensOpen < semi && semi < parensClose && (colon == -1 || (parensOpen < colon && colon < parensClose)) {
+		} else if dot == 0 && len(s) > i+parensClose && s[i+parensClose+1] == ';' && parensOpen < semi && semi < parensClose && (colon == -1 || (parensOpen < colon && colon < parensClose)) {
 			n.directives = append(n.directives, directive{
 				value: strings.TrimSpace(s[i : i+parensClose+1]),
 			})
 			i += parensClose + 1
-		} else if s[i+semi-1] == ')' && (colon == -1 || parensOpen < colon) && strings.Count(s[i+parensOpen+1:], "(") == strings.Count(s[i+semi-1:], ")") {
+		} else if dot == 0 && s[i+semi-1] == ')' && (colon == -1 || parensOpen < colon) && strings.Count(s[i+parensOpen+1:], "(") == strings.Count(s[i+semi-1:], ")") {
 			n.directives = append(n.directives, directive{
 				value: strings.TrimSpace(s[i : i+semi]),
 			})
@@ -208,40 +212,72 @@ func isConstant(s string) bool {
 }
 
 func (n *node) evalDirectives(pv []map[string]string) {
-	// TODO: skip when WHEN=false
-	if n.paramVars != nil {
-		pv = append([]map[string]string{n.paramVars}, pv...)
-	}
-
 	for i, d := range n.directives {
 		n.directives[i].value = n.evalDirective(d.value, pv)
 	}
-	for _, child := range n.children {
-		child.evalDirectives(pv)
-	}
 }
 
-func (n *node) evalMatcher(pv []map[string]string) {
-	if n.paramVars != nil {
-		pv = append([]map[string]string{n.paramVars}, pv...)
+func (n *node) evalMatcher(pv []map[string]string) string {
+	if len(n.matcher) == 0 {
+		return ""
 	}
-	if len(n.matcher) > 0 {
-		s := n.matcher
-		for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
-			if isAtRule(nested[0]) {
-				continue
-			}
-			s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
+	s := n.matcher
+	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+		if isAtRule(nested[0]) {
+			continue
 		}
-		n.matcher = s
+		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
+	}
+	return s
+}
 
-		// TODO: mixin
-		// TODO: flag WHEN
+func (n *node) evalWhen(pv []map[string]string) bool {
+	if len(n.when) == 0 {
+		return true
 	}
-	for _, child := range n.children {
-		// TODO: pass in latest chain of vars
-		child.evalMatcher(pv)
+	s := n.when
+	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+		if isAtRule(nested[0]) {
+			continue
+		}
+		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 	}
+	for _, condition := range strings.Split(s, "and") {
+		condition = strings.TrimSpace(condition)
+		condition = strings.TrimPrefix(condition, "(")
+		condition = strings.TrimSuffix(condition, ")")
+		parts := strings.Fields(condition)
+		a, comparator, b := parts[0], parts[1], parts[2]
+		aInt, _ := strconv.ParseInt(a, 10, 64)
+		bInt, _ := strconv.ParseInt(b, 10, 64)
+		switch comparator {
+		case "=":
+			if a != b {
+				return false
+			}
+		case "!=":
+			if a == b {
+				return false
+			}
+		case "<":
+			if aInt >= bInt {
+				return false
+			}
+		case ">":
+			if aInt <= bInt {
+				return false
+			}
+		case "<=", "=<":
+			if aInt > bInt {
+				return false
+			}
+		case ">=", "=>":
+			if aInt < bInt {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func getArgs(s string) []string {
@@ -270,47 +306,50 @@ func getArgs(s string) []string {
 
 var varRegex = regexp.MustCompile(`(\${)?@{?([\w-]+)}?`)
 
+func (n *node) evalMixin(s string) []node {
+	name, argsRaw, _ := strings.Cut(s, "(")
+	args := getArgs(strings.TrimSuffix(argsRaw, ")"))
+	var nodes []node
+
+nextMixin:
+	for _, m := range n.mixins[name] {
+		n1 := m
+		params := getArgs(n1.matcher)
+		if len(params) > 0 {
+			vars := make(map[string]string, len(params))
+			for i, param := range params {
+				if strings.HasPrefix(param, "@") {
+					pName, defaultValue, _ := strings.Cut(param, ":")
+					v := strings.TrimSpace(defaultValue)
+					if len(args) > i {
+						v = args[i]
+					}
+					for _, arg := range args {
+						named, namedVal, ok := strings.Cut(arg, ":")
+						if ok && named == pName {
+							v = strings.TrimSpace(namedVal)
+							break
+						}
+					}
+					vars[pName[1:]] = v
+				} else if param != args[i] {
+					continue nextMixin
+				}
+			}
+			n1.paramVars = vars
+		}
+		n1.matcher = ""
+		nodes = append(nodes, n1)
+	}
+	return nodes
+}
+
 func (n *node) evalDirective(s string, pv []map[string]string) string {
 	if isConstant(s) {
 		return s
 	}
 	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
 		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
-	}
-	if strings.HasPrefix(s, ".") && strings.HasSuffix(s, ")") {
-		name, argsRaw, _ := strings.Cut(s, "(")
-		args := getArgs(strings.TrimSuffix(argsRaw, ")"))
-	nextMixin:
-		for _, m := range n.mixins[name] {
-			n1 := m
-			params := getArgs(n1.matcher)
-			if len(params) > 0 {
-				vars := make(map[string]string, len(params))
-				for i, param := range params {
-					if strings.HasPrefix(param, "@") {
-						pName, defaultValue, _ := strings.Cut(param, ":")
-						v := strings.TrimSpace(defaultValue)
-						if len(args) > i {
-							v = args[i]
-						}
-						for _, arg := range args {
-							named, namedVal, ok := strings.Cut(arg, ":")
-							if ok && named == pName {
-								v = strings.TrimSpace(namedVal)
-								break
-							}
-						}
-						vars[pName[1:]] = v
-					} else if param != args[i] {
-						continue nextMixin
-					}
-				}
-				n1.paramVars = vars
-			}
-			n1.matcher = ""
-			n.children = append(n.children, &n1)
-		}
-		return ""
 	}
 	return s
 }
@@ -335,15 +374,29 @@ func (n *node) evalVar(name string, pv []map[string]string) string {
 	return "@" + name
 }
 
-func (n *node) print(w *strings.Builder) {
-	if n.matcher != "" {
-		w.WriteString(n.matcher)
+func (n *node) print(w *strings.Builder, pv []map[string]string, addSpace bool) bool {
+	if n.paramVars != nil {
+		pv = append([]map[string]string{n.paramVars}, pv...)
+	}
+	if !n.evalWhen(pv) {
+		return addSpace
+	}
+	matcher := n.evalMatcher(pv)
+
+	if matcher != "" {
+		if addSpace {
+			w.WriteString(" ")
+		}
+		addSpace = true
+		w.WriteString(matcher)
 		w.WriteString(" {")
 	}
-	addSpace := n.matcher != ""
 	for _, d := range n.directives {
 		if d.name == "" {
-			continue // mixin
+			for _, child := range n.evalMixin(d.value) {
+				addSpace = child.print(w, pv, addSpace)
+			}
+			continue
 		}
 		if addSpace {
 			w.WriteString(" ")
@@ -351,19 +404,16 @@ func (n *node) print(w *strings.Builder) {
 		addSpace = true
 		w.WriteString(d.name)
 		w.WriteString(": ")
-		w.WriteString(d.value)
+		w.WriteString(n.evalDirective(d.value, pv))
 		w.WriteString(";")
 	}
 	for _, child := range n.children {
-		if addSpace {
-			w.WriteString(" ")
-		}
-		addSpace = true
-		child.print(w)
+		addSpace = child.print(w, pv, addSpace)
 	}
-	if n.matcher != "" {
+	if matcher != "" {
 		w.WriteString(" }")
 	}
+	return addSpace
 }
 
 type parser struct {
@@ -409,15 +459,9 @@ func (p *parser) getImports() []string {
 	return p.root.collectImports(nil)
 }
 
-func (p *parser) eval() {
-	pv := []map[string]string{{}}
-	p.root.evalDirectives(pv)
-	p.root.evalMatcher(pv)
-}
-
 func (p *parser) print() string {
 	w := strings.Builder{}
-	p.root.print(&w)
+	p.root.print(&w, nil, false)
 	return strings.TrimLeft(w.String(), " ")
 }
 
@@ -429,9 +473,16 @@ func (p *parser) printMixins() string {
 			w.WriteString(name)
 			w.WriteString("(")
 			w.WriteString(n.matcher)
-			w.WriteString(") { ")
+			w.WriteString(") ")
+			if n.when != "" {
+				w.WriteString("when ")
+				w.WriteString(n.when)
+				w.WriteString(" ")
+			}
+			w.WriteString("{ ")
 			n.matcher = ""
-			n.print(&w)
+			n.when = ""
+			n.print(&w, nil, false)
 			w.WriteString(" }")
 		}
 	}

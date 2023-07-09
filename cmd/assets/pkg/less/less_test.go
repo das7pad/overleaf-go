@@ -167,6 +167,78 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "when true boolean",
+			args: args{
+				read: fakeFS{
+					"in.less": "@c: true; .btn when (@c = true) { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "when false boolean",
+			args: args{
+				read: fakeFS{
+					"in.less": "@c: true; .btn when (@c = false) { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "when true int",
+			args: args{
+				read: fakeFS{
+					"in.less": "@c: 1; .btn when (@c <= 2) { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "when false int",
+			args: args{
+				read: fakeFS{
+					"in.less": "@c: 100; .btn when (@c <= 2) { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "when true multiple",
+			args: args{
+				read: fakeFS{
+					"in.less": "@c1: 1; @c2: true; .btn when (@c1 <= 2) and (@c2 = true) { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "when false multiple",
+			args: args{
+				read: fakeFS{
+					"in.less": "@c1: 1; @c2: false; .btn when (@c1 <= 2) and (@c2 = true) { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "mixin no args",
 			args: args{
 				read: fakeFS{
@@ -319,6 +391,30 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".render { &.red { color: red; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin two named classes",
+			args: args{
+				read: fakeFS{
+					"in.less": ".gen(@var) { &.@{var} { color: @var; } } .render { .gen(red); .gen(blue); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".render { &.red { color: red; } &.blue { color: blue; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin when",
+			args: args{
+				read: fakeFS{
+					"in.less": ".x(@c) when (@c = 1) { padding: @c; } .x(@c) when (@c = 2) { margin: @c; } .one { .x(1); } .two { .x(2); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".one { padding: 1; } .two { margin: 2; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
