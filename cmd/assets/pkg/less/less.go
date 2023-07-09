@@ -140,6 +140,7 @@ nextChar:
 		parensOpen := strings.IndexRune(s[i:], '(')
 		parensClose := strings.IndexRune(s[i:], ')')
 		colon := strings.IndexRune(s[i:i+semi+1], ':')
+		gt := strings.IndexRune(s[i:], '>')
 		if open != -1 && len(s) > open && (semi == -1 || open < semi || (dot == 0 && (colon == -1 || parensOpen < colon) && parensOpen < semi && semi < parensClose && parensClose < open)) {
 			n1 := node{
 				f:      n.f,
@@ -156,6 +157,7 @@ nextChar:
 				name, args, _ := strings.Cut(n1.matcher, "(")
 				n1.matcher = strings.TrimSuffix(args, ")")
 				n.mixins[name] = append(n.mixins[name], n1)
+				n.mixins[n.matcher+" > "+name] = n.mixins[name]
 			} else {
 				n.children = append(n.children, n1)
 			}
@@ -174,6 +176,11 @@ nextChar:
 			})
 			i += parensClose + 1
 		} else if dot == 0 && s[i+semi-1] == ')' && (colon == -1 || parensOpen < colon) && strings.Count(s[i+parensOpen+1:], "(") == strings.Count(s[i+semi-1:], ")") {
+			n.directives = append(n.directives, directive{
+				value: strings.TrimSpace(s[i : i+semi]),
+			})
+			i += semi
+		} else if gt != -1 && dot != -1 && parensOpen != -1 && parensClose != -1 && semi != -1 && gt < dot && dot < parensOpen && parensOpen < parensClose && parensClose < semi && colon == -1 {
 			n.directives = append(n.directives, directive{
 				value: strings.TrimSpace(s[i : i+semi]),
 			})
@@ -365,6 +372,9 @@ func (n *node) evalVar(name string, pv []map[string]string) string {
 				return s
 			}
 			for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+				if nested[2] == name {
+					panic(fmt.Sprintf("loop in @%s=%q", name, s))
+				}
 				s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 			}
 			vars[name] = s
@@ -375,6 +385,9 @@ func (n *node) evalVar(name string, pv []map[string]string) string {
 }
 
 func (n *node) print(w *strings.Builder, pv []map[string]string, addSpace bool) bool {
+	if len(n.directives) == 0 && len(n.children) == 0 && !strings.HasSuffix(n.matcher, "%") {
+		return addSpace
+	}
 	if n.paramVars != nil {
 		pv = append([]map[string]string{n.paramVars}, pv...)
 	}

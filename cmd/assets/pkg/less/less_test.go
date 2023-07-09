@@ -419,6 +419,30 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin nested name",
+			args: args{
+				read: fakeFS{
+					"in.less": "#foo { .red() { color: red; } } .btn { #foo > .red(); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin nested empty pint",
+			args: args{
+				read: fakeFS{
+					"in.less": "#foo { .red() { color: red; } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "keyframes",
 			args: args{
 				read: fakeFS{
