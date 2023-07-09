@@ -38,6 +38,7 @@ func ParseUsing(read func(name string) ([]byte, error), f string) (string, []str
 		fmt.Println(p.printMixins())
 		return "", p.getImports(), err
 	}
+	fmt.Println(p.printMixins())
 	p.eval()
 	return p.print(), p.getImports(), nil
 }
@@ -54,6 +55,7 @@ type node struct {
 	children   []*node
 	imports    []string
 	vars       []map[string]string
+	paramVars  map[string]string
 	mixins     map[string][]node
 }
 
@@ -205,26 +207,31 @@ func isConstant(s string) bool {
 	return true
 }
 
-func (n *node) evalDirectives() {
+func (n *node) evalDirectives(pv []map[string]string) {
 	// TODO: skip when WHEN=false
+	if n.paramVars != nil {
+		pv = append([]map[string]string{n.paramVars}, pv...)
+	}
 
 	for i, d := range n.directives {
-		n.directives[i].value = n.evalDirective(d.value)
+		n.directives[i].value = n.evalDirective(d.value, pv)
 	}
 	for _, child := range n.children {
-		// TODO: pass in latest chain of vars
-		child.evalDirectives()
+		child.evalDirectives(pv)
 	}
 }
 
-func (n *node) evalMatcher() {
+func (n *node) evalMatcher(pv []map[string]string) {
+	if n.paramVars != nil {
+		pv = append([]map[string]string{n.paramVars}, pv...)
+	}
 	if len(n.matcher) > 0 {
 		s := n.matcher
 		for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
 			if isAtRule(nested[0]) {
 				continue
 			}
-			s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
+			s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 		}
 		n.matcher = s
 
@@ -233,7 +240,7 @@ func (n *node) evalMatcher() {
 	}
 	for _, child := range n.children {
 		// TODO: pass in latest chain of vars
-		child.evalMatcher()
+		child.evalMatcher(pv)
 	}
 }
 
@@ -263,12 +270,12 @@ func getArgs(s string) []string {
 
 var varRegex = regexp.MustCompile(`(\${)?@{?([\w-]+)}?`)
 
-func (n *node) evalDirective(s string) string {
+func (n *node) evalDirective(s string, pv []map[string]string) string {
 	if isConstant(s) {
 		return s
 	}
 	for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
-		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
+		s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
 	}
 	if strings.HasPrefix(s, ".") && strings.HasSuffix(s, ")") {
 		name, argsRaw, _ := strings.Cut(s, "(")
@@ -298,8 +305,7 @@ func (n *node) evalDirective(s string) string {
 						continue nextMixin
 					}
 				}
-				n1.vars = append([]map[string]string{vars}, m.vars...)
-
+				n1.paramVars = vars
 			}
 			n1.matcher = ""
 			n.children = append(n.children, &n1)
@@ -309,20 +315,22 @@ func (n *node) evalDirective(s string) string {
 	return s
 }
 
-func (n *node) evalVar(name string) string {
-	for _, vars := range n.vars {
-		s, ok := vars[name]
-		if !ok {
-			continue
-		}
-		if isConstant(s) {
+func (n *node) evalVar(name string, pv []map[string]string) string {
+	for _, source := range [][]map[string]string{pv, n.vars} {
+		for _, vars := range source {
+			s, ok := vars[name]
+			if !ok {
+				continue
+			}
+			if isConstant(s) {
+				return s
+			}
+			for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
+				s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2], pv))
+			}
+			vars[name] = s
 			return s
 		}
-		for _, nested := range varRegex.FindAllStringSubmatch(s, -1) {
-			s = strings.ReplaceAll(s, nested[0], n.evalVar(nested[2]))
-		}
-		vars[name] = s
-		return s
 	}
 	return "@" + name
 }
@@ -332,20 +340,25 @@ func (n *node) print(w *strings.Builder) {
 		w.WriteString(n.matcher)
 		w.WriteString(" {")
 	}
-	for i, d := range n.directives {
+	addSpace := n.matcher != ""
+	for _, d := range n.directives {
 		if d.name == "" {
 			continue // mixin
 		}
-		if i > 0 || n.matcher != "" {
+		if addSpace {
 			w.WriteString(" ")
 		}
+		addSpace = true
 		w.WriteString(d.name)
 		w.WriteString(": ")
 		w.WriteString(d.value)
 		w.WriteString(";")
 	}
 	for _, child := range n.children {
-		w.WriteString(" ")
+		if addSpace {
+			w.WriteString(" ")
+		}
+		addSpace = true
 		child.print(w)
 	}
 	if n.matcher != "" {
@@ -397,8 +410,9 @@ func (p *parser) getImports() []string {
 }
 
 func (p *parser) eval() {
-	p.root.evalDirectives()
-	p.root.evalMatcher()
+	pv := []map[string]string{{}}
+	p.root.evalDirectives(pv)
+	p.root.evalMatcher(pv)
 }
 
 func (p *parser) print() string {
