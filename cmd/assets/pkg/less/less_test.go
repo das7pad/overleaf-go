@@ -251,6 +251,42 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin @var",
+			args: args{
+				read: fakeFS{
+					"in.less": "@red: { color: red; }; .btn { @red(); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin no parens",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red() { color: red; } .btn { .red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin other class",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red { color: red; } .btn { .red(); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".red { color: red; } .btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "mixin static arg",
 			args: args{
 				read: fakeFS{
@@ -504,6 +540,19 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "import no ext",
+			args: args{
+				read: fakeFS{
+					"in.less":    "@import 'other';",
+					"other.less": ".btn { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less", "other.less"},
+			wantErr: false,
+		},
+		{
 			name: "import css",
 			args: args{
 				read: fakeFS{
@@ -530,6 +579,20 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "import nested folder",
+			args: args{
+				read: fakeFS{
+					"in.less":            "@import 'foo/bar/baz.less';",
+					"foo/bar/baz.less":   "@import 'other.less';",
+					"foo/bar/other.less": ".btn { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less", "foo/bar/baz.less", "foo/bar/other.less"},
+			wantErr: false,
+		},
+		{
 			name: "import order",
 			args: args{
 				read: fakeFS{
@@ -540,6 +603,20 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; } .btn { color: green; } .btn { color: blue; }",
+			want1:   []string{"in.less", "one.less", "two.less"},
+			wantErr: false,
+		},
+		{
+			name: "charset",
+			args: args{
+				read: fakeFS{
+					"in.less":  "@import 'one.less'; @import 'two.less';",
+					"one.less": ".btn { color: red; }",
+					"two.less": "@charset \"UTF-8\";",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@charset \"UTF-8\"; .btn { color: red; }",
 			want1:   []string{"in.less", "one.less", "two.less"},
 			wantErr: false,
 		},
