@@ -443,7 +443,7 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "mixin nested empty pint",
+			name: "mixin nested empty print",
 			args: args{
 				read: fakeFS{
 					"in.less": "#foo { .red() { color: red; } }",
