@@ -480,7 +480,9 @@ func (n *node) evalMatcher(pv []map[string]tokens) tokens {
 func evalMath(s tokens) tokens {
 	i := 0
 	i += consumeSpace(s[i:])
+	opened := false
 	if len(s) > i && s[i].kind == tokenParensOpen {
+		opened = true
 		i += 1
 		i += consumeSpace(s[i:])
 	}
@@ -494,6 +496,34 @@ func evalMath(s tokens) tokens {
 		return s
 	}
 	operator := s[i]
+	var unitA token
+	for {
+		switch operator.kind {
+		case tokenPlus:
+		case tokenMinus:
+		case tokenSlash:
+		case tokenStar:
+		case tokenIdentifier:
+			unitA = operator
+			switch unitA.v {
+			case "px":
+			case "em":
+			case "rem":
+			default:
+				return s
+			}
+			i++
+			i += consumeSpace(s[i:])
+			if len(s) == i {
+				return s
+			}
+			operator = s[i]
+			continue
+		default:
+			return s
+		}
+		break
+	}
 	i += 1
 	i += consumeSpace(s[i:])
 	if len(s) == i || s[i].kind != tokenNum {
@@ -502,7 +532,21 @@ func evalMath(s tokens) tokens {
 	b := s[i]
 	i += 1
 	i += consumeSpace(s[i:])
-	if len(s) > i && s[i].kind == tokenParensClose {
+	var unitB token
+	if len(s) > i && s[i].kind == tokenIdentifier {
+		unitB = s[i]
+		switch unitB.v {
+		case "px":
+		case "em":
+		case "rem":
+		default:
+			return s
+		}
+		i++
+		i += consumeSpace(s[i:])
+	}
+	sameUnit := unitA.v == unitB.v
+	if opened && len(s) > i && s[i].kind == tokenParensClose {
 		i += 1
 		i += consumeSpace(s[i:])
 	}
@@ -514,17 +558,39 @@ func evalMath(s tokens) tokens {
 	var r int64
 	switch operator.kind {
 	case tokenPlus:
+		if !sameUnit {
+			return s
+		}
 		r = aInt + bInt
 	case tokenMinus:
+		if !sameUnit {
+			return s
+		}
 		r = aInt - bInt
 	case tokenSlash:
+		if !sameUnit && len(unitB.v) > 0 {
+			return s
+		}
+		if sameUnit {
+			unitA = token{}
+		}
 		r = aInt / bInt
 	case tokenStar:
+		if len(unitA.v) > 0 && sameUnit {
+			return s
+		}
+		if len(unitB.v) > 0 {
+			unitA = unitB
+		}
 		r = aInt * bInt
 	default:
 		return s
 	}
-	return tokens{{kind: tokenNum, v: strconv.FormatInt(r, 10)}}
+	out := tokens{{kind: tokenNum, v: strconv.FormatInt(r, 10)}}
+	if len(unitA.v) > 0 {
+		out = append(out, unitA)
+	}
+	return out
 }
 
 func (n *node) evalWhen(pv []map[string]tokens) (bool, error) {
@@ -763,6 +829,21 @@ func removeStringTemplate(s tokens) tokens {
 		s[len(s)-1].kind == tokenSingleQuote {
 		return s[2 : len(s)-1]
 	}
+	if len(s) < 4 {
+		return s
+	}
+	if s[0].kind == tokenIdentifier &&
+		s[0].v == "calc" &&
+		s[1].kind == tokenParensOpen &&
+		s[2].kind == tokenTilde &&
+		s[3].kind == tokenSingleQuote &&
+		s[len(s)-2].kind == tokenSingleQuote &&
+		s[len(s)-1].kind == tokenParensClose {
+		return append(append(append(make(tokens, len(s)-3),
+			s[0:2]...),
+			s[4:len(s)-2]...),
+			s[len(s)-1])
+	}
 	return s
 }
 
@@ -775,7 +856,7 @@ func evalStatic(s tokens) tokens {
 
 func (n *node) evalDirective(s tokens, pv []map[string]tokens) tokens {
 	if isConstant(s) {
-		return s
+		return removeStringTemplate(s)
 	}
 	s = n.evalVars(s, pv)
 	s = evalStatic(s)
@@ -844,7 +925,7 @@ func (n *node) evalVar(name string, pv []map[string]tokens) tokens {
 				continue
 			}
 			if isConstant(s) {
-				return s
+				return removeStringTemplate(s)
 			}
 
 			s = append(tokens{}, s...)

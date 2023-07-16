@@ -105,6 +105,126 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "calc plain",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: calc(100vh - 1px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: calc(100vh - 1px); }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "calc string unwrap",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: calc(~'100vh - 1px'); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: calc(100vh - 1px); }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math single operation",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 1+1; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 2; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math single operation same unit",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 1px + 1px; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math times unit first",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 2px * 2; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 4px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math times unit second",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 2 * 2px; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 4px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math div unit first",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 2px / 2; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 1px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math div unit both",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 6px / 3px; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 2; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math single operation different unit passthrough",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 1rem + 1px; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 1rem + 1px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math single operation parens",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: (1px + 1px); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "variable same file",
 			args: args{
 				read: fakeFS{
@@ -271,6 +391,18 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "mixin string unwrap",
+			args: args{
+				read: fakeFS{
+					"in.less": ".gen(@m) { @{m} { color: red; } } .gen(~'.red, .btn-error');",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".red, .btn-error { color: red; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
