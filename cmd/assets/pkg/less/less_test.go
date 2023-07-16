@@ -647,6 +647,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "each",
+			args: args{
+				read: fakeFS{
+					"in.less": "@foo: { 1: 1px; 2: 2px; }; each(@foo, { .col-@{key} { padding: @value; } });",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".col-1 { padding: 1px; } .col-2 { padding: 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "keyframes",
 			args: args{
 				read: fakeFS{

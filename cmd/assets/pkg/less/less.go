@@ -77,6 +77,22 @@ nextStart:
 	return -1, errors.New(fmt.Sprintf("%s not found", needle))
 }
 
+func expectSeq(tt tokens, j int, ignoreSpace bool, needle ...kind) (int, error) {
+	for off, c := range needle {
+		if ignoreSpace {
+			j += consumeSpace(tt[j:])
+		}
+		if len(tt) < j+1 {
+			return j, errors.New(fmt.Sprintf("expected sequence %s, ran out of tokens after %d", needle, j))
+		}
+		if got := tt[j].kind; got != c {
+			return j, errors.New(fmt.Sprintf("expected sequence %s, wanted %q as token %d, got %q", needle, c, off, got))
+		}
+		j++
+	}
+	return j, nil
+}
+
 func consumeSpace(s tokens) int {
 	for i, t := range s {
 		switch t.kind {
@@ -129,11 +145,19 @@ func cutToken(s tokens, needle token) (tokens, tokens, bool) {
 	return s, nil, false
 }
 
+func (n *node) branchNode() node {
+	return node{
+		vars:     append([]map[string]tokens{{}}, n.vars...),
+		mixins:   append([]map[string][]node{{}}, n.mixins...),
+		children: append([][]node{make([]node, 0)}, n.children...),
+	}
+}
+
 var whenToken = token{kind: tokenIdentifier, v: "when"}
 
-func (n *node) consume(f string, read func(name string) ([]byte, error), tt tokens) (int, error) {
+func (n *node) consume(f string, read func(name string) ([]byte, error), tt tokens, i int) (int, error) {
 doneParsing:
-	for i := 0; i < len(tt); i++ {
+	for ; i < len(tt); i++ {
 	topLevelToken:
 		switch tt[i].kind {
 		case space, tokenNewline:
@@ -255,13 +279,46 @@ doneParsing:
 			}
 			return i, errors.New("unexpected '@'")
 		case tokenIdentifier:
-			if tt[i].v == "each" {
-				// TODO: each(@mixin, { foo: @key; bar: @value; });
-				j, err := consumeUntil(tt[i:], tokenNewline, tokenCurlyClose, tokenParensClose, tokenSemi)
+			if tt[i].v == "each" &&
+				len(tt) > i &&
+				tt[i+1].kind == tokenParensOpen {
+				j := i + 2
+				j += consumeSpace(tt[j:])
+				j, err := expectSeq(tt, j, false, tokenAt, tokenIdentifier)
 				if err != nil {
-					return i, err
+					return j, err
 				}
-				i += j + 4
+				src := tt[j-2 : j]
+				j, err = expectSeq(tt, j, true, tokenComma, tokenCurlyOpen)
+				if err != nil {
+					return j, err
+				}
+
+				n1 := n.branchNode()
+				n2 := n1.branchNode()
+				j, err = n2.consume(f, read, tt, j)
+				if err != nil {
+					return j, err
+				}
+				j, err = expectSeq(tt, j, true, tokenParensClose, tokenSemi)
+				if err != nil {
+					return j, err
+				}
+
+				n2.matcher = tokens{
+					{kind: tokenAt, v: "@"},
+					{kind: tokenIdentifier, v: "key"},
+					{kind: tokenComma, v: ","},
+					{kind: tokenAt, v: "@"},
+					{kind: tokenIdentifier, v: "value"},
+				}
+				n1.mixins[0][".each"] = []node{n2}
+				n1.directives = append(n1.directives, directive{
+					name:  "each",
+					value: src,
+				})
+				n.children[0] = append(n.children[0], n1)
+				i = j
 				continue
 			}
 		}
@@ -385,11 +442,7 @@ doneParsing:
 		isVarMixin := tt[i].kind == tokenAt &&
 			tt[i+1].kind == tokenIdentifier &&
 			index(tt[i+1+consumeSpace(tt[i+1:]):], tokenColon) == 1
-		n1 := node{
-			vars:     append([]map[string]tokens{{}}, n.vars...),
-			mixins:   append([]map[string][]node{{}}, n.mixins...),
-			children: append([][]node{make([]node, 0)}, n.children...),
-		}
+		n1 := n.branchNode()
 		n1.matcher, n1.when, _ = cutToken(tt[i:i+j], whenToken)
 		n1.matcher = trimSpace(n1.matcher)
 		n1.when = trimSpace(n1.when)
@@ -401,7 +454,8 @@ doneParsing:
 			)
 			t2 = n1.matcher[len(n1.matcher)-2]
 		}
-		off, err := n1.consume("", read, tt[i+j+1:])
+		var err error
+		j, err = n1.consume(f, read, tt, i+j+1)
 		switch t2.kind {
 		case tokenParensOpen:
 			nameRaw, args, _ := cut(n1.matcher, tokenParensOpen)
@@ -424,15 +478,12 @@ doneParsing:
 			return i, err
 		}
 		if isVarMixin {
-			k := i + j + off
-			k += consumeSpace(tt[k:])
-			if len(tt) == k+1 || tt[k+1].kind != tokenSemi {
-				return i, errors.New("expected semi after var mixin")
+			j, err = expectSeq(tt, j, true, tokenSemi)
+			if err != nil {
+				return j, nil
 			}
-			i = k + 1
-			continue
 		}
-		i += j + off
+		i = j
 	}
 	return len(tt), nil
 }
@@ -775,9 +826,10 @@ func (n *node) evalMixin(s tokens, pv []map[string]tokens) ([]node, error) {
 					if param[0].kind == tokenAt {
 						pNameRaw, v, _ := cut(param, tokenColon)
 						pName := trimSpace(pNameRaw).String()
-						v = trimSpace(v)
 						if len(args) > i {
 							v = args[i]
+						} else {
+							v = trimSpace(v)
 						}
 						for _, arg := range args {
 							named, namedVal, ok := cut(arg, tokenColon)
@@ -816,7 +868,7 @@ func (n *node) evalMixin(s tokens, pv []map[string]tokens) ([]node, error) {
 		}
 
 	}
-	panic(fmt.Sprintf("mixin %q is unknown", name))
+	return nil, errors.New(fmt.Sprintf("mixin %q is unknown", name))
 }
 
 func removeStringTemplate(s tokens) tokens {
@@ -984,7 +1036,27 @@ func (n *node) print(w *strings.Builder, pv []map[string]tokens, addSpace bool) 
 		matcher.WriteString(w)
 		w.WriteString(" {")
 	}
-	for _, d := range n.directives {
+	directives := n.directives
+	if len(n.directives) == 1 && n.directives[0].name == "each" {
+		src, err := n.evalMixin(n.directives[0].value, pv)
+		if err != nil {
+			return false, err
+		}
+		directives = make([]directive, 0, len(src[0].directives))
+		for _, d := range src[0].directives {
+			v := make(tokens, 0, len(d.value)+5)
+			v = append(v,
+				token{kind: tokenIdentifier, v: ".each"},
+				token{kind: tokenParensOpen, v: "("},
+				token{kind: tokenIdentifier, v: d.name},
+				token{kind: tokenComma, v: ","},
+			)
+			v = append(v, d.value...)
+			v = append(v, token{kind: tokenParensClose, v: ")"})
+			directives = append(directives, directive{value: v})
+		}
+	}
+	for _, d := range directives {
 		if d.name == "" {
 			mixins, err := n.evalMixin(d.value, pv)
 			if err != nil {
@@ -1046,7 +1118,7 @@ func (n *node) parse(read func(name string) ([]byte, error), f string) error {
 	}
 	s := string(blob)
 	tt := tokenize(s)
-	i, err := n.consume(f, read, tt)
+	i, err := n.consume(f, read, tt, 0)
 	if err == nil && i != len(tt) {
 		err = errors.New("should consume in full")
 	}
