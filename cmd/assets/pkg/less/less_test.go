@@ -81,6 +81,42 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "matcher multi-line",
+			args: args{
+				read: fakeFS{
+					"in.less": "html\n .btn { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "html .btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "directive value multi-line",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 1px\n 2px; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 1px 2px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "directive name multi-line",
+			args: args{
+				read: fakeFS{
+					"in.less": "#x { .y() { color: red; } } .btn { #x >\n .y(); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "single line comment",
 			args: args{
 				read: fakeFS{
@@ -748,6 +784,44 @@ func TestParseUsing(t *testing.T) {
 			},
 			want:    ".btn { color: red; } .btn { color: green; } .btn { color: blue; }",
 			want1:   []string{"in.less", "one.less", "two.less"},
+			wantErr: false,
+		},
+		{
+			name: "url nested folder no quotes",
+			args: args{
+				read: fakeFS{
+					"in.less":          "@import 'foo/bar/baz.less';",
+					"foo/bar/baz.less": ".btn { background-image: url(img.png); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { background-image: url(foo/bar/img.png); }",
+			want1:   []string{"in.less", "foo/bar/baz.less"},
+			wantErr: false,
+		},
+		{
+			name: "url nested folder with quotes",
+			args: args{
+				read: fakeFS{
+					"in.less":          "@import 'foo/bar/baz.less';",
+					"foo/bar/baz.less": ".btn { background-image: url('img.png'); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { background-image: url('foo/bar/img.png'); }",
+			want1:   []string{"in.less", "foo/bar/baz.less"},
+			wantErr: false,
+		},
+		{
+			name: "url parent folder",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { background-image: url(../../public/img.png); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { background-image: url(../../public/img.png); }",
+			want1:   []string{"in.less"},
 			wantErr: false,
 		},
 		{

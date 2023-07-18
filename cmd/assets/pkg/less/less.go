@@ -56,7 +56,7 @@ type node struct {
 	matcher    tokens
 	when       tokens
 	directives []directive
-	children   [][]node
+	children   []node
 	imports    []string
 	vars       []map[string]tokens
 	paramVars  map[string]tokens
@@ -120,6 +120,39 @@ func trimSpace(s tokens) tokens {
 	return s
 }
 
+func mergeSpace(s tokens) tokens {
+	s = trimSpace(s)
+	double := 0
+	for i := 1; i < len(s); i++ {
+		switch s[i].kind {
+		case space, tokenNewline:
+			switch s[i-1].kind {
+			case space, tokenNewline:
+				double++
+			}
+		}
+	}
+	if double == 0 {
+		return s
+	}
+	out := make(tokens, 0, len(s)-double)
+	out = append(out, s[0])
+
+	for i := 1; i < len(s); i++ {
+		switch s[i].kind {
+		case space, tokenNewline:
+			switch s[i-1].kind {
+			case space, tokenNewline:
+				continue
+			}
+			out = append(out, token{kind: space, v: " "})
+			continue
+		}
+		out = append(out, s[i])
+	}
+	return out
+}
+
 func index(s tokens, k kind) int {
 	for i, t := range s {
 		if t.kind == k {
@@ -147,9 +180,8 @@ func cutToken(s tokens, needle token) (tokens, tokens, bool) {
 
 func (n *node) branchNode() node {
 	return node{
-		vars:     append([]map[string]tokens{{}}, n.vars...),
-		mixins:   append([]map[string][]node{{}}, n.mixins...),
-		children: append([][]node{make([]node, 0)}, n.children...),
+		vars:   append([]map[string]tokens{{}}, n.vars...),
+		mixins: append([]map[string][]node{{}}, n.mixins...),
 	}
 }
 
@@ -212,7 +244,7 @@ doneParsing:
 							j += 1
 							k, err := consumeUntil(tt[j:], tokenSingleQuote, tokenSemi)
 							if err != nil {
-								return int(tt[j].start), err
+								return i, err
 							}
 							next := path.Join(
 								path.Dir(f), tt[j:j+k].String(),
@@ -288,7 +320,7 @@ doneParsing:
 				if err != nil {
 					return j, err
 				}
-				src := tt[j-2 : j]
+				src := mergeSpace(tt[j-2 : j])
 				j, err = expectSeq(tt, j, true, tokenComma, tokenCurlyOpen)
 				if err != nil {
 					return j, err
@@ -317,7 +349,7 @@ doneParsing:
 					name:  "each",
 					value: src,
 				})
-				n.children[0] = append(n.children[0], n1)
+				n.children = append(n.children, n1)
 				i = j
 				continue
 			}
@@ -359,12 +391,12 @@ doneParsing:
 		if t2.kind == tokenSemi {
 			if colon == -1 {
 				n.directives = append(n.directives, directive{
-					value: tt[i : i+j],
+					value: mergeSpace(tt[i : i+j]),
 				})
 			} else {
 				n.directives = append(n.directives, directive{
 					name:  tt[i : i+colon].String(),
-					value: trimSpace(tt[i+colon+1 : i+j]),
+					value: mergeSpace(tt[i+colon+1 : i+j]),
 				})
 			}
 			i += j
@@ -391,7 +423,7 @@ doneParsing:
 				case tokenSemi:
 					if l == 0 {
 						n.directives = append(n.directives, directive{
-							value: trimSpace(tt[i : end+1]),
+							value: mergeSpace(tt[i : end+1]),
 						})
 						i += j + k
 						continue doneParsing
@@ -419,7 +451,10 @@ doneParsing:
 								continue
 							case tokenIdentifier:
 								switch t3.v {
-								case "only", "screen", "and", "print":
+								case "and":
+									end = -1
+									continue
+								case "only", "screen", "print":
 									continue
 								}
 							}
@@ -444,7 +479,7 @@ doneParsing:
 			index(tt[i+1+consumeSpace(tt[i+1:]):], tokenColon) == 1
 		n1 := n.branchNode()
 		n1.matcher, n1.when, _ = cutToken(tt[i:i+j], whenToken)
-		n1.matcher = trimSpace(n1.matcher)
+		n1.matcher = mergeSpace(n1.matcher)
 		n1.when = trimSpace(n1.when)
 		if isVarMixin {
 			n1.matcher = append(
@@ -472,7 +507,7 @@ doneParsing:
 				)
 			}
 		case tokenCurlyOpen:
-			n.children[0] = append(n.children[0], n1)
+			n.children = append(n.children, n1)
 		}
 		if err != nil {
 			return i, err
@@ -798,7 +833,7 @@ func getArgs(s tokens) []tokens {
 	return parts
 }
 
-func (n *node) evalMixin(s tokens, pv []map[string]tokens) ([]node, error) {
+func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node, error) {
 	var args []tokens
 	var name string
 	if j := index(s, tokenParensOpen); j != -1 {
@@ -853,7 +888,7 @@ func (n *node) evalMixin(s tokens, pv []map[string]tokens) ([]node, error) {
 		}
 	}
 	if len(args) == 0 {
-		for _, children := range n.children {
+		for _, children := range cc {
 			for _, m := range children {
 				if m.matcher.String() != name {
 					continue
@@ -911,8 +946,45 @@ func (n *node) evalDirective(s tokens, pv []map[string]tokens) tokens {
 		return removeStringTemplate(s)
 	}
 	s = n.evalVars(s, pv)
+	s = n.evalPaths(s)
 	s = evalStatic(s)
 	return s
+}
+
+func (n *node) evalPaths(s tokens) tokens {
+	if len(s) < 3 {
+		return s
+	}
+	var out tokens
+	start := 0
+	for i := 0; i < len(s)-3; i++ {
+		if s[i].kind != tokenIdentifier || s[i].v != "url" {
+			continue
+		}
+		i++
+		if s[i].kind != tokenParensOpen {
+			continue
+		}
+		i++
+		j := index(s[i:], tokenParensClose)
+		if j == -1 {
+			continue
+		}
+		j += i
+		if s[i].kind == tokenSingleQuote {
+			i++
+			j--
+		}
+		p := path.Join(path.Dir(s[i].f), s[i:j].String())
+		out = append(out, s[start:i]...)
+		out = append(out, token{kind: tokenIdentifier, v: p})
+		start = j
+	}
+	if start == 0 {
+		return s
+	}
+	out = append(out, s[start:]...)
+	return out
 }
 
 func (n *node) evalVars(s tokens, pv []map[string]tokens) tokens {
@@ -1011,15 +1083,18 @@ func (n *node) evalVar(name string, pv []map[string]tokens) tokens {
 	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}
 }
 
-func (n *node) print(w *strings.Builder, pv []map[string]tokens, addSpace bool) (bool, error) {
+func (n *node) print(w *strings.Builder, cc [][]node, pv []map[string]tokens, addSpace bool) (bool, error) {
 	if len(n.directives) == 0 &&
-		len(n.children[0]) == 0 &&
+		len(n.children) == 0 &&
 		!(len(n.matcher) > 0 &&
 			n.matcher[len(n.matcher)-1].kind == tokenPercent) {
 		return addSpace, nil
 	}
 	if n.paramVars != nil {
 		pv = append([]map[string]tokens{n.paramVars}, pv...)
+	}
+	if n.children != nil {
+		cc = append(cc, n.children)
 	}
 	if ok, err := n.evalWhen(pv); err != nil {
 		return false, err
@@ -1038,7 +1113,7 @@ func (n *node) print(w *strings.Builder, pv []map[string]tokens, addSpace bool) 
 	}
 	directives := n.directives
 	if len(n.directives) == 1 && n.directives[0].name == "each" {
-		src, err := n.evalMixin(n.directives[0].value, pv)
+		src, err := n.evalMixin(n.directives[0].value, cc, pv)
 		if err != nil {
 			return false, err
 		}
@@ -1058,12 +1133,12 @@ func (n *node) print(w *strings.Builder, pv []map[string]tokens, addSpace bool) 
 	}
 	for _, d := range directives {
 		if d.name == "" {
-			mixins, err := n.evalMixin(d.value, pv)
+			mixins, err := n.evalMixin(d.value, cc, pv)
 			if err != nil {
 				return false, err
 			}
 			for _, child := range mixins {
-				if addSpace, err = child.print(w, pv, addSpace); err != nil {
+				if addSpace, err = child.print(w, cc, pv, addSpace); err != nil {
 					return false, err
 				}
 			}
@@ -1082,9 +1157,9 @@ func (n *node) print(w *strings.Builder, pv []map[string]tokens, addSpace bool) 
 		n.evalDirective(d.value, pv).WriteString(w)
 		w.WriteString(";")
 	}
-	for _, child := range n.children[0] {
+	for _, child := range n.children {
 		var err error
-		addSpace, err = child.print(w, pv, addSpace)
+		addSpace, err = child.print(w, cc, pv, addSpace)
 		if err != nil {
 			return false, err
 		}
@@ -1102,9 +1177,8 @@ type parser struct {
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		children: [][]node{make([]node, 0)},
-		vars:     []map[string]tokens{{}},
-		mixins:   []map[string][]node{{}},
+		vars:   []map[string]tokens{{}},
+		mixins: []map[string][]node{{}},
 	}
 	return p.root.parse(p.read, f)
 }
@@ -1117,7 +1191,7 @@ func (n *node) parse(read func(name string) ([]byte, error), f string) error {
 		return err
 	}
 	s := string(blob)
-	tt := tokenize(s)
+	tt := tokenize(s, f)
 	i, err := n.consume(f, read, tt, 0)
 	if err == nil && i != len(tt) {
 		err = errors.New("should consume in full")
@@ -1138,7 +1212,7 @@ func (n *node) parse(read func(name string) ([]byte, error), f string) error {
 
 func (n *node) collectImports(c []string) []string {
 	c = append(c, n.imports...)
-	for _, child := range n.children[0] {
+	for _, child := range n.children {
 		c = child.collectImports(c)
 	}
 	return c
@@ -1150,7 +1224,7 @@ func (p *parser) getImports() []string {
 
 func (p *parser) print() (string, error) {
 	w := strings.Builder{}
-	_, err := p.root.print(&w, nil, false)
+	_, err := p.root.print(&w, nil, nil, false)
 	if err != nil {
 		return "", err
 	}
@@ -1182,7 +1256,7 @@ func (n *node) printRaw(w *strings.Builder, indent string) error {
 		d.value.WriteString(w)
 		w.WriteString(";")
 	}
-	for _, child := range n.children[0] {
+	for _, child := range n.children {
 		if err := child.printRaw(w, indent1); err != nil {
 			return err
 		}

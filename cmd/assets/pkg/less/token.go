@@ -69,11 +69,12 @@ const (
 type token struct {
 	kind
 	start int32
+	f     string
 	v     string
 }
 
 func (t token) String() string {
-	return fmt.Sprintf("%s@%d: %q", t.kind, t.start, t.v)
+	return fmt.Sprintf("%s@%s@%d: %q", t.kind, t.f, t.start, t.v)
 }
 
 type tokens []token
@@ -103,7 +104,7 @@ func (tt tokens) WriteString(b *strings.Builder) {
 	}
 }
 
-func tokenize(s string) tokens {
+func tokenize(s, f string) tokens {
 	if len(s) == 0 {
 		return nil
 	}
@@ -209,6 +210,7 @@ func tokenize(s string) tokens {
 			a = append(a, token{
 				kind:  l,
 				start: start,
+				f:     f,
 				v:     s[start:i],
 			})
 			start = int32(i)
@@ -218,6 +220,7 @@ func tokenize(s string) tokens {
 	a = append(a, token{
 		kind:  l,
 		start: start,
+		f:     f,
 		v:     s[start:],
 	})
 	return a
