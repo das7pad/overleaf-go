@@ -117,6 +117,30 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "extend nested",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red() { color: red; } .btn { &:extend(.red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "extend matcher",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red() { color: red; } .btn:extend(.red) { margin: 1px; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; margin: 1px; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "single line comment",
 			args: args{
 				read: fakeFS{
@@ -800,7 +824,7 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "url nested folder with quotes",
+			name: "url nested folder with single quotes",
 			args: args{
 				read: fakeFS{
 					"in.less":          "@import 'foo/bar/baz.less';",
@@ -809,6 +833,19 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { background-image: url('foo/bar/img.png'); }",
+			want1:   []string{"in.less", "foo/bar/baz.less"},
+			wantErr: false,
+		},
+		{
+			name: "url nested folder with double quotes",
+			args: args{
+				read: fakeFS{
+					"in.less":          "@import 'foo/bar/baz.less';",
+					"foo/bar/baz.less": ".btn { background-image: url(\"img.png\"); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { background-image: url(\"foo/bar/img.png\"); }",
 			want1:   []string{"in.less", "foo/bar/baz.less"},
 			wantErr: false,
 		},

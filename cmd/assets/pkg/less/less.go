@@ -310,6 +310,25 @@ doneParsing:
 				}
 			}
 			return i, errors.New("unexpected '@'")
+		case tokenAmp:
+			j, err := expectSeq(tt, i, true, tokenAmp, tokenColon, tokenIdentifier, tokenParensOpen, tokenDot, tokenIdentifier)
+			if err == nil && tt[i+2].v == "extend" {
+				n.directives = append(n.directives, directive{
+					value: tokens{tt[j-2], tt[j-1]},
+				})
+				j += consumeSpace(tt[j:])
+				if len(tt) > j+1 &&
+					tt[j].kind == tokenIdentifier &&
+					tt[j].v == "all" {
+					j++
+				}
+				j, err = expectSeq(tt, j, true, tokenParensClose, tokenSemi)
+				if err != nil {
+					return j, err
+				}
+				i = j
+				continue
+			}
 		case tokenIdentifier:
 			if tt[i].v == "each" &&
 				len(tt) > i &&
@@ -488,6 +507,39 @@ doneParsing:
 				token{kind: tokenParensClose, v: ")"},
 			)
 			t2 = n1.matcher[len(n1.matcher)-2]
+		}
+		if t2.kind == tokenCurlyOpen &&
+			index(n1.matcher, tokenColon) <
+				index(n1.matcher, tokenParensOpen) {
+			colon = index(n1.matcher, tokenColon)
+			c := colon
+			if len(n1.matcher) > c+3 &&
+				n1.matcher[c+1].kind == tokenIdentifier &&
+				n1.matcher[c+1].v == "extend" &&
+				n1.matcher[c+2].kind == tokenParensOpen {
+				c += 3
+				c += consumeSpace(n1.matcher[c:])
+				if len(n1.matcher) > c+2 &&
+					n1.matcher[c].kind == tokenDot &&
+					n1.matcher[c+1].kind == tokenIdentifier {
+					n1.directives = append(n1.directives, directive{
+						value: tokens{n1.matcher[c], n1.matcher[c+1]},
+					})
+					c += 2
+					c += consumeSpace(n1.matcher[c:])
+					if len(n1.matcher) > c+1 &&
+						n1.matcher[c].kind == tokenIdentifier &&
+						n1.matcher[c].v == "all" {
+						c += 1
+						c += consumeSpace(n1.matcher[c:])
+					}
+					if len(n1.matcher) != c+1 ||
+						n1.matcher[c].kind != tokenParensClose {
+						return i, errors.New("unexpected extend, missing )")
+					}
+					n1.matcher = trimSpace(n1.matcher[:colon])
+				}
+			}
 		}
 		var err error
 		j, err = n1.consume(f, read, tt, i+j+1)
@@ -971,7 +1023,7 @@ func (n *node) evalPaths(s tokens) tokens {
 			continue
 		}
 		j += i
-		if s[i].kind == tokenSingleQuote {
+		if s[i].kind == tokenSingleQuote || s[i].kind == tokenDoubleQuote {
 			i++
 			j--
 		}

@@ -57,6 +57,7 @@ const (
 	tokenSingleQuote
 	tokenDoubleQuote
 	tokenTilde
+	tokenAmp
 
 	compGt
 	compGte
@@ -196,6 +197,8 @@ func tokenize(s, f string) tokens {
 			k = tokenTilde
 		case '%':
 			k = tokenPercent
+		case '&':
+			k = tokenAmp
 		case '\'':
 			k = tokenSingleQuote
 		case '"':
