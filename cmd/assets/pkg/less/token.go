@@ -176,6 +176,9 @@ func tokenize(s, f string) tokens {
 		case '\\':
 			k = tokenBackslash
 		case '.':
+			if l == tokenNum {
+				continue
+			}
 			k = tokenDot
 		case '-':
 			if l == tokenIdentifier {

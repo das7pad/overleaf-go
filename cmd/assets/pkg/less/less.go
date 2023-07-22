@@ -1065,6 +1065,8 @@ func removeStringTemplate(s tokens) tokens {
 func evalStatic(s tokens) tokens {
 	s = trimSpace(s)
 	s = evalMath(s)
+	// TODO: propagate error
+	s, _ = evalColor(s)
 	s = removeStringTemplate(s)
 	return s
 }
