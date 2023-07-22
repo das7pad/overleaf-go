@@ -76,7 +76,7 @@ func TestParseUsing(t *testing.T) {
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    "html { color: blue; .btn { color: red; } }",
+			want:    "html { color: blue; } html.btn { color: red; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -153,10 +153,70 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "end comment //",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { color: red; } // end",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "end comment /*",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { color: red; } /* end */",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "escaped comment",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { content: '\\// foo'; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { content: '\\// foo'; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "header comment //",
+			args: args{
+				read: fakeFS{
+					"in.less": "// header\n.btn { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "header comment /*",
+			args: args{
+				read: fakeFS{
+					"in.less": "/* header\n */.btn { color: red; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "multi line comment",
 			args: args{
 				read: fakeFS{
-					"in.less": ".btn { /*\n color: red;\n */ color: blue; }",
+					"in.less": ".btn {/*\n color: red;\n */color: blue; }",
 				}.ReadFile,
 				p: "in.less",
 			},
@@ -618,7 +678,7 @@ func TestParseUsing(t *testing.T) {
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".render { &.red { color: red; } }",
+			want:    ".render.red { color: red; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -630,7 +690,7 @@ func TestParseUsing(t *testing.T) {
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".render { &.p-1-2-3-4 { padding: 1 2 3 4; } }",
+			want:    ".render.p-1-2-3-4 { padding: 1 2 3 4; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -642,7 +702,7 @@ func TestParseUsing(t *testing.T) {
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".render { &.red { color: red; } &.blue { color: blue; } }",
+			want:    ".render.red { color: red; } .render.blue { color: blue; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -722,11 +782,11 @@ func TestParseUsing(t *testing.T) {
 			name: "keyframes",
 			args: args{
 				read: fakeFS{
-					"in.less": "@keyframes foo { 0% {} 50% { background-color: transparent; } 100% {} }",
+					"in.less": "@keyframes foo { 0% { background-color: red; } 50% { background-color: transparent; } 100% {} }",
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    "@keyframes foo { 0% { } 50% { background-color: transparent; } 100% { } }",
+			want:    "@keyframes foo { 0% { background-color: red; } 50% { background-color: transparent; } 100% { } }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},

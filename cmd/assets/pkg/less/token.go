@@ -105,15 +105,45 @@ func (tt tokens) WriteString(b *strings.Builder) {
 	}
 }
 
+func (tt tokens) Eq(other tokens) bool {
+	if len(tt) != len(other) {
+		return false
+	}
+	for i, t := range tt {
+		if t != other[i] {
+			return false
+		}
+	}
+	return true
+}
+
+type matchers []tokens
+
+func (mm matchers) Eq(other []tokens) bool {
+	if len(mm) != len(other) {
+		return false
+	}
+	for i, m := range mm {
+		if !m.Eq(other[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func tokenize(s, f string) tokens {
 	if len(s) == 0 {
 		return nil
 	}
 	var a tokens
 	var start int32
+	var skip int
 	var k, l kind
-	for i, c := range s {
-		switch c {
+	for i := 0; i < len(s); i++ {
+		if skip != 0 {
+			skip = 0
+		}
+		switch s[i] {
 		case ' ':
 			if l == space {
 				continue
@@ -126,6 +156,23 @@ func tokenize(s, f string) tokens {
 			k = tokenNewline
 		case '/':
 			k = tokenSlash
+			if (i == 0 || s[i-1] != '\\') && len(s) > i+1 {
+				if s[i+1] == '/' {
+					skip = strings.IndexRune(s[i+1:], '\n')
+					if skip == -1 {
+						skip = len(s) - i
+					} else {
+						skip += 2
+					}
+				} else if s[i+1] == '*' {
+					skip = strings.Index(s[i+2:], "*/")
+					if skip == -1 {
+						skip = 0
+					} else {
+						skip += 4
+					}
+				}
+			}
 		case '\\':
 			k = tokenBackslash
 		case '.':
@@ -209,7 +256,7 @@ func tokenize(s, f string) tokens {
 			}
 			k = tokenIdentifier
 		}
-		if i > 0 {
+		if start != int32(i) {
 			a = append(a, token{
 				kind:  l,
 				start: start,
@@ -218,13 +265,19 @@ func tokenize(s, f string) tokens {
 			})
 			start = int32(i)
 		}
+		if skip != 0 {
+			i += skip - 1
+			start += int32(skip)
+		}
 		l = k
 	}
-	a = append(a, token{
-		kind:  l,
-		start: start,
-		f:     f,
-		v:     s[start:],
-	})
+	if int(start) < len(s) {
+		a = append(a, token{
+			kind:  l,
+			start: start,
+			f:     f,
+			v:     s[start:],
+		})
+	}
 	return a
 }

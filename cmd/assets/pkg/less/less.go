@@ -197,24 +197,6 @@ doneParsing:
 		case tokenCurlyClose:
 			return i + 1, nil
 		case tokenSlash:
-			if len(tt) > i+1 {
-				t1 := tt[i+1]
-				switch t1.kind {
-				case tokenSlash:
-					j, err := consumeUntil(tt[i+1:], tokenNewline)
-					if err != nil {
-						return i, err
-					}
-					i += j + 1
-				case tokenStar:
-					j, err := consumeUntil(tt[i+1:], tokenStar, tokenSlash)
-					if err != nil {
-						return i, err
-					}
-					i += j + 2
-				}
-				continue
-			}
 			return i, errors.New("unexpected '/'")
 		case tokenAt:
 			if len(tt) > i+2 {
@@ -611,8 +593,84 @@ func isConstant(s tokens) bool {
 	return true
 }
 
-func (n *node) evalMatcher(pv []map[string]tokens) tokens {
-	return n.evalVars(n.matcher, pv)
+func isKeyframes(s tokens) bool {
+	if len(s) == 0 {
+		return false
+	}
+	if len(s) < 3 || s[0].kind != tokenAt || s[1].kind != tokenIdentifier {
+		return false
+	}
+	switch s[1].v {
+	case "keyframes", "-moz-keyframes", "-webkit-keyframes":
+		return true
+	}
+	return false
+}
+
+func shouldNest(prev, s tokens) bool {
+	if len(s) == 0 {
+		return false
+	}
+	if len(s) == 1 {
+		if isKeyframes(prev) &&
+			s[0].kind == tokenIdentifier &&
+			(s[0].v == "from" || s[0].v == "to") {
+			return true
+		}
+		return false
+	}
+	if s[0].kind == tokenAt &&
+		s[1].kind == tokenIdentifier {
+		return true
+	}
+	if isKeyframes(prev) &&
+		s[0].kind == tokenNum &&
+		s[1].kind == tokenPercent {
+		return true
+	}
+	return false
+}
+
+func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (tokens, []tokens) {
+	matcher := n.evalVars(n.matcher, pv)
+	if len(matcher) == 0 {
+		return nil, mm
+	}
+	if shouldNest(p, matcher) {
+		return matcher, mm
+	}
+	if len(mm) == 0 {
+		return nil, []tokens{matcher}
+	}
+	var out []tokens
+	var acc tokens
+	hasAmp := false
+	for _, m := range mm {
+		for i, t := range matcher {
+			switch t.kind {
+			case tokenAmp:
+				hasAmp = true
+				acc = append(acc, m...)
+			case tokenComma:
+			default:
+				acc = append(acc, t)
+			}
+			if len(acc) > 0 && (t.kind == tokenComma || len(matcher) == i+1) {
+				if !hasAmp && len(m) > 0 {
+					buf := make(tokens, 0, len(m)+1+len(acc))
+					buf = append(buf, m...)
+					if acc[0].kind != space && m[len(m)-1].kind != tokenIdentifier {
+						buf = append(buf, token{kind: space, v: " "})
+					}
+					buf = append(buf, acc...)
+					acc = buf
+				}
+				out = append(out, trimSpace(acc))
+				acc = nil
+			}
+		}
+	}
+	return nil, out
 }
 
 func evalMath(s tokens) tokens {
@@ -917,6 +975,9 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 							v = args[i]
 						} else {
 							v = trimSpace(v)
+							if len(v) == 0 {
+								continue nextMixin
+							}
 						}
 						for _, arg := range args {
 							named, namedVal, ok := cut(arg, tokenColon)
@@ -1135,12 +1196,11 @@ func (n *node) evalVar(name string, pv []map[string]tokens) tokens {
 	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}
 }
 
-func (n *node) print(w *strings.Builder, cc [][]node, pv []map[string]tokens, addSpace bool) (bool, error) {
+func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]node, pv []map[string]tokens, addSpace bool) (bool, []tokens, error) {
 	if len(n.directives) == 0 &&
 		len(n.children) == 0 &&
-		!(len(n.matcher) > 0 &&
-			n.matcher[len(n.matcher)-1].kind == tokenPercent) {
-		return addSpace, nil
+		!isKeyframes(p) {
+		return addSpace, opened, nil
 	}
 	if n.paramVars != nil {
 		pv = append([]map[string]tokens{n.paramVars}, pv...)
@@ -1149,25 +1209,29 @@ func (n *node) print(w *strings.Builder, cc [][]node, pv []map[string]tokens, ad
 		cc = append(cc, n.children)
 	}
 	if ok, err := n.evalWhen(pv); err != nil {
-		return false, err
+		return false, opened, err
 	} else if !ok {
-		return addSpace, nil
+		return addSpace, opened, nil
 	}
-	matcher := n.evalMatcher(pv)
-
-	if len(matcher) > 0 {
+	nest, m := n.evalMatcher(pv, p, m)
+	if len(nest) > 0 {
+		if len(opened) > 0 {
+			w.WriteString(" }")
+			opened = nil
+		}
 		if addSpace {
 			w.WriteString(" ")
 		}
 		addSpace = true
-		matcher.WriteString(w)
+		nest.WriteString(w)
 		w.WriteString(" {")
+		p = nest
 	}
 	directives := n.directives
 	if len(n.directives) == 1 && n.directives[0].name == "each" {
 		src, err := n.evalMixin(n.directives[0].value, cc, pv)
 		if err != nil {
-			return false, err
+			return addSpace, opened, err
 		}
 		directives = make([]directive, 0, len(src[0].directives))
 		for _, d := range src[0].directives {
@@ -1187,19 +1251,35 @@ func (n *node) print(w *strings.Builder, cc [][]node, pv []map[string]tokens, ad
 		if d.name == "" {
 			mixins, err := n.evalMixin(d.value, cc, pv)
 			if err != nil {
-				return false, err
+				return addSpace, opened, err
 			}
 			for _, child := range mixins {
-				if addSpace, err = child.print(w, cc, pv, addSpace); err != nil {
-					return false, err
+				if addSpace, opened, err = child.print(w, p, m, opened, cc, pv, addSpace); err != nil {
+					return addSpace, opened, err
 				}
 			}
 			continue
 		}
+		if len(m) > 0 && !opened.Eq(m) {
+			if len(opened) > 0 {
+				w.WriteString(" }")
+			}
+			opened = m
+			if addSpace {
+				w.WriteString(" ")
+			}
+			addSpace = true
+			for i, t := range m {
+				if i > 0 {
+					w.WriteString(",")
+				}
+				t.WriteString(w)
+			}
+			w.WriteString(" {")
+		}
 		if addSpace {
 			w.WriteString(" ")
 		}
-		addSpace = true
 		w.WriteString(d.name)
 		if d.name == "@charset" {
 			w.WriteString(" ")
@@ -1208,18 +1288,23 @@ func (n *node) print(w *strings.Builder, cc [][]node, pv []map[string]tokens, ad
 		}
 		n.evalDirective(d.value, pv).WriteString(w)
 		w.WriteString(";")
+		addSpace = true
 	}
 	for _, child := range n.children {
 		var err error
-		addSpace, err = child.print(w, cc, pv, addSpace)
+		addSpace, opened, err = child.print(w, p, m, opened, cc, pv, addSpace)
 		if err != nil {
-			return false, err
+			return addSpace, opened, err
 		}
 	}
-	if len(matcher) > 0 {
+	if len(nest) > 0 {
+		if len(opened) > 0 {
+			w.WriteString(" }")
+			opened = nil
+		}
 		w.WriteString(" }")
 	}
-	return addSpace, nil
+	return addSpace, opened, nil
 }
 
 type parser struct {
@@ -1276,9 +1361,12 @@ func (p *parser) getImports() []string {
 
 func (p *parser) print() (string, error) {
 	w := strings.Builder{}
-	_, err := p.root.print(&w, nil, nil, false)
+	_, opened, err := p.root.print(&w, nil, nil, nil, nil, nil, false)
 	if err != nil {
 		return "", err
+	}
+	if len(opened) > 0 {
+		w.WriteString(" }")
 	}
 	return strings.TrimLeft(w.String(), " "), nil
 }
