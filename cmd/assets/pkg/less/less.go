@@ -77,20 +77,34 @@ nextStart:
 	return -1, errors.New(fmt.Sprintf("%s not found", needle))
 }
 
-func expectSeq(tt tokens, j int, ignoreSpace bool, needle ...kind) (int, error) {
+func maybeExpectSeq(tt tokens, j int, ignoreSpace bool, needle ...kind) (int, int) {
 	for off, c := range needle {
 		if ignoreSpace {
 			j += consumeSpace(tt[j:])
 		}
 		if len(tt) < j+1 {
-			return j, errors.New(fmt.Sprintf("expected sequence %s, ran out of tokens after %d", needle, j))
+			return j, -1
 		}
 		if got := tt[j].kind; got != c {
-			return j, errors.New(fmt.Sprintf("expected sequence %s, wanted %q as token %d, got %q", needle, c, off, got))
+			return j, off
 		}
 		j++
 	}
-	return j, nil
+	return j, 0
+}
+
+func expectSeq(tt tokens, j int, ignoreSpace bool, needle ...kind) (int, error) {
+	j, r := maybeExpectSeq(tt, j, ignoreSpace, needle...)
+	switch r {
+	case 0:
+		return j, nil
+	case -1:
+		return j, errors.New(fmt.Sprintf("expected sequence %s, ran out of tokens after %d", needle, j))
+	default:
+		c := needle[r]
+		got := tt[j].kind
+		return j, errors.New(fmt.Sprintf("expected sequence %s, wanted %q as token %d, got %q", needle, c, r, got))
+	}
 }
 
 func consumeSpace(s tokens) int {
@@ -293,8 +307,8 @@ doneParsing:
 			}
 			return i, errors.New("unexpected '@'")
 		case tokenAmp:
-			j, err := expectSeq(tt, i, true, tokenAmp, tokenColon, tokenIdentifier, tokenParensOpen, tokenDot, tokenIdentifier)
-			if err == nil && tt[i+2].v == "extend" {
+			j, r := maybeExpectSeq(tt, i, true, tokenAmp, tokenColon, tokenIdentifier, tokenParensOpen, tokenDot, tokenIdentifier)
+			if r == 0 && tt[i+2].v == "extend" {
 				n.directives = append(n.directives, directive{
 					value: tokens{tt[j-2], tt[j-1]},
 				})
@@ -304,6 +318,7 @@ doneParsing:
 					tt[j].v == "all" {
 					j++
 				}
+				var err error
 				j, err = expectSeq(tt, j, true, tokenParensClose, tokenSemi)
 				if err != nil {
 					return j, err
@@ -1113,7 +1128,6 @@ func (n *node) evalVars(s tokens, pv []map[string]tokens) tokens {
 	}
 	s = append(tokens{}, s...)
 	for i := 1; i < len(s); i++ {
-		// TODO: ${@foo} ?
 		if s[i-1].kind == tokenAt && s[i].kind == tokenIdentifier {
 			v := n.evalVar(s[i].v, pv)
 			s[i-1], s[i] = token{}, token{}
