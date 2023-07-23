@@ -100,6 +100,34 @@ func Test_evalColor(t *testing.T) {
 			},
 			want: tokenize("hsl(340,90%,50%)", ""),
 		},
+		{
+			name: "mix",
+			args: args{
+				s: tokenize("mix(#ff0000, #0000ff, 50%)", ""),
+			},
+			want: tokenize("hsl(300,100%,25%)", ""),
+		},
+		{
+			name: "tint",
+			args: args{
+				s: tokenize("tint(#007fff, 50%)", ""),
+			},
+			want: tokenize("hsl(210,100%,75%)", ""),
+		},
+		{
+			name: "shade",
+			args: args{
+				s: tokenize("shade(#007fff, 50%)", ""),
+			},
+			want: tokenize("hsl(210,100%,25%)", ""),
+		},
+		{
+			name: "greyscale",
+			args: args{
+				s: tokenize("greyscale(hsl(90, 90%, 50%))", ""),
+			},
+			want: tokenize("hsl(90,0%,50%)", ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
