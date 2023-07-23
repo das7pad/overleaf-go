@@ -79,12 +79,62 @@ func evalColor(s tokens) (tokens, error) {
 		}
 		var c hslaColor
 		switch params[0][0].kind {
-		// TODO: case tokenHash:
+		case tokenHash:
+			if len(params[0]) == 1 {
+				return nil, errors.New("incomplete hex color")
+			}
+			hex := params[0][1:].String()
+			if !(len(hex) == 3 || len(hex) == 6) {
+				return nil, errors.New("invalid hex color length")
+			}
+			if len(hex) == 3 {
+				hex = string(append(
+					[]byte{}, hex[0], hex[0], hex[1], hex[1], hex[2], hex[2]))
+			}
+			var rgb int64
+			rgb, err = strconv.ParseInt(hex, 16, 64)
+			if err != nil {
+				return nil, fmt.Errorf("bad hex color: %q", err)
+			}
+			c = rgbaColor{
+				r: rgb >> 16,
+				g: (rgb >> 8) & 255,
+				b: rgb & 255,
+				a: 1,
+			}.ToHSLA()
 		case tokenIdentifier:
 			param := params[0]
 			switch param[0].v {
-			// TODO: named colors
-			// TODO: rgb, rgba
+			case "rgb", "rgba":
+				args := getArgs(param[2 : len(param)-1])
+				if len(args) < 3 {
+					return nil, errors.New("too few args for rgba")
+				}
+				rc := rgbaColor{}
+				rc.r, err = strconv.ParseInt(args[0].String(), 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("parse rgba r: %q", err)
+				}
+				rc.g, err = strconv.ParseInt(args[1].String(), 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("parse rgba g: %q", err)
+				}
+				rc.b, err = strconv.ParseInt(args[2].String(), 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("parse rgba b: %q", err)
+				}
+				if param[0].v == "rgba" {
+					if len(args) < 4 {
+						return nil, errors.New("too few args for rgba")
+					}
+					rc.a, err = strconv.ParseFloat(args[3].String(), 64)
+					if err != nil {
+						return nil, fmt.Errorf("parse rgba alpha: %q", err)
+					}
+				} else {
+					rc.a = 1
+				}
+				c = rc.ToHSLA()
 			case "hsl", "hsla":
 				args := getArgs(param[2 : len(param)-1])
 				if len(args) < 3 {
@@ -113,6 +163,7 @@ func evalColor(s tokens) (tokens, error) {
 				} else {
 					c.alpha = 1
 				}
+			case "transparent":
 			default:
 				return s, nil
 			}
@@ -131,10 +182,7 @@ func evalColor(s tokens) (tokens, error) {
 		}
 		switch s[i].v {
 		case "spin":
-			c.hue = (c.hue + x) % 360
-			if c.hue < 0 {
-				c.hue += 360
-			}
+			c.hue = (c.hue + x + 360) % 360
 		case "saturate":
 			c.saturation += x
 			if c.saturation > 100 {
@@ -188,6 +236,40 @@ type hslaColor struct {
 	saturation int64
 	lightness  int64
 	alpha      float64
+}
+
+type rgbaColor struct {
+	r int64
+	g int64
+	b int64
+	a float64
+}
+
+func (c rgbaColor) ToHSLA() hslaColor {
+	r := float64(c.r) / 255
+	g := float64(c.g) / 255
+	b := float64(c.b) / 255
+	min := math.Min(math.Min(r, g), b)
+	max := math.Max(math.Max(r, g), b)
+	d := max - min
+	l := (min + max) / 2
+	h := hslaColor{
+		alpha: c.a,
+	}
+	if d != 0 {
+		switch max {
+		case r:
+			h.hue = int64(math.Round(60*(g-b)/d)) + 0
+		case g:
+			h.hue = int64(math.Round(60*(b-r)/d)) + 120
+		case b:
+			h.hue = int64(math.Round(60*(r-g)/d)) + 240
+		}
+		h.hue = (h.hue + 360) % 360
+		h.saturation = int64(math.Round(100 * d / (1 - math.Abs(2*l-1))))
+	}
+	h.lightness = int64(math.Round(100 * l))
+	return h
 }
 
 func parseAsPercent(s tokens) (int64, error) {

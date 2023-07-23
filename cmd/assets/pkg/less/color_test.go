@@ -31,9 +31,23 @@ func Test_evalColor(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "saturate",
+			name: "saturate hsl",
 			args: args{
 				s: tokenize("saturate(hsl(90, 80%, 50%), 20%)", ""),
+			},
+			want: tokenize("hsl(90,100%,50%)", ""),
+		},
+		{
+			name: "saturate hex",
+			args: args{
+				s: tokenize("saturate(#80e619, 20%)", ""),
+			},
+			want: tokenize("hsl(90,100%,50%)", ""),
+		},
+		{
+			name: "saturate rgb",
+			args: args{
+				s: tokenize("saturate(rgb(128, 230, 25), 20%)", ""),
 			},
 			want: tokenize("hsl(90,100%,50%)", ""),
 		},
