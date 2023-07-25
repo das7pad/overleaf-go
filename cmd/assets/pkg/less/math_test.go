@@ -162,6 +162,146 @@ func Test_evalMath(t *testing.T) {
 			},
 			want: tokenize("4", ""),
 		},
+		{
+			name: "ceil",
+			args: args{
+				s: tokenize("ceil(1.1)", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
+			name: "ceil",
+			args: args{
+				s: tokenize("ceil(1.4)", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
+			name: "floor",
+			args: args{
+				s: tokenize("floor(1.5)", ""),
+			},
+			want: tokenize("1", ""),
+		},
+		{
+			name: "round",
+			args: args{
+				s: tokenize("round(1.5)", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
+			name: "percentage",
+			args: args{
+				s: tokenize("percentage(0.555)", ""),
+			},
+			want: tokenize("56%", ""),
+		},
+		{
+			name: "sqrt",
+			args: args{
+				s: tokenize("sqrt(4)", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
+			name: "abs",
+			args: args{
+				s: tokenize("abs(-1.5)", ""),
+			},
+			want: tokenize("1.5", ""),
+		},
+		{
+			name: "sin",
+			args: args{
+				s: tokenize("sin(1)", ""),
+			},
+			want: tokenize("0.8414709848078965", ""),
+		},
+		{
+			name: "cos",
+			args: args{
+				s: tokenize("cos(1)", ""),
+			},
+			want: tokenize("0.5403023058681398", ""),
+		},
+		{
+			name: "tan",
+			args: args{
+				s: tokenize("tan(1)", ""),
+			},
+			want: tokenize("1.557407724654902", ""),
+		},
+		{
+			name: "asin",
+			args: args{
+				s: tokenize("asin(1)", ""),
+			},
+			want: tokenize("1.5707963267948966", ""),
+		},
+		{
+			name: "acos",
+			args: args{
+				s: tokenize("acos(0.5)", ""),
+			},
+			want: tokenize("1.0471975511965976", ""),
+		},
+		{
+			name: "atan",
+			args: args{
+				s: tokenize("atan(1)", ""),
+			},
+			want: tokenize("0.7853981633974483", ""),
+		},
+		{
+			name: "pow",
+			args: args{
+				s: tokenize("pow(2, 2)", ""),
+			},
+			want: tokenize("4", ""),
+		},
+		{
+			name: "mod",
+			args: args{
+				s: tokenize("mod(7, 3)", ""),
+			},
+			want: tokenize("1", ""),
+		},
+		{
+			name: "mod unit",
+			args: args{
+				s: tokenize("mod(7px, 3)", ""),
+			},
+			want: tokenize("1px", ""),
+		},
+		{
+			name: "min",
+			args: args{
+				s: tokenize("min(3px, 7px, 2.1px)", ""),
+			},
+			want: tokenize("2.1px", ""),
+		},
+		{
+			name: "max",
+			args: args{
+				s: tokenize("max(3px, 7px, 2.1px)", ""),
+			},
+			want: tokenize("7px", ""),
+		},
+		{
+			name: "pi",
+			args: args{
+				s: tokenize("pi()", ""),
+			},
+			want: tokenize("3.141592653589793", ""),
+		},
+		{
+			name: "no unit may be px",
+			args: args{
+				s: tokenize("1 + 2px", ""),
+			},
+			want: tokenize("3px", ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

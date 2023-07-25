@@ -19,6 +19,7 @@ package less
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 )
 
@@ -36,6 +37,104 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 		return i, 0, "", errors.New("num ended unexpectedly with minus")
 	}
 	switch s[i].kind {
+	case tokenIdentifier:
+		if _, err := expectSeq(s, i+1, false, tokenParensOpen); err != nil {
+			return i + 1, 0, "", err
+		}
+		switch s[i].v {
+		case
+			"ceil", "floor", "round",
+			"percentage",
+			"sqrt",
+			"abs",
+			"sin", "cos", "tan", "asin", "acos", "atan":
+		case "pow", "mod":
+			j, args, err := parseArgs(s, i+1)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s args: %s", s[i].v, err)
+			}
+			if len(args) != 2 {
+				return i, 0, "", fmt.Errorf("%s expects two args", s[i].v)
+			}
+			_, a, aUnit, err := parseNum(args[0], 0)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s first arg: %s", s[i].v, err)
+			}
+			_, b, _, err := parseNum(args[1], 0)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s 2nd arg: %s", s[i].v, err)
+			}
+			switch s[i].v {
+			case "pow":
+				return j, math.Pow(a, b), aUnit, nil
+			case "mod":
+				return j, math.Mod(a, b), aUnit, nil
+			}
+		case "min", "max":
+			j, args, err := parseArgs(s, i+1)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s args: %s", s[i].v, err)
+			}
+			if len(args) < 2 {
+				return i, 0, "", fmt.Errorf("%s expects at least two args", s[i].v)
+			}
+			_, a, aUnit, err := parseNum(args[0], 0)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s first arg: %s", s[i].v, err)
+			}
+			for idx, param := range args[1:] {
+				var b float64
+				_, b, _, err = parseNum(param, 0)
+				if err != nil {
+					return i, 0, "", fmt.Errorf("%s arg[%d]: %s", s[i].v, idx, err)
+				}
+				switch s[i].v {
+				case "min":
+					a = math.Min(a, b)
+				case "max":
+					a = math.Max(a, b)
+				}
+			}
+			return j, a, aUnit, nil
+		case "pi":
+			if j, err := expectSeq(s, i+1, true, tokenParensOpen, tokenParensClose); err != nil {
+				return i + 1, 0, "", err
+			} else {
+				return j, math.Pi, "", err
+			}
+		default:
+			return i, 0, "", fmt.Errorf("unexpected name %q", s[i].v)
+		}
+		j, x, u, err := parseNum(s, i+1)
+		if err != nil {
+			return i + 1, 0, "", err
+		}
+		switch s[i].v {
+		case "floor":
+			return j, math.Floor(x), u, nil
+		case "ceil":
+			return j, math.Ceil(x), u, nil
+		case "round":
+			return j, math.Round(x), u, nil
+		case "percentage":
+			return j, math.Round(x * 100), "%", nil
+		case "sqrt":
+			return j, math.Sqrt(x), u, nil
+		case "abs":
+			return j, math.Abs(x), u, nil
+		case "sin":
+			return j, math.Sin(x), u, nil
+		case "cos":
+			return j, math.Cos(x), u, nil
+		case "tan":
+			return j, math.Tan(x), u, nil
+		case "asin":
+			return j, math.Asin(x), u, nil
+		case "acos":
+			return j, math.Acos(x), u, nil
+		case "atan":
+			return j, math.Atan(x), u, nil
+		}
 	case tokenParensOpen:
 		l := 0
 		j := i
@@ -69,7 +168,8 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 		case
 			"px",
 			"em", "rem",
-			"vh", "vw":
+			"vh", "vw",
+			"%":
 			return i + 1, x * sign, s[i].v, nil
 		default:
 			return i, x * sign, "", nil
@@ -102,6 +202,11 @@ func evalMathExpr(s tokens, i int, l kind) (int, float64, string, error) {
 				return j, 0, "", err
 			}
 			unitOK = aUnit == bUnit
+			if !unitOK &&
+				(aUnit == "px" && bUnit == "" || aUnit == "" && bUnit == "px") {
+				aUnit = "px"
+				unitOK = true
+			}
 			a += b
 		case tokenMinus:
 			if l == tokenMinus {
@@ -112,6 +217,11 @@ func evalMathExpr(s tokens, i int, l kind) (int, float64, string, error) {
 				return j, 0, "", err
 			}
 			unitOK = aUnit == bUnit
+			if !unitOK &&
+				(aUnit == "px" && bUnit == "" || aUnit == "" && bUnit == "px") {
+				aUnit = "px"
+				unitOK = true
+			}
 			a -= b
 		case tokenSlash:
 			j, b, bUnit, err = parseNum(s, j)

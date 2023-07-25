@@ -50,29 +50,10 @@ func evalColor(s tokens) (tokens, error) {
 			return nil, err
 		}
 		j--
-		k := j + 1
-		var params []tokens
-		l := 0
-		for ; j < len(s); j++ {
-			switch s[j].kind {
-			case tokenParensOpen:
-				l++
-			case tokenParensClose:
-				l--
-			case tokenComma:
-				if l == 1 {
-					params = append(params, trimSpace(s[k:j]))
-					k = j + 1
-				}
-			}
-			if l == 0 {
-				break
-			}
+		j, params, err := parseArgs(s, j)
+		if err != nil {
+			return nil, err
 		}
-		if l > 0 {
-			return nil, errors.New("expected closing ) after color fn")
-		}
-		params = append(params, trimSpace(s[k:j]))
 		for idx, param := range params {
 			params[idx], err = evalColor(param)
 			if err != nil {
@@ -98,7 +79,7 @@ func evalColor(s tokens) (tokens, error) {
 			x, err = parseAsPercent(params[1])
 		}
 		if err != nil {
-			return nil, fmt.Errorf("parse 2nd param: %q", err)
+			return nil, fmt.Errorf("parse 2nd param: %s", err)
 		}
 		switch s[i].v {
 		case "spin":
@@ -271,7 +252,7 @@ func parseColor(s tokens) (hslaColor, error) {
 		}
 		rgb, err := strconv.ParseInt(hex, 16, 64)
 		if err != nil {
-			return c, fmt.Errorf("bad hex color: %q", err)
+			return c, fmt.Errorf("bad hex color: %s", err)
 		}
 		c = rgbaColor{
 			r: rgb >> 16,
@@ -284,23 +265,22 @@ func parseColor(s tokens) (hslaColor, error) {
 		param := s
 		switch param[0].v {
 		case "rgb", "rgba":
-			args := getArgs(param[2 : len(param)-1])
+			_, args, err := parseArgs(param[1:], 0)
 			if len(args) < 3 {
 				return c, fmt.Errorf("too few args for rgba: %q", args)
 			}
 			rc := rgbaColor{}
-			var err error
 			rc.r, err = strconv.ParseInt(args[0].String(), 10, 64)
 			if err != nil {
-				return c, fmt.Errorf("parse rgba r: %q", err)
+				return c, fmt.Errorf("parse rgba r: %s", err)
 			}
 			rc.g, err = strconv.ParseInt(args[1].String(), 10, 64)
 			if err != nil {
-				return c, fmt.Errorf("parse rgba g: %q", err)
+				return c, fmt.Errorf("parse rgba g: %s", err)
 			}
 			rc.b, err = strconv.ParseInt(args[2].String(), 10, 64)
 			if err != nil {
-				return c, fmt.Errorf("parse rgba b: %q", err)
+				return c, fmt.Errorf("parse rgba b: %s", err)
 			}
 			if param[0].v == "rgba" {
 				if len(args) < 4 {
@@ -308,29 +288,28 @@ func parseColor(s tokens) (hslaColor, error) {
 				}
 				rc.a, err = strconv.ParseFloat(args[3].String(), 64)
 				if err != nil {
-					return c, fmt.Errorf("parse rgba alpha: %q", err)
+					return c, fmt.Errorf("parse rgba alpha: %s", err)
 				}
 			} else {
 				rc.a = 1
 			}
 			c = rc.ToHSLA()
 		case "hsl", "hsla":
-			args := getArgs(param[2 : len(param)-1])
+			_, args, err := parseArgs(param[1:], 0)
 			if len(args) < 3 {
 				return c, fmt.Errorf("too few args for hsla: %q", args)
 			}
-			var err error
 			c.hue, err = strconv.ParseInt(args[0].String(), 10, 64)
 			if err != nil {
-				return c, fmt.Errorf("parse hsla hue: %q", err)
+				return c, fmt.Errorf("parse hsla hue: %s", err)
 			}
 			c.saturation, err = parseAsPercent(args[1])
 			if err != nil {
-				return c, fmt.Errorf("parse hsla saturation: %q", err)
+				return c, fmt.Errorf("parse hsla saturation: %s", err)
 			}
 			c.lightness, err = parseAsPercent(args[2])
 			if err != nil {
-				return c, fmt.Errorf("parse hsla lightness: %q", err)
+				return c, fmt.Errorf("parse hsla lightness: %s", err)
 			}
 			if param[0].v == "hsla" {
 				if len(args) < 4 {
@@ -338,7 +317,7 @@ func parseColor(s tokens) (hslaColor, error) {
 				}
 				c.alpha, err = strconv.ParseFloat(args[3].String(), 64)
 				if err != nil {
-					return c, fmt.Errorf("parse hsla alpha: %q", err)
+					return c, fmt.Errorf("parse hsla alpha: %s", err)
 				}
 			} else {
 				c.alpha = 1

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 )
 
@@ -192,6 +191,95 @@ func cutToken(s tokens, needle token) (tokens, tokens, bool) {
 	return s, nil, false
 }
 
+func parseComp(s tokens, i int) (int, kind, error) {
+	i += consumeSpace(s[i:])
+	if len(s) < i+1 {
+		return 0, 0, errors.New("missing comparator")
+	}
+	var c kind
+	switch s[i].kind {
+	case tokenEq:
+		c = compEq
+	case tokenExclamation:
+		c = tokenExclamation
+	case tokenLt:
+		c = compLt
+	case tokenGt:
+		c = compGt
+	default:
+		return i, 0, fmt.Errorf("wanted comp, got %s", s[i])
+	}
+	i++
+	if len(s) == i || s[i].kind == space {
+		if c == tokenExclamation {
+			return i, 0, errors.New("solo ! comp")
+		}
+		return i, c, nil
+	}
+
+	switch s[i].kind {
+	case tokenEq:
+		switch c {
+		case compLt:
+			c = compLte
+		case compGt:
+			c = compGte
+		case tokenExclamation:
+			c = compNEq
+		default:
+			return i, 0, fmt.Errorf("comp %s followed by = comp", c)
+		}
+	case tokenLt:
+		if c == compEq {
+			c = compLte
+		} else {
+			return i, 0, fmt.Errorf("comp %s followed by < comp", c)
+		}
+	case tokenGt:
+		if c == compEq {
+			c = compGte
+		} else {
+			return i, 0, fmt.Errorf("comp %s followed by < comp", c)
+		}
+	default:
+		if c == tokenExclamation {
+			return i, 0, fmt.Errorf("token %s after ! comp", s[i])
+		}
+		return i, c, nil
+	}
+	return i + 1, c, nil
+}
+
+func compare[T float64 | string](a T, c kind, b T) bool {
+	switch c {
+	case compEq:
+		if a != b {
+			return false
+		}
+	case compNEq:
+		if a == b {
+			return false
+		}
+	case compLt:
+		if a >= b {
+			return false
+		}
+	case compGt:
+		if a <= b {
+			return false
+		}
+	case compLte:
+		if a > b {
+			return false
+		}
+	case compGte:
+		if a < b {
+			return false
+		}
+	}
+	return true
+}
+
 func (n *node) branchNode() node {
 	return node{
 		vars:   append([]map[string]tokens{{}}, n.vars...),
@@ -354,11 +442,13 @@ doneParsing:
 				}
 
 				n2.matcher = tokens{
+					{kind: tokenParensOpen, v: "("},
 					{kind: tokenAt, v: "@"},
 					{kind: tokenIdentifier, v: "key"},
 					{kind: tokenComma, v: ","},
 					{kind: tokenAt, v: "@"},
 					{kind: tokenIdentifier, v: "value"},
+					{kind: tokenParensClose, v: ")"},
 				}
 				n1.mixins[0][".each"] = []node{n2}
 				n1.directives = append(n1.directives, directive{
@@ -542,12 +632,12 @@ doneParsing:
 		j, err = n1.consume(f, read, tt, i+j+1)
 		switch t2.kind {
 		case tokenParensOpen:
-			nameRaw, args, _ := cut(n1.matcher, tokenParensOpen)
-			if len(args) == 0 {
+			argsStart := index(n1.matcher, tokenParensOpen)
+			if argsStart == -1 {
 				return i, errors.New("expected args")
 			}
-			n1.matcher = args[:len(args)-1]
-			name := trimSpace(nameRaw).String()
+			name := trimSpace(n1.matcher[:argsStart]).String()
+			n1.matcher = n1.matcher[argsStart:]
 			n.mixins[0][name] = append(n.mixins[0][name], n1)
 			if len(n.matcher) > 0 && n.matcher[0].kind == tokenHash {
 				chain := n.matcher.String() + " > " + name
@@ -701,104 +791,66 @@ func (n *node) evalWhen(pv []map[string]tokens) (bool, error) {
 		s = s[1:]
 		s = s[consumeSpace(s):]
 
-		if len(s) == 0 || !(s[0].kind == tokenNum || s[0].kind == tokenIdentifier) {
+		if len(s) == 0 {
 			return false, errors.New("incomplete when, wanted a=num/identifier")
 		}
-		a := s[0]
-		s = s[1:]
-		s = s[consumeSpace(s):]
+		if s[0].kind == tokenIdentifier {
+			a := s[0]
+			s = s[1:]
+			s = s[consumeSpace(s):]
 
-		if len(s) < 2 {
-			return false, errors.New("incomplete when, missing comp or b")
-		}
+			i, c, err := parseComp(s, 0)
+			if err != nil {
+				return false, fmt.Errorf("unexpected when comp: %s", err)
+			}
+			s = s[i:]
+			s = s[consumeSpace(s):]
 
-		var c kind
-		switch s[0].kind {
-		case tokenEq:
-			c = compEq
-		case tokenExclamation:
-			c = tokenExclamation
-		case tokenLt:
-			c = compLt
-		case tokenGt:
-			c = compGt
-		default:
-			return false, errors.New("incomplete when, wanted comp")
-		}
-		s = s[1:]
+			if len(s) == 0 || s[0].kind != tokenIdentifier {
+				return false, errors.New("incomplete when, wanted identifier")
+			}
+			b := s[0]
+			s = s[1:]
+			s = s[consumeSpace(s):]
 
-		switch s[0].kind {
-		case tokenEq:
-			switch c {
-			case compLt:
-				c = compLte
-			case compGt:
-				c = compGte
-			case tokenExclamation:
-				c = compNEq
-			default:
-				return false, errors.New("incomplete when, bad eq comp")
+			if len(s) == 0 || s[0].kind != tokenParensClose {
+				return false, errors.New("incomplete when, wanted )")
 			}
 			s = s[1:]
-		case tokenLt:
-			if c == compEq {
-				c = compLte
-			} else {
-				return false, errors.New("incomplete when, bad lt comp")
+			s = s[consumeSpace(s):]
+
+			if !compare(a.v, c, b.v) {
+				return false, nil
+			}
+		} else {
+			i, a, _, err := parseNum(s, 0)
+			if err != nil {
+				return false, fmt.Errorf("incomplete when, wanted a=num: %s", err)
+			}
+			s = s[i:]
+			s = s[consumeSpace(s):]
+
+			i, c, err := parseComp(s, 0)
+			if err != nil {
+				return false, fmt.Errorf("unexpected when comp: %s", err)
+			}
+			s = s[i:]
+			s = s[consumeSpace(s):]
+
+			i, b, _, err := parseNum(s, 0)
+			if err != nil {
+				return false, fmt.Errorf("incomplete when, wanted b=num: %s", err)
+			}
+			s = s[i:]
+			s = s[consumeSpace(s):]
+
+			if len(s) == 0 || s[0].kind != tokenParensClose {
+				return false, errors.New("incomplete when, wanted )")
 			}
 			s = s[1:]
-		case tokenGt:
-			if c == compEq {
-				c = compGte
-			} else {
-				return false, errors.New("incomplete when, bad gt comp")
-			}
-			s = s[1:]
-		default:
-			if c == tokenExclamation {
-				return false, errors.New("incomplete when, bad ! comp")
-			}
-		}
-		s = s[consumeSpace(s):]
+			s = s[consumeSpace(s):]
 
-		if len(s) == 0 || !(s[0].kind == tokenNum || s[0].kind == tokenIdentifier) {
-			return false, errors.New("incomplete when, wanted b=num/identifier")
-		}
-		b := s[0]
-		s = s[1:]
-		s = s[consumeSpace(s):]
-
-		if len(s) == 0 || s[0].kind != tokenParensClose {
-			return false, errors.New("incomplete when, wanted )")
-		}
-		s = s[1:]
-		s = s[consumeSpace(s):]
-
-		aInt, _ := strconv.ParseInt(a.v, 10, 64)
-		bInt, _ := strconv.ParseInt(b.v, 10, 64)
-		switch c {
-		case compEq:
-			if a.v != b.v {
-				return false, nil
-			}
-		case compNEq:
-			if a.v == b.v {
-				return false, nil
-			}
-		case compLt:
-			if aInt >= bInt {
-				return false, nil
-			}
-		case compGt:
-			if aInt <= bInt {
-				return false, nil
-			}
-		case compLte:
-			if aInt > bInt {
-				return false, nil
-			}
-		case compGte:
-			if aInt < bInt {
+			if !compare(a, c, b) {
 				return false, nil
 			}
 		}
@@ -811,13 +863,24 @@ func (n *node) evalWhen(pv []map[string]tokens) (bool, error) {
 	return true, nil
 }
 
-func getArgs(s tokens) []tokens {
-	parts := make([]tokens, 0)
+func parseArgs(s tokens, i int) (int, []tokens, error) {
+	return parseParams(s, i, false)
+}
+
+func parseParams(s tokens, i int, semiOK bool) (int, []tokens, error) {
+	if len(s) < i+2 || s[i].kind != tokenParensOpen {
+		return i, nil, errors.New("expected args start")
+	}
+	args := make([]tokens, 0)
 	parensLevel := 0
 	stringLevel := 0
-	start := 0
-	for i, r := range s {
-		switch r.kind {
+	start := i + 1
+	j := i
+	for ; j < len(s); j++ {
+		if stringLevel != 0 && s[j].kind != tokenSingleQuote {
+			continue
+		}
+		switch s[j].kind {
 		case tokenParensOpen:
 			parensLevel++
 		case tokenParensClose:
@@ -829,17 +892,26 @@ func getArgs(s tokens) []tokens {
 				stringLevel = 0
 			}
 		case tokenComma, tokenSemi:
-			if parensLevel == 0 && stringLevel == 0 {
-				parts = append(parts, trimSpace(s[start:i]))
-				start = i + 1
+			if !semiOK && s[j].kind == tokenSemi {
+				continue
+			}
+			if parensLevel == 1 {
+				args = append(args, trimSpace(s[start:j]))
+				start = j + 1
 			}
 		}
+		if parensLevel == 0 {
+			break
+		}
 	}
-	last := trimSpace(s[start:])
+	if parensLevel > 0 {
+		return i, nil, errors.New("expected closing ) after fn")
+	}
+	last := trimSpace(s[start:j])
 	if len(last) > 0 {
-		parts = append(parts, last)
+		args = append(args, last)
 	}
-	return parts
+	return j + 1, args, nil
 }
 
 func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node, error) {
@@ -850,7 +922,11 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 			return nil, errors.New("expected mixin invocation to end in )")
 		}
 		name = s[:j].String()
-		args = getArgs(s[j+1 : len(s)-1])
+		var err error
+		_, args, err = parseParams(s, j, true)
+		if err != nil {
+			return nil, fmt.Errorf("mixin invocation %q args: %s", name, err)
+		}
 	} else {
 		name = s.String()
 	}
@@ -863,8 +939,11 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 	nextMixin:
 		for _, m := range mixins[name] {
 			n1 := m
-			params := getArgs(n1.matcher)
-			if len(params) > 0 {
+			if len(n1.matcher) > 0 {
+				_, params, err := parseParams(n1.matcher, 0, true)
+				if err != nil {
+					return nil, fmt.Errorf("mixin %q args: %s", name, err)
+				}
 				vars := make(map[string]tokens, len(params))
 				for i, param := range params {
 					if param[0].kind == tokenAt {
