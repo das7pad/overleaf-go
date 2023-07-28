@@ -163,14 +163,14 @@ func (m *manager) runSyncTex(ctx context.Context, run commandRunner.NamespacedRu
 	}
 	defer files.Cleanup(compileDir)
 
-	cmd := &types.CommandOptions{
+	cmd := types.CommandOptions{
 		CommandLine:        request.CommandLine(),
 		ImageName:          syncTexOptions.ImageName,
 		ComputeTimeout:     timeout,
 		CompileGroup:       syncTexOptions.CompileGroup,
 		CommandOutputFiles: *files,
 	}
-	code, err := run(ctx, cmd)
+	code, err := run(ctx, &cmd)
 	if err != nil {
 		return nil, err
 	}

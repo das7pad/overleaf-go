@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -37,7 +37,7 @@ func (c *pendingOperationWithCancel) Cancel() {
 func TrackOperationWithCancel(ctx context.Context, fn func(ctx context.Context) error) WithCancel {
 	compileCtx, cancel := context.WithCancel(ctx)
 	p, setErr := newPendingOperation()
-	pending := &pendingOperationWithCancel{
+	pending := pendingOperationWithCancel{
 		PendingOperation: p,
 		cancel:           cancel,
 	}
@@ -45,5 +45,5 @@ func TrackOperationWithCancel(ctx context.Context, fn func(ctx context.Context) 
 		defer cancel()
 		setErr(fn(compileCtx))
 	}()
-	return pending
+	return &pending
 }

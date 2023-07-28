@@ -234,7 +234,7 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	}
 	rpc.Client.MarkAsJoined(rpc.Request.DocId)
 
-	body := &types.JoinDocResponse{
+	body := types.JoinDocResponse{
 		Snapshot: sharedTypes.Snapshot(r.Snapshot),
 		Version:  r.Version,
 		Updates:  r.Ops,

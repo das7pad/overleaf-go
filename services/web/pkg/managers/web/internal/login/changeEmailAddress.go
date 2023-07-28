@@ -61,7 +61,7 @@ func (m *manager) ChangeEmailAddress(ctx context.Context, r *types.ChangeEmailAd
 		newEmail,
 	)
 
-	mergedErr := &errors.MergedError{}
+	mergedErr := errors.MergedError{}
 	{
 		uOld := r.Session.User.ToPublicUserInfo()
 		uOld.Email = oldEmail

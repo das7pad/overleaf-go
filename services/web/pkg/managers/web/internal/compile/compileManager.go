@@ -227,7 +227,7 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 			return errors.Tag(err, "get docs from redis")
 		}
 
-		clsiRequest := &clsiTypes.CompileRequest{
+		clsiRequest := clsiTypes.CompileRequest{
 			Options: clsiTypes.CompileOptions{
 				Check:        request.CheckMode,
 				Compiler:     request.Compiler,
@@ -250,12 +250,12 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 		}
 		if m.bundle != nil {
 			err = m.bundle.Compile(
-				ctx, request.ProjectId, request.UserId, clsiRequest,
+				ctx, request.ProjectId, request.UserId, &clsiRequest,
 				&response.CompileResponse,
 			)
 		} else {
 			err = m.doCompile(
-				ctx, request, clsiServerId, clsiRequest, response,
+				ctx, request, clsiServerId, &clsiRequest, response,
 			)
 			clsiServerId = response.ClsiServerId
 		}
@@ -388,10 +388,10 @@ func (m *manager) doCompile(ctx context.Context, request *types.CompileProjectRe
 
 	switch res.StatusCode {
 	case http.StatusOK:
-		responseBody := &compileResponseBody{
+		responseBody := compileResponseBody{
 			Response: &response.CompileResponse,
 		}
-		err = json.NewDecoder(res.Body).Decode(responseBody)
+		err = json.NewDecoder(res.Body).Decode(&responseBody)
 		if err != nil {
 			return err
 		}

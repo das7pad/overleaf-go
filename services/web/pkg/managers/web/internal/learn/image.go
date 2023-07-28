@@ -56,7 +56,7 @@ func (m *manager) fillImageCache() error {
 func (m *manager) sweepImageCache() error {
 	m.imageMux.Lock()
 	defer m.imageMux.Unlock()
-	mergedErr := &errors.MergedError{}
+	mergedErr := errors.MergedError{}
 	now := time.Now()
 	for p, validUntil := range m.imageCache {
 		if validUntil.Before(now) {

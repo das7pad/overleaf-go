@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -54,15 +54,15 @@ type checkResponseBody struct {
 }
 
 func (h *httpController) check(c *httpUtils.Context) {
-	requestBody := &checkRequestBody{}
-	if !httpUtils.MustParseJSON(requestBody, c) {
+	request := &checkRequestBody{}
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 	misspellings, err := h.sm.CheckWords(
 		c,
-		requestBody.Language,
-		requestBody.Words,
+		request.Language,
+		request.Words,
 	)
-	responseBody := checkResponseBody{Misspellings: misspellings}
-	httpUtils.Respond(c, http.StatusOK, responseBody, err)
+	response := checkResponseBody{Misspellings: misspellings}
+	httpUtils.Respond(c, http.StatusOK, response, err)
 }

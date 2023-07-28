@@ -55,7 +55,7 @@ func (m *manager) NewForPasswordReset(ctx context.Context, userId sharedTypes.UU
 }
 
 func (m *manager) newToken(ctx context.Context, userId sharedTypes.UUID, email sharedTypes.Email, use string, expiresIn time.Duration) (OneTimeToken, error) {
-	allErrors := &errors.MergedError{}
+	allErrors := errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		token, err := GenerateNewToken()
 		if err != nil {
@@ -87,7 +87,7 @@ WHERE u.id = $1
 		}
 		return token, nil
 	}
-	return "", errors.Tag(allErrors, "bad random source")
+	return "", errors.Tag(allErrors.Finalize(), "bad random source")
 }
 
 func (m *manager) ResolveAndExpireEmailConfirmationToken(ctx context.Context, token OneTimeToken) error {

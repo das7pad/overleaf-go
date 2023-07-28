@@ -49,7 +49,7 @@ type manager struct {
 }
 
 func (m *manager) Create(ctx context.Context, pi *WithToken) error {
-	allErrors := &errors.MergedError{}
+	allErrors := errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		{
 			token, err := generateNewToken()

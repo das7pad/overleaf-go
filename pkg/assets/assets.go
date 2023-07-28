@@ -64,7 +64,7 @@ func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
 		baseURL.Host = ""
 		baseURL.OmitHost = true
 	}
-	m := &manager{
+	m := manager{
 		baseURL:          baseURL,
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
@@ -73,11 +73,11 @@ func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
 		return nil, err
 	}
 	if options.WatchManifest {
-		wm := &watchingManager{manager: m}
+		wm := watchingManager{manager: &m}
 		go wm.watch(options.CDNURL)
-		return wm, nil
+		return &wm, nil
 	}
-	return m, nil
+	return &m, nil
 }
 
 type manager struct {

@@ -82,7 +82,7 @@ type batchGeneration struct {
 }
 
 func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
-	m := &manager{
+	m := manager{
 		client:     client,
 		base:       baseChannel,
 		subQueue:   make(chan batchGeneration, 1),
@@ -90,7 +90,7 @@ func New(client redis.UniversalClient, baseChannel BaseChannel) Manager {
 	}
 	m.subQueue <- newBatchGeneration()
 	m.unSubQueue <- newBatchGeneration()
-	return m
+	return &m
 }
 
 func NewWriter(client redis.UniversalClient, baseChannel BaseChannel) Writer {

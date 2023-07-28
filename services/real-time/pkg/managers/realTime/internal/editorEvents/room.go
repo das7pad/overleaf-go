@@ -27,7 +27,7 @@ import (
 
 func newRoom() *room {
 	c := make(chan roomQueueEntry, 20)
-	r := &room{c: c}
+	r := room{c: c}
 	r.clients.Store(noClients)
 	go func() {
 		for entry := range c {
@@ -46,7 +46,7 @@ func newRoom() *room {
 			r.Handle(entry.msg)
 		}
 	}()
-	return r
+	return &r
 }
 
 type roomQueueEntry struct {

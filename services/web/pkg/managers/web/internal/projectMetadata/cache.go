@@ -46,11 +46,11 @@ func (m *manager) getCacheEntry(ctx context.Context, projectId sharedTypes.UUID)
 	if err != nil {
 		return nil, err
 	}
-	entry := &cacheEntry{}
-	if err = json.Unmarshal(raw, entry); err != nil {
+	entry := cacheEntry{}
+	if err = json.Unmarshal(raw, &entry); err != nil {
 		return nil, err
 	}
-	return entry, nil
+	return &entry, nil
 }
 
 func (m *manager) setCacheEntry(ctx context.Context, projectId sharedTypes.UUID, entry cacheEntry) error {

@@ -113,7 +113,6 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			}
 		}
 	}()
-	t := &p.RootFolder
 	rootDocPath := request.RootDocPath
 	{
 		// Prepare tree
@@ -127,7 +126,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			path := file.Path()
 			dir := path.Dir()
 			name := path.Filename()
-			parent, errConflict := t.CreateParents(dir)
+			parent, errConflict := p.RootFolder.CreateParents(dir)
 			if errConflict != nil {
 				return errConflict
 			}
@@ -205,14 +204,14 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	}
 	{
 		// Populate ids
-		b, err := sharedTypes.GenerateUUIDBulk(t.CountNodes())
+		b, err := sharedTypes.GenerateUUIDBulk(p.RootFolder.CountNodes())
 		if err != nil {
 			return err
 		}
-		t.PopulateIds(b)
+		p.RootFolder.PopulateIds(b)
 
 		if rootDocPath != "" {
-			parent, _ := t.CreateParents(rootDocPath.Dir())
+			parent, _ := p.RootFolder.CreateParents(rootDocPath.Dir())
 			p.RootDoc.Doc.Id = parent.GetDoc(rootDocPath.Filename()).Id
 		}
 	}

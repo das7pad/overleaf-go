@@ -37,13 +37,13 @@ func (m *manager) CreateExampleProject(ctx context.Context, request *types.Creat
 	if errUnknownTemplate != nil {
 		return errUnknownTemplate
 	}
-	viewData := &exampleProjects.ViewData{
+	viewData := exampleProjects.ViewData{
 		ProjectCreationDate: time.Now(),
 		ProjectName:         request.Name,
 		Owner:               request.Session.User.ToPublicUserInfo(),
 	}
 
-	files, err := exampleProject.Render(viewData)
+	files, err := exampleProject.Render(&viewData)
 	if err != nil {
 		return errors.Tag(err, "render template")
 	}

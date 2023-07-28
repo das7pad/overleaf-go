@@ -36,12 +36,12 @@ func (m *manager) notifyDisconnected(ctx context.Context, client *types.Client) 
 	if err != nil {
 		return errors.Tag(err, "serialize public id")
 	}
-	msg := &sharedTypes.EditorEventsMessage{
+	msg := sharedTypes.EditorEventsMessage{
 		RoomId:  client.ProjectId,
 		Message: ClientDisconnected,
 		Payload: body,
 	}
-	if err = m.c.Publish(ctx, msg); err != nil {
+	if err = m.c.Publish(ctx, &msg); err != nil {
 		return errors.Tag(err, "send notification for client disconnect")
 	}
 	return nil
@@ -55,13 +55,13 @@ func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p typ
 	if err != nil {
 		return errors.Tag(err, "encode notification")
 	}
-	msg := &sharedTypes.EditorEventsMessage{
+	msg := sharedTypes.EditorEventsMessage{
 		Source:  client.PublicId,
 		RoomId:  client.ProjectId,
 		Message: ClientUpdated,
 		Payload: body,
 	}
-	if err = m.c.Publish(ctx, msg); err != nil {
+	if err = m.c.Publish(ctx, &msg); err != nil {
 		return errors.Tag(err, "send notification for client updated")
 	}
 	return nil
@@ -75,13 +75,13 @@ func (m *manager) notifyConnected(ctx context.Context, client *types.Client) err
 	if err != nil {
 		return errors.Tag(err, "serialize connected client")
 	}
-	msg := &sharedTypes.EditorEventsMessage{
+	msg := sharedTypes.EditorEventsMessage{
 		Source:  client.PublicId,
 		RoomId:  client.ProjectId,
 		Message: ClientConnected,
 		Payload: body,
 	}
-	if err = m.c.Publish(ctx, msg); err != nil {
+	if err = m.c.Publish(ctx, &msg); err != nil {
 		return errors.Tag(err, "send notification for client connected")
 	}
 	return nil

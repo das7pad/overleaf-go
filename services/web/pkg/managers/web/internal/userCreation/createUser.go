@@ -41,7 +41,7 @@ func (m *manager) createUser(ctx context.Context, u *user.ForCreation, pw types.
 	}
 	u.HashedPassword = hashedPw
 
-	allErrors := &errors.MergedError{}
+	allErrors := errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		u.OneTimeToken, err = oneTimeToken.GenerateNewToken()
 		if err != nil {

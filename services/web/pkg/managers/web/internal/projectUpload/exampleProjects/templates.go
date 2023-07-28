@@ -73,7 +73,7 @@ func init() {
 						size:     int64(len(blob)),
 					})
 				} else {
-					f := &binaryFile{
+					f := binaryFile{
 						path: path,
 						blob: blob,
 					}
@@ -83,7 +83,7 @@ func init() {
 						panic(errors.Tag(err, "hash: "+pathInFS))
 					}
 					f.hash = hash
-					binaryFiles = append(binaryFiles, f)
+					binaryFiles = append(binaryFiles, &f)
 				}
 				return nil
 			},

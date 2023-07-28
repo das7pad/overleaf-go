@@ -62,8 +62,8 @@ type compileResponseBody struct {
 }
 
 func (h *httpController) compile(c *httpUtils.Context) {
-	requestBody := &compileRequestBody{}
-	if !httpUtils.MustParseJSON(requestBody, c) {
+	request := &compileRequestBody{}
+	if !httpUtils.MustParseJSON(request, c) {
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *httpController) compile(c *httpUtils.Context) {
 		c,
 		httpUtils.GetId(c, "projectId"),
 		httpUtils.GetId(c, "userId"),
-		&requestBody.Request,
+		&request.Request,
 		&response,
 	)
 	if err != nil {

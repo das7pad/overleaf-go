@@ -48,11 +48,11 @@ var templates map[string]*template.Template
 var resourceHints assets.ResourceHintsManager
 
 func render(p string, estimate int, data Renderer) ([]byte, string, error) {
-	buffer := &bytes.Buffer{}
+	buffer := bytes.Buffer{}
 	buffer.Grow(estimate)
 	resourceHints.RenderingStart()
 	defer resourceHints.RenderingEnd()
-	if err := templates[p].Execute(buffer, data); err != nil {
+	if err := templates[p].Execute(&buffer, data); err != nil {
 		return nil, "", errors.Tag(err, "render "+p)
 	}
 	return buffer.Bytes(), data.ResourceHints(), nil

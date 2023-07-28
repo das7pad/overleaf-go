@@ -326,7 +326,7 @@ func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Nam
 
 func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) error {
 	timeout := 4242 * time.Millisecond
-	options := &types.CommandOptions{
+	options := types.CommandOptions{
 		CommandLine:        types.CommandLine{"true"},
 		CommandOutputFiles: types.CommandOutputFiles{},
 		Environment:        types.Environment{},
@@ -334,7 +334,7 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) erro
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	code, err := a.request(ctx, namespace, options)
+	code, err := a.request(ctx, namespace, &options)
 	if err != nil {
 		return err
 	}

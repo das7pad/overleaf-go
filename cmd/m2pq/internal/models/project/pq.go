@@ -133,7 +133,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 		do = m
 	}
 
-	eg := &errgroup.Group{}
+	eg := errgroup.Group{}
 	defer func() {
 		// Ensure no clobbering of concurrent retries.
 		_ = eg.Wait()
@@ -141,7 +141,6 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 	copyQueueClosed := false
 	copyQueue := make(chan projectFile, 50)
 
-	eg = &errgroup.Group{}
 	for j := 0; j < 10; j++ {
 		eg.Go(func() error {
 			var lastErr error

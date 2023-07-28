@@ -303,7 +303,7 @@ WHERE p.id = $1
 }
 
 func (m *manager) PopulateTokens(ctx context.Context, projectId, userId sharedTypes.UUID) (*Tokens, error) {
-	allErrors := &errors.MergedError{}
+	allErrors := errors.MergedError{}
 	for i := 0; i < 10; i++ {
 		tokens, err := generateTokens()
 		if err != nil {
@@ -335,7 +335,7 @@ RETURNING token_ro, token_rw
 		}
 		return &persisted, nil
 	}
-	return nil, errors.Tag(allErrors, "bad random source")
+	return nil, errors.Tag(allErrors.Finalize(), "bad random source")
 }
 
 func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
@@ -933,7 +933,7 @@ WHERE user_id = $1
 }
 
 func (m *manager) GetAuthorizationDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*AuthorizationDetails, error) {
-	p := &ForAuthorizationDetails{}
+	p := ForAuthorizationDetails{}
 	err := m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),

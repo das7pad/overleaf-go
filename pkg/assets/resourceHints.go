@@ -35,7 +35,7 @@ type resource struct {
 type resources []resource
 
 func (s resources) flatten() string {
-	b := &strings.Builder{}
+	b := strings.Builder{}
 	for i, r := range s {
 		if i != 0 {
 			b.WriteRune(',')

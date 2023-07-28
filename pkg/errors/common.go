@@ -96,7 +96,7 @@ func (m *MergedError) Finalize() error {
 }
 
 func Merge(errors ...error) error {
-	m := &MergedError{}
+	m := MergedError{}
 	for _, err := range errors {
 		m.Add(err)
 	}

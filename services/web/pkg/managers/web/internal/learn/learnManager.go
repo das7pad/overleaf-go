@@ -48,7 +48,7 @@ func New(options *types.Options, ps *templates.PublicSettings, proxy linkedURLPr
 	if err != nil {
 		return nil, errors.Tag(err, "create image cache")
 	}
-	m := &manager{
+	m := manager{
 		apiURL:        upstreamURL.WithPath("/learn-scripts/api.php"),
 		baseImageURL:  upstreamURL,
 		baseImagePath: options.LearnImageCacheBase,
@@ -64,7 +64,7 @@ func New(options *types.Options, ps *templates.PublicSettings, proxy linkedURLPr
 	if err = m.sweepImageCache(); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return &m, nil
 }
 
 type manager struct {

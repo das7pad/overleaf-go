@@ -167,7 +167,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId 
 			return nil, errors.New("unexpected value from redis")
 		}
 	}
-	doc := &types.Doc{
+	doc := types.Doc{
 		DocId: docId,
 	}
 	if err := doc.DocCore.DoUnmarshalJSON(blobs[0]); err != nil {
@@ -190,7 +190,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId 
 			return nil, errors.Tag(err, "parse last updated ctx")
 		}
 	}
-	return doc, nil
+	return &doc, nil
 }
 
 func (m *manager) GetDocVersion(ctx context.Context, docId sharedTypes.UUID) (sharedTypes.Version, error) {
@@ -407,11 +407,11 @@ const SmoothingOffset = int64(time.Second)
 func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	smoothingOffset := time.Duration(rand.Int63n(SmoothingOffset))
 	score := time.Now().Add(smoothingOffset).Unix()
-	queueEntry := &redis.Z{
+	queueEntry := redis.Z{
 		Score:  float64(score),
 		Member: projectId.String(),
 	}
-	return m.rClient.ZAdd(ctx, getFlushAndDeleteQueueKey(), queueEntry).Err()
+	return m.rClient.ZAdd(ctx, getFlushAndDeleteQueueKey(), &queueEntry).Err()
 }
 
 func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime time.Time) (sharedTypes.UUID, int64, int64, error) {

@@ -44,7 +44,7 @@ type GmailGoToAction struct {
 }
 
 func (g *GmailGoToAction) MarshalJSON() ([]byte, error) {
-	body := &fullGmailGoToAction{
+	body := fullGmailGoToAction{
 		Context:     "http://schema.org",
 		Description: g.Description,
 		PotentialAction: potentialAction{

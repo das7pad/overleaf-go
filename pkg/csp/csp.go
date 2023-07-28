@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -141,7 +141,7 @@ func (c csp) render() string {
 		})
 	}
 
-	b := &strings.Builder{}
+	b := strings.Builder{}
 	for i, d := range directives {
 		uniq := make(map[string]bool, 0)
 		for _, item := range d.items {

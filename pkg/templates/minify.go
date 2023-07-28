@@ -76,9 +76,9 @@ func (m minifier) MinifyTemplate(raw *template.Template, funcMap template.FuncMa
 
 	m.trimTextNodes(h)
 
-	b := &bytes.Buffer{}
+	b := strings.Builder{}
 	b.Grow(len(s))
-	if err = html.Render(b, h); err != nil {
+	if err = html.Render(&b, h); err != nil {
 		return nil, errors.Tag(err, "html.Render")
 	}
 	s = b.String()
@@ -143,9 +143,9 @@ func (m minifier) swapScriptNodeType(s string) (string, error) {
 	if err := process(h); err != nil {
 		return "", err
 	}
-	b := &strings.Builder{}
+	b := strings.Builder{}
 	b.Grow(len(s))
-	if err := html.Render(b, h); err != nil {
+	if err := html.Render(&b, h); err != nil {
 		return "", errors.Tag(err, "html.Render in swapScriptNodeType")
 	}
 	return b.String(), nil

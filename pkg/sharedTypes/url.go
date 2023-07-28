@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -32,11 +32,11 @@ func ParseAndValidateURL(s string) (*URL, error) {
 	if raw.Path == "" {
 		raw.Path = "/"
 	}
-	u := &URL{URL: *raw}
+	u := URL{URL: *raw}
 	if err = u.Validate(); err != nil {
 		return nil, err
 	}
-	return u, nil
+	return &u, nil
 }
 
 type URL struct {

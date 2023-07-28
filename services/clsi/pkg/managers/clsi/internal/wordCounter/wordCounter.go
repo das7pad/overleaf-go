@@ -67,14 +67,14 @@ func (c *counter) Count(ctx context.Context, run commandRunner.NamespacedRun, na
 		"-out-stderr",
 		doc,
 	}
-	options := &types.CommandOptions{
+	options := types.CommandOptions{
 		CommandLine:        cmd,
 		ImageName:          request.ImageName,
 		ComputeTimeout:     sharedTypes.ComputeTimeout(timeout),
 		CompileGroup:       request.CompileGroup,
 		CommandOutputFiles: *files,
 	}
-	code, err := run(ctx, options)
+	code, err := run(ctx, &options)
 	if err != nil {
 		return err
 	}

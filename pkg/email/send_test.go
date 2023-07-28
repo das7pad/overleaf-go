@@ -253,7 +253,7 @@ func TestEmail_Send(t *testing.T) {
 			so := soBase
 			cs := collectingSender{}
 			so.Sender = &cs
-			e := &Email{
+			e := Email{
 				Content:  tt.fields.Content,
 				ReplyTo:  tt.fields.ReplyTo,
 				Subject:  tt.fields.Subject,

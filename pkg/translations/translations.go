@@ -17,6 +17,7 @@
 package translations
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -71,8 +72,8 @@ type templateLocale struct {
 }
 
 func (l *templateLocale) Render(data interface{}) (template.HTML, error) {
-	out := &strings.Builder{}
-	if err := l.t.Execute(out, data); err != nil {
+	out := strings.Builder{}
+	if err := l.t.Execute(&out, data); err != nil {
 		return "", errors.Tag(err, l.t.Name())
 	}
 	return template.HTML(out.String()), nil
@@ -189,10 +190,10 @@ func parseLocales(raw map[string]string, appName string) (map[string]renderer, e
 	type minData struct {
 		Settings minSettings
 	}
-	data := &minData{Settings: minSettings{AppName: appName}}
+	data := minData{Settings: minSettings{AppName: appName}}
 
 	d := make(map[string]renderer, len(raw))
-	buffer := &strings.Builder{}
+	buffer := bytes.Buffer{}
 	for key, s := range raw {
 		t, err := template.New(key).Parse(s)
 		if err != nil {
@@ -200,7 +201,7 @@ func parseLocales(raw map[string]string, appName string) (map[string]renderer, e
 		}
 		buffer.Reset()
 		// Escape the template and identify static locales.
-		if err = t.Execute(buffer, data); err == nil {
+		if err = t.Execute(&buffer, data); err == nil {
 			d[key] = staticLocale(buffer.String())
 		} else {
 			d[key] = &templateLocale{t: t}

@@ -36,13 +36,13 @@ type Manager interface {
 }
 
 func New(c channel.Manager) Manager {
-	b := &manager{
+	m := manager{
 		c:     c,
 		sem:   make(chan struct{}, 1),
 		mux:   sync.RWMutex{},
 		rooms: make(map[sharedTypes.UUID]*room),
 	}
-	return b
+	return &m
 }
 
 type manager struct {

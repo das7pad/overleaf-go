@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -64,14 +64,14 @@ func (c *Context) ClientIP() string {
 type HandlerFunc func(c *Context)
 
 func (f HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := &Context{
+	c := Context{
 		appendOnlyCtx: r.Context(),
 		Writer:        w,
 		Request:       r,
 		t0:            time.Now(),
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	f(c)
+	f(&c)
 }
 
 type MiddlewareFunc func(next HandlerFunc) HandlerFunc
@@ -133,7 +133,7 @@ func (r *Router) Group(partial string) *Router {
 }
 
 func NewRouter(options *RouterOptions) *Router {
-	router := &Router{
+	router := Router{
 		Router: mux.NewRouter(),
 	}
 	router.OmitRouteFromContext(true)
@@ -153,5 +153,5 @@ func NewRouter(options *RouterOptions) *Router {
 		Methods(http.MethodGet, http.MethodHead).
 		Path("/status").
 		HandlerFunc(statusHandler)
-	return router
+	return &router
 }

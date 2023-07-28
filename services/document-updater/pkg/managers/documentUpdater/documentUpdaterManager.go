@@ -87,7 +87,7 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId, docId sharedTyp
 }
 
 func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
-	response := &types.GetDocResponse{}
+	response := types.GetDocResponse{}
 	if fromVersion == -1 {
 		doc, err := m.dm.GetDoc(ctx, projectId, docId)
 		if err != nil {
@@ -107,7 +107,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 		response.Ops = updates
 		response.Version = doc.Version
 	}
-	return response, nil
+	return &response, nil
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error) {

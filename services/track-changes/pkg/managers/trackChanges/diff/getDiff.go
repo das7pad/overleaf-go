@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -65,7 +65,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 	}
 
 	// build a rope of diffs
-	head := &diffRopeEntry{
+	head := diffRopeEntry{
 		next: &diffRopeEntry{
 			DiffEntry: types.DiffEntry{
 				Unchanged: sharedTypes.Snippet(s),
@@ -87,7 +87,7 @@ func (m *manager) GetDocDiff(ctx context.Context, r *types.GetDocDiffRequest, re
 		for _, component := range history.Op {
 			p := 0
 			componentPosition := component.Position
-			after := head
+			after := &head
 			for after.next != nil {
 				q := after.next
 				if len(q.Deletion) > 0 {

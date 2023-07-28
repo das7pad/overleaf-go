@@ -127,7 +127,7 @@ func (m *manager) refreshHealthCheck(ctx context.Context) error {
 Hello world
 \end{document}
 `
-	req := &types.CompileRequest{
+	req := types.CompileRequest{
 		Options: types.CompileOptions{
 			Check:        types.NoCheck,
 			CompileGroup: sharedTypes.StandardCompileGroup,
@@ -145,15 +145,15 @@ Hello world
 		},
 		RootResourcePath: "main.tex",
 	}
-	resp := &types.CompileResponse{
+	resp := types.CompileResponse{
 		OutputFiles: make(types.OutputFiles, 0),
 	}
 	err := m.Compile(
 		ctx,
 		sharedTypes.UUID{},
 		sharedTypes.UUID{},
-		req,
-		resp,
+		&req,
+		&resp,
 	)
 	if err != nil {
 		return err

@@ -104,13 +104,13 @@ func NewClient(writeQueue WriteQueue, disconnect func()) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Client{
+	c := Client{
 		PublicId:   publicId,
 		writeQueue: writeQueue,
 		disconnect: disconnect,
 	}
 	c.MarkAsLeftDoc()
-	return c, nil
+	return &c, nil
 }
 
 type Clients []*Client

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -115,7 +115,7 @@ func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 func serve(conn net.Conn) {
 	timed := sharedTypes.Timed{}
 	code, message := do(conn, &timed)
-	msg := &types.ExecAgentResponseBody{
+	msg := types.ExecAgentResponseBody{
 		ExitCode:     code,
 		ErrorMessage: message,
 		Timed:        timed,

@@ -46,7 +46,7 @@ func main() {
 		os.Exit(101)
 	}
 
-	o := &webTypes.Options{}
+	o := webTypes.Options{}
 	o.FillFromEnv()
 	if err := o.Validate(); err != nil {
 		panic(errors.Tag(err, "WEB_OPTIONS invalid"))
