@@ -106,14 +106,17 @@ func setupMinio(ctx context.Context, c *client.Client) func(code *int) {
 			fmt.Sprintf("MINIO_ROOT_PASSWORD=%s", F.MinioRootPassword),
 			fmt.Sprintf("MINIO_REGION=%s", F.FilestoreOptions.Region),
 		},
-		Cmd:   []string{"server", "/data"},
+		Cmd:   []string{"server", "--address", ":19000", "/data"},
 		Image: "minio/minio:RELEASE.2023-07-07T07-13-57Z",
+		ExposedPorts: map[nat.Port]struct{}{
+			"19000/tcp": {},
+		},
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "bridge",
 		AutoRemove:  true,
 		PortBindings: map[nat.Port][]nat.PortBinding{
-			"9000/tcp": {{HostIP: "127.0.1.1", HostPort: "9000"}},
+			"19000/tcp": {{HostIP: "127.0.1.1", HostPort: "19000"}},
 		},
 	}, minioContainerName, []string{"1 Online"})
 	if err != nil {
@@ -131,7 +134,7 @@ func setupMinio(ctx context.Context, c *client.Client) func(code *int) {
 		}
 	}
 	t := strconv.FormatInt(time.Now().UnixNano(), 10)
-	F.FilestoreOptions.Endpoint = getIP(i) + ":9000"
+	F.FilestoreOptions.Endpoint = getIP(i) + ":19000"
 	bucket := "ci-bucket" + t
 	F.FilestoreOptions.Bucket = bucket
 	F.S3PolicyName = "ci-policy" + t
@@ -294,21 +297,24 @@ DROP DATABASE %s WITH (FORCE)
 
 func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
 	i, err := createAndStartContainer(ctx, c, &container.Config{
-		Cmd:   []string{"--databases", "1024"},
+		Cmd:   []string{"--databases", "1024", "--port", "16379"},
 		Image: "redis:6",
+		ExposedPorts: map[nat.Port]struct{}{
+			"16379/tcp": {},
+		},
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "bridge",
 		AutoRemove:  true,
 		PortBindings: map[nat.Port][]nat.PortBinding{
-			"6379/tcp": {{HostIP: "127.0.1.1", HostPort: "6379"}},
+			"16379/tcp": {{HostIP: "127.0.1.1", HostPort: "16379"}},
 		},
 	}, redisContainerName, []string{"Ready to accept connections"})
 	if err != nil {
 		panic(errors.Tag(err, "create redis container"))
 	}
 
-	host := getIP(i) + ":6379"
+	host := getIP(i) + ":16379"
 	if err = os.Setenv("REDIS_HOST", host); err != nil {
 		panic(errors.Tag(err, "set REDIS_HOST"))
 	}
