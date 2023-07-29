@@ -281,9 +281,11 @@ func (p *ForTree) GetRootFolder() *Folder {
 	return &t
 }
 
-func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
-	var docs []Doc
-	var files []FileRef
+func (p *ForClone) BuildTreeElements() (sharedTypes.PathName, []TreeElement, []sharedTypes.DirName) {
+	rootDocId := p.RootDoc.Id
+	var rootDocPath sharedTypes.PathName
+	elements := make([]TreeElement, 0, len(p.treeKinds))
+	folders := make([]sharedTypes.DirName, 0, len(p.treePaths)/3)
 	for i, kind := range p.treeKinds {
 		path := sharedTypes.PathName(p.treePaths[i])
 		switch kind {
@@ -294,7 +296,10 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 			if p.docSnapshots != nil {
 				e.Snapshot = p.docSnapshots[i]
 			}
-			docs = append(docs, e)
+			if e.Id == rootDocId {
+				rootDocPath = e.Path
+			}
+			elements = append(elements, e)
 		case TreeNodeKindFile:
 			e := NewFileRef(path.Filename(), "", 0)
 			e.Id = p.treeIds[i]
@@ -311,10 +316,10 @@ func (p *ForTree) GetDocsAndFiles() ([]Doc, []FileRef) {
 			if p.sizes != nil {
 				e.Size = p.sizes[i]
 			}
-			files = append(files, e)
+			elements = append(elements, e)
 		case TreeNodeKindFolder:
-			// no-op
+			folders = append(folders, sharedTypes.DirName(path))
 		}
 	}
-	return docs, files
+	return rootDocPath, elements, folders
 }

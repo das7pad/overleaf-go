@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,13 +23,13 @@ import (
 
 type ConflictChecker map[sharedTypes.PathName]bool
 
-func (cc ConflictChecker) mkDirs(dir sharedTypes.DirName) error {
+func (cc ConflictChecker) RegisterFolder(dir sharedTypes.DirName) error {
 	if dir == "." {
 		return nil
 	}
 	isDir, exists := cc[sharedTypes.PathName(dir)]
 	if !exists {
-		if err := cc.mkDirs(dir.Dir()); err != nil {
+		if err := cc.RegisterFolder(dir.Dir()); err != nil {
 			return err
 		}
 		cc[sharedTypes.PathName(dir)] = true
@@ -42,7 +42,7 @@ func (cc ConflictChecker) mkDirs(dir sharedTypes.DirName) error {
 }
 
 func (cc ConflictChecker) RegisterFile(path sharedTypes.PathName) error {
-	if err := cc.mkDirs(path.Dir()); err != nil {
+	if err := cc.RegisterFolder(path.Dir()); err != nil {
 		return err
 	}
 	if _, exits := cc[path]; exits {

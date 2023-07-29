@@ -78,23 +78,15 @@ func (m *manager) CloneProject(ctx context.Context, request *types.CloneProjectR
 	if err != nil {
 		return errors.Tag(err, "get source project")
 	}
-	sourceDocs, sourceFiles := p.GetDocsAndFiles()
-
-	nDocs := len(sourceDocs)
-	files := make([]types.CreateProjectFile, nDocs+len(sourceFiles))
-	var rootDocPath sharedTypes.PathName
-	for i, d := range sourceDocs {
-		if d.Id == p.RootDoc.Id {
-			rootDocPath = d.Path
-		}
+	rootDocPath, elements, folders := p.BuildTreeElements()
+	files := make([]types.CreateProjectFile, len(elements))
+	for i, d := range elements {
 		files[i] = cloneProjectFile{TreeElement: d}
-	}
-	for i, file := range sourceFiles {
-		files[nDocs+i] = cloneProjectFile{TreeElement: file}
 	}
 	return m.CreateProject(ctx, &types.CreateProjectRequest{
 		Compiler:           p.Compiler,
 		Files:              files,
+		ExtraFolders:       folders,
 		ImageName:          p.ImageName,
 		Name:               request.Name,
 		RootDocPath:        rootDocPath,

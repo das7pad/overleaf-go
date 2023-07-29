@@ -114,6 +114,11 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		}
 	}()
 	rootDocPath := request.RootDocPath
+	for _, folder := range request.ExtraFolders {
+		if _, err := p.RootFolder.CreateParents(folder.Dir()); err != nil {
+			return err
+		}
+	}
 	{
 		// Prepare tree
 		ctxDone := ctx.Done()
@@ -124,9 +129,8 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 			default:
 			}
 			path := file.Path()
-			dir := path.Dir()
 			name := path.Filename()
-			parent, errConflict := p.RootFolder.CreateParents(dir)
+			parent, errConflict := p.RootFolder.CreateParents(path.Dir())
 			if errConflict != nil {
 				return errConflict
 			}

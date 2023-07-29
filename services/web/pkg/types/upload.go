@@ -82,6 +82,7 @@ type CreateProjectFile interface {
 type CreateProjectRequest struct {
 	AddHeader          AddHeaderFn
 	Compiler           sharedTypes.Compiler
+	ExtraFolders       []sharedTypes.DirName
 	Files              []CreateProjectFile
 	HasDefaultName     bool
 	ImageName          sharedTypes.ImageName
@@ -104,10 +105,10 @@ func (r *CreateProjectRequest) Validate() error {
 	if err := r.Name.Validate(); err != nil {
 		return err
 	}
-	if len(r.Files) == 0 {
-		return &errors.ValidationError{Msg: "no files found"}
+	if len(r.Files) == 0 && len(r.ExtraFolders) == 0 {
+		return &errors.ValidationError{Msg: "no files/folders found"}
 	}
-	if len(r.Files) > constants.MaxFilesPerProject {
+	if len(r.Files)+len(r.ExtraFolders) > constants.MaxFilesPerProject {
 		return &errors.ValidationError{Msg: "too many files for new project"}
 	}
 
@@ -131,6 +132,14 @@ func (r *CreateProjectRequest) Validate() error {
 			)
 		}
 		if err := cc.RegisterFile(path); err != nil {
+			return err
+		}
+	}
+	for _, path := range r.ExtraFolders {
+		if err := path.Validate(); err != nil {
+			return err
+		}
+		if err := cc.RegisterFolder(path); err != nil {
 			return err
 		}
 	}

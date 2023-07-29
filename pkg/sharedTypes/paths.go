@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -182,6 +182,16 @@ func (d DirName) JoinPath(p PathName) PathName {
 		return p
 	}
 	return PathName(string(d) + "/" + string(p))
+}
+
+func (d DirName) Validate() error {
+	if d == "" || d == "." {
+		return &errors.ValidationError{Msg: "empty dir path"}
+	}
+	if d[len(d)-1] != '/' {
+		return &errors.ValidationError{Msg: "dir does not end in /"}
+	}
+	return d.Join("_").Validate()
 }
 
 type PathName string
