@@ -163,6 +163,20 @@ func Test_evalMath(t *testing.T) {
 			want: tokenize("4", ""),
 		},
 		{
+			name: "unit one arg",
+			args: args{
+				s: tokenize("unit(2rem)", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
+			name: "unit two args",
+			args: args{
+				s: tokenize("unit(2, rem)", ""),
+			},
+			want: tokenize("2rem", ""),
+		},
+		{
 			name: "ceil",
 			args: args{
 				s: tokenize("ceil(1.1)", ""),

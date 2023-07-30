@@ -42,6 +42,26 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 			return i + 1, 0, "", err
 		}
 		switch s[i].v {
+		case "unit":
+			j, args, err := parseArgs(s, i+1)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s args: %s", s[i].v, err)
+			}
+			if len(args) == 0 || len(args) > 2 {
+				return i, 0, "", fmt.Errorf("%s expects one/two args", s[i].v)
+			}
+			_, a, _, err := parseNum(args[0], 0)
+			if err != nil {
+				return i, 0, "", fmt.Errorf("%s first arg: %s", s[i].v, err)
+			}
+			if len(args) == 1 {
+				return j, a, "", nil
+			}
+			unit := trimSpace(args[1])
+			if len(unit) == 0 || len(unit[0].v) == 0 {
+				return i, 0, "", fmt.Errorf("%s 2nd arg is empty", s[i].v)
+			}
+			return j, a, unit[0].v, nil
 		case
 			"ceil", "floor", "round",
 			"percentage",

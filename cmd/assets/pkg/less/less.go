@@ -744,6 +744,9 @@ func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (token
 			switch t.kind {
 			case tokenAmp:
 				hasAmp = true
+				if len(m) > 0 && m[0].kind != space {
+					acc = append(acc, token{kind: space, v: " "})
+				}
 				acc = append(acc, m...)
 			case tokenComma:
 			default:
@@ -753,7 +756,7 @@ func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (token
 				if !hasAmp && len(m) > 0 {
 					buf := make(tokens, 0, len(m)+1+len(acc))
 					buf = append(buf, m...)
-					if acc[0].kind != space && m[len(m)-1].kind != tokenIdentifier {
+					if acc[0].kind != space {
 						buf = append(buf, token{kind: space, v: " "})
 					}
 					buf = append(buf, acc...)
