@@ -725,7 +725,9 @@ func shouldNest(prev, s tokens) bool {
 	return false
 }
 
-func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (tokens, []tokens) {
+var stubParentMatcher = matchers{nil}
+
+func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm matchers) (tokens, matchers) {
 	matcher := n.evalVars(n.matcher, pv)
 	if len(matcher) == 0 {
 		return nil, mm
@@ -734,9 +736,13 @@ func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (token
 		return matcher, mm
 	}
 	if len(mm) == 0 {
-		return nil, []tokens{matcher}
+		return nil, buildMatchers(stubParentMatcher, matcher)
 	}
-	var out []tokens
+	return nil, buildMatchers(mm, matcher)
+}
+
+func buildMatchers(mm matchers, matcher tokens) matchers {
+	var out matchers
 	var acc tokens
 	for _, m := range mm {
 		hasAmp := false
@@ -768,7 +774,7 @@ func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (token
 			}
 		}
 	}
-	return nil, out
+	return out
 }
 
 func (n *node) evalWhen(pv []map[string]tokens) (bool, error) {
