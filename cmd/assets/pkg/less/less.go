@@ -666,23 +666,12 @@ func isConstant(s tokens) bool {
 	if len(s) == 0 {
 		return false
 	}
-	isCalc := (len(s) > 2 &&
-		s[0].kind == tokenIdentifier &&
-		s[0].v == "calc" &&
-		s[1].kind == tokenParensOpen) || (len(s) > 4 &&
-		s[0].kind == tokenTilde &&
-		s[1].kind == tokenSingleQuote &&
-		s[2].kind == tokenIdentifier &&
-		s[2].v == "calc" &&
-		s[3].kind == tokenParensOpen)
 	for i, t := range s {
 		switch t.kind {
 		case tokenAt:
 			return false
 		case tokenPlus, tokenMinus, tokenStar, tokenSlash:
-			if !isCalc {
-				return false
-			}
+			return false
 		case tokenParensOpen:
 			if i == 0 || s[i-1].kind != tokenIdentifier {
 				return false
@@ -997,32 +986,46 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 	return nil, errors.New(fmt.Sprintf("mixin %q is unknown", name))
 }
 
-func removeStringTemplate(s tokens) tokens {
-	s = trimSpace(s)
-	if len(s) < 3 {
-		return s
+func evalStringTemplate(s tokens) tokens {
+	before, inner, after := evalStringTemplateOnce(s)
+	if len(inner) == 0 && len(after) == 0 {
+		return before
 	}
-	if s[0].kind == tokenTilde &&
-		s[1].kind == tokenSingleQuote &&
-		s[len(s)-1].kind == tokenSingleQuote {
-		return s[2 : len(s)-1]
-	}
-	if len(s) < 4 {
-		return s
-	}
-	if s[0].kind == tokenIdentifier &&
-		s[0].v == "calc" &&
-		s[1].kind == tokenParensOpen &&
-		s[2].kind == tokenTilde &&
-		s[3].kind == tokenSingleQuote &&
-		s[len(s)-2].kind == tokenSingleQuote &&
-		s[len(s)-1].kind == tokenParensClose {
-		return append(append(append(make(tokens, 0, len(s)-3),
-			s[0:2]...),
-			s[4:len(s)-2]...),
-			s[len(s)-1])
+	s = make(tokens, 0, len(before)+len(inner)+len(after))
+	s = append(s, before...)
+	s = append(s, inner...)
+	for len(after) > 0 {
+		if len(s) > 0 && s[len(s)-1].kind != space &&
+			len(after) > 0 && after[0].kind == space {
+			s = append(s, after[0])
+			after = after[1:]
+		}
+		before, inner, after = evalStringTemplateOnce(
+			evalMath(after),
+		)
+		s = append(s, before...)
+		s = append(s, inner...)
 	}
 	return s
+}
+
+func evalStringTemplateOnce(s tokens) (tokens, tokens, tokens) {
+	if len(s) < 3 {
+		return s, nil, nil
+	}
+	idx := index(s, tokenTilde)
+	if idx == -1 || idx == len(s)-1 || s[idx+1].kind != tokenSingleQuote {
+		return s, nil, nil
+	}
+	idxEnd := index(s[idx+2:], tokenSingleQuote)
+	if idxEnd == -1 {
+		return s, nil, nil
+	}
+	idxEnd += idx + 2
+	if idx == 0 && idxEnd == len(s)-1 {
+		return s[2 : len(s)-1], nil, nil
+	}
+	return s[:idx], s[idx+2 : idxEnd], s[idxEnd+1:]
 }
 
 func evalStatic(s tokens) tokens {
@@ -1030,13 +1033,13 @@ func evalStatic(s tokens) tokens {
 	s = evalMath(s)
 	// TODO: propagate error
 	s, _ = evalColor(s)
-	s = removeStringTemplate(s)
+	s = evalStringTemplate(s)
 	return s
 }
 
 func (n *node) evalDirective(s tokens, pv []map[string]tokens) tokens {
 	if isConstant(s) {
-		return removeStringTemplate(s)
+		return evalStringTemplate(s)
 	}
 	s = n.evalVars(s, pv)
 	s = n.evalPaths(s)
@@ -1141,7 +1144,7 @@ func (n *node) evalVar(name string, pv []map[string]tokens) tokens {
 				continue
 			}
 			if isConstant(s) {
-				return removeStringTemplate(s)
+				return evalStringTemplate(s)
 			}
 
 			s = append(tokens{}, s...)

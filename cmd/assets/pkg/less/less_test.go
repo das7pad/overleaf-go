@@ -237,7 +237,7 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "calc string unwrap",
+			name: "calc string unwrap single",
 			args: args{
 				read: fakeFS{
 					"in.less": ".btn { margin: calc(~'100vh - 1px'); }",
@@ -245,6 +245,54 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: calc(100vh - 1px); }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "calc string unwrap single math",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: calc(~'100vh - ' (1px + 1px)); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: calc(100vh - 2px); }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "calc string unwrap multiple",
+			args: args{
+				read: fakeFS{
+					"in.less": "@x: 1px; .btn { margin: calc(~'100vh - ' @x ~' - 1rem'); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: calc(100vh - 1px  - 1rem); }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "calc string unwrap important",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: calc(~'100vh - 1px') !important; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: calc(100vh - 1px) !important; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "string unwrap keep space",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { padding: ~'1' (1+1) ~'3'; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { padding: 1 2 3; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -257,6 +305,18 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 2; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "math single operation important",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { margin: 1+1 !important; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { margin: 2 !important; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
