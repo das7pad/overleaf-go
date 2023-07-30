@@ -307,6 +307,16 @@ func evalMath(s tokens) tokens {
 			v:    unit,
 		})
 	}
-	out = append(out, s[i:]...)
+	if len(s) == i {
+		return out
+	}
+	if s[i].kind == space {
+		out = append(out, token{
+			kind: space,
+			v:    " ",
+		})
+		i++
+	}
+	out = append(out, evalMath(s[i:])...)
 	return out
 }

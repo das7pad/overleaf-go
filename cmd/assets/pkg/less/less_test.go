@@ -333,6 +333,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "math single operation after numbers",
+			args: args{
+				read: fakeFS{
+					"in.less": ".btn { padding: 1 (1+1) 3; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { padding: 1 2 3; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "math single operation important",
 			args: args{
 				read: fakeFS{
