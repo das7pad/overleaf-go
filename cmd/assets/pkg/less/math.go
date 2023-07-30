@@ -172,7 +172,13 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 		if l > 0 {
 			return i, 0, "", errors.New("imbalanced parens")
 		}
-		j, x, u, err := evalMathExpr(s[:j], i+1, 0)
+		k, x, u, err := evalMathExpr(s[:j], i+1, 0)
+		if err != nil {
+			return k, 0, "", err
+		}
+		if k+consumeSpace(s[k:]) != j {
+			return i, 0, "", fmt.Errorf("unexpected content before parens close: full=%q remaining=%q", s[i:j+1], s[k:j])
+		}
 		return j + 1, x * sign, u, err
 	case tokenNum:
 	default:

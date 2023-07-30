@@ -73,7 +73,7 @@ nextStart:
 		}
 		return i, nil
 	}
-	return -1, errors.New(fmt.Sprintf("%s not found", needle))
+	return -1, fmt.Errorf("%s not found", needle)
 }
 
 func maybeExpectSeq(tt tokens, j int, ignoreSpace bool, needle ...kind) (int, int) {
@@ -98,11 +98,11 @@ func expectSeq(tt tokens, j int, ignoreSpace bool, needle ...kind) (int, error) 
 	case 0:
 		return j, nil
 	case -1:
-		return j, errors.New(fmt.Sprintf("expected sequence %s, ran out of tokens after %d", needle, j))
+		return j, fmt.Errorf("expected sequence %s, ran out of tokens after %d", needle, j)
 	default:
 		c := needle[r]
 		got := tt[j].kind
-		return j, errors.New(fmt.Sprintf("expected sequence %s, wanted %q as token %d, got %q", needle, c, r, got))
+		return j, fmt.Errorf("expected sequence %s, wanted %q as token %d, got %q", needle, c, r, got)
 	}
 }
 
@@ -993,7 +993,7 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 		}
 
 	}
-	return nil, errors.New(fmt.Sprintf("mixin %q is unknown", name))
+	return nil, fmt.Errorf("mixin %q is unknown", name)
 }
 
 func evalStringTemplate(s tokens) tokens {

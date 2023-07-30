@@ -86,6 +86,13 @@ func Test_evalMath(t *testing.T) {
 			want: tokenize("2", ""),
 		},
 		{
+			name: "single operation parens extra space",
+			args: args{
+				s: tokenize("(1+1 )", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
 			name: "single operation parens minus",
 			args: args{
 				s: tokenize("-(1+1)", ""),
