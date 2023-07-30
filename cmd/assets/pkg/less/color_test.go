@@ -31,6 +31,62 @@ func Test_evalColor(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "hue function",
+			args: args{
+				s: tokenize("hue(hsl(90, 100%, 50%))", ""),
+			},
+			want: tokenize("90", ""),
+		},
+		{
+			name: "saturation function",
+			args: args{
+				s: tokenize("saturation(hsl(90, 100%, 50%))", ""),
+			},
+			want: tokenize("100%", ""),
+		},
+		{
+			name: "lightness function",
+			args: args{
+				s: tokenize("lightness(hsl(90, 100%, 50%))", ""),
+			},
+			want: tokenize("50%", ""),
+		},
+		{
+			name: "red color",
+			args: args{
+				s: tokenize("dashed red", ""),
+			},
+			want: tokenize("dashed red", ""),
+		},
+		{
+			name: "red function",
+			args: args{
+				s: tokenize("red(rgb(10, 20, 30))", ""),
+			},
+			want: tokenize("10", ""),
+		},
+		{
+			name: "green function",
+			args: args{
+				s: tokenize("green(rgb(10, 20, 30))", ""),
+			},
+			want: tokenize("20", ""),
+		},
+		{
+			name: "blue function",
+			args: args{
+				s: tokenize("blue(rgb(10, 20, 30))", ""),
+			},
+			want: tokenize("30", ""),
+		},
+		{
+			name: "alpha function",
+			args: args{
+				s: tokenize("alpha(rgba(10, 20, 30, 0.5))", ""),
+			},
+			want: tokenize("0.5", ""),
+		},
+		{
 			name: "saturate hsl",
 			args: args{
 				s: tokenize("saturate(hsl(90, 80%, 50%), 20%)", ""),
@@ -105,21 +161,35 @@ func Test_evalColor(t *testing.T) {
 			args: args{
 				s: tokenize("mix(#ff0000, #0000ff, 50%)", ""),
 			},
-			want: tokenize("hsl(300,100%,25%)", ""),
+			want: tokenize("#800080", ""),
 		},
 		{
 			name: "tint",
 			args: args{
 				s: tokenize("tint(#007fff, 50%)", ""),
 			},
-			want: tokenize("hsl(210,100%,75%)", ""),
+			want: tokenize("#80bfff", ""),
+		},
+		{
+			name: "tint alpha",
+			args: args{
+				s: tokenize("tint(rgba(0, 0, 255, 0.5), 50%)", ""),
+			},
+			want: tokenize("rgba(191,191,255,0.75)", ""),
 		},
 		{
 			name: "shade",
 			args: args{
 				s: tokenize("shade(#007fff, 50%)", ""),
 			},
-			want: tokenize("hsl(210,100%,25%)", ""),
+			want: tokenize("#004080", ""),
+		},
+		{
+			name: "shade alpha",
+			args: args{
+				s: tokenize("shade(rgba(0, 0, 255, 0.5), 50%)", ""),
+			},
+			want: tokenize("rgba(0,0,64,0.75)", ""),
 		},
 		{
 			name: "greyscale",
