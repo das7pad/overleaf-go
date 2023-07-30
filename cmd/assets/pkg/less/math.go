@@ -218,8 +218,12 @@ func evalMathExpr(s tokens, i int, l kind) (int, float64, string, error) {
 		unitOK := false
 		o := i + consumeSpace(s[i:])
 		j := o + 1 + consumeSpace(s[o+1:])
+		evalSimple := o == i || (o > i && j > o+1)
 		switch s[o].kind {
 		case tokenPlus:
+			if !evalSimple {
+				return i, a, aUnit, nil
+			}
 			if l == tokenMinus {
 				return i, a, aUnit, nil
 			}
@@ -235,6 +239,9 @@ func evalMathExpr(s tokens, i int, l kind) (int, float64, string, error) {
 			}
 			a += b
 		case tokenMinus:
+			if !evalSimple {
+				return i, a, aUnit, nil
+			}
 			if l == tokenMinus {
 				return i, a, aUnit, nil
 			}

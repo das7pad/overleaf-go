@@ -323,6 +323,42 @@ func Test_evalMath(t *testing.T) {
 			},
 			want: tokenize("3px", ""),
 		},
+
+		{
+			name: "no eval one space",
+			args: args{
+				s: tokenize("1 +1", ""),
+			},
+			want: tokenize("1 +1", ""),
+		},
+		{
+			name: "eval one space simple",
+			args: args{
+				s: tokenize("2- 1", ""),
+			},
+			want: tokenize("1", ""),
+		},
+		{
+			name: "eval two space simple",
+			args: args{
+				s: tokenize("2 - 1", ""),
+			},
+			want: tokenize("1", ""),
+		},
+		{
+			name: "eval one space times",
+			args: args{
+				s: tokenize("2 *2", ""),
+			},
+			want: tokenize("4", ""),
+		},
+		{
+			name: "eval two space times",
+			args: args{
+				s: tokenize("2 * 2", ""),
+			},
+			want: tokenize("4", ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
