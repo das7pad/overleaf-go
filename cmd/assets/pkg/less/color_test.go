@@ -198,6 +198,13 @@ func Test_evalColor(t *testing.T) {
 			},
 			want: tokenize("hsl(90,0%,50%)", ""),
 		},
+		{
+			name: "compose color",
+			args: args{
+				s: tokenize("rgba(red(#123), green(#123), blue(#123), 0.5)", ""),
+			},
+			want: tokenize("rgba(17, 34, 51, 0.5)", ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -63,6 +63,7 @@ func evalColor(s tokens) (tokens, error) {
 		if err != nil {
 			return nil, err
 		}
+		j--
 		for idx, param := range params {
 			params[idx], err = evalColor(param)
 			if err != nil {
