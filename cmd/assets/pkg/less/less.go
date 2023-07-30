@@ -738,8 +738,8 @@ func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (token
 	}
 	var out []tokens
 	var acc tokens
-	hasAmp := false
 	for _, m := range mm {
+		hasAmp := false
 		for i, t := range matcher {
 			switch t.kind {
 			case tokenAmp:
@@ -761,6 +761,7 @@ func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm []tokens) (token
 				}
 				out = append(out, trimSpace(acc))
 				acc = nil
+				hasAmp = false
 			}
 		}
 	}
