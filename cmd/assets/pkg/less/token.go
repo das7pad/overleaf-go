@@ -78,6 +78,10 @@ func (t token) String() string {
 	return fmt.Sprintf("%s@%s@%d: %q", t.kind, t.f, t.start, t.v)
 }
 
+func (t token) IsSpace() bool {
+	return t.kind == space || t.kind == tokenNewline
+}
+
 type tokens []token
 
 func (tt tokens) String() string {

@@ -155,17 +155,18 @@ func mergeSpace(s tokens) tokens {
 	}
 	out := make(tokens, 0, len(s)-double)
 	out = append(out, s[0])
+	lastIsSpace := s[0].IsSpace()
 
 	for i := 1; i < len(s); i++ {
-		switch s[i].kind {
-		case space, tokenNewline:
-			switch s[i-1].kind {
-			case space, tokenNewline:
+		if s[i].IsSpace() {
+			if lastIsSpace {
 				continue
 			}
+			lastIsSpace = true
 			out = append(out, token{kind: space, v: " "})
 			continue
 		}
+		lastIsSpace = false
 		out = append(out, s[i])
 	}
 	return out
@@ -215,7 +216,7 @@ func parseComp(s tokens, i int) (int, kind, error) {
 		return i, 0, fmt.Errorf("wanted comp, got %s", s[i])
 	}
 	i++
-	if len(s) == i || s[i].kind == space {
+	if len(s) == i || s[i].IsSpace() {
 		if c == tokenExclamation {
 			return i, 0, errors.New("solo ! comp")
 		}
@@ -514,7 +515,9 @@ doneParsing:
 			continue
 		}
 		if t2.kind == tokenParensOpen {
-			isAtMedia := tt[i].kind == tokenAt && tt[i+1].v == "media"
+			isAtMedia := tt[i].kind == tokenAt &&
+				tt[i+1].kind == tokenIdentifier &&
+				tt[i+1].v == "media"
 			l := 0
 			end := -1
 			for k, t3 := range tt[i+j:] {
@@ -549,6 +552,9 @@ doneParsing:
 						continue
 					}
 					j += k
+					if isAtMedia {
+						t2 = t3
+					}
 					// mixin definition start
 					break
 				case space, tokenNewline:
@@ -755,7 +761,7 @@ func buildMatchers(mm matchers, matcher tokens) matchers {
 			switch t.kind {
 			case tokenAmp:
 				hasAmp = true
-				if len(m) > 0 && m[0].kind != space {
+				if len(m) > 0 && !m[0].IsSpace() {
 					acc = append(acc, token{kind: space, v: " "})
 				}
 				acc = append(acc, m...)
@@ -767,7 +773,7 @@ func buildMatchers(mm matchers, matcher tokens) matchers {
 				if !hasAmp && len(m) > 0 {
 					buf := make(tokens, 0, len(m)+1+len(acc))
 					buf = append(buf, m...)
-					if acc[0].kind != space {
+					if !acc[0].IsSpace() {
 						buf = append(buf, token{kind: space, v: " "})
 					}
 					buf = append(buf, acc...)
@@ -1006,9 +1012,9 @@ func evalStringTemplate(s tokens) tokens {
 	s = append(s, before...)
 	s = append(s, inner...)
 	for len(after) > 0 {
-		if len(s) > 0 && s[len(s)-1].kind != space &&
-			len(after) > 0 && after[0].kind == space {
-			s = append(s, after[0])
+		if len(s) > 0 && !s[len(s)-1].IsSpace() &&
+			len(after) > 0 && after[0].IsSpace() {
+			s = append(s, token{kind: space, v: " "})
 			after = after[1:]
 		}
 		before, inner, after = evalStringTemplateOnce(
@@ -1403,7 +1409,8 @@ func (n *node) printRaw(w *strings.Builder, indent string) error {
 	indent2 := indent1 + "  "
 	for name, nodes := range n.mixins[0] {
 		for _, n1 := range nodes {
-			w.WriteString(indent1)
+			w.WriteString("\n^")
+			w.WriteString(indent1[2:])
 			w.WriteString(name)
 			w.WriteString("(")
 			n1.matcher.WriteString(w)

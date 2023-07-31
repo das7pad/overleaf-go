@@ -323,7 +323,7 @@ func evalMath(s tokens) tokens {
 	if len(s) == i {
 		return out
 	}
-	if s[i].kind == space {
+	if s[i].IsSpace() {
 		out = append(out, token{
 			kind: space,
 			v:    " ",

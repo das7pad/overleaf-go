@@ -382,6 +382,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "math single operation after numbers new line",
+			args: args{
+				read: fakeFS{
+					"in.less": "@x: (2-1) 2\n 3; .btn { padding: @x; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { padding: 1 2 3; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "math single operation important",
 			args: args{
 				read: fakeFS{
@@ -1066,6 +1078,66 @@ func TestParseUsing(t *testing.T) {
 			},
 			want:    "@charset \"UTF-8\"; .btn { color: red; }",
 			want1:   []string{"in.less", "one.less", "two.less"},
+			wantErr: false,
+		},
+		{
+			name: "media print",
+			args: args{
+				read: fakeFS{
+					"in.less": "@media print { .btn { color: red; } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@media print { .btn { color: red; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "media only screen",
+			args: args{
+				read: fakeFS{
+					"in.less": "@media only screen { .btn { color: red; } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@media only screen { .btn { color: red; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "media one condition",
+			args: args{
+				read: fakeFS{
+					"in.less": "@media (max-width: 1px) { .btn { color: red; } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@media (max-width: 1px) { .btn { color: red; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "media two conditions",
+			args: args{
+				read: fakeFS{
+					"in.less": "@media (min-width: 1px) and (max-width: 2px) { .btn { color: red; } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@media (min-width: 1px) and (max-width: 2px) { .btn { color: red; } }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "media multiple matches",
+			args: args{
+				read: fakeFS{
+					"in.less": "@media only screen and (min-width: 1px), only screen and (min-resolution: 1dpi) { .btn { color: red; } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    "@media only screen and (min-width: 1px), only screen and (min-resolution: 1dpi) { .btn { color: red; } }",
+			want1:   []string{"in.less"},
 			wantErr: false,
 		},
 	}
