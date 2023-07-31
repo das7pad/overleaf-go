@@ -912,6 +912,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin local var",
+			args: args{
+				read: fakeFS{
+					"in.less": "@x: 1; @y: 2; .mix(@a) { @sum: @a+1; padding: @sum; } .btn { .mix(@x); .foo { .mix(@y); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { padding: 2; } .btn .foo { padding: 3; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "each",
 			args: args{
 				read: fakeFS{

@@ -1115,7 +1115,7 @@ func (n *node) evalVars(s tokens, pv []map[string]storedVar) tokens {
 	s = append(tokens{}, s...)
 	for i := 1; i < len(s); i++ {
 		if s[i-1].kind == tokenAt && s[i].kind == tokenIdentifier {
-			v := n.evalVar(s[i].v, pv)
+			v, _ := n.evalVar(s[i].v, pv)
 			s[i-1], s[i] = token{}, token{}
 			switch len(v) {
 			case 0:
@@ -1135,7 +1135,7 @@ func (n *node) evalVars(s tokens, pv []map[string]storedVar) tokens {
 			s[i+1].kind == tokenCurlyOpen &&
 			s[i+2].kind == tokenIdentifier &&
 			s[i+3].kind == tokenCurlyClose {
-			v := n.evalVar(s[i+2].v, pv)
+			v, _ := n.evalVar(s[i+2].v, pv)
 			s[i], s[i+1], s[i+2], s[i+3] = token{}, token{}, token{}, token{}
 			switch len(v) {
 			case 0:
@@ -1153,8 +1153,9 @@ func (n *node) evalVars(s tokens, pv []map[string]storedVar) tokens {
 	return trimSpace(s)
 }
 
-func (n *node) evalVar(name string, pv []map[string]storedVar) tokens {
-	for _, source := range [][]map[string]storedVar{pv, n.vars} {
+func (n *node) evalVar(name string, pv []map[string]storedVar) (tokens, bool) {
+	for srcIdx, source := range [][]map[string]storedVar{pv, n.vars} {
+		fromPv := srcIdx == 0
 	nextSource:
 		for _, vars := range source {
 			sv, ok := vars[name]
@@ -1162,12 +1163,12 @@ func (n *node) evalVar(name string, pv []map[string]storedVar) tokens {
 				continue
 			}
 			if sv.resolved {
-				return sv.value
+				return sv.value, fromPv
 			}
 			if isConstant(sv.value) {
 				s := evalStringTemplate(sv.value)
 				vars[name] = storedVar{value: s, resolved: true}
-				return s
+				return s, fromPv
 			}
 
 			s := append(tokens{}, sv.value...)
@@ -1176,7 +1177,10 @@ func (n *node) evalVar(name string, pv []map[string]storedVar) tokens {
 					if s[i].v == name {
 						continue nextSource
 					}
-					v := n.evalVar(s[i].v, pv)
+					v, usedPv := n.evalVar(s[i].v, pv)
+					if usedPv {
+						fromPv = usedPv
+					}
 					switch len(v) {
 					case 0:
 						s[i-1], s[i] = token{}, token{}
@@ -1194,11 +1198,13 @@ func (n *node) evalVar(name string, pv []map[string]storedVar) tokens {
 				}
 			}
 			s = evalStatic(s)
-			vars[name] = storedVar{value: s, resolved: true}
-			return s
+			if !fromPv {
+				vars[name] = storedVar{value: s, resolved: true}
+			}
+			return s, fromPv
 		}
 	}
-	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}
+	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}, false
 }
 
 func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]node, pv []map[string]storedVar, addSpace bool) (bool, []tokens, error) {
