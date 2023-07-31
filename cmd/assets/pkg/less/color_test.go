@@ -129,6 +129,20 @@ func Test_evalColor(t *testing.T) {
 			want: tokenize("hsl(90,80%,30%)", ""),
 		},
 		{
+			name: "fade hsla",
+			args: args{
+				s: tokenize("fade(hsla(90, 90%, 50%, 0.5), 10%)", ""),
+			},
+			want: tokenize("hsla(90,90%,50%,0.1)", ""),
+		},
+		{
+			name: "fade rgba",
+			args: args{
+				s: tokenize("fade(rgba(128, 242, 13, 0.5), 10%)", ""),
+			},
+			want: tokenize("rgba(128,242,13,0.1)", ""),
+		},
+		{
 			name: "fadein",
 			args: args{
 				s: tokenize("fadein(hsla(90, 90%, 50%, 0.5), 10%)", ""),

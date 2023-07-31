@@ -56,7 +56,7 @@ func evalColor(s tokens) (tokens, error) {
 			case "spin":
 			case "saturate", "desaturate":
 			case "lighten", "darken":
-			case "fadein", "fadeout":
+			case "fade", "fadein", "fadeout":
 			case "mix", "tint", "shade":
 			case "greyscale":
 			default:
@@ -175,14 +175,12 @@ func evalColor(s tokens) (tokens, error) {
 				h.lightness = 0
 			}
 			c = h
+		case "fade":
+			c = c.SetAlpha(float64(x) / 100)
 		case "fadein":
-			h := c.ToHSLA()
-			h.alpha = math.Min(100, h.alpha*100+float64(x)) / 100
-			c = h
+			c = c.SetAlpha(math.Min(100, c.Alpha()*100+float64(x)) / 100)
 		case "fadeout":
-			h := c.ToHSLA()
-			h.alpha = math.Max(0, h.alpha*100-float64(x)) / 100
-			c = h
+			c = c.SetAlpha(math.Max(0, c.Alpha()*100-float64(x)) / 100)
 		case "mix":
 			var c2 color
 			c2, err = parseColor(params[1])
@@ -219,6 +217,7 @@ type color interface {
 	ToRGBA() rgbaColor
 	ToHSLA() hslaColor
 	Alpha() float64
+	SetAlpha(a float64) color
 	Render(out tokens) tokens
 }
 
@@ -231,6 +230,11 @@ type hslaColor struct {
 
 func (s hslaColor) Alpha() float64 {
 	return s.alpha
+}
+
+func (s hslaColor) SetAlpha(a float64) color {
+	s.alpha = a
+	return s
 }
 
 func (s hslaColor) ToHSLA() hslaColor {
@@ -297,6 +301,11 @@ type rgbaColor struct {
 
 func (s rgbaColor) Alpha() float64 {
 	return s.a
+}
+
+func (s rgbaColor) SetAlpha(a float64) color {
+	s.a = a
+	return s
 }
 
 func (s rgbaColor) ToRGBA() rgbaColor {
