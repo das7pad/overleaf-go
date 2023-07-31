@@ -30,6 +30,19 @@ func evalColor(s tokens) (tokens, error) {
 	out := make(tokens, 0, len(s))
 	for i := 0; i < len(s); i++ {
 		switch s[i].kind {
+		case tokenTilde:
+			if len(s) > i+2 && s[i+1].kind == tokenSingleQuote {
+				idx := index(s[i+2:], tokenSingleQuote)
+				if idx == -1 {
+					return nil, fmt.Errorf("expected quote end")
+				}
+				idx += i + 2
+				out = append(out, s[i:idx+1]...)
+				i = idx
+				continue
+			}
+			out = append(out, s[i])
+			continue
 		case tokenIdentifier:
 			if len(s) == i+1 || s[i+1].kind != tokenParensOpen {
 				out = append(out, s[i])

@@ -51,14 +51,19 @@ type directive struct {
 	value tokens
 }
 
+type storedVar struct {
+	value    tokens
+	resolved bool
+}
+
 type node struct {
 	matcher    tokens
 	when       tokens
 	directives []directive
 	children   []node
 	imports    []string
-	vars       []map[string]tokens
-	paramVars  map[string]tokens
+	vars       []map[string]storedVar
+	paramVars  map[string]storedVar
 	mixins     []map[string][]node
 }
 
@@ -282,7 +287,7 @@ func compare[T float64 | string](a T, c kind, b T) bool {
 
 func (n *node) branchNode() node {
 	return node{
-		vars:   append([]map[string]tokens{{}}, n.vars...),
+		vars:   append([]map[string]storedVar{{}}, n.vars...),
 		mixins: append([]map[string][]node{{}}, n.mixins...),
 	}
 }
@@ -381,7 +386,7 @@ doneParsing:
 								// @foo: { color: red; }
 								break topLevelToken
 							}
-							n.vars[0][t1.v] = v
+							n.vars[0][t1.v] = storedVar{value: v}
 							i = j + k
 							continue
 						}
@@ -727,7 +732,7 @@ func shouldNest(prev, s tokens) bool {
 
 var stubParentMatcher = matchers{nil}
 
-func (n *node) evalMatcher(pv []map[string]tokens, p tokens, mm matchers) (tokens, matchers) {
+func (n *node) evalMatcher(pv []map[string]storedVar, p tokens, mm matchers) (tokens, matchers) {
 	matcher := n.evalVars(n.matcher, pv)
 	if len(matcher) == 0 {
 		return nil, mm
@@ -777,7 +782,7 @@ func buildMatchers(mm matchers, matcher tokens) matchers {
 	return out
 }
 
-func (n *node) evalWhen(pv []map[string]tokens) (bool, error) {
+func (n *node) evalWhen(pv []map[string]storedVar) (bool, error) {
 	if len(n.when) == 0 {
 		return true, nil
 	}
@@ -872,11 +877,11 @@ func parseParams(s tokens, i int, semiOK bool) (int, []tokens, error) {
 	}
 	args := make([]tokens, 0)
 	parensLevel := 0
-	stringLevel := 0
+	inString := false
 	start := i + 1
 	j := i
 	for ; j < len(s); j++ {
-		if stringLevel != 0 && s[j].kind != tokenSingleQuote {
+		if inString && s[j].kind != tokenSingleQuote {
 			continue
 		}
 		switch s[j].kind {
@@ -885,11 +890,7 @@ func parseParams(s tokens, i int, semiOK bool) (int, []tokens, error) {
 		case tokenParensClose:
 			parensLevel--
 		case tokenSingleQuote:
-			if stringLevel == 0 {
-				stringLevel = 1
-			} else {
-				stringLevel = 0
-			}
+			inString = !inString
 		case tokenComma, tokenSemi:
 			if !semiOK && s[j].kind == tokenSemi {
 				continue
@@ -913,7 +914,7 @@ func parseParams(s tokens, i int, semiOK bool) (int, []tokens, error) {
 	return j + 1, args, nil
 }
 
-func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node, error) {
+func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]storedVar) ([]node, error) {
 	var args []tokens
 	var name string
 	if j := index(s, tokenParensOpen); j != -1 {
@@ -943,7 +944,7 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 				if err != nil {
 					return nil, fmt.Errorf("mixin %q args: %s", name, err)
 				}
-				vars := make(map[string]tokens, len(params))
+				vars := make(map[string]storedVar, len(params))
 				for i, param := range params {
 					if param[0].kind == tokenAt {
 						pNameRaw, v, _ := cut(param, tokenColon)
@@ -963,7 +964,7 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]tokens) ([]node,
 								break
 							}
 						}
-						vars[pName[1:]] = v
+						vars[pName[1:]] = storedVar{value: v}
 					} else if param.String() != args[i].String() {
 						continue nextMixin
 					}
@@ -1041,13 +1042,14 @@ func evalStringTemplateOnce(s tokens) (tokens, tokens, tokens) {
 func evalStatic(s tokens) tokens {
 	s = trimSpace(s)
 	s = evalMath(s)
-	// TODO: propagate error
-	s, _ = evalColor(s)
+	if v, err := evalColor(s); err == nil {
+		s = v
+	}
 	s = evalStringTemplate(s)
 	return s
 }
 
-func (n *node) evalDirective(s tokens, pv []map[string]tokens) tokens {
+func (n *node) evalDirective(s tokens, pv []map[string]storedVar) tokens {
 	if isConstant(s) {
 		return evalStringTemplate(s)
 	}
@@ -1093,7 +1095,7 @@ func (n *node) evalPaths(s tokens) tokens {
 	return out
 }
 
-func (n *node) evalVars(s tokens, pv []map[string]tokens) tokens {
+func (n *node) evalVars(s tokens, pv []map[string]storedVar) tokens {
 	done := true
 	for _, t := range s {
 		if t.kind == tokenAt {
@@ -1145,19 +1147,24 @@ func (n *node) evalVars(s tokens, pv []map[string]tokens) tokens {
 	return trimSpace(s)
 }
 
-func (n *node) evalVar(name string, pv []map[string]tokens) tokens {
-	for _, source := range [][]map[string]tokens{pv, n.vars} {
+func (n *node) evalVar(name string, pv []map[string]storedVar) tokens {
+	for _, source := range [][]map[string]storedVar{pv, n.vars} {
 	nextSource:
 		for _, vars := range source {
-			s, ok := vars[name]
+			sv, ok := vars[name]
 			if !ok {
 				continue
 			}
-			if isConstant(s) {
-				return evalStringTemplate(s)
+			if sv.resolved {
+				return sv.value
+			}
+			if isConstant(sv.value) {
+				s := evalStringTemplate(sv.value)
+				vars[name] = storedVar{value: s, resolved: true}
+				return s
 			}
 
-			s = append(tokens{}, s...)
+			s := append(tokens{}, sv.value...)
 			for i := 1; i < len(s); i++ {
 				if s[i-1].kind == tokenAt && s[i].kind == tokenIdentifier {
 					if s[i].v == name {
@@ -1181,21 +1188,21 @@ func (n *node) evalVar(name string, pv []map[string]tokens) tokens {
 				}
 			}
 			s = evalStatic(s)
-			vars[name] = s
+			vars[name] = storedVar{value: s, resolved: true}
 			return s
 		}
 	}
 	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}
 }
 
-func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]node, pv []map[string]tokens, addSpace bool) (bool, []tokens, error) {
+func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]node, pv []map[string]storedVar, addSpace bool) (bool, []tokens, error) {
 	if len(n.directives) == 0 &&
 		len(n.children) == 0 &&
 		!isKeyframes(p) {
 		return addSpace, opened, nil
 	}
 	if n.paramVars != nil {
-		pv = append([]map[string]tokens{n.paramVars}, pv...)
+		pv = append([]map[string]storedVar{n.paramVars}, pv...)
 	}
 	if n.children != nil {
 		cc = append(cc, n.children)
@@ -1306,7 +1313,7 @@ type parser struct {
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		vars:   []map[string]tokens{{}},
+		vars:   []map[string]storedVar{{}},
 		mixins: []map[string][]node{{}},
 	}
 	return p.root.parse(p.read, f)
@@ -1376,7 +1383,7 @@ func (n *node) printRaw(w *strings.Builder, indent string) error {
 		w.WriteString("@")
 		w.WriteString(k)
 		w.WriteString(": ")
-		v.WriteString(w)
+		v.value.WriteString(w)
 		w.WriteString(";")
 	}
 	for _, d := range n.directives {

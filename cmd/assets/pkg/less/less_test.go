@@ -261,6 +261,31 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "filter raw",
+			args: args{
+				read: fakeFS{
+					"other.css": ".btn { filter: alpha(opacity=50); }",
+					"in.less":   "@import (less) 'other.css';",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { filter: alpha(opacity=50); }",
+			want1:   []string{"in.less", "other.css"},
+			wantErr: false,
+		},
+		{
+			name: "filter string unwrap",
+			args: args{
+				read: fakeFS{
+					"in.less": "@x: 50; .btn { filter: ~'alpha(opacity=@{x})'; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { filter: alpha(opacity=50); }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "calc plain",
 			args: args{
 				read: fakeFS{
