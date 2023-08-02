@@ -761,9 +761,6 @@ func buildMatchers(mm matchers, matcher tokens) matchers {
 			switch t.kind {
 			case tokenAmp:
 				hasAmp = true
-				if len(m) > 0 && !m[0].IsSpace() {
-					acc = append(acc, token{kind: space, v: " "})
-				}
 				acc = append(acc, m...)
 			case tokenComma:
 			default:

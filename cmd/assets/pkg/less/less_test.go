@@ -84,11 +84,11 @@ func TestParseUsing(t *testing.T) {
 			name: "plain css nesting amp",
 			args: args{
 				read: fakeFS{
-					"in.less": ".foo { color: blue; body > .btn& { color: red; } }",
+					"in.less": ".foo { color: blue; body > button& { color: red; } }",
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".foo { color: blue; } body > .btn .foo { color: red; }",
+			want:    ".foo { color: blue; } body > button.foo { color: red; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -108,11 +108,11 @@ func TestParseUsing(t *testing.T) {
 			name: "plain css nesting amp mixed",
 			args: args{
 				read: fakeFS{
-					"in.less": ".foo { color: blue; body > .btn&,.bar, &:after { color: red; } }",
+					"in.less": ".foo { color: blue; body > button&,.btn &,.bar, &:after { color: red; } }",
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".foo { color: blue; } body > .btn .foo,.foo .bar,.foo:after { color: red; }",
+			want:    ".foo { color: blue; } body > button.foo,.btn .foo,.foo .bar,.foo:after { color: red; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},
