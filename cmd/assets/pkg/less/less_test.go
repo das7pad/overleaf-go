@@ -540,6 +540,30 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "variable variable",
+			args: args{
+				read: fakeFS{
+					"in.less": "@l1: l2; @l2: red; .btn { color: @@l1; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "variable variable variable variable",
+			args: args{
+				read: fakeFS{
+					"in.less": "@l1: l2; @l2: l3; @l3: l4; @l4: red; .btn { color: @@@@l1; }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { color: red; }",
+			want1:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "variable nested",
 			args: args{
 				read: fakeFS{

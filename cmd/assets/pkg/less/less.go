@@ -1113,20 +1113,31 @@ func (n *node) evalVars(s tokens, pv []map[string]storedVar) tokens {
 		return s
 	}
 	s = append(tokens{}, s...)
-	for i := 1; i < len(s); i++ {
-		if s[i-1].kind == tokenAt && s[i].kind == tokenIdentifier {
-			v, _ := n.evalVar(s[i].v, pv)
-			s[i-1], s[i] = token{}, token{}
-			switch len(v) {
-			case 0:
-			case 1, 2:
-				copy(s[i-1:], v)
-			default:
-				s = append(append(append(
-					make(tokens, 0, len(s)+len(v)),
-					s[:i-1]...),
-					v...),
-					s[i+1:]...)
+	again := true
+	for again {
+		again = false
+		for i := 1; i < len(s); i++ {
+			if s[i-1].kind == tokenAt && s[i].kind == tokenIdentifier {
+				v, _ := n.evalVar(s[i].v, pv)
+				if len(v) == 2 &&
+					v[0].kind == tokenAt &&
+					v[1].kind == tokenIdentifier &&
+					v[1].v == s[i].v {
+					continue
+				}
+				again = true
+				s[i-1], s[i] = token{}, token{}
+				switch len(v) {
+				case 0:
+				case 1, 2:
+					copy(s[i-1:], v)
+				default:
+					s = append(append(append(
+						make(tokens, 0, len(s)+len(v)),
+						s[:i-1]...),
+						v...),
+						s[i+1:]...)
+				}
 			}
 		}
 	}
