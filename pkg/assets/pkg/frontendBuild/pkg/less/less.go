@@ -24,23 +24,32 @@ import (
 	"strings"
 )
 
-func Parse(f string) (string, []string, error) {
-	return ParseUsing(os.ReadFile, f)
+func WithCache() func(f string) (string, []string, error) {
+	cache := cachedTokenizer{
+		m: make(map[string]tokens),
+	}
+	return func(f string) (string, []string, error) {
+		return parse(os.ReadFile, f, cache.tokenize)
+	}
 }
 
 func ParseUsing(read func(name string) ([]byte, error), f string) (string, []string, error) {
+	return parse(read, f, tokenize)
+}
+
+func parse(read func(name string) ([]byte, error), f string, t func(s, f string) tokens) (string, []string, error) {
 	p := parser{
-		read: read,
+		read:     read,
+		tokenize: t,
 	}
 	if err := p.parse(f); err != nil {
-		fmt.Println(p.printRaw())
-		fmt.Println(p.print())
 		return "", p.getImports(), err
 	}
-	fmt.Println(p.printRaw())
+	if true {
+		// fmt.Println(p.printRaw())
+	}
 	s, err := p.print()
 	if err != nil {
-		fmt.Println(p.print())
 		return "", p.getImports(), err
 	}
 	return s, p.getImports(), err
@@ -65,6 +74,7 @@ type node struct {
 	vars       []map[string]storedVar
 	paramVars  map[string]storedVar
 	mixins     []map[string][]node
+	tokenize   func(s, f string) tokens
 }
 
 func consumeUntil(s tokens, needle ...kind) (int, error) {
@@ -288,8 +298,9 @@ func compare[T float64 | string](a T, c kind, b T) bool {
 
 func (n *node) branchNode() node {
 	return node{
-		vars:   append([]map[string]storedVar{{}}, n.vars...),
-		mixins: append([]map[string][]node{{}}, n.mixins...),
+		vars:     append([]map[string]storedVar{{}}, n.vars...),
+		mixins:   append([]map[string][]node{{}}, n.mixins...),
+		tokenize: n.tokenize,
 	}
 }
 
@@ -1327,14 +1338,16 @@ func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]no
 }
 
 type parser struct {
-	read func(name string) ([]byte, error)
-	root *node
+	read     func(name string) ([]byte, error)
+	root     *node
+	tokenize func(s string, f string) tokens
 }
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		vars:   []map[string]storedVar{{}},
-		mixins: []map[string][]node{{}},
+		vars:     []map[string]storedVar{{}},
+		mixins:   []map[string][]node{{}},
+		tokenize: p.tokenize,
 	}
 	return p.root.parse(p.read, f)
 }
@@ -1347,7 +1360,7 @@ func (n *node) parse(read func(name string) ([]byte, error), f string) error {
 		return err
 	}
 	s := string(blob)
-	tt := tokenize(s, f)
+	tt := n.tokenize(s, f)
 	i, err := n.consume(f, read, tt, 0)
 	if err == nil && i != len(tt) {
 		err = errors.New("should consume in full")

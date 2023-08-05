@@ -26,6 +26,8 @@ import (
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild"
 )
 
 func main() {
@@ -42,7 +44,7 @@ func main() {
 	flag.Parse()
 
 	t0 := time.Now()
-	o := newOutputCollector(root, !watch)
+	o := frontendBuild.NewOutputCollector(root, !watch)
 
 	if err := o.Build(concurrency, watch); err != nil {
 		panic(err)

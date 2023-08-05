@@ -14,53 +14,39 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package frontendBuild
 
 import (
-	"encoding/json"
-	"os/exec"
-	"strings"
+	"log"
+	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
+	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild/pkg/less"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func lessLoaderPlugin(root string) api.Plugin {
+func lessLoaderPlugin() api.Plugin {
+	parse := less.WithCache()
 	return api.Plugin{
 		Name: "lessLoader",
 		Setup: func(build api.PluginBuild) {
 			build.OnLoad(api.OnLoadOptions{
 				Filter: "\\.less$",
 			}, func(args api.OnLoadArgs) (api.OnLoadResult, error) {
-				return renderLess(root, args)
+				t0 := time.Now()
+				s, imports, err := parse(args.Path)
+				if err != nil {
+					return api.OnLoadResult{}, errors.Tag(err, args.Path)
+				}
+				log.Println(args.Path, "less", time.Since(t0))
+				return api.OnLoadResult{
+					Contents:   &s,
+					WatchFiles: imports,
+					WatchDirs:  make([]string, 0),
+					Loader:     api.LoaderCSS,
+				}, nil
 			})
 		},
 	}
-}
-
-func renderLess(root string, args api.OnLoadArgs) (api.OnLoadResult, error) {
-	c := exec.Command(
-		"node",
-		"--require", join(root, ".pnp.cjs"),
-		join(root, "esbuild/plugins/lessRenderer.js"),
-		args.Path,
-	)
-	blob, err := c.Output()
-	if err != nil {
-		r := api.OnLoadResult{}
-		if e, ok := err.(*exec.ExitError); ok {
-			for _, s := range strings.Split(string(e.Stderr), "\n") {
-				r.Warnings = append(r.Warnings, api.Message{Text: s})
-			}
-		}
-		return r, errors.Tag(err, args.Path)
-	}
-	r := api.OnLoadResult{
-		Loader: api.LoaderCSS,
-	}
-	if err = json.Unmarshal(blob, &r); err != nil {
-		return api.OnLoadResult{}, errors.Tag(err, args.Path+": parse json")
-	}
-	return r, nil
 }

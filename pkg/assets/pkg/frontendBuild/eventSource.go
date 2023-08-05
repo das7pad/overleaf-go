@@ -14,20 +14,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package frontendBuild
 
 import (
+	"bufio"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-type buildNotification struct {
-	manifest []byte
+type BuildNotification struct {
+	Manifest []byte
 	rebuild  []byte
 }
 
@@ -54,6 +56,9 @@ type rebuildMessage struct {
 func convertMessages(in []api.Message) []minimalMessage {
 	out := make([]minimalMessage, 0, len(in))
 	for _, m := range in {
+		if m.Location == nil {
+			m.Location = &api.Location{}
+		}
 		out = append(out, minimalMessage{
 			Text: m.Text,
 			Location: minimalLocation{
@@ -69,7 +74,7 @@ func convertMessages(in []api.Message) []minimalMessage {
 	return out
 }
 
-func (o *outputCollector) addListener(c chan buildNotification) func() {
+func (o *outputCollector) AddListener(c chan BuildNotification) func() {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.onBuild = append(o.onBuild, c)
@@ -99,8 +104,8 @@ func (o *outputCollector) notifyAboutBuild(name string, r *api.BuildResult) erro
 	}
 
 	o.mu.Lock()
-	b := buildNotification{
-		manifest: o.mem["manifest.json"],
+	b := BuildNotification{
+		Manifest: o.mem["manifest.json"],
 		rebuild:  rebuild,
 	}
 	for _, f := range o.onBuild {
@@ -111,36 +116,48 @@ func (o *outputCollector) notifyAboutBuild(name string, r *api.BuildResult) erro
 }
 
 func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Request) {
-	c := make(chan buildNotification, 10)
-	defer o.addListener(c)()
+	c := make(chan BuildNotification, 10)
+	defer o.AddListener(c)()
 	w.Header().Set("Content-Type", "text/event-stream")
-	if err := writeSSE(w, "epoch", o.epochBlob); err != nil {
-		log.Println(r.RequestURI, err)
+	w.WriteHeader(http.StatusOK)
+	conn, buf, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Println("frontend: event-source: hijack", err)
 		return
 	}
-	w.(http.Flusher).Flush()
+
 	wantManifest := r.URL.Query().Get("manifest") == "true"
-	for {
+	disconnected := make(chan struct{})
+	go func() {
+		_, _ = conn.Read(make([]byte, 1))
+		close(disconnected)
+	}()
+
+	err = writeSSE(buf, "epoch", o.epochBlob)
+poll:
+	for err == nil {
 		select {
-		case <-r.Context().Done():
-			return
+		case <-disconnected:
+			break poll
 		case m := <-c:
-			if err := writeSSE(w, "rebuild", m.rebuild); err != nil {
-				log.Println(r.RequestURI, err)
-				return
-			}
 			if wantManifest {
-				if err := writeSSE(w, "manifest", m.manifest); err != nil {
-					log.Println(r.RequestURI, err)
-					return
-				}
+				err = writeSSE(buf, "manifest", m.Manifest)
+			} else {
+				err = writeSSE(buf, "rebuild", m.rebuild)
 			}
-			w.(http.Flusher).Flush()
 		}
 	}
+	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
+		select {
+		case <-disconnected:
+		default:
+			log.Println("frontend: event-source: rebuild", err)
+		}
+	}
+	_ = conn.Close()
 }
 
-func writeSSE(w http.ResponseWriter, event string, data []byte) error {
+func writeSSE(w *bufio.ReadWriter, event string, data []byte) error {
 	if _, err := w.Write([]byte("event: " + event + "\n")); err != nil {
 		return err
 	}
@@ -151,6 +168,9 @@ func writeSSE(w http.ResponseWriter, event string, data []byte) error {
 		return err
 	}
 	if _, err := w.Write([]byte("\n\n\n")); err != nil {
+		return err
+	}
+	if err := w.Flush(); err != nil {
 		return err
 	}
 	return nil

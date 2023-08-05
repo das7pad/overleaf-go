@@ -97,7 +97,7 @@ func main() {
 
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv()
-	webManager, err := web.New(
+	h, webManager, err := web.New(
 		&webOptions, db, rClient, localURL, dum, clsiManager,
 	)
 	if err != nil {
@@ -113,6 +113,9 @@ func main() {
 	realTimeRouter.Add(r, rtm, realTimeOptions.JWT.Project)
 	spellingRouter.Add(r, sm, co)
 	webRouter.Add(r, webManager, co)
+	if h != nil {
+		r.Group("/assets").NewRoute().Methods(http.MethodGet).Handler(h)
+	}
 
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	processDocumentUpdatesCtx, stopProcessingDocumentUpdates := context.WithCancel(context.Background())

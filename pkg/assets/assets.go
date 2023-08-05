@@ -22,9 +22,15 @@ import (
 	"encoding/json"
 	"html/template"
 	"io"
+	"log"
+	"net/http"
 	"os"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/proxyClient"
@@ -56,7 +62,7 @@ type Options struct {
 	WatchManifest bool
 }
 
-func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
+func Load(options Options, proxy proxyClient.Manager) (http.Handler, Manager, error) {
 	baseURL := options.CDNURL
 	if options.SiteURL.Host == options.CDNURL.Host {
 		baseURL.Scheme = ""
@@ -68,15 +74,17 @@ func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
 	}
-	if err := m.load(proxy, options.ManifestPath, options.CDNURL); err != nil {
-		return nil, err
+	h, err := m.load(proxy, options.ManifestPath, options.CDNURL)
+	if err != nil {
+		return nil, nil, err
 	}
-	if options.WatchManifest {
+	if options.WatchManifest ||
+		strings.Contains(options.ManifestPath, ";watch;") {
 		wm := watchingManager{manager: &m}
-		go wm.watch(options.CDNURL)
-		return &wm, nil
+		go wm.watch(options.ManifestPath, options.CDNURL)
+		return h, &wm, nil
 	}
-	return &m, nil
+	return h, &m, nil
 }
 
 type manager struct {
@@ -84,6 +92,7 @@ type manager struct {
 	entrypointChunks map[string][]template.URL
 	hints            resourceHints
 	baseURL          sharedTypes.URL
+	mu               sync.RWMutex
 }
 
 type manifest struct {
@@ -91,30 +100,51 @@ type manifest struct {
 	EntrypointChunks map[string][]string `json:"entrypointChunks"`
 }
 
-func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) error {
-	var f io.ReadCloser
-	switch manifestPath {
-	case "cdn":
+func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) (http.Handler, error) {
+	switch {
+	case manifestPath == "cdn":
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
 		u := cdnURL.WithPath("/manifest.json")
 		body, cleanup, err := proxy.Fetch(ctx, u)
 		if err != nil {
-			return errors.Tag(err, "request manifest from CDN")
+			return nil, errors.Tag(err, "request manifest from CDN")
 		}
 		defer cleanup()
-		f = body
-	case "empty":
-		f = io.NopCloser(bytes.NewReader([]byte("{}")))
-	default:
-		var err error
-		f, err = os.Open(manifestPath)
-		if err != nil {
-			return errors.Tag(err, "open manifest")
+		defer func() { _ = body.Close() }()
+		return nil, m.loadFrom(body)
+	case manifestPath == "empty":
+		return nil, m.loadFrom(bytes.NewReader([]byte("{}")))
+	case strings.HasPrefix(manifestPath, "build;"):
+		a, b, _ := strings.Cut(manifestPath, "build;")
+		a, b, preCompress := strings.Cut(a+b, "preCompress;")
+		a, b, watch := strings.Cut(a+b, "watch;")
+		o := frontendBuild.NewOutputCollector(a+b, preCompress)
+		if err := o.Build(runtime.NumCPU(), watch); err != nil {
+			return nil, errors.Tag(err, "frontend build")
 		}
+		if watch {
+			c := make(chan frontendBuild.BuildNotification)
+			o.AddListener(c)
+			go func() {
+				for notification := range c {
+					r := bytes.NewReader(notification.Manifest)
+					if err := m.loadFrom(r); err != nil {
+						log.Printf("refresh manifest: %s", err)
+					}
+				}
+			}()
+		}
+		blob, _ := o.Get("manifest.json")
+		return o, m.loadFrom(bytes.NewReader(blob))
+	default:
+		f, err := os.Open(manifestPath)
+		if err != nil {
+			return nil, errors.Tag(err, "open manifest")
+		}
+		defer func() { _ = f.Close() }()
+		return nil, m.loadFrom(f)
 	}
-	defer func() { _ = f.Close() }()
-	return m.loadFrom(f)
 }
 
 func (m *manager) loadFrom(f io.Reader) error {
@@ -123,6 +153,9 @@ func (m *manager) loadFrom(f io.Reader) error {
 		return errors.Tag(err, "consume manifest")
 	}
 	entrypointChunks := make(map[string][]template.URL, len(raw.EntrypointChunks))
+	assets := make(map[string]template.URL, len(raw.Assets))
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for s, urls := range raw.EntrypointChunks {
 		rebased := make([]template.URL, 0, len(urls))
 		for _, url := range urls {
@@ -130,7 +163,6 @@ func (m *manager) loadFrom(f io.Reader) error {
 		}
 		entrypointChunks[s] = rebased
 	}
-	assets := make(map[string]template.URL)
 	for s, url := range raw.Assets {
 		assets[s] = m.StaticPath(url)
 	}

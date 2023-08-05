@@ -292,7 +292,6 @@ func evalMathExpr(s tokens, i int, l kind) (int, float64, string, error) {
 func evalMath(s tokens) tokens {
 	i, x, unit, err := evalMathExpr(s, 0, 0)
 	if err != nil {
-		// TODO: propagate error
 		return s
 	}
 	n := 1 + len(s) - i

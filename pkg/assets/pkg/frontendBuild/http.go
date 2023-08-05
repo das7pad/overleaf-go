@@ -14,28 +14,56 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package frontendBuild
 
 import (
 	"log"
 	"mime"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 )
 
+func (o *outputCollector) Get(p string) ([]byte, bool) {
+	o.mu.Lock()
+	blob, ok := o.mem[p]
+	o.mu.Unlock()
+	return blob, ok
+}
+
 func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	if strings.HasSuffix(r.URL.Path, "/event-source") {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+	} else if strings.HasSuffix(r.URL.Path, "/event-source") {
 		o.handleEventSource(w, r)
 	} else {
-		o.mu.Lock()
-		blob, ok := o.mem[strings.TrimPrefix(r.URL.Path, "/")]
-		o.mu.Unlock()
+		p := strings.TrimPrefix(r.URL.Path, "/")
+		p = strings.TrimPrefix(p, "assets/")
+		blob, ok := o.Get(p)
+		enc := r.Header.Get("Accept-Encoding")
+		if ok && strings.Contains(enc, "gzip") && o.preCompress {
+			blob, ok = o.Get(p + ".gz")
+			if ok {
+				w.Header().Set("Content-Encoding", "gzip")
+			}
+		}
 		if ok {
 			ct := mime.TypeByExtension(path.Ext(r.URL.Path))
 			w.Header().Set("Content-Type", ct)
-			_, _ = w.Write(blob)
+			w.Header().Set("Content-Length", strconv.FormatInt(
+				int64(len(blob)), 10,
+			))
+			switch r.Method {
+			case http.MethodGet:
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(blob)
+			case http.MethodHead:
+				w.WriteHeader(http.StatusOK)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+			}
 		} else {
 			log.Printf("GET %s 404", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)

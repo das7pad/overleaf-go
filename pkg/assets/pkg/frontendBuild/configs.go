@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package frontendBuild
 
 import (
 	"path/filepath"
@@ -144,7 +144,7 @@ func translationsBundlesConfig(root string) buildOptions {
 
 func stylesheetsConfig(root string) buildOptions {
 	c := baseConfig(root, "stylesheet bundles")
-	c.Plugins = []api.Plugin{lessLoaderPlugin(root)}
+	c.Plugins = []api.Plugin{lessLoaderPlugin()}
 	c.EntryPoints = []string{
 		join(root, "frontend/stylesheets/style.less"),
 		join(root, "frontend/stylesheets/light-style.less"),

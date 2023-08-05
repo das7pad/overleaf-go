@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package frontendBuild
 
 import (
 	"archive/tar"
@@ -33,14 +33,14 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func newOutputCollector(root string, preCompress bool) *outputCollector {
+func NewOutputCollector(root string, preCompress bool) *outputCollector {
 	return &outputCollector{
 		manifest: manifest{
 			Assets:           make(map[string]string),
 			EntrypointChunks: make(map[string][]string),
 		},
 		mem:         make(map[string][]byte),
-		old:         make(map[string]map[string]bool),
+		old:         make(map[string]map[string]uint8),
 		root:        root,
 		preCompress: preCompress,
 		epochBlob:   []byte(strconv.FormatInt(time.Now().UnixMilli(), 10)),
@@ -59,8 +59,8 @@ type outputCollector struct {
 	preCompress bool
 	epochBlob   []byte
 
-	onBuild []chan<- buildNotification
-	old     map[string]map[string]bool
+	onBuild []chan<- BuildNotification
+	old     map[string]map[string]uint8
 	mem     map[string][]byte
 }
 
@@ -206,12 +206,24 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 	}
 
 	o.mu.Lock()
-	for s := range o.old[desc] {
-		if !written[s] {
-			delete(o.mem, s)
-		}
+	old := o.old[desc]
+	if old == nil {
+		old = make(map[string]uint8, len(written))
 	}
-	o.old[desc] = written
+	for s, v := range old {
+		if !written[s] {
+			v--
+		}
+		if v == 0 {
+			delete(o.mem, s)
+			delete(old, s)
+		}
+		old[s] = v
+	}
+	for s := range written {
+		old[s] = 3
+	}
+	o.old[desc] = old
 	o.mu.Unlock()
 
 	if err := o.writeManifest(); err != nil {

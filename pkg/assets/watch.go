@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,7 +22,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -34,11 +34,13 @@ import (
 // and logic data-races (read vs read on .assets before/after it was rewritten
 // during the processing of a single HTTP request).
 type watchingManager struct {
-	mu sync.RWMutex
 	*manager
 }
 
-func (wm *watchingManager) watch(cdnURL sharedTypes.URL) {
+func (wm *watchingManager) watch(path string, cdnURL sharedTypes.URL) {
+	if strings.HasPrefix(path, "build;") {
+		return
+	}
 	log.Println("assets: watch: waiting for rebuilds")
 	u := cdnURL.
 		WithPath("/event-source").
@@ -82,9 +84,7 @@ func (wm *watchingManager) watch(cdnURL sharedTypes.URL) {
 				break
 			}
 			log.Println("assets: watch: reloading")
-			wm.mu.Lock()
 			err = wm.loadFrom(bytes.NewReader(r.Bytes()[len("data: "):]))
-			wm.mu.Unlock()
 			if err != nil {
 				log.Printf(
 					"assets: watch: reload failed: %q", err.Error(),

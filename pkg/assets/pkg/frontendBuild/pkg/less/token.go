@@ -19,6 +19,7 @@ package less
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 //go:generate stringer -type=kind
@@ -133,6 +134,25 @@ func (mm matchers) Eq(other []tokens) bool {
 		}
 	}
 	return true
+}
+
+type cachedTokenizer struct {
+	mu sync.RWMutex
+	m  map[string]tokens
+}
+
+func (c *cachedTokenizer) tokenize(s, f string) tokens {
+	c.mu.RLock()
+	tt, ok := c.m[f+s]
+	c.mu.RUnlock()
+	if ok {
+		return tt
+	}
+	tt = tokenize(s, f)
+	c.mu.Lock()
+	c.m[f+s] = tt
+	c.mu.Unlock()
+	return tt
 }
 
 func tokenize(s, f string) tokens {
