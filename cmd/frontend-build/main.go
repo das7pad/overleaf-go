@@ -41,10 +41,12 @@ func main() {
 	flag.BoolVar(&watch, "watch", watch, "")
 	concurrency := runtime.NumCPU()
 	flag.IntVar(&concurrency, "concurrency", concurrency, "")
+	preCompress := frontendBuild.PreCompressSource
+	flag.IntVar((*int)(&preCompress), "pre-compress", int(preCompress), "0=no 1=source 2=source+map")
 	flag.Parse()
 
 	t0 := time.Now()
-	o := frontendBuild.NewOutputCollector(root, !watch)
+	o := frontendBuild.NewOutputCollector(root, preCompress)
 
 	if err := o.Build(concurrency, watch); err != nil {
 		panic(err)

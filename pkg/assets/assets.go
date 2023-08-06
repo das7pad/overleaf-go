@@ -117,7 +117,14 @@ func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sh
 		return nil, m.loadFrom(bytes.NewReader([]byte("{}")))
 	case strings.HasPrefix(manifestPath, "build;"):
 		a, b, _ := strings.Cut(manifestPath, "build;")
-		a, b, preCompress := strings.Cut(a+b, "preCompress;")
+		a, b, preCompressSource := strings.Cut(a+b, "preCompressSource;")
+		a, b, preCompressSourcePlusMap := strings.Cut(a+b, "preCompressSource+Map;")
+		preCompress := frontendBuild.PreCompressNone
+		if preCompressSource {
+			preCompress = frontendBuild.PreCompressSource
+		} else if preCompressSourcePlusMap {
+			preCompress = frontendBuild.PreCompressSourcePlusMap
+		}
 		a, b, watch := strings.Cut(a+b, "watch;")
 		o := frontendBuild.NewOutputCollector(a+b, preCompress)
 		if err := o.Build(runtime.NumCPU(), watch); err != nil {

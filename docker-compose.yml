@@ -85,14 +85,29 @@ services:
     volumes:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
+  build-frontend-build:
+    image: golang:1.19.11
+    network_mode: bridge
+    working_dir: /go/src/cmd/frontend-build
+    command: go build -o ${TMP_DIR}/binaries/frontend-build
+    volumes:
+      - ./:/go/src
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
+
   assets:
     build: https://github.com/das7pad/overleaf-node.git#main
+    depends_on:
+      build-frontend-build:
+        condition: service_completed_successfully
     network_mode: bridge
     command:
       - sh
       - '-exc'
-      - 'make dist && tar -x -f output/public.tar.gz -C ${TMP_DIR}/assets'
+      - 'make build_lngs_full
+      && ${TMP_DIR}/binaries/frontend-build -src=$(pwd) -watch=false
+      && tar -x -f /tmp/public.tar.gz -C ${TMP_DIR}/assets'
     volumes:
+      - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
       - ${TMP_DIR}/assets:${TMP_DIR}/assets
 
   nginx:

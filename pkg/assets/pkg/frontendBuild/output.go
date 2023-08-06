@@ -22,9 +22,11 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"net/http"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +35,15 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func NewOutputCollector(root string, preCompress bool) *outputCollector {
+type API interface {
+	http.Handler
+	Build(concurrency int, watch bool) error
+	Bundle(w io.Writer) error
+	AddListener(c chan BuildNotification) func()
+	Get(p string) ([]byte, bool)
+}
+
+func NewOutputCollector(root string, preCompress PreCompress) API {
 	return &outputCollector{
 		manifest: manifest{
 			Assets:           make(map[string]string),
@@ -47,6 +57,14 @@ func NewOutputCollector(root string, preCompress bool) *outputCollector {
 	}
 }
 
+type PreCompress int
+
+const (
+	PreCompressNone = PreCompress(iota)
+	PreCompressSource
+	PreCompressSourcePlusMap
+)
+
 type manifest struct {
 	Assets           map[string]string   `json:"assets"`
 	EntrypointChunks map[string][]string `json:"entrypointChunks"`
@@ -56,7 +74,7 @@ type outputCollector struct {
 	manifest
 	mu          sync.Mutex
 	root        string
-	preCompress bool
+	preCompress PreCompress
 	epochBlob   []byte
 
 	onBuild []chan<- BuildNotification
@@ -92,10 +110,14 @@ func (o *outputCollector) Bundle(w io.Writer) error {
 	}
 	sort.Strings(ordered)
 	for _, f := range ordered {
+		mode := int64(0o444)
+		if strings.HasSuffix(f, "/") {
+			mode = 0o755
+		}
 		err := t.WriteHeader(&tar.Header{
 			Name: f,
 			Size: int64(len(o.mem[f])),
-			Mode: 0o444,
+			Mode: mode,
 		})
 		if err != nil {
 			return errors.Tag(err, f+": write tar header")
@@ -128,10 +150,17 @@ func (o *outputCollector) plugin(options buildOptions) api.Plugin {
 func (o *outputCollector) write(p string, blob []byte) error {
 	p = p[len(join(o.root, "public"))+1:]
 	o.mu.Lock()
+	if existing, ok := o.mem[p]; ok && bytes.Equal(blob, existing) {
+		o.mu.Unlock()
+		return nil
+	}
 	o.mem[p] = blob
 	o.mu.Unlock()
 
-	if !o.preCompress {
+	if o.preCompress == PreCompressNone {
+		return nil
+	}
+	if o.preCompress == PreCompressSource && strings.HasSuffix(p, ".map") {
 		return nil
 	}
 	gz, err := compress(blob)
@@ -216,12 +245,13 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 		}
 		if v == 0 {
 			delete(o.mem, s)
+			delete(o.mem, s+".gz")
 			delete(old, s)
 		}
 		old[s] = v
 	}
 	for s := range written {
-		old[s] = 3
+		old[s] = 5
 	}
 	o.old[desc] = old
 	o.mu.Unlock()

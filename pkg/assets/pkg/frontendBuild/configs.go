@@ -151,6 +151,7 @@ func stylesheetsConfig(root string) buildOptions {
 	}
 	c.Outbase = join(root, "frontend/stylesheets/")
 	c.Outdir = join(root, "public/stylesheets/")
+	c.Sourcemap = api.SourceMapNone
 	return c
 }
 

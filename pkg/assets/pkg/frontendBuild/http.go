@@ -43,10 +43,13 @@ func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p = strings.TrimPrefix(p, "assets/")
 		blob, ok := o.Get(p)
 		enc := r.Header.Get("Accept-Encoding")
-		if ok && strings.Contains(enc, "gzip") && o.preCompress {
-			blob, ok = o.Get(p + ".gz")
-			if ok {
+		if ok &&
+			o.preCompress != PreCompressNone &&
+			strings.Contains(enc, "gzip") {
+			preComp, gotPreComp := o.Get(p + ".gz")
+			if gotPreComp {
 				w.Header().Set("Content-Encoding", "gzip")
+				blob = preComp
 			}
 		}
 		if ok {

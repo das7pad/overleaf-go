@@ -35,7 +35,7 @@ type yarnPNPData struct {
 
 func (r *yarnPNPReader) Load(root string, wanted map[string]bool) error {
 	d := yarnPNPData{}
-	blob, err := os.ReadFile(join(root, ".yarn/.pnp.data.json"))
+	blob, err := os.ReadFile(join(root, ".pnp.data.json"))
 	if err != nil {
 		return errors.Tag(err, "read .pnp.data.json")
 	}
