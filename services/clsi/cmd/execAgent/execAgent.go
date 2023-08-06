@@ -115,7 +115,7 @@ func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 func serve(conn net.Conn) {
 	timed := sharedTypes.Timed{}
 	code, message := do(conn, &timed)
-	msg := types.ExecAgentResponseBody{
+	msg := &types.ExecAgentResponseBody{
 		ExitCode:     code,
 		ErrorMessage: message,
 		Timed:        timed,
