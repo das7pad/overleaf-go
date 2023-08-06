@@ -389,7 +389,7 @@ func TestParseUsing(t *testing.T) {
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".btn { padding: 1 2 3; }",
+			want:    ".btn { padding: 1 2\n 3; }",
 			want1:   []string{"in.less"},
 			wantErr: false,
 		},

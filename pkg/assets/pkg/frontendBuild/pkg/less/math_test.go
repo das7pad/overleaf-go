@@ -30,6 +30,41 @@ func Test_evalMath(t *testing.T) {
 		want tokens
 	}{
 		{
+			name: "static no space",
+			args: args{
+				s: tokenize("1", ""),
+			},
+			want: tokenize("1", ""),
+		},
+		{
+			name: "static leading space",
+			args: args{
+				s: tokenize("  1", ""),
+			},
+			want: tokenize("  1", ""),
+		},
+		{
+			name: "static negative no space",
+			args: args{
+				s: tokenize("-1", ""),
+			},
+			want: tokenize("-1", ""),
+		},
+		{
+			name: "static negative leading space",
+			args: args{
+				s: tokenize("  -1", ""),
+			},
+			want: tokenize("  -1", ""),
+		},
+		{
+			name: "single operation leading space",
+			args: args{
+				s: tokenize("  1+1", ""),
+			},
+			want: tokenize("2", ""),
+		},
+		{
 			name: "single operation space",
 			args: args{
 				s: tokenize("1 + 1", ""),
@@ -214,9 +249,9 @@ func Test_evalMath(t *testing.T) {
 		{
 			name: "percentage",
 			args: args{
-				s: tokenize("percentage(0.555)", ""),
+				s: tokenize("percentage(0.5555)", ""),
 			},
-			want: tokenize("56%", ""),
+			want: tokenize("55.55%", ""),
 		},
 		{
 			name: "sqrt",

@@ -688,11 +688,20 @@ func isConstant(s tokens) bool {
 	if len(s) == 0 {
 		return false
 	}
+	firstNonSpaceToken := 0
 	for i, t := range s {
 		switch t.kind {
+		case space, tokenNewline:
+			if firstNonSpaceToken == i {
+				firstNonSpaceToken++
+			}
 		case tokenAt:
 			return false
-		case tokenPlus, tokenMinus, tokenStar, tokenSlash:
+		case tokenMinus:
+			if i != firstNonSpaceToken {
+				return false
+			}
+		case tokenPlus, tokenStar, tokenSlash:
 			return false
 		case tokenParensOpen:
 			if i == 0 || s[i-1].kind != tokenIdentifier {

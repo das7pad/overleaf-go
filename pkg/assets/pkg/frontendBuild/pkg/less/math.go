@@ -137,7 +137,7 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 		case "round":
 			return j, math.Round(x), u, nil
 		case "percentage":
-			return j, math.Round(x * 100), "%", nil
+			return j, x * 100, "%", nil
 		case "sqrt":
 			return j, math.Sqrt(x), u, nil
 		case "abs":
@@ -290,6 +290,9 @@ func evalMathExpr(s tokens, i int, l kind) (int, float64, string, error) {
 }
 
 func evalMath(s tokens) tokens {
+	if isConstant(s) {
+		return s
+	}
 	i, x, unit, err := evalMathExpr(s, 0, 0)
 	if err != nil {
 		return s
