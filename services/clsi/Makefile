@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.19.12-alpine3.17 go list -f '{{ join .Deps "\n" }}' \
+	$(BUILD_IN) golang:1.20.7-alpine3.17 go list -f '{{ join .Deps "\n" }}' \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
 		go.mod \
@@ -60,18 +60,18 @@ check-not-changed:
 
 .PHONY: $(SERVICE)
 $(SERVICE):
-	$(BUILD_IN) golang:1.19.12-alpine3.17 go build
+	$(BUILD_IN) golang:1.20.7-alpine3.17 go build
 	touch -m -d 2021-01-01T00:00Z $@
 
 # Build the execAgent in ubuntu/debian. The texlive image will use debian.
 .PHONY: execAgent execAgent/docker execAgent/local
 execAgent: execAgent/docker
 execAgent/docker:
-	$(BUILD_IN) golang:1.19.12 make execAgent/local
+	$(BUILD_IN) golang:1.20.7 make execAgent/local
 	touch -m -d 2021-01-01T00:00Z execAgent
 
 execAgent/local:
-	go build -ldflags="-s -w" -tags noDB ./cmd/execAgent
+	go build -ldflags="-s -w" -tags noDB,osusergo,netgo ./cmd/execAgent
 
 docker/build/production: execAgent
 docker/build/production: $(SERVICE)

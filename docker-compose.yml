@@ -52,10 +52,10 @@ services:
       - ~/overleaf-go/minio:/data
 
   build-minio-setup:
-    image: golang:1.19.12
+    image: golang:1.20.7
     network_mode: bridge
     working_dir: /go/src/cmd/minio-setup
-    command: go build -o ${TMP_DIR}/binaries/minio-setup
+    command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/minio-setup
     volumes:
       - ./:/go/src
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
@@ -118,10 +118,10 @@ services:
       - ${TMP_DIR}/assets:${TMP_DIR}/assets:ro
 
   build-linked-url-proxy:
-    image: golang:1.19.12
+    image: golang:1.20.7
     network_mode: bridge
     working_dir: /go/src/services/linked-url-proxy
-    command: go build -o ${TMP_DIR}/binaries/linked-url-proxy
+    command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/linked-url-proxy
     volumes:
       - ./:/go/src
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
@@ -143,10 +143,10 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-pull-texlive-images:
-    image: golang:1.19.12
+    image: golang:1.20.7
     network_mode: bridge
     working_dir: /go/src/cmd/pull-texlive-images
-    command: go build -o ${TMP_DIR}/binaries/pull-texlive-images
+    command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/pull-texlive-images
     volumes:
       - ./:/go/src
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
@@ -169,7 +169,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-execAgent:
-    image: golang:1.19.12
+    image: golang:1.20.7
     network_mode: bridge
     working_dir: /go/src/services/clsi
     command:
@@ -181,10 +181,10 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
 
   build-overleaf:
-    image: golang:1.19.12
+    image: golang:1.20.7
     network_mode: bridge
     working_dir: /go/src/cmd/overleaf
-    command: go build -o ${TMP_DIR}/binaries/overleaf
+    command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/overleaf
     volumes:
       - ./:/go/src
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
