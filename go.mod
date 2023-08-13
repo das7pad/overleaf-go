@@ -10,15 +10,15 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/hashicorp/golang-lru/v2 v2.0.4
-	github.com/jackc/pgx/v5 v5.4.1
+	github.com/hashicorp/golang-lru/v2 v2.0.5
+	github.com/jackc/pgx/v5 v5.4.3
 	github.com/minio/madmin-go/v2 v2.2.1
-	github.com/minio/minio-go/v7 v7.0.59
+	github.com/minio/minio-go/v7 v7.0.61
 	github.com/moby/term v0.5.0
 	github.com/sergi/go-diff v1.3.1
-	go.mongodb.org/mongo-driver v1.12.0
-	golang.org/x/crypto v0.11.0
-	golang.org/x/net v0.12.0
+	go.mongodb.org/mongo-driver v1.12.1
+	golang.org/x/crypto v0.12.0
+	golang.org/x/net v0.14.0
 	golang.org/x/sync v0.3.0
 )
 
@@ -35,7 +35,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/puddle/v2 v2.2.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
@@ -66,8 +66,8 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.11.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
