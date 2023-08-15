@@ -462,10 +462,10 @@ func parseColor(s tokens) (color, error) {
 		case "transparent":
 			return hslaColor{}, nil
 		default:
-			return nil, fmt.Errorf("unknown color: %s", param[0].String())
+			return nil, fmt.Errorf("unknown color: %s", param[0].v)
 		}
 	default:
-		return nil, fmt.Errorf("unknown color: %s", s[0].String())
+		return nil, fmt.Errorf("unknown color: %s", s[0].v)
 	}
 }
 

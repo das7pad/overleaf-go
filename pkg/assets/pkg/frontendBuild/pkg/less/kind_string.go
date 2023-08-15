@@ -40,17 +40,18 @@ func _() {
 	_ = x[tokenDoubleQuote-29]
 	_ = x[tokenTilde-30]
 	_ = x[tokenAmp-31]
-	_ = x[compGt-32]
-	_ = x[compGte-33]
-	_ = x[compLt-34]
-	_ = x[compLte-35]
-	_ = x[compEq-36]
-	_ = x[compNEq-37]
+	_ = x[comment-32]
+	_ = x[compGt-33]
+	_ = x[compGte-34]
+	_ = x[compLt-35]
+	_ = x[compLte-36]
+	_ = x[compEq-37]
+	_ = x[compNEq-38]
 }
 
-const _kind_name = "spacetokenNewlinetokenAttokenBackslashtokenBracketClosetokenBracketOpentokenColontokenCurlyClosetokenCurlyOpentokenDottokenExclamationtokenGttokenHashtokenIdentifiertokenPercenttokenLttokenMinustokenUnderscoretokenParensClosetokenParensOpentokenPlustokenQuestiontokenCommatokenSemitokenSlashtokenStartokenEqtokenNumtokenSingleQuotetokenDoubleQuotetokenTildetokenAmpcompGtcompGtecompLtcompLtecompEqcompNEq"
+const _kind_name = "spacetokenNewlinetokenAttokenBackslashtokenBracketClosetokenBracketOpentokenColontokenCurlyClosetokenCurlyOpentokenDottokenExclamationtokenGttokenHashtokenIdentifiertokenPercenttokenLttokenMinustokenUnderscoretokenParensClosetokenParensOpentokenPlustokenQuestiontokenCommatokenSemitokenSlashtokenStartokenEqtokenNumtokenSingleQuotetokenDoubleQuotetokenTildetokenAmpcommentcompGtcompGtecompLtcompLtecompEqcompNEq"
 
-var _kind_index = [...]uint16{0, 5, 17, 24, 38, 55, 71, 81, 96, 110, 118, 134, 141, 150, 165, 177, 184, 194, 209, 225, 240, 249, 262, 272, 281, 291, 300, 307, 315, 331, 347, 357, 365, 371, 378, 384, 391, 397, 404}
+var _kind_index = [...]uint16{0, 5, 17, 24, 38, 55, 71, 81, 96, 110, 118, 134, 141, 150, 165, 177, 184, 194, 209, 225, 240, 249, 262, 272, 281, 291, 300, 307, 315, 331, 347, 357, 365, 372, 378, 385, 391, 398, 404, 411}
 
 func (i kind) String() string {
 	if i < 0 || i >= kind(len(_kind_index)-1) {

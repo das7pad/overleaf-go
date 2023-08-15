@@ -25,28 +25,23 @@ import (
 )
 
 func WithCache() func(f string) (string, []string, error) {
-	cache := cachedTokenizer{
-		m: make(map[string]tokens),
-	}
+	cache := newTokenizer()
 	return func(f string) (string, []string, error) {
-		return parse(os.ReadFile, f, cache.tokenize)
+		return parse(os.ReadFile, f, cache)
 	}
 }
 
 func ParseUsing(read func(name string) ([]byte, error), f string) (string, []string, error) {
-	return parse(read, f, tokenize)
+	return parse(read, f, newTokenizer())
 }
 
-func parse(read func(name string) ([]byte, error), f string, t func(s, f string) tokens) (string, []string, error) {
+func parse(read func(name string) ([]byte, error), f string, r *tokenizer) (string, []string, error) {
 	p := parser{
-		read:     read,
-		tokenize: t,
+		read:      read,
+		tokenizer: r,
 	}
 	if err := p.parse(f); err != nil {
 		return "", p.getImports(), err
-	}
-	if true {
-		// fmt.Println(p.printRaw())
 	}
 	s, err := p.print()
 	if err != nil {
@@ -74,7 +69,7 @@ type node struct {
 	vars       []map[string]storedVar
 	paramVars  map[string]storedVar
 	mixins     []map[string][]node
-	tokenize   func(s, f string) tokens
+	*tokenizer
 }
 
 func consumeUntil(s tokens, needle ...kind) (int, error) {
@@ -298,9 +293,9 @@ func compare[T float64 | string](a T, c kind, b T) bool {
 
 func (n *node) branchNode() node {
 	return node{
-		vars:     append([]map[string]storedVar{{}}, n.vars...),
-		mixins:   append([]map[string][]node{{}}, n.mixins...),
-		tokenize: n.tokenize,
+		vars:      append([]map[string]storedVar{{}}, n.vars...),
+		mixins:    append([]map[string][]node{{}}, n.mixins...),
+		tokenizer: n.tokenizer,
 	}
 }
 
@@ -1106,7 +1101,7 @@ func (n *node) evalPaths(s tokens) tokens {
 			i++
 			j--
 		}
-		p := path.Join(path.Dir(s[i].f), s[i:j].String())
+		p := path.Join(path.Dir(n.resolveFile(s[i])), s[i:j].String())
 		out = append(out, s[start:i]...)
 		out = append(out, token{kind: tokenIdentifier, v: p})
 		start = j
@@ -1347,16 +1342,16 @@ func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]no
 }
 
 type parser struct {
-	read     func(name string) ([]byte, error)
-	root     *node
-	tokenize func(s string, f string) tokens
+	read func(name string) ([]byte, error)
+	root *node
+	*tokenizer
 }
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		vars:     []map[string]storedVar{{}},
-		mixins:   []map[string][]node{{}},
-		tokenize: p.tokenize,
+		vars:      []map[string]storedVar{{}},
+		mixins:    []map[string][]node{{}},
+		tokenizer: p.tokenizer,
 	}
 	return p.root.parse(p.read, f)
 }
@@ -1379,10 +1374,10 @@ func (n *node) parse(read func(name string) ([]byte, error), f string) error {
 		if len(tt) > i+2 && tt[i].kind == tokenAt && tt[i+1].kind == tokenIdentifier {
 			idx := index(tt[i:], tokenSemi)
 			if idx != -1 {
-				end = int(tt[i+idx].start) + 1
+				end = i + idx
 			}
 		}
-		fmt.Printf("consumed %q until t=%d p=%d: %q: %s\n", f, i, tt[i].start, err, s[tt[i].start:end])
+		fmt.Printf("consumed %q until t=%d start=%q end=%q: %q\n", f, i, tt[i], tt[end], err)
 		return err
 	}
 	return nil
