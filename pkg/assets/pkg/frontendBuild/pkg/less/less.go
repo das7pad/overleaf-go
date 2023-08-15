@@ -71,6 +71,7 @@ type storedVar struct {
 
 type node struct {
 	matcher    tokens
+	matcherS   string
 	when       tokens
 	directives []directive
 	children   []node
@@ -80,6 +81,13 @@ type node struct {
 	mixins     []map[string][]node
 	r          *tokenizer
 	w          *sourceMapWriter
+}
+
+func (n *node) MatcherString() string {
+	if len(n.matcherS) == 0 {
+		n.matcherS = n.matcher.String()
+	}
+	return n.matcherS
 }
 
 func consumeUntil(s tokens, needle ...kind) (int, error) {
@@ -671,7 +679,7 @@ doneParsing:
 			n1.matcher = n1.matcher[argsStart:]
 			n.mixins[0][name] = append(n.mixins[0][name], n1)
 			if len(n.matcher) > 0 && n.matcher[0].kind == tokenHash {
-				chain := n.matcher.String() + " > " + name
+				chain := n.MatcherString() + " > " + name
 				n.mixins[len(n.mixins)-1][chain] = append(
 					n.mixins[len(n.mixins)-1][chain], n1,
 				)
@@ -1012,12 +1020,13 @@ func (n *node) evalMixin(s tokens, cc [][]node, pv []map[string]storedVar) ([]no
 	}
 	if len(args) == 0 {
 		for _, children := range cc {
-			for _, m := range children {
-				if m.matcher.String() != name {
+			for i := 0; i < len(children); i++ {
+				if children[i].MatcherString() != name {
 					continue
 				}
-				n1 := m
+				n1 := children[i]
 				n1.matcher = nil
+				n1.matcherS = ""
 				nodes = append(nodes, n1)
 			}
 			if len(nodes) != 0 {
