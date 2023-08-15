@@ -157,7 +157,9 @@ type tokenizer struct {
 	m     map[int16]cachedTokens
 }
 
-func (r *tokenizer) resolveFile(t token) string {
+func (r *tokenizer) ResolveFile(t token) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	for s, fId := range r.files {
 		if t.f == fId {
 			return s
@@ -166,7 +168,7 @@ func (r *tokenizer) resolveFile(t token) string {
 	return ""
 }
 
-func (r *tokenizer) tokenize(s, f string) tokens {
+func (r *tokenizer) Tokenize(s, f string) (tokens, int16) {
 	r.mu.RLock()
 	fId, ok := r.files[f]
 	if !ok {
@@ -174,7 +176,7 @@ func (r *tokenizer) tokenize(s, f string) tokens {
 		r.mu.Lock()
 		fId, ok = r.files[f]
 		if !ok {
-			fId = int16(len(r.files))
+			fId = int16(len(r.files)) + 1
 			r.files[f] = fId
 		}
 		r.mu.Unlock()
@@ -183,14 +185,14 @@ func (r *tokenizer) tokenize(s, f string) tokens {
 	cached, ok := r.m[fId]
 	r.mu.RUnlock()
 	if ok && cached.s == s {
-		return cached.tt
+		return cached.tt, fId
 	}
 	cached.s = s
 	cached.tt = tokenize(s, fId)
 	r.mu.Lock()
 	r.m[fId] = cached
 	r.mu.Unlock()
-	return cached.tt
+	return cached.tt, fId
 }
 
 func tokenize(s string, f int16) tokens {

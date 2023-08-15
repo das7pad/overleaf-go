@@ -17,6 +17,7 @@
 package less
 
 import (
+	"fmt"
 	"io/fs"
 	"reflect"
 	"testing"
@@ -41,7 +42,8 @@ func TestParseUsing(t *testing.T) {
 		name    string
 		args    args
 		want    string
-		want1   []string
+		want1   string
+		want2   []string
 		wantErr bool
 	}{
 		{
@@ -53,7 +55,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -65,7 +67,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "html { color: red; top: 1px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -77,7 +79,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "html { color: blue; } html .btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -89,7 +91,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".foo { color: blue; } body > button.foo { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -101,7 +103,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".foo,.bar { color: blue; } .foo .baz,.bar .baz { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -113,7 +115,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".foo { color: blue; } body > button.foo,.btn .foo,.foo .bar,.foo:after { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -125,7 +127,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "html .btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -137,7 +139,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 1px 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -149,7 +151,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -161,7 +163,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -173,7 +175,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; margin: 1px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -185,7 +187,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: blue; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -197,7 +199,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -209,7 +211,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -221,7 +223,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { content: '\\// foo'; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -233,7 +235,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -245,7 +247,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -257,7 +259,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: blue; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -270,7 +272,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { filter: alpha(opacity=50); }",
-			want1:   []string{"in.less", "other.css"},
+			want2:   []string{"in.less", "other.css"},
 			wantErr: false,
 		},
 		{
@@ -282,7 +284,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { filter: alpha(opacity=50); }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -294,7 +296,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: calc(100vh - 1px); }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -306,7 +308,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: calc(100vh - 1px); }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -318,7 +320,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: calc(100vh - 2px); }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -330,7 +332,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: calc(100vh - 1px  - 1rem); }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -342,7 +344,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: calc(100vh - 1px) !important; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -354,7 +356,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { padding: 1 2 3; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -366,7 +368,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 2; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -378,7 +380,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { padding: 1 2 3; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -390,7 +392,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { padding: 1 2\n 3; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -402,7 +404,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 2 !important; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -414,7 +416,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -426,7 +428,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 4px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -438,7 +440,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 4px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -450,7 +452,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 1px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -462,11 +464,11 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 2; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
-			name: "math single operation different unit passthrough",
+			name: "math single operation different unit pass through",
 			args: args{
 				read: fakeFS{
 					"in.less": ".btn { margin: 1rem + 1px; }",
@@ -474,7 +476,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 1rem + 1px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -486,7 +488,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { margin: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -498,7 +500,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -511,7 +513,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less", "other.less"},
+			want2:   []string{"in.less", "other.less"},
 			wantErr: false,
 		},
 		{
@@ -524,7 +526,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less", "other.less"},
+			want2:   []string{"in.less", "other.less"},
 			wantErr: false,
 		},
 		{
@@ -536,7 +538,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -548,7 +550,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -560,7 +562,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -572,7 +574,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".red { color: red; } .blue { color: blue; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -584,7 +586,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -596,7 +598,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -608,7 +610,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -620,7 +622,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -632,7 +634,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -644,7 +646,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -656,7 +658,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -668,7 +670,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -680,7 +682,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -692,7 +694,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".red,.btn-error { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -704,7 +706,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".red { color: red; } .btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -716,7 +718,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -728,7 +730,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; background-color: blue; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -740,7 +742,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -752,7 +754,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -764,7 +766,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -776,7 +778,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -788,7 +790,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: rgb(255, 0, 0); padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -800,7 +802,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -812,7 +814,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -824,7 +826,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -836,7 +838,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; padding: 2px; background-color: red; margin: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -848,7 +850,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".render.red { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -860,7 +862,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".render.p-1-2-3-4 { padding: 1 2 3 4; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -872,7 +874,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".render.red { color: red; } .render.blue { color: blue; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -884,7 +886,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".one { padding: 1; } .two { margin: 2; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -896,7 +898,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -908,7 +910,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -920,7 +922,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".red { color: red; } .blue { color: blue; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -932,7 +934,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".red { color: red; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -944,7 +946,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { padding: 2; } .btn .foo { padding: 3; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -956,7 +958,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".col-1 { padding: 1px; } .col-2 { padding: 2px; }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -968,7 +970,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@keyframes foo { 0% { background-color: red; } 50% { background-color: transparent; } 100% { } }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -981,7 +983,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less", "other.less"},
+			want2:   []string{"in.less", "other.less"},
 			wantErr: false,
 		},
 		{
@@ -994,7 +996,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less", "other.less"},
+			want2:   []string{"in.less", "other.less"},
 			wantErr: false,
 		},
 		{
@@ -1007,7 +1009,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less", "other.css"},
+			want2:   []string{"in.less", "other.css"},
 			wantErr: false,
 		},
 		{
@@ -1020,7 +1022,7 @@ func TestParseUsing(t *testing.T) {
 				p: "foo/bar/baz.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"foo/bar/baz.less", "public/other.less"},
+			want2:   []string{"foo/bar/baz.less", "public/other.less"},
 			wantErr: false,
 		},
 		{
@@ -1034,7 +1036,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; }",
-			want1:   []string{"in.less", "foo/bar/baz.less", "foo/bar/other.less"},
+			want2:   []string{"in.less", "foo/bar/baz.less", "foo/bar/other.less"},
 			wantErr: false,
 		},
 		{
@@ -1048,7 +1050,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { color: red; } .btn { color: green; } .btn { color: blue; }",
-			want1:   []string{"in.less", "one.less", "two.less"},
+			want2:   []string{"in.less", "one.less", "two.less"},
 			wantErr: false,
 		},
 		{
@@ -1061,7 +1063,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { background-image: url(foo/bar/img.png); }",
-			want1:   []string{"in.less", "foo/bar/baz.less"},
+			want2:   []string{"in.less", "foo/bar/baz.less"},
 			wantErr: false,
 		},
 		{
@@ -1074,7 +1076,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { background-image: url('foo/bar/img.png'); }",
-			want1:   []string{"in.less", "foo/bar/baz.less"},
+			want2:   []string{"in.less", "foo/bar/baz.less"},
 			wantErr: false,
 		},
 		{
@@ -1087,7 +1089,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { background-image: url(\"foo/bar/img.png\"); }",
-			want1:   []string{"in.less", "foo/bar/baz.less"},
+			want2:   []string{"in.less", "foo/bar/baz.less"},
 			wantErr: false,
 		},
 		{
@@ -1099,7 +1101,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    ".btn { background-image: url(../../public/img.png); }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -1113,7 +1115,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@charset \"UTF-8\"; .btn { color: red; }",
-			want1:   []string{"in.less", "one.less", "two.less"},
+			want2:   []string{"in.less", "one.less", "two.less"},
 			wantErr: false,
 		},
 		{
@@ -1125,7 +1127,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@media print { .btn { color: red; } }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -1137,7 +1139,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@media only screen { .btn { color: red; } }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -1149,7 +1151,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@media (max-width: 1px) { .btn { color: red; } }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -1161,7 +1163,7 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@media (min-width: 1px) and (max-width: 2px) { .btn { color: red; } }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 		{
@@ -1173,13 +1175,13 @@ func TestParseUsing(t *testing.T) {
 				p: "in.less",
 			},
 			want:    "@media only screen and (min-width: 1px), only screen and (min-resolution: 1dpi) { .btn { color: red; } }",
-			want1:   []string{"in.less"},
+			want2:   []string{"in.less"},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := ParseUsing(tt.args.read, tt.args.p)
+			got, got1, got2, err := ParseUsing(tt.args.read, "", tt.args.p)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseUsing() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1187,9 +1189,10 @@ func TestParseUsing(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("ParseUsing() got = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("ParseUsing() got1 = %v, want %v", got1, tt.want1)
+			if !reflect.DeepEqual(got2, tt.want2) {
+				t.Errorf("ParseUsing() got2 = %v, want %v", got2, tt.want2)
 			}
+			fmt.Println(InlineSourceMap(got, got1))
 		})
 	}
 }

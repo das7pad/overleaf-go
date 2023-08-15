@@ -26,7 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func lessLoaderPlugin() api.Plugin {
+func lessLoaderPlugin(root string) api.Plugin {
 	parse := less.WithCache()
 	return api.Plugin{
 		Name: "lessLoader",
@@ -35,12 +35,14 @@ func lessLoaderPlugin() api.Plugin {
 				Filter: "\\.less$",
 			}, func(args api.OnLoadArgs) (api.OnLoadResult, error) {
 				t0 := time.Now()
-				s, imports, err := parse(args.Path)
+				s, srcMap, imports, err := parse(root, args.Path)
 				if err != nil {
 					return api.OnLoadResult{}, errors.Tag(err, args.Path)
 				}
 				log.Println(args.Path, "less", time.Since(t0))
+				s = less.InlineSourceMap(s, srcMap)
 				return api.OnLoadResult{
+					ResolveDir: root,
 					Contents:   &s,
 					WatchFiles: imports,
 					WatchDirs:  make([]string, 0),

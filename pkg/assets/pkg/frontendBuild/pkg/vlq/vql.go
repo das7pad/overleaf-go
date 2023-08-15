@@ -20,7 +20,7 @@ const (
 	base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 )
 
-func Encode(b []byte, value int) []byte {
+func Encode(b []byte, value int32) []byte {
 	if value == 0 {
 		// Hot path for source-maps
 		return append(b, 'A')

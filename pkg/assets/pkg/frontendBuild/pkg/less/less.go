@@ -21,38 +21,47 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
-func WithCache() func(f string) (string, []string, error) {
+func WithCache() func(root, f string) (string, string, []string, error) {
 	cache := newTokenizer()
-	return func(f string) (string, []string, error) {
-		return parse(os.ReadFile, f, cache)
+	return func(root, f string) (string, string, []string, error) {
+		return parse(os.ReadFile, root, f, cache)
 	}
 }
 
-func ParseUsing(read func(name string) ([]byte, error), f string) (string, []string, error) {
-	return parse(read, f, newTokenizer())
+func ParseUsing(read func(name string) ([]byte, error), root, f string) (string, string, []string, error) {
+	return parse(read, root, f, newTokenizer())
 }
 
-func parse(read func(name string) ([]byte, error), f string, r *tokenizer) (string, []string, error) {
+func parse(read func(name string) ([]byte, error), root, f string, r *tokenizer) (string, string, []string, error) {
 	p := parser{
-		read:      read,
-		tokenizer: r,
+		read:            read,
+		tokenizer:       r,
+		sourceMapWriter: newSourceMapWriter(root),
 	}
 	if err := p.parse(f); err != nil {
-		return "", p.getImports(), err
+		return "", "", p.getImports(), err
 	}
-	s, err := p.print()
+	p.sourceMapWriter.StartWriting()
+	err := p.print()
 	if err != nil {
-		return "", p.getImports(), err
+		return "", "", p.getImports(), err
 	}
-	return s, p.getImports(), err
+	p.sourceMapWriter.FinishWriting()
+	srcMap, err := p.sourceMapWriter.SourceMap()
+	if err != nil {
+		return "", "", p.getImports(), err
+	}
+	return p.sourceMapWriter.CSS(), srcMap, p.getImports(), err
 }
 
 type directive struct {
-	name  string
-	value tokens
+	name   string
+	nameTT tokens
+	value  tokens
 }
 
 type storedVar struct {
@@ -69,7 +78,8 @@ type node struct {
 	vars       []map[string]storedVar
 	paramVars  map[string]storedVar
 	mixins     []map[string][]node
-	*tokenizer
+	r          *tokenizer
+	w          *sourceMapWriter
 }
 
 func consumeUntil(s tokens, needle ...kind) (int, error) {
@@ -293,9 +303,10 @@ func compare[T float64 | string](a T, c kind, b T) bool {
 
 func (n *node) branchNode() node {
 	return node{
-		vars:      append([]map[string]storedVar{{}}, n.vars...),
-		mixins:    append([]map[string][]node{{}}, n.mixins...),
-		tokenizer: n.tokenizer,
+		vars:   append([]map[string]storedVar{{}}, n.vars...),
+		mixins: append([]map[string][]node{{}}, n.mixins...),
+		r:      n.r,
+		w:      n.w,
 	}
 }
 
@@ -361,8 +372,9 @@ doneParsing:
 							tt[j+2].kind == tokenDoubleQuote {
 							n.directives = append([]directive{
 								{
-									name:  "@charset",
-									value: tt[j : j+3],
+									name:   "@charset",
+									nameTT: trimSpace(tt[i:j]),
+									value:  tt[j : j+3],
 								},
 							}, n.directives...)
 							j += 3
@@ -513,8 +525,9 @@ doneParsing:
 				})
 			} else {
 				n.directives = append(n.directives, directive{
-					name:  tt[i : i+colon].String(),
-					value: mergeSpace(tt[i+colon+1 : i+j]),
+					name:   tt[i : i+colon].String(),
+					nameTT: tt[i : i+colon],
+					value:  mergeSpace(tt[i+colon+1 : i+j]),
 				})
 			}
 			i += j
@@ -605,8 +618,9 @@ doneParsing:
 		n1.matcher = mergeSpace(n1.matcher)
 		n1.when = trimSpace(n1.when)
 		if isVarMixin {
-			n1.matcher = append(
-				n1.matcher[:len(n1.matcher)-1],
+			n1.matcher = append(append(
+				make(tokens, len(n1.matcher)+1),
+				n1.matcher[:len(n1.matcher)-1]...),
 				token{kind: tokenParensOpen, v: "("},
 				token{kind: tokenParensClose, v: ")"},
 			)
@@ -1101,7 +1115,8 @@ func (n *node) evalPaths(s tokens) tokens {
 			i++
 			j--
 		}
-		p := path.Join(path.Dir(n.resolveFile(s[i])), s[i:j].String())
+		p := path.Join(path.Dir(n.r.ResolveFile(s[i])), s[i:j].String())
+		p, _ = filepath.Rel(n.w.root, p)
 		out = append(out, s[start:i]...)
 		out = append(out, token{kind: tokenIdentifier, v: p})
 		start = j
@@ -1230,7 +1245,7 @@ func (n *node) evalVar(name string, pv []map[string]storedVar) (tokens, bool) {
 	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}, false
 }
 
-func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]node, pv []map[string]storedVar, addSpace bool) (bool, []tokens, error) {
+func (n *node) print(w *sourceMapWriter, p tokens, m, opened matchers, cc [][]node, pv []map[string]storedVar, addSpace bool) (bool, []tokens, error) {
 	if len(n.directives) == 0 &&
 		len(n.children) == 0 &&
 		!isKeyframes(p) {
@@ -1257,7 +1272,7 @@ func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]no
 			w.WriteString(" ")
 		}
 		addSpace = true
-		nest.WriteString(w)
+		w.WriteTokens(nest)
 		w.WriteString(" {")
 		p = nest
 	}
@@ -1307,20 +1322,20 @@ func (n *node) print(w *strings.Builder, p tokens, m, opened matchers, cc [][]no
 				if i > 0 {
 					w.WriteString(",")
 				}
-				t.WriteString(w)
+				w.WriteTokens(t)
 			}
 			w.WriteString(" {")
 		}
 		if addSpace {
 			w.WriteString(" ")
 		}
-		w.WriteString(d.name)
+		w.WriteTokens(d.nameTT)
 		if d.name == "@charset" {
 			w.WriteString(" ")
 		} else {
 			w.WriteString(": ")
 		}
-		n.evalDirective(d.value, pv).WriteString(w)
+		w.WriteTokens(n.evalDirective(d.value, pv))
 		w.WriteString(";")
 		addSpace = true
 	}
@@ -1345,13 +1360,15 @@ type parser struct {
 	read func(name string) ([]byte, error)
 	root *node
 	*tokenizer
+	*sourceMapWriter
 }
 
 func (p *parser) parse(f string) error {
 	p.root = &node{
-		vars:      []map[string]storedVar{{}},
-		mixins:    []map[string][]node{{}},
-		tokenizer: p.tokenizer,
+		vars:   []map[string]storedVar{{}},
+		mixins: []map[string][]node{{}},
+		r:      p.tokenizer,
+		w:      p.sourceMapWriter,
 	}
 	return p.root.parse(p.read, f)
 }
@@ -1364,7 +1381,8 @@ func (n *node) parse(read func(name string) ([]byte, error), f string) error {
 		return err
 	}
 	s := string(blob)
-	tt := n.tokenize(s, f)
+	tt, fId := n.r.Tokenize(s, f)
+	n.w.SetContent(f, fId, s)
 	i, err := n.consume(f, read, tt, 0)
 	if err == nil && i != len(tt) {
 		err = errors.New("should consume in full")
@@ -1395,16 +1413,15 @@ func (p *parser) getImports() []string {
 	return p.root.collectImports(nil)
 }
 
-func (p *parser) print() (string, error) {
-	w := strings.Builder{}
-	_, opened, err := p.root.print(&w, nil, nil, nil, nil, nil, false)
+func (p *parser) print() error {
+	_, opened, err := p.root.print(p.sourceMapWriter, nil, nil, nil, nil, nil, false)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if len(opened) > 0 {
-		w.WriteString(" }")
+		p.sourceMapWriter.WriteString(" }")
 	}
-	return strings.TrimLeft(w.String(), " "), nil
+	return nil
 }
 
 func (n *node) printRaw(w *strings.Builder, indent string) error {

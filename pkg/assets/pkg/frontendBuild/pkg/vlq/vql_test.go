@@ -22,7 +22,7 @@ import (
 
 func TestEncode(t *testing.T) {
 	type args struct {
-		value int
+		value int32
 	}
 	tests := []struct {
 		name string
