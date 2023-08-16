@@ -26,9 +26,9 @@ GIT_PREVIOUS_SUCCESSFUL_COMMIT ?= origin/main
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
-IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/cmd
+IMAGE_BARE = $(DOCKER_REGISTRY)/overleaf/cmd
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
-IMAGE_ASPELL_CACHE = $(DOCKER_REGISTRY)/sharelatex/spelling:go-aspell-cache
+IMAGE_ASPELL_CACHE = $(DOCKER_REGISTRY)/overleaf/spelling:go-aspell-cache
 
 BUILD_IN = \
 	docker run \

@@ -27,7 +27,7 @@ GIT_PREVIOUS_SUCCESSFUL_COMMIT ?= origin/main
 RELEASE ?= $(shell git describe --tags --always | sed 's/-g/-/;s/^v//')
 DOCKER_REGISTRY ?= localhost:5000
 
-IMAGE_BARE = $(DOCKER_REGISTRY)/sharelatex/$(SERVICE)
+IMAGE_BARE = $(DOCKER_REGISTRY)/overleaf/$(SERVICE)
 IMAGE = $(IMAGE_BARE):$(BRANCH_NAME)-$(BUILD_NUMBER)
 IMAGE_ASPELL_CACHE = $(IMAGE_BARE):go-aspell-cache
 
