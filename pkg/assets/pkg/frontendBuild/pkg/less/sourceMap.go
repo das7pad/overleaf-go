@@ -47,7 +47,7 @@ func newSourceMapWriter(root string) *sourceMapWriter {
 
 func regrowStringSlice(x []string, n int) []string {
 	if cap(x) < n+1 {
-		x = append(make([]string, 0, cap(x)*2+100), x...)
+		x = append(make([]string, 0, n+100), x...)
 	}
 	if len(x) < n+1 {
 		x = x[:n+1]
