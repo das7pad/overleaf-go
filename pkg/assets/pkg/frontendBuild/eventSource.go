@@ -134,6 +134,10 @@ func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Reque
 	}()
 
 	err = writeSSE(buf, "epoch", o.epochBlob)
+	if wantManifest && err == nil {
+		blob, _ := o.Get("manifest.json")
+		err = writeSSE(buf, "manifest", blob)
+	}
 poll:
 	for err == nil {
 		select {
