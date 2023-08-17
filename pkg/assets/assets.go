@@ -22,15 +22,10 @@ import (
 	"encoding/json"
 	"html/template"
 	"io"
-	"log"
-	"net/http"
 	"os"
-	"runtime"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/linked-url-proxy/pkg/proxyClient"
@@ -62,7 +57,7 @@ type Options struct {
 	WatchManifest bool
 }
 
-func Load(options Options, proxy proxyClient.Manager) (http.Handler, Manager, error) {
+func Load(options Options, proxy proxyClient.Manager) (Manager, error) {
 	baseURL := options.CDNURL
 	if options.SiteURL.Host == options.CDNURL.Host {
 		baseURL.Scheme = ""
@@ -74,17 +69,15 @@ func Load(options Options, proxy proxyClient.Manager) (http.Handler, Manager, er
 		assets:           map[string]template.URL{},
 		entrypointChunks: map[string][]template.URL{},
 	}
-	h, err := m.load(proxy, options.ManifestPath, options.CDNURL)
-	if err != nil {
-		return nil, nil, err
+	if err := m.load(proxy, options.ManifestPath, options.CDNURL); err != nil {
+		return nil, err
 	}
-	if options.WatchManifest ||
-		strings.Contains(options.ManifestPath, ";watch;") {
+	if options.WatchManifest {
 		wm := watchingManager{manager: &m}
-		go wm.watch(options.ManifestPath, options.CDNURL)
-		return h, &wm, nil
+		go wm.watch(options.CDNURL)
+		return &wm, nil
 	}
-	return h, &m, nil
+	return &m, nil
 }
 
 type manager struct {
@@ -100,57 +93,28 @@ type manifest struct {
 	EntrypointChunks map[string][]string `json:"entrypointChunks"`
 }
 
-func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) (http.Handler, error) {
-	switch {
-	case manifestPath == "cdn":
+func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) error {
+	switch manifestPath {
+	case "cdn":
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
 		u := cdnURL.WithPath("/manifest.json")
 		body, cleanup, err := proxy.Fetch(ctx, u)
 		if err != nil {
-			return nil, errors.Tag(err, "request manifest from CDN")
+			return errors.Tag(err, "request manifest from CDN")
 		}
 		defer cleanup()
 		defer func() { _ = body.Close() }()
-		return nil, m.loadFrom(body)
-	case manifestPath == "empty":
-		return nil, m.loadFrom(bytes.NewReader([]byte("{}")))
-	case strings.HasPrefix(manifestPath, "build;"):
-		a, b, _ := strings.Cut(manifestPath, "build;")
-		a, b, preCompressSource := strings.Cut(a+b, "preCompressSource;")
-		a, b, preCompressSourcePlusMap := strings.Cut(a+b, "preCompressSource+Map;")
-		preCompress := frontendBuild.PreCompressNone
-		if preCompressSource {
-			preCompress = frontendBuild.PreCompressSource
-		} else if preCompressSourcePlusMap {
-			preCompress = frontendBuild.PreCompressSourcePlusMap
-		}
-		a, b, watch := strings.Cut(a+b, "watch;")
-		o := frontendBuild.NewOutputCollector(a+b, preCompress)
-		if err := o.Build(runtime.NumCPU(), watch); err != nil {
-			return nil, errors.Tag(err, "frontend build")
-		}
-		if watch {
-			c := make(chan frontendBuild.BuildNotification)
-			o.AddListener(c)
-			go func() {
-				for notification := range c {
-					r := bytes.NewReader(notification.Manifest)
-					if err := m.loadFrom(r); err != nil {
-						log.Printf("refresh manifest: %s", err)
-					}
-				}
-			}()
-		}
-		blob, _ := o.Get("manifest.json")
-		return o, m.loadFrom(bytes.NewReader(blob))
+		return m.loadFrom(body)
+	case "empty":
+		return m.loadFrom(bytes.NewReader([]byte("{}")))
 	default:
 		f, err := os.Open(manifestPath)
 		if err != nil {
-			return nil, errors.Tag(err, "open manifest")
+			return errors.Tag(err, "open manifest")
 		}
 		defer func() { _ = f.Close() }()
-		return nil, m.loadFrom(f)
+		return m.loadFrom(f)
 	}
 }
 

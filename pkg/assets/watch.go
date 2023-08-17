@@ -22,7 +22,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -37,10 +36,7 @@ type watchingManager struct {
 	*manager
 }
 
-func (wm *watchingManager) watch(path string, cdnURL sharedTypes.URL) {
-	if strings.HasPrefix(path, "build;") {
-		return
-	}
+func (wm *watchingManager) watch(cdnURL sharedTypes.URL) {
 	log.Println("assets: watch: waiting for rebuilds")
 	u := cdnURL.
 		WithPath("/event-source").

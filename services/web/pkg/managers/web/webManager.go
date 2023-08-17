@@ -20,7 +20,6 @@ import (
 	"context"
 	"log"
 	"math/rand"
-	"net/http"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -100,26 +99,26 @@ type Manager interface {
 	userDeletionManager
 }
 
-func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, localURL string, dum documentUpdater.Manager, clsiBundle compile.ClsiManager) (http.Handler, Manager, error) {
+func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, localURL string, dum documentUpdater.Manager, clsiBundle compile.ClsiManager) (Manager, error) {
 	if err := options.Validate(); err != nil {
-		return nil, nil, errors.Tag(err, "invalid options")
+		return nil, errors.Tag(err, "invalid options")
 	}
 	proxy, err := linkedURLProxy.New(options)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	h, am, err := assets.Load(options.AssetsOptions(), proxy)
+	am, err := assets.Load(options.AssetsOptions(), proxy)
 	if err != nil {
-		return nil, nil, errors.Tag(err, "load assets")
+		return nil, errors.Tag(err, "load assets")
 	}
 	if err = templates.Load(options.AppName, options.I18n, am); err != nil {
-		return nil, nil, errors.Tag(err, "load templates")
+		return nil, errors.Tag(err, "load templates")
 	}
 
 	ps, err := options.PublicSettings()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	options.SessionCookie.Secure = options.SiteURL.Scheme == "https"
 	sm := session.New(options.SessionCookie, client)
@@ -127,7 +126,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	mm := message.New(db)
 	fm, err := filestore.New(options.APIs.Filestore)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	nm := notifications.New(db)
 	pm := project.New(db)
@@ -137,7 +136,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	bm := betaProgram.New(ps, um)
 	cm, err := compile.New(options, client, dum, fm, pm, um, clsiBundle)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	projectJWTHandler := projectJWT.New(
 		options.JWT.Project, pm.ValidateProjectJWTEpochs,
@@ -166,12 +165,12 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	pum := projectUpload.New(options, pm, um, dum, fm)
 	hm, err := history.New(db, client, dum)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	OIOm := openInOverleaf.New(options, ps, proxy, pum)
 	lfm, err := linkedFile.New(options, pm, dum, fm, cm, ftm, proxy)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	pdm := projectDownload.New(pm, dum, fm)
 	pDelM := projectDeletion.New(pm, dum, fm)
@@ -179,15 +178,15 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 	ucm := userCreation.New(options, ps, db, um, lm)
 	learnM, err := learn.New(options, ps, proxy)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	hcm, err := healthCheck.New(options, client, um, localURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	spm := spelling.New(um)
 	slm := siteLanguage.New(options)
-	return h, &manager{
+	return &manager{
 		betaProgramManager:     bm,
 		compileManager:         cm,
 		editorManager:          em,
