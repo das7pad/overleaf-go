@@ -24,13 +24,13 @@ import (
 	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type BuildNotification struct {
-	Manifest []byte
-	rebuild  []byte
+	Manifest json.RawMessage  `json:"manifest"`
+	Errors   []minimalMessage `json:"errors"`
+	Warnings []minimalMessage `json:"warnings"`
+	Name     string           `json:"name"`
 }
 
 type minimalLocation struct {
@@ -45,12 +45,6 @@ type minimalLocation struct {
 type minimalMessage struct {
 	Text     string          `json:"text"`
 	Location minimalLocation `json:"location"`
-}
-
-type rebuildMessage struct {
-	Errors   []minimalMessage `json:"errors"`
-	Warnings []minimalMessage `json:"warnings"`
-	Name     string           `json:"name"`
 }
 
 func convertMessages(in []api.Message) []minimalMessage {
@@ -94,20 +88,14 @@ func (o *outputCollector) AddListener(c chan BuildNotification) func() {
 }
 
 func (o *outputCollector) notifyAboutBuild(name string, r *api.BuildResult) error {
-	rebuild, err := json.Marshal(rebuildMessage{
+	b := BuildNotification{
 		Name:     name,
 		Errors:   convertMessages(r.Errors),
 		Warnings: convertMessages(r.Warnings),
-	})
-	if err != nil {
-		return errors.Tag(err, "serialize rebuild message")
 	}
 
 	o.mu.Lock()
-	b := BuildNotification{
-		Manifest: o.mem["manifest.json"],
-		rebuild:  rebuild,
-	}
+	b.Manifest = o.mem["manifest.json"]
 	for _, f := range o.onBuild {
 		f <- b
 	}
@@ -125,40 +113,38 @@ func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Reque
 		log.Println("frontend: event-source: hijack", err)
 		return
 	}
+	defer func() {
+		_ = conn.Close()
+	}()
 
-	wantManifest := r.URL.Query().Get("manifest") == "true"
 	disconnected := make(chan struct{})
 	go func() {
 		_, _ = conn.Read(make([]byte, 1))
 		close(disconnected)
 	}()
 
+	blob, _ := o.Get("manifest.json")
+	c <- BuildNotification{Manifest: blob}
+
 	err = writeSSE(buf, "epoch", o.epochBlob)
-	if wantManifest && err == nil {
-		blob, _ := o.Get("manifest.json")
-		err = writeSSE(buf, "manifest", blob)
-	}
-poll:
 	for err == nil {
 		select {
 		case <-disconnected:
-			break poll
+			return
 		case m := <-c:
-			if wantManifest {
-				err = writeSSE(buf, "manifest", m.Manifest)
-			} else {
-				err = writeSSE(buf, "rebuild", m.rebuild)
+			if blob, err = json.Marshal(m); err == nil {
+				err = writeSSE(buf, "rebuild", blob)
 			}
 		}
 	}
 	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		select {
 		case <-disconnected:
+			return
 		default:
 			log.Println("frontend: event-source: rebuild", err)
 		}
 	}
-	_ = conn.Close()
 }
 
 func writeSSE(w *bufio.ReadWriter, event string, data []byte) error {

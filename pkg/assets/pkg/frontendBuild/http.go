@@ -23,6 +23,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (o *outputCollector) Get(p string) ([]byte, bool) {
@@ -53,6 +54,8 @@ func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if ok {
+			exp := time.Now().UTC().Add(time.Hour).Format(http.TimeFormat)
+			w.Header().Set("Expires", exp)
 			ct := mime.TypeByExtension(path.Ext(r.URL.Path))
 			w.Header().Set("Content-Type", ct)
 			w.Header().Set("Content-Length", strconv.FormatInt(

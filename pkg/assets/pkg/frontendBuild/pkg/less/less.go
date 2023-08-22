@@ -40,7 +40,7 @@ func parse(read func(name string) ([]byte, error), root, f string, r *tokenizer)
 	p := parser{
 		read:            read,
 		tokenizer:       r,
-		sourceMapWriter: newSourceMapWriter(root),
+		sourceMapWriter: newSourceMapWriter(root, f),
 	}
 	if err := p.parse(f); err != nil {
 		return "", "", p.getImports(), err
@@ -1125,7 +1125,7 @@ func (n *node) evalPaths(s tokens) tokens {
 			j--
 		}
 		p := path.Join(path.Dir(n.r.ResolveFile(s[i])), s[i:j].String())
-		p, _ = filepath.Rel(n.w.root, p)
+		p, _ = filepath.Rel(n.w.dir, p)
 		out = append(out, s[start:i]...)
 		out = append(out, token{kind: tokenIdentifier, v: p})
 		start = j

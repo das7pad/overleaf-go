@@ -18,6 +18,7 @@ package frontendBuild
 
 import (
 	"log"
+	"path"
 	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
@@ -42,7 +43,7 @@ func lessLoaderPlugin(root string) api.Plugin {
 				log.Println(args.Path, "less", time.Since(t0))
 				s = less.InlineSourceMap(s, srcMap)
 				return api.OnLoadResult{
-					ResolveDir: root,
+					ResolveDir: path.Dir(args.Path),
 					Contents:   &s,
 					WatchFiles: imports,
 					WatchDirs:  make([]string, 0),

@@ -17,7 +17,6 @@
 package less
 
 import (
-	"fmt"
 	"io/fs"
 	"reflect"
 	"testing"
@@ -1181,7 +1180,7 @@ func TestParseUsing(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2, err := ParseUsing(tt.args.read, "", tt.args.p)
+			got, _, got2, err := ParseUsing(tt.args.read, "", tt.args.p)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseUsing() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1192,7 +1191,6 @@ func TestParseUsing(t *testing.T) {
 			if !reflect.DeepEqual(got2, tt.want2) {
 				t.Errorf("ParseUsing() got2 = %v, want %v", got2, tt.want2)
 			}
-			fmt.Println(InlineSourceMap(got, got1))
 		})
 	}
 }

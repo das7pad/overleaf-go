@@ -42,6 +42,7 @@ func baseConfig(root string, desc string) buildOptions {
 			MinifySyntax:     true,
 			Metafile:         true,
 			Sourcemap:        api.SourceMapLinked,
+			SourceRoot:       "src:///",
 			Target:           api.DefaultTarget,
 			Engines:          []api.Engine{}, // TODO
 			Outdir:           join(root, "public"),

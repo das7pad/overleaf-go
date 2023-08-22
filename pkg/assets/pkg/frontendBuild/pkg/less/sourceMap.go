@@ -19,6 +19,8 @@ package less
 import (
 	"encoding/base64"
 	"encoding/json"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild/pkg/vlq"
@@ -33,15 +35,18 @@ type sourceMapWriter struct {
 	lastColumn   int32
 	cssBuf       strings.Builder
 	sizeEstimate int
-	root         string
+	dir          string
 }
 
-func newSourceMapWriter(root string) *sourceMapWriter {
+func newSourceMapWriter(root, f string) *sourceMapWriter {
+	dir := path.Dir(f)
+	sr, _ := filepath.Rel(root, dir)
 	return &sourceMapWriter{
 		sourceMap: sourceMap{
-			Version: 3,
+			Version:    3,
+			SourceRoot: sr,
 		},
-		root: root,
+		dir: dir,
 	}
 }
 
@@ -58,11 +63,11 @@ func regrowStringSlice(x []string, n int) []string {
 func (w *sourceMapWriter) SetContent(f string, fId int16, s string) {
 	w.Sources = regrowStringSlice(w.Sources, int(fId))
 
-	w.Sources[fId] = f[len(w.root):]
+	w.Sources[fId], _ = filepath.Rel(w.dir, f)
 	w.SourcesContent = regrowStringSlice(w.SourcesContent, int(fId))
 	w.SourcesContent[fId] = s
 
-	w.sizeEstimate += len(s)
+	w.sizeEstimate += len(s) + len(s)/3
 }
 
 func (w *sourceMapWriter) StartWriting() {
@@ -83,10 +88,16 @@ type sourceMap struct {
 	Version        int             `json:"version"`
 	Sources        []string        `json:"sources"`
 	SourcesContent []string        `json:"sourcesContent"`
+	SourceRoot     string          `json:"sourceRoot"`
 	Mappings       json.RawMessage `json:"mappings"`
 }
 
 func (w *sourceMapWriter) SourceMap() (string, error) {
+	for i, source := range w.Sources {
+		if len(source) == 0 {
+			w.Sources[i] = ".hidden"
+		}
+	}
 	blob, err := json.Marshal(w.sourceMap)
 	return string(blob), err
 }

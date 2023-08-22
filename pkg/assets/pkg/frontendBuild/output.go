@@ -157,11 +157,14 @@ func (o *outputCollector) write(p string, blob []byte) error {
 	o.mem[p] = blob
 	o.mu.Unlock()
 
-	if o.preCompress == PreCompressNone {
+	switch o.preCompress {
+	case PreCompressNone:
 		return nil
-	}
-	if o.preCompress == PreCompressSource && strings.HasSuffix(p, ".map") {
-		return nil
+	case PreCompressSource:
+		if strings.HasSuffix(p, ".map") {
+			return nil
+		}
+	case PreCompressSourcePlusMap:
 	}
 	gz, err := compress(blob)
 	if err != nil {
