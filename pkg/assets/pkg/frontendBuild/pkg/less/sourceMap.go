@@ -38,13 +38,11 @@ type sourceMapWriter struct {
 	dir          string
 }
 
-func newSourceMapWriter(root, f string) *sourceMapWriter {
+func newSourceMapWriter(f string) *sourceMapWriter {
 	dir := path.Dir(f)
-	sr, _ := filepath.Rel(root, dir)
 	return &sourceMapWriter{
 		sourceMap: sourceMap{
-			Version:    3,
-			SourceRoot: sr,
+			Version: 3,
 		},
 		dir: dir,
 	}
@@ -88,7 +86,6 @@ type sourceMap struct {
 	Version        int             `json:"version"`
 	Sources        []string        `json:"sources"`
 	SourcesContent []string        `json:"sourcesContent"`
-	SourceRoot     string          `json:"sourceRoot"`
 	Mappings       json.RawMessage `json:"mappings"`
 }
 

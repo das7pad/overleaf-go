@@ -145,7 +145,7 @@ func translationsBundlesConfig(root string) buildOptions {
 
 func stylesheetsConfig(root string) buildOptions {
 	c := baseConfig(root, "stylesheet bundles")
-	c.Plugins = []api.Plugin{lessLoaderPlugin(root)}
+	c.Plugins = []api.Plugin{lessLoaderPlugin()}
 	c.EntryPoints = []string{
 		join(root, "frontend/stylesheets/style.less"),
 		join(root, "frontend/stylesheets/light-style.less"),

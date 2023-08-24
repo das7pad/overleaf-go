@@ -25,22 +25,22 @@ import (
 	"strings"
 )
 
-func WithCache() func(root, f string) (string, string, []string, error) {
+func WithCache() func(f string) (string, string, []string, error) {
 	cache := newTokenizer()
-	return func(root, f string) (string, string, []string, error) {
-		return parse(os.ReadFile, root, f, cache)
+	return func(f string) (string, string, []string, error) {
+		return parse(os.ReadFile, f, cache)
 	}
 }
 
-func ParseUsing(read func(name string) ([]byte, error), root, f string) (string, string, []string, error) {
-	return parse(read, root, f, newTokenizer())
+func ParseUsing(read func(name string) ([]byte, error), f string) (string, string, []string, error) {
+	return parse(read, f, newTokenizer())
 }
 
-func parse(read func(name string) ([]byte, error), root, f string, r *tokenizer) (string, string, []string, error) {
+func parse(read func(name string) ([]byte, error), f string, r *tokenizer) (string, string, []string, error) {
 	p := parser{
 		read:            read,
 		tokenizer:       r,
-		sourceMapWriter: newSourceMapWriter(root, f),
+		sourceMapWriter: newSourceMapWriter(f),
 	}
 	if err := p.parse(f); err != nil {
 		return "", "", p.getImports(), err

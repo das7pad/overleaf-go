@@ -1180,7 +1180,7 @@ func TestParseUsing(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _, got2, err := ParseUsing(tt.args.read, "", tt.args.p)
+			got, _, got2, err := ParseUsing(tt.args.read, tt.args.p)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseUsing() error = %v, wantErr %v", err, tt.wantErr)
 				return
