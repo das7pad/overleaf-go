@@ -48,8 +48,7 @@ func main() {
 	src := *in
 	dst := *out
 
-	sourceBlob := loadSource(sourceDirs)
-	filteredLocales := findLocales(src, sourceBlob)
+	filteredLocales := findLocales(src, sourceDirs)
 
 	entries, errIterSourceDir := os.ReadDir(src)
 	if errIterSourceDir != nil {
@@ -79,31 +78,6 @@ func main() {
 	}
 }
 
-func loadSource(sourceDirs []string) []byte {
-	sourceBlob := make([]byte, 0, 20_000_000)
-	for _, src := range sourceDirs {
-		err := filepath.Walk(src, func(path string, f fs.FileInfo, err error) error {
-			if err != nil {
-				return errors.Tag(err, "walk past "+path)
-			}
-			if !strings.HasSuffix(path, ".go") &&
-				!strings.HasSuffix(path, ".gohtml") {
-				return nil
-			}
-			blob, err := os.ReadFile(path)
-			if err != nil {
-				return errors.Tag(err, "read "+path)
-			}
-			sourceBlob = append(sourceBlob, blob...)
-			return nil
-		})
-		if err != nil {
-			panic(errors.Tag(err, "walk "+src))
-		}
-	}
-	return sourceBlob
-}
-
 func loadLocalesInto(inLocales *map[string]string, from string) error {
 	f, err := os.Open(from)
 	if err != nil {
@@ -118,14 +92,14 @@ func loadLocalesInto(inLocales *map[string]string, from string) error {
 	return nil
 }
 
-func findLocales(src string, sourceCodeBlob []byte) []string {
-	inLocales := make(map[string]string)
-	err := loadLocalesInto(&inLocales, path.Join(src, "en.json"))
+func findLocales(src string, sourceDirs []string) []string {
+	locales := make(map[string]string)
+	err := loadLocalesInto(&locales, path.Join(src, "en.json"))
 	if err != nil {
 		panic(errors.Tag(err, "load en locales"))
 	}
 	lookup := make(map[byte]map[byte][][]byte)
-	for s := range inLocales {
+	for s := range locales {
 		b := append(append(make([]byte, 0, len(s)+1), s...), '"')
 		l0, ok := lookup[b[0]]
 		if !ok {
@@ -134,37 +108,57 @@ func findLocales(src string, sourceCodeBlob []byte) []string {
 		}
 		l0[b[1]] = append(l0[b[1]], b)
 	}
-	idx := 0
-	end := len(sourceCodeBlob) - 3
-	found := make([]string, 0, len(inLocales)/5)
-	for idx < end {
-		if l0, got0 := lookup[sourceCodeBlob[idx+1]]; got0 {
-			if l1, got1 := l0[sourceCodeBlob[idx+2]]; got1 {
-				for i, v := range l1 {
-					if bytes.HasPrefix(sourceCodeBlob[idx+1:], v) {
-						if len(l1) == 1 {
-							delete(l0, sourceCodeBlob[idx+2])
-						} else {
-							l1[i] = l1[len(l1)-1]
-							l0[sourceCodeBlob[idx+2]] = l1[:len(l1)-1]
-						}
+	found := make([]string, 0, len(locales)/5)
 
-						found = append(found, string(v[0:len(v)-1]))
-						idx += len(v)
-						break
+	for _, d := range sourceDirs {
+		err = filepath.Walk(d, func(path string, f fs.FileInfo, err error) error {
+			if err != nil {
+				return errors.Tag(err, "walk past "+path)
+			}
+			if !strings.HasSuffix(path, ".go") &&
+				!strings.HasSuffix(path, ".gohtml") {
+				return nil
+			}
+			blob, err := os.ReadFile(path)
+			if err != nil {
+				return errors.Tag(err, "read "+path)
+			}
+			idx := 0
+			end := len(blob) - 3
+			for idx < end {
+				if l0, got0 := lookup[blob[idx+1]]; got0 {
+					if l1, got1 := l0[blob[idx+2]]; got1 {
+						for i, v := range l1 {
+							if bytes.HasPrefix(blob[idx+1:], v) {
+								if len(l1) == 1 {
+									delete(l0, blob[idx+2])
+								} else {
+									l1[i] = l1[len(l1)-1]
+									l0[blob[idx+2]] = l1[:len(l1)-1]
+								}
+
+								found = append(found, string(v[0:len(v)-1]))
+								idx += len(v)
+								break
+							}
+						}
 					}
 				}
+				idx += 1
+				if idx > end {
+					break
+				}
+				idx1 := bytes.IndexByte(blob[idx:], '"')
+				if idx1 == -1 {
+					break
+				}
+				idx += idx1
 			}
+			return nil
+		})
+		if err != nil {
+			panic(errors.Tag(err, "walk "+src))
 		}
-		idx += 1
-		if idx > end {
-			break
-		}
-		idx1 := bytes.IndexByte(sourceCodeBlob[idx:], '"')
-		if idx1 == -1 {
-			break
-		}
-		idx += idx1
 	}
 	return found
 }
