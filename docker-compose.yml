@@ -89,7 +89,7 @@ services:
     image: golang:1.19.11
     network_mode: bridge
     working_dir: /go/src/cmd/frontend-build
-    command: go build -o ${TMP_DIR}/binaries/frontend-build
+    command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/frontend-build
     volumes:
       - ./:/go/src
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
