@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,7 +26,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/copyFile"
@@ -109,10 +109,12 @@ func loadLocalesInto(inLocales *map[string]string, from string) error {
 	if err != nil {
 		return errors.Tag(err, "open input file "+from)
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 	if err = json.NewDecoder(f).Decode(inLocales); err != nil {
 		return errors.Tag(err, "decode input file "+from)
 	}
-	_ = f.Close()
 	return nil
 }
 
@@ -122,20 +124,47 @@ func findLocales(src string, sourceCodeBlob []byte) []string {
 	if err != nil {
 		panic(errors.Tag(err, "load en locales"))
 	}
-	flat := make([]string, 0, len(inLocales))
-	for key := range inLocales {
-		flat = append(flat, key)
+	lookup := make(map[byte]map[byte][][]byte)
+	for s := range inLocales {
+		b := append(append(make([]byte, 0, len(s)+1), s...), '"')
+		l0, ok := lookup[b[0]]
+		if !ok {
+			l0 = make(map[byte][][]byte)
+			lookup[b[0]] = l0
+		}
+		l0[b[1]] = append(l0[b[1]], b)
 	}
-	localesMatcher := regexp.MustCompile(
-		`"` + strings.Join(flat, `"|"`) + `"`,
-	)
-	matches := make(map[string]struct{}, len(inLocales))
-	for _, m := range localesMatcher.FindAll(sourceCodeBlob, -1) {
-		matches[string(m)] = struct{}{}
-	}
-	found := make([]string, 0, len(matches))
-	for s := range matches {
-		found = append(found, s[1:len(s)-1])
+	idx := 0
+	end := len(sourceCodeBlob) - 3
+	found := make([]string, 0, len(inLocales)/5)
+	for idx < end {
+		if l0, got0 := lookup[sourceCodeBlob[idx+1]]; got0 {
+			if l1, got1 := l0[sourceCodeBlob[idx+2]]; got1 {
+				for i, v := range l1 {
+					if bytes.HasPrefix(sourceCodeBlob[idx+1:], v) {
+						if len(l1) == 1 {
+							delete(l0, sourceCodeBlob[idx+2])
+						} else {
+							l1[i] = l1[len(l1)-1]
+							l0[sourceCodeBlob[idx+2]] = l1[:len(l1)-1]
+						}
+
+						found = append(found, string(v[0:len(v)-1]))
+						idx += len(v)
+						break
+					}
+				}
+			}
+		}
+		idx += 1
+		if idx > end {
+			break
+		}
+		idx1 := bytes.IndexByte(sourceCodeBlob[idx:], '"')
+		if idx1 == -1 {
+			break
+		}
+		idx += idx1
 	}
 	return found
 }
@@ -145,13 +174,15 @@ func writeLocales(out string, locales map[string]string) error {
 	if err != nil {
 		return errors.Tag(err, "open output file")
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 	e := json.NewEncoder(f)
 	e.SetIndent("", "  ")
 	e.SetEscapeHTML(false)
 	if err = e.Encode(locales); err != nil {
 		return errors.Tag(err, "write locales")
 	}
-	_ = f.Close()
 	return nil
 }
 
