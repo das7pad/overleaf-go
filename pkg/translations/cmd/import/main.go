@@ -22,13 +22,11 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
@@ -48,6 +46,13 @@ func main() {
 	src := *in
 	dst := *out
 
+	var license []byte
+	if l, err := os.ReadFile(path.Join(dst, "en.json.license")); err != nil {
+		panic(errors.Tag(err, "read license"))
+	} else {
+		license = l
+	}
+
 	filteredLocales := findLocales(src, sourceDirs)
 
 	entries, errIterSourceDir := os.ReadDir(src)
@@ -66,14 +71,9 @@ func main() {
 		if err != nil {
 			panic(errors.Tag(err, entry.Name()))
 		}
-		if entry.Name() != "en.json" {
-			err = copyFile.NonAtomic(
-				path.Join(dst, entry.Name()+".license"),
-				path.Join(dst, "en.json.license"),
-			)
-			if err != nil {
-				panic(errors.Tag(err, "license for "+entry.Name()))
-			}
+		err = writeIfChanged(path.Join(dst, entry.Name()+".license"), license)
+		if err != nil {
+			panic(errors.Tag(err, "license for "+entry.Name()))
 		}
 	}
 }
@@ -100,7 +100,7 @@ func findLocales(src string, sourceDirs []string) []string {
 	}
 	lookup := make(map[byte]map[byte][][]byte)
 	for s := range locales {
-		b := append(append(make([]byte, 0, len(s)+1), s...), '"')
+		b := []byte(s)
 		l0, ok := lookup[b[0]]
 		if !ok {
 			l0 = make(map[byte][][]byte)
@@ -115,8 +115,9 @@ func findLocales(src string, sourceDirs []string) []string {
 			if err != nil {
 				return errors.Tag(err, "walk past "+path)
 			}
-			if !strings.HasSuffix(path, ".go") &&
-				!strings.HasSuffix(path, ".gohtml") {
+			switch filepath.Ext(path) {
+			case ".go", ".gohtml":
+			default:
 				return nil
 			}
 			blob, err := os.ReadFile(path)
@@ -129,30 +130,40 @@ func findLocales(src string, sourceDirs []string) []string {
 				if l0, got0 := lookup[blob[idx+1]]; got0 {
 					if l1, got1 := l0[blob[idx+2]]; got1 {
 						for i, v := range l1 {
-							if bytes.HasPrefix(blob[idx+1:], v) {
-								if len(l1) == 1 {
-									delete(l0, blob[idx+2])
-								} else {
-									l1[i] = l1[len(l1)-1]
-									l0[blob[idx+2]] = l1[:len(l1)-1]
-								}
-
-								found = append(found, string(v[0:len(v)-1]))
-								idx += len(v)
-								break
+							n := len(v)
+							if idx+n+1 >= end {
+								continue
 							}
+							if blob[idx] != blob[idx+n+1] {
+								// matching quotes
+								continue
+							}
+							if !bytes.Equal(blob[idx+1:idx+1+n], v) {
+								continue
+							}
+
+							if len(l1) == 1 {
+								delete(l0, blob[idx+2])
+							} else {
+								l1[i] = l1[len(l1)-1]
+								l0[blob[idx+2]] = l1[:len(l1)-1]
+							}
+
+							found = append(found, string(v))
+							idx += n + 1
+							break
 						}
 					}
 				}
 				idx += 1
 				if idx > end {
-					break
+					return nil
 				}
-				idx1 := bytes.IndexByte(blob[idx:], '"')
-				if idx1 == -1 {
-					break
+				next := bytes.IndexAny(blob[idx:], "\"'`")
+				if next == -1 {
+					return nil
 				}
-				idx += idx1
+				idx += next
 			}
 			return nil
 		})
@@ -164,25 +175,27 @@ func findLocales(src string, sourceDirs []string) []string {
 }
 
 func writeLocales(out string, locales map[string]string) error {
-	f, err := os.Create(out)
-	if err != nil {
-		return errors.Tag(err, "open output file")
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-	e := json.NewEncoder(f)
+	var buf bytes.Buffer
+	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
 	e.SetEscapeHTML(false)
-	if err = e.Encode(locales); err != nil {
+	if err := e.Encode(locales); err != nil {
 		return errors.Tag(err, "write locales")
+	}
+	return writeIfChanged(out, buf.Bytes())
+}
+
+func writeIfChanged(dst string, blob []byte) error {
+	if old, err := os.ReadFile(dst); err == nil && bytes.Equal(blob, old) {
+		return nil
+	}
+	if err := os.WriteFile(dst, blob, 0o644); err != nil {
+		return errors.Tag(err, "write "+dst)
 	}
 	return nil
 }
 
 func importLng(out, in string, localeKeys []string) error {
-	log.Printf("%s: Importing", in)
-
 	inLocales := make(map[string]string)
 	if err := loadLocalesInto(&inLocales, in); err != nil {
 		return errors.Tag(err, "target lng file")

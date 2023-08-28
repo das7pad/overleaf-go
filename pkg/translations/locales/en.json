@@ -185,6 +185,7 @@
   "ro": "Romanian",
   "ru": "Russian",
   "saving_notification_with_seconds": "Saving {{ `{{ state.doc.name }}` }}... ({{ `{{ state.unsavedSeconds }}` }} seconds of unsaved changes)",
+  "selected": "Selected",
   "server_error": "Server Error",
   "session_created_at": "Session Created At",
   "sessions": "Sessions",
