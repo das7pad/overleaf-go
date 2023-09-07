@@ -130,19 +130,6 @@ func mathJaxBundleConfig(root string) buildOptions {
 	return c
 }
 
-func translationsBundlesConfig(root string) buildOptions {
-	entryPoints, err := filepath.Glob(join(root, "generated/lng/*.js"))
-	if err != nil {
-		panic(err)
-	}
-
-	c := baseConfig(root, "translations bundles")
-	c.EntryPoints = entryPoints
-	c.Outbase = join(root, "generated/lng/")
-	c.Outdir = join(root, "public/js/t/")
-	return c
-}
-
 func stylesheetsConfig(root string) buildOptions {
 	c := baseConfig(root, "stylesheet bundles")
 	c.Plugins = []api.Plugin{lessLoaderPlugin()}
@@ -159,7 +146,6 @@ func getConfigs(root string) []buildOptions {
 	return []buildOptions{
 		mainBundlesConfig(root),
 		marketingBundlesConfig(root),
-		translationsBundlesConfig(root),
 		mathJaxBundleConfig(root),
 		stylesheetsConfig(root),
 	}
