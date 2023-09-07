@@ -288,10 +288,6 @@
       </div>
     </footer>
   {{ end }}
-  <script
-    type="text/javascript"
-    src="{{ buildTPath .CurrentLngCode }}"
-  ></script>
   {{ range $index, $chunk := getEntrypointChunks .Entrypoint }}
     <script
       type="module"

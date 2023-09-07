@@ -35,7 +35,6 @@ type Manager interface {
 	BuildFontPath(path string) template.URL
 	BuildImgPath(path string) template.URL
 	BuildMathJaxEntrypoint() template.URL
-	BuildTPath(lng string) template.URL
 	GetBundlePath(path string) template.URL
 	GetEntrypointChunks(path string) []template.URL
 	StaticPath(path string) template.URL
@@ -163,10 +162,6 @@ func (m *manager) BuildImgPath(path string) template.URL {
 
 func (m *manager) BuildMathJaxEntrypoint() template.URL {
 	return m.GetBundlePath("frontend/js/MathJaxBundle.js")
-}
-
-func (m *manager) BuildTPath(lng string) template.URL {
-	return m.assets["generated/lng/"+lng+".js"]
 }
 
 func (m *manager) GetEntrypointChunks(path string) []template.URL {

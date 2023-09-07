@@ -78,7 +78,6 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 		funcMap["buildCSSPath"] = am.BuildCSSPath
 		funcMap["buildFontPath"] = am.BuildFontPath
 		funcMap["buildMathJaxEntrypoint"] = am.BuildMathJaxEntrypoint
-		funcMap["buildTPath"] = am.BuildTPath
 		funcMap["getBundlePath"] = am.GetBundlePath
 		funcMap["getEntrypointChunks"] = am.GetEntrypointChunks
 		funcMap["staticPath"] = am.StaticPath
