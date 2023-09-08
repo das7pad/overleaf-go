@@ -18,16 +18,14 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/translations/pkg/translationsImport"
 )
 
 func main() {
@@ -46,143 +44,42 @@ func main() {
 	src := *in
 	dst := *out
 
-	var license []byte
-	if l, err := os.ReadFile(path.Join(dst, "en.json.license")); err != nil {
+	license, err := os.ReadFile(path.Join(dst, "en.json.license"))
+	if err != nil {
 		panic(errors.Tag(err, "read license"))
-	} else {
-		license = l
 	}
 
-	filteredLocales := findLocales(src, sourceDirs)
+	filteredLocales, _, err := translationsImport.FindLocales(src, sourceDirs)
+	if err != nil {
+		panic(errors.Tag(err, "find locales"))
+	}
 
-	entries, errIterSourceDir := os.ReadDir(src)
-	if errIterSourceDir != nil {
-		panic(errors.Tag(errIterSourceDir, "iter source dir"))
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		panic(errors.Tag(err, "iter source dir"))
 	}
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		err := importLng(
-			path.Join(dst, entry.Name()),
+		var blob []byte
+		blob, err = translationsImport.ImportLng(
 			path.Join(src, entry.Name()),
 			filteredLocales,
+			processLocale,
 		)
 		if err != nil {
-			panic(errors.Tag(err, entry.Name()))
+			panic(errors.Tag(err, "import "+entry.Name()))
 		}
-		err = writeIfChanged(path.Join(dst, entry.Name()+".license"), license)
+		p := path.Join(dst, entry.Name())
+		if err = writeIfChanged(p, blob); err != nil {
+			panic(errors.Tag(err, "write "+entry.Name()))
+		}
+		err = writeIfChanged(p+".license", license)
 		if err != nil {
 			panic(errors.Tag(err, "license for "+entry.Name()))
 		}
 	}
-}
-
-func loadLocalesInto(inLocales *map[string]string, from string) error {
-	f, err := os.Open(from)
-	if err != nil {
-		return errors.Tag(err, "open input file "+from)
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-	if err = json.NewDecoder(f).Decode(inLocales); err != nil {
-		return errors.Tag(err, "decode input file "+from)
-	}
-	return nil
-}
-
-func findLocales(src string, sourceDirs []string) []string {
-	locales := make(map[string]string)
-	err := loadLocalesInto(&locales, path.Join(src, "en.json"))
-	if err != nil {
-		panic(errors.Tag(err, "load en locales"))
-	}
-	lookup := make(map[byte]map[byte][][]byte)
-	for s := range locales {
-		b := []byte(s)
-		l0, ok := lookup[b[0]]
-		if !ok {
-			l0 = make(map[byte][][]byte)
-			lookup[b[0]] = l0
-		}
-		l0[b[1]] = append(l0[b[1]], b)
-	}
-	found := make([]string, 0, len(locales)/5)
-
-	for _, d := range sourceDirs {
-		err = filepath.Walk(d, func(path string, f fs.FileInfo, err error) error {
-			if err != nil {
-				return errors.Tag(err, "walk past "+path)
-			}
-			switch filepath.Ext(path) {
-			case ".go", ".gohtml":
-			default:
-				return nil
-			}
-			blob, err := os.ReadFile(path)
-			if err != nil {
-				return errors.Tag(err, "read "+path)
-			}
-			idx := 0
-			end := len(blob) - 3
-			for idx < end {
-				if l0, got0 := lookup[blob[idx+1]]; got0 {
-					if l1, got1 := l0[blob[idx+2]]; got1 {
-						for i, v := range l1 {
-							n := len(v)
-							if idx+n+1 >= end {
-								continue
-							}
-							if blob[idx] != blob[idx+n+1] {
-								// matching quotes
-								continue
-							}
-							if !bytes.Equal(blob[idx+1:idx+1+n], v) {
-								continue
-							}
-
-							if len(l1) == 1 {
-								delete(l0, blob[idx+2])
-							} else {
-								l1[i] = l1[len(l1)-1]
-								l0[blob[idx+2]] = l1[:len(l1)-1]
-							}
-
-							found = append(found, string(v))
-							idx += n + 1
-							break
-						}
-					}
-				}
-				idx += 1
-				if idx > end {
-					return nil
-				}
-				next := bytes.IndexAny(blob[idx:], "\"'`")
-				if next == -1 {
-					return nil
-				}
-				idx += next
-			}
-			return nil
-		})
-		if err != nil {
-			panic(errors.Tag(err, "walk "+src))
-		}
-	}
-	return found
-}
-
-func writeLocales(out string, locales map[string]string) error {
-	var buf bytes.Buffer
-	e := json.NewEncoder(&buf)
-	e.SetIndent("", "  ")
-	e.SetEscapeHTML(false)
-	if err := e.Encode(locales); err != nil {
-		return errors.Tag(err, "write locales")
-	}
-	return writeIfChanged(out, buf.Bytes())
 }
 
 func writeIfChanged(dst string, blob []byte) error {
@@ -191,26 +88,6 @@ func writeIfChanged(dst string, blob []byte) error {
 	}
 	if err := os.WriteFile(dst, blob, 0o644); err != nil {
 		return errors.Tag(err, "write "+dst)
-	}
-	return nil
-}
-
-func importLng(out, in string, localeKeys []string) error {
-	inLocales := make(map[string]string)
-	if err := loadLocalesInto(&inLocales, in); err != nil {
-		return errors.Tag(err, "target lng file")
-	}
-	outLocales := make(map[string]string, len(localeKeys))
-	for _, key := range localeKeys {
-		v, exists := inLocales[key]
-		if !exists {
-			// The value will be back-filled from the DefaultLang at boot-time.
-			continue
-		}
-		outLocales[key] = processLocale(key, v)
-	}
-	if err := writeLocales(out, outLocales); err != nil {
-		return errors.Tag(err, "write out")
 	}
 	return nil
 }

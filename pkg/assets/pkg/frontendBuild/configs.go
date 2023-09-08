@@ -61,8 +61,9 @@ func baseConfig(root string, desc string) buildOptions {
 	}
 }
 
-func mainBundlesConfig(root string) buildOptions {
+func mainBundlesConfig(root string, localesLoader api.Plugin) buildOptions {
 	c := baseConfig(root, "main bundles")
+	c.Plugins = append(c.Plugins, localesLoader)
 	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
@@ -87,8 +88,9 @@ func mainBundlesConfig(root string) buildOptions {
 	return c
 }
 
-func marketingBundlesConfig(root string) buildOptions {
+func marketingBundlesConfig(root string, localesLoader api.Plugin) buildOptions {
 	c := baseConfig(root, "marketing bundles")
+	c.Plugins = append(c.Plugins, localesLoader)
 	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
@@ -143,9 +145,10 @@ func stylesheetsConfig(root string) buildOptions {
 }
 
 func getConfigs(root string) []buildOptions {
+	localesLoader := localesLoaderPlugin(root)
 	return []buildOptions{
-		mainBundlesConfig(root),
-		marketingBundlesConfig(root),
+		mainBundlesConfig(root, localesLoader),
+		marketingBundlesConfig(root, localesLoader),
 		mathJaxBundleConfig(root),
 		stylesheetsConfig(root),
 	}
