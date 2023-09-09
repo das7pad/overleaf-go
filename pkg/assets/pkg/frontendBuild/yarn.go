@@ -67,6 +67,11 @@ func (r *yarnPNPReader) Load(root string, wanted map[string]bool) error {
 			r.m[name] = z
 		}
 	}
+	for name := range wanted {
+		if _, ok := r.m[name]; !ok {
+			return errors.New("missing .pnp.data.json entry: " + name)
+		}
+	}
 	return nil
 }
 
