@@ -103,8 +103,11 @@ services:
     command:
       - sh
       - '-exc'
-      - 'make build_lngs_full
-      && ${TMP_DIR}/binaries/frontend-build -src=$(pwd) -watch=false
+      - '${TMP_DIR}/binaries/frontend-build
+          --dst=/tmp/public.tar.gz
+          --src=$(pwd)
+          --pre-compress=2
+          --watch=false
       && tar -x -f /tmp/public.tar.gz -C ${TMP_DIR}/assets'
     volumes:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
