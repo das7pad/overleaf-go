@@ -23,6 +23,7 @@ import (
 	"html/template"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -84,6 +85,7 @@ type manager struct {
 	entrypointChunks map[string][]template.URL
 	hints            resourceHints
 	baseURL          sharedTypes.URL
+	mu               sync.RWMutex
 }
 
 type manifest struct {
@@ -92,7 +94,6 @@ type manifest struct {
 }
 
 func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sharedTypes.URL) error {
-	var f io.ReadCloser
 	switch manifestPath {
 	case "cdn":
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
@@ -103,18 +104,18 @@ func (m *manager) load(proxy proxyClient.Manager, manifestPath string, cdnURL sh
 			return errors.Tag(err, "request manifest from CDN")
 		}
 		defer cleanup()
-		f = body
+		defer func() { _ = body.Close() }()
+		return m.loadFrom(body)
 	case "empty":
-		f = io.NopCloser(bytes.NewReader([]byte("{}")))
+		return m.loadFrom(bytes.NewReader([]byte("{}")))
 	default:
-		var err error
-		f, err = os.Open(manifestPath)
+		f, err := os.Open(manifestPath)
 		if err != nil {
 			return errors.Tag(err, "open manifest")
 		}
+		defer func() { _ = f.Close() }()
+		return m.loadFrom(f)
 	}
-	defer func() { _ = f.Close() }()
-	return m.loadFrom(f)
 }
 
 func (m *manager) loadFrom(f io.Reader) error {
@@ -123,6 +124,9 @@ func (m *manager) loadFrom(f io.Reader) error {
 		return errors.Tag(err, "consume manifest")
 	}
 	entrypointChunks := make(map[string][]template.URL, len(raw.EntrypointChunks))
+	assets := make(map[string]template.URL, len(raw.Assets))
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for s, urls := range raw.EntrypointChunks {
 		rebased := make([]template.URL, 0, len(urls))
 		for _, url := range urls {
@@ -130,7 +134,6 @@ func (m *manager) loadFrom(f io.Reader) error {
 		}
 		entrypointChunks[s] = rebased
 	}
-	assets := make(map[string]template.URL)
 	for s, url := range raw.Assets {
 		assets[s] = m.StaticPath(url)
 	}

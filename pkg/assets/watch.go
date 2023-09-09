@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,10 +19,10 @@ package assets
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -34,8 +34,11 @@ import (
 // and logic data-races (read vs read on .assets before/after it was rewritten
 // during the processing of a single HTTP request).
 type watchingManager struct {
-	mu sync.RWMutex
 	*manager
+}
+
+type buildNotification struct {
+	Manifest json.RawMessage `json:"manifest"`
 }
 
 func (wm *watchingManager) watch(cdnURL sharedTypes.URL) {
@@ -75,16 +78,22 @@ func (wm *watchingManager) watch(cdnURL sharedTypes.URL) {
 		r.Split(bufio.ScanLines)
 		for r.Scan() {
 			blob := r.Text()
-			if blob != "event: manifest" {
+			if blob != "event: rebuild" {
 				continue
 			}
 			if !r.Scan() {
 				break
 			}
+			bn := buildNotification{}
+			err = json.Unmarshal(r.Bytes()[len("data: "):], &bn)
+			if err != nil {
+				log.Printf(
+					"assets: watch: bad rebuild notification %q", err.Error(),
+				)
+				continue
+			}
 			log.Println("assets: watch: reloading")
-			wm.mu.Lock()
-			err = wm.loadFrom(bytes.NewReader(r.Bytes()[len("data: "):]))
-			wm.mu.Unlock()
+			err = wm.loadFrom(bytes.NewReader(bn.Manifest))
 			if err != nil {
 				log.Printf(
 					"assets: watch: reload failed: %q", err.Error(),
