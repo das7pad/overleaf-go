@@ -31,39 +31,33 @@ var b64 = base64.StdEncoding
 type sourceMapWriter struct {
 	sourceMap
 	lastToken    token
+	lastTokenFId int16
 	column       int32
 	lastColumn   int32
 	cssBuf       strings.Builder
 	sizeEstimate int
 	dir          string
+	fIdMap       map[int16]int16
 }
 
 func newSourceMapWriter(f string) *sourceMapWriter {
 	dir := path.Dir(f)
 	return &sourceMapWriter{
 		sourceMap: sourceMap{
-			Version: 3,
+			Version:        3,
+			Sources:        make([]string, 0, 150),
+			SourcesContent: make([]string, 0, 150),
 		},
-		dir: dir,
+		dir:    dir,
+		fIdMap: make(map[int16]int16),
 	}
-}
-
-func regrowStringSlice(x []string, n int) []string {
-	if cap(x) < n+1 {
-		x = append(make([]string, 0, n+100), x...)
-	}
-	if len(x) < n+1 {
-		x = x[:n+1]
-	}
-	return x
 }
 
 func (w *sourceMapWriter) SetContent(f string, fId int16, s string) {
-	w.Sources = regrowStringSlice(w.Sources, int(fId))
-
-	w.Sources[fId], _ = filepath.Rel(w.dir, f)
-	w.SourcesContent = regrowStringSlice(w.SourcesContent, int(fId))
-	w.SourcesContent[fId] = s
+	w.fIdMap[fId] = int16(len(w.Sources))
+	p, _ := filepath.Rel(w.dir, f)
+	w.Sources = append(w.Sources, p)
+	w.SourcesContent = append(w.SourcesContent, s)
 
 	w.sizeEstimate += len(s) + len(s)/3
 }
@@ -90,11 +84,6 @@ type sourceMap struct {
 }
 
 func (w *sourceMapWriter) SourceMap() (string, error) {
-	for i, source := range w.Sources {
-		if len(source) == 0 {
-			w.Sources[i] = ".hidden"
-		}
-	}
 	blob, err := json.Marshal(w.sourceMap)
 	return string(blob), err
 }
@@ -128,10 +117,12 @@ func (w *sourceMapWriter) WriteToken(t token) {
 		}
 		buf = vlq.Encode(buf, w.column-w.lastColumn)
 		if t.f != 0 {
-			buf = vlq.Encode(buf, int32(t.f-w.lastToken.f))
+			fId := w.fIdMap[t.f]
+			buf = vlq.Encode(buf, int32(fId-w.lastTokenFId))
 			buf = vlq.Encode(buf, int32(t.line-w.lastToken.line))
 			buf = vlq.Encode(buf, int32(t.column-w.lastToken.column))
 			w.lastToken = t
+			w.lastTokenFId = fId
 		}
 		w.lastColumn = w.column
 		w.column += int32(len(t.v))
