@@ -23,8 +23,8 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 
-	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild/pkg/less"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/frontendBuild/pkg/less"
 )
 
 func lessLoaderPlugin() api.Plugin {

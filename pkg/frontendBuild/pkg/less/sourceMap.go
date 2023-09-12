@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild/pkg/vlq"
+	"github.com/das7pad/overleaf-go/pkg/frontendBuild/pkg/vlq"
 )
 
 var b64 = base64.StdEncoding

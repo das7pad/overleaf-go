@@ -27,7 +27,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/das7pad/overleaf-go/pkg/assets/pkg/frontendBuild"
+	"github.com/das7pad/overleaf-go/pkg/frontendBuild"
 )
 
 func main() {
