@@ -126,7 +126,6 @@ func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Reque
 	blob, _ := o.Get("manifest.json")
 	c <- BuildNotification{Manifest: blob}
 
-	err = writeSSE(buf, "epoch", o.epochBlob)
 	for err == nil {
 		select {
 		case <-disconnected:

@@ -25,10 +25,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
@@ -53,7 +51,6 @@ func NewOutputCollector(root string, preCompress PreCompress) API {
 		old:         make(map[string]map[string]uint8),
 		root:        root,
 		preCompress: preCompress,
-		epochBlob:   []byte(strconv.FormatInt(time.Now().UnixMilli(), 10)),
 	}
 }
 
@@ -75,7 +72,6 @@ type outputCollector struct {
 	mu          sync.Mutex
 	root        string
 	preCompress PreCompress
-	epochBlob   []byte
 
 	onBuild []chan<- BuildNotification
 	old     map[string]map[string]uint8
