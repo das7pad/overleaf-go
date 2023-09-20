@@ -124,7 +124,12 @@ func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Reque
 	}()
 
 	blob, _ := o.Get("manifest.json")
-	c <- BuildNotification{Manifest: blob}
+	c <- BuildNotification{
+		Name:     "initial",
+		Manifest: blob,
+		Errors:   make([]minimalMessage, 0),
+		Warnings: make([]minimalMessage, 0),
+	}
 
 	for err == nil {
 		select {
