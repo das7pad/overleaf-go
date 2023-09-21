@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,7 +22,8 @@ import (
 
 type ExecAgentRequestOptions struct {
 	CommandLine                `json:"command_line"`
-	Environment                `json:"e,omitempty"`
+	Environment                `json:"environment,omitempty"`
+	sharedTypes.ImageName      `json:"imageName"`
 	sharedTypes.ComputeTimeout `json:"timeout"`
 	CommandOutputFiles         `json:"command_output_files"`
 }

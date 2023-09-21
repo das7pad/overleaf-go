@@ -36,6 +36,10 @@ const (
 	outputDir  = types.OutputDir(constants.OutputDirContainer)
 )
 
+var (
+	imageName = sharedTypes.ImageName(os.Getenv("IMAGE_NAME"))
+)
+
 func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, timed *sharedTypes.Timed) (types.ExitCode, error) {
 	args := make([]string, len(options.CommandLine))
 	for i, s := range options.CommandLine {
@@ -89,6 +93,9 @@ func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 	}
 	if err := json.NewDecoder(conn).Decode(&options); err != nil {
 		return -1, "invalid request"
+	}
+	if imageName != options.ImageName {
+		return -1, "image mismatch"
 	}
 	deadLine := time.Now().Add(time.Duration(options.ComputeTimeout))
 	ctx, done := context.WithDeadline(context.Background(), deadLine)

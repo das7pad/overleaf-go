@@ -200,7 +200,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 		// Backoff momentarily starting from attempt two.
 		time.Sleep(time.Duration(i * 100 * int(time.Millisecond)))
 
-		if probeErr = a.probe(ctx, namespace); probeErr == nil {
+		if probeErr = a.probe(ctx, namespace, imageName); probeErr == nil {
 			return validUntil, nil
 		}
 	}
@@ -273,6 +273,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		year,
 	)
 	env = append(env, "PATH="+PATH, "HOME=/tmp")
+	env = append(env, "IMAGE_NAME="+string(imageName))
 
 	_, err := a.dockerClient.ContainerCreate(
 		ctx,
@@ -324,13 +325,14 @@ func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Nam
 	return res.Config.Labels[clsiProcessEpochLabel], nil
 }
 
-func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace) error {
+func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) error {
 	timeout := 4242 * time.Millisecond
 	options := types.CommandOptions{
 		CommandLine:        types.CommandLine{"true"},
 		CommandOutputFiles: types.CommandOutputFiles{},
 		Environment:        types.Environment{},
 		ComputeTimeout:     sharedTypes.ComputeTimeout(timeout),
+		ImageName:          imageName,
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -381,6 +383,7 @@ func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, op
 		CommandOutputFiles: options.CommandOutputFiles,
 		Environment:        options.Environment,
 		ComputeTimeout:     options.ComputeTimeout,
+		ImageName:          options.ImageName,
 	}
 	socketPath := a.compileBaseDir.
 		CompileDir(namespace).
