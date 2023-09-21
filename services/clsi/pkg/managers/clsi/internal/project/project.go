@@ -82,8 +82,10 @@ type project struct {
 	runnerSetupValidUntil time.Time
 	pendingRunnerSetup    pendingOperation.WithCancel
 
-	abortPendingCompileMux sync.Mutex
-	abortPendingCompile    context.CancelFunc
+	abortPendingCompileMux           sync.Mutex
+	abortPendingCompile              context.CancelFunc
+	lastSuccessfulCompileOptionsHash types.CompileOptionsHash
+	lastSuccessfulCompileBuildId     types.BuildId
 
 	*managers
 }
@@ -153,17 +155,41 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	}
 	p.rootDocAlias.AddAliasDocIfNeeded(request)
 
+	lastSuccessfulCompileBuildId := p.lastSuccessfulCompileBuildId
+	compileOptionsHash := request.Options.Hash()
+	if p.lastSuccessfulCompileOptionsHash != compileOptionsHash {
+		lastSuccessfulCompileBuildId = ""
+	}
+	p.lastSuccessfulCompileBuildId = ""
+
 	response.Timings.Sync.Begin()
-	cache, err := p.writer.SyncResourcesToDisk(
+	cache, inSync, err := p.writer.SyncResourcesToDisk(
 		ctx,
 		p.namespace,
 		request,
+		lastSuccessfulCompileBuildId != "",
 	)
 	response.Timings.Sync.End()
 	if err != nil {
 		return err
 	}
 	p.hasContent.Store(true)
+
+	if lastSuccessfulCompileBuildId != "" && inSync {
+		response.Timings.Output.Begin()
+		outputFiles, err2 := p.outputCache.ListOutputFiles(
+			ctx,
+			p.namespace,
+			lastSuccessfulCompileBuildId,
+		)
+		if err2 == nil {
+			p.lastSuccessfulCompileBuildId = lastSuccessfulCompileBuildId
+			response.Timings.Output.End()
+			response.Status = constants.Success
+			response.OutputFiles = outputFiles
+			return nil
+		}
+	}
 
 	err = p.latexRunner.Run(ctx, p.run, p.namespace, request, response)
 	if err != nil {
@@ -184,6 +210,10 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 		return err
 	}
 	response.OutputFiles = outputFiles
+	if response.Status == constants.Success {
+		p.lastSuccessfulCompileOptionsHash = compileOptionsHash
+		p.lastSuccessfulCompileBuildId = response.OutputFiles[0].Build
+	}
 	return nil
 }
 
@@ -258,6 +288,8 @@ func (p *project) doCleanup(isClearCache bool) error {
 	p.stateMux.Lock()
 	defer p.stateMux.Unlock()
 	p.hasContent.Store(false)
+	p.lastSuccessfulCompileBuildId = ""
+	p.lastSuccessfulCompileOptionsHash = ""
 
 	errRunner := p.runner.Stop(p.namespace)
 	errWriter := p.writer.Clear(p.namespace)

@@ -33,7 +33,7 @@ import (
 )
 
 type ResourceWriter interface {
-	SyncResourcesToDisk(ctx context.Context, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error)
+	SyncResourcesToDisk(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, usesSameCompileOptions bool) (ResourceCache, bool, error)
 	CreateCompileDir(namespace types.Namespace) error
 	Clear(namespace types.Namespace) error
 	HasContent(namespace types.Namespace) bool
@@ -85,43 +85,46 @@ func (r *resourceWriter) HasContent(namespace types.Namespace) bool {
 	return err == nil
 }
 
-func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, namespace types.Namespace, request *types.CompileRequest) (ResourceCache, error) {
+func (r *resourceWriter) SyncResourcesToDisk(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, usesSameCompileOptions bool) (ResourceCache, bool, error) {
 	dir := r.compileBaseDir.CompileDir(namespace)
 	var cache ResourceCache
+	var inSync bool
 	var err error
 	if request.Options.SyncType == types.SyncTypeFullIncremental {
 		cache, err = r.fullSyncIncremental(
 			ctx, namespace, request, dir,
 		)
 	} else {
-		cache, err = r.incrementalSync(ctx, namespace, request, dir)
+		cache, inSync, err = r.incrementalSync(
+			ctx, namespace, request, dir, usesSameCompileOptions,
+		)
 	}
 	if err != nil {
 		if err != outputFileFinder.ErrProjectHasTooManyFilesAndDirectories {
-			return nil, err
+			return nil, false, err
 		}
 		// Clear all the contents.
 		if err2 := r.Clear(namespace); err2 != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if err = ctx.Err(); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		// Retry once when doing a full sync.
 		if request.Options.SyncType == types.SyncTypeFullIncremental {
 			cache, err = r.fullSyncIncremental(ctx, namespace, request, dir)
 		} else {
 			// Let web try with a full sync request again.
-			return nil, err
+			return nil, false, err
 		}
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 	if err = ctx.Err(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return cache, nil
+	return cache, inSync, nil
 }
 
 func (r *resourceWriter) Clear(namespace types.Namespace) error {
@@ -157,24 +160,41 @@ func (r *resourceWriter) fullSyncIncremental(ctx context.Context, namespace type
 	return cache, nil
 }
 
-func (r *resourceWriter) incrementalSync(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir) (ResourceCache, error) {
+func (r *resourceWriter) incrementalSync(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, dir types.CompileDir, usesSameCompileOptions bool) (ResourceCache, bool, error) {
 	s, cache := r.loadResourceCache(namespace)
 	if s != request.Options.SyncState {
-		return nil, &errors.InvalidStateError{
+		return nil, false, &errors.InvalidStateError{
 			Msg: "local sync state differs remote state, must perform full sync",
 		}
 	}
+	inSync := true
+	for _, resource := range request.Resources {
+		if cache[resource.Path] != resource.Version {
+			cache[resource.Path] = resource.Version
+			inSync = false
+		}
+	}
+	if usesSameCompileOptions && inSync {
+		return cache, true, nil
+	}
 
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	err := r.sync(ctx, namespace, request, dir, cache)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return cache, nil
+	if !inSync {
+		err = r.storeResourceCache(namespace, cache, request.Options.SyncState)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+
+	return cache, false, nil
 }
 
 func (r *resourceWriter) sync(ctx context.Context, namespace types.Namespace, request *types.CompileRequest, compileDir types.CompileDir, allResources ResourceCache) error {

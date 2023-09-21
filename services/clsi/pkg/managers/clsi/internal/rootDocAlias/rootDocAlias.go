@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -41,13 +41,13 @@ const (
 )
 
 func (m *manager) AddAliasDocIfNeeded(request *types.CompileRequest) {
-	if request.RootResourcePath == AliasDocFileName {
-		// Very happy path
+	if request.Options.RootResourcePath == AliasDocFileName {
+		// Very fast path
 		return
 	}
 	for _, resource := range request.Resources {
 		if resource.Path == AliasDocFileName {
-			// Still happy path
+			// Still fast path
 			return
 		}
 	}
@@ -58,6 +58,7 @@ func (m *manager) AddAliasDocIfNeeded(request *types.CompileRequest) {
 	aliasDoc := &types.Resource{
 		Path:    AliasDocFileName,
 		Content: request.RootDoc.Content,
+		Version: request.RootDoc.Version,
 	}
 	request.Resources = append(request.Resources, aliasDoc)
 	request.RootDocAliasResource = aliasDoc

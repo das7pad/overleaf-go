@@ -17,6 +17,7 @@
 package types
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -84,6 +85,7 @@ type Resource struct {
 	Path    sharedTypes.PathName `json:"path"`
 	Content string               `json:"content,omitempty"`
 	URL     *sharedTypes.URL     `json:"url,omitempty"`
+	Version sharedTypes.Version  `json:"v"`
 }
 
 func (r *Resource) IsDoc() bool {
@@ -119,15 +121,26 @@ func (r Resources) Validate() error {
 	return nil
 }
 
+type CompileOptionsHash string
+
 type CompileOptions struct {
-	Check        CheckMode                  `json:"check"`
-	Compiler     sharedTypes.Compiler       `json:"compiler"`
-	CompileGroup sharedTypes.CompileGroup   `json:"compileGroup"`
-	Draft        DraftModeFlag              `json:"draft"`
-	ImageName    sharedTypes.ImageName      `json:"imageName"`
-	SyncState    SyncState                  `json:"syncState"`
-	SyncType     SyncType                   `json:"syncType"`
-	Timeout      sharedTypes.ComputeTimeout `json:"timeout"`
+	Check            CheckMode                  `json:"check"`
+	Compiler         sharedTypes.Compiler       `json:"compiler"`
+	CompileGroup     sharedTypes.CompileGroup   `json:"compileGroup"`
+	Draft            DraftModeFlag              `json:"draft"`
+	ImageName        sharedTypes.ImageName      `json:"imageName"`
+	RootResourcePath sharedTypes.PathName       `json:"rootResourcePath"`
+	SyncState        SyncState                  `json:"syncState"`
+	SyncType         SyncType                   `json:"syncType"`
+	Timeout          sharedTypes.ComputeTimeout `json:"timeout"`
+}
+
+func (c CompileOptions) Hash() CompileOptionsHash {
+	return CompileOptionsHash(fmt.Sprintf(
+		"%s:%s:%s:%t:%s:%s:%s:%d",
+		c.Check, c.Compiler, c.CompileGroup, c.Draft, c.ImageName,
+		c.RootResourcePath, c.SyncState, c.Timeout,
+	))
 }
 
 func (c CompileOptions) Validate() error {
@@ -146,6 +159,9 @@ func (c CompileOptions) Validate() error {
 	if err := c.ImageName.Validate(); err != nil {
 		return err
 	}
+	if err := c.RootResourcePath.Validate(); err != nil {
+		return err
+	}
 	if err := c.SyncState.Validate(); err != nil {
 		return err
 	}
@@ -159,9 +175,8 @@ func (c CompileOptions) Validate() error {
 }
 
 type CompileRequest struct {
-	Options          CompileOptions       `json:"options"`
-	Resources        Resources            `json:"resources"`
-	RootResourcePath sharedTypes.PathName `json:"rootResourcePath"`
+	Options   CompileOptions `json:"options"`
+	Resources Resources      `json:"resources"`
 
 	// Internal fields.
 	RootDoc              *Resource `json:"-"`
@@ -169,8 +184,8 @@ type CompileRequest struct {
 }
 
 func (c *CompileRequest) Preprocess() error {
-	if c.RootResourcePath == "" {
-		c.RootResourcePath = "main.tex"
+	if c.Options.RootResourcePath == "" {
+		c.Options.RootResourcePath = "main.tex"
 	}
 	if c.Options.Compiler == "" {
 		c.Options.Compiler = sharedTypes.PDFLaTeX
@@ -180,7 +195,7 @@ func (c *CompileRequest) Preprocess() error {
 		c.Options.Timeout *= sharedTypes.ComputeTimeout(time.Second)
 	}
 
-	rootResourcePath := c.RootResourcePath
+	rootResourcePath := c.Options.RootResourcePath
 	var rootDoc *Resource
 	for _, resource := range c.Resources {
 		if resource.Path == rootResourcePath {
@@ -203,9 +218,6 @@ func (c *CompileRequest) Validate() error {
 		return err
 	}
 	if err := c.Resources.Validate(); err != nil {
-		return err
-	}
-	if err := c.RootResourcePath.Validate(); err != nil {
 		return err
 	}
 	if c.RootDoc == nil {

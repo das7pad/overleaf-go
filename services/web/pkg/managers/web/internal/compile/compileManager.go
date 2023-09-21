@@ -229,17 +229,17 @@ func (m *manager) Compile(ctx context.Context, request *types.CompileProjectRequ
 
 		clsiRequest := clsiTypes.CompileRequest{
 			Options: clsiTypes.CompileOptions{
-				Check:        request.CheckMode,
-				Compiler:     request.Compiler,
-				CompileGroup: request.CompileGroup,
-				Draft:        request.Draft,
-				ImageName:    request.ImageName,
-				SyncState:    request.SyncState,
-				SyncType:     syncType,
-				Timeout:      request.Timeout,
+				Check:            request.CheckMode,
+				Compiler:         request.Compiler,
+				CompileGroup:     request.CompileGroup,
+				Draft:            request.Draft,
+				ImageName:        request.ImageName,
+				RootResourcePath: rootDocPath,
+				SyncState:        request.SyncState,
+				SyncType:         syncType,
+				Timeout:          request.Timeout,
 			},
-			Resources:        resources,
-			RootResourcePath: rootDocPath,
+			Resources: resources,
 		}
 
 		if err = pendingFetchClsiServerId.Wait(ctx); err != nil {
@@ -298,6 +298,7 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 		resources = append(resources, &clsiTypes.Resource{
 			Path:    d.Path,
 			Content: d.Snapshot,
+			Version: d.Version,
 		})
 	}
 	for _, f := range files {
@@ -346,6 +347,7 @@ func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRe
 		resources[i] = &clsiTypes.Resource{
 			Path:    p,
 			Content: doc.Snapshot,
+			Version: doc.Version,
 		}
 	}
 	if rootDocPath == "" {

@@ -26,11 +26,11 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
-type ResourceCache map[sharedTypes.PathName]struct{}
+type ResourceCache map[sharedTypes.PathName]sharedTypes.Version
 
 type projectState struct {
-	FlatResourceCache []sharedTypes.PathName `json:"flatResourceCache"`
-	SyncState         types.SyncState        `json:"syncState"`
+	ResourceCache   `json:"resourceCache"`
+	types.SyncState `json:"syncState"`
 }
 
 func (r *resourceWriter) loadResourceCache(namespace types.Namespace) (types.SyncState, ResourceCache) {
@@ -45,11 +45,7 @@ func (r *resourceWriter) loadResourceCache(namespace types.Namespace) (types.Syn
 	if err = json.NewDecoder(file).Decode(&s); err != nil {
 		return types.SyncStateCleared, nil
 	}
-	cache := make(ResourceCache, len(s.FlatResourceCache))
-	for _, p := range s.FlatResourceCache {
-		cache[p] = struct{}{}
-	}
-	return s.SyncState, cache
+	return s.SyncState, s.ResourceCache
 }
 
 func composeResourceCache(request *types.CompileRequest) ResourceCache {
@@ -58,18 +54,15 @@ func composeResourceCache(request *types.CompileRequest) ResourceCache {
 		if resource == request.RootDocAliasResource {
 			continue
 		}
-		cache[resource.Path] = struct{}{}
+		cache[resource.Path] = resource.Version
 	}
 	return cache
 }
 
 func (r *resourceWriter) storeResourceCache(namespace types.Namespace, cache ResourceCache, syncState types.SyncState) error {
 	s := projectState{
-		FlatResourceCache: make([]sharedTypes.PathName, 0, len(cache)),
-		SyncState:         syncState,
-	}
-	for p := range cache {
-		s.FlatResourceCache = append(s.FlatResourceCache, p)
+		ResourceCache: cache,
+		SyncState:     syncState,
 	}
 	buf := bytes.Buffer{}
 	buf.Grow(10 * 1024)

@@ -30,7 +30,7 @@ const (
 	OutputDirPlaceHolder  = "$OUTPUT_DIR"
 
 	CompileOutputLabel       = "compile-output"
-	ProjectSyncStateFilename = ".project-sync-state-v2"
+	ProjectSyncStateFilename = ".project-sync-state-v3"
 
 	TimedOut       = "timedout"
 	Cancelled      = "cancelled"

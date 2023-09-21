@@ -129,13 +129,14 @@ Hello world
 `
 	req := types.CompileRequest{
 		Options: types.CompileOptions{
-			Check:        types.NoCheck,
-			CompileGroup: sharedTypes.StandardCompileGroup,
-			Compiler:     sharedTypes.PDFLaTeX,
-			ImageName:    m.healthCheckImageName,
-			SyncState:    "42",
-			SyncType:     types.SyncTypeFullIncremental,
-			Timeout:      sharedTypes.ComputeTimeout(10 * time.Second),
+			Check:            types.NoCheck,
+			CompileGroup:     sharedTypes.StandardCompileGroup,
+			Compiler:         sharedTypes.PDFLaTeX,
+			ImageName:        m.healthCheckImageName,
+			RootResourcePath: "main.tex",
+			SyncState:        "42",
+			SyncType:         types.SyncTypeFullIncremental,
+			Timeout:          sharedTypes.ComputeTimeout(10 * time.Second),
 		},
 		Resources: types.Resources{
 			&types.Resource{
@@ -143,7 +144,6 @@ Hello world
 				Content: content,
 			},
 		},
-		RootResourcePath: "main.tex",
 	}
 	resp := types.CompileResponse{
 		OutputFiles: make(types.OutputFiles, 0),

@@ -37,6 +37,7 @@ import (
 )
 
 type Manager interface {
+	ListOutputFiles(ctx context.Context, namespace types.Namespace, buildId types.BuildId) (types.OutputFiles, error)
 	SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error)
 	Clear(namespace types.Namespace) error
 }
@@ -53,6 +54,45 @@ type manager struct {
 	finder              outputFileFinder.Finder
 	paths               types.Paths
 	parallelOutputWrite int64
+}
+
+func (m *manager) ListOutputFiles(ctx context.Context, namespace types.Namespace, buildId types.BuildId) (types.OutputFiles, error) {
+	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
+	compileOutputDir := outputDir.CompileOutputDir(buildId)
+	allFiles, err := m.finder.FindAll(ctx, types.CompileDir(compileOutputDir))
+	if err != nil {
+		return nil, err
+	}
+
+	outputFiles := make(types.OutputFiles, 0, len(allFiles.FileStats))
+	for fileName, d := range allFiles.FileStats {
+		// Take the file mode from bulk scan results.
+		if !d.Type().IsRegular() {
+			continue
+		}
+
+		var size int64
+		if fileName == "output.pdf" {
+			// Fetch the file stats before potentially moving the file.
+			info, err2 := d.Info()
+			if err2 != nil {
+				return nil, err2
+			}
+			size = info.Size()
+		}
+
+		file := types.OutputFile{
+			Build: buildId,
+			DownloadPath: types.BuildDownloadPathFromNamespace(
+				namespace, buildId, fileName,
+			),
+			Path: fileName,
+			Type: fileName.Type(),
+			Size: size,
+		}
+		outputFiles = append(outputFiles, file)
+	}
+	return outputFiles, nil
 }
 
 type HasOutputPDF bool

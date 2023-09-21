@@ -87,7 +87,7 @@ func (r *latexRunner) Run(ctx context.Context, run commandRunner.NamespacedRun, 
 }
 
 func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, response *types.CompileResponse) *types.CommandOptions {
-	mainFile := string(request.RootResourcePath)
+	mainFile := string(request.Options.RootResourcePath)
 	fileType := sharedTypes.PathName(mainFile).Type()
 	for _, preProcessedFileType := range preProcessedFileTypes {
 		if fileType == preProcessedFileType {
@@ -111,7 +111,7 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 
 	env := r.baseEnv
 
-	isTexFile := request.RootResourcePath.Type() == "tex"
+	isTexFile := request.Options.RootResourcePath.Type() == "tex"
 	checkMode := request.Options.Check
 	if checkMode != types.NoCheck && isTexFile {
 		//goland:noinspection SpellCheckingInspection
