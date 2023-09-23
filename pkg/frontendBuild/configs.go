@@ -63,16 +63,31 @@ func baseConfig(root string, desc string) buildOptions {
 
 func mainBundlesConfig(root string, localesLoader api.Plugin) buildOptions {
 	c := baseConfig(root, "main bundles")
-	c.Plugins = append(c.Plugins, localesLoader)
+	c.Plugins = append(c.Plugins, localesLoader, lessLoaderPlugin())
 	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
+
 	c.EntryPoints = []string{
 		join(root, "frontend/js/ide.js"),
 		join(root, "frontend/js/main.js"),
+		join(root, "frontend/js/marketing.js"),
+		join(root, "frontend/stylesheets/style.less"),
+		join(root, "frontend/stylesheets/light-style.less"),
 	}
-	c.Outbase = join(root, "frontend/js/")
-	c.Outdir = join(root, "public/js/")
+	pages, err := filepath.Glob(join(root, "frontend/js/pages/*/*.js"))
+	if err != nil {
+		panic(err)
+	}
+	c.EntryPoints = append(c.EntryPoints, pages...)
+	pages, err = filepath.Glob(join(root, "modules/*/frontend/js/pages/*.js"))
+	if err != nil {
+		panic(err)
+	}
+	c.EntryPoints = append(c.EntryPoints, pages...)
+
+	c.Outbase = join(root, "frontend/")
+	c.Outdir = join(root, "public/")
 	c.Inject = []string{join(root, "esbuild/inject/bootstrap.js")}
 	c.Define = map[string]string{
 		"process.env.NODE_ENV": `"production"`,
@@ -88,41 +103,6 @@ func mainBundlesConfig(root string, localesLoader api.Plugin) buildOptions {
 	return c
 }
 
-func marketingBundlesConfig(root string, localesLoader api.Plugin) buildOptions {
-	c := baseConfig(root, "marketing bundles")
-	c.Plugins = append(c.Plugins, localesLoader)
-	c.ListenForRebuild = true
-	c.Splitting = true
-	c.Format = api.FormatESModule
-	c.EntryPoints = []string{
-		join(root, "frontend/js/marketing.js"),
-	}
-	pages, err := filepath.Glob(join(root, "frontend/js/pages/*/*.js"))
-	if err != nil {
-		panic(err)
-	}
-	c.EntryPoints = append(c.EntryPoints, pages...)
-
-	pages, err = filepath.Glob(join(root, "modules/*/frontend/js/pages/*.js"))
-	if err != nil {
-		panic(err)
-	}
-	c.EntryPoints = append(c.EntryPoints, pages...)
-
-	c.Outbase = join(root, "frontend/js/")
-	c.Outdir = join(root, "public/js/")
-	c.Inject = []string{join(root, "esbuild/inject/bootstrapMarketing.js")}
-	c.Define = map[string]string{
-		"process.env.NODE_ENV": `"production"`,
-		// work around 'process' usage in algoliasearch
-		"process.env.RESET_APP_DATA_TIMER": "null",
-		// silence ad
-		"__REACT_DEVTOOLS_GLOBAL_HOOK__": `{ "isDisabled": true }`,
-	}
-	c.JSX = api.JSXAutomatic
-	return c
-}
-
 func mathJaxBundleConfig(root string) buildOptions {
 	c := baseConfig(root, "MathJax bundle")
 	c.EntryPoints = []string{join(root, "frontend/js/MathJaxBundle.js")}
@@ -132,24 +112,10 @@ func mathJaxBundleConfig(root string) buildOptions {
 	return c
 }
 
-func stylesheetsConfig(root string) buildOptions {
-	c := baseConfig(root, "stylesheet bundles")
-	c.Plugins = []api.Plugin{lessLoaderPlugin()}
-	c.EntryPoints = []string{
-		join(root, "frontend/stylesheets/style.less"),
-		join(root, "frontend/stylesheets/light-style.less"),
-	}
-	c.Outbase = join(root, "frontend/stylesheets/")
-	c.Outdir = join(root, "public/stylesheets/")
-	return c
-}
-
 func getConfigs(root string) []buildOptions {
 	localesLoader := localesLoaderPlugin(root)
 	return []buildOptions{
 		mainBundlesConfig(root, localesLoader),
-		marketingBundlesConfig(root, localesLoader),
 		mathJaxBundleConfig(root),
-		stylesheetsConfig(root),
 	}
 }
