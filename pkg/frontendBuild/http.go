@@ -41,7 +41,6 @@ func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		o.handleEventSource(w, r)
 	} else {
 		p := strings.TrimPrefix(r.URL.Path, "/")
-		p = strings.TrimPrefix(p, "assets/")
 		blob, ok := o.Get(p)
 		enc := r.Header.Get("Accept-Encoding")
 		if ok &&
