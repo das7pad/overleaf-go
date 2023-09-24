@@ -103,7 +103,7 @@ func (o *outputCollector) notifyAboutBuild(name string, r *api.BuildResult) erro
 	return nil
 }
 
-func (o *outputCollector) handleEventSource(w http.ResponseWriter, r *http.Request) {
+func (o *outputCollector) handleEventSource(w http.ResponseWriter) {
 	c := make(chan BuildNotification, 10)
 	defer o.AddListener(c)()
 	w.Header().Set("Content-Type", "text/event-stream")

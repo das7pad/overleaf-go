@@ -82,7 +82,7 @@ func (r *yarnPNPReader) Close() {
 }
 
 func (r *yarnPNPReader) GetMatching(name, prefix string) map[string]*zip.File {
-	out := make(map[string]*zip.File, 0)
+	out := make(map[string]*zip.File)
 	inZip := "node_modules/" + name + "/"
 	for _, file := range r.m[name].File {
 		if strings.HasPrefix(file.Name, inZip+prefix) {

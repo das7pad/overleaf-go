@@ -38,7 +38,7 @@ func (o *outputCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 	} else if strings.HasSuffix(r.URL.Path, "/event-source") {
-		o.handleEventSource(w, r)
+		o.handleEventSource(w)
 	} else {
 		p := strings.TrimPrefix(r.URL.Path, "/")
 		blob, ok := o.Get(p)
