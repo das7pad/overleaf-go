@@ -87,7 +87,7 @@
         <a
           id="try-reconnect-now-button"
           class="alert-link-as-btn pull-right"
-          href="#"
+          href=""
           ng-click="tryReconnectNow()"
         >{{ translate "try_now" . }}</a>
       </div>
@@ -179,7 +179,7 @@
       <span ng-show="!anonymous"><h4>{{ translate "actions" . }}</h4>
         <ul class="list-unstyled nav">
           <li ng-controller="LeftMenuCloneProjectModalController"><a
-              href="#"
+              href=""
               ng-click="openCloneProjectModal()"
             ><i class="fa fa-fw fa-copy"></i>&nbsp;&nbsp; {{ translate "copy_project" . }}
             </a>
@@ -190,12 +190,12 @@
             ></clone-project-modal>
           </li>
           <li ng-controller="WordCountModalController"><a
-              href="#"
+              href=""
               ng-if="pdf.url"
               ng-click="openWordCountModal()"
             ><i class="fa fa-fw fa-eye"></i><span>&nbsp;&nbsp; {{ translate "word_count" . }}</span></a><a
               class="link-disabled"
-              href="#"
+              href=""
               ng-if="!pdf.url"
               tooltip="{{ translate "please_compile_pdf_before_word_count" . }}"
             ><i class="fa fa-fw fa-eye"></i><span class="link-disabled">&nbsp;&nbsp; {{ translate "word_count" . }}</span></a>
@@ -706,14 +706,14 @@
                       class="toolbar toolbar-editor"
                     >
                       <div class="toolbar-right"><a
-                          href="#"
+                          href=""
                           ng-click="switchToFlatLayout('editor')"
                           ng-show="ui.pdfLayout == 'sideBySide'"
                           tooltip="{{ translate "full_screen" . }}"
                           tooltip-placement="bottom"
                           tooltip-append-to-body="true"
                         ><i class="fa fa-expand"></i><i class="full-screen"></i></a><a
-                          href="#"
+                          href=""
                           ng-click="switchToSideBySideLayout('editor')"
                           ng-show="ui.pdfLayout == 'flat'"
                           tooltip="{{ translate "split_screen" . }}"
@@ -960,7 +960,7 @@
                     ng-if="permissions.write"
                   ><a
                       class="btn btn-danger btn-xs"
-                      href="#"
+                      href=""
                       ng-click="openRestoreDiffModal()"
                     >{{ translate "restore_to_before_these_changes" . }}</a>
                   </div>
@@ -985,7 +985,7 @@
                 </p>
                 <p><a
                     class="btn btn-primary btn-lg"
-                    href="#"
+                    href=""
                     ng-click="restoreDeletedDoc()"
                     ng-disabled="history.diff.restoreInProgress"
                   >{{ translate "restore" . }}</a></p>
@@ -999,7 +999,7 @@
                 <p class="text-serif"> {{ translate "file_restored_back_to_editor" . }}</p>
                 <p><a
                     class="btn btn-default"
-                    href="#"
+                    href=""
                     ng-click="backToEditorAfterRestore()"
                   >{{ translate "file_restored_back_to_editor_btn" . }}</a></p>
               </div>
