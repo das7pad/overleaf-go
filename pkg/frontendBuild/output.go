@@ -22,11 +22,13 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 
@@ -132,12 +134,23 @@ func (o *outputCollector) Bundle(w io.Writer) error {
 	return nil
 }
 
-func (o *outputCollector) plugin(options buildOptions) api.Plugin {
+func (o *outputCollector) plugin(options buildOptions, firstBuild chan struct{}) api.Plugin {
 	return api.Plugin{
 		Name: "output",
 		Setup: func(build api.PluginBuild) {
+			var t0 time.Time
+			build.OnStart(func() (api.OnStartResult, error) {
+				t0 = time.Now()
+				return api.OnStartResult{}, nil
+			})
 			build.OnEnd(func(r *api.BuildResult) (api.OnEndResult, error) {
-				return o.handleOnEnd(options.Description, r)
+				err := o.handleOnEnd(options.Description, r)
+				if firstBuild != nil {
+					close(firstBuild)
+					firstBuild = nil
+				}
+				log.Println(options.Description, time.Since(t0))
+				return api.OnEndResult{}, err
 			})
 		},
 	}
@@ -186,11 +199,11 @@ type rawManifest struct {
 	}
 }
 
-func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEndResult, error) {
+func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) error {
 	m := rawManifest{}
 	if r.Metafile != "" {
 		if err := json.Unmarshal([]byte(r.Metafile), &m); err != nil {
-			return api.OnEndResult{}, errors.Tag(err, "deserialize metafile")
+			return errors.Tag(err, "deserialize metafile")
 		}
 	}
 
@@ -229,7 +242,7 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 	for _, file := range r.OutputFiles {
 		written[file.Path[len(join(o.root, "public"))+1:]] = true
 		if err := o.write(file.Path, file.Contents); err != nil {
-			return api.OnEndResult{}, err
+			return err
 		}
 	}
 
@@ -256,13 +269,12 @@ func (o *outputCollector) handleOnEnd(desc string, r *api.BuildResult) (api.OnEn
 	o.mu.Unlock()
 
 	if err := o.writeManifest(); err != nil {
-		return api.OnEndResult{}, err
+		return err
 	}
 	if err := o.notifyAboutBuild(desc, r); err != nil {
-		return api.OnEndResult{}, err
+		return err
 	}
-
-	return api.OnEndResult{}, nil
+	return nil
 }
 
 func compress(blob []byte) ([]byte, error) {

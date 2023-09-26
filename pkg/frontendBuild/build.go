@@ -33,7 +33,11 @@ func (o *outputCollector) Build(concurrency int, watch bool) error {
 
 	for _, options := range getConfigs(o.root) {
 		cfg := options
-		cfg.Plugins = append(cfg.Plugins, o.plugin(cfg))
+		var firstBuild chan struct{}
+		if watch {
+			firstBuild = make(chan struct{})
+		}
+		cfg.Plugins = append(cfg.Plugins, o.plugin(cfg, firstBuild))
 		if watch && cfg.ListenForRebuild {
 			cfg.Inject = append(
 				cfg.Inject, join(o.root, "esbuild/inject/listenForRebuild.js"),
@@ -44,14 +48,13 @@ func (o *outputCollector) Build(concurrency int, watch bool) error {
 			if ctxErr != nil {
 				return errors.Tag(ctxErr, cfg.Description)
 			}
-			t1 := time.Now()
-			c.Rebuild()
-			log.Println(cfg.Description, time.Since(t1).String())
 			if watch {
 				if err := c.Watch(api.WatchOptions{}); err != nil {
 					return errors.Tag(err, cfg.Description)
 				}
+				<-firstBuild
 			} else {
+				c.Rebuild()
 				c.Dispose()
 			}
 			return nil
