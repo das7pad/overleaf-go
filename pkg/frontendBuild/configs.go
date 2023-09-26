@@ -72,8 +72,6 @@ func mainBundlesConfig(root string) buildOptions {
 		join(root, "frontend/js/ide.js"),
 		join(root, "frontend/js/main.js"),
 		join(root, "frontend/js/marketing.js"),
-		join(root, "frontend/stylesheets/style.less"),
-		join(root, "frontend/stylesheets/light-style.less"),
 	}
 	pages, err := filepath.Glob(join(root, "frontend/js/pages/*/*.js"))
 	if err != nil {
@@ -112,9 +110,20 @@ func mathJaxBundleConfig(root string) buildOptions {
 	return c
 }
 
+func stylesheetsConfig(root string) buildOptions {
+	c := baseConfig(root, "stylesheet bundles")
+	c.Plugins = []api.Plugin{lessLoaderPlugin()}
+	c.EntryPoints = []string{
+		join(root, "frontend/stylesheets/style.less"),
+		join(root, "frontend/stylesheets/light-style.less"),
+	}
+	return c
+}
+
 func getConfigs(root string) []buildOptions {
 	return []buildOptions{
 		mainBundlesConfig(root),
 		mathJaxBundleConfig(root),
+		stylesheetsConfig(root),
 	}
 }
