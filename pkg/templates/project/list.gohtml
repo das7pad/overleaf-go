@@ -18,12 +18,6 @@
 */ -}}
 {{- /*gotype: github.com/das7pad/overleaf-go/pkg/templates.ProjectListData */ -}}
 {{ template "layout-marketing" . }}
-{{ define "headScripts" }}
-  <link
-    rel="stylesheet"
-    href="{{ getBundlePath "frontend/js/pages/project/list.js.css" }}"
-  />
-{{ end }}
 {{ define "content" }}
   <main
     class="content content-alt project-list-react"

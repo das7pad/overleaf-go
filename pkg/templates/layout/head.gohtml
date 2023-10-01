@@ -124,6 +124,12 @@
       href="{{ buildCSSPath .ThemeModifier }}"
       id="main-stylesheet"
     />
+      {{ if and (not .DeferCSSBundleLoading) (getCSSBundlePath .Entrypoint) }}
+        <link
+          rel="stylesheet"
+          href="{{ getCSSBundlePath .Entrypoint }}"
+        />
+      {{ end }}
       {{ range $key, $details := .Settings.I18n.SubdomainLang }}
           {{ if not $details.Hide }}
             <link

@@ -36,6 +36,7 @@ type Manager interface {
 	BuildFontPath(path string) template.URL
 	BuildImgPath(path string) template.URL
 	BuildMathJaxEntrypoint() template.URL
+	GetCSSBundlePath(path string) template.URL
 	GetBundlePath(path string) template.URL
 	GetEntrypointChunks(path string) []template.URL
 	StaticPath(path string) template.URL
@@ -146,6 +147,10 @@ func (m *manager) loadFrom(f io.Reader) error {
 func (m *manager) RenderingStart() {}
 
 func (m *manager) RenderingEnd() {}
+
+func (m *manager) GetCSSBundlePath(path string) template.URL {
+	return m.assets[path+".css"]
+}
 
 func (m *manager) GetBundlePath(path string) template.URL {
 	return m.assets[path]

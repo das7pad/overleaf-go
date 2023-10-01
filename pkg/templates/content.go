@@ -75,6 +75,7 @@ type CommonData struct {
 
 	HideFooter            bool
 	HideNavBar            bool
+	DeferCSSBundleLoading bool
 	RobotsNoindexNofollow bool
 	Viewport              bool
 }

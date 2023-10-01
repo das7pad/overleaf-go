@@ -223,6 +223,7 @@ func (d *ProjectEditorData) Meta() []metaEntry {
 }
 
 func (d *ProjectEditorData) Render() ([]byte, string, error) {
+	d.DeferCSSBundleLoading = true
 	d.HideFooter = true
 	d.HideNavBar = true
 	return render("project/editor.gohtml", 38*1024, d)
@@ -258,6 +259,7 @@ func (d *ProjectEditorDetachedData) Meta() []metaEntry {
 }
 
 func (d *ProjectEditorDetachedData) Render() ([]byte, string, error) {
+	d.DeferCSSBundleLoading = true
 	d.HideFooter = true
 	d.HideNavBar = true
 	return render("project/editorDetached.gohtml", 9*1024, d)
