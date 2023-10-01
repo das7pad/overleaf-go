@@ -109,14 +109,6 @@ func (o *outputCollector) writeStaticFiles() error {
 			To:   join(o.root, "public/vendor/mathjax-2-7-9", s),
 		})
 	}
-	// OpenInOverleaf
-	pattern = append(pattern, staticCopyPattern{
-		From: join(o.root, "frontend/js/vendor/libs/highlight.pack.js"),
-		To:   join(o.root, "public/vendor/highlight.pack.js"),
-	}, staticCopyPattern{
-		From: join(o.root, "frontend/stylesheets/vendor/highlight-github.css"),
-		To:   join(o.root, "public/vendor/stylesheets/highlight-github.css"),
-	})
 
 	wantedPackages := make(map[string]bool)
 	for _, cp := range pattern {

@@ -18,16 +18,6 @@
 */ -}}
 {{- /*gotype: github.com/das7pad/overleaf-go/pkg/templates.OpenInOverleafDocumentationData*/ -}}
 {{ template "layout-marketing" . }}
-{{ define "headScripts" }}
-  <link
-    rel="stylesheet"
-    href="{{ staticPath "/vendor/stylesheets/highlight-github.css" }}"
-  />
-  <script
-    type="text/javascript"
-    src="{{ staticPath "/vendor/highlight.pack.js" }}"
-  ></script>
-{{ end }}
 {{ define "content" }}
   <main
     class="content content-alt"
@@ -61,7 +51,7 @@
               </p>
               <pre>
                 {{- "" -}}
-                <code class="html">{{ .GatewayURL }}?snip_uri=<strong>http://pathtoyourfile.tex</strong></code>
+                <code class="hljs nohighlight">{{ .GatewayURL }}?snip_uri=<strong>http://pathtoyourfile.tex</strong></code>
                 {{- "" -}}
               </pre>
               <p>
@@ -145,7 +135,7 @@
               </p>
               <pre>
                 {{- "" -}}
-                <code class="html">
+                <code class="language-html">
                     {{- "" -}}
                     {{ printf `<form action="%s" method="post" target="_blank">
   <input type="text" name="snip_uri" value="https://production-overleaf-static.s3.amazonaws.com/examples/helloworld.tex">
@@ -171,7 +161,7 @@
               </p>
               <pre>
                 {{- "" -}}
-                <code class="html">
+                <code class="hljs nohighlight">
                     {{- "" -}}
                     {{ .GatewayURL }}?<strong>snip_uri[]=https://foo.bar/a.tex&snip_uri[]=https://foo.bar/b.tex</strong>
                     {{- "" -}}
@@ -184,7 +174,7 @@
               </p>
               <pre>
                 {{- "" -}}
-                <code class="html">
+                <code class="hljs nohighlight">
                     {{- "" -}}
                     {{ .GatewayURL }}?snip_uri[]=https://foo.bar/a.tex
                             &snip_uri[]=https://foo.bar/b.tex
@@ -207,7 +197,7 @@
               </p>
               <pre>
                 {{- "" -}}
-                <code class="php">
+                <code class="language-php">
                   {{- "" -}}
                   urlencode("\\documentclass{article}\n\\begin{document}\nHello \$i\$ \& \$j\$.\n\\end{document}\n");
                   {{- "" -}}
@@ -290,7 +280,7 @@ A &= B + C - D \\ \\
               <p>This form can be implemented with the following code:</p>
               <pre>
                 {{- "" -}}
-                <code class="html">
+                <code class="language-html">
                     {{- "" -}}
                     {{ printf `<form action="%s" method="post" target="_blank">
 <textarea rows="8" cols="60" name="snip">
@@ -366,7 +356,7 @@ A &amp;= B + C - D \\ \\
                 <dd>
                   <pre>
                     {{- "" -}}
-                    <code class="tex">
+                    <code class="language-tex">
                       {{- "" -}}
 \renewcommand{\arraystretch}{2}
 \[
@@ -396,7 +386,7 @@ g :=\left(
                 <dd>
                   <pre>
                     {{- "" -}}
-                    <code class="tex">
+                    <code class="language-tex">
                       {{- "" -}}
 \documentclass{article}
 \usepackage{tikz}
@@ -435,7 +425,7 @@ g :=\left(
               <p>The HTML required to add the examples above is:</p>
               <pre>
                 {{- "" -}}
-                <code class="html">
+                <code class="language-html">
                     {{- "" -}}
                     {{ printf `<form id="ol_form" action="%s" method="post" target="_blank">
   <input id="ol_encoded_snip" type="hidden" name="encoded_snip">
@@ -444,7 +434,7 @@ g :=\left(
   <dt>Code: <a href="" onclick="openInOverleaf(this); return false;">Open in Overleaf</a></dt>
   <dd>
     <pre>
-      <code class="tex">
+      <code class="language-tex">
         \documentclass{article}
         ...
       </code>
@@ -461,7 +451,7 @@ g :=\left(
               </p>
               <pre>
                 {{- "" -}}
-                <code class="javascript">
+                <code class="language-javascript">
                     {{- "" -}}
                     {{ `function openInOverleaf(a) {
   /*
@@ -526,7 +516,7 @@ g :=\left(
               </p>
               <pre>
                 {{- "" -}}
-                <code class="tex">
+                <code class="language-tex">
                   {{- "" -}}
 \documentclass[12pt]{article}
 \usepackage[english]{babel}
@@ -573,7 +563,7 @@ SNIPPET GOES HERE
               </p>
               <pre>
                 {{- "" -}}
-                <code class="tex">
+                <code class="language-tex">
                   {{- "" -}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
