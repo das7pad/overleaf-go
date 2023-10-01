@@ -189,10 +189,10 @@ func (m minifier) trimTextNodes(node *html.Node) {
 			end++
 		}
 
-		if start > 0 || end < n {
-			c.Data = c.Data[start:end]
-		}
 		if node.Data != "textarea" && node.Data != "code" {
+			if start > 0 || end < n {
+				c.Data = c.Data[start:end]
+			}
 			c.Data = strings.ReplaceAll(c.Data, "\n", " ")
 			c.Data = strings.ReplaceAll(c.Data, "  ", " ")
 		}
