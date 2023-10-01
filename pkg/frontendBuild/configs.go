@@ -63,7 +63,7 @@ func baseConfig(root string, desc string) buildOptions {
 
 func mainBundlesConfig(root string) buildOptions {
 	c := baseConfig(root, "main bundles")
-	c.Plugins = []api.Plugin{localesLoaderPlugin(root), lessLoaderPlugin()}
+	c.Plugins = []api.Plugin{localesLoaderPlugin(root)}
 	c.ListenForRebuild = true
 	c.Splitting = true
 	c.Format = api.FormatESModule
