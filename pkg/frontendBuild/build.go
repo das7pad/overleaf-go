@@ -17,6 +17,7 @@
 package frontendBuild
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -54,7 +55,9 @@ func (o *outputCollector) Build(concurrency int, watch bool) error {
 				}
 				<-firstBuild
 			} else {
-				c.Rebuild()
+				if r := c.Rebuild(); len(r.Errors) > 0 || len(r.Warnings) > 0 {
+					return fmt.Errorf("%s: build failed", cfg.Description)
+				}
 				c.Dispose()
 			}
 			return nil
