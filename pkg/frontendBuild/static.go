@@ -72,7 +72,7 @@ func (o *outputCollector) copyFolder(from, to string) error {
 	})
 }
 
-func (o *outputCollector) writeStaticFiles() error {
+func (o *outputCollector) writeStaticFiles(build api.PluginBuild, res *api.OnStartResult) error {
 	var pattern []staticCopyPattern
 	pattern = append(pattern, staticCopyPattern{
 		From: join(o.root, "LICENSE"),
@@ -110,28 +110,23 @@ func (o *outputCollector) writeStaticFiles() error {
 		})
 	}
 
-	wantedPackages := make(map[string]bool)
-	for _, cp := range pattern {
-		if cp.FromNPMPackage() {
-			pkg, _, _ := strings.Cut(cp.From, "/")
-			wantedPackages[pkg] = true
-		}
-	}
-	r := yarnPNPReader{}
+	r := newYarnPNPReader(o.root, build, res)
 	defer r.Close()
-	if err := r.Load(o.root, wantedPackages); err != nil {
-		return errors.Tag(err, "load yarn reader")
-	}
 	for _, cp := range pattern {
 		if cp.FromNPMPackage() {
 			pkg, prefix, _ := strings.Cut(cp.From, "/")
-			for s, file := range r.GetMatching(pkg, prefix) {
+			files, err2 := r.GetMatching(pkg, prefix)
+			if err2 != nil {
+				return err2
+			}
+			for s, file := range files {
 				f, err := file.Open()
 				if err != nil {
 					return errors.Tag(err, s)
 				}
 				blob, err := io.ReadAll(f)
 				if err != nil {
+					_ = f.Close()
 					return errors.Tag(err, s)
 				}
 				if err = f.Close(); err != nil {
@@ -153,13 +148,27 @@ func (o *outputCollector) writeStaticFiles() error {
 			}
 		}
 	}
-
-	if err := o.writeManifest(); err != nil {
-		return err
-	}
-	if err := o.notifyAboutBuild("static", &api.BuildResult{}); err != nil {
-		return err
-	}
-
 	return nil
+}
+
+func (o *outputCollector) staticConfig() buildOptions {
+	cfg := baseConfig(o.root, "static")
+	cfg.Plugins = append(cfg.Plugins, api.Plugin{
+		Name: "static",
+		Setup: func(build api.PluginBuild) {
+			build.OnStart(func() (api.OnStartResult, error) {
+				res := api.OnStartResult{}
+				err := o.writeStaticFiles(build, &res)
+				if len(res.Errors) > 0 {
+					res.Errors = append(res.Errors, api.Message{
+						Text:   err.Error(),
+						Detail: err,
+					})
+					err = nil
+				}
+				return res, err
+			})
+		},
+	})
+	return cfg
 }

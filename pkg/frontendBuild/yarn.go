@@ -18,61 +18,55 @@ package frontendBuild
 
 import (
 	"archive/zip"
-	"encoding/json"
-	"os"
+	"path"
 	"strings"
+
+	"github.com/evanw/esbuild/pkg/api"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
+func newYarnPNPReader(root string, build api.PluginBuild, res *api.OnStartResult) yarnPNPReader {
+	return yarnPNPReader{
+		build: build,
+		m:     make(map[string]*zip.ReadCloser),
+		root:  root,
+		res:   res,
+	}
+}
+
 type yarnPNPReader struct {
-	m map[string]*zip.ReadCloser
+	root  string
+	m     map[string]*zip.ReadCloser
+	build api.PluginBuild
+	res   *api.OnStartResult
 }
 
-type yarnPNPData struct {
-	PackageRegistryData [][]interface{}
-}
-
-func (r *yarnPNPReader) Load(root string, wanted map[string]bool) error {
-	d := yarnPNPData{}
-	blob, err := os.ReadFile(join(root, ".pnp.data.json"))
+func (r *yarnPNPReader) getZip(pkg string) (*zip.ReadCloser, error) {
+	if z, ok := r.m[pkg]; ok {
+		return z, nil
+	}
+	// We need to resolve a static file in the package to deduce the zip name.
+	// Every package has a package.json file at the root, use that.
+	probeFile := "package.json"
+	res := r.build.Resolve(join(pkg, probeFile), api.ResolveOptions{
+		Kind:       api.ResolveJSRequireResolve,
+		ResolveDir: r.root,
+	})
+	if len(res.Errors) > 0 || len(res.Warnings) > 0 {
+		r.res.Errors = res.Errors
+		r.res.Warnings = res.Warnings
+		return nil, errors.New("resolve failed for: " + pkg)
+	}
+	inZip := join("node_modules", pkg, "/")
+	zipName := path.Base(strings.TrimSuffix(res.Path, "/"+inZip+probeFile))
+	p := join(r.root, ".yarn/cache", zipName)
+	z, err := zip.OpenReader(p)
 	if err != nil {
-		return errors.Tag(err, "read .pnp.data.json")
+		return nil, errors.Tag(err, "open zip for "+pkg)
 	}
-	if err = json.Unmarshal(blob, &d); err != nil {
-		return errors.Tag(err, "deserialize .pnp.data.json")
-	}
-	r.m = make(map[string]*zip.ReadCloser)
-
-	for _, l1 := range d.PackageRegistryData {
-		if l1[0] == nil {
-			continue
-		}
-		name := l1[0].(string)
-		if !wanted[name] {
-			continue
-		}
-		for _, l2 := range l1[1].([]interface{}) {
-			l3 := l2.([]interface{})[1]
-			meta := l3.(map[string]interface{})
-			pl := meta["packageLocation"].(string)
-			if !strings.HasPrefix(pl, "./.yarn/cache/") {
-				continue
-			}
-			pl = strings.TrimSuffix(pl, "/node_modules/"+name+"/")
-			z, err2 := zip.OpenReader(join(root, pl))
-			if err2 != nil {
-				return errors.Tag(err, pl+": open zip")
-			}
-			r.m[name] = z
-		}
-	}
-	for name := range wanted {
-		if _, ok := r.m[name]; !ok {
-			return errors.New("missing .pnp.data.json entry: " + name)
-		}
-	}
-	return nil
+	r.m[pkg] = z
+	return z, nil
 }
 
 func (r *yarnPNPReader) Close() {
@@ -81,13 +75,17 @@ func (r *yarnPNPReader) Close() {
 	}
 }
 
-func (r *yarnPNPReader) GetMatching(name, prefix string) map[string]*zip.File {
+func (r *yarnPNPReader) GetMatching(pkg, prefix string) (map[string]*zip.File, error) {
+	z, err := r.getZip(pkg)
+	if err != nil {
+		return nil, err
+	}
 	out := make(map[string]*zip.File)
-	inZip := "node_modules/" + name + "/"
-	for _, file := range r.m[name].File {
+	inZip := "node_modules/" + pkg + "/"
+	for _, file := range z.File {
 		if strings.HasPrefix(file.Name, inZip+prefix) {
 			out[file.Name[len(inZip)+len(prefix):]] = file
 		}
 	}
-	return out
+	return out, nil
 }

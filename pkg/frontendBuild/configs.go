@@ -120,10 +120,11 @@ func stylesheetsConfig(root string) buildOptions {
 	return c
 }
 
-func getConfigs(root string) []buildOptions {
+func (o *outputCollector) getConfigs() []buildOptions {
 	return []buildOptions{
-		mainBundlesConfig(root),
-		mathJaxBundleConfig(root),
-		stylesheetsConfig(root),
+		mainBundlesConfig(o.root),
+		mathJaxBundleConfig(o.root),
+		stylesheetsConfig(o.root),
+		o.staticConfig(),
 	}
 }

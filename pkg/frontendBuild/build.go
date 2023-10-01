@@ -32,7 +32,7 @@ func (o *outputCollector) Build(concurrency int, watch bool) error {
 	eg := &errgroup.Group{}
 	eg.SetLimit(concurrency)
 
-	for _, options := range getConfigs(o.root) {
+	for _, options := range o.getConfigs() {
 		cfg := options
 		var firstBuild chan struct{}
 		if watch {
@@ -63,14 +63,6 @@ func (o *outputCollector) Build(concurrency int, watch bool) error {
 			return nil
 		})
 	}
-	eg.Go(func() error {
-		t1 := time.Now()
-		if err := o.writeStaticFiles(); err != nil {
-			return err
-		}
-		log.Println("static", time.Since(t1).String())
-		return nil
-	})
 
 	if err := eg.Wait(); err != nil {
 		return err
