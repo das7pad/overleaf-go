@@ -43,19 +43,21 @@ func parse(read func(name string) ([]byte, error), f string, r *tokenizer) (stri
 		sourceMapWriter: newSourceMapWriter(f),
 	}
 	if err := p.parse(f); err != nil {
-		return "", "", p.getImports(), err
+		return "", "", p.getImports(), fmt.Errorf("parse: %w", err)
+	}
+	if err := p.link(); err != nil {
+		return "", "", p.getImports(), fmt.Errorf("link: %w", err)
 	}
 	p.sourceMapWriter.StartWriting()
-	err := p.print()
-	if err != nil {
-		return "", "", p.getImports(), err
+	if err := p.print(); err != nil {
+		return "", "", p.getImports(), fmt.Errorf("print: %w", err)
 	}
 	p.sourceMapWriter.FinishWriting()
 	srcMap, err := p.sourceMapWriter.SourceMap()
 	if err != nil {
-		return "", "", p.getImports(), err
+		return "", "", p.getImports(), fmt.Errorf("source-map: %w", err)
 	}
-	return p.sourceMapWriter.CSS(), srcMap, p.getImports(), err
+	return p.sourceMapWriter.CSS(), srcMap, p.getImports(), nil
 }
 
 type directive struct {
@@ -70,17 +72,18 @@ type storedVar struct {
 }
 
 type node struct {
-	matcher    tokens
-	matcherS   string
-	when       tokens
-	directives []directive
-	children   []node
-	imports    []string
-	vars       []map[string]storedVar
-	paramVars  map[string]storedVar
-	mixins     []map[string][]node
-	r          *tokenizer
-	w          *sourceMapWriter
+	matcher        tokens
+	matcherS       string
+	extendMatchers matchers
+	when           tokens
+	directives     []directive
+	children       []node
+	imports        []string
+	vars           []map[string]storedVar
+	paramVars      map[string]storedVar
+	mixins         []map[string][]node
+	r              *tokenizer
+	w              *sourceMapWriter
 }
 
 func (n *node) MatcherString() string {
@@ -430,6 +433,7 @@ doneParsing:
 			j, r := maybeExpectSeq(tt, i, true, tokenAmp, tokenColon, tokenIdentifier, tokenParensOpen, tokenDot, tokenIdentifier)
 			if r == 0 && tt[i+2].v == "extend" {
 				n.directives = append(n.directives, directive{
+					name:  "extend",
 					value: tokens{tt[j-2], tt[j-1]},
 				})
 				j += consumeSpace(tt[j:])
@@ -649,6 +653,7 @@ doneParsing:
 					n1.matcher[c].kind == tokenDot &&
 					n1.matcher[c+1].kind == tokenIdentifier {
 					n1.directives = append(n1.directives, directive{
+						name:  "extend",
 						value: tokens{n1.matcher[c], n1.matcher[c+1]},
 					})
 					c += 2
@@ -763,6 +768,8 @@ func shouldNest(prev, s tokens) bool {
 	}
 	if s[0].kind == tokenAt &&
 		s[1].kind == tokenIdentifier {
+		// @keyframes variants
+		// @media
 		return true
 	}
 	if isKeyframes(prev) &&
@@ -1254,6 +1261,58 @@ func (n *node) evalVar(name string, pv []map[string]storedVar) (tokens, bool) {
 	return tokens{{kind: tokenAt, v: "@"}, {kind: tokenIdentifier, v: name}}, false
 }
 
+func (n *node) link(m matchers, cc [][]node, pv []map[string]storedVar, isNested bool) error {
+	if ok, err := n.evalWhen(pv); err != nil {
+		return err
+	} else if !ok {
+		return nil
+	}
+	if n.paramVars != nil {
+		pv = append([]map[string]storedVar{n.paramVars}, pv...)
+	}
+	if n.children != nil {
+		cc = append(cc, n.children)
+	}
+	nest, m := n.evalMatcher(pv, nil, m)
+	if len(nest) > 0 {
+		isNested = true
+	}
+	for _, d := range n.directives {
+		if d.name != "extend" {
+			continue
+		}
+		name := d.value.String()
+
+		found := false
+		for _, children := range cc {
+			for i := 0; i < len(children); i++ {
+				if children[i].MatcherString() != name {
+					continue
+				}
+				if isNested {
+					return fmt.Errorf("extend in nested context %q -> extend %q", m, name)
+				}
+				found = true
+				children[i].extendMatchers = append(
+					children[i].extendMatchers, m...,
+				)
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("extend %q is unknown", name)
+		}
+	}
+	for _, child := range n.children {
+		if err := child.link(m, cc, pv, isNested); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (n *node) print(w *sourceMapWriter, p tokens, m, opened matchers, cc [][]node, pv []map[string]storedVar, addSpace bool) (bool, []tokens, error) {
 	if len(n.directives) == 0 &&
 		len(n.children) == 0 &&
@@ -1285,6 +1344,9 @@ func (n *node) print(w *sourceMapWriter, p tokens, m, opened matchers, cc [][]no
 		w.WriteString(" {")
 		p = nest
 	}
+	if len(n.extendMatchers) > 0 {
+		m = append(m, n.extendMatchers...)
+	}
 	directives := n.directives
 	if len(n.directives) == 1 && n.directives[0].name == "each" {
 		src, err := n.evalMixin(n.directives[0].value, cc, pv)
@@ -1306,6 +1368,9 @@ func (n *node) print(w *sourceMapWriter, p tokens, m, opened matchers, cc [][]no
 		}
 	}
 	for _, d := range directives {
+		if d.name == "extend" {
+			continue
+		}
 		if d.name == "" {
 			mixins, err := n.evalMixin(d.value, cc, pv)
 			if err != nil {
@@ -1420,6 +1485,10 @@ func (n *node) collectImports(c []string) []string {
 
 func (p *parser) getImports() []string {
 	return p.root.collectImports(nil)
+}
+
+func (p *parser) link() error {
+	return p.root.link(nil, nil, nil, false)
 }
 
 func (p *parser) print() error {

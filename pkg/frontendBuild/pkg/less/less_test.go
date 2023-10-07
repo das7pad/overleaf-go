@@ -157,11 +157,23 @@ func TestParseUsing(t *testing.T) {
 			name: "extend nested",
 			args: args{
 				read: fakeFS{
-					"in.less": ".red() { color: red; } .btn { &:extend(.red); }",
+					"in.less": ".red { color: red; } .btn { &:extend(.red); }",
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".btn { color: red; }",
+			want:    ".red,.btn { color: red; }",
+			want2:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
+			name: "extend nested deep",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red { color: red; } .btn { .x { .y { &:extend(.red); } } }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".red,.btn .x .y { color: red; }",
 			want2:   []string{"in.less"},
 			wantErr: false,
 		},
@@ -169,11 +181,11 @@ func TestParseUsing(t *testing.T) {
 			name: "extend matcher",
 			args: args{
 				read: fakeFS{
-					"in.less": ".red() { color: red; } .btn:extend(.red) { margin: 1px; }",
+					"in.less": ".red { color: red; } .btn:extend(.red) { margin: 1px; }",
 				}.ReadFile,
 				p: "in.less",
 			},
-			want:    ".btn { color: red; margin: 1px; }",
+			want:    ".red,.btn { color: red; } .btn { margin: 1px; }",
 			want2:   []string{"in.less"},
 			wantErr: false,
 		},
