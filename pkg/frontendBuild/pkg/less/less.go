@@ -312,6 +312,17 @@ func compare[T float64 | string](a T, c kind, b T) bool {
 	return true
 }
 
+func (n *node) invokeMixin(tt tokens) {
+	if len(n.vars) == 1 {
+		// ensure ordering of mixin invocation on root level
+		n1 := n.branchNode()
+		n1.directives = []directive{{value: tt}}
+		n.children = append(n.children, n1)
+	} else {
+		n.directives = append(n.directives, directive{value: tt})
+	}
+}
+
 func (n *node) branchNode() node {
 	return node{
 		vars:   append([]map[string]storedVar{{}}, n.vars...),
@@ -532,9 +543,7 @@ doneParsing:
 		}
 		if t2.kind == tokenSemi {
 			if colon == -1 {
-				n.directives = append(n.directives, directive{
-					value: mergeSpace(tt[i : i+j]),
-				})
+				n.invokeMixin(mergeSpace(tt[i : i+j]))
 			} else {
 				n.directives = append(n.directives, directive{
 					name:   tt[i : i+colon].String(),
@@ -567,9 +576,7 @@ doneParsing:
 					continue
 				case tokenSemi:
 					if l == 0 {
-						n.directives = append(n.directives, directive{
-							value: mergeSpace(tt[i : end+1]),
-						})
+						n.invokeMixin(mergeSpace(tt[i : end+1]))
 						i += j + k
 						continue doneParsing
 					}

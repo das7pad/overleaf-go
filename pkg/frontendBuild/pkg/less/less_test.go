@@ -961,6 +961,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "mixin invocation order",
+			args: args{
+				read: fakeFS{
+					"in.less": ".gen-red() { .red { color: red; } } .btn { padding: 3; } .gen-red();",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".btn { padding: 3; } .red { color: red; }",
+			want2:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "each",
 			args: args{
 				read: fakeFS{
