@@ -312,6 +312,7 @@ func evalMath(s tokens) tokens {
 			v:    "-",
 		})
 	}
+	x = math.Round(x*1e8) / 1e8
 	out = append(out, token{
 		kind: tokenNum,
 		v:    strconv.FormatFloat(x, 'f', -1, 64),

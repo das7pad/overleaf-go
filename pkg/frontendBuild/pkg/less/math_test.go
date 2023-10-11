@@ -272,42 +272,42 @@ func Test_evalMath(t *testing.T) {
 			args: args{
 				s: tokenize("sin(1)", 0),
 			},
-			want: tokenize("0.8414709848078965", 0),
+			want: tokenize("0.84147098", 0),
 		},
 		{
 			name: "cos",
 			args: args{
 				s: tokenize("cos(1)", 0),
 			},
-			want: tokenize("0.5403023058681398", 0),
+			want: tokenize("0.54030231", 0),
 		},
 		{
 			name: "tan",
 			args: args{
 				s: tokenize("tan(1)", 0),
 			},
-			want: tokenize("1.557407724654902", 0),
+			want: tokenize("1.55740772", 0),
 		},
 		{
 			name: "asin",
 			args: args{
 				s: tokenize("asin(1)", 0),
 			},
-			want: tokenize("1.5707963267948966", 0),
+			want: tokenize("1.57079633", 0),
 		},
 		{
 			name: "acos",
 			args: args{
 				s: tokenize("acos(0.5)", 0),
 			},
-			want: tokenize("1.0471975511965976", 0),
+			want: tokenize("1.04719755", 0),
 		},
 		{
 			name: "atan",
 			args: args{
 				s: tokenize("atan(1)", 0),
 			},
-			want: tokenize("0.7853981633974483", 0),
+			want: tokenize("0.78539816", 0),
 		},
 		{
 			name: "pow",
@@ -349,7 +349,7 @@ func Test_evalMath(t *testing.T) {
 			args: args{
 				s: tokenize("pi()", 0),
 			},
-			want: tokenize("3.141592653589793", 0),
+			want: tokenize("3.14159265", 0),
 		},
 		{
 			name: "no unit may be px",
