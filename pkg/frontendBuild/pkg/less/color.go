@@ -113,11 +113,11 @@ func evalColor(s tokens) (tokens, error) {
 			h := c.ToHSLA()
 			switch s[i].v {
 			case "hue":
-				x = h.hue
+				x = int64(math.Round(h.hue))
 			case "saturation":
-				x = h.saturation
+				x = int64(math.Round(h.saturation))
 			case "lightness":
-				x = h.lightness
+				x = int64(math.Round(h.lightness))
 			}
 			out = append(out, token{kind: tokenNum, v: strconv.FormatInt(x, 10)})
 			switch s[i].v {
@@ -130,11 +130,11 @@ func evalColor(s tokens) (tokens, error) {
 			rgb := c.ToRGBA()
 			switch s[i].v {
 			case "red":
-				x = rgb.r
+				x = int64(math.Round(rgb.r))
 			case "green":
-				x = rgb.g
+				x = int64(math.Round(rgb.g))
 			case "blue":
-				x = rgb.b
+				x = int64(math.Round(rgb.b))
 			}
 			out = append(out, token{kind: tokenNum, v: strconv.FormatInt(x, 10)})
 			i = j
@@ -145,32 +145,32 @@ func evalColor(s tokens) (tokens, error) {
 			continue
 		case "spin":
 			h := c.ToHSLA()
-			h.hue = (h.hue + x + 360) % 360
+			h.hue = math.Mod(h.hue+float64(x)+360, 360)
 			c = h
 		case "saturate":
 			h := c.ToHSLA()
-			h.saturation += x
+			h.saturation += float64(x)
 			if h.saturation > 100 {
 				h.saturation = 100
 			}
 			c = h
 		case "desaturate":
 			h := c.ToHSLA()
-			h.saturation -= x
+			h.saturation -= float64(x)
 			if h.saturation < 0 {
 				h.saturation = 0
 			}
 			c = h
 		case "lighten":
 			h := c.ToHSLA()
-			h.lightness += x
+			h.lightness += float64(x)
 			if h.lightness > 100 {
 				h.lightness = 100
 			}
 			c = h
 		case "darken":
 			h := c.ToHSLA()
-			h.lightness -= x
+			h.lightness -= float64(x)
 			if h.lightness < 0 {
 				h.lightness = 0
 			}
@@ -222,9 +222,9 @@ type color interface {
 }
 
 type hslaColor struct {
-	hue        int64
-	saturation int64
-	lightness  int64
+	hue        float64
+	saturation float64
+	lightness  float64
 	alpha      float64
 }
 
@@ -243,7 +243,7 @@ func (s hslaColor) ToHSLA() hslaColor {
 
 func (s hslaColor) ToRGBA() rgbaColor {
 	l := float64(s.lightness) / 100
-	c := (1 - math.Abs(2*l-1)) * float64(s.saturation) / 100
+	c := (1 - math.Abs(2*l-1)) * s.saturation / 100
 	h := float64(s.hue) / 60
 	x := c * (1 - math.Abs(math.Mod(h, 2)-1))
 	var r, g, b float64
@@ -263,9 +263,9 @@ func (s hslaColor) ToRGBA() rgbaColor {
 	}
 	m := l - c/2
 	return rgbaColor{
-		r: int64(math.Round(255 * (r + m))),
-		g: int64(math.Round(255 * (g + m))),
-		b: int64(math.Round(255 * (b + m))),
+		r: 255 * (r + m),
+		g: 255 * (g + m),
+		b: 255 * (b + m),
 		a: s.alpha,
 	}
 }
@@ -277,12 +277,12 @@ func (s hslaColor) Render(out tokens) tokens {
 		out = append(out, token{kind: tokenIdentifier, v: "hsl"})
 	}
 	out = append(out, token{kind: tokenParensOpen, v: "("})
-	out = append(out, token{kind: tokenNum, v: strconv.FormatInt(s.hue, 10)})
+	out = append(out, token{kind: tokenNum, v: formatRoundedInt(s.hue)})
 	out = append(out, token{kind: tokenComma, v: ","})
-	out = append(out, token{kind: tokenNum, v: strconv.FormatInt(s.saturation, 10)})
+	out = append(out, token{kind: tokenNum, v: formatRoundedInt(s.saturation)})
 	out = append(out, token{kind: tokenPercent, v: "%"})
 	out = append(out, token{kind: tokenComma, v: ","})
-	out = append(out, token{kind: tokenNum, v: strconv.FormatInt(s.lightness, 10)})
+	out = append(out, token{kind: tokenNum, v: formatRoundedInt(s.lightness)})
 	out = append(out, token{kind: tokenPercent, v: "%"})
 	if s.alpha != 1 {
 		out = append(out, token{kind: tokenComma, v: ","})
@@ -293,9 +293,9 @@ func (s hslaColor) Render(out tokens) tokens {
 }
 
 type rgbaColor struct {
-	r int64
-	g int64
-	b int64
+	r float64
+	g float64
+	b float64
 	a float64
 }
 
@@ -326,23 +326,27 @@ func (s rgbaColor) ToHSLA() hslaColor {
 	if c != 0 {
 		switch max {
 		case r:
-			h.hue = int64(math.Round(60*(g-b)/c)) + 0
+			h.hue = 60*(g-b)/c + 0
 		case g:
-			h.hue = int64(math.Round(60*(b-r)/c)) + 120
+			h.hue = 60*(b-r)/c + 120
 		case b:
-			h.hue = int64(math.Round(60*(r-g)/c)) + 240
+			h.hue = 60*(r-g)/c + 240
 		}
-		h.hue = (h.hue + 360) % 360
-		h.saturation = int64(math.Round(100 * c / (1 - math.Abs(2*l-1))))
+		h.hue = math.Mod(h.hue+360, 360)
+		h.saturation = 100 * c / (1 - math.Abs(2*l-1))
 	}
-	h.lightness = int64(math.Round(100 * l))
+	h.lightness = 100 * l
 	return h
 }
 
 func (s rgbaColor) Render(out tokens) tokens {
 	if s.a == 1 {
 		out = append(out, token{kind: tokenHash, v: "#"})
-		v := strconv.FormatInt(s.r<<16+s.g<<8+s.b, 16)
+		v := strconv.FormatInt(
+			0+
+				int64(math.Round(s.r))<<16+
+				int64(math.Round(s.g))<<8+
+				int64(math.Round(s.b))<<0, 16)
 		if len(v) != 6 {
 			v = strings.Repeat("0", 6-len(v)) + v
 		}
@@ -351,11 +355,11 @@ func (s rgbaColor) Render(out tokens) tokens {
 	}
 	out = append(out, token{kind: tokenIdentifier, v: "rgba"})
 	out = append(out, token{kind: tokenParensOpen, v: "("})
-	out = append(out, token{kind: tokenNum, v: strconv.FormatInt(s.r, 10)})
+	out = append(out, token{kind: tokenNum, v: formatRoundedInt(s.r)})
 	out = append(out, token{kind: tokenComma, v: ","})
-	out = append(out, token{kind: tokenNum, v: strconv.FormatInt(s.g, 10)})
+	out = append(out, token{kind: tokenNum, v: formatRoundedInt(s.g)})
 	out = append(out, token{kind: tokenComma, v: ","})
-	out = append(out, token{kind: tokenNum, v: strconv.FormatInt(s.b, 10)})
+	out = append(out, token{kind: tokenNum, v: formatRoundedInt(s.b)})
 	out = append(out, token{kind: tokenComma, v: ","})
 	out = append(out, token{kind: tokenNum, v: strconv.FormatFloat(s.a, 'f', -1, 64)})
 	out = append(out, token{kind: tokenParensClose, v: ")"})
@@ -391,9 +395,9 @@ func parseColor(s tokens) (color, error) {
 			return nil, fmt.Errorf("bad hex color: %s", err)
 		}
 		return rgbaColor{
-			r: rgb >> 16,
-			g: (rgb >> 8) & 255,
-			b: rgb & 255,
+			r: float64(rgb >> 16),
+			g: float64((rgb >> 8) & 255),
+			b: float64(rgb & 255),
 			a: 1,
 		}, nil
 	case tokenIdentifier:
@@ -405,15 +409,15 @@ func parseColor(s tokens) (color, error) {
 				return nil, fmt.Errorf("too few args for rgba: %q", args)
 			}
 			rc := rgbaColor{}
-			rc.r, err = strconv.ParseInt(args[0].String(), 10, 64)
+			rc.r, err = strconv.ParseFloat(args[0].String(), 64)
 			if err != nil {
 				return nil, fmt.Errorf("parse rgba r: %s", err)
 			}
-			rc.g, err = strconv.ParseInt(args[1].String(), 10, 64)
+			rc.g, err = strconv.ParseFloat(args[1].String(), 64)
 			if err != nil {
 				return nil, fmt.Errorf("parse rgba g: %s", err)
 			}
-			rc.b, err = strconv.ParseInt(args[2].String(), 10, 64)
+			rc.b, err = strconv.ParseFloat(args[2].String(), 64)
 			if err != nil {
 				return nil, fmt.Errorf("parse rgba b: %s", err)
 			}
@@ -435,18 +439,20 @@ func parseColor(s tokens) (color, error) {
 				return nil, fmt.Errorf("too few args for hsla: %q", args)
 			}
 			var c hslaColor
-			c.hue, err = strconv.ParseInt(args[0].String(), 10, 64)
+			c.hue, err = strconv.ParseFloat(args[0].String(), 64)
 			if err != nil {
 				return nil, fmt.Errorf("parse hsla hue: %s", err)
 			}
-			c.saturation, err = parseAsPercent(args[1])
+			p, err := parseAsPercent(args[1])
 			if err != nil {
 				return nil, fmt.Errorf("parse hsla saturation: %s", err)
 			}
-			c.lightness, err = parseAsPercent(args[2])
+			c.saturation = float64(p)
+			p, err = parseAsPercent(args[2])
 			if err != nil {
 				return nil, fmt.Errorf("parse hsla lightness: %s", err)
 			}
+			c.lightness = float64(p)
 			if param[0].v == "hsla" {
 				if len(args) < 4 {
 					return nil, fmt.Errorf("too few args for hsla: %q", args)
@@ -482,9 +488,13 @@ func mixColor(c1, c2 color, x int64) color {
 	r1 := c1.ToRGBA()
 	r2 := c2.ToRGBA()
 	return rgbaColor{
-		r: int64(math.Round(float64(r1.r)*w1 + float64(r2.r)*w2)),
-		g: int64(math.Round(float64(r1.g)*w1 + float64(r2.g)*w2)),
-		b: int64(math.Round(float64(r1.b)*w1 + float64(r2.b)*w2)),
+		r: r1.r*w1 + r2.r*w2,
+		g: r1.g*w1 + r2.g*w2,
+		b: r1.b*w1 + r2.b*w2,
 		a: r1.a*p + r2.a*(1-p),
 	}
+}
+
+func formatRoundedInt(x float64) string {
+	return strconv.FormatInt(int64(math.Round(x)), 10)
 }
