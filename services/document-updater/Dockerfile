@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM alpine:3.17
+FROM alpine:3.18
 ENV SERVICE_NAME="document-updater"
 ENTRYPOINT ["document-updater"]
 COPY --chown=root:root ./document-updater /usr/local/bin/
