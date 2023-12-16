@@ -141,3 +141,7 @@ type NoJsLayoutData struct {
 func (d *NoJsLayoutData) CSP() string {
 	return d.Settings.CSPs.NoJs
 }
+
+func (d *NoJsLayoutData) Entrypoint() string {
+	return ""
+}

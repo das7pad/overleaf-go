@@ -36,6 +36,7 @@ import (
 
 type Renderer interface {
 	CSP() string
+	Entrypoint() string
 	Render() ([]byte, string, error)
 	ResourceHints() string
 }
