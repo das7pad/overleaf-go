@@ -234,6 +234,10 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		}
 	}
 	for {
+		if conn.SetReadDeadline(time.Now().Add(time.Minute)) != nil {
+			disconnect()
+			return
+		}
 		var request types.RPCRequest
 		if err := conn.ReadJSON(&request); err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
