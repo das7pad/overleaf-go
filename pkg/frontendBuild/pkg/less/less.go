@@ -1269,22 +1269,34 @@ func (n *node) evalVar(name string, pv []map[string]storedVar) (tokens, bool) {
 }
 
 func (n *node) link(m matchers, cc [][]node, pv []map[string]storedVar, isNested bool) error {
-	if ok, err := n.evalWhen(pv); err != nil {
-		return err
-	} else if !ok {
-		return nil
-	}
 	if n.paramVars != nil {
 		pv = append([]map[string]storedVar{n.paramVars}, pv...)
 	}
 	if n.children != nil {
 		cc = append(cc, n.children)
 	}
+	if ok, err := n.evalWhen(pv); err != nil {
+		return err
+	} else if !ok {
+		return nil
+	}
 	nest, m := n.evalMatcher(pv, nil, m)
 	if len(nest) > 0 {
 		isNested = true
 	}
 	for _, d := range n.directives {
+		if d.name == "" {
+			mixins, err := n.evalMixin(d.value, cc, pv)
+			if err != nil {
+				return err
+			}
+			for _, child := range mixins {
+				if err = child.link(m, cc, pv, isNested); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		if d.name != "extend" {
 			continue
 		}

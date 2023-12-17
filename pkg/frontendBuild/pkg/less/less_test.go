@@ -178,6 +178,18 @@ func TestParseUsing(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "extend mixin",
+			args: args{
+				read: fakeFS{
+					"in.less": ".red { color: red; } .btn { .x { .y { .z(); } } } .z() { &:extend(.red); }",
+				}.ReadFile,
+				p: "in.less",
+			},
+			want:    ".red,.btn .x .y { color: red; }",
+			want2:   []string{"in.less"},
+			wantErr: false,
+		},
+		{
 			name: "extend matcher",
 			args: args{
 				read: fakeFS{

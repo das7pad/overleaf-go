@@ -182,7 +182,7 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 		return j + 1, x * sign, u, err
 	case tokenNum:
 	default:
-		return i, 0, "", errors.New("invalid num")
+		return i, 0, "", fmt.Errorf("invalid num: kind=%s", s[i].kind)
 	}
 	x, err := strconv.ParseFloat(s[i].v, 64)
 	if err != nil {
