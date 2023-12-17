@@ -138,7 +138,7 @@ const (
 )
 
 func (a *agentRunner) Stop(namespace types.Namespace) error {
-	return a.stopContainer(namespace)
+	return a.removeContainer(namespace)
 }
 
 func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
@@ -153,9 +153,8 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			// The container is from previous version/cycle, replace it.
 			// - version: options may have changed.
 			// - cycle: we lost track of expected/max container life-time.
-			err = a.stopContainer(namespace)
-			if err != nil {
-				return nil, errors.Tag(err, "stop old container")
+			if err = a.removeContainer(namespace); err != nil {
+				return nil, errors.Tag(err, "remove old container")
 			}
 			// The container is not gone immediately. Delay and retry 3 times.
 			for i := 1; i < 4; i++ {
@@ -359,22 +358,22 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 	return &validUntil, nil
 }
 
-func (a *agentRunner) stopContainer(namespace types.Namespace) error {
-	timeout := int(time.Duration(0).Seconds())
-	err := a.dockerClient.ContainerStop(
+func (a *agentRunner) removeContainer(namespace types.Namespace) error {
+	err := a.dockerClient.ContainerRemove(
 		context.Background(),
 		containerName(namespace),
-		container.StopOptions{
-			Timeout: &timeout,
+		dockerTypes.ContainerRemoveOptions{
+			// Docs: Force the removal of a running container (uses SIGKILL)
+			Force: true,
 		},
 	)
-	if err == nil {
-		return nil
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return nil
+		}
+		return errors.Tag(err, "remove container")
 	}
-	if errdefs.IsNotFound(err) {
-		return nil
-	}
-	return errors.Tag(err, "stop container")
+	return nil
 }
 
 func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, options *types.CommandOptions) (types.ExitCode, error) {
@@ -433,7 +432,7 @@ func (a *agentRunner) Run(ctx context.Context, namespace types.Namespace, option
 	code, err := a.request(ctx, namespace, options)
 	if err != nil {
 		// Ensure cleanup of any pending processes.
-		_ = a.stopContainer(namespace)
+		_ = a.removeContainer(namespace)
 		return -1, err
 	}
 	return code, nil
