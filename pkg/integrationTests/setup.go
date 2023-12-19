@@ -58,6 +58,8 @@ const (
 	postgresContainerName = "ol-go-ci-pg"
 	redisContainerName    = "ol-go-ci-redis"
 	tmpPostgres           = "/tmp/" + postgresContainerName
+	tmpRedis              = "/tmp/" + redisContainerName
+	redisSocket           = tmpRedis + "/s"
 )
 
 func Setup(m *testing.M) {
@@ -296,26 +298,31 @@ DROP DATABASE %s WITH (FORCE)
 }
 
 func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
-	i, err := createAndStartContainer(ctx, c, &container.Config{
-		Cmd:   []string{"--databases", "1024", "--port", "16379"},
-		Image: "redis:6",
-		ExposedPorts: map[nat.Port]struct{}{
-			"16379/tcp": {},
+	if err := os.MkdirAll(tmpRedis, 0o777); err != nil {
+		panic(errors.Tag(err, "create redis dir"))
+	}
+	_, err := createAndStartContainer(ctx, c, &container.Config{
+		Entrypoint: []string{
+			"redis-server", "--databases", "1024", "--unixsocket", redisSocket,
 		},
+		Image: "redis:6",
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
-		NetworkMode: "bridge",
+		NetworkMode: "none",
 		AutoRemove:  true,
-		PortBindings: map[nat.Port][]nat.PortBinding{
-			"16379/tcp": {{HostIP: "127.0.1.1", HostPort: "16379"}},
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeBind,
+				Source: tmpRedis,
+				Target: tmpRedis,
+			},
 		},
 	}, redisContainerName, []string{"Ready to accept connections"})
 	if err != nil {
 		panic(errors.Tag(err, "create redis container"))
 	}
 
-	host := getIP(i) + ":16379"
-	if err = os.Setenv("REDIS_HOST", host); err != nil {
+	if err = os.Setenv("REDIS_HOST", redisSocket); err != nil {
 		panic(errors.Tag(err, "set REDIS_HOST"))
 	}
 
