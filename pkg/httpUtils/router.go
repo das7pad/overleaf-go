@@ -38,6 +38,10 @@ type Context struct {
 	t0      time.Time
 }
 
+func (c *Context) T0() time.Time {
+	return c.t0
+}
+
 func (c *Context) Param(key string) string {
 	return mux.Vars(c.Request)[key]
 }

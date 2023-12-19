@@ -101,8 +101,6 @@ func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 }
 
 func (h *httpController) ws(requestCtx *httpUtils.Context) {
-	setupTime := sharedTypes.Timed{}
-	setupTime.Begin()
 	conn, upgradeErr := h.u.Upgrade(
 		requestCtx.Writer, requestCtx.Request, nil,
 	)
@@ -226,6 +224,8 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 			}
 			return
 		}
+		setupTime := sharedTypes.Timed{}
+		setupTime.SetBegin(requestCtx.T0())
 		setupTime.End()
 		r := types.RPCResponse{
 			Body:        blob,
