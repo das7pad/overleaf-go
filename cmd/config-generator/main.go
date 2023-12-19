@@ -41,6 +41,7 @@ func main() {
 	}()
 
 	f := configGenerator.NewFlags()
+	flag.StringVar(&f.AppName, "app-name", f.AppName, "App name")
 
 	flag.BoolVar(&f.DockerComposeSetup, "docker-compose-setup", f.DockerComposeSetup, "generate config for docker-compose setup (hostnames refer to services in docker-compose config)")
 	flag.StringVar(&f.MinioRootUser, "minio-root-user", f.MinioRootUser, "minio root access key (default: generated)")

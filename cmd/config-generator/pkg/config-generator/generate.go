@@ -58,6 +58,7 @@ func NewFlags() Flags {
 	}
 
 	return Flags{
+		AppName:             "Overleaf Go",
 		BcryptCosts:         13,
 		CDNURLRaw:           "",
 		CLSICookieName:      "",
@@ -110,6 +111,7 @@ func NewFlags() Flags {
 }
 
 type Flags struct {
+	AppName                  string
 	BcryptCosts              int
 	CDNURLRaw                string
 	CLSICookieName           string
@@ -294,7 +296,7 @@ func Generate(f Flags) Config {
 		AdminEmail:        sharedTypes.Email("support@" + emailHost),
 		AllowedImages:     allowedImages,
 		AllowedImageNames: allowedImageNames,
-		AppName:           "Overleaf Go",
+		AppName:           f.AppName,
 		BcryptCost:        f.BcryptCosts,
 		CDNURL:            cdnURL,
 		CSPReportURL:      nil,
