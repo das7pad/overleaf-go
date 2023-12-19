@@ -60,14 +60,17 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 			func(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
 				// validation is performed as part of bootstrap
 				return &errors.NotAuthorizedError{}
-			}),
+			},
+		),
+		rateLimitBootstrap: make(chan struct{}, 20),
 	}).addRoutes(r)
 }
 
 type httpController struct {
-	rtm        realTime.Manager
-	u          websocket.Upgrader
-	jwtProject jwtHandler.JWTHandler[*projectJWT.Claims]
+	rtm                realTime.Manager
+	u                  websocket.Upgrader
+	jwtProject         jwtHandler.JWTHandler[*projectJWT.Claims]
+	rateLimitBootstrap chan struct{}
 }
 
 const (
@@ -202,7 +205,9 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 	}()
 	{
 		bCtx, done := context.WithTimeout(ctx, 10*time.Second)
+		h.rateLimitBootstrap <- struct{}{}
 		blob, err := h.rtm.BootstrapWS(bCtx, c, *claimsProjectJWT)
+		<-h.rateLimitBootstrap
 		done()
 		if ctx.Err() != nil {
 			return // connection aborted
