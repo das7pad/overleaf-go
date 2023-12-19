@@ -111,6 +111,11 @@ func (o *Options) FillFromEnv() {
 }
 
 func (o *Options) Validate() error {
+	isTesting := o.SiteURL.Host == "localhost:8080" &&
+		o.ManifestPath == "empty" &&
+		o.Email.SMTPAddress == "discard" &&
+		o.AppName == "TESTING"
+
 	if err := o.AdminEmail.Validate(); err != nil {
 		return errors.Tag(err, "admin_email is invalid")
 	}
@@ -120,7 +125,7 @@ func (o *Options) Validate() error {
 	if o.AppName == "" {
 		return &errors.ValidationError{Msg: "app_name is missing"}
 	}
-	if o.BcryptCost < 10 {
+	if o.BcryptCost < 10 && !isTesting {
 		return &errors.ValidationError{Msg: "bcrypt_cost is too low"}
 	}
 	if err := o.CDNURL.Validate(); err != nil {

@@ -76,12 +76,16 @@ func Setup(m *testing.M) {
 	}
 
 	F = configGenerator.NewFlags()
-	F.BcryptCosts = 10 // faster register/login
+	F.AppName = "TESTING"
+	F.BcryptCosts = 4 // faster registration/login
 	F.ManifestPath = "empty"
 	F.SMTPAddress = "discard"
 
+	C = configGenerator.Generate(F)
+	C.PopulateEnv()
+
 	dockerClient, dockerErr := client.NewClientWithOpts(
-		client.WithHost(configGenerator.Generate(F).DockerHost),
+		client.WithHost(C.DockerHost),
 		client.WithAPIVersionNegotiation(),
 	)
 	if dockerErr != nil {
@@ -94,9 +98,6 @@ func Setup(m *testing.M) {
 	defer setupMinio(ctx, dockerClient)(&code)
 	defer setupPg(ctx, dockerClient)(&code)
 	defer setupRedis(ctx, dockerClient)(&code)
-
-	C = configGenerator.Generate(F)
-	C.PopulateEnv()
 
 	code = m.Run()
 }
