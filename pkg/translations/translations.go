@@ -153,7 +153,6 @@ func Load(appName string, defaultLang string, languages Languages) (Manager, err
 	for language, d := range byLanguage {
 		byLanguage[language] = merge(d, fallback)
 	}
-	_locales = embed.FS{}
 	return &manager{localesByLanguage: byLanguage}, nil
 }
 

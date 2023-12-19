@@ -179,7 +179,5 @@ func Load(appName string, i18nOptions I18nOptions, am assets.Manager) error {
 			return nil
 		})
 	}
-	err := eg.Wait()
-	_fs = embed.FS{}
-	return err
+	return eg.Wait()
 }
