@@ -288,7 +288,8 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 
 func (m *manager) Disconnect(client *types.Client) {
 	if client.ProjectId.IsZero() {
-		// Disconnect before bootstrap finished.
+		// Disconnected before bootstrap finished.
+		client.CloseWriteQueue()
 		return
 	}
 	client.MarkAsLeftDoc()
