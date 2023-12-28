@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -244,6 +245,10 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		var request types.RPCRequest
 		if err := conn.ReadJSON(&request); err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
+				disconnect()
+				return
+			}
+			if e, ok := err.(net.Error); ok && e.Timeout() {
 				disconnect()
 				return
 			}
