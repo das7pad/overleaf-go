@@ -77,6 +77,9 @@ type httpController struct {
 const (
 	protoV8               = "v8.real-time.overleaf.com"
 	protoV8JWTProtoPrefix = ".bootstrap.v8.real-time.overleaf.com"
+
+	// two skipped heath checks plus latency
+	idleTime = time.Minute + 10*time.Second
 )
 
 func (h *httpController) addRoutes(router *httpUtils.Router) {
@@ -238,7 +241,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		}
 	}
 	for {
-		if conn.SetReadDeadline(time.Now().Add(time.Minute)) != nil {
+		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
 			disconnect()
 			return
 		}
