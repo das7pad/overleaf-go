@@ -304,7 +304,8 @@ func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
 	}
 	_, err := createAndStartContainer(ctx, c, &container.Config{
 		Entrypoint: []string{
-			"redis-server", "--databases", "1024", "--unixsocket", redisSocket,
+			"redis-server", "--databases", "1024",
+			"--unixsocket", redisSocket, "--unixsocketperm", "777",
 		},
 		Image: "redis:6",
 	}, &container.HostConfig{
