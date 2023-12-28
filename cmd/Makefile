@@ -104,12 +104,14 @@ docker/clean:
 
 test:
 	mkdir -p /tmp/ol-go-ci-pg
+	mkdir -p /tmp/ol-go-ci-redis
 	docker run \
 		--rm \
 		--volume $(ROOT):$(ROOT_DOCKER) \
 		--volume $(ROOT)/.cache/go-mod:/go/pkg/mod \
 		--volume /var/run/docker.sock:/var/run/docker.sock \
 		--volume /tmp/ol-go-ci-pg:/tmp/ol-go-ci-pg \
+		--volume /tmp/ol-go-ci-redis:/tmp/ol-go-ci-redis \
 		--workdir $(PWD_DOCKER) \
 		--env GOFLAGS='-buildvcs=false' \
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
