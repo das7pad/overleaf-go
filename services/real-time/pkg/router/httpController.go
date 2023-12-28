@@ -228,11 +228,9 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		setupTime.SetBegin(requestCtx.T0())
 		setupTime.End()
 		r := types.RPCResponse{
-			Body:        blob,
-			Callback:    0,
-			Name:        "bootstrap",
-			Latency:     setupTime,
-			ProcessedBy: "self",
+			Body:    blob,
+			Name:    "bootstrap",
+			Latency: setupTime,
 		}
 		if !c.EnsureQueueResponse(&r) {
 			return
