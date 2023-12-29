@@ -80,6 +80,7 @@ func Setup(m *testing.M) {
 	F.BcryptCosts = 4 // faster registration/login
 	F.ManifestPath = "empty"
 	F.SMTPAddress = "discard"
+	F.RealTimeWriteQueueDepth = 100
 
 	C = configGenerator.Generate(F)
 	C.PopulateEnv()

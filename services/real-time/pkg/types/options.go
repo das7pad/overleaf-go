@@ -45,6 +45,8 @@ func (o *GracefulShutdownOptions) Validate() error {
 type Options struct {
 	GracefulShutdown GracefulShutdownOptions `json:"graceful_shutdown"`
 
+	WriteQueueDepth int `json:"write_queue_depth"`
+
 	JWT struct {
 		Project jwtOptions.JWTOptions `json:"project"`
 	} `json:"jwt"`
@@ -58,6 +60,9 @@ func (o *Options) FillFromEnv() {
 func (o *Options) Validate() error {
 	if err := o.GracefulShutdown.Validate(); err != nil {
 		return errors.Tag(err, "graceful_shutdown")
+	}
+	if o.WriteQueueDepth <= 0 {
+		return errors.New("write_queue_depth must be greater than 0")
 	}
 	return nil
 }

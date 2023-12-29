@@ -72,8 +72,10 @@ func main() {
 	})
 
 	server := http.Server{
-		Addr:    listenAddress.Parse(3026),
-		Handler: router.New(rtm, realTimeOptions.JWT.Project),
+		Addr: listenAddress.Parse(3026),
+		Handler: router.New(
+			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
+		),
 	}
 	eg.Go(func() error {
 		return server.ListenAndServe()

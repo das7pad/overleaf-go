@@ -102,6 +102,8 @@ docker/clean:
 		--force
 	$(MAKE) -C ../services/spelling docker/clean
 
+TEST_SHORT ?= true
+
 test:
 	mkdir -p /tmp/ol-go-ci-pg
 	mkdir -p /tmp/ol-go-ci-redis
@@ -117,4 +119,4 @@ test:
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u) \
 		--group-add $(shell stat -c '%g' /var/run/docker.sock) \
-		golang:1.20.12 go test ./... -test.v=true
+		golang:1.20.12 go test ./... -test.v=true -test.short=$(TEST_SHORT)

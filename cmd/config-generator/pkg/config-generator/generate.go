@@ -97,6 +97,7 @@ func NewFlags() Flags {
 		NginxInternalPort:        "8080",
 		NginxPublicListenAddress: "127.0.0.1:8080",
 		PDFDownloadDomainRaw:     "",
+		RealTimeWriteQueueDepth:  10,
 		S3PolicyName:             "overleaf-go",
 		SiteURLRaw:               "http://localhost:8080",
 		SMTPAddress:              "log",
@@ -133,6 +134,7 @@ type Flags struct {
 	NginxInternalPort        string
 	NginxPublicListenAddress string
 	PDFDownloadDomainRaw     string
+	RealTimeWriteQueueDepth  int
 	S3PolicyName             string
 	SMTPAddress              string
 	SMTPPassword             string
@@ -277,6 +279,7 @@ func Generate(f Flags) Config {
 			Timeout:        10 * time.Second,
 			CleanupTimeout: 10 * time.Second,
 		},
+		WriteQueueDepth: f.RealTimeWriteQueueDepth,
 		JWT: struct {
 			Project jwtOptions.JWTOptions `json:"project"`
 		}{

@@ -38,17 +38,17 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions) *httpUtils.Router {
+func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *httpUtils.Router {
 	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
 		Ready: func() bool {
 			return !rtm.IsShuttingDown()
 		},
 	})
-	Add(r, rtm, jwtOptionsProject)
+	Add(r, rtm, jwtOptionsProject, writeQueueDepth)
 	return r
 }
 
-func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions) {
+func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) {
 	(&httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
@@ -64,6 +64,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 			},
 		),
 		rateLimitBootstrap: make(chan struct{}, 20),
+		writeQueueDepth:    writeQueueDepth,
 	}).addRoutes(r)
 }
 
@@ -72,6 +73,7 @@ type httpController struct {
 	u                  websocket.Upgrader
 	jwtProject         jwtHandler.JWTHandler[*projectJWT.Claims]
 	rateLimitBootstrap chan struct{}
+	writeQueueDepth    int
 }
 
 const (
@@ -126,7 +128,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		return
 	}
 
-	writeQueue := make(chan types.WriteQueueEntry, 10)
+	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
 
 	// Upgrading/hijacking has stopped the reader for detecting request abort.
 	ctx, disconnect := context.WithCancel(context.Background())
