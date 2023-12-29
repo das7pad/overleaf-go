@@ -82,11 +82,8 @@ func Setup(m *testing.M) {
 	F.SMTPAddress = "discard"
 	F.RealTimeWriteQueueDepth = 100
 
-	C = configGenerator.Generate(F)
-	C.PopulateEnv()
-
 	dockerClient, dockerErr := client.NewClientWithOpts(
-		client.WithHost(C.DockerHost),
+		client.WithHost(F.DockerHost()),
 		client.WithAPIVersionNegotiation(),
 	)
 	if dockerErr != nil {
@@ -99,6 +96,10 @@ func Setup(m *testing.M) {
 	defer setupMinio(ctx, dockerClient)(&code)
 	defer setupPg(ctx, dockerClient)(&code)
 	defer setupRedis(ctx, dockerClient)(&code)
+
+	// Pickup changes from minio/pg/redis setup
+	C = configGenerator.Generate(F)
+	C.PopulateEnv()
 
 	code = m.Run()
 }

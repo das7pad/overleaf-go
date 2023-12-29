@@ -148,6 +148,10 @@ type Flags struct {
 	TmpDir                   string
 }
 
+func (f Flags) DockerHost() string {
+	return fmt.Sprintf("unix://%s", f.DockerSocket)
+}
+
 type Config struct {
 	CLSIOptions              clsiTypes.Options
 	CleanupOtherS3Keys       bool
@@ -440,7 +444,7 @@ func Generate(f Flags) Config {
 `, f.FilestoreOptions.Bucket, f.FilestoreOptions.Bucket)
 
 	return Config{
-		DockerHost:               fmt.Sprintf("unix://%s", f.DockerSocket),
+		DockerHost:               f.DockerHost(),
 		DockerSocket:             f.DockerSocket,
 		DockerSocketGroupId:      f.DockerSocketGroupId,
 		DockerUser:               f.DockerContainerUser,
