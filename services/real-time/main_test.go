@@ -113,10 +113,15 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 	}
 }
 
-func bootstrapClient(tb testing.TB, ctx context.Context, u, bootstrap string) {
+func connectedClient(tb testing.TB, ctx context.Context, u, bootstrap string) *realTime.Client {
 	c := realTime.Client{}
 	_, err := c.Connect(ctx, u, bootstrap)
 	fatalIf(tb, err)
+	return &c
+}
+
+func bootstrapClient(tb testing.TB, ctx context.Context, u, bootstrap string) {
+	c := connectedClient(tb, ctx, u, bootstrap)
 	c.Close()
 }
 
@@ -167,8 +172,8 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 	}
 	wg.Wait()
 
-	b.ResetTimer()
 	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		wg.Add(n)
 		for j := 0; j < n; j++ {
@@ -218,4 +223,34 @@ func BenchmarkBootstrap3k(b *testing.B) {
 
 func BenchmarkBootstrap4k5(b *testing.B) {
 	benchmarkBootstrapN(b, 4_500)
+}
+
+func singleClientSetup(tb testing.TB) (*realTime.Client, func()) {
+	setup(tb)
+	ctx, done := context.WithTimeout(context.Background(), time.Minute)
+	c := connectedClient(tb, ctx, getURL(), bootstrapSharded[0])
+	return c, func() {
+		c.Close()
+		done()
+	}
+}
+
+func TestPing(t *testing.T) {
+	c, done := singleClientSetup(t)
+	defer done()
+
+	err := c.Ping()
+	fatalIf(t, err)
+}
+
+func BenchmarkPing(b *testing.B) {
+	c, done := singleClientSetup(b)
+	defer done()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		fatalIf(b, c.Ping())
+	}
 }
