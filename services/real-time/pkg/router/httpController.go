@@ -128,7 +128,8 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 
 	writeQueue := make(chan types.WriteQueueEntry, 10)
 
-	ctx, disconnect := context.WithCancel(requestCtx)
+	// Upgrading/hijacking has stopped the reader for detecting request abort.
+	ctx, disconnect := context.WithCancel(context.Background())
 	defer disconnect()
 
 	c, clientErr := types.NewClient(writeQueue, disconnect)
