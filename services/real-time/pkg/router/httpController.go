@@ -63,7 +63,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 				return &errors.NotAuthorizedError{}
 			},
 		),
-		rateLimitBootstrap: make(chan struct{}, 20),
+		rateLimitBootstrap: make(chan struct{}, 42),
 		writeQueueDepth:    writeQueueDepth,
 	}).addRoutes(r)
 }

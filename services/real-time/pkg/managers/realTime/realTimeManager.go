@@ -27,6 +27,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/das7pad/overleaf-go/pkg/cache"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
@@ -61,13 +62,21 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
+	pc := cache.NewLimited[projectCacheKey, json.RawMessage](100)
 	return &manager{
 		clientTracking:   ct,
 		editorEvents:     e,
 		dum:              dum,
 		pm:               project.New(db),
 		gracefulShutdown: options.GracefulShutdown,
+		projectCache:     pc,
 	}, nil
+}
+
+type projectCacheKey struct {
+	ProjectId        sharedTypes.UUID
+	ProjectEpoch     int64
+	AccessSourceEnum int8
 }
 
 type manager struct {
@@ -77,6 +86,7 @@ type manager struct {
 	editorEvents   editorEvents.Manager
 	dum            documentUpdater.Manager
 	pm             project.Manager
+	projectCache   *cache.Limited[projectCacheKey, json.RawMessage]
 
 	gracefulShutdown types.GracefulShutdownOptions
 }
@@ -183,24 +193,50 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 		PublicId:       client.PublicId,
 	}
 	u := user.WithPublicInfo{}
-	err := m.pm.GetBootstrapWSDetails(
-		ctx, claims.ProjectId, claims.UserId, claims.Epoch, claims.EpochUser,
-		claims.AccessSource, &res.Project.ForBootstrapWS, &u,
-	)
-	if err != nil {
-		return nil, err
+	cacheKey := projectCacheKey{
+		ProjectId:        claims.ProjectId,
+		ProjectEpoch:     claims.Epoch,
+		AccessSourceEnum: claims.AccessSource.Enum(),
 	}
-	res.Project.OwnerFeatures = user.Features{
-		Collaborators:  -1,
-		CompileTimeout: claims.Timeout / sharedTypes.ComputeTimeout(time.Second),
-		CompileGroup:   claims.CompileGroup,
-		Versioning:     true,
+	if cached, ok := m.projectCache.Get(cacheKey); ok {
+		err := m.pm.GetBootstrapWSUser(
+			ctx, claims.ProjectId, claims.UserId,
+			claims.Epoch, claims.EpochUser,
+			&u,
+		)
+		if err != nil {
+			return nil, err
+		}
+		res.Project = cached
+	} else {
+		p := types.ProjectDetails{}
+		err := m.pm.GetBootstrapWSDetails(
+			ctx, claims.ProjectId, claims.UserId,
+			claims.Epoch, claims.EpochUser,
+			claims.AccessSource, &p.ForBootstrapWS, &u,
+		)
+		if err != nil {
+			return nil, err
+		}
+		p.Id = claims.ProjectId
+		t := claims.Timeout / sharedTypes.ComputeTimeout(time.Second)
+		p.OwnerFeatures = user.Features{
+			Collaborators:  -1,
+			CompileTimeout: t,
+			CompileGroup:   claims.CompileGroup,
+			Versioning:     true,
+		}
+		p.RootFolder = []*project.Folder{p.GetRootFolder()}
+		if cached, err = json.Marshal(p); err != nil {
+			return nil, err
+		}
+		m.projectCache.Add(cacheKey, cached)
+		res.Project = cached
 	}
-	res.Project.RootFolder = []*project.Folder{res.Project.GetRootFolder()}
 
 	client.DisplayName = u.DisplayName()
-	client.ProjectId = res.Project.Id
-	client.UserId = u.Id
+	client.ProjectId = claims.ProjectId
+	client.UserId = claims.UserId
 	client.ResolveCapabilities(claims.PrivilegeLevel, claims.IsRestrictedUser())
 
 	getConnectedUsers := client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil
@@ -210,7 +246,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	}
 	res.ConnectedClients = connectedClients
 
-	if err = m.editorEvents.Join(ctx, client); err != nil {
+	if err := m.editorEvents.Join(ctx, client); err != nil {
 		return nil, errors.Tag(err, "subscribe")
 	}
 

@@ -225,6 +225,10 @@ func BenchmarkBootstrap4k5(b *testing.B) {
 	benchmarkBootstrapN(b, 4_500)
 }
 
+func BenchmarkBootstrap5k3(b *testing.B) {
+	benchmarkBootstrapN(b, 5_300)
+}
+
 func singleClientSetup(tb testing.TB) (*realTime.Client, func()) {
 	setup(tb)
 	ctx, done := context.WithTimeout(context.Background(), time.Minute)

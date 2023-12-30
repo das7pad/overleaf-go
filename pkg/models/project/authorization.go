@@ -23,6 +23,18 @@ import (
 
 type AccessSource string
 
+func (a AccessSource) Enum() int8 {
+	switch a {
+	case AccessSourceToken:
+		return 1
+	case AccessSourceInvite:
+		return 2
+	case AccessSourceOwner:
+		return 3
+	}
+	return 0
+}
+
 type PublicAccessLevel string
 
 func (l PublicAccessLevel) Validate() error {
@@ -38,9 +50,9 @@ func (l PublicAccessLevel) Validate() error {
 type IsRestrictedUser bool
 
 const (
-	AccessSourceOwner  AccessSource = "owner"
 	AccessSourceToken  AccessSource = "token"
 	AccessSourceInvite AccessSource = "invite"
+	AccessSourceOwner  AccessSource = "owner"
 
 	TokenBasedAccess PublicAccessLevel = "tokenBased"
 	PrivateAccess    PublicAccessLevel = "private"

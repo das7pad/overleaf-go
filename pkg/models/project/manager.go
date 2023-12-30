@@ -63,6 +63,7 @@ type Manager interface {
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
 	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource, p *ForBootstrapWS, u *user.WithPublicInfo) error
+	GetBootstrapWSUser(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, u *user.WithPublicInfo) error
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
@@ -1289,10 +1290,8 @@ WHERE p.id = $1
 }
 
 func (m *manager) GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource, p *ForBootstrapWS, u *user.WithPublicInfo) error {
-	p.Id = projectId
 	p.RootFolder = NewFolder("")
 	p.DeletedDocs = make([]CommonTreeFields, 0)
-	u.Id = userId
 
 	var deletedDocIds sharedTypes.UUIDs
 	var deletedDocNames []string
@@ -1401,6 +1400,29 @@ WHERE p.id = $1
 		}
 	}
 	return nil
+}
+
+func (m *manager) GetBootstrapWSUser(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, u *user.WithPublicInfo) error {
+	if userId.IsZero() {
+		return m.ValidateProjectJWTEpochs(
+			ctx, projectId, userId, projectEpoch, userEpoch,
+		)
+	}
+	err := m.db.QueryRow(ctx, `
+SELECT u.email, u.first_name, u.last_name
+FROM projects p, users u
+WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
+`, projectId, projectEpoch, userId, userEpoch).Scan(
+		&u.Email, &u.FirstName, &u.LastName,
+	)
+	switch err {
+	case nil:
+		return nil
+	case pgx.ErrNoRows:
+		return &errors.UnauthorizedError{Reason: "epoch mismatch"}
+	default:
+		return err
+	}
 }
 
 func (m *manager) BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error {

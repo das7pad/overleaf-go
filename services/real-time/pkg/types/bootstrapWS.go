@@ -17,12 +17,15 @@
 package types
 
 import (
+	"encoding/json"
+
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
 type BootstrapWSResponse struct {
-	Project          ProjectDetails             `json:"project"`
+	// Project contains (cached) serialized ProjectDetails
+	Project          json.RawMessage            `json:"project"`
 	PrivilegeLevel   sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
 	ConnectedClients ConnectedClients           `json:"connectedClients"`
 	PublicId         sharedTypes.PublicId       `json:"publicId"`
