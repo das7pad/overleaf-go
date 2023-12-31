@@ -65,7 +65,7 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 
 	details := []interface{}{
 		string(client.PublicId),
-		string(userBlob),
+		userBlob,
 		string(client.PublicId) + ":age",
 		strconv.FormatInt(time.Now().Unix(), 36),
 	}
