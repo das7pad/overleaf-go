@@ -109,32 +109,30 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	return op
 }
 
-func (m *manager) leave(client *types.Client) pendingOperation.PendingOperation {
+func (m *manager) leave(client *types.Client) {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists || r.isEmpty() {
 		// Not joined yet.
 		client.CloseWriteQueue()
-		return nil
+		return
 	}
 
 	roomIsEmpty := r.remove(client)
 	if !roomIsEmpty {
 		// Do not unsubscribe yet.
-		return nil
+		return
 	}
 
 	subscribe := r.pending
-	op := pendingOperation.TrackOperation(func() error {
+	r.pending = pendingOperation.TrackOperation(func() error {
 		if subscribe != nil && subscribe.IsPending() {
 			_ = subscribe.Wait(context.Background())
 		}
 		m.c.Unsubscribe(context.Background(), projectId)
 		return nil
 	})
-	r.pending = op
-	return op
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
@@ -158,11 +156,8 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 
 func (m *manager) Leave(client *types.Client) {
 	m.sem <- struct{}{}
-	pending := m.leave(client)
+	m.leave(client)
 	<-m.sem
-	if pending != nil {
-		<-pending.Done()
-	}
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {
