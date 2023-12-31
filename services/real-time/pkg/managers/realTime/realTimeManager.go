@@ -242,16 +242,16 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	client.UserId = claims.UserId
 	client.ResolveCapabilities(claims.PrivilegeLevel, claims.IsRestrictedUser())
 
+	if err := m.editorEvents.Join(ctx, client); err != nil {
+		return nil, errors.Tag(err, "subscribe")
+	}
+
 	getConnectedUsers := client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil
 	connectedClients := m.clientTracking.Connect(ctx, client, getConnectedUsers)
 	if !getConnectedUsers {
 		connectedClients = make(types.ConnectedClients, 0)
 	}
 	res.ConnectedClients = connectedClients
-
-	if err := m.editorEvents.Join(ctx, client); err != nil {
-		return nil, errors.Tag(err, "subscribe")
-	}
 
 	body, err := json.Marshal(res)
 	if err != nil {
