@@ -136,21 +136,17 @@ func (m *manager) leave(client *types.Client) {
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
+	m.sem <- struct{}{}
+	pending := m.join(ctx, client)
+	<-m.sem
+	if pending == nil {
+		return nil
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case m.sem <- struct{}{}:
-		pending := m.join(ctx, client)
-		<-m.sem
-		if pending == nil {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-pending.Done():
-			return pending.Err()
-		}
+	case <-pending.Done():
+		return pending.Err()
 	}
 }
 
