@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -41,7 +42,9 @@ func TestMain(m *testing.M) {
 }
 
 func getURL() string {
-	return fmt.Sprintf("ws://%s/socket.io", listenAddress.Parse(3026))
+	addr := listenAddress.Parse(3026)
+	addr = strings.ReplaceAll(addr, "localhost", "127.0.0.1")
+	return fmt.Sprintf("ws://%s/socket.io", addr)
 }
 
 func fatalIf(tb testing.TB, err error) {
@@ -113,24 +116,27 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 	}
 }
 
-func connectedClient(tb testing.TB, ctx context.Context, u, bootstrap string) *realTime.Client {
+func connectedClient(tb testing.TB, bootstrap string) *realTime.Client {
 	c := realTime.Client{}
-	_, err := c.Connect(ctx, u, bootstrap)
+	_, err := c.Connect(context.Background(), url, bootstrap)
 	fatalIf(tb, err)
 	return &c
 }
 
-func bootstrapClient(tb testing.TB, ctx context.Context, u, bootstrap string) {
-	c := connectedClient(tb, ctx, u, bootstrap)
+func bootstrapClient(tb testing.TB, bootstrap string) {
+	c := connectedClient(tb, bootstrap)
 	c.Close()
 }
 
 var setupOnce sync.Once
 var bootstrapSharded []string
+var url string
 
 func setup(tb testing.TB) {
 	setupOnce.Do(func() {
 		go main()
+
+		url = getURL()
 
 		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
@@ -144,10 +150,7 @@ func setup(tb testing.TB) {
 func TestBootstrap(t *testing.T) {
 	setup(t)
 
-	ctx, done := context.WithTimeout(context.Background(), time.Minute)
-	defer done()
-
-	bootstrapClient(t, ctx, getURL(), bootstrapSharded[0])
+	bootstrapClient(t, bootstrapSharded[0])
 }
 
 func benchmarkBootstrapN(b *testing.B, n int) {
@@ -155,10 +158,6 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 		b.SkipNow()
 	}
 	setup(b)
-	ctx, done := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer done()
-
-	url := getURL()
 
 	wg := sync.WaitGroup{}
 	wg.Add((n/len(bootstrapSharded) + len(bootstrapSharded)) * len(bootstrapSharded))
@@ -166,7 +165,7 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 		for _, bootstrap := range bootstrapSharded {
 			go func(bootstrap string) {
 				defer wg.Done()
-				bootstrapClient(b, ctx, url, bootstrap)
+				bootstrapClient(b, bootstrap)
 			}(bootstrap)
 		}
 	}
@@ -174,16 +173,16 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		wg.Add(n)
-		for j := 0; j < n; j++ {
-			go func(bootstrap string) {
-				defer wg.Done()
-				bootstrapClient(b, ctx, url, bootstrap)
-			}(bootstrapSharded[j%len(bootstrapSharded)])
-		}
-		wg.Wait()
+	wg.Add(n)
+	for j := 0; j < n; j++ {
+		go func(bootstrap string) {
+			defer wg.Done()
+			for i := 0; i < b.N; i++ {
+				bootstrapClient(b, bootstrap)
+			}
+		}(bootstrapSharded[j%len(bootstrapSharded)])
 	}
+	wg.Wait()
 	b.StopTimer()
 	nsPerClient := int(b.Elapsed()) / b.N / n
 	b.ReportMetric(float64(int(time.Second)/nsPerClient), "clients/s")
@@ -229,27 +228,26 @@ func BenchmarkBootstrap5k3(b *testing.B) {
 	benchmarkBootstrapN(b, 5_300)
 }
 
-func singleClientSetup(tb testing.TB) (*realTime.Client, func()) {
+func BenchmarkBootstrap6k5(b *testing.B) {
+	benchmarkBootstrapN(b, 6_500)
+}
+
+func singleClientSetup(tb testing.TB) *realTime.Client {
 	setup(tb)
-	ctx, done := context.WithTimeout(context.Background(), time.Minute)
-	c := connectedClient(tb, ctx, getURL(), bootstrapSharded[0])
-	return c, func() {
-		c.Close()
-		done()
-	}
+	return connectedClient(tb, bootstrapSharded[0])
 }
 
 func TestPing(t *testing.T) {
-	c, done := singleClientSetup(t)
-	defer done()
+	c := singleClientSetup(t)
+	defer c.Close()
 
 	err := c.Ping()
 	fatalIf(t, err)
 }
 
 func BenchmarkPing(b *testing.B) {
-	c, done := singleClientSetup(b)
-	defer done()
+	c := singleClientSetup(b)
+	defer c.Close()
 
 	b.ReportAllocs()
 	b.ResetTimer()

@@ -58,21 +58,25 @@ func (c *Client) Close() {
 
 var nextId = atomic.Int64{}
 
+const debug = false
+
 func (c *Client) Connect(ctx context.Context, url, bootstrap string) (*types.RPCResponse, error) {
 	id := nextId.Add(1)
+	if debug {
+		url += "?id=" + strconv.FormatInt(id, 10)
+	}
 	conn, _, err := (&websocket.Dialer{
-		HandshakeTimeout: time.Minute,
 		Subprotocols: []string{
 			"v8.real-time.overleaf.com",
 			bootstrap + ".bootstrap.v8.real-time.overleaf.com",
 		},
-	}).DialContext(ctx, url+"?id="+strconv.FormatInt(id, 10), nil)
+	}).DialContext(ctx, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%d: dial: %w", id, err)
 	}
 	c.conn = conn
 	c.callbacks = make(map[types.Callback]func(response types.RPCResponse))
-	c.listener = make(map[string]func(response types.RPCResponse))
+	c.listener = make(map[string]func(response types.RPCResponse), 4)
 
 	res := types.RPCResponse{}
 	c.On("bootstrap", func(response types.RPCResponse) {
