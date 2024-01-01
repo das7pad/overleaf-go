@@ -158,7 +158,7 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 
 	go h.writeLoop(ctx, disconnect, conn, writeQueue)
 
-	if !h.bootstrap(ctx, setupTime, c, claimsProjectJWT) {
+	if !h.bootstrap(setupTime, c, claimsProjectJWT) {
 		h.rtm.Disconnect(c)
 		return
 	}
@@ -216,8 +216,8 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 	}
 }
 
-func (h *httpController) bootstrap(ctx context.Context, setupTime sharedTypes.Timed, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
-	ctx, done := context.WithTimeout(ctx, 10*time.Second)
+func (h *httpController) bootstrap(setupTime sharedTypes.Timed, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
 	h.rateLimitBootstrap <- struct{}{}
