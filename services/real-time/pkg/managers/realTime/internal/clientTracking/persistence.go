@@ -52,7 +52,7 @@ func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client
 	return remainingClients.Val(), nil
 }
 
-func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition, fetchConnectedUsers bool) (bool, types.ConnectedClients, error) {
+func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition, fetchConnectedUsers bool) (bool, json.RawMessage, error) {
 	var pending *pendingConnectedClients
 	var ownsPending bool
 	cleanupPending := func() {
@@ -111,14 +111,14 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 	return true, nil, nil
 }
 
-func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
+func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (json.RawMessage, error) {
 	return m.parseConnectedClients(
 		client,
 		m.redisClient.HGetAll(ctx, getProjectKey(client.ProjectId)),
 	)
 }
 
-func (m *manager) parseConnectedClients(client *types.Client, cmd *redis.StringStringMapCmd) (types.ConnectedClients, error) {
+func (m *manager) parseConnectedClients(client *types.Client, cmd *redis.StringStringMapCmd) (json.RawMessage, error) {
 	if err := cmd.Err(); err != nil {
 		return nil, errors.Tag(err, "get raw connected clients")
 	}
@@ -157,7 +157,11 @@ func (m *manager) parseConnectedClients(client *types.Client, cmd *redis.StringS
 		clients[i].ClientId = sharedTypes.PublicId(clientId)
 		i++
 	}
-	return clients, nil
+	blob, err := json.Marshal(clients)
+	if err != nil {
+		return nil, errors.Tag(err, "serialize clients")
+	}
+	return blob, nil
 }
 
 func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTypes.UUID]editorEvents.Clients) error {

@@ -18,6 +18,7 @@ package clientTracking
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -34,8 +35,8 @@ import (
 
 type Manager interface {
 	Disconnect(client *types.Client) bool
-	GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error)
-	Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients
+	GetConnectedClients(ctx context.Context, client *types.Client) (json.RawMessage, error)
+	Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) json.RawMessage
 	RefreshClientPositions(ctx context.Context, client map[sharedTypes.UUID]editorEvents.Clients) error
 	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
 }
@@ -81,7 +82,7 @@ func (m *manager) Disconnect(client *types.Client) bool {
 	return n == 0
 }
 
-func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients {
+func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) json.RawMessage {
 	notify, clients, err := m.updateClientPosition(
 		ctx, client, types.ClientPosition{}, fetchConnectedUsers,
 	)
@@ -141,8 +142,9 @@ func (m *pendingConnectedClientsManager) delete(projectId sharedTypes.UUID) {
 }
 
 type pendingConnectedClients struct {
-	shared  atomic.Bool
-	done    chan struct{}
-	clients types.ConnectedClients
+	shared atomic.Bool
+	done   chan struct{}
+	// clients contains serialized types.ConnectedClients
+	clients json.RawMessage
 	err     error
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,11 +24,12 @@ import (
 )
 
 type BootstrapWSResponse struct {
-	// Project contains (cached) serialized ProjectDetails
-	Project          json.RawMessage            `json:"project"`
-	PrivilegeLevel   sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
-	ConnectedClients ConnectedClients           `json:"connectedClients"`
-	PublicId         sharedTypes.PublicId       `json:"publicId"`
+	// Project contains (cached) serialized types.ProjectDetails
+	Project        json.RawMessage            `json:"project"`
+	PrivilegeLevel sharedTypes.PrivilegeLevel `json:"privilegeLevel"`
+	// ConnectedClients contains (shared) serialized types.ConnectedClients
+	ConnectedClients json.RawMessage      `json:"connectedClients"`
+	PublicId         sharedTypes.PublicId `json:"publicId"`
 }
 
 type ProjectDetails struct {
