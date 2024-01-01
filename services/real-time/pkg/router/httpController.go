@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -86,7 +87,12 @@ const (
 )
 
 func (h *httpController) addRoutes(router *httpUtils.Router) {
-	router.GET("/socket.io", h.ws)
+	// Avoid overhead from route matching and httpUtils.Context
+	router.NewRoute().
+		MatcherFunc(func(r *http.Request, _ *mux.RouteMatch) bool {
+			return r.Method == http.MethodGet && r.URL.Path == "/socket.io"
+		}).
+		HandlerFunc(h.ws)
 }
 
 func (h *httpController) getProjectJWT(r *http.Request) (*projectJWT.Claims, error) {
@@ -108,8 +114,11 @@ func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 	_ = conn.Close()
 }
 
-func (h *httpController) ws(requestCtx *httpUtils.Context) {
-	conn, err := h.u.Upgrade(requestCtx.Writer, requestCtx.Request, nil)
+func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
+	setupTime := sharedTypes.Timed{}
+	setupTime.Begin()
+
+	conn, err := h.u.Upgrade(w, r, nil)
 	if err != nil {
 		// A 4xx has been generated already.
 		return
@@ -120,7 +129,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 		return
 	}
 
-	claimsProjectJWT, err := h.getProjectJWT(requestCtx.Request)
+	claimsProjectJWT, err := h.getProjectJWT(r)
 	if err != nil {
 		log.Println("jwt auth failed: " + err.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
@@ -149,7 +158,7 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 
 	go h.writeLoop(ctx, disconnect, conn, writeQueue)
 
-	if !h.bootstrap(ctx, requestCtx.T0(), c, claimsProjectJWT) {
+	if !h.bootstrap(ctx, setupTime, c, claimsProjectJWT) {
 		h.rtm.Disconnect(c)
 		return
 	}
@@ -207,7 +216,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 	}
 }
 
-func (h *httpController) bootstrap(ctx context.Context, t0 time.Time, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
+func (h *httpController) bootstrap(ctx context.Context, setupTime sharedTypes.Timed, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
 	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
 
@@ -229,8 +238,6 @@ func (h *httpController) bootstrap(ctx context.Context, t0 time.Time, c *types.C
 		}
 		return false
 	}
-	setupTime := sharedTypes.Timed{}
-	setupTime.SetBegin(t0)
 	setupTime.End()
 	return c.EnsureQueueResponse(&types.RPCResponse{
 		Body:    blob,
