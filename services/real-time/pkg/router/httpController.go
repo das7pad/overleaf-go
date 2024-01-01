@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -88,9 +89,9 @@ func (h *httpController) addRoutes(router *httpUtils.Router) {
 	router.GET("/socket.io", h.ws)
 }
 
-func (h *httpController) getProjectJWT(c *httpUtils.Context) (*projectJWT.Claims, error) {
+func (h *httpController) getProjectJWT(r *http.Request) (*projectJWT.Claims, error) {
 	var blob string
-	for _, proto := range websocket.Subprotocols(c.Request) {
+	for _, proto := range websocket.Subprotocols(r) {
 		if strings.HasSuffix(proto, protoV8JWTProtoPrefix) {
 			blob = proto[:len(proto)-len(protoV8JWTProtoPrefix)]
 			break
@@ -104,158 +105,155 @@ func (h *httpController) getProjectJWT(c *httpUtils.Context) (*projectJWT.Claims
 
 func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 	_ = conn.WritePreparedMessage(entry.Msg)
+	_ = conn.Close()
 }
 
 func (h *httpController) ws(requestCtx *httpUtils.Context) {
-	conn, upgradeErr := h.u.Upgrade(
-		requestCtx.Writer, requestCtx.Request, nil,
-	)
-	if upgradeErr != nil {
+	conn, err := h.u.Upgrade(requestCtx.Writer, requestCtx.Request, nil)
+	if err != nil {
 		// A 4xx has been generated already.
 		return
 	}
-	defer func() { _ = conn.Close() }()
 
 	if h.rtm.IsShuttingDown() {
 		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
 	}
 
-	claimsProjectJWT, jwtErr := h.getProjectJWT(requestCtx)
-	if jwtErr != nil {
-		log.Println("jwt auth failed: " + jwtErr.Error())
+	claimsProjectJWT, err := h.getProjectJWT(requestCtx.Request)
+	if err != nil {
+		log.Println("jwt auth failed: " + err.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
 
 	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
 
+	// The request context will get cancelled once the handler returns.
 	// Upgrading/hijacking has stopped the reader for detecting request abort.
 	ctx, disconnect := context.WithCancel(context.Background())
-	defer disconnect()
 
-	c, clientErr := types.NewClient(writeQueue, disconnect)
-	if clientErr != nil {
-		log.Println("client setup failed: " + clientErr.Error())
+	c, err := types.NewClient(writeQueue, disconnect)
+	if err != nil {
+		log.Println("client setup failed: " + err.Error())
+		disconnect()
 		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
 		return
 	}
 
 	if h.rtm.IsShuttingDown() {
+		disconnect()
 		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
 	}
 
-	waitForCtxDone := ctx.Done()
+	go h.writeLoop(ctx, disconnect, conn, writeQueue)
 
+	if !h.bootstrap(ctx, requestCtx.T0(), c, claimsProjectJWT) {
+		h.rtm.Disconnect(c)
+		return
+	}
+
+	go h.readLoop(ctx, disconnect, conn, c)
+}
+
+func (h *httpController) writeLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, writeQueue chan types.WriteQueueEntry) {
 	defer func() {
 		disconnect()
 		_ = conn.Close()
-		h.rtm.Disconnect(c)
+		for range writeQueue {
+			// Flush the queue.
+			// Eventually the room cleanup will close the channel.
+		}
 	}()
-	go func() {
-		defer func() {
-			disconnect()
-			_ = conn.Close()
-			for range writeQueue {
-				// Flush the queue.
-				// Eventually the room cleanup will close the channel.
-			}
-		}()
-		var lsr []types.LazySuccessResponse
-		for {
-			select {
-			case <-waitForCtxDone:
+	waitForCtxDone := ctx.Done()
+	var lsr []types.LazySuccessResponse
+	for {
+		select {
+		case <-waitForCtxDone:
+			return
+		case entry, ok := <-writeQueue:
+			if !ok {
 				return
-			case entry, ok := <-writeQueue:
-				if !ok {
-					return
-				}
-				if entry.Msg != nil {
-					err := conn.WritePreparedMessage(entry.Msg)
-					if err != nil {
-						return
-					}
-				} else if len(lsr) < 15 &&
-					entry.RPCResponse.IsLazySuccessResponse() {
-					lsr = append(lsr, types.LazySuccessResponse{
-						Callback: entry.RPCResponse.Callback,
-						Latency:  entry.RPCResponse.Latency,
-					})
-				} else {
-					if len(lsr) > 0 {
-						entry.RPCResponse.LazySuccessResponses = lsr
-						lsr = lsr[:0]
-					}
-					blob, err := json.Marshal(entry.RPCResponse)
-					if err != nil {
-						return
-					}
-					err = conn.WriteMessage(websocket.TextMessage, blob)
-					if err != nil {
-						return
-					}
-				}
-				if entry.FatalError {
-					return
-				}
 			}
-		}
-	}()
-
-	defer func() {
-		// Wait for the queue flush.
-		// In case queuing from the read-loop failed, this is a noop.
-		<-waitForCtxDone
-	}()
-	{
-		bCtx, done := context.WithTimeout(ctx, 10*time.Second)
-		h.rateLimitBootstrap <- struct{}{}
-		blob, err := h.rtm.BootstrapWS(bCtx, c, *claimsProjectJWT)
-		<-h.rateLimitBootstrap
-		done()
-		if ctx.Err() != nil {
-			return // connection aborted
-		}
-		if err != nil {
-			err = errors.Tag(err, fmt.Sprintf(
-				"user=%s project=%s",
-				claimsProjectJWT.UserId, claimsProjectJWT.ProjectId,
-			))
-			if errors.IsUnauthorizedError(err) {
-				log.Println("jwt auth failed: " + err.Error())
-				sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+			if entry.Msg != nil {
+				if err := conn.WritePreparedMessage(entry.Msg); err != nil {
+					return
+				}
+			} else if len(lsr) < 15 &&
+				entry.RPCResponse.IsLazySuccessResponse() {
+				lsr = append(lsr, types.LazySuccessResponse{
+					Callback: entry.RPCResponse.Callback,
+					Latency:  entry.RPCResponse.Latency,
+				})
 			} else {
-				log.Println("bootstrapWS failed: " + err.Error())
-				sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
+				if len(lsr) > 0 {
+					entry.RPCResponse.LazySuccessResponses = lsr
+					lsr = lsr[:0]
+				}
+				blob, err := json.Marshal(entry.RPCResponse)
+				if err != nil {
+					return
+				}
+				err = conn.WriteMessage(websocket.TextMessage, blob)
+				if err != nil {
+					return
+				}
 			}
-			return
-		}
-		setupTime := sharedTypes.Timed{}
-		setupTime.SetBegin(requestCtx.T0())
-		setupTime.End()
-		r := types.RPCResponse{
-			Body:    blob,
-			Name:    "bootstrap",
-			Latency: setupTime,
-		}
-		if !c.EnsureQueueResponse(&r) {
-			return
+			if entry.FatalError {
+				return
+			}
 		}
 	}
+}
+
+func (h *httpController) bootstrap(ctx context.Context, t0 time.Time, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
+	ctx, done := context.WithTimeout(ctx, 10*time.Second)
+	defer done()
+
+	h.rateLimitBootstrap <- struct{}{}
+	blob, err := h.rtm.BootstrapWS(ctx, c, *claimsProjectJWT)
+	<-h.rateLimitBootstrap
+
+	if err != nil {
+		err = errors.Tag(err, fmt.Sprintf(
+			"user=%s project=%s",
+			claimsProjectJWT.UserId, claimsProjectJWT.ProjectId,
+		))
+		if errors.IsUnauthorizedError(err) {
+			log.Println("jwt auth failed: " + err.Error())
+			c.EnsureQueueMessage(events.ConnectionRejectedBadWsBootstrapPrepared)
+		} else {
+			log.Println("bootstrapWS failed: " + err.Error())
+			c.EnsureQueueMessage(events.ConnectionRejectedRetryPrepared)
+		}
+		return false
+	}
+	setupTime := sharedTypes.Timed{}
+	setupTime.SetBegin(t0)
+	setupTime.End()
+	return c.EnsureQueueResponse(&types.RPCResponse{
+		Body:    blob,
+		Name:    "bootstrap",
+		Latency: setupTime,
+	})
+}
+
+func (h *httpController) readLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, c *types.Client) {
+	defer func() {
+		h.rtm.Disconnect(c)
+	}()
 	for {
 		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
 			disconnect()
+			_ = conn.Close()
 			return
 		}
 		var request types.RPCRequest
 		if err := conn.ReadJSON(&request); err != nil {
-			if _, ok := err.(*websocket.CloseError); ok {
+			if shouldTriggerDisconnect(err) {
 				disconnect()
-				return
-			}
-			if e, ok := err.(net.Error); ok && e.Timeout() {
-				disconnect()
+				_ = conn.Close()
 				return
 			}
 			c.EnsureQueueMessage(events.BadRequestBulkMessage)
@@ -279,4 +277,14 @@ func (h *httpController) ws(requestCtx *httpUtils.Context) {
 			return
 		}
 	}
+}
+
+func shouldTriggerDisconnect(err error) bool {
+	if _, ok := err.(*websocket.CloseError); ok {
+		return true
+	}
+	if e, ok := err.(net.Error); ok && e.Timeout() {
+		return true
+	}
+	return false
 }
