@@ -60,10 +60,8 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 		},
 		jwtProject: projectJWT.New(
 			jwtOptionsProject,
-			func(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error {
-				// validation is performed as part of bootstrap
-				return &errors.NotAuthorizedError{}
-			},
+			// Validation is performed as part of the bootstrap process.
+			nil,
 		),
 		rateLimitBootstrap: make(chan struct{}, 42),
 		writeQueueDepth:    writeQueueDepth,
