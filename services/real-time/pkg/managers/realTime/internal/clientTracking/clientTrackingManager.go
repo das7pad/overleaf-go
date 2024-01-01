@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,6 +19,8 @@ package clientTracking
 import (
 	"context"
 	"log"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -39,15 +41,20 @@ type Manager interface {
 }
 
 func New(client redis.UniversalClient, c channel.Writer) Manager {
-	return &manager{
+	m := &manager{
 		redisClient: client,
 		c:           c,
 	}
+	for i := 0; i < 256; i++ {
+		m.pcc[i].pending = make(map[sharedTypes.UUID]*pendingConnectedClients)
+	}
+	return m
 }
 
 type manager struct {
 	redisClient redis.UniversalClient
 	c           channel.Writer
+	pcc         [256]pendingConnectedClientsManager
 }
 
 const (
@@ -75,10 +82,10 @@ func (m *manager) Disconnect(client *types.Client) bool {
 }
 
 func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) types.ConnectedClients {
-	clients, err := m.updateClientPosition(
+	notify, clients, err := m.updateClientPosition(
 		ctx, client, types.ClientPosition{}, fetchConnectedUsers,
 	)
-	if err != nil || len(clients) > 0 || !fetchConnectedUsers {
+	if err != nil || notify {
 		if errNotify := m.notifyConnected(ctx, client); errNotify != nil {
 			err = errors.Merge(errNotify, err)
 		}
@@ -94,8 +101,48 @@ func (m *manager) UpdatePosition(ctx context.Context, client *types.Client, p ty
 	if err := m.notifyUpdated(ctx, client, p); err != nil {
 		return err
 	}
-	if _, err := m.updateClientPosition(ctx, client, p, false); err != nil {
+	if _, _, err := m.updateClientPosition(ctx, client, p, false); err != nil {
 		return err
 	}
 	return nil
+}
+
+type pendingConnectedClientsManager struct {
+	mu      sync.RWMutex
+	pending map[sharedTypes.UUID]*pendingConnectedClients
+}
+
+func (m *pendingConnectedClientsManager) get(projectId sharedTypes.UUID) (*pendingConnectedClients, bool) {
+	m.mu.RLock()
+	pending, ok := m.pending[projectId]
+	if ok {
+		pending.shared.CompareAndSwap(false, true)
+	}
+	m.mu.RUnlock()
+	if !ok {
+		m.mu.Lock()
+		pending, ok = m.pending[projectId]
+		if ok {
+			pending.shared.CompareAndSwap(false, true)
+		} else {
+			pending = &pendingConnectedClients{done: make(chan struct{})}
+			m.pending[projectId] = pending
+		}
+		m.mu.Unlock()
+		return pending, !ok
+	}
+	return pending, false
+}
+
+func (m *pendingConnectedClientsManager) delete(projectId sharedTypes.UUID) {
+	m.mu.Lock()
+	delete(m.pending, projectId)
+	m.mu.Unlock()
+}
+
+type pendingConnectedClients struct {
+	shared  atomic.Bool
+	done    chan struct{}
+	clients types.ConnectedClients
+	err     error
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -52,17 +52,28 @@ func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client
 	return remainingClients.Val(), nil
 }
 
-func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition, fetchConnectedUsers bool) (types.ConnectedClients, error) {
-	projectKey := getProjectKey(client.ProjectId)
-
+func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition, fetchConnectedUsers bool) (bool, types.ConnectedClients, error) {
+	var pending *pendingConnectedClients
+	var ownsPending bool
+	cleanupPending := func() {
+		if ownsPending {
+			m.pcc[client.ProjectId[0]].delete(client.ProjectId)
+			close(pending.done)
+		}
+	}
+	if fetchConnectedUsers {
+		pending, ownsPending = m.pcc[client.ProjectId[0]].get(client.ProjectId)
+	}
 	userBlob, err := json.Marshal(types.ConnectedClient{
 		ClientPosition: position,
 		DisplayName:    client.DisplayName,
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "serialize connected user")
+		cleanupPending()
+		return true, nil, errors.Tag(err, "serialize connected user")
 	}
 
+	projectKey := getProjectKey(client.ProjectId)
 	details := []interface{}{
 		string(client.PublicId),
 		userBlob,
@@ -72,7 +83,7 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 
 	var existingClients *redis.StringStringMapCmd
 	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if fetchConnectedUsers {
+		if fetchConnectedUsers && ownsPending {
 			existingClients = p.HGetAll(ctx, projectKey)
 		}
 		p.HSet(ctx, projectKey, details...)
@@ -80,12 +91,24 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "persist client details")
+		cleanupPending()
+		return true, nil, errors.Tag(err, "persist client details")
 	}
 	if fetchConnectedUsers {
-		return m.parseConnectedClients(client, existingClients)
+		if ownsPending {
+			// It is OK to omit the owner here, even when `shared=true` -- all
+			//  concurrent clients will get `notify=true`, which in turn will
+			//  trigger a pub/sub message for each connected client.
+			pending.clients, pending.err =
+				m.parseConnectedClients(client, existingClients)
+			cleanupPending()
+		} else {
+			<-pending.done
+		}
+		notify := pending.shared.Load() || len(pending.clients) > 0
+		return notify, pending.clients, pending.err
 	}
-	return nil, nil
+	return true, nil, nil
 }
 
 func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (types.ConnectedClients, error) {
