@@ -109,7 +109,7 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 		} else {
 			<-pending.done
 		}
-		notify := pending.shared.Load() || len(pending.clients) > 0
+		notify := len(pending.clients) > 2 || pending.shared.Load()
 		return notify, pending.clients, pending.err
 	}
 	return true, nil, nil
