@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -392,7 +392,7 @@ func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId 
 		err = m.rtRm.ConfirmUpdates(confirmCtx, projectId, processed)
 		cancel()
 		if err != nil {
-			ids := projectId.String() + "/" + docId.String()
+			ids := projectId.Concat('/', docId)
 			err = errors.Tag(err, "confirm updates in "+ids)
 			log.Println(err.Error())
 		}
@@ -526,25 +526,14 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId sharedT
 	if err != nil {
 		return err
 	}
-	errs := make([]error, 0)
+	errs := errors.MergedError{}
 	for _, docId := range docIds {
 		err2 := operation(ctx, projectId, docId)
 		if err2 != nil {
-			ids := projectId.String() + "/" + docId.String()
-			errs = append(errs, errors.Tag(err2, ids))
+			errs.Add(errors.Tag(err2, projectId.Concat('/', docId)))
 		}
 	}
-	if len(errs) != 0 {
-		s := ""
-		for i, err2 := range errs {
-			if i > 0 {
-				s += " | "
-			}
-			s += err2.Error()
-		}
-		return errors.New(s)
-	}
-	return nil
+	return errs.Finalize()
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error) {
@@ -563,7 +552,7 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sha
 				pCtx, projectId, docId,
 			)
 			if err != nil {
-				return errors.Tag(err, projectId.String()+"/"+docId.String())
+				return errors.Tag(err, projectId.Concat('/', docId))
 			}
 			docs[i] = d
 			return nil

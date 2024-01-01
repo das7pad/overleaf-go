@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -60,15 +60,23 @@ func (m *manager) FlushDocInBackground(projectId, docId sharedTypes.UUID) {
 	go func() {
 		err := m.FlushDoc(context.Background(), projectId, docId)
 		if err != nil {
-			ids := projectId.String() + "/" + docId.String()
+			ids := projectId.Concat('/', docId)
 			err = errors.Tag(err, "flush history for "+ids)
 			log.Println(err.Error())
 		}
 	}()
 }
 
+func getUncompressedHistoryOpsKey(docId sharedTypes.UUID) string {
+	b := make([]byte, 0, 24+36+1)
+	b = append(b, "UncompressedHistoryOps:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
+}
+
 func (m *manager) FlushDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error {
-	queueKey := "UncompressedHistoryOps:{" + docId.String() + "}"
+	queueKey := getUncompressedHistoryOpsKey(docId)
 	projectTracking := getProjectTrackingKey(projectId)
 	for {
 		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {

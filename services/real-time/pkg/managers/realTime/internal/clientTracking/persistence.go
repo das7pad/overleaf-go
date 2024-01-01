@@ -33,7 +33,11 @@ import (
 )
 
 func getProjectKey(projectId sharedTypes.UUID) string {
-	return "clientTracking:{" + projectId.String() + "}"
+	b := make([]byte, 0, 16+36+1)
+	b = append(b, "clientTracking:{"...)
+	b = projectId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client) (int64, error) {

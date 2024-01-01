@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -145,7 +145,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 		eg.Go(func() error {
 			var lastErr error
 			for e := range copyQueue {
-				dst := e.ProjectId.String() + "/" + e.FileId.String()
+				dst := e.ProjectId.Concat('/', e.FileId)
 				if _, err := fo.GetObjectSize(ctx, dst); err == nil {
 					// already copied in full
 					continue

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -91,6 +91,23 @@ func (u UUID) String() string {
 	dst := make([]byte, 36)
 	u.readHexDecoded(dst)
 	return string(dst)
+}
+
+func (u UUID) Append(b []byte) []byte {
+	end := len(b) + 36
+	if cap(b) < end {
+		b = append(make([]byte, end), b...)
+	}
+	u.readHexDecoded(b[end-36 : end])
+	return b[:end]
+}
+
+func (u UUID) Concat(c byte, other UUID) string {
+	b := make([]byte, 0, 36+1+36)
+	b = u.Append(b)
+	b = append(b, c)
+	b = other.Append(b)
+	return string(b)
 }
 
 func (u UUID) MarshalJSON() ([]byte, error) {

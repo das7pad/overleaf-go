@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -46,7 +46,7 @@ type Project interface {
 }
 
 func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers, paths types.Paths) (Project, error) {
-	namespace := types.Namespace(projectId.String() + "-" + userId.String())
+	namespace := types.Namespace(projectId.Concat('-', userId))
 
 	createPaths := []string{
 		string(paths.CompileBaseDir.CompileDir(namespace)),

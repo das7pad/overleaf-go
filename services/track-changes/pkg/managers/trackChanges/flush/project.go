@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,7 +27,11 @@ import (
 )
 
 func getProjectTrackingKey(projectId sharedTypes.UUID) string {
-	return "DocsWithHistoryOps:{" + projectId.String() + "}"
+	b := make([]byte, 0, 20+36+1)
+	b = append(b, "DocsWithHistoryOps:{"...)
+	b = projectId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) error {

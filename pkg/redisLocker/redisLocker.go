@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -106,8 +106,17 @@ func (l *locker) TryRunWithLock(ctx context.Context, docId sharedTypes.UUID, run
 	return l.runWithLock(ctx, docId, runner, false)
 }
 
+func (l *locker) getKey(docId sharedTypes.UUID) string {
+	b := make([]byte, 0, len(l.namespace)+1+36+1)
+	b = append(b, l.namespace...)
+	b = append(b, '{')
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
+}
+
 func (l *locker) runWithLock(ctx context.Context, docId sharedTypes.UUID, runner Runner, poll bool) error {
-	key := l.namespace + "{" + docId.String() + "}"
+	key := l.getKey(docId)
 	lockValue := l.getUniqueValue()
 
 	acquireLockDeadline := time.Now().Add(MaxLockWaitTime)

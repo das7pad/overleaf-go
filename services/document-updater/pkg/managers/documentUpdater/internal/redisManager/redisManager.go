@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -63,32 +63,60 @@ type manager struct {
 }
 
 func getDocsInProjectKey(projectId sharedTypes.UUID) string {
-	return "DocsIn:{" + projectId.String() + "}"
+	b := make([]byte, 0, 8+36+1)
+	b = append(b, "DocsIn:{"...)
+	b = projectId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getDocCoreKey(docId sharedTypes.UUID) string {
-	return "docCore:{" + docId.String() + "}"
+	b := make([]byte, 0, 9+36+1)
+	b = append(b, "docCore:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getDocVersionKey(docId sharedTypes.UUID) string {
-	return "DocVersion:{" + docId.String() + "}"
+	b := make([]byte, 0, 12+36+1)
+	b = append(b, "DocVersion:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getUnFlushedTimeKey(docId sharedTypes.UUID) string {
+	b := make([]byte, 0, 15+36+1)
 	//goland:noinspection SpellCheckingInspection
-	return "UnflushedTime:{" + docId.String() + "}"
+	b = append(b, "UnflushedTime:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getLastUpdatedCtxKey(docId sharedTypes.UUID) string {
-	return "lastUpdatedCtx:{" + docId.String() + "}"
+	b := make([]byte, 0, 16+36+1)
+	b = append(b, "lastUpdatedCtx:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getDocUpdatesKey(docId sharedTypes.UUID) string {
-	return "DocOps:{" + docId.String() + "}"
+	b := make([]byte, 0, 8+36+1)
+	b = append(b, "DocOps:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getUncompressedHistoryOpsKey(docId sharedTypes.UUID) string {
-	return "UncompressedHistoryOps:{" + docId.String() + "}"
+	b := make([]byte, 0, 24+36+1)
+	b = append(b, "UncompressedHistoryOps:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 func getFlushAndDeleteQueueKey() string {
@@ -194,18 +222,14 @@ func (m *manager) GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId 
 }
 
 func (m *manager) GetDocVersion(ctx context.Context, docId sharedTypes.UUID) (sharedTypes.Version, error) {
-	raw, err := m.rClient.Get(ctx, getDocVersionKey(docId)).Result()
+	v, err := m.rClient.Get(ctx, getDocVersionKey(docId)).Int64()
 	if err != nil {
 		if err == redis.Nil {
 			err = &errors.NotFoundError{}
 		}
 		return 0, errors.Tag(err, "get version from redis")
 	}
-	var v sharedTypes.Version
-	if err = json.Unmarshal([]byte(raw), &v); err != nil {
-		return 0, errors.Tag(err, "parse version")
-	}
-	return v, nil
+	return sharedTypes.Version(v), nil
 }
 
 var scriptGetPreviousDocUpdates = redis.NewScript(`

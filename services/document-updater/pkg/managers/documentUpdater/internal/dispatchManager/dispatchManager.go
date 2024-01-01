@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -141,8 +141,7 @@ func (m *manager) worker(queue <-chan string) {
 		err = m.dm.ProcessUpdatesForDocHeadless(ctx, projectId, docId)
 		cancel()
 		if err != nil {
-			ids := projectId.String() + "/" + docId.String()
-			err = errors.Tag(err, ids)
+			err = errors.Tag(err, projectId.Concat('/', docId))
 			log.Println(err.Error())
 		}
 	}
@@ -154,7 +153,7 @@ func (m *manager) QueueUpdate(ctx context.Context, projectId, docId sharedTypes.
 	}
 
 	shardKey := m.GetPendingUpdatesListKey().String()
-	docKey := projectId.String() + ":" + docId.String()
+	docKey := projectId.Concat(':', docId)
 	if err := m.client.RPush(ctx, shardKey, docKey).Err(); err != nil {
 		return errors.Tag(err, "notify shard about new queue entry")
 	}

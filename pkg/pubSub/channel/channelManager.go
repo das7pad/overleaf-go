@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -57,11 +57,15 @@ type BaseChannel string
 type channel string
 
 func (c BaseChannel) join(id sharedTypes.UUID) channel {
-	return channel(string(c) + ":" + id.String())
+	b := make([]byte, 0, len(c)+1+36)
+	b = append(b, c...)
+	b = append(b, ':')
+	b = id.Append(b)
+	return channel(b)
 }
 
 func (c BaseChannel) parseIdFromChannel(s string) (sharedTypes.UUID, error) {
-	if len(s) != len(c)+36+1 {
+	if len(s) != len(c)+1+36 || s[len(c)] != ':' {
 		return sharedTypes.UUID{}, errors.New("invalid channel format")
 	}
 	return sharedTypes.ParseUUID(s[len(c)+1:])

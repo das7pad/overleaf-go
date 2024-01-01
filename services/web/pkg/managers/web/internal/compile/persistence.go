@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,11 +30,16 @@ import (
 )
 
 func getPersistenceKey(options sharedTypes.ProjectOptions) string {
+	b := make([]byte, 0, 10+1+len(options.CompileGroup)+1+36+1+36)
 	//goland:noinspection SpellCheckingInspection
-	return "clsiserver" +
-		":" + string(options.CompileGroup) +
-		":" + options.ProjectId.String() +
-		":" + options.UserId.String()
+	b = append(b, "clsiserver"...)
+	b = append(b, ':')
+	b = append(b, options.CompileGroup...)
+	b = append(b, ':')
+	b = options.ProjectId.Append(b)
+	b = append(b, ':')
+	b = options.UserId.Append(b)
+	return string(b)
 }
 
 func (m *manager) persistenceDisabled() bool {

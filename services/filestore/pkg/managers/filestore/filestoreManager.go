@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -55,7 +55,7 @@ func getProjectPrefix(projectId sharedTypes.UUID) string {
 }
 
 func getProjectFileKey(projectId, fileId sharedTypes.UUID) string {
-	return projectId.String() + "/" + fileId.String()
+	return projectId.Concat('/', fileId)
 }
 
 func (m *manager) GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadSeekCloser, error) {

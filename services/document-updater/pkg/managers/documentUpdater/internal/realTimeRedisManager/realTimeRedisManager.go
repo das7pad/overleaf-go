@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -57,7 +57,11 @@ type manager struct {
 }
 
 func getPendingUpdatesKey(docId sharedTypes.UUID) string {
-	return "PendingUpdates:{" + docId.String() + "}"
+	b := make([]byte, 0, 16+36+1)
+	b = append(b, "PendingUpdates:{"...)
+	b = docId.Append(b)
+	b = append(b, '}')
+	return string(b)
 }
 
 const maxOpsPerIteration = 10
