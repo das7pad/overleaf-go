@@ -247,9 +247,7 @@ func (h *httpController) bootstrap(setupTime sharedTypes.Timed, c *types.Client,
 }
 
 func (h *httpController) readLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, c *types.Client) {
-	defer func() {
-		h.rtm.Disconnect(c)
-	}()
+	defer h.rtm.Disconnect(c)
 	for {
 		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
 			disconnect()
