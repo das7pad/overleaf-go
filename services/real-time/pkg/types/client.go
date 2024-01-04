@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,9 +18,9 @@ package types
 
 import (
 	"crypto/rand"
-	"encoding/hex"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -85,18 +85,22 @@ type WriteQueueEntry struct {
 type WriteQueue chan<- WriteQueueEntry
 
 // generatePublicId yields a secure unique id
-// It contains a 16 hex char long timestamp in ns precision, a hyphen and
-// another 16 hex char long random string.
+// It contains a timestamp in ns precision and 8 bytes of randomness in b64.
 func generatePublicId() (sharedTypes.PublicId, error) {
-	buf := make([]byte, 8)
-	if _, err := rand.Read(buf); err != nil {
+	const (
+		// publicIdLength = base64.RawURLEncoding.EncodedLen(16)
+		publicIdLength = 22
+		publicIdOffset = publicIdLength - 16
+	)
+	buf := make([]byte, publicIdLength)
+	if _, err := rand.Read(buf[publicIdOffset+8:]); err != nil {
 		return "", err
 	}
-	now := time.Now().UnixNano()
-	id := sharedTypes.PublicId(
-		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
+	binary.BigEndian.AppendUint64(
+		buf[publicIdOffset:publicIdOffset], uint64(time.Now().UnixNano()),
 	)
-	return id, nil
+	base64.RawURLEncoding.Encode(buf, buf[publicIdOffset:])
+	return sharedTypes.PublicId(buf[0:publicIdLength]), nil
 }
 
 func NewClient(writeQueue WriteQueue, disconnect func()) (*Client, error) {

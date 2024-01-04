@@ -150,19 +150,19 @@ func (m *manager) DisconnectAll() {
 	}
 }
 
-const hexChars = "0123456789abcdef"
+const b64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
 func (m *manager) triggerGracefulReconnectOnce() int {
 	nRooms := 0
-	for _, c := range hexChars {
+	for _, c := range b64Chars {
 		suffix := uint8(c)
 		nRooms = m.editorEvents.BroadcastGracefulReconnect(suffix)
 		if nRooms > 10_000 {
 			// Worst case sleep delay for the shutdown is ~2min per full cycle.
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 		} else if nRooms > 1_000 {
 			// Worst case sleep delay for the shutdown is ~2s per full cycle.
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(42 * time.Millisecond)
 		} else if nRooms == 0 {
 			break
 		}

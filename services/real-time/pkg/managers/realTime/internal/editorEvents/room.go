@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -170,7 +170,7 @@ func (r *room) handleGracefulReconnect(suffix uint8) {
 			continue
 		}
 		// The last character of a PublicId is a random hex char.
-		if client.PublicId[32] != suffix {
+		if client.PublicId[21] != suffix {
 			continue
 		}
 		client.EnsureQueueMessage(events.ReconnectGracefullyPrepared)
