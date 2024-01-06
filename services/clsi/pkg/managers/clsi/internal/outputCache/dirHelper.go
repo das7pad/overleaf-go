@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,7 +30,7 @@ type createdDirs struct {
 
 func (d *createdDirs) CreateBase() error {
 	p := string(d.base)
-	if err := os.Mkdir(p, 0o755); err != nil && !os.IsExist(err) {
+	if err := os.Mkdir(p, 0o755); err != nil {
 		return err
 	}
 	d.isDir["."] = true
@@ -52,7 +52,7 @@ func (d *createdDirs) EnsureIsDir(name sharedTypes.DirName) error {
 		return err
 	}
 	p := d.base.JoinDir(name)
-	if err := os.Mkdir(p, 0o755); err != nil && !os.IsExist(err) {
+	if err := os.Mkdir(p, 0o755); err != nil {
 		return err
 	}
 	d.isDir[name] = true
