@@ -127,7 +127,7 @@ func (m *manager) InitiateGracefulShutdown() {
 
 func (m *manager) TriggerGracefulReconnect() {
 	deadLine := time.Now().Add(m.gracefulShutdown.Timeout)
-	for m.triggerGracefulReconnectOnce() > 0 && time.Now().Before(deadLine) {
+	for m.triggerGracefulReconnectOnce() && time.Now().Before(deadLine) {
 		time.Sleep(3 * time.Second)
 	}
 }
@@ -152,22 +152,23 @@ func (m *manager) DisconnectAll() {
 
 const b64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
-func (m *manager) triggerGracefulReconnectOnce() int {
-	nRooms := 0
+func (m *manager) triggerGracefulReconnectOnce() bool {
 	for _, c := range b64Chars {
 		suffix := uint8(c)
-		nRooms = m.editorEvents.BroadcastGracefulReconnect(suffix)
-		if nRooms > 10_000 {
-			// Worst case sleep delay for the shutdown is ~2min per full cycle.
-			time.Sleep(2 * time.Second)
-		} else if nRooms > 1_000 {
-			// Worst case sleep delay for the shutdown is ~2s per full cycle.
-			time.Sleep(42 * time.Millisecond)
-		} else if nRooms == 0 {
-			break
+		nRooms := m.editorEvents.BroadcastGracefulReconnect(suffix)
+		if nRooms == 0 {
+			return false
 		}
+		const targetReconnectsPerSecond = 1000
+		const delayPerClient = time.Second / targetReconnectsPerSecond
+		const clientsPerRoomP95 = 1
+		const reconnectCycles = len(b64Chars)
+		time.Sleep(
+			time.Duration(nRooms) * clientsPerRoomP95 * delayPerClient /
+				time.Duration(reconnectCycles),
+		)
 	}
-	return nRooms
+	return true
 }
 
 func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
