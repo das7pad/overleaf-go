@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -463,7 +463,7 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 	for j := 0; j < 10; j++ {
 		i, err = c.ContainerInspect(ctx, name)
 		if err != nil {
-			panic(errors.Tag(err, "inspect container"))
+			return nil, errors.Tag(err, "inspect container")
 		}
 		if i.State != nil && i.State.Running {
 			return &i, nil
