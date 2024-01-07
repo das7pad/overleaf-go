@@ -68,10 +68,18 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 	if fetchConnectedUsers {
 		pending, ownsPending = m.pcc[client.ProjectId[0]].get(client.ProjectId)
 	}
-	userBlob, err := json.Marshal(types.ConnectedClient{
-		ClientPosition: position,
-		DisplayName:    client.DisplayName,
-	})
+	var userBlob []byte
+	var err error
+	if position == (types.ClientPosition{}) {
+		userBlob, err = json.Marshal(types.ConnectingConnectedClient{
+			DisplayName: client.DisplayName,
+		})
+	} else {
+		userBlob, err = json.Marshal(types.ConnectedClient{
+			ClientPosition: position,
+			DisplayName:    client.DisplayName,
+		})
+	}
 	if err != nil {
 		cleanupPending()
 		return true, nil, errors.Tag(err, "serialize connected user")

@@ -34,6 +34,10 @@ type ConnectedClient struct {
 	ClientPosition
 }
 
+type ConnectingConnectedClient struct {
+	DisplayName string `json:"n,omitempty"`
+}
+
 type ConnectedClients []ConnectedClient
 
 type GetConnectedUsersResponse struct {
