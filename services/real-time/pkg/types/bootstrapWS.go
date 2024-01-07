@@ -32,6 +32,20 @@ type BootstrapWSResponse struct {
 	PublicId         sharedTypes.PublicId `json:"publicId"`
 }
 
+func (b *BootstrapWSResponse) MarshalJSON() ([]byte, error) {
+	o := make([]byte, 0, len(`{"project":,"privilegeLevel":"","connectedClients":,"publicId":""}`)+len(b.Project)+len(b.PrivilegeLevel)+len(b.ConnectedClients)+len(b.PublicId))
+	o = append(o, `{"project":`...)
+	o = append(o, b.Project...)
+	o = append(o, `,"privilegeLevel":"`...)
+	o = append(o, b.PrivilegeLevel...)
+	o = append(o, `","connectedClients":`...)
+	o = append(o, b.ConnectedClients...)
+	o = append(o, `,"publicId":"`...)
+	o = append(o, b.PublicId...)
+	o = append(o, `"}`...)
+	return o, nil
+}
+
 type ProjectDetails struct {
 	project.ForBootstrapWS
 	project.OwnerFeaturesField

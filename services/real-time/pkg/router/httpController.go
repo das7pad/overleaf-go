@@ -18,7 +18,6 @@ package router
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -198,7 +197,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 					entry.RPCResponse.LazySuccessResponses = lsr
 					lsr = lsr[:0]
 				}
-				blob, err := json.Marshal(entry.RPCResponse)
+				blob, err := entry.RPCResponse.MarshalJSON()
 				if err != nil {
 					return
 				}

@@ -256,7 +256,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	}
 	res.ConnectedClients = connectedClients
 
-	body, err := json.Marshal(res)
+	body, err := res.MarshalJSON()
 	if err != nil {
 		return nil, errors.Tag(err, "serialize response")
 	}
@@ -309,7 +309,7 @@ func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
 		return err
 	}
 	body := types.GetConnectedUsersResponse{ConnectedClients: clients}
-	blob, err := json.Marshal(body)
+	blob, err := body.MarshalJSON()
 	if err != nil {
 		return errors.Tag(err, "serialize users")
 	}

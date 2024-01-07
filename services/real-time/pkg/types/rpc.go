@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ package types
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -57,6 +58,66 @@ type RPCResponse struct {
 	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
 
 	FatalError bool `json:"-"`
+}
+
+func (r *RPCResponse) MarshalJSON() ([]byte, error) {
+	o := make([]byte, 0, 100+len(r.Body))
+	o = append(o, '{')
+	c := false
+	comma := func() {
+		if c {
+			o = append(o, ',')
+		}
+		c = true
+	}
+	if m := len(r.Body); m > 0 {
+		o = append(o, `"b":`...)
+		o = append(o, r.Body...)
+		c = true
+	}
+	if r.Callback != 0 {
+		comma()
+		o = append(o, `"c":`...)
+		o = strconv.AppendInt(o, int64(r.Callback), 10)
+	}
+	if r.Error != nil {
+		comma()
+		o = append(o, `"e":`...)
+		blob, err := json.Marshal(r.Error)
+		if err != nil {
+			return nil, err
+		}
+		o = append(o, blob...)
+	}
+	if len(r.Name) > 0 {
+		comma()
+		o = append(o, `"n":"`...)
+		o = append(o, r.Name...)
+		o = append(o, '"')
+	}
+	{
+		comma()
+		o = append(o, `"l":"`...)
+		o = append(o, r.Latency.String()...)
+		o = append(o, '"')
+	}
+	if len(r.ProcessedBy) > 0 {
+		comma()
+		o = append(o, `"p":"`...)
+		o = append(o, r.ProcessedBy...)
+		o = append(o, '"')
+	}
+	if len(r.LazySuccessResponses) > 0 {
+		comma()
+		o = append(o, `"s":`...)
+		blob, err := json.Marshal(r.LazySuccessResponses)
+		if err != nil {
+			return nil, err
+		}
+		o = append(o, blob...)
+	}
+	o = append(o, '}')
+	return o, nil
 }
 
 func (r *RPCResponse) IsLazySuccessResponse() bool {

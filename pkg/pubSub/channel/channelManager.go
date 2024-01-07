@@ -36,6 +36,7 @@ type PubSubMessage struct {
 
 type Message interface {
 	ChannelId() sharedTypes.UUID
+	json.Marshaler
 }
 
 type Writer interface {
@@ -192,7 +193,7 @@ func (m *manager) Publish(ctx context.Context, msg Message) error {
 }
 
 func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Message) (*redis.IntCmd, error) {
-	body, err := json.Marshal(msg)
+	body, err := msg.MarshalJSON()
 	if err != nil {
 		return nil, errors.Tag(err, "encode message for publishing")
 	}

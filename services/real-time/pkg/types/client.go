@@ -20,7 +20,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"sync/atomic"
 	"time"
 
@@ -62,7 +61,7 @@ func (c Capabilities) TakeAway(action CapabilityComponent) Capabilities {
 }
 
 func PrepareBulkMessage(response *RPCResponse) (WriteQueueEntry, error) {
-	blob, err := json.Marshal(response)
+	blob, err := response.MarshalJSON()
 	if err != nil {
 		return WriteQueueEntry{}, err
 	}

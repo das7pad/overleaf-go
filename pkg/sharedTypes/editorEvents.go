@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -28,6 +28,28 @@ type EditorEventsMessage struct {
 	Payload     json.RawMessage `json:"payload"`
 	ProcessedBy string          `json:"processedBy,omitempty"`
 	Source      PublicId        `json:"source,omitempty"`
+}
+
+func (m *EditorEventsMessage) MarshalJSON() ([]byte, error) {
+	o := make([]byte, 0, len(`{"room_id":"00000000-0000-0000-0000-000000000000","message":,"payload":,"processed_by":,"source":}`)+len(m.Message)+len(m.Payload)+len(m.ProcessedBy)+len(m.Source))
+	o = append(o, `{"room_id":"`...)
+	o = m.RoomId.Append(o)
+	o = append(o, `","message":"`...)
+	o = append(o, m.Message...)
+	o = append(o, `","payload":`...)
+	o = append(o, m.Payload...)
+	if len(m.ProcessedBy) > 0 {
+		o = append(o, `,"processedBy":"`...)
+		o = append(o, m.ProcessedBy...)
+		o = append(o, '"')
+	}
+	if len(m.Source) > 0 {
+		o = append(o, `,"source":"`...)
+		o = append(o, m.Source...)
+		o = append(o, '"')
+	}
+	o = append(o, '}')
+	return o, nil
 }
 
 func (m *EditorEventsMessage) ChannelId() UUID {

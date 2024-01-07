@@ -40,3 +40,11 @@ type GetConnectedUsersResponse struct {
 	// ConnectedClients contains (shared) serialized types.ConnectedClients
 	ConnectedClients json.RawMessage `json:"connectedClients"`
 }
+
+func (g *GetConnectedUsersResponse) MarshalJSON() ([]byte, error) {
+	o := make([]byte, 0, len(`{"connectedClients":}`)+len(g.ConnectedClients))
+	o = append(o, `{"connectedClients":`...)
+	o = append(o, g.ConnectedClients...)
+	o = append(o, '}')
+	return o, nil
+}
