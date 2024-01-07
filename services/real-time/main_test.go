@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -118,8 +118,10 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 
 func connectedClient(tb testing.TB, bootstrap string) *realTime.Client {
 	c := realTime.Client{}
-	_, err := c.Connect(context.Background(), url, bootstrap)
-	fatalIf(tb, err)
+	_, err := c.Connect(context.Background(), url, bootstrap, realTime.DialLocalhost)
+	if err != nil {
+		fatalIf(tb, err)
+	}
 	return &c
 }
 
@@ -253,6 +255,8 @@ func BenchmarkPing(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		fatalIf(b, c.Ping())
+		if err := c.Ping(); err != nil {
+			fatalIf(b, err)
+		}
 	}
 }

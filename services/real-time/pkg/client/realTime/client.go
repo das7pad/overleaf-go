@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -36,8 +37,13 @@ type Client struct {
 	mu             sync.Mutex
 	nextCB         types.Callback
 	callbacks      map[types.Callback]func(response types.RPCResponse)
-	listener       map[string]func(response types.RPCResponse)
+	listener       []listener
 	stopPingTicker func()
+}
+
+type listener struct {
+	name string
+	fn   func(response types.RPCResponse)
 }
 
 var closeMessage *websocket.PreparedMessage
@@ -56,27 +62,38 @@ func (c *Client) Close() {
 	}
 }
 
+var localhostAddr = &net.TCPAddr{
+	IP:   net.IPv4(127, 0, 0, 1),
+	Port: 3026,
+}
+
+func DialLocalhost(_ context.Context, _, _ string) (net.Conn, error) {
+	return net.DialTCP("tcp4", nil, localhostAddr)
+}
+
 var nextId = atomic.Int64{}
 
 const debug = false
 
-func (c *Client) Connect(ctx context.Context, url, bootstrap string) (*types.RPCResponse, error) {
+func (c *Client) Connect(ctx context.Context, url, bootstrap string, dial func(ctx context.Context, network, addr string) (net.Conn, error)) (*types.RPCResponse, error) {
 	id := nextId.Add(1)
 	if debug {
 		url += "?id=" + strconv.FormatInt(id, 10)
 	}
-	conn, _, err := (&websocket.Dialer{
+	d := websocket.Dialer{
 		Subprotocols: []string{
 			"v8.real-time.overleaf.com",
 			bootstrap + ".bootstrap.v8.real-time.overleaf.com",
 		},
-	}).DialContext(ctx, url, nil)
+		NetDialContext: dial,
+	}
+	conn, _, err := d.DialContext(ctx, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%d: dial: %w", id, err)
 	}
 	c.conn = conn
 	c.callbacks = make(map[types.Callback]func(response types.RPCResponse))
-	c.listener = make(map[string]func(response types.RPCResponse), 4)
+	c.listener = make([]listener, 0, 4)
 
 	res := types.RPCResponse{}
 	c.On("bootstrap", func(response types.RPCResponse) {
@@ -90,10 +107,11 @@ func (c *Client) Connect(ctx context.Context, url, bootstrap string) (*types.RPC
 	c.On("clientTracking.clientDisconnected", func(_ types.RPCResponse) {
 	})
 
-	d := time.Now().Add(time.Minute)
-	if err = c.conn.SetReadDeadline(d); err != nil {
-		c.Close()
-		return nil, fmt.Errorf("%d: set deadline: %w", id, err)
+	if deadline, ok := ctx.Deadline(); ok {
+		if err = c.conn.SetReadDeadline(deadline); err != nil {
+			c.Close()
+			return nil, fmt.Errorf("%d: set deadline: %w", id, err)
+		}
 	}
 	for res.Name == "" {
 		if err = c.ReadOnce(); err != nil {
@@ -138,7 +156,20 @@ func (c *Client) StartHealthCheck() error {
 func (c *Client) On(name string, fn func(response types.RPCResponse)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.listener[name] = fn
+	c.listener = append(c.listener, listener{
+		name: name,
+		fn:   fn,
+	})
+}
+
+func (c *Client) SetDeadline(d time.Time) error {
+	if err := c.conn.SetWriteDeadline(d); err != nil {
+		return err
+	}
+	if err := c.conn.SetReadDeadline(d); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Client) RPCAsyncWrite(res *types.RPCResponse, r *types.RPCRequest) error {
@@ -148,13 +179,6 @@ func (c *Client) RPCAsyncWrite(res *types.RPCResponse, r *types.RPCRequest) erro
 		return errors.New("closed")
 	}
 
-	d := time.Now().Add(10 * time.Second)
-	if err := c.conn.SetWriteDeadline(d); err != nil {
-		return err
-	}
-	if err := c.conn.SetReadDeadline(d); err != nil {
-		return err
-	}
 	c.nextCB++
 	r.Callback = c.nextCB
 	c.callbacks[r.Callback] = func(response types.RPCResponse) {
@@ -198,9 +222,11 @@ func (c *Client) ReadOnce() error {
 		c.callbacks[res.Callback](res)
 		delete(c.callbacks, res.Callback)
 	} else if res.Name != "" {
-		if l := c.listener[res.Name]; l != nil {
-			matched = true
-			l(res)
+		for _, l := range c.listener {
+			if l.name == res.Name {
+				l.fn(res)
+				matched = true
+			}
 		}
 	}
 	for _, lr := range res.LazySuccessResponses {
