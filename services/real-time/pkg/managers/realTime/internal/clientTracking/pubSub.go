@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,6 +22,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -29,6 +30,7 @@ const (
 	ClientConnected    = "clientTracking.clientConnected"
 	ClientDisconnected = "clientTracking.clientDisconnected"
 	ClientUpdated      = "clientTracking.clientUpdated"
+	ClientBatch        = "clientTracking.batch"
 )
 
 func (m *manager) notifyDisconnected(ctx context.Context, client *types.Client) error {
@@ -83,6 +85,28 @@ func (m *manager) notifyConnected(ctx context.Context, client *types.Client) err
 	}
 	if err = m.c.Publish(ctx, &msg); err != nil {
 		return errors.Tag(err, "send notification for client connected")
+	}
+	return nil
+}
+
+func (m *manager) notifyBatch(ctx context.Context, projectId sharedTypes.UUID, rcs editorEvents.RoomChanges) error {
+	body, err := json.Marshal(rcs)
+	if err != nil {
+		return errors.Tag(err, "serialize room changes")
+	}
+
+	var source sharedTypes.PublicId
+	if len(rcs) == 1 {
+		source = rcs[0].PublicId
+	}
+	msg := sharedTypes.EditorEventsMessage{
+		Source:  source,
+		Message: ClientBatch,
+		RoomId:  projectId,
+		Payload: body,
+	}
+	if err = m.c.Publish(ctx, &msg); err != nil {
+		return errors.Tag(err, "send notification for client batch")
 	}
 	return nil
 }

@@ -40,49 +40,13 @@ func getProjectKey(projectId sharedTypes.UUID) string {
 	return string(b)
 }
 
-func (m *manager) deleteClientPosition(ctx context.Context, client *types.Client) (int64, error) {
-	projectKey := getProjectKey(client.ProjectId)
-
-	var remainingClients *redis.IntCmd
-	_, err := m.redisClient.Pipelined(ctx, func(p redis.Pipeliner) error {
-		f := string(client.PublicId)
-		p.HDel(ctx, projectKey, f, f+":age")
-		remainingClients = p.Exists(ctx, projectKey)
-		return nil
+func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition) error {
+	userBlob, err := json.Marshal(types.ConnectedClient{
+		ClientPosition: position,
+		DisplayName:    client.DisplayName,
 	})
 	if err != nil {
-		return -1, errors.Tag(err, "delete client position")
-	}
-	return remainingClients.Val(), nil
-}
-
-func (m *manager) updateClientPosition(ctx context.Context, client *types.Client, position types.ClientPosition, fetchConnectedUsers bool) (bool, json.RawMessage, error) {
-	var pending *pendingConnectedClients
-	var ownsPending bool
-	cleanupPending := func() {
-		if ownsPending {
-			m.pcc[client.ProjectId[0]].delete(client.ProjectId)
-			close(pending.done)
-		}
-	}
-	if fetchConnectedUsers {
-		pending, ownsPending = m.pcc[client.ProjectId[0]].get(client.ProjectId)
-	}
-	var userBlob []byte
-	var err error
-	if position == (types.ClientPosition{}) {
-		userBlob, err = json.Marshal(types.ConnectingConnectedClient{
-			DisplayName: client.DisplayName,
-		})
-	} else {
-		userBlob, err = json.Marshal(types.ConnectedClient{
-			ClientPosition: position,
-			DisplayName:    client.DisplayName,
-		})
-	}
-	if err != nil {
-		cleanupPending()
-		return true, nil, errors.Tag(err, "serialize connected user")
+		return errors.Tag(err, "serialize connected user")
 	}
 
 	projectKey := getProjectKey(client.ProjectId)
@@ -92,61 +56,45 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 		string(client.PublicId) + ":age",
 		strconv.FormatInt(time.Now().Unix(), 36),
 	}
-
-	var existingClients *redis.StringStringMapCmd
 	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if fetchConnectedUsers && ownsPending {
-			existingClients = p.HGetAll(ctx, projectKey)
-		}
 		p.HSet(ctx, projectKey, details...)
 		p.Expire(ctx, projectKey, ProjectExpiry)
 		return nil
 	})
 	if err != nil {
-		cleanupPending()
-		return true, nil, errors.Tag(err, "persist client details")
+		return errors.Tag(err, "persist client details")
 	}
-	if fetchConnectedUsers {
-		if ownsPending {
-			// It is OK to omit the owner here, even when `shared=true` -- all
-			//  concurrent clients will get `notify=true`, which in turn will
-			//  trigger a pub/sub message for each connected client.
-			pending.clients, pending.err =
-				m.parseConnectedClients(client, existingClients)
-			cleanupPending()
-		} else {
-			<-pending.done
-		}
-		notify := len(pending.clients) > 2 || pending.shared.Load()
-		return notify, pending.clients, pending.err
-	}
-	return true, nil, nil
+	return nil
 }
 
 func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client) (json.RawMessage, error) {
-	return m.parseConnectedClients(
-		client,
-		m.redisClient.HGetAll(ctx, getProjectKey(client.ProjectId)),
-	)
+	pending, ownsPending := m.pcc[client.ProjectId[0]].get(client.ProjectId)
+	if ownsPending {
+		time.Sleep(time.Millisecond)
+		projectKey := getProjectKey(client.ProjectId)
+		entries, err := m.redisClient.HGetAll(ctx, projectKey).Result()
+		if err != nil {
+			pending.err = err
+		} else {
+			pending.clients, pending.err =
+				m.parseConnectedClients(client.ProjectId, entries)
+		}
+		m.pcc[client.ProjectId[0]].delete(client.ProjectId)
+		close(pending.done)
+	} else {
+		<-pending.done
+	}
+	return pending.clients, pending.err
 }
 
-func (m *manager) parseConnectedClients(client *types.Client, cmd *redis.StringStringMapCmd) (json.RawMessage, error) {
-	if err := cmd.Err(); err != nil {
-		return nil, errors.Tag(err, "get raw connected clients")
-	}
-
+func (m *manager) parseConnectedClients(projectId sharedTypes.UUID, entries map[string]string) (json.RawMessage, error) {
 	var staleClients []sharedTypes.PublicId
 	defer func() {
 		if len(staleClients) == 0 {
 			return
 		}
-		go m.cleanupStaleClientsInBackground(client.ProjectId, staleClients)
+		go m.cleanupStaleClientsInBackground(projectId, staleClients)
 	}()
-
-	entries := cmd.Val()
-	// omit self
-	delete(entries, string(client.PublicId))
-	delete(entries, string(client.PublicId)+":age")
 
 	tStale := time.Now().Add(-UserExpiry).Unix()
 	for k, v := range entries {

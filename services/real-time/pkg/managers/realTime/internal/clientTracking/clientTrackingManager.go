@@ -20,13 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 
-	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
@@ -34,22 +33,21 @@ import (
 )
 
 type Manager interface {
-	Disconnect(client *types.Client) bool
 	GetConnectedClients(ctx context.Context, client *types.Client) (json.RawMessage, error)
-	Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) json.RawMessage
 	RefreshClientPositions(ctx context.Context, client map[sharedTypes.UUID]editorEvents.Clients) error
 	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
+	FlushRoomChanges(projectId sharedTypes.UUID, rc editorEvents.RoomChanges)
 }
 
 func New(client redis.UniversalClient, c channel.Writer) Manager {
-	m := &manager{
+	m := manager{
 		redisClient: client,
 		c:           c,
 	}
 	for i := 0; i < 256; i++ {
 		m.pcc[i].pending = make(map[sharedTypes.UUID]*pendingConnectedClients)
 	}
-	return m
+	return &m
 }
 
 type manager struct {
@@ -58,51 +56,102 @@ type manager struct {
 	pcc         [256]pendingConnectedClientsManager
 }
 
+func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs editorEvents.RoomChanges) {
+	added := 0
+	removed := 0
+	for _, rcc := range rcs {
+		if rcc.IsJoin {
+			added++
+		} else {
+			removed++
+		}
+	}
+	now := strconv.FormatInt(time.Now().Unix(), 36)
+	hSet := make([]interface{}, added*4)
+	hDel := make([]string, removed*2)
+	added = 0
+	removed = 0
+	for _, rc := range rcs {
+		if rc.IsJoin {
+			userBlob, err := json.Marshal(types.ConnectingConnectedClient{
+				DisplayName: rc.DisplayName,
+			})
+			if err != nil {
+				log.Printf(
+					"%s/%s: failed to serialize connectedClient: %s",
+					projectId, rc.PublicId, err,
+				)
+				continue
+			}
+			hSet[added] = string(rc.PublicId)
+			hSet[added+1] = userBlob
+			hSet[added+2] = string(rc.PublicId) + ":age"
+			hSet[added+3] = now
+			added += 4
+		} else {
+			hDel[removed] = string(rc.PublicId)
+			hDel[removed+1] = string(rc.PublicId) + ":age"
+			removed += 2
+		}
+	}
+
+	var msg channel.Message
+	{
+		body, err := json.Marshal(rcs)
+		if err != nil {
+			log.Printf(
+				"%s: failed to serialize room changes: %s", projectId, err,
+			)
+		} else {
+			var source sharedTypes.PublicId
+			if len(rcs) == 1 {
+				source = rcs[0].PublicId
+			}
+			msg = &sharedTypes.EditorEventsMessage{
+				Source:  source,
+				Message: ClientBatch,
+				RoomId:  projectId,
+				Payload: body,
+			}
+		}
+	}
+
+	projectKey := getProjectKey(projectId)
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		if added > 0 {
+			p.HSet(ctx, projectKey, hSet[:added]...)
+			p.Expire(ctx, projectKey, ProjectExpiry)
+		}
+		if removed > 0 {
+			p.HDel(ctx, projectKey, hDel...)
+		}
+		if msg != nil {
+			if _, err := m.c.PublishVia(ctx, p, msg); err != nil {
+				log.Printf("%s: publish room changes: %s", projectId, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Printf(
+			"%s: failed to flush connectedClient changes: %s", projectId, err,
+		)
+	}
+}
+
 const (
 	ProjectExpiry    = 4 * 24 * time.Hour
 	UserExpiry       = 15 * time.Minute
 	RefreshUserEvery = UserExpiry - 1*time.Minute
 )
 
-func (m *manager) Disconnect(client *types.Client) bool {
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-
-	n, err := m.deleteClientPosition(ctx, client)
-	if err != nil || n > 0 {
-		if errNotify := m.notifyDisconnected(ctx, client); errNotify != nil {
-			err = errors.Merge(err, errNotify)
-		}
-	}
-	if err != nil {
-		err = errors.Tag(err, "disconnect connected client")
-		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
-		return true
-	}
-	return n == 0
-}
-
-func (m *manager) Connect(ctx context.Context, client *types.Client, fetchConnectedUsers bool) json.RawMessage {
-	notify, clients, err := m.updateClientPosition(
-		ctx, client, types.ClientPosition{}, fetchConnectedUsers,
-	)
-	if err != nil || notify {
-		if errNotify := m.notifyConnected(ctx, client); errNotify != nil {
-			err = errors.Merge(errNotify, err)
-		}
-	}
-	if err != nil {
-		err = errors.Tag(err, "initialize connected client")
-		log.Printf("%s/%s: %s", client.ProjectId, client.PublicId, err)
-	}
-	return clients
-}
-
 func (m *manager) UpdatePosition(ctx context.Context, client *types.Client, p types.ClientPosition) error {
 	if err := m.notifyUpdated(ctx, client, p); err != nil {
 		return err
 	}
-	if _, _, err := m.updateClientPosition(ctx, client, p, false); err != nil {
+	if err := m.updateClientPosition(ctx, client, p); err != nil {
 		return err
 	}
 	return nil
@@ -116,16 +165,11 @@ type pendingConnectedClientsManager struct {
 func (m *pendingConnectedClientsManager) get(projectId sharedTypes.UUID) (*pendingConnectedClients, bool) {
 	m.mu.RLock()
 	pending, ok := m.pending[projectId]
-	if ok {
-		pending.shared.CompareAndSwap(false, true)
-	}
 	m.mu.RUnlock()
 	if !ok {
 		m.mu.Lock()
 		pending, ok = m.pending[projectId]
-		if ok {
-			pending.shared.CompareAndSwap(false, true)
-		} else {
+		if !ok {
 			pending = &pendingConnectedClients{done: make(chan struct{})}
 			m.pending[projectId] = pending
 		}
@@ -142,8 +186,7 @@ func (m *pendingConnectedClientsManager) delete(projectId sharedTypes.UUID) {
 }
 
 type pendingConnectedClients struct {
-	shared atomic.Bool
-	done   chan struct{}
+	done chan struct{}
 	// clients contains serialized types.ConnectedClients
 	clients json.RawMessage
 	err     error

@@ -19,40 +19,61 @@ package editorEvents
 import (
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func newRoom() *room {
+type RoomChange struct {
+	PublicId    sharedTypes.PublicId `json:"i"`
+	DisplayName string               `json:"n"`
+	IsJoin      bool                 `json:"j"`
+}
+type RoomChanges []RoomChange
+type FlushRoomChanges func(projectId sharedTypes.UUID, rc RoomChanges)
+
+func newRoom(projectId sharedTypes.UUID, fn FlushRoomChanges) *room {
 	c := make(chan roomQueueEntry, 20)
-	r := room{c: c}
+	rc := make(chan RoomChanges, 1)
+	rc <- nil
+	r := room{
+		c:           c,
+		roomChanges: rc,
+		roomChangesFlush: time.AfterFunc(24*time.Hour, func() {
+			c <- roomQueueEntry{action: flushRoomChanges}
+		}),
+	}
 	r.clients.Store(noClients)
 	go func() {
 		for entry := range c {
-			if entry.leavingClient != nil {
+			switch entry.action {
+			case handleMessage:
+				r.Handle(entry.msg)
+			case leavingClient:
 				entry.leavingClient.CloseWriteQueue()
-				continue
+			case flushRoomChanges:
+				r.flushRoomChanges(projectId, fn)
+			default:
+				r.handleGracefulReconnect(entry.action)
 			}
-
-			if r.isEmpty() {
-				continue
-			}
-			if entry.gracefulReconnect != 0 {
-				r.handleGracefulReconnect(entry.gracefulReconnect)
-				continue
-			}
-			r.Handle(entry.msg)
 		}
 	}()
 	return &r
 }
 
+const (
+	handleMessage    = 0
+	leavingClient    = 1
+	flushRoomChanges = 2
+)
+
 type roomQueueEntry struct {
-	msg               string
-	leavingClient     *types.Client
-	gracefulReconnect uint8
+	action        uint8
+	msg           string
+	leavingClient *types.Client
 }
 
 type Clients struct {
@@ -73,8 +94,10 @@ func (c Clients) String() string {
 }
 
 type room struct {
-	clients atomic.Pointer[Clients]
-	c       chan roomQueueEntry
+	clients          atomic.Pointer[Clients]
+	c                chan roomQueueEntry
+	roomChanges      chan RoomChanges
+	roomChangesFlush *time.Timer
 
 	pending pendingOperation.PendingOperation
 }
@@ -86,19 +109,19 @@ func (r *room) Clients() Clients {
 }
 
 func (r *room) broadcast(msg string) {
-	r.c <- roomQueueEntry{msg: msg}
+	r.c <- roomQueueEntry{action: handleMessage, msg: msg}
 }
 
 func (r *room) queueLeavingClient(client *types.Client) {
-	r.c <- roomQueueEntry{leavingClient: client}
+	r.c <- roomQueueEntry{action: leavingClient, leavingClient: client}
 }
 
 func (r *room) broadcastGracefulReconnect(suffix uint8) {
-	r.c <- roomQueueEntry{gracefulReconnect: suffix}
+	r.c <- roomQueueEntry{action: suffix}
 }
 
 func (r *room) close() {
-	close(r.c)
+	r.roomChangesFlush.Reset(0)
 }
 
 func (r *room) isEmpty() bool {
@@ -106,6 +129,7 @@ func (r *room) isEmpty() bool {
 }
 
 func (r *room) add(client *types.Client) bool {
+	defer r.scheduleRoomChange(client, true)
 	p := r.clients.Load()
 	if p == noClients {
 		r.clients.Store(&Clients{All: []*types.Client{client}, Removed: -1})
@@ -130,6 +154,7 @@ func (r *room) remove(client *types.Client) bool {
 		return false
 	}
 
+	defer r.scheduleRoomChange(client, false)
 	n := len(p.All)
 	if n == 1 || (n == 2 && p.Removed != -1 && p.Removed != idx) {
 		r.clients.Store(noClients)
@@ -163,6 +188,26 @@ func (r *room) remove(client *types.Client) bool {
 	return false
 }
 
+func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
+	rcs := <-r.roomChanges
+	owner := rcs == nil
+	if owner {
+		rcs = make(RoomChanges, 0, 1)
+	}
+	rc := RoomChange{
+		PublicId: client.PublicId,
+		IsJoin:   isJoin,
+	}
+	if isJoin {
+		rc.DisplayName = client.DisplayName
+	}
+	rcs = append(rcs, rc)
+	r.roomChanges <- rcs
+	if owner {
+		r.roomChangesFlush.Reset(10 * time.Millisecond)
+	}
+}
+
 func (r *room) handleGracefulReconnect(suffix uint8) {
 	clients := r.Clients()
 	for i, client := range clients.All {
@@ -175,4 +220,15 @@ func (r *room) handleGracefulReconnect(suffix uint8) {
 		}
 		client.EnsureQueueMessage(events.ReconnectGracefullyPrepared)
 	}
+}
+
+func (r *room) flushRoomChanges(projectId sharedTypes.UUID, fn FlushRoomChanges) {
+	rc := <-r.roomChanges
+	if rc == nil {
+		close(r.c)
+		close(r.roomChanges)
+		return
+	}
+	r.roomChanges <- nil
+	go fn(projectId, rc)
 }

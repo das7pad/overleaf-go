@@ -31,16 +31,17 @@ type Manager interface {
 	BroadcastGracefulReconnect(suffix uint8) int
 	GetClients() map[sharedTypes.UUID]Clients
 	Join(ctx context.Context, client *types.Client) error
-	Leave(client *types.Client)
+	Leave(client *types.Client) bool
 	StartListening(ctx context.Context) error
 }
 
-func New(c channel.Manager) Manager {
+func New(c channel.Manager, fn FlushRoomChanges) Manager {
 	m := manager{
 		c:     c,
 		sem:   make(chan struct{}, 1),
 		mux:   sync.RWMutex{},
 		rooms: make(map[sharedTypes.UUID]*room),
+		flush: fn,
 	}
 	return &m
 }
@@ -51,6 +52,7 @@ type manager struct {
 	sem   chan struct{}
 	mux   sync.RWMutex
 	rooms map[sharedTypes.UUID]*room
+	flush FlushRoomChanges
 }
 
 func (m *manager) pauseQueueFor(fn func()) {
@@ -85,7 +87,7 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists {
-		r = newRoom()
+		r = newRoom(projectId, m.flush)
 		m.mux.Lock()
 		m.rooms[projectId] = r
 		m.mux.Unlock()
@@ -109,20 +111,20 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	return op
 }
 
-func (m *manager) leave(client *types.Client) {
+func (m *manager) leave(client *types.Client) bool {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists || r.isEmpty() {
 		// Not joined yet.
 		client.CloseWriteQueue()
-		return
+		return false
 	}
 
 	roomIsEmpty := r.remove(client)
 	if !roomIsEmpty {
 		// Do not unsubscribe yet.
-		return
+		return false
 	}
 
 	subscribe := r.pending
@@ -133,6 +135,7 @@ func (m *manager) leave(client *types.Client) {
 		m.c.Unsubscribe(context.Background(), projectId)
 		return nil
 	})
+	return true
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
@@ -146,10 +149,11 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	return pending.Err()
 }
 
-func (m *manager) Leave(client *types.Client) {
+func (m *manager) Leave(client *types.Client) bool {
 	m.sem <- struct{}{}
-	m.leave(client)
+	nowEmpty := m.leave(client)
 	<-m.sem
+	return nowEmpty
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {

@@ -230,7 +230,7 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 		return nil, fmt.Errorf("%d: %w", id, err)
 	}
 	c.callbacks = make(map[types.Callback]func(response types.RPCResponse))
-	c.listener = make([]listener, 0, 4)
+	c.listener = make([]listener, 0, 5)
 
 	res := types.RPCResponse{}
 	c.On("bootstrap", func(response types.RPCResponse) {
@@ -242,6 +242,8 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	c.On("clientTracking.clientConnected", func(_ types.RPCResponse) {
 	})
 	c.On("clientTracking.clientDisconnected", func(_ types.RPCResponse) {
+	})
+	c.On("clientTracking.batch", func(_ types.RPCResponse) {
 	})
 
 	if deadline, ok := ctx.Deadline(); ok {

@@ -84,7 +84,7 @@ func SetupFn(m *testing.M, setup func()) {
 	F.BcryptCosts = 4 // faster registration/login
 	F.ManifestPath = "empty"
 	F.SMTPAddress = "discard"
-	F.RealTimeWriteQueueDepth = 100
+	F.RealTimeWriteQueueDepth = 20
 
 	dockerClient, dockerErr := client.NewClientWithOpts(
 		client.WithHost(F.DockerHost()),
