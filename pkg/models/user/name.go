@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,10 +21,10 @@ import (
 )
 
 func (u *WithPublicInfo) DisplayName() string {
-	s := u.FirstName + " " + u.LastName
-	s = strings.TrimSpace(s)
-	if s != "" {
-		return s
+	if len(u.FirstName) > 0 || len(u.LastName) > 0 {
+		if s := strings.TrimSpace(u.FirstName + " " + u.LastName); s != "" {
+			return s
+		}
 	}
 	return string(u.Email)
 }
