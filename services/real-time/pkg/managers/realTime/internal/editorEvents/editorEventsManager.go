@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -142,12 +142,8 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	if pending == nil {
 		return nil
 	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-pending.Done():
-		return pending.Err()
-	}
+	<-pending.Done()
+	return pending.Err()
 }
 
 func (m *manager) Leave(client *types.Client) {
