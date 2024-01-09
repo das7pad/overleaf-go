@@ -249,7 +249,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 		return nil, errors.Tag(err, "subscribe")
 	}
 
-	getConnectedUsers := client.CanDo(types.GetConnectedUsers, sharedTypes.UUID{}) == nil
+	getConnectedUsers := client.HasCapability(types.CanSeeOtherClients)
 	connectedClients := m.clientTracking.Connect(ctx, client, getConnectedUsers)
 	if !getConnectedUsers {
 		connectedClients = emptyConnectedClients
