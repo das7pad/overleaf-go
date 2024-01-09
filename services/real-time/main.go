@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,6 +27,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -72,13 +73,12 @@ func main() {
 	})
 
 	server := http.Server{
-		Addr: listenAddress.Parse(3026),
 		Handler: router.New(
 			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
 		),
 	}
 	eg.Go(func() error {
-		return server.ListenAndServe()
+		return httpUtils.ListenAndServe(&server, listenAddress.Parse(3026))
 	})
 	eg.Go(func() error {
 		<-ctx.Done()

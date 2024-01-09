@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -136,11 +136,10 @@ func main() {
 	})
 
 	server := http.Server{
-		Addr:    addr,
 		Handler: r,
 	}
 	eg.Go(func() error {
-		return server.ListenAndServe()
+		return httpUtils.ListenAndServe(&server, addr)
 	})
 	eg.Go(func() error {
 		<-ctx.Done()
