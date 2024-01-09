@@ -67,15 +67,26 @@ var localhostAddr = &net.TCPAddr{
 	Port: 3026,
 }
 
+var UnixRunRealTime = &net.UnixAddr{
+	Net:  "unix",
+	Name: "/tmp/real-time.socket",
+}
+
+type ConnectFn = func(ctx context.Context, network, addr string) (net.Conn, error)
+
 func DialLocalhost(_ context.Context, _, _ string) (net.Conn, error) {
 	return net.DialTCP("tcp4", nil, localhostAddr)
+}
+
+func DialUnix(_ context.Context, _, _ string) (net.Conn, error) {
+	return net.DialUnix("unix", nil, UnixRunRealTime)
 }
 
 var nextId = atomic.Int64{}
 
 const debug = false
 
-func (c *Client) Connect(ctx context.Context, url, bootstrap string, dial func(ctx context.Context, network, addr string) (net.Conn, error)) (*types.RPCResponse, error) {
+func (c *Client) Connect(ctx context.Context, url, bootstrap string, dial ConnectFn) (*types.RPCResponse, error) {
 	id := nextId.Add(1)
 	if debug {
 		url += "?id=" + strconv.FormatInt(id, 10)

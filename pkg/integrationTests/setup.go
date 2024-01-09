@@ -63,6 +63,10 @@ const (
 )
 
 func Setup(m *testing.M) {
+	SetupFn(m, func() {})
+}
+
+func SetupFn(m *testing.M, setup func()) {
 	code := 101
 	defer func() {
 		if err := recover(); err != nil {
@@ -100,6 +104,8 @@ func Setup(m *testing.M) {
 	// Pickup changes from minio/pg/redis setup
 	C = configGenerator.Generate(F)
 	C.PopulateEnv()
+
+	setup()
 
 	code = m.Run()
 }

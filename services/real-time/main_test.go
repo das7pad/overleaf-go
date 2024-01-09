@@ -17,12 +17,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"os"
+	"strconv"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -30,26 +35,57 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/integrationTests"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
-	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/client/realTime"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+var useUnixSocket = flag.Bool("test.use-unix-socket", false, "")
+
 func TestMain(m *testing.M) {
-	integrationTests.Setup(m)
+	integrationTests.SetupFn(m, setup)
 }
 
-func getURL() string {
-	addr := listenAddress.Parse(3026)
-	addr = strings.ReplaceAll(addr, "localhost", "127.0.0.1")
-	return fmt.Sprintf("ws://%s/socket.io", addr)
-}
-
-func fatalIf(tb testing.TB, err error) {
+func fatalIf(err error) {
 	if err != nil {
-		tb.Fatalf("%s: %s", time.Now().Format(time.RFC3339Nano), err)
+		log.Panicln(err)
+	}
+}
+
+func pickTransport() {
+	if *useUnixSocket {
+		err := os.Setenv("LISTEN_ADDRESS", realTime.UnixRunRealTime.Name)
+		fatalIf(err)
+		connectFn = realTime.DialUnix
+	} else {
+		connectFn = realTime.DialLocalhost
+	}
+}
+
+func setLimits() {
+	var rl syscall.Rlimit
+	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rl); err != nil {
+		panic(err)
+	}
+	rl.Cur = rl.Max
+	if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rl); err != nil {
+		panic(err)
+	}
+
+	if *useUnixSocket {
+		p := "/proc/sys/net/core/somaxconn"
+		blob, err := os.ReadFile(p)
+		fatalIf(err)
+		blob = bytes.TrimRight(blob, "\n")
+		maxSockets, err := strconv.ParseInt(string(blob), 10, 64)
+		fatalIf(err)
+		if maxSockets < 20_000 {
+			log.Println("Unix socket limit is likely too low")
+			log.Printf(
+				"Increase limit using: $ echo 20000 | sudo tee -a %s", p,
+			)
+		}
 	}
 }
 
@@ -59,14 +95,14 @@ func randomCredentials() (sharedTypes.Email, types.UserPassword, error) {
 	return sharedTypes.Email(email), types.UserPassword(password), err
 }
 
-func jwtFactory(tb testing.TB, ctx context.Context) func() string {
+func jwtFactory(ctx context.Context) func() string {
 	o := types.Options{}
 	o.FillFromEnv()
 	rClient := utils.MustConnectRedis(ctx)
 	db := utils.MustConnectPostgres(ctx)
 
 	wm, e := web.New(&o, db, rClient, "", nil, nil)
-	fatalIf(tb, e)
+	fatalIf(e)
 
 	return func() string {
 		r := httptest.NewRequest(http.MethodTrace, "/", nil)
@@ -78,14 +114,14 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 		}).ServeHTTP(w, r)
 
 		sess, err := wm.GetOrCreateSession(c)
-		fatalIf(tb, err)
+		fatalIf(err)
 
 		defer func() {
 			_ = sess.Destroy(ctx)
 		}()
 
 		email, pw, err := randomCredentials()
-		fatalIf(tb, err)
+		fatalIf(err)
 
 		err = wm.RegisterUser(c, &types.RegisterUserRequest{
 			WithSession: types.WithSession{Session: sess},
@@ -93,7 +129,7 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 			Email:       email,
 			Password:    pw,
 		}, &types.RegisterUserResponse{})
-		fatalIf(tb, err)
+		fatalIf(err)
 
 		res := types.CreateExampleProjectResponse{}
 		err = wm.CreateExampleProject(c, &types.CreateExampleProjectRequest{
@@ -101,7 +137,7 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 			Name:        "foo",
 			Template:    "none",
 		}, &res)
-		fatalIf(tb, err)
+		fatalIf(err)
 
 		projectId := *res.ProjectId
 
@@ -110,56 +146,52 @@ func jwtFactory(tb testing.TB, ctx context.Context) func() string {
 			WithSession: types.WithSession{Session: sess},
 			ProjectId:   projectId,
 		}, &jwt)
-		fatalIf(tb, err)
+		fatalIf(err)
 
 		return string(jwt)
 	}
 }
 
-func connectedClient(tb testing.TB, bootstrap string) *realTime.Client {
+const url = "ws://127.0.0.1:3026/socket.io"
+
+func connectedClient(bootstrap string) *realTime.Client {
 	c := realTime.Client{}
-	_, err := c.Connect(context.Background(), url, bootstrap, realTime.DialLocalhost)
+	_, err := c.Connect(context.Background(), url, bootstrap, connectFn)
 	if err != nil {
-		fatalIf(tb, err)
+		fatalIf(err)
 	}
 	return &c
 }
 
-func bootstrapClient(tb testing.TB, bootstrap string) {
-	c := connectedClient(tb, bootstrap)
+func bootstrapClient(bootstrap string) {
+	c := connectedClient(bootstrap)
 	c.Close()
 }
 
-var setupOnce sync.Once
 var bootstrapSharded []string
-var url string
+var connectFn realTime.ConnectFn
 
-func setup(tb testing.TB) {
-	setupOnce.Do(func() {
-		go main()
+func setup() {
+	pickTransport()
+	setLimits()
+	go main()
 
-		url = getURL()
-
-		ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-		defer done()
-		f := jwtFactory(tb, ctx)
-		for i := 0; i < 10; i++ {
-			bootstrapSharded = append(bootstrapSharded, f())
-		}
-	})
+	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	f := jwtFactory(ctx)
+	for i := 0; i < 10; i++ {
+		bootstrapSharded = append(bootstrapSharded, f())
+	}
 }
 
 func TestBootstrap(t *testing.T) {
-	setup(t)
-
-	bootstrapClient(t, bootstrapSharded[0])
+	bootstrapClient(bootstrapSharded[0])
 }
 
 func benchmarkBootstrapN(b *testing.B, n int) {
 	if n >= 1_000 && testing.Short() {
 		b.SkipNow()
 	}
-	setup(b)
 
 	wg := sync.WaitGroup{}
 	wg.Add((n/len(bootstrapSharded) + len(bootstrapSharded)) * len(bootstrapSharded))
@@ -167,7 +199,7 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 		for _, bootstrap := range bootstrapSharded {
 			go func(bootstrap string) {
 				defer wg.Done()
-				bootstrapClient(b, bootstrap)
+				bootstrapClient(bootstrap)
 			}(bootstrap)
 		}
 	}
@@ -180,7 +212,7 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 		go func(bootstrap string) {
 			defer wg.Done()
 			for i := 0; i < b.N; i++ {
-				bootstrapClient(b, bootstrap)
+				bootstrapClient(bootstrap)
 			}
 		}(bootstrapSharded[j%len(bootstrapSharded)])
 	}
@@ -234,21 +266,24 @@ func BenchmarkBootstrap6k5(b *testing.B) {
 	benchmarkBootstrapN(b, 6_500)
 }
 
-func singleClientSetup(tb testing.TB) *realTime.Client {
-	setup(tb)
-	return connectedClient(tb, bootstrapSharded[0])
+func BenchmarkBootstrap8k(b *testing.B) {
+	benchmarkBootstrapN(b, 8_000)
+}
+
+func singleClientSetup() *realTime.Client {
+	return connectedClient(bootstrapSharded[0])
 }
 
 func TestPing(t *testing.T) {
-	c := singleClientSetup(t)
+	c := singleClientSetup()
 	defer c.Close()
 
 	err := c.Ping()
-	fatalIf(t, err)
+	fatalIf(err)
 }
 
 func BenchmarkPing(b *testing.B) {
-	c := singleClientSetup(b)
+	c := singleClientSetup()
 	defer c.Close()
 
 	b.ReportAllocs()
@@ -256,7 +291,7 @@ func BenchmarkPing(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		if err := c.Ping(); err != nil {
-			fatalIf(b, err)
+			fatalIf(err)
 		}
 	}
 }
