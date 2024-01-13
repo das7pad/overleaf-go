@@ -67,6 +67,25 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 	}).addRoutes(r)
 }
 
+func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) http.HandlerFunc {
+	h := httpController{
+		rtm: rtm,
+		u: websocket.Upgrader{
+			Subprotocols: []string{
+				protoV8,
+			},
+		},
+		jwtProject: projectJWT.New(
+			jwtOptionsProject,
+			// Validation is performed as part of the bootstrap process.
+			nil,
+		),
+		rateLimitBootstrap: make(chan struct{}, 42),
+		writeQueueDepth:    writeQueueDepth,
+	}
+	return h.ws
+}
+
 type httpController struct {
 	rtm                realTime.Manager
 	u                  websocket.Upgrader
@@ -170,6 +189,9 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 		for range writeQueue {
 			// Flush the queue.
 			// Eventually the room cleanup will close the channel.
+		}
+		if c, ok := conn.NetConn().(interface{ ReleaseBuffer() }); ok {
+			c.ReleaseBuffer()
 		}
 	}()
 	waitForCtxDone := ctx.Done()

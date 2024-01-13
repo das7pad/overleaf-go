@@ -184,6 +184,20 @@ func setup() {
 	}
 }
 
+func TestStatus(t *testing.T) {
+	tr := http.Transport{}
+	tr.DialContext = connectFn
+	d := http.Client{
+		Transport: &tr,
+	}
+	r, err := d.Get("http://127.0.0.1:3026/status")
+	fatalIf(err)
+
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("status code != 200: %d", r.StatusCode)
+	}
+}
+
 func TestBootstrap(t *testing.T) {
 	bootstrapClient(bootstrapSharded[0])
 }

@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -35,13 +36,19 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/wsServer"
 )
+
+var useWsServer = flag.Bool("use-ws-server", false, "")
 
 func main() {
 	triggerExitCtx, triggerExit := signal.NotifyContext(
 		context.Background(), syscall.SIGINT, syscall.SIGTERM,
 	)
 	defer triggerExit()
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 
 	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
@@ -72,13 +79,24 @@ func main() {
 		return nil
 	})
 
-	server := http.Server{
-		Handler: router.New(
+	var server httpUtils.Server
+	if *useWsServer {
+		srv := wsServer.New(router.WS(
 			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
-		),
+		))
+		server = srv
+		eg.Go(func() error {
+			<-ctx.Done()
+			srv.SetStatus(false)
+			return nil
+		})
+	} else {
+		server = &http.Server{Handler: router.New(
+			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
+		)}
 	}
 	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, listenAddress.Parse(3026))
+		return httpUtils.ListenAndServe(server, listenAddress.Parse(3026))
 	})
 	eg.Go(func() error {
 		<-ctx.Done()

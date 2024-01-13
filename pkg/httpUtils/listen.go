@@ -17,13 +17,18 @@
 package httpUtils
 
 import (
+	"context"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 )
 
-func ListenAndServe(server *http.Server, addr string) error {
+type Server interface {
+	Serve(listener net.Listener) error
+	Shutdown(ctx context.Context) error
+}
+
+func ListenAndServe(server Server, addr string) error {
 	var l net.Listener
 	var err error
 	if strings.HasPrefix(addr, "/") {
