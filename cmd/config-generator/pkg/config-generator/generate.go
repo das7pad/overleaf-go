@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -80,12 +80,12 @@ func NewFlags() Flags {
 			SignedURLExpiry: 15 * time.Minute,
 		},
 		JWTOptionsLoggedInUser: jwtOptions.JWTOptions{
-			Algorithm: "HS512",
+			Algorithm: "HS256",
 			Key:       genSecret(32),
 			ExpiresIn: 24 * time.Hour,
 		},
 		JWTOptionsProject: jwtOptions.JWTOptions{
-			Algorithm: "HS512",
+			Algorithm: "HS256",
 			Key:       genSecret(32),
 			ExpiresIn: time.Hour,
 		},
