@@ -112,11 +112,8 @@ func (s *WSServer) Serve(l net.Listener) error {
 		}
 		s.n.Add(1)
 		errDelay = 0
-		wc := wsConn{
-			bufferedConn: &bufferedConn{Conn: c},
-			ok:           s.ok.Load(),
-		}
-		go wc.serve(s.h, s.decrementN)
+		wc := wsConn{bufferedConn: &bufferedConn{Conn: c}}
+		go wc.serve(s.h, s.decrementN, s.ok.Load)
 	}
 	return http.ErrServerClosed
 }
@@ -189,7 +186,7 @@ var (
 	errTooManyReads = errors.New("too many reads")
 )
 
-func (c *wsConn) serve(h http.HandlerFunc, deref func()) {
+func (c *wsConn) serve(h http.HandlerFunc, deref func(), ok func() bool) {
 	defer deref()
 	defer func() {
 		if !c.hijacked {
@@ -203,7 +200,7 @@ func (c *wsConn) serve(h http.HandlerFunc, deref func()) {
 		return
 	}
 	for {
-		err := c.nextRequest(h)
+		err := c.nextRequest(h, ok)
 		if err != nil {
 			if e, ok := err.(httpStatusError); ok {
 				_, _ = c.WriteTimeout(e.Response(), 5*time.Second)
@@ -228,7 +225,7 @@ func (c *wsConn) Read(p []byte) (int, error) {
 	return c.Conn.Read(p)
 }
 
-func (c *wsConn) nextRequest(fn http.HandlerFunc) error {
+func (c *wsConn) nextRequest(fn http.HandlerFunc, ok func() bool) error {
 	l, err := c.brw.ReadSlice('\n')
 	if err != nil {
 		if err == errTooManyReads || err == bufio.ErrBufferFull {
@@ -243,15 +240,15 @@ func (c *wsConn) nextRequest(fn http.HandlerFunc) error {
 		return httpStatusError(http.StatusBadRequest)
 	}
 	if bytes.Equal(l, requestLineStatus) {
-		return c.handleStatusRequest()
+		return c.handleStatusRequest(ok)
 	}
-	if !bytes.Equal(l, requestLineWS) {
-		return httpStatusError(http.StatusBadRequest)
+	if bytes.Equal(l, requestLineWS) {
+		return c.handleWsRequest(fn, err)
 	}
-	return c.handleWsRequest(fn, err)
+	return httpStatusError(http.StatusBadRequest)
 }
 
-func (c *wsConn) handleStatusRequest() error {
+func (c *wsConn) handleStatusRequest(ok func() bool) error {
 	for {
 		l, err := c.brw.ReadSlice('\n')
 		if err != nil {
@@ -269,7 +266,7 @@ func (c *wsConn) handleStatusRequest() error {
 	}
 
 	var err error
-	if c.ok {
+	if ok() {
 		_, err = c.Write(response200)
 	} else {
 		_, err = c.Write(response503)
