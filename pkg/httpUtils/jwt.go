@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,15 +19,9 @@ package httpUtils
 import (
 	"strings"
 
-	"github.com/golang-jwt/jwt/v4"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 )
-
-func init() {
-	jwt.DecodeStrict = true
-}
 
 type JWT interface {
 	jwtHandler.JWT
@@ -54,7 +48,7 @@ func (h *JWTHTTPHandler[T]) Parse(c *Context) (*Context, error) {
 		return c, &errors.UnauthorizedError{Reason: "missing jwt"}
 	}
 
-	claims, err := h.parser.Parse(blob)
+	claims, err := h.parser.Parse([]byte(blob))
 	if err != nil {
 		return c, &errors.UnauthorizedError{Reason: "invalid jwt"}
 	}

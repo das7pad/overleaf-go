@@ -33,6 +33,15 @@ func (j *JWTOptions) Validate() error {
 	if j.Algorithm == "" {
 		return &errors.ValidationError{Msg: "missing algo"}
 	}
+
+	ok := false
+	for _, s := range []string{"HS256", "HS384", "HS512"} {
+		ok = ok || j.Algorithm == s
+	}
+	if !ok {
+		return &errors.ValidationError{Msg: "invalid algo"}
+	}
+
 	if j.Key == "" {
 		return &errors.ValidationError{Msg: "missing key"}
 	}

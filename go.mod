@@ -8,7 +8,6 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/evanw/esbuild v0.19.9
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7

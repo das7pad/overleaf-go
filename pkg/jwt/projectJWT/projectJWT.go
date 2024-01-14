@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -45,16 +45,16 @@ const (
 	jwtField = "projectJWT.Claims"
 )
 
-var ErrMissingPrivilegeLevel = errors.New(
-	"incomplete jwt: missing PrivilegeLevel",
-)
+var ErrMissingPrivilegeLevel = &errors.UnauthorizedError{
+	Reason: "incomplete jwt: missing PrivilegeLevel",
+}
 
 var ErrMismatchingProjectId = &errors.ValidationError{
 	Msg: "mismatching projectId between jwt and path",
 }
 
-func (c *Claims) Valid() error {
-	if err := c.Claims.Valid(); err != nil {
+func (c *Claims) Validate() error {
+	if err := c.Claims.Validate(); err != nil {
 		return err
 	}
 	if c.AuthorizationDetails.PrivilegeLevel == "" {

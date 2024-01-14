@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,13 +19,11 @@ package expiringJWT
 import (
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
-
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type ExpiringJWT interface {
-	jwt.Claims
+	Validate() error
 	SetExpiry(expiresIn time.Duration)
 }
 
@@ -39,9 +37,7 @@ func (j *Claims) SetExpiry(expiresIn time.Duration) {
 	j.ExpiresAt = time.Now().Add(expiresIn).Unix()
 }
 
-// Valid validates the given expiry timestamp.
-// jwt.StandardClaims.Valid() ignores a timestamp of 0.
-func (j *Claims) Valid() error {
+func (j *Claims) Validate() error {
 	now := time.Now()
 	expiresAt := time.Unix(j.ExpiresAt, 0)
 	if now.After(expiresAt) {

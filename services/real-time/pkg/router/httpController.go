@@ -122,7 +122,7 @@ func (h *httpController) getProjectJWT(r *http.Request) (*projectJWT.Claims, err
 	if len(blob) == 0 {
 		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
 	}
-	return h.jwtProject.Parse(blob)
+	return h.jwtProject.Parse([]byte(blob))
 }
 
 func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
