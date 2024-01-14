@@ -58,7 +58,7 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 
 	c := channel.New(client, "editor-events")
 	ct := clientTracking.New(client, c)
-	e := editorEvents.New(c, ct.FlushRoomChanges)
+	e := editorEvents.New(c, ct.FlushRoomChanges, dum.FlushProjectInBackground)
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
@@ -329,10 +329,7 @@ func (m *manager) Disconnect(client *types.Client) {
 		return
 	}
 	client.MarkAsLeftDoc()
-	if nowEmpty := m.editorEvents.Leave(client); nowEmpty {
-		// Flush eagerly when no other clients are online (and on error).
-		go m.dum.FlushProjectInBackground(context.Background(), client.ProjectId)
-	}
+	m.editorEvents.Leave(client)
 }
 
 func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {

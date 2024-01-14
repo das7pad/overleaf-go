@@ -17,6 +17,7 @@
 package editorEvents
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -60,10 +61,12 @@ func Test_room_remove(t *testing.T) {
 			}
 		}
 	}
+	fRc := func(sharedTypes.UUID, RoomChanges) {}
+	fP := func(context.Context, sharedTypes.UUID) bool { return true }
 
 	for i1, p1 := range permutations {
 		for i2, p2 := range permutations {
-			r := newRoom(sharedTypes.UUID{}, func(sharedTypes.UUID, RoomChanges) {})
+			r := newRoom(sharedTypes.UUID{}, fRc, fP)
 			<-r.roomChanges
 			r.roomChanges <- make(RoomChanges, 0, 100)
 			close(r.c)

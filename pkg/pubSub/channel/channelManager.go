@@ -49,6 +49,7 @@ type Manager interface {
 	String() string
 	Subscribe(ctx context.Context, id sharedTypes.UUID) error
 	Unsubscribe(ctx context.Context, id sharedTypes.UUID)
+	UnSubscribeBulk(ctx context.Context, ids sharedTypes.UUIDBatch) error
 	Listen(ctx context.Context) (<-chan PubSubMessage, error)
 	Close()
 }
@@ -129,6 +130,22 @@ func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) {
 	//  confirmation about the unsubscribe action -- e.g. when the
 	//  connection errored.
 	m.c <- PubSubMessage{Channel: id}
+}
+
+func (m *manager) UnSubscribeBulk(ctx context.Context, ids sharedTypes.UUIDBatch) error {
+	n := ids.Len()
+	args := make([]string, n)
+
+	ids2 := ids
+	for i := 0; i < n; i++ {
+		args[i] = string(m.base.join(ids.Next()))
+	}
+	ids = ids2
+	err := m.p.Unsubscribe(ctx, args...)
+	for i := 0; i < n; i++ {
+		m.c <- PubSubMessage{Channel: ids.Next()}
+	}
+	return err
 }
 
 func (m *manager) batchSubscriptionChanges(ctx context.Context, id sharedTypes.UUID, queue chan batchGeneration, fn func(ctx context.Context, channels ...string) error) error {

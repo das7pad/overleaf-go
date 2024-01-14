@@ -19,6 +19,7 @@ package editorEvents
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
@@ -35,13 +36,17 @@ type Manager interface {
 	StartListening(ctx context.Context) error
 }
 
-func New(c channel.Manager, fn FlushRoomChanges) Manager {
+type FlushProject func(ctx context.Context, projectId sharedTypes.UUID) bool
+
+func New(c channel.Manager, flushRoomChanges FlushRoomChanges, flushProject FlushProject) Manager {
 	m := manager{
-		c:     c,
-		sem:   make(chan struct{}, 1),
-		mux:   sync.RWMutex{},
-		rooms: make(map[sharedTypes.UUID]*room),
-		flush: fn,
+		c:                c,
+		sem:              make(chan struct{}, 1),
+		mux:              sync.RWMutex{},
+		rooms:            make(map[sharedTypes.UUID]*room),
+		idle:             make(map[sharedTypes.UUID]bool),
+		flushRoomChanges: flushRoomChanges,
+		flushProject:     flushProject,
 	}
 	return &m
 }
@@ -49,10 +54,12 @@ func New(c channel.Manager, fn FlushRoomChanges) Manager {
 type manager struct {
 	c channel.Manager
 
-	sem   chan struct{}
-	mux   sync.RWMutex
-	rooms map[sharedTypes.UUID]*room
-	flush FlushRoomChanges
+	sem              chan struct{}
+	mux              sync.RWMutex
+	rooms            map[sharedTypes.UUID]*room
+	idle             map[sharedTypes.UUID]bool
+	flushRoomChanges FlushRoomChanges
+	flushProject     FlushProject
 }
 
 func (m *manager) pauseQueueFor(fn func()) {
@@ -80,6 +87,7 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	delete(m.rooms, id)
 	m.mux.Unlock()
 	r.close()
+	delete(m.idle, id)
 }
 
 func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.PendingOperation {
@@ -87,13 +95,19 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists {
-		r = newRoom(projectId, m.flush)
+		r = newRoom(projectId, m.flushRoomChanges, m.flushProject)
 		m.mux.Lock()
 		m.rooms[projectId] = r
 		m.mux.Unlock()
 	}
 
 	roomWasEmpty := r.add(client)
+	if exists && roomWasEmpty {
+		if m.idle[projectId] {
+			roomWasEmpty = false
+		}
+		delete(m.idle, projectId)
+	}
 
 	pending := r.pending
 	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
@@ -126,16 +140,49 @@ func (m *manager) leave(client *types.Client) bool {
 		// Do not unsubscribe yet.
 		return false
 	}
-
-	subscribe := r.pending
-	r.pending = pendingOperation.TrackOperation(func() error {
-		if subscribe != nil && subscribe.IsPending() {
-			_ = subscribe.Wait(context.Background())
-		}
-		m.c.Unsubscribe(context.Background(), projectId)
-		return nil
-	})
+	m.idle[projectId] = true
 	return true
+}
+
+func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
+	m.sem <- struct{}{}
+	n := len(m.idle)
+	if n < threshold {
+		<-m.sem
+		return n
+	}
+	var ids sharedTypes.UUIDBatch
+	extra := 1000
+	for ids.Cap() < n {
+		<-m.sem
+		n += extra
+		extra = extra * 2
+		ids = sharedTypes.NewUUIDBatch(n)
+
+		m.sem <- struct{}{}
+		n = len(m.idle)
+		if n < threshold {
+			<-m.sem
+			return n
+		}
+	}
+	for id, ok := range m.idle {
+		if ok {
+			ids.Add(id)
+		}
+	}
+	pending := pendingOperation.TrackOperation(func() error {
+		return m.c.UnSubscribeBulk(ctx, ids)
+	})
+	for id, ok := range m.idle {
+		if ok {
+			m.idle[id] = false
+			m.rooms[id].pending = pending
+		}
+	}
+	<-m.sem
+	_ = pending.Wait(ctx)
+	return n
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
@@ -189,6 +236,7 @@ func (m *manager) StartListening(ctx context.Context) error {
 
 	allQueue := make(chan string)
 	go m.processAllMessages(allQueue)
+	t := time.NewTicker(10 * time.Millisecond)
 	go func() {
 		defer close(allQueue)
 		for msg := range c {
@@ -196,6 +244,19 @@ func (m *manager) StartListening(ctx context.Context) error {
 				allQueue <- msg.Msg
 			} else {
 				m.handleMessage(msg)
+			}
+		}
+		t.Stop()
+	}()
+	go func() {
+		const initialThreshold = 100
+		threshold := initialThreshold
+		for range t.C {
+			n := m.cleanupIdleRooms(ctx, threshold)
+			if n < threshold && n != 0 {
+				threshold -= n
+			} else {
+				threshold = initialThreshold
 			}
 		}
 	}()

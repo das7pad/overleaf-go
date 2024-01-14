@@ -17,6 +17,7 @@
 package editorEvents
 
 import (
+	"context"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -35,7 +36,7 @@ type RoomChange struct {
 type RoomChanges []RoomChange
 type FlushRoomChanges func(projectId sharedTypes.UUID, rc RoomChanges)
 
-func newRoom(projectId sharedTypes.UUID, fn FlushRoomChanges) *room {
+func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) *room {
 	c := make(chan roomQueueEntry, 20)
 	rc := make(chan RoomChanges, 1)
 	rc <- nil
@@ -43,31 +44,32 @@ func newRoom(projectId sharedTypes.UUID, fn FlushRoomChanges) *room {
 		c:           c,
 		roomChanges: rc,
 		roomChangesFlush: time.AfterFunc(24*time.Hour, func() {
-			c <- roomQueueEntry{action: flushRoomChanges}
+			c <- roomQueueEntry{action: actionFlushRoomChanges}
 		}),
 	}
 	r.clients.Store(noClients)
 	go func() {
 		for entry := range c {
 			switch entry.action {
-			case handleMessage:
+			case actionsHandleMessage:
 				r.Handle(entry.msg)
-			case leavingClient:
+			case actionLeavingClient:
 				entry.leavingClient.CloseWriteQueue()
-			case flushRoomChanges:
-				r.flushRoomChanges(projectId, fn)
+			case actionFlushRoomChanges:
+				r.flushRoomChanges(projectId, flushRoomChanges)
 			default:
 				r.handleGracefulReconnect(entry.action)
 			}
 		}
+		flushProject(context.Background(), projectId)
 	}()
 	return &r
 }
 
 const (
-	handleMessage    = 0
-	leavingClient    = 1
-	flushRoomChanges = 2
+	actionsHandleMessage   = 0
+	actionLeavingClient    = 1
+	actionFlushRoomChanges = 2
 )
 
 type roomQueueEntry struct {
@@ -109,11 +111,11 @@ func (r *room) Clients() Clients {
 }
 
 func (r *room) broadcast(msg string) {
-	r.c <- roomQueueEntry{action: handleMessage, msg: msg}
+	r.c <- roomQueueEntry{action: actionsHandleMessage, msg: msg}
 }
 
 func (r *room) queueLeavingClient(client *types.Client) {
-	r.c <- roomQueueEntry{action: leavingClient, leavingClient: client}
+	r.c <- roomQueueEntry{action: actionLeavingClient, leavingClient: client}
 }
 
 func (r *room) broadcastGracefulReconnect(suffix uint8) {
