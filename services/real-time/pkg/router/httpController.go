@@ -37,6 +37,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
+	"github.com/das7pad/overleaf-go/services/real-time/pkg/wsServer"
 )
 
 func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *httpUtils.Router {
@@ -67,7 +68,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 	}).addRoutes(r)
 }
 
-func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) http.HandlerFunc {
+func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) (func(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, claims *projectJWT.Claims, jwtError error), func([]byte) (*projectJWT.Claims, error)) {
 	h := httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
@@ -83,7 +84,7 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 		rateLimitBootstrap: make(chan struct{}, 42),
 		writeQueueDepth:    writeQueueDepth,
 	}
-	return h.ws
+	return h.wsWsServer, h.jwtProject.Parse
 }
 
 type httpController struct {
@@ -108,7 +109,7 @@ func (h *httpController) addRoutes(router *httpUtils.Router) {
 		MatcherFunc(func(r *http.Request, _ *mux.RouteMatch) bool {
 			return r.Method == http.MethodGet && r.URL.Path == "/socket.io"
 		}).
-		HandlerFunc(h.ws)
+		HandlerFunc(h.wsHTTP)
 }
 
 func (h *httpController) getProjectJWT(r *http.Request) (*projectJWT.Claims, error) {
@@ -130,7 +131,7 @@ func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 	_ = conn.Close()
 }
 
-func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
+func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 	setupTime := sharedTypes.Timed{}
 	setupTime.Begin()
 
@@ -151,7 +152,23 @@ func (h *httpController) ws(w http.ResponseWriter, r *http.Request) {
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
+	h.ws(conn, setupTime, claimsProjectJWT)
+}
 
+func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, claims *projectJWT.Claims, jwtError error) {
+	buf := brw.WriteBuffer
+	conn := websocket.NewConn(c, true, 2048, 2048, nil, brw.Reader, buf)
+	if jwtError != nil {
+		log.Println("jwt auth failed: " + jwtError.Error())
+		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+		return
+	}
+	setupTime := sharedTypes.Timed{}
+	setupTime.SetBegin(t0)
+	h.ws(conn, setupTime, claims)
+}
+
+func (h *httpController) ws(conn *websocket.Conn, setupTime sharedTypes.Timed, claimsProjectJWT *projectJWT.Claims) {
 	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
 
 	// The request context will get cancelled once the handler returns.
@@ -190,8 +207,8 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 			// Flush the queue.
 			// Eventually the room cleanup will close the channel.
 		}
-		if c, ok := conn.NetConn().(interface{ ReleaseBuffer() }); ok {
-			c.ReleaseBuffer()
+		if c, ok := conn.NetConn().(*wsServer.BufferedConn); ok {
+			c.ReleaseBuffers()
 		}
 	}()
 	waitForCtxDone := ctx.Done()
@@ -205,6 +222,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 				return
 			}
 			if entry.Msg != nil {
+				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 				if err := conn.WritePreparedMessage(entry.Msg); err != nil {
 					return
 				}
@@ -223,6 +241,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 				if err != nil {
 					return
 				}
+				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 				err = conn.WriteMessage(websocket.TextMessage, blob)
 				if err != nil {
 					return

@@ -77,3 +77,6 @@ require (
 
 // Cut down allocations
 replace github.com/gorilla/mux v1.8.1 => github.com/gorilla/mux v1.8.2-0.20231207045853-e44017df2b87
+
+// Expose NewConn and optimize allocations
+replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websocket v0.0.0-20240120192803-643aae3081c6
