@@ -24,26 +24,10 @@ import (
 )
 
 func Test_room_remove(t *testing.T) {
-	a, err := types.NewClient(make(chan types.WriteQueueEntry), func() {})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.PublicId = "a"
-	b, err := types.NewClient(make(chan types.WriteQueueEntry), func() {})
-	if err != nil {
-		t.Fatal(err)
-	}
-	b.PublicId = "b"
-	c, err := types.NewClient(make(chan types.WriteQueueEntry), func() {})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.PublicId = "c"
-	d, err := types.NewClient(make(chan types.WriteQueueEntry), func() {})
-	if err != nil {
-		t.Fatal(err)
-	}
-	d.PublicId = "d"
+	a := &types.Client{PublicId: "a"}
+	b := &types.Client{PublicId: "b"}
+	c := &types.Client{PublicId: "c"}
+	d := &types.Client{PublicId: "d"}
 	all := types.Clients{a, b, c, d}
 	var permutations []types.Clients
 	for _, c0 := range all {

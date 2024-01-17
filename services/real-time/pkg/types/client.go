@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -83,37 +84,54 @@ type WriteQueueEntry struct {
 
 type WriteQueue chan<- WriteQueueEntry
 
+type qRng chan [8]byte
+
+func (r qRng) run() {
+	buf := make([]byte, 2048)
+	for {
+		if _, err := rand.Read(buf); err != nil {
+			log.Printf("reading from rand.Read failed: %s", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		for i := 0; i < 2048; i = i + 8 {
+			r <- [8]byte(buf[i : i+8])
+		}
+	}
+}
+
+var rng = qRng(make(chan [8]byte, 256))
+
+func init() {
+	go rng.run()
+}
+
 // generatePublicId yields a secure unique id
 // It contains a timestamp in ns precision and 8 bytes of randomness in b64.
-func generatePublicId() (sharedTypes.PublicId, error) {
+func generatePublicId() sharedTypes.PublicId {
 	const (
 		// publicIdLength = base64.RawURLEncoding.EncodedLen(16)
 		publicIdLength = 22
 		publicIdOffset = publicIdLength - 16
 	)
-	buf := make([]byte, publicIdLength)
-	if _, err := rand.Read(buf[publicIdOffset+8:]); err != nil {
-		return "", err
-	}
-	binary.BigEndian.AppendUint64(
-		buf[publicIdOffset:publicIdOffset], uint64(time.Now().UnixNano()),
+	var buf [publicIdLength]byte
+	binary.BigEndian.PutUint64(
+		buf[publicIdOffset:publicIdOffset+8], uint64(time.Now().UnixNano()),
 	)
-	base64.RawURLEncoding.Encode(buf, buf[publicIdOffset:])
-	return sharedTypes.PublicId(buf[0:publicIdLength]), nil
+	rnd := <-rng
+	copy(buf[publicIdOffset+8:publicIdLength], rnd[:])
+	base64.RawURLEncoding.Encode(buf[:], buf[publicIdOffset:publicIdLength])
+	return sharedTypes.PublicId(buf[:])
 }
 
-func NewClient(writeQueue WriteQueue, disconnect func()) (*Client, error) {
-	publicId, err := generatePublicId()
-	if err != nil {
-		return nil, err
-	}
+func NewClient(writeQueue WriteQueue, disconnect func()) *Client {
 	c := Client{
-		PublicId:   publicId,
+		PublicId:   generatePublicId(),
 		writeQueue: writeQueue,
 		disconnect: disconnect,
 	}
 	c.MarkAsLeftDoc()
-	return &c, nil
+	return &c
 }
 
 type Clients []*Client

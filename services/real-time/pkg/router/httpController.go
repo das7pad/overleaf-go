@@ -169,25 +169,16 @@ func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.
 }
 
 func (h *httpController) ws(conn *websocket.Conn, setupTime sharedTypes.Timed, claimsProjectJWT *projectJWT.Claims) {
-	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
+	if h.rtm.IsShuttingDown() {
+		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
+		return
+	}
 
 	// The request context will get cancelled once the handler returns.
 	// Upgrading/hijacking has stopped the reader for detecting request abort.
 	ctx, disconnect := context.WithCancel(context.Background())
-
-	c, err := types.NewClient(writeQueue, disconnect)
-	if err != nil {
-		log.Println("client setup failed: " + err.Error())
-		disconnect()
-		sendAndForget(conn, events.ConnectionRejectedInternalErrorPrepared)
-		return
-	}
-
-	if h.rtm.IsShuttingDown() {
-		disconnect()
-		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
-		return
-	}
+	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
+	c := types.NewClient(writeQueue, disconnect)
 
 	go h.writeLoop(ctx, disconnect, conn, writeQueue)
 
