@@ -22,6 +22,8 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
+	"hash"
+	"sync"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -40,37 +42,48 @@ type JWTHandler[T JWT] interface {
 type NewClaims[T JWT] func() T
 
 func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandler[T] {
-	var method crypto.Hash
+	var newHash func() hash.Hash
 	switch options.Algorithm {
 	case "HS256":
-		method = crypto.SHA256
+		newHash = crypto.SHA256.New
 	case "HS384":
-		method = crypto.SHA384
+		newHash = crypto.SHA384.New
 	case "HS512":
-		method = crypto.SHA512
+		newHash = crypto.SHA512.New
 	}
 	headerBlob := []byte(base64.RawURLEncoding.EncodeToString([]byte(
 		`{"alg":"` + options.Algorithm + `","typ":"JWT"}`,
 	)))
+	key := []byte(options.Key)
 	return &handler[T]{
 		expiresIn:  options.ExpiresIn,
 		newClaims:  newClaims,
-		key:        []byte(options.Key),
-		method:     method,
 		headerBlob: headerBlob,
+		newHmac: func() hash.Hash {
+			return hmac.New(newHash, key)
+		},
 	}
 }
 
 type handler[T JWT] struct {
 	expiresIn  time.Duration
-	key        []byte
-	method     crypto.Hash
 	newClaims  NewClaims[T]
 	headerBlob []byte
+	hmacPool   sync.Pool
+	newHmac    func() hash.Hash
 }
 
 func (h *handler[T]) New() T {
 	return h.newClaims()
+}
+
+func (h *handler[T]) getHmac() hash.Hash {
+	if v := h.hmacPool.Get(); v != nil {
+		m := v.(hash.Hash)
+		m.Reset()
+		return m
+	}
+	return h.newHmac()
 }
 
 var (
@@ -97,7 +110,6 @@ func (h *handler[T]) Parse(blob []byte) (T, error) {
 		return tt, ErrTokenMalformed
 	}
 
-	m := hmac.New(h.method.New, h.key)
 	{
 		n, err := base64.RawURLEncoding.Decode(mac, mac)
 		if err != nil {
@@ -106,8 +118,11 @@ func (h *handler[T]) Parse(blob []byte) (T, error) {
 		}
 		mac = mac[:n]
 	}
+	m := h.getHmac()
 	m.Write(header[0 : len(header)+1+len(payload)])
-	if !hmac.Equal(mac, m.Sum(header[:0])) {
+	s := m.Sum(header[:0])
+	h.hmacPool.Put(m)
+	if !hmac.Equal(mac, s) {
 		var tt T
 		return tt, ErrSignatureInvalid
 	}
@@ -147,11 +162,13 @@ func (h *handler[T]) SetExpiryAndSign(claims T) (string, error) {
 		return "", err
 	}
 
-	m := hmac.New(h.method.New, h.key)
+	m := h.getHmac()
 	m.Write(buf.Bytes())
+	s := m.Sum(nil)
+	h.hmacPool.Put(m)
 
 	buf.AppendEncoded(dotSeparator)
-	if _, err := buf.Write(m.Sum(nil)); err != nil {
+	if _, err := buf.Write(s); err != nil {
 		return "", err
 	}
 
