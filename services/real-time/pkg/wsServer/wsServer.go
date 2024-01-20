@@ -132,7 +132,18 @@ func (s *WSServer[T]) decrementN() {
 
 type BufferedConn struct {
 	net.Conn
-	brw *RWBuffer
+	brw    *RWBuffer
+	closed atomic.Bool
+}
+
+var errConnAlreadyClosed = errors.New("wsServer: connection already closed")
+
+func (c *BufferedConn) Close() error {
+	if c.closed.CompareAndSwap(false, true) {
+		return c.Conn.Close()
+	} else {
+		return errConnAlreadyClosed
+	}
 }
 
 func (c *BufferedConn) ReleaseBuffers() {
