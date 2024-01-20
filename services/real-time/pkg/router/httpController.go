@@ -33,7 +33,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
-	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -132,8 +131,7 @@ func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 }
 
 func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
-	setupTime := sharedTypes.Timed{}
-	setupTime.Begin()
+	t0 := time.Now()
 
 	conn, err := h.u.Upgrade(w, r, nil)
 	if err != nil {
@@ -152,7 +150,7 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	h.ws(conn, setupTime, claimsProjectJWT)
+	h.ws(conn, t0, claimsProjectJWT)
 }
 
 func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, claims *projectJWT.Claims, jwtError error) {
@@ -163,12 +161,10 @@ func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	setupTime := sharedTypes.Timed{}
-	setupTime.SetBegin(t0)
-	h.ws(conn, setupTime, claims)
+	h.ws(conn, t0, claims)
 }
 
-func (h *httpController) ws(conn *websocket.Conn, setupTime sharedTypes.Timed, claimsProjectJWT *projectJWT.Claims) {
+func (h *httpController) ws(conn *websocket.Conn, t0 time.Time, claimsProjectJWT *projectJWT.Claims) {
 	if h.rtm.IsShuttingDown() {
 		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
@@ -182,7 +178,7 @@ func (h *httpController) ws(conn *websocket.Conn, setupTime sharedTypes.Timed, c
 
 	go h.writeLoop(ctx, disconnect, conn, writeQueue)
 
-	if !h.bootstrap(setupTime, c, claimsProjectJWT) {
+	if !h.bootstrap(t0, c, claimsProjectJWT) {
 		h.rtm.Disconnect(c)
 		return
 	}
@@ -246,11 +242,12 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 	}
 }
 
-func (h *httpController) bootstrap(setupTime sharedTypes.Timed, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
+	ctx, done := context.WithDeadline(context.Background(), t0.Add(10*time.Second))
 	defer done()
 
-	resp := types.RPCResponse{Name: "bootstrap", Latency: setupTime}
+	resp := types.RPCResponse{Name: "bootstrap"}
+	resp.Latency.SetBegin(t0)
 
 	h.rateLimitBootstrap <- struct{}{}
 	err := h.rtm.BootstrapWS(ctx, &resp, c, *claimsProjectJWT)
@@ -295,13 +292,14 @@ func (h *httpController) readLoop(ctx context.Context, disconnect context.Cancel
 		response := types.RPCResponse{
 			Callback: request.Callback,
 		}
-		tCtx, finishedRPC := context.WithTimeout(ctx, time.Second*10)
+		t0 := time.Now()
+		tCtx, finishedRPC := context.WithDeadline(ctx, t0.Add(time.Second*10))
 		rpc := types.RPC{
 			Client:   c,
 			Request:  &request,
 			Response: &response,
 		}
-		response.Latency.Begin()
+		response.Latency.SetBegin(t0)
 		h.rtm.RPC(tCtx, &rpc)
 		finishedRPC()
 		rpc.Response.Latency.End()
