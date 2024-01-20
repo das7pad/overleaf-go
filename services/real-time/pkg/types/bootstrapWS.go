@@ -38,8 +38,12 @@ func (b *BootstrapWSResponse) MarshalJSON() ([]byte, error) {
 	o = append(o, b.Project...)
 	o = append(o, `,"privilegeLevel":"`...)
 	o = append(o, b.PrivilegeLevel...)
-	o = append(o, `","connectedClients":`...)
-	o = append(o, b.ConnectedClients...)
+	if b.ConnectedClients == nil {
+		o = append(o, '"')
+	} else {
+		o = append(o, `","connectedClients":`...)
+		o = append(o, b.ConnectedClients...)
+	}
 	o = append(o, `,"publicId":"`...)
 	o = append(o, b.PublicId...)
 	o = append(o, `"}`...)
