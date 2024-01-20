@@ -43,27 +43,31 @@ func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flus
 	r := room{
 		c:           c,
 		roomChanges: rc,
-		roomChangesFlush: time.AfterFunc(24*time.Hour, func() {
-			c <- roomQueueEntry{action: actionFlushRoomChanges}
-		}),
 	}
 	r.clients.Store(noClients)
-	go func() {
-		for entry := range c {
-			switch entry.action {
-			case actionsHandleMessage:
-				r.Handle(entry.msg)
-			case actionLeavingClient:
-				entry.leavingClient.CloseWriteQueue()
-			case actionFlushRoomChanges:
-				r.flushRoomChanges(projectId, flushRoomChanges)
-			default:
-				r.handleGracefulReconnect(entry.action)
-			}
-		}
-		flushProject(context.Background(), projectId)
-	}()
+	r.roomChangesFlush = time.AfterFunc(24*time.Hour, r.queueFlushRoomChanges)
+	go r.process(c, projectId, flushRoomChanges, flushProject)
 	return &r
+}
+
+func (r *room) queueFlushRoomChanges() {
+	r.c <- roomQueueEntry{action: actionFlushRoomChanges}
+}
+
+func (r *room) process(c chan roomQueueEntry, projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) {
+	for entry := range c {
+		switch entry.action {
+		case actionsHandleMessage:
+			r.Handle(entry.msg)
+		case actionLeavingClient:
+			entry.leavingClient.CloseWriteQueue()
+		case actionFlushRoomChanges:
+			r.flushRoomChanges(projectId, flushRoomChanges)
+		default:
+			r.handleGracefulReconnect(entry.action)
+		}
+	}
+	flushProject(context.Background(), projectId)
 }
 
 const (

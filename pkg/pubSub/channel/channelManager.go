@@ -224,41 +224,42 @@ func (m *manager) Listen(ctx context.Context) (<-chan PubSubMessage, error) {
 		return nil, err
 	}
 
-	rawC := make(chan PubSubMessage, 100)
-	m.c = rawC
-	go func() {
-		defer close(rawC)
-		nFailed := 0
-		for {
-			raw, err := m.p.Receive(ctx)
-			if err != nil {
-				if err == redis.ErrClosed {
-					return
-				}
-				nFailed++
-				log.Printf(
-					"pubsub receive: nFailed=%d, %q", nFailed, err.Error(),
-				)
-				time.Sleep(time.Duration(math.Min(
-					float64(5*time.Second),
-					math.Pow(2, float64(nFailed))*float64(time.Millisecond),
-				)))
+	m.c = make(chan PubSubMessage, 100)
+	go m.listen(ctx)
+	return m.c, nil
+}
+
+func (m *manager) listen(ctx context.Context) {
+	defer close(m.c)
+	nFailed := 0
+	for {
+		raw, err := m.p.Receive(ctx)
+		if err != nil {
+			if err == redis.ErrClosed {
+				return
+			}
+			nFailed++
+			log.Printf(
+				"pubsub receive: nFailed=%d, %q", nFailed, err.Error(),
+			)
+			time.Sleep(time.Duration(math.Min(
+				float64(5*time.Second),
+				math.Pow(2, float64(nFailed))*float64(time.Millisecond),
+			)))
+			continue
+		}
+		nFailed = 0
+		if msg, ok := raw.(*redis.Message); ok {
+			id, errId := m.base.parseIdFromChannel(msg.Channel)
+			if errId != nil {
 				continue
 			}
-			nFailed = 0
-			if msg, ok := raw.(*redis.Message); ok {
-				id, errId := m.base.parseIdFromChannel(msg.Channel)
-				if errId != nil {
-					continue
-				}
-				rawC <- PubSubMessage{
-					Msg:     msg.Payload,
-					Channel: id,
-				}
+			m.c <- PubSubMessage{
+				Msg:     msg.Payload,
+				Channel: id,
 			}
 		}
-	}()
-	return rawC, nil
+	}
 }
 
 func (m *manager) Close() {

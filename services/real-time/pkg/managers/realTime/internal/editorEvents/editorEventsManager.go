@@ -237,30 +237,34 @@ func (m *manager) StartListening(ctx context.Context) error {
 	allQueue := make(chan string)
 	go m.processAllMessages(allQueue)
 	t := time.NewTicker(10 * time.Millisecond)
-	go func() {
-		defer close(allQueue)
-		for msg := range c {
-			if msg.Channel.IsZero() {
-				allQueue <- msg.Msg
-			} else {
-				m.handleMessage(msg)
-			}
-		}
-		t.Stop()
-	}()
-	go func() {
-		const initialThreshold = 100
-		threshold := initialThreshold
-		for range t.C {
-			n := m.cleanupIdleRooms(ctx, threshold)
-			if n < threshold && n != 0 {
-				threshold -= n
-			} else {
-				threshold = initialThreshold
-			}
-		}
-	}()
+	go m.listen(c, allQueue, t)
+	go m.periodicallyCleanupIdleRooms(ctx, t)
 	return nil
+}
+
+func (m *manager) listen(c <-chan channel.PubSubMessage, allQueue chan string, t *time.Ticker) {
+	defer close(allQueue)
+	for msg := range c {
+		if msg.Channel.IsZero() {
+			allQueue <- msg.Msg
+		} else {
+			m.handleMessage(msg)
+		}
+	}
+	t.Stop()
+}
+
+func (m *manager) periodicallyCleanupIdleRooms(ctx context.Context, t *time.Ticker) {
+	const initialThreshold = 100
+	threshold := initialThreshold
+	for range t.C {
+		n := m.cleanupIdleRooms(ctx, threshold)
+		if n < threshold && n != 0 {
+			threshold -= n
+		} else {
+			threshold = initialThreshold
+		}
+	}
 }
 
 func (m *manager) BroadcastGracefulReconnect(suffix uint8) int {
