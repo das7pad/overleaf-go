@@ -18,6 +18,7 @@ package types
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -32,8 +33,17 @@ type BootstrapWSResponse struct {
 	PublicId         sharedTypes.PublicId `json:"publicId"`
 }
 
-func (b *BootstrapWSResponse) MarshalJSON() ([]byte, error) {
-	o := make([]byte, 0, len(`{"project":,"privilegeLevel":"","connectedClients":,"publicId":""}`)+len(b.Project)+len(b.PrivilegeLevel)+len(b.ConnectedClients)+len(b.PublicId))
+var bootstrapWSResponseBuf sync.Pool
+
+func (b *BootstrapWSResponse) WriteInto(resp *RPCResponse) {
+	n := len(`{"project":,"privilegeLevel":"","connectedClients":,"publicId":""}`) + len(b.Project) + len(b.PrivilegeLevel) + len(b.ConnectedClients) + len(b.PublicId)
+	o := resp.Body
+	if v := bootstrapWSResponseBuf.Get(); v != nil {
+		o = v.(json.RawMessage)[:0]
+	}
+	if cap(o) < n {
+		o = make(json.RawMessage, 0, n)
+	}
 	o = append(o, `{"project":`...)
 	o = append(o, b.Project...)
 	o = append(o, `,"privilegeLevel":"`...)
@@ -47,7 +57,8 @@ func (b *BootstrapWSResponse) MarshalJSON() ([]byte, error) {
 	o = append(o, `,"publicId":"`...)
 	o = append(o, b.PublicId...)
 	o = append(o, `"}`...)
-	return o, nil
+	resp.Body = o
+	resp.ReleaseBuffer = func() { bootstrapWSResponseBuf.Put(o) }
 }
 
 type ProjectDetails struct {

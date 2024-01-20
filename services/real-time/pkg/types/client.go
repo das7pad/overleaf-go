@@ -67,6 +67,7 @@ func PrepareBulkMessage(response *RPCResponse) (WriteQueueEntry, error) {
 		return WriteQueueEntry{}, err
 	}
 	pm, err := websocket.NewPreparedMessage(websocket.TextMessage, blob)
+	response.ReleaseBuffer()
 	if err != nil {
 		return WriteQueueEntry{}, err
 	}

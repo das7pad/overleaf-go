@@ -234,6 +234,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 				}
 				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 				err = conn.WriteMessage(websocket.TextMessage, blob)
+				entry.RPCResponse.ReleaseBuffer()
 				if err != nil {
 					return
 				}
@@ -249,8 +250,10 @@ func (h *httpController) bootstrap(setupTime sharedTypes.Timed, c *types.Client,
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 
+	resp := types.RPCResponse{Name: "bootstrap", Latency: setupTime}
+
 	h.rateLimitBootstrap <- struct{}{}
-	blob, err := h.rtm.BootstrapWS(ctx, c, *claimsProjectJWT)
+	err := h.rtm.BootstrapWS(ctx, &resp, c, *claimsProjectJWT)
 	<-h.rateLimitBootstrap
 
 	if err != nil {
@@ -267,12 +270,8 @@ func (h *httpController) bootstrap(setupTime sharedTypes.Timed, c *types.Client,
 		}
 		return false
 	}
-	setupTime.End()
-	return c.EnsureQueueResponse(&types.RPCResponse{
-		Body:    blob,
-		Name:    "bootstrap",
-		Latency: setupTime,
-	})
+	resp.Latency.End()
+	return c.EnsureQueueResponse(&resp)
 }
 
 func (h *httpController) readLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, c *types.Client) {

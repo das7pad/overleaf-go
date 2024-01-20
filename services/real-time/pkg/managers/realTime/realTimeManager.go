@@ -46,7 +46,7 @@ type Manager interface {
 	DisconnectAll()
 	IsShuttingDown() bool
 	PeriodicCleanup(ctx context.Context)
-	BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error)
+	BootstrapWS(ctx context.Context, resp *types.RPCResponse, client *types.Client, claims projectJWT.Claims) error
 	RPC(ctx context.Context, rpc *types.RPC)
 	Disconnect(client *types.Client)
 }
@@ -193,7 +193,7 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 
 var emptyConnectedClients = json.RawMessage("[]")
 
-func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims projectJWT.Claims) ([]byte, error) {
+func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, client *types.Client, claims projectJWT.Claims) error {
 	res := types.BootstrapWSResponse{
 		PrivilegeLevel: claims.PrivilegeLevel,
 		PublicId:       client.PublicId,
@@ -211,7 +211,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 			&u,
 		)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		res.Project = cached
 	} else {
@@ -222,7 +222,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 			claims.AccessSource, &p.ForBootstrapWS, &u,
 		)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		p.Id = claims.ProjectId
 		t := claims.Timeout / sharedTypes.ComputeTimeout(time.Second)
@@ -234,7 +234,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 		}
 		p.RootFolder = []*project.Folder{p.GetRootFolder()}
 		if cached, err = json.Marshal(p); err != nil {
-			return nil, err
+			return err
 		}
 		m.projectCache.Add(cacheKey, cached)
 		res.Project = cached
@@ -246,7 +246,7 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	client.ResolveCapabilities(claims.PrivilegeLevel, claims.IsRestrictedUser())
 
 	if err := m.editorEvents.Join(ctx, client); err != nil {
-		return nil, errors.Tag(err, "subscribe")
+		return errors.Tag(err, "subscribe")
 	}
 
 	getConnectedUsers := client.HasCapability(types.CanSeeOtherClients)
@@ -256,11 +256,8 @@ func (m *manager) BootstrapWS(ctx context.Context, client *types.Client, claims 
 	}
 	res.ConnectedClients = connectedClients
 
-	body, err := res.MarshalJSON()
-	if err != nil {
-		return nil, errors.Tag(err, "serialize response")
-	}
-	return body, nil
+	res.WriteInto(resp)
+	return nil
 }
 
 func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {

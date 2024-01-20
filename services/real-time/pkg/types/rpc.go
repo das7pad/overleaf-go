@@ -19,6 +19,7 @@ package types
 import (
 	"encoding/json"
 	"strconv"
+	"sync"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -57,11 +58,21 @@ type RPCResponse struct {
 	ProcessedBy          string                  `json:"p,omitempty"`
 	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
 
-	FatalError bool `json:"-"`
+	FatalError    bool `json:"-"`
+	ReleaseBuffer func()
 }
 
+var rpcResponseBufPool sync.Pool
+
 func (r *RPCResponse) MarshalJSON() ([]byte, error) {
-	o := make([]byte, 0, 100+len(r.Body))
+	n := 100 + len(r.Body)
+	var o []byte
+	if v := rpcResponseBufPool.Get(); v != nil {
+		o = v.([]byte)[:0]
+	}
+	if cap(o) < n {
+		o = make([]byte, 0, n)
+	}
 	o = append(o, '{')
 	c := false
 	comma := func() {
@@ -75,6 +86,10 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, r.Body...)
 		c = true
 	}
+	if r.ReleaseBuffer != nil {
+		r.ReleaseBuffer()
+	}
+	r.ReleaseBuffer = func() { rpcResponseBufPool.Put(o) }
 	if r.Callback != 0 {
 		comma()
 		o = append(o, `"c":`...)
@@ -85,6 +100,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"e":`...)
 		blob, err := json.Marshal(r.Error)
 		if err != nil {
+			r.ReleaseBuffer()
 			return nil, err
 		}
 		o = append(o, blob...)
@@ -112,6 +128,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"s":`...)
 		blob, err := json.Marshal(r.LazySuccessResponses)
 		if err != nil {
+			r.ReleaseBuffer()
 			return nil, err
 		}
 		o = append(o, blob...)
