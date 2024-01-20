@@ -24,6 +24,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -152,11 +153,15 @@ func jwtFactory(ctx context.Context) func() string {
 	}
 }
 
-const url = "ws://127.0.0.1:3026/socket.io"
+var uri = &url.URL{
+	Scheme: "ws",
+	Host:   "127.0.0.1:3026",
+	Path:   "/socket.io",
+}
 
 func connectedClient(bootstrap string) *realTime.Client {
 	c := realTime.Client{}
-	_, err := c.Connect(context.Background(), url, bootstrap, connectFn)
+	_, err := c.Connect(context.Background(), uri, bootstrap, connectFn)
 	if err != nil {
 		fatalIf(err)
 	}
