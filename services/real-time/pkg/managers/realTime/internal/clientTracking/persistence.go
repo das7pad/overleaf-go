@@ -18,19 +18,26 @@ package clientTracking
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 
+	"github.com/das7pad/overleaf-go/pkg/base64Ordered"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
+
+func encodeAge(t time.Time) string {
+	buf := [8]byte{}
+	binary.BigEndian.PutUint64(buf[:], uint64(t.UnixNano()))
+	return base64Ordered.EncodeToString(buf[:])
+}
 
 func getProjectKey(projectId sharedTypes.UUID) string {
 	b := make([]byte, 0, 16+36+1)
@@ -54,7 +61,7 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 		string(client.PublicId),
 		userBlob,
 		string(client.PublicId) + ":age",
-		strconv.FormatInt(time.Now().Unix(), 36),
+		encodeAge(time.Now()),
 	}
 	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		p.HSet(ctx, projectKey, details...)
@@ -96,11 +103,11 @@ func (m *manager) parseConnectedClients(projectId sharedTypes.UUID, entries map[
 		go m.cleanupStaleClientsInBackground(projectId, staleClients)
 	}()
 
-	tStale := time.Now().Add(-UserExpiry).Unix()
+	tStale := encodeAge(time.Now().Add(-UserExpiry))
 	for k, v := range entries {
 		if clientId, _, isAge := strings.Cut(k, ":age"); isAge {
 			delete(entries, k)
-			if t, _ := strconv.ParseInt(v, 36, 64); t < tStale {
+			if v < tStale {
 				staleClients = append(
 					staleClients, sharedTypes.PublicId(clientId),
 				)
@@ -128,7 +135,7 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTy
 	merged := errors.MergedError{}
 	for len(rooms) > 0 {
 		_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-			now := strconv.FormatInt(time.Now().Unix(), 36)
+			now := encodeAge(time.Now())
 			n := 0
 			for projectId, clients := range rooms {
 				fields := make([]interface{}, 2*len(clients.All))

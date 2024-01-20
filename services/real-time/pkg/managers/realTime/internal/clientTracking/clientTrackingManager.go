@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strconv"
 	"sync"
 	"time"
 
@@ -66,7 +65,6 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs editorEvents.
 			removed++
 		}
 	}
-	now := strconv.FormatInt(time.Now().Unix(), 36)
 	hSet := make([]interface{}, added*4)
 	hDel := make([]string, removed*2)
 	added = 0
@@ -86,7 +84,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs editorEvents.
 			hSet[added] = string(rc.PublicId)
 			hSet[added+1] = userBlob
 			hSet[added+2] = string(rc.PublicId) + ":age"
-			hSet[added+3] = now
+			hSet[added+3] = string(rc.PublicId)[:types.PublicIdTsPrefixLength]
 			added += 4
 		} else {
 			hDel[removed] = string(rc.PublicId)
@@ -142,7 +140,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs editorEvents.
 }
 
 const (
-	ProjectExpiry    = 4 * 24 * time.Hour
+	ProjectExpiry    = time.Hour
 	UserExpiry       = 15 * time.Minute
 	RefreshUserEvery = UserExpiry - 1*time.Minute
 )
