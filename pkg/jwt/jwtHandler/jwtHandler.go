@@ -36,6 +36,7 @@ type JWT = expiringJWT.ExpiringJWT
 type JWTHandler[T JWT] interface {
 	New() T
 	Parse(blob []byte) (T, error)
+	ParseInto(t T, blob []byte) error
 	SetExpiryAndSign(claims T) (string, error)
 }
 
@@ -98,6 +99,39 @@ var (
 )
 
 func (h *handler[T]) Parse(blob []byte) (T, error) {
+	payload, err := h.parsePayload(blob)
+	if err != nil {
+		var tt T
+		return tt, err
+	}
+	t := h.newClaims()
+	if err = json.Unmarshal(payload, t); err != nil {
+		var tt T
+		return tt, ErrTokenMalformed
+	}
+	if err = t.Validate(); err != nil {
+		var tt T
+		return tt, err
+	}
+	return t, nil
+
+}
+
+func (h *handler[T]) ParseInto(t T, blob []byte) error {
+	payload, err := h.parsePayload(blob)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(payload, t); err != nil {
+		return ErrTokenMalformed
+	}
+	if err = t.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *handler[T]) parsePayload(blob []byte) ([]byte, error) {
 	header, blob, hasHeader := bytes.Cut(blob, dotSeparator)
 	payload, mac, hasPayload := bytes.Cut(blob, dotSeparator)
 	if !hasHeader ||
@@ -106,15 +140,13 @@ func (h *handler[T]) Parse(blob []byte) (T, error) {
 		len(payload) == 0 ||
 		len(mac) == 0 ||
 		!bytes.Equal(header, h.headerBlob) {
-		var tt T
-		return tt, ErrTokenMalformed
+		return nil, ErrTokenMalformed
 	}
 
 	{
 		n, err := base64.RawURLEncoding.Decode(mac, mac)
 		if err != nil {
-			var tt T
-			return tt, ErrTokenMalformed
+			return nil, ErrTokenMalformed
 		}
 		mac = mac[:n]
 	}
@@ -123,29 +155,17 @@ func (h *handler[T]) Parse(blob []byte) (T, error) {
 	s := m.Sum(header[:0])
 	h.hmacPool.Put(m)
 	if !hmac.Equal(mac, s) {
-		var tt T
-		return tt, ErrSignatureInvalid
+		return nil, ErrSignatureInvalid
 	}
 
 	{
 		n, err := base64.RawURLEncoding.Decode(payload, payload)
 		if err != nil {
-			var tt T
-			return tt, ErrTokenMalformed
+			return nil, ErrTokenMalformed
 		}
 		payload = payload[:n]
 	}
-	t := h.newClaims()
-	if err := json.Unmarshal(payload, t); err != nil {
-		var tt T
-		return tt, ErrTokenMalformed
-	}
-
-	if err := t.Validate(); err != nil {
-		var tt T
-		return tt, err
-	}
-	return t, nil
+	return payload, nil
 }
 
 func (h *handler[T]) SetExpiryAndSign(claims T) (string, error) {

@@ -33,33 +33,31 @@ import (
 	"time"
 )
 
-type Handler[T any] func(c net.Conn, brw *RWBuffer, t0 time.Time, claims T, jwtErr error)
+type Handler func(c net.Conn, brw *RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error
 type ClaimParser[T any] func([]byte) (T, error)
 
-func New[T any](handler Handler[T], parseClaims ClaimParser[T]) *WSServer[T] {
-	srv := WSServer[T]{
-		h:           handler,
-		parseClaims: parseClaims,
+func New(handler Handler) *WSServer {
+	srv := WSServer{
+		h: handler,
 	}
 	srv.ok.Store(true)
 	return &srv
 }
 
-type WSServer[T any] struct {
-	state       atomic.Uint32
-	n           atomic.Uint32
-	ok          atomic.Bool
-	l           []net.Listener
-	mu          sync.Mutex
-	h           Handler[T]
-	parseClaims ClaimParser[T]
+type WSServer struct {
+	state atomic.Uint32
+	n     atomic.Uint32
+	ok    atomic.Bool
+	l     []net.Listener
+	mu    sync.Mutex
+	h     Handler
 }
 
-func (s *WSServer[T]) SetStatus(ok bool) {
+func (s *WSServer) SetStatus(ok bool) {
 	s.ok.Store(ok)
 }
 
-func (s *WSServer[T]) Shutdown(ctx context.Context) error {
+func (s *WSServer) Shutdown(ctx context.Context) error {
 	s.ok.Store(false)
 	s.mu.Lock()
 	if s.state.CompareAndSwap(stateRunning, stateClosing) {
@@ -85,7 +83,7 @@ const (
 	stateClosed
 )
 
-func (s *WSServer[T]) Serve(l net.Listener) error {
+func (s *WSServer) Serve(l net.Listener) error {
 	s.mu.Lock()
 	if !(s.state.Load() == stateRunning ||
 		s.state.CompareAndSwap(stateDead, stateRunning)) {
@@ -121,12 +119,12 @@ func (s *WSServer[T]) Serve(l net.Listener) error {
 		}
 		s.n.Add(1)
 		errDelay = 0
-		wc := wsConn[T]{BufferedConn: &BufferedConn{Conn: c}}
-		go wc.serve(s.h, s.parseClaims, s.decrementN, s.ok.Load)
+		wc := wsConn{BufferedConn: &BufferedConn{Conn: c}}
+		go wc.serve(s.h, s.decrementN, s.ok.Load)
 	}
 }
 
-func (s *WSServer[T]) decrementN() {
+func (s *WSServer) decrementN() {
 	s.n.Add(^uint32(0))
 }
 
@@ -153,13 +151,13 @@ func (c *BufferedConn) ReleaseBuffers() {
 	}
 }
 
-type wsConn[T any] struct {
+type wsConn struct {
 	*BufferedConn
 	reads    uint8
 	hijacked bool
 }
 
-func (c *wsConn[T]) writeTimeout(p []byte, d time.Duration) (int, error) {
+func (c *wsConn) writeTimeout(p []byte, d time.Duration) (int, error) {
 	if err := c.SetWriteDeadline(time.Now().Add(d)); err != nil {
 		_ = c.Close()
 		return 0, err
@@ -204,7 +202,7 @@ var (
 	errTooManyReads = errors.New("too many reads")
 )
 
-func (c *wsConn[T]) serve(h Handler[T], parseClaims ClaimParser[T], deref func(), ok func() bool) {
+func (c *wsConn) serve(h Handler, deref func(), isOK func() bool) {
 	defer deref()
 	defer func() {
 		if !c.hijacked {
@@ -219,7 +217,7 @@ func (c *wsConn[T]) serve(h Handler[T], parseClaims ClaimParser[T], deref func()
 		return
 	}
 	for {
-		err := c.nextRequest(now, h, parseClaims, ok)
+		err := c.nextRequest(h, now, isOK)
 		if err != nil {
 			if e, ok := err.(httpStatusError); ok {
 				_, _ = c.writeTimeout(e.Response(), 5*time.Second)
@@ -236,7 +234,7 @@ func (c *wsConn[T]) serve(h Handler[T], parseClaims ClaimParser[T], deref func()
 	}
 }
 
-func (c *wsConn[T]) Read(p []byte) (int, error) {
+func (c *wsConn) Read(p []byte) (int, error) {
 	if c.reads >= 2 {
 		return 0, errTooManyReads
 	}
@@ -244,7 +242,7 @@ func (c *wsConn[T]) Read(p []byte) (int, error) {
 	return c.Conn.Read(p)
 }
 
-func (c *wsConn[T]) nextRequest(now time.Time, fn Handler[T], claimParser ClaimParser[T], ok func() bool) error {
+func (c *wsConn) nextRequest(fn Handler, now time.Time, isOK func() bool) error {
 	l, err := c.brw.ReadSlice('\n')
 	if err != nil {
 		if err == errTooManyReads || err == bufio.ErrBufferFull {
@@ -258,16 +256,16 @@ func (c *wsConn[T]) nextRequest(now time.Time, fn Handler[T], claimParser ClaimP
 		}
 		return httpStatusError(http.StatusBadRequest)
 	}
-	if bytes.Equal(l, requestLineStatus) {
-		return c.handleStatusRequest(ok)
-	}
 	if bytes.Equal(l, requestLineWS) {
-		return c.handleWsRequest(now, fn, claimParser)
+		return c.handleWsRequest(fn, now)
+	}
+	if bytes.Equal(l, requestLineStatus) {
+		return c.handleStatusRequest(isOK)
 	}
 	return httpStatusError(http.StatusBadRequest)
 }
 
-func (c *wsConn[T]) handleStatusRequest(ok func() bool) error {
+func (c *wsConn) handleStatusRequest(isOK func() bool) error {
 	for {
 		l, err := c.brw.ReadSlice('\n')
 		if err != nil {
@@ -285,7 +283,7 @@ func (c *wsConn[T]) handleStatusRequest(ok func() bool) error {
 	}
 
 	var err error
-	if ok() {
+	if isOK() {
 		_, err = c.writeTimeout(response200, 10*time.Second)
 	} else {
 		_, err = c.writeTimeout(response503, 10*time.Second)
@@ -309,10 +307,12 @@ var (
 	responseWS              = []byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: v8.real-time.overleaf.com\r\nSec-WebSocket-Accept: ")
 )
 
-func (c *wsConn[T]) handleWsRequest(t0 time.Time, fn Handler[T], claimParser ClaimParser[T]) error {
+func (c *wsConn) handleWsRequest(fn Handler, t0 time.Time) error {
+	return fn(c.BufferedConn, c.brw, t0, c.parseWsRequest)
+}
+
+func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 	checks := [6]bool{}
-	var jwt T
-	var jwtErr error
 	buf := c.brw.WriteBuffer[:0]
 	for {
 		l, err := c.brw.ReadSlice('\n')
@@ -362,9 +362,7 @@ func (c *wsConn[T]) handleWsRequest(t0 time.Time, fn Handler[T], claimParser Cla
 				}
 				if b, _, ok2 := bytes.Cut(next, headerValueWSProtocolBS); ok2 {
 					checks[4] = true
-					if jwt, jwtErr = claimParser(b); jwtErr != nil {
-						continue
-					}
+					parseJWT(b)
 				}
 			}
 		case !checks[5] && len(value) == 24 && bytes.EqualFold(name, headerKeyWSKey):
@@ -385,13 +383,11 @@ func (c *wsConn[T]) handleWsRequest(t0 time.Time, fn Handler[T], claimParser Cla
 		}
 	}
 	buf = append(buf, '\r', '\n', '\r', '\n')
+	c.hijacked = true
 	if _, err := c.Write(buf); err != nil {
 		return err
 	}
-
-	c.hijacked = true
 	c.brw.Reader.Reset(c.Conn)
-	fn(c.BufferedConn, c.brw, t0, jwt, jwtErr)
 	return nil
 }
 

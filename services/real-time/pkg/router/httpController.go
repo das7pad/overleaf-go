@@ -67,7 +67,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 	}).addRoutes(r)
 }
 
-func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) (func(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, claims *projectJWT.Claims, jwtError error), func([]byte) (*projectJWT.Claims, error)) {
+func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) wsServer.Handler {
 	h := httpController{
 		rtm: rtm,
 		u: websocket.Upgrader{
@@ -83,7 +83,7 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 		rateLimitBootstrap: make(chan struct{}, 42),
 		writeQueueDepth:    writeQueueDepth,
 	}
-	return h.wsWsServer, h.jwtProject.Parse
+	return h.wsWsServer
 }
 
 type httpController struct {
@@ -150,21 +150,30 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	h.ws(conn, t0, claimsProjectJWT)
+	h.ws(conn, t0, *claimsProjectJWT)
 }
 
-func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, claims *projectJWT.Claims, jwtError error) {
+func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error {
+	claims := projectJWT.Claims{}
+	var jwtError error
+	err := parseRequest(func(blob []byte) {
+		jwtError = h.jwtProject.ParseInto(&claims, blob)
+	})
+	if err != nil {
+		return err
+	}
 	buf := brw.WriteBuffer
 	conn := websocket.NewConn(c, true, 2048, 2048, nil, brw.Reader, buf)
 	if jwtError != nil {
 		log.Println("jwt auth failed: " + jwtError.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
-		return
+		return nil
 	}
 	h.ws(conn, t0, claims)
+	return nil
 }
 
-func (h *httpController) ws(conn *websocket.Conn, t0 time.Time, claimsProjectJWT *projectJWT.Claims) {
+func (h *httpController) ws(conn *websocket.Conn, t0 time.Time, claimsProjectJWT projectJWT.Claims) {
 	if h.rtm.IsShuttingDown() {
 		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
@@ -242,7 +251,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 	}
 }
 
-func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT *projectJWT.Claims) bool {
+func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT projectJWT.Claims) bool {
 	ctx, done := context.WithDeadline(context.Background(), t0.Add(10*time.Second))
 	defer done()
 
@@ -250,7 +259,7 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 	resp.Latency.SetBegin(t0)
 
 	h.rateLimitBootstrap <- struct{}{}
-	err := h.rtm.BootstrapWS(ctx, &resp, c, *claimsProjectJWT)
+	err := h.rtm.BootstrapWS(ctx, &resp, c, claimsProjectJWT)
 	<-h.rateLimitBootstrap
 
 	if err != nil {
