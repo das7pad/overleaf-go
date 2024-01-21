@@ -239,7 +239,7 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 				}
 				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 				err = conn.WriteMessage(websocket.TextMessage, blob)
-				entry.RPCResponse.ReleaseBuffer()
+				entry.RPCResponse.ReleaseBuffer(blob)
 				if err != nil {
 					return
 				}

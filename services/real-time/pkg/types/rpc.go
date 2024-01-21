@@ -58,21 +58,28 @@ type RPCResponse struct {
 	ProcessedBy          string                  `json:"p,omitempty"`
 	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
 
-	FatalError    bool `json:"-"`
-	ReleaseBuffer func()
+	FatalError  bool `json:"-"`
+	releaseBody bool
 }
 
-var rpcResponseBufPool sync.Pool
+func (r *RPCResponse) ReleaseBuffer(o []byte) {
+	RPCResponseBufPool.Put(o)
+}
+
+var RPCResponseBufPool sync.Pool
+
+func getResponseBuffer(n int) []byte {
+	if v := RPCResponseBufPool.Get(); v != nil {
+		o := v.([]byte)
+		if cap(o) >= n {
+			return o[:0]
+		}
+	}
+	return make([]byte, 0, n)
+}
 
 func (r *RPCResponse) MarshalJSON() ([]byte, error) {
-	n := 100 + len(r.Body)
-	var o []byte
-	if v := rpcResponseBufPool.Get(); v != nil {
-		o = v.([]byte)[:0]
-	}
-	if cap(o) < n {
-		o = make([]byte, 0, n)
-	}
+	o := getResponseBuffer(100 + len(r.Body))
 	o = append(o, '{')
 	c := false
 	comma := func() {
@@ -86,10 +93,9 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, r.Body...)
 		c = true
 	}
-	if r.ReleaseBuffer != nil {
-		r.ReleaseBuffer()
+	if r.releaseBody {
+		RPCResponseBufPool.Put([]byte(r.Body))
 	}
-	r.ReleaseBuffer = func() { rpcResponseBufPool.Put(o) }
 	if r.Callback != 0 {
 		comma()
 		o = append(o, `"c":`...)
@@ -100,7 +106,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"e":`...)
 		blob, err := json.Marshal(r.Error)
 		if err != nil {
-			r.ReleaseBuffer()
+			RPCResponseBufPool.Put(o)
 			return nil, err
 		}
 		o = append(o, blob...)
@@ -128,7 +134,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"s":`...)
 		blob, err := json.Marshal(r.LazySuccessResponses)
 		if err != nil {
-			r.ReleaseBuffer()
+			RPCResponseBufPool.Put(o)
 			return nil, err
 		}
 		o = append(o, blob...)
