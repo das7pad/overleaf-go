@@ -48,7 +48,7 @@ func (b *BootstrapWSResponse) WriteInto(resp *RPCResponse) {
 	o = append(o, b.PublicId...)
 	o = append(o, `"}`...)
 	resp.Body = o
-	resp.releaseBody = true
+	resp.releaseBody = o
 }
 
 type ProjectDetails struct {
