@@ -81,10 +81,10 @@ func setLimits() {
 		blob = bytes.TrimRight(blob, "\n")
 		maxSockets, err := strconv.ParseInt(string(blob), 10, 64)
 		fatalIf(err)
-		if maxSockets < 20_000 {
+		if maxSockets < 30_000 {
 			log.Println("Unix socket limit is likely too low")
 			log.Printf(
-				"Increase limit using: $ echo 20000 | sudo tee -a %s", p,
+				"Increase limit using: $ echo 30000 | sudo tee -a %s", p,
 			)
 		}
 	}
