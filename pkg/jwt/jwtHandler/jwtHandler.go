@@ -35,8 +35,8 @@ type JWT = expiringJWT.ExpiringJWT
 
 type JWTHandler[T JWT] interface {
 	New() T
-	Parse(blob []byte) (T, error)
-	ParseInto(t T, blob []byte) error
+	Parse(blob []byte, now time.Time) (T, error)
+	ParseInto(t T, blob []byte, now time.Time) error
 	SetExpiryAndSign(claims T) (string, error)
 }
 
@@ -98,7 +98,7 @@ var (
 	}
 )
 
-func (h *handler[T]) Parse(blob []byte) (T, error) {
+func (h *handler[T]) Parse(blob []byte, now time.Time) (T, error) {
 	payload, err := h.parsePayload(blob)
 	if err != nil {
 		var tt T
@@ -109,7 +109,7 @@ func (h *handler[T]) Parse(blob []byte) (T, error) {
 		var tt T
 		return tt, ErrTokenMalformed
 	}
-	if err = t.Validate(); err != nil {
+	if err = t.Validate(now); err != nil {
 		var tt T
 		return tt, err
 	}
@@ -117,7 +117,7 @@ func (h *handler[T]) Parse(blob []byte) (T, error) {
 
 }
 
-func (h *handler[T]) ParseInto(t T, blob []byte) error {
+func (h *handler[T]) ParseInto(t T, blob []byte, now time.Time) error {
 	payload, err := h.parsePayload(blob)
 	if err != nil {
 		return err
@@ -125,7 +125,7 @@ func (h *handler[T]) ParseInto(t T, blob []byte) error {
 	if err = json.Unmarshal(payload, t); err != nil {
 		return ErrTokenMalformed
 	}
-	if err = t.Validate(); err != nil {
+	if err = t.Validate(now); err != nil {
 		return err
 	}
 	return nil

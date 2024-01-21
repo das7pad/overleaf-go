@@ -111,7 +111,7 @@ func (h *httpController) addRoutes(router *httpUtils.Router) {
 		HandlerFunc(h.wsHTTP)
 }
 
-func (h *httpController) getProjectJWT(r *http.Request) (*projectJWT.Claims, error) {
+func (h *httpController) getProjectJWT(r *http.Request, t0 time.Time) (*projectJWT.Claims, error) {
 	var blob string
 	for _, proto := range websocket.Subprotocols(r) {
 		if strings.HasSuffix(proto, protoV8JWTProtoPrefix) {
@@ -122,7 +122,7 @@ func (h *httpController) getProjectJWT(r *http.Request) (*projectJWT.Claims, err
 	if len(blob) == 0 {
 		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
 	}
-	return h.jwtProject.Parse([]byte(blob))
+	return h.jwtProject.Parse([]byte(blob), t0)
 }
 
 func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
@@ -144,7 +144,7 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claimsProjectJWT, err := h.getProjectJWT(r)
+	claimsProjectJWT, err := h.getProjectJWT(r, t0)
 	if err != nil {
 		log.Println("jwt auth failed: " + err.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
@@ -157,7 +157,7 @@ func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.
 	claims := projectJWT.Claims{}
 	var jwtError error
 	err := parseRequest(func(blob []byte) {
-		jwtError = h.jwtProject.ParseInto(&claims, blob)
+		jwtError = h.jwtProject.ParseInto(&claims, blob, t0)
 	})
 	if err != nil {
 		return err

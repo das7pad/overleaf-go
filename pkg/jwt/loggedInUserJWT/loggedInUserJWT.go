@@ -17,6 +17,8 @@
 package loggedInUserJWT
 
 import (
+	"time"
+
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/expiringJWT"
@@ -32,8 +34,8 @@ type Claims struct {
 	UserId sharedTypes.UUID `json:"userId"`
 }
 
-func (c *Claims) Validate() error {
-	if err := c.Claims.Validate(); err != nil {
+func (c *Claims) Validate(now time.Time) error {
+	if err := c.Claims.Validate(now); err != nil {
 		return err
 	}
 	if c.UserId.IsZero() {

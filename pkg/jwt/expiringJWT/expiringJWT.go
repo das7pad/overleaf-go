@@ -23,7 +23,7 @@ import (
 )
 
 type ExpiringJWT interface {
-	Validate() error
+	Validate(now time.Time) error
 	SetExpiry(expiresIn time.Duration)
 }
 
@@ -37,8 +37,7 @@ func (j *Claims) SetExpiry(expiresIn time.Duration) {
 	j.ExpiresAt = time.Now().Add(expiresIn).Unix()
 }
 
-func (j *Claims) Validate() error {
-	now := time.Now()
+func (j *Claims) Validate(now time.Time) error {
 	expiresAt := time.Unix(j.ExpiresAt, 0)
 	if now.After(expiresAt) {
 		return ErrExpired

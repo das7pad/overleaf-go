@@ -18,6 +18,7 @@ package projectJWT
 
 import (
 	"context"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
@@ -53,8 +54,8 @@ var ErrMismatchingProjectId = &errors.ValidationError{
 	Msg: "mismatching projectId between jwt and path",
 }
 
-func (c *Claims) Validate() error {
-	if err := c.Claims.Validate(); err != nil {
+func (c *Claims) Validate(now time.Time) error {
+	if err := c.Claims.Validate(now); err != nil {
 		return err
 	}
 	if c.AuthorizationDetails.PrivilegeLevel == "" {

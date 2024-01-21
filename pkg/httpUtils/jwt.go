@@ -48,7 +48,7 @@ func (h *JWTHTTPHandler[T]) Parse(c *Context) (*Context, error) {
 		return c, &errors.UnauthorizedError{Reason: "missing jwt"}
 	}
 
-	claims, err := h.parser.Parse([]byte(blob))
+	claims, err := h.parser.Parse([]byte(blob), c.t0)
 	if err != nil {
 		return c, &errors.UnauthorizedError{Reason: "invalid jwt"}
 	}
