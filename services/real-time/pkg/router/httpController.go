@@ -22,7 +22,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -50,13 +49,8 @@ func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQue
 }
 
 func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) {
-	(&httpController{
+	h := httpController{
 		rtm: rtm,
-		u: websocket.Upgrader{
-			Subprotocols: []string{
-				protoV8,
-			},
-		},
 		jwtProject: projectJWT.New(
 			jwtOptionsProject,
 			// Validation is performed as part of the bootstrap process.
@@ -64,17 +58,13 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 		),
 		rateLimitBootstrap: make(chan struct{}, 42),
 		writeQueueDepth:    writeQueueDepth,
-	}).addRoutes(r)
+	}
+	h.addRoutes(r)
 }
 
 func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) wsServer.Handler {
 	h := httpController{
 		rtm: rtm,
-		u: websocket.Upgrader{
-			Subprotocols: []string{
-				protoV8,
-			},
-		},
 		jwtProject: projectJWT.New(
 			jwtOptionsProject,
 			// Validation is performed as part of the bootstrap process.
@@ -88,16 +78,12 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 
 type httpController struct {
 	rtm                realTime.Manager
-	u                  websocket.Upgrader
 	jwtProject         jwtHandler.JWTHandler[*projectJWT.Claims]
 	rateLimitBootstrap chan struct{}
 	writeQueueDepth    int
 }
 
 const (
-	protoV8               = "v8.real-time.overleaf.com"
-	protoV8JWTProtoPrefix = ".bootstrap.v8.real-time.overleaf.com"
-
 	// two skipped heath checks plus latency
 	idleTime = time.Minute + 10*time.Second
 )
@@ -111,20 +97,6 @@ func (h *httpController) addRoutes(router *httpUtils.Router) {
 		HandlerFunc(h.wsHTTP)
 }
 
-func (h *httpController) getProjectJWT(r *http.Request, t0 time.Time) (*projectJWT.Claims, error) {
-	var blob string
-	for _, proto := range websocket.Subprotocols(r) {
-		if strings.HasSuffix(proto, protoV8JWTProtoPrefix) {
-			blob = proto[:len(proto)-len(protoV8JWTProtoPrefix)]
-			break
-		}
-	}
-	if len(blob) == 0 {
-		return nil, &errors.ValidationError{Msg: "missing bootstrap blob"}
-	}
-	return h.jwtProject.Parse([]byte(blob), t0)
-}
-
 func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 	_ = conn.WritePreparedMessage(entry.Msg)
 	_ = conn.Close()
@@ -132,25 +104,24 @@ func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
 
 func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 	t0 := time.Now()
-
-	conn, err := h.u.Upgrade(w, r, nil)
+	claims := projectJWT.Claims{}
+	var jwtError error
+	c, brw, err := wsServer.HTTPUpgrade(w, r, func(blob []byte) {
+		jwtError = h.jwtProject.ParseInto(&claims, blob, t0)
+	})
 	if err != nil {
 		// A 4xx has been generated already.
 		return
 	}
 
-	if h.rtm.IsShuttingDown() {
-		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
-		return
-	}
-
-	claimsProjectJWT, err := h.getProjectJWT(r, t0)
-	if err != nil {
-		log.Println("jwt auth failed: " + err.Error())
+	buf := brw.AvailableBuffer()[0:4096]
+	conn := websocket.NewConn(c, true, 4096, 4096, nil, brw.Reader, buf)
+	if jwtError != nil {
+		log.Println("jwt auth failed: " + jwtError.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	h.ws(conn, t0, *claimsProjectJWT)
+	h.ws(conn, t0, claims)
 }
 
 func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error {

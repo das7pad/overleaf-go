@@ -28,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -305,6 +306,7 @@ var (
 	headerValueWSProtocolBS = []byte(".bootstrap.v8.real-time.overleaf.com")
 	headerKeyWSKey          = []byte("Sec-Websocket-Key")
 	responseWS              = []byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: v8.real-time.overleaf.com\r\nSec-WebSocket-Accept: ")
+	responseBodyStart       = []byte("\r\n\r\n")
 )
 
 func (c *wsConn) handleWsRequest(fn Handler, t0 time.Time) error {
@@ -360,7 +362,7 @@ func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 				if checks[4] {
 					continue // parse JWT once
 				}
-				if b, _, ok2 := bytes.Cut(next, headerValueWSProtocolBS); ok2 {
+				if b, ok2 := bytes.CutSuffix(next, headerValueWSProtocolBS); ok2 {
 					checks[4] = true
 					parseJWT(b)
 				}
@@ -371,6 +373,7 @@ func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 			}
 			buf = append(buf, responseWS...)
 			buf = appendSecWebSocketAccept(buf, value)
+			buf = append(buf, responseBodyStart...)
 			checks[5] = true
 		}
 	}
@@ -382,13 +385,101 @@ func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 			return httpStatusError(http.StatusBadRequest)
 		}
 	}
-	buf = append(buf, '\r', '\n', '\r', '\n')
 	c.hijacked = true
 	if _, err := c.Write(buf); err != nil {
 		return err
 	}
 	c.brw.Reader.Reset(c.Conn)
 	return nil
+}
+
+func HTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.ReadWriter, error) {
+	conn, brw, err := tryHTTPUpgrade(w, r, parseJWT)
+	if err != nil {
+		if code, ok := err.(httpStatusError); ok {
+			w.WriteHeader(int(code))
+		}
+		return nil, brw, err
+	}
+	return conn, brw, nil
+}
+
+func tryHTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.ReadWriter, error) {
+	h := r.Header
+	ok := false
+	for _, v := range h["Connection"] {
+		var next string
+		for !ok && len(v) > 0 {
+			next, v, _ = strings.Cut(v, ",")
+			v = strings.TrimSpace(v)
+			if strings.EqualFold(next, "Upgrade") {
+				ok = true
+			}
+		}
+	}
+	if !ok {
+		return nil, nil, httpStatusError(http.StatusBadRequest)
+	}
+	if u := h["Upgrade"]; len(u) == 0 || !strings.EqualFold(u[0], "websocket") {
+		return nil, nil, httpStatusError(http.StatusBadRequest)
+	}
+	if u := h["Sec-Websocket-Version"]; len(u) == 0 || !strings.EqualFold(u[0], "13") {
+		return nil, nil, httpStatusError(http.StatusBadRequest)
+	}
+	ok = false
+	jwtParsed := false
+	for _, v := range h["Sec-Websocket-Protocol"] {
+		var next string
+		for len(v) > 0 {
+			next, v, _ = strings.Cut(v, ",")
+			v = strings.TrimSpace(v)
+			if strings.EqualFold(next, "v8.real-time.overleaf.com") {
+				ok = true
+				continue
+			}
+			if jwtParsed {
+				continue
+			}
+			if b, ok2 := strings.CutSuffix(next, ".bootstrap.v8.real-time.overleaf.com"); ok2 {
+				jwtParsed = true
+				parseJWT([]byte(b))
+			}
+		}
+	}
+	if !ok || !jwtParsed {
+		return nil, nil, httpStatusError(http.StatusBadRequest)
+	}
+	if k := h["Sec-Websocket-Key"]; len(k) != 1 || len(k[0]) != 24 {
+		return nil, nil, httpStatusError(http.StatusBadRequest)
+	}
+	key := []byte(h["Sec-Websocket-Key"][0])
+	{
+		buf := [18]byte{}
+		if _, err := base64.StdEncoding.Decode(buf[0:18], key); err != nil {
+			return nil, nil, httpStatusError(http.StatusBadRequest)
+		}
+	}
+
+	c, brw, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if brw.Reader.Buffered() > 0 {
+		return nil, nil, httpStatusError(http.StatusBadRequest)
+	}
+
+	buf := brw.AvailableBuffer()
+	buf = append(buf, responseWS...)
+	buf = appendSecWebSocketAccept(buf, key)
+	buf = append(buf, responseBodyStart...)
+
+	if _, err = c.Write(buf); err != nil {
+		_ = c.Close()
+		return nil, nil, err
+	}
+
+	return c, brw, nil
 }
 
 var wsKeyGUID = []byte("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
