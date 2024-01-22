@@ -23,11 +23,28 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
 
-func Parse(port int) string {
-	listenAddress := env.GetString("LISTEN_ADDRESS", "localhost")
-	if strings.HasPrefix(listenAddress, "/") {
-		return listenAddress
-	}
+func Parse(port int) []string {
+	return parse(
+		env.GetString("LISTEN_ADDRESS", "localhost"),
+		env.GetInt("PORT", port),
+	)
+}
+
+func ParseOverride(l, p string, port int) []string {
+	return parse(env.GetString(l, "localhost"), env.GetInt(p, port))
+}
+
+func parse(raw string, port int) []string {
 	port = env.GetInt("PORT", port)
-	return fmt.Sprintf("%s:%d", listenAddress, port)
+	o := strings.Split(raw, ",")
+	for i, addr := range o {
+		if strings.HasPrefix(addr, "/") {
+			continue
+		}
+		if strings.ContainsRune(addr, ':') {
+			continue
+		}
+		o[i] = fmt.Sprintf("%s:%d", addr, port)
+	}
+	return o
 }

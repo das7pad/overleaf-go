@@ -20,7 +20,6 @@ import (
 	"context"
 	"net/http"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/options/corsOptions"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi"
@@ -55,11 +55,6 @@ func main() {
 
 	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
-	addr := listenAddress.Parse(3000)
-	localURL := "http://" + addr
-	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {
-		localURL = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
-	}
 
 	clsiOptions := clsiTypes.Options{}
 	clsiOptions.FillFromEnv()
@@ -95,6 +90,9 @@ func main() {
 		panic(errors.Tag(err, "spelling setup"))
 	}
 
+	localURL := env.GetString(
+		"LOCAL_URL", "http://127.0.0.1:"+env.GetString("PORT", "3000"),
+	)
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv()
 	webManager, err := web.New(
@@ -138,9 +136,7 @@ func main() {
 	server := http.Server{
 		Handler: r,
 	}
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, addr)
-	})
+	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3000))
 	eg.Go(func() error {
 		<-ctx.Done()
 		// Shutdown sequence:

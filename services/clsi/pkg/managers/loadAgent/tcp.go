@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,57 +17,72 @@
 package loadAgent
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"net"
+	"sync"
 	"time"
-
-	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func Start(addr string, loadShedding bool, refreshCapacityEvery time.Duration) (io.Closer, error) {
-	return startLoadAgent(addr, loadShedding, New(refreshCapacityEvery).GetCapacity)
+func NewServer(loadShedding bool, refreshCapacityEvery time.Duration) *Server {
+	return &Server{
+		getCapacity:  New(refreshCapacityEvery).GetCapacity,
+		loadShedding: loadShedding,
+	}
 }
 
-func startLoadAgent(addr string, loadShedding bool, getCapacity func() (int64, error)) (io.Closer, error) {
-	l, listenErr := net.Listen("tcp", addr)
-	if listenErr != nil {
-		return nil, listenErr
-	}
+type Server struct {
+	getCapacity  func() (int64, error)
+	loadShedding bool
+	closed       bool
+	l            []net.Listener
+	mu           sync.Mutex
+}
 
-	listener, ok := l.(*net.TCPListener)
-	if !ok {
-		return nil, errors.New("listening for tcp should yield TCPListener")
-	}
-
-	go func() {
-		for {
-			c, err := listener.AcceptTCP()
-			if err != nil {
-				if err == net.ErrClosed {
-					break
-				}
-				// Backoff on error.
-				time.Sleep(500 * time.Millisecond)
-				continue
-			}
-			capacity, err := getCapacity()
-			if err != nil {
-				// Not sending a reply would count as a failed health check.
-				// Emitting capacity=0 would trigger load shedding.
-				// Only do that in case we are sure there is no capacity.
-				capacity = 1
-			}
-			var msg string
-			if loadShedding && capacity == 0 {
-				msg = fmt.Sprintf("maint, %d%%\n", capacity)
-			} else {
-				// 'ready' cancels out a previous 'maint' state.
-				msg = fmt.Sprintf("up, ready, %d%%\n", capacity)
-			}
-			_, _ = c.Write([]byte(msg))
-			_ = c.Close()
+func (s *Server) Shutdown(_ context.Context) error {
+	s.mu.Lock()
+	if !s.closed {
+		for _, l := range s.l {
+			_ = l.Close()
 		}
-	}()
-	return listener, nil
+		s.closed = true
+	}
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *Server) Serve(listener net.Listener) error {
+	s.mu.Lock()
+	if s.closed {
+		return nil
+	}
+	s.l = append(s.l, listener)
+	s.mu.Unlock()
+
+	for {
+		c, err := listener.Accept()
+		if err != nil {
+			if err == net.ErrClosed {
+				return nil
+			}
+			// Backoff on error.
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		capacity, err := s.getCapacity()
+		if err != nil {
+			// Not sending a reply would count as a failed health check.
+			// Emitting capacity=0 would trigger load shedding.
+			// Only do that in case we are sure there is no capacity.
+			capacity = 1
+		}
+		_ = c.SetWriteDeadline(time.Now().Add(time.Second))
+		if s.loadShedding && capacity == 0 {
+			_, _ = fmt.Fprintf(c, "maint, %d%%\n", capacity)
+		} else {
+			// 'ready' cancels out a previous 'maint' state.
+			_, _ = fmt.Fprintf(c, "up, ready, %d%%\n", capacity)
+		}
+		_ = c.Close()
+	}
 }

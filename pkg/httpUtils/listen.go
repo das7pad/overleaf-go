@@ -44,3 +44,12 @@ func ListenAndServe(server Server, addr string) error {
 	}
 	return server.Serve(l)
 }
+
+func ListenAndServeEach(do func(func() error), server Server, each []string) {
+	for _, s := range each {
+		addr := s
+		do(func() error {
+			return ListenAndServe(server, addr)
+		})
+	}
+}

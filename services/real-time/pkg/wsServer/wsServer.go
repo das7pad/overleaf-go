@@ -46,7 +46,7 @@ type WSServer struct {
 	n     atomic.Uint32
 	ok    atomic.Bool
 	h     http.HandlerFunc
-	l     net.Listener
+	l     []net.Listener
 	mu    sync.Mutex
 }
 
@@ -58,7 +58,9 @@ func (s *WSServer) Shutdown(ctx context.Context) error {
 	s.ok.Store(false)
 	s.mu.Lock()
 	if s.state.CompareAndSwap(stateRunning, stateClosing) {
-		_ = s.l.Close()
+		for _, l := range s.l {
+			_ = l.Close()
+		}
 	}
 	s.mu.Unlock()
 
@@ -80,14 +82,15 @@ const (
 
 func (s *WSServer) Serve(l net.Listener) error {
 	s.mu.Lock()
-	if !s.state.CompareAndSwap(stateDead, stateRunning) {
+	if !(s.state.Load() == stateRunning ||
+		s.state.CompareAndSwap(stateDead, stateRunning)) {
 		return http.ErrServerClosed
 	}
-	s.l = l
+	s.l = append(s.l, l)
 	s.mu.Unlock()
 
 	var errDelay time.Duration
-	for s.state.Load() == stateRunning {
+	for {
 		c, err := l.Accept()
 		if err != nil {
 			if s.state.Load() != stateRunning {
@@ -115,7 +118,6 @@ func (s *WSServer) Serve(l net.Listener) error {
 		wc := wsConn{bufferedConn: &bufferedConn{Conn: c}}
 		go wc.serve(s.h, s.decrementN, s.ok.Load)
 	}
-	return http.ErrServerClosed
 }
 
 func (s *WSServer) decrementN() {

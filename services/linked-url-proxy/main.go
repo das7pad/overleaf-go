@@ -77,9 +77,7 @@ func main() {
 	server := http.Server{
 		Handler: handler.GetRouter(),
 	}
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, listenAddress.Parse(8080))
-	})
+	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(8080))
 	eg.Go(func() error {
 		<-ctx.Done()
 		waitForSlowRequests, done := context.WithTimeout(

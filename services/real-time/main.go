@@ -95,9 +95,7 @@ func main() {
 			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
 		)}
 	}
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(server, listenAddress.Parse(3026))
-	})
+	httpUtils.ListenAndServeEach(eg.Go, server, listenAddress.Parse(3026))
 	eg.Go(func() error {
 		<-ctx.Done()
 		rtm.InitiateGracefulShutdown()

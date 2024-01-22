@@ -56,9 +56,7 @@ func main() {
 		dum.ProcessDocumentUpdates(ctx)
 		return nil
 	})
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, listenAddress.Parse(3003))
-	})
+	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3003))
 	eg.Go(func() error {
 		<-ctx.Done()
 		return server.Shutdown(context.Background())

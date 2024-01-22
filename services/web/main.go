@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -52,19 +51,15 @@ func main() {
 	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
 
-	addr := listenAddress.Parse(3000)
-	localURL := "http://" + addr
-	if strings.HasPrefix(addr, ":") || strings.HasPrefix(addr, "0.0.0.0") {
-		localURL = "http://127.0.0.1" + strings.TrimPrefix(addr, "0.0.0.0")
-	}
-
 	dumOptions := documentUpdaterTypes.Options{}
 	dumOptions.FillFromEnv()
 	dum, err := documentUpdater.New(&dumOptions, db, rClient)
 	if err != nil {
 		panic(errors.Tag(err, "document-updater setup"))
 	}
-
+	localURL := env.GetString(
+		"LOCAL_URL", "http://127.0.0.1:"+env.GetString("PORT", "3000"),
+	)
 	webOptions := webTypes.Options{}
 	webOptions.FillFromEnv()
 	webManager, err := web.New(&webOptions, db, rClient, localURL, dum, nil)
@@ -90,9 +85,7 @@ func main() {
 	server := http.Server{
 		Handler: router.New(webManager, corsOptions.Parse()),
 	}
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, addr)
-	})
+	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3000))
 	eg.Go(func() error {
 		<-ctx.Done()
 		waitForSlowRequests, done := context.WithTimeout(

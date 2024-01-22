@@ -47,30 +47,28 @@ func main() {
 		panic(errors.Tag(err, "clsi setup"))
 	}
 
-	loadAgentSocket, err := loadAgent.Start(
-		listenAddress.Parse(env.GetInt("LOAD_PORT", 3048)),
-		env.GetBool("LOAD_SHEDDING"),
-		env.GetDuration("LOAD_REFRESH_CAPACITY_EVERY", 3*time.Second),
-	)
-	if err != nil {
-		panic(errors.Tag(err, "load agent setup"))
-	}
-
 	eg, ctx := errgroup.WithContext(triggerExitCtx)
 	eg.Go(func() error {
 		clsiManager.PeriodicCleanup(ctx)
 		return nil
 	})
 
+	loadAgentServer := loadAgent.NewServer(
+		env.GetBool("LOAD_SHEDDING"),
+		env.GetDuration("LOAD_REFRESH_CAPACITY_EVERY", 3*time.Second),
+	)
+	loadAgentAddress := listenAddress.ParseOverride(
+		"LOAD_LISTEN_ADDRESS", "LOAD_PORT", 3048,
+	)
+	httpUtils.ListenAndServeEach(eg.Go, loadAgentServer, loadAgentAddress)
+
 	server := http.Server{
 		Handler: newHTTPController(clsiManager).GetRouter(),
 	}
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, listenAddress.Parse(3013))
-	})
+	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3013))
 	eg.Go(func() error {
 		<-ctx.Done()
-		_ = loadAgentSocket.Close()
+		_ = loadAgentServer.Shutdown(context.Background())
 		waitForSlowRequests, done := context.WithTimeout(
 			context.Background(), time.Second*30,
 		)

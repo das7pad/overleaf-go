@@ -51,9 +51,7 @@ func main() {
 	server := http.Server{
 		Handler: router.New(sm, corsOptions.Parse()),
 	}
-	eg.Go(func() error {
-		return httpUtils.ListenAndServe(&server, listenAddress.Parse(3005))
-	})
+	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3005))
 	eg.Go(func() error {
 		<-ctx.Done()
 		waitForSlowRequests, done := context.WithTimeout(
