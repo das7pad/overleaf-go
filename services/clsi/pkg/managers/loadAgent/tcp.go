@@ -19,8 +19,10 @@ package loadAgent
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -34,18 +36,17 @@ func NewServer(loadShedding bool, refreshCapacityEvery time.Duration) *Server {
 type Server struct {
 	getCapacity  func() (int64, error)
 	loadShedding bool
-	closed       bool
+	closed       atomic.Bool
 	l            []net.Listener
 	mu           sync.Mutex
 }
 
 func (s *Server) Shutdown(_ context.Context) error {
 	s.mu.Lock()
-	if !s.closed {
+	if s.closed.CompareAndSwap(false, true) {
 		for _, l := range s.l {
 			_ = l.Close()
 		}
-		s.closed = true
 	}
 	s.mu.Unlock()
 	return nil
@@ -53,8 +54,9 @@ func (s *Server) Shutdown(_ context.Context) error {
 
 func (s *Server) Serve(listener net.Listener) error {
 	s.mu.Lock()
-	if s.closed {
-		return nil
+	if s.closed.Load() {
+		s.mu.Unlock()
+		return net.ErrClosed
 	}
 	s.l = append(s.l, listener)
 	s.mu.Unlock()
@@ -62,12 +64,17 @@ func (s *Server) Serve(listener net.Listener) error {
 	for {
 		c, err := listener.Accept()
 		if err != nil {
-			if err == net.ErrClosed {
-				return nil
+			if s.closed.Load() {
+				return net.ErrClosed
 			}
-			// Backoff on error.
-			time.Sleep(500 * time.Millisecond)
-			continue
+			if e, ok := err.(net.Error); ok && e.Temporary() {
+				log.Printf(
+					"loadAgent: Accept error: %v; retrying in 500ms", err,
+				)
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			return err
 		}
 		capacity, err := s.getCapacity()
 		if err != nil {

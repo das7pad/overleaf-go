@@ -84,6 +84,7 @@ func (s *WSServer) Serve(l net.Listener) error {
 	s.mu.Lock()
 	if !(s.state.Load() == stateRunning ||
 		s.state.CompareAndSwap(stateDead, stateRunning)) {
+		s.mu.Unlock()
 		return http.ErrServerClosed
 	}
 	s.l = append(s.l, l)

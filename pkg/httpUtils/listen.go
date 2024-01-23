@@ -19,6 +19,7 @@ package httpUtils
 import (
 	"context"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -42,7 +43,13 @@ func ListenAndServe(server Server, addr string) error {
 	if err != nil {
 		return err
 	}
-	return server.Serve(l)
+	defer func() {
+		_ = l.Close()
+	}()
+	if err = server.Serve(l); err != nil && err != net.ErrClosed {
+		return err
+	}
+	return http.ErrServerClosed
 }
 
 func ListenAndServeEach(do func(func() error), server Server, each []string) {
