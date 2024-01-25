@@ -154,8 +154,9 @@ func (c *BufferedConn) ReleaseBuffers() {
 
 type wsConn struct {
 	*BufferedConn
-	reads    uint8
-	hijacked bool
+	reads       uint8
+	hijacked    bool
+	noKeepalive bool
 }
 
 func (c *wsConn) writeTimeout(p []byte, d time.Duration) (int, error) {
@@ -188,8 +189,9 @@ func (e httpStatusError) Response() []byte {
 }
 
 var (
-	requestLineStatus = []byte("GET /status HTTP/1.1\r\n")
-	requestLineWS     = []byte("GET /socket.io HTTP/1.1\r\n")
+	requestLineStatusGET  = []byte("GET /status HTTP/1.1\r\n")
+	requestLineStatusHEAD = []byte("HEAD /status HTTP/1.0\r\n")
+	requestLineWS         = []byte("GET /socket.io HTTP/1.1\r\n")
 
 	httpErrorHeaders = "\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"
 	response400      = []byte("HTTP/1.1 400 Bad Request" + httpErrorHeaders)
@@ -225,7 +227,7 @@ func (c *wsConn) serve(h Handler, deref func(), isOK func() bool) {
 			}
 			return
 		}
-		if c.hijacked {
+		if c.hijacked || c.noKeepalive {
 			return
 		}
 		if c.SetDeadline(time.Now().Add(15*time.Second)) != nil {
@@ -260,7 +262,11 @@ func (c *wsConn) nextRequest(fn Handler, now time.Time, isOK func() bool) error 
 	if bytes.Equal(l, requestLineWS) {
 		return c.handleWsRequest(fn, now)
 	}
-	if bytes.Equal(l, requestLineStatus) {
+	if bytes.Equal(l, requestLineStatusHEAD) {
+		c.noKeepalive = true
+		return c.handleStatusRequest(isOK)
+	}
+	if bytes.Equal(l, requestLineStatusGET) {
 		return c.handleStatusRequest(isOK)
 	}
 	return httpStatusError(http.StatusBadRequest)
