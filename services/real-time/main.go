@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -29,6 +28,7 @@ import (
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/options/listenAddress"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
@@ -39,16 +39,11 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/wsServer"
 )
 
-var useWsServer = flag.Bool("use-ws-server", false, "")
-
 func main() {
 	triggerExitCtx, triggerExit := signal.NotifyContext(
 		context.Background(), syscall.SIGINT, syscall.SIGTERM,
 	)
 	defer triggerExit()
-	if !flag.Parsed() {
-		flag.Parse()
-	}
 
 	rClient := utils.MustConnectRedis(triggerExitCtx)
 	db := utils.MustConnectPostgres(triggerExitCtx)
@@ -80,7 +75,7 @@ func main() {
 	})
 
 	var server httpUtils.Server
-	if *useWsServer {
+	if env.GetBool("USE_WS_SERVER") {
 		srv := wsServer.New(router.WS(
 			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
 		))
