@@ -37,6 +37,9 @@ func ListenAndServe(server Server, addr string) error {
 			return err
 		}
 		l, err = net.Listen("unix", addr)
+		if err == nil {
+			err = os.Chmod(addr, 0o666)
+		}
 	} else {
 		l, err = net.Listen("tcp", addr)
 	}
