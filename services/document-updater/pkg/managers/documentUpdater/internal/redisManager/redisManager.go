@@ -260,33 +260,14 @@ func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId sharedTypes.U
 		getDocUpdatesKey(docId),
 		getDocVersionKey(docId),
 	}
-	res, err := scriptGetPreviousDocUpdates.
+	blobs, err := scriptGetPreviousDocUpdates.
 		Run(ctx, m.rClient, keys, start.String(), end.String()).
-		Result()
+		StringSlice()
 	if err != nil {
 		if strings.Contains(err.Error(), "overleaf:") {
 			return nil, ErrUpdateRangeNotAvailable
 		}
 		return nil, errors.Tag(err, "get previous updates from redis")
-	}
-	stage0, isArr := res.([]interface{})
-	if !isArr {
-		err = errors.New("got non array")
-		return nil, errors.Tag(err, "unexpected updates response from redis")
-	}
-	blobs := make([]string, end-start)
-	for i, item := range stage0 {
-		if s, isString := item.(string); isString {
-			blobs[i] = s
-			continue
-		}
-		update := (start + sharedTypes.Version(i)).String()
-		err = errors.New(
-			"update not received as string: " + update,
-		)
-		return nil, errors.Tag(
-			err, "unexpected updates response from redis",
-		)
 	}
 	return m.parseDocumentUpdates(start, blobs)
 }
@@ -474,11 +455,8 @@ func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime
 	if len(entries) == 0 {
 		return sharedTypes.UUID{}, 0, 0, nil
 	}
-	var raw string
-	switch val := entries[0].Member.(type) {
-	case string:
-		raw = val
-	default:
+	raw, ok := entries[0].Member.(string)
+	if !ok {
 		return sharedTypes.UUID{}, 0, 0, errors.New("unexpected queue entry")
 	}
 	id, err := sharedTypes.ParseUUID(raw)
