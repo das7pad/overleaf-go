@@ -433,7 +433,7 @@ func (m *manager) tryCheckDocNotLoadedOrFlushed(ctx context.Context, docId share
 	// Else we go the long way of fetch doc, check for updates and then flush.
 	// Not taking the fast path is OK.
 	_, err := m.rm.GetDocVersion(ctx, docId)
-	if err == nil || errors.GetCause(err) != redis.Nil {
+	if err == nil || !errors.IsNotFoundError(err) {
 		return false
 	}
 	n, err := m.rtRm.GetUpdatesLength(ctx, docId)
@@ -455,10 +455,11 @@ func (m *manager) flushAndMaybeDeleteDoc(ctx context.Context, projectId, docId s
 	for {
 		err := m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
 			if m.tryCheckDocNotLoadedOrFlushed(ctx, docId) {
-				if deleteFromRedis {
-					m.tc.FlushDocInBackground(projectId, docId)
+				if !deleteFromRedis {
+					return nil
 				}
-				return nil
+				m.tc.FlushDocInBackground(projectId, docId)
+				return m.rm.RemoveDocFromProject(ctx, projectId, docId)
 			}
 			d, err := m.processUpdatesForDoc(ctx, projectId, docId)
 			if err != nil {

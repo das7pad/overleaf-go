@@ -35,6 +35,7 @@ import (
 type Manager interface {
 	PutDocInMemory(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, doc *types.Doc) error
 	RemoveDocFromMemory(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) error
+	RemoveDocFromProject(ctx context.Context, projectId, docId sharedTypes.UUID) error
 	GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) (*types.Doc, error)
 	GetDocVersion(ctx context.Context, docId sharedTypes.UUID) (sharedTypes.Version, error)
 	GetPreviousDocUpdates(ctx context.Context, docId sharedTypes.UUID, start sharedTypes.Version, end sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error)
@@ -156,9 +157,12 @@ func (m *manager) RemoveDocFromMemory(ctx context.Context, projectId sharedTypes
 	if err != nil {
 		return errors.Tag(err, "cleanup doc details")
 	}
+	return m.RemoveDocFromProject(ctx, projectId, docId)
+}
 
-	err = m.rClient.SRem(ctx, getDocsInProjectKey(projectId), docId.String()).Err()
-	if err != nil {
+func (m *manager) RemoveDocFromProject(ctx context.Context, projectId, docId sharedTypes.UUID) error {
+	key := getDocsInProjectKey(projectId)
+	if err := m.rClient.SRem(ctx, key, docId.String()).Err(); err != nil {
 		return errors.Tag(err, "cleanup project tracking")
 	}
 	return nil
