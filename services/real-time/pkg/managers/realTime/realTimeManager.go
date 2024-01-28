@@ -64,13 +64,12 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 	}
 	pc := cache.NewLimited[projectCacheKey, json.RawMessage](100)
 	return &manager{
-		clientTracking:           ct,
-		editorEvents:             e,
-		dum:                      dum,
-		pm:                       project.New(db),
-		gracefulShutdown:         options.GracefulShutdown,
-		projectCache:             pc,
-		rateLimitBackgroundFlush: make(chan struct{}, 50),
+		clientTracking:   ct,
+		editorEvents:     e,
+		dum:              dum,
+		pm:               project.New(db),
+		gracefulShutdown: options.GracefulShutdown,
+		projectCache:     pc,
 	}, nil
 }
 
@@ -90,8 +89,6 @@ type manager struct {
 	projectCache   *cache.Limited[projectCacheKey, json.RawMessage]
 
 	gracefulShutdown types.GracefulShutdownOptions
-
-	rateLimitBackgroundFlush chan struct{}
 }
 
 func (m *manager) IsShuttingDown() bool {
@@ -334,20 +331,9 @@ func (m *manager) Disconnect(client *types.Client) {
 	client.MarkAsLeftDoc()
 	if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
 		// Flush eagerly when no other clients are online (and on error).
-		go m.backgroundFlush(client.ProjectId)
+		go m.dum.FlushProjectInBackground(client.ProjectId)
 	}
 	m.editorEvents.Leave(client)
-}
-
-func (m *manager) backgroundFlush(projectId sharedTypes.UUID) {
-	m.rateLimitBackgroundFlush <- struct{}{}
-	defer func() { <-m.rateLimitBackgroundFlush }()
-
-	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
-	defer done()
-	if err := m.dum.FlushProject(ctx, projectId); err != nil {
-		log.Printf("background flush failed: %s: %s", projectId, err)
-	}
 }
 
 func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {

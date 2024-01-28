@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,8 @@ package documentUpdater
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,6 +39,7 @@ type Manager interface {
 	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error)
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
 	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
+	FlushProjectInBackground(projectId sharedTypes.UUID)
 	FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
 	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error
 	ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, updates types.RenameDocUpdates) error
@@ -55,8 +58,9 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient)
 		return nil, err
 	}
 	return &manager{
-		dispatcher: dispatchManager.New(options, client, dm, rtRm),
-		dm:         dm,
+		dispatcher:               dispatchManager.New(options, client, dm, rtRm),
+		dm:                       dm,
+		rateLimitBackgroundFlush: make(chan struct{}, 50),
 	}, nil
 }
 
@@ -64,7 +68,8 @@ type dispatcher dispatchManager.Manager
 
 type manager struct {
 	dispatcher
-	dm docManager.Manager
+	dm                       docManager.Manager
+	rateLimitBackgroundFlush chan struct{}
 }
 
 func (m *manager) ProcessProjectUpdates(ctx context.Context, projectId sharedTypes.UUID, updates types.RenameDocUpdates) error {
@@ -132,6 +137,17 @@ func (m *manager) FlushAndDeleteDoc(ctx context.Context, projectId, docId shared
 
 func (m *manager) FlushProject(ctx context.Context, projectId sharedTypes.UUID) error {
 	return m.dm.FlushProject(ctx, projectId)
+}
+
+func (m *manager) FlushProjectInBackground(projectId sharedTypes.UUID) {
+	m.rateLimitBackgroundFlush <- struct{}{}
+	defer func() { <-m.rateLimitBackgroundFlush }()
+
+	ctx, done := context.WithTimeout(context.Background(), 30*time.Second)
+	defer done()
+	if err := m.FlushProject(ctx, projectId); err != nil {
+		log.Printf("background flush failed: %s: %s", projectId, err)
+	}
 }
 
 func (m *manager) FlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error {
