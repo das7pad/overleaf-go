@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,11 +19,13 @@ package types
 import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/options/env"
+	"github.com/das7pad/overleaf-go/pkg/redisScanner"
 )
 
 type Options struct {
-	Workers                      int `json:"workers"`
-	PendingUpdatesListShardCount int `json:"pending_updates_list_shard_count"`
+	PeriodicFlushAll             redisScanner.PeriodicOptions `json:"periodic_flush_all"`
+	Workers                      int                          `json:"workers"`
+	PendingUpdatesListShardCount int                          `json:"pending_updates_list_shard_count"`
 }
 
 func (o *Options) FillFromEnv() {
@@ -40,6 +42,9 @@ func (o *Options) Validate() error {
 		return &errors.ValidationError{
 			Msg: "workers must be greater than 0",
 		}
+	}
+	if err := o.PeriodicFlushAll.Validate(); err != nil {
+		return errors.Tag(err, "periodic_flush_all")
 	}
 	return nil
 }

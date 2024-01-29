@@ -27,7 +27,7 @@ var ErrInvalidUUID = &errors.ValidationError{Msg: "invalid uuid"}
 
 func ParseUUID(s string) (UUID, error) {
 	u := UUID{}
-	return u, u.writeHexEncoded([]byte(s))
+	return u, u.UnmarshalText([]byte(s))
 }
 
 func PopulateUUID(u *UUID) error {
@@ -118,7 +118,7 @@ func (u UUID) MarshalJSON() ([]byte, error) {
 	return dst, nil
 }
 
-func (u *UUID) writeHexEncoded(src []byte) error {
+func (u *UUID) UnmarshalText(src []byte) error {
 	if len(src) != 36 ||
 		src[8] != '-' || src[13] != '-' || src[18] != '-' || src[23] != '-' {
 		return ErrInvalidUUID
@@ -139,7 +139,7 @@ func (u *UUID) UnmarshalJSON(b []byte) error {
 	if len(b) != 38 || b[0] != '"' || b[37] != '"' {
 		return ErrInvalidUUID
 	}
-	return u.writeHexEncoded(b[1:37])
+	return u.UnmarshalText(b[1:37])
 }
 
 type UUIDs []UUID

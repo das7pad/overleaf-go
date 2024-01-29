@@ -275,6 +275,13 @@ func Generate(f Flags) Config {
 	documentUpdaterOptions := documentUpdaterTypes.Options{
 		Workers:                      20,
 		PendingUpdatesListShardCount: 1,
+		PeriodicFlushAll: struct {
+			Count    int64         `json:"count"`
+			Interval time.Duration `json:"interval"`
+		}{
+			Count:    10,
+			Interval: 12 * time.Hour,
+		},
 	}
 
 	realTimeOptions := realTimeTypes.Options{

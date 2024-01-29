@@ -51,16 +51,12 @@ type Manager interface {
 	QueueFlushAndDeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
 }
 
-func New(db *pgxpool.Pool, client redis.UniversalClient, rtRm realTimeRedisManager.Manager) (Manager, error) {
+func New(db *pgxpool.Pool, client redis.UniversalClient, tc trackChanges.Manager, rtRm realTimeRedisManager.Manager) (Manager, error) {
 	rl, err := redisLocker.New(client, "Blocking")
 	if err != nil {
 		return nil, err
 	}
 	rm := redisManager.New(client)
-	tc, err := trackChanges.New(db, client)
-	if err != nil {
-		return nil, err
-	}
 	u := updateManager.New(rm, rtRm)
 	return &manager{
 		rl:   rl,

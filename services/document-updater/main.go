@@ -56,6 +56,14 @@ func main() {
 		dum.ProcessDocumentUpdates(ctx)
 		return nil
 	})
+	eg.Go(func() error {
+		dum.PeriodicFlushAll(ctx)
+		return nil
+	})
+	eg.Go(func() error {
+		dum.PeriodicFlushAllHistory(ctx)
+		return nil
+	})
 	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3003))
 	eg.Go(func() error {
 		<-ctx.Done()

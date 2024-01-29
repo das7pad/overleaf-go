@@ -331,7 +331,7 @@ func (m *manager) Disconnect(client *types.Client) {
 	client.MarkAsLeftDoc()
 	if nowEmpty := m.clientTracking.Disconnect(client); nowEmpty {
 		// Flush eagerly when no other clients are online (and on error).
-		go m.dum.FlushProjectInBackground(client.ProjectId)
+		go m.dum.FlushProjectInBackground(context.Background(), client.ProjectId)
 	}
 	m.editorEvents.Leave(client)
 }

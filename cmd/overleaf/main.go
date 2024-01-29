@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -114,14 +115,14 @@ func main() {
 	spellingRouter.Add(r, sm, co)
 	webRouter.Add(r, webManager, co)
 
-	eg, ctx := errgroup.WithContext(triggerExitCtx)
+	eg, pCtx := errgroup.WithContext(triggerExitCtx)
 	processDocumentUpdatesCtx, stopProcessingDocumentUpdates := context.WithCancel(context.Background())
 	eg.Go(func() error {
-		webManager.Cron(ctx, false, time.Minute)
+		webManager.Cron(pCtx, false, time.Minute)
 		return nil
 	})
 	eg.Go(func() error {
-		clsiManager.PeriodicCleanup(ctx)
+		clsiManager.PeriodicCleanup(pCtx)
 		return nil
 	})
 	eg.Go(func() error {
@@ -129,7 +130,15 @@ func main() {
 		return nil
 	})
 	eg.Go(func() error {
-		rtm.PeriodicCleanup(ctx)
+		dum.PeriodicFlushAll(processDocumentUpdatesCtx)
+		return nil
+	})
+	eg.Go(func() error {
+		dum.PeriodicFlushAllHistory(processDocumentUpdatesCtx)
+		return nil
+	})
+	eg.Go(func() error {
+		rtm.PeriodicCleanup(pCtx)
 		return nil
 	})
 
@@ -138,26 +147,32 @@ func main() {
 	}
 	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3000))
 	eg.Go(func() error {
-		<-ctx.Done()
+		<-pCtx.Done()
 		// Shutdown sequence:
 		// - Stop accepting new websocket connections
 		rtm.InitiateGracefulShutdown()
 		// - Stop accepting new HTTP requests
-		ctx2, done := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, done := context.WithTimeout(context.Background(), 15*time.Second)
 		defer done()
 		pendingShutdown := pendingOperation.TrackOperation(func() error {
-			return server.Shutdown(ctx2)
+			return server.Shutdown(ctx)
 		})
 		// - Ask clients to tear down websocket connections
 		rtm.TriggerGracefulReconnect()
 		// - Wait for existing HTTP requests to finish processing
-		err2 := pendingShutdown.Wait(ctx2)
+		err2 := pendingShutdown.Wait(ctx)
 		// - Close remaining websockets
 		rtm.DisconnectAll()
 		// - Stop processing of document-updates -- keep going until after all
 		//    editor sessions had time to flush ahead of disconnecting their
 		//    websocket connection.
 		stopProcessingDocumentUpdates()
+		// - Flush all projects
+		ctx2, done2 := context.WithTimeout(context.Background(), time.Minute)
+		defer done2()
+		if _, flushErr := dum.FlushAll(ctx2); flushErr != nil {
+			log.Printf("final flush: %s", flushErr)
+		}
 		return err2
 	})
 	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
