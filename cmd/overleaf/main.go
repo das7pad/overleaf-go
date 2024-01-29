@@ -163,6 +163,8 @@ func main() {
 		err2 := pendingShutdown.Wait(ctx)
 		// - Close remaining websockets
 		rtm.DisconnectAll()
+		// - Avoid starting new background flush jobs and wait for pending
+		dum.WaitForBackgroundFlush()
 		// - Stop processing of document-updates -- keep going until after all
 		//    editor sessions had time to flush ahead of disconnecting their
 		//    websocket connection.

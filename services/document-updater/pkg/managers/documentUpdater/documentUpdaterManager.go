@@ -37,6 +37,7 @@ import (
 
 type Manager interface {
 	dispatchManager.Manager
+	WaitForBackgroundFlush()
 	PeriodicFlushAll(ctx context.Context)
 	PeriodicFlushAllHistory(ctx context.Context)
 	CheckDocExists(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) error
@@ -86,6 +87,12 @@ type manager struct {
 	rateLimitBackgroundFlush chan struct{}
 	pc                       redisScanner.PeriodicOptions
 	tc                       trackChanges.Manager
+}
+
+func (m *manager) WaitForBackgroundFlush() {
+	for i := 0; i < cap(m.rateLimitBackgroundFlush); i++ {
+		m.rateLimitBackgroundFlush <- struct{}{}
+	}
 }
 
 func (m *manager) PeriodicFlushAll(ctx context.Context) {

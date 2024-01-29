@@ -102,6 +102,7 @@ func main() {
 		rtm.TriggerGracefulReconnect()
 		err2 := pendingShutdown.Wait(ctx2)
 		rtm.DisconnectAll()
+		dum.WaitForBackgroundFlush()
 		return err2
 	})
 	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
