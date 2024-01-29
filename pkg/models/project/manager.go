@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -1434,6 +1434,10 @@ WHERE id = $1
 }
 
 func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error) {
+	if userId.IsZero() && accessToken == "" {
+		// skip overhead of db query
+		return nil, &errors.NotFoundError{}
+	}
 	d := LoadEditorDetails{}
 	err := m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
@@ -1492,6 +1496,9 @@ WHERE p.id = $1
 		&d.User.LearnedWords,
 	)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &errors.NotFoundError{}
+		}
 		return nil, err
 	}
 	d.Project.Id = projectId
