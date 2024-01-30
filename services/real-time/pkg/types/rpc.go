@@ -58,8 +58,8 @@ type RPCResponse struct {
 	ProcessedBy          string                  `json:"p,omitempty"`
 	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
 
-	releaseBody []byte
 	FatalError  bool `json:"-"`
+	releaseBody bool
 }
 
 func (r *RPCResponse) ReleaseBuffer(o []byte) {
@@ -93,8 +93,8 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, r.Body...)
 		c = true
 	}
-	if r.releaseBody != nil {
-		RPCResponseBufPool.Put(r.releaseBody)
+	if r.releaseBody {
+		RPCResponseBufPool.Put([]byte(r.Body))
 	}
 	if r.Callback != 0 {
 		comma()
