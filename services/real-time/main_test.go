@@ -239,6 +239,11 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 	b.StopTimer()
 	nsPerClient := int(b.Elapsed()) / b.N / n
 	b.ReportMetric(float64(int(time.Second)/nsPerClient), "clients/s")
+
+	if b.N > 1 {
+		// wait for unsubscribe
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func BenchmarkBootstrap1(b *testing.B) {
@@ -291,6 +296,14 @@ func BenchmarkBootstrap8k(b *testing.B) {
 
 func BenchmarkBootstrap9k(b *testing.B) {
 	benchmarkBootstrapN(b, 9_000)
+}
+
+func BenchmarkBootstrap14k(b *testing.B) {
+	benchmarkBootstrapN(b, 14_000)
+}
+
+func BenchmarkBootstrap15k(b *testing.B) {
+	benchmarkBootstrapN(b, 15_000)
 }
 
 func singleClientSetup() *realTime.Client {

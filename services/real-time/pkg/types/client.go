@@ -18,7 +18,6 @@ package types
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
 	"log"
 	"sync/atomic"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/das7pad/overleaf-go/pkg/base64Ordered"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -107,6 +107,8 @@ func init() {
 	go rng.run()
 }
 
+const PublicIdTsPrefixLength = 11
+
 // generatePublicId yields a secure unique id
 // It contains a timestamp in ns precision and 8 bytes of randomness in b64.
 func generatePublicId() sharedTypes.PublicId {
@@ -121,7 +123,7 @@ func generatePublicId() sharedTypes.PublicId {
 	)
 	rnd := <-rng
 	copy(buf[publicIdOffset+8:publicIdLength], rnd[:])
-	base64.RawURLEncoding.Encode(buf[:], buf[publicIdOffset:publicIdLength])
+	base64Ordered.Encode(buf[:], buf[publicIdOffset:publicIdLength])
 	return sharedTypes.PublicId(buf[:])
 }
 

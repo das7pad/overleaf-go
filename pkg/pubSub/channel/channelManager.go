@@ -49,6 +49,7 @@ type Manager interface {
 	String() string
 	Subscribe(ctx context.Context, id sharedTypes.UUID) error
 	Unsubscribe(ctx context.Context, id sharedTypes.UUID)
+	UnSubscribeBulk(ctx context.Context, ids sharedTypes.UUIDBatch) error
 	Listen(ctx context.Context) (<-chan PubSubMessage, error)
 	Close()
 }
@@ -131,6 +132,22 @@ func (m *manager) Unsubscribe(ctx context.Context, id sharedTypes.UUID) {
 	m.c <- PubSubMessage{Channel: id}
 }
 
+func (m *manager) UnSubscribeBulk(ctx context.Context, ids sharedTypes.UUIDBatch) error {
+	n := ids.Len()
+	args := make([]string, n)
+
+	ids2 := ids
+	for i := 0; i < n; i++ {
+		args[i] = string(m.base.join(ids.Next()))
+	}
+	ids = ids2
+	err := m.p.Unsubscribe(ctx, args...)
+	for i := 0; i < n; i++ {
+		m.c <- PubSubMessage{Channel: ids.Next()}
+	}
+	return err
+}
+
 func (m *manager) batchSubscriptionChanges(ctx context.Context, id sharedTypes.UUID, queue chan batchGeneration, fn func(ctx context.Context, channels ...string) error) error {
 	bg := <-queue
 	bg.queue <- string(m.base.join(id))
@@ -207,41 +224,42 @@ func (m *manager) Listen(ctx context.Context) (<-chan PubSubMessage, error) {
 		return nil, err
 	}
 
-	rawC := make(chan PubSubMessage, 100)
-	m.c = rawC
-	go func() {
-		defer close(rawC)
-		nFailed := 0
-		for {
-			raw, err := m.p.Receive(ctx)
-			if err != nil {
-				if err == redis.ErrClosed {
-					return
-				}
-				nFailed++
-				log.Printf(
-					"pubsub receive: nFailed=%d, %q", nFailed, err.Error(),
-				)
-				time.Sleep(time.Duration(math.Min(
-					float64(5*time.Second),
-					math.Pow(2, float64(nFailed))*float64(time.Millisecond),
-				)))
+	m.c = make(chan PubSubMessage, 100)
+	go m.listen(ctx)
+	return m.c, nil
+}
+
+func (m *manager) listen(ctx context.Context) {
+	defer close(m.c)
+	nFailed := 0
+	for {
+		raw, err := m.p.Receive(ctx)
+		if err != nil {
+			if err == redis.ErrClosed {
+				return
+			}
+			nFailed++
+			log.Printf(
+				"pubsub receive: nFailed=%d, %q", nFailed, err.Error(),
+			)
+			time.Sleep(time.Duration(math.Min(
+				float64(5*time.Second),
+				math.Pow(2, float64(nFailed))*float64(time.Millisecond),
+			)))
+			continue
+		}
+		nFailed = 0
+		if msg, ok := raw.(*redis.Message); ok {
+			id, errId := m.base.parseIdFromChannel(msg.Channel)
+			if errId != nil {
 				continue
 			}
-			nFailed = 0
-			if msg, ok := raw.(*redis.Message); ok {
-				id, errId := m.base.parseIdFromChannel(msg.Channel)
-				if errId != nil {
-					continue
-				}
-				rawC <- PubSubMessage{
-					Msg:     msg.Payload,
-					Channel: id,
-				}
+			m.c <- PubSubMessage{
+				Msg:     msg.Payload,
+				Channel: id,
 			}
 		}
-	}()
-	return rawC, nil
+	}
 }
 
 func (m *manager) Close() {

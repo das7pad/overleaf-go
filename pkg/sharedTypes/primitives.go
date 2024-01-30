@@ -41,9 +41,25 @@ func PopulateUUID(u *UUID) error {
 	return nil
 }
 
+func NewUUIDBatch(n int) UUIDBatch {
+	return UUIDBatch{buf: make([]byte, 0, n*16)}
+}
+
 type UUIDBatch struct {
 	buf    []byte
 	offset int
+}
+
+func (b *UUIDBatch) Cap() int {
+	return cap(b.buf) / 16
+}
+
+func (b *UUIDBatch) Len() int {
+	return len(b.buf) / 16
+}
+
+func (b *UUIDBatch) Add(id UUID) {
+	b.buf = append(b.buf, id[:]...)
 }
 
 func (b *UUIDBatch) Next() UUID {

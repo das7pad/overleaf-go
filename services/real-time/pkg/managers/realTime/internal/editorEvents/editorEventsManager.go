@@ -19,6 +19,7 @@ package editorEvents
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
@@ -31,16 +32,21 @@ type Manager interface {
 	BroadcastGracefulReconnect(suffix uint8) int
 	GetClients() map[sharedTypes.UUID]Clients
 	Join(ctx context.Context, client *types.Client) error
-	Leave(client *types.Client)
+	Leave(client *types.Client) bool
 	StartListening(ctx context.Context) error
 }
 
-func New(c channel.Manager) Manager {
+type FlushProject func(ctx context.Context, projectId sharedTypes.UUID) bool
+
+func New(c channel.Manager, flushRoomChanges FlushRoomChanges, flushProject FlushProject) Manager {
 	m := manager{
-		c:     c,
-		sem:   make(chan struct{}, 1),
-		mux:   sync.RWMutex{},
-		rooms: make(map[sharedTypes.UUID]*room),
+		c:                c,
+		sem:              make(chan struct{}, 1),
+		mux:              sync.RWMutex{},
+		rooms:            make(map[sharedTypes.UUID]*room),
+		idle:             make(map[sharedTypes.UUID]bool),
+		flushRoomChanges: flushRoomChanges,
+		flushProject:     flushProject,
 	}
 	return &m
 }
@@ -48,9 +54,12 @@ func New(c channel.Manager) Manager {
 type manager struct {
 	c channel.Manager
 
-	sem   chan struct{}
-	mux   sync.RWMutex
-	rooms map[sharedTypes.UUID]*room
+	sem              chan struct{}
+	mux              sync.RWMutex
+	rooms            map[sharedTypes.UUID]*room
+	idle             map[sharedTypes.UUID]bool
+	flushRoomChanges FlushRoomChanges
+	flushProject     FlushProject
 }
 
 func (m *manager) pauseQueueFor(fn func()) {
@@ -78,6 +87,7 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	delete(m.rooms, id)
 	m.mux.Unlock()
 	r.close()
+	delete(m.idle, id)
 }
 
 func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.PendingOperation {
@@ -85,13 +95,19 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists {
-		r = newRoom()
+		r = newRoom(projectId, m.flushRoomChanges, m.flushProject)
 		m.mux.Lock()
 		m.rooms[projectId] = r
 		m.mux.Unlock()
 	}
 
 	roomWasEmpty := r.add(client)
+	if exists && roomWasEmpty {
+		if m.idle[projectId] {
+			roomWasEmpty = false
+		}
+		delete(m.idle, projectId)
+	}
 
 	pending := r.pending
 	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
@@ -109,30 +125,64 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	return op
 }
 
-func (m *manager) leave(client *types.Client) {
+func (m *manager) leave(client *types.Client) bool {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists || r.isEmpty() {
 		// Not joined yet.
 		client.CloseWriteQueue()
-		return
+		return false
 	}
 
 	roomIsEmpty := r.remove(client)
 	if !roomIsEmpty {
 		// Do not unsubscribe yet.
-		return
+		return false
 	}
+	m.idle[projectId] = true
+	return true
+}
 
-	subscribe := r.pending
-	r.pending = pendingOperation.TrackOperation(func() error {
-		if subscribe != nil && subscribe.IsPending() {
-			_ = subscribe.Wait(context.Background())
+func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
+	m.sem <- struct{}{}
+	n := len(m.idle)
+	if n < threshold {
+		<-m.sem
+		return n
+	}
+	var ids sharedTypes.UUIDBatch
+	extra := 1000
+	for ids.Cap() < n {
+		<-m.sem
+		n += extra
+		extra = extra * 2
+		ids = sharedTypes.NewUUIDBatch(n)
+
+		m.sem <- struct{}{}
+		n = len(m.idle)
+		if n < threshold {
+			<-m.sem
+			return n
 		}
-		m.c.Unsubscribe(context.Background(), projectId)
-		return nil
+	}
+	for id, ok := range m.idle {
+		if ok {
+			ids.Add(id)
+		}
+	}
+	pending := pendingOperation.TrackOperation(func() error {
+		return m.c.UnSubscribeBulk(ctx, ids)
 	})
+	for id, ok := range m.idle {
+		if ok {
+			m.idle[id] = false
+			m.rooms[id].pending = pending
+		}
+	}
+	<-m.sem
+	_ = pending.Wait(ctx)
+	return n
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
@@ -146,10 +196,11 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	return pending.Err()
 }
 
-func (m *manager) Leave(client *types.Client) {
+func (m *manager) Leave(client *types.Client) bool {
 	m.sem <- struct{}{}
-	m.leave(client)
+	nowEmpty := m.leave(client)
 	<-m.sem
+	return nowEmpty
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {
@@ -185,17 +236,35 @@ func (m *manager) StartListening(ctx context.Context) error {
 
 	allQueue := make(chan string)
 	go m.processAllMessages(allQueue)
-	go func() {
-		defer close(allQueue)
-		for msg := range c {
-			if msg.Channel.IsZero() {
-				allQueue <- msg.Msg
-			} else {
-				m.handleMessage(msg)
-			}
-		}
-	}()
+	t := time.NewTicker(10 * time.Millisecond)
+	go m.listen(c, allQueue, t)
+	go m.periodicallyCleanupIdleRooms(ctx, t)
 	return nil
+}
+
+func (m *manager) listen(c <-chan channel.PubSubMessage, allQueue chan string, t *time.Ticker) {
+	defer close(allQueue)
+	for msg := range c {
+		if msg.Channel.IsZero() {
+			allQueue <- msg.Msg
+		} else {
+			m.handleMessage(msg)
+		}
+	}
+	t.Stop()
+}
+
+func (m *manager) periodicallyCleanupIdleRooms(ctx context.Context, t *time.Ticker) {
+	const initialThreshold = 100
+	threshold := initialThreshold
+	for range t.C {
+		n := m.cleanupIdleRooms(ctx, threshold)
+		if n < threshold && n != 0 {
+			threshold -= n
+		} else {
+			threshold = initialThreshold
+		}
+	}
 }
 
 func (m *manager) BroadcastGracefulReconnect(suffix uint8) int {

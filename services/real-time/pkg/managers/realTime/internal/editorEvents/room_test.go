@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,9 +17,11 @@
 package editorEvents
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -59,11 +61,15 @@ func Test_room_remove(t *testing.T) {
 			}
 		}
 	}
+	fRc := func(sharedTypes.UUID, RoomChanges) {}
+	fP := func(context.Context, sharedTypes.UUID) bool { return true }
 
 	for i1, p1 := range permutations {
 		for i2, p2 := range permutations {
-			r := newRoom()
-			r.close()
+			r := newRoom(sharedTypes.UUID{}, fRc, fP)
+			<-r.roomChanges
+			r.roomChanges <- make(RoomChanges, 0, 100)
+			close(r.c)
 			r.c = make(chan roomQueueEntry)
 			go func() {
 				for range r.c {
@@ -92,7 +98,9 @@ func Test_room_remove(t *testing.T) {
 			if got := r.Clients().All; i1 == i2 && len(got) != 0 {
 				t.Fatalf("%d/%d add+remove=%s, clients=%s", i1, i2, p1, got)
 			}
-			r.close()
+			close(r.roomChanges)
+			<-r.roomChanges
+			close(r.c)
 		}
 	}
 }
