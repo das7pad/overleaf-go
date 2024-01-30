@@ -63,13 +63,13 @@ type RPCResponse struct {
 }
 
 func (r *RPCResponse) ReleaseBuffer(o []byte) {
-	RPCResponseBufPool.Put(o)
+	rpcResponseBufPool.Put(o)
 }
 
-var RPCResponseBufPool sync.Pool
+var rpcResponseBufPool sync.Pool
 
 func getResponseBuffer(n int) []byte {
-	if v := RPCResponseBufPool.Get(); v != nil {
+	if v := rpcResponseBufPool.Get(); v != nil {
 		o := v.([]byte)
 		if cap(o) >= n {
 			return o[:0]
@@ -94,7 +94,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		c = true
 	}
 	if r.releaseBody {
-		RPCResponseBufPool.Put([]byte(r.Body))
+		rpcResponseBufPool.Put([]byte(r.Body))
 	}
 	if r.Callback != 0 {
 		comma()
@@ -106,7 +106,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"e":`...)
 		blob, err := json.Marshal(r.Error)
 		if err != nil {
-			RPCResponseBufPool.Put(o)
+			rpcResponseBufPool.Put(o)
 			return nil, err
 		}
 		o = append(o, blob...)
@@ -134,7 +134,7 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"s":`...)
 		blob, err := json.Marshal(r.LazySuccessResponses)
 		if err != nil {
-			RPCResponseBufPool.Put(o)
+			rpcResponseBufPool.Put(o)
 			return nil, err
 		}
 		o = append(o, blob...)
