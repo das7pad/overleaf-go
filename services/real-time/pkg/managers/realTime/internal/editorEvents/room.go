@@ -198,7 +198,7 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 	rcs := <-r.roomChanges
 	owner := rcs == nil
 	if owner {
-		rcs = make(RoomChanges, 0, 1)
+		rcs = make(RoomChanges, 0, 4)
 	}
 	rc := RoomChange{
 		PublicId: client.PublicId,
