@@ -17,6 +17,9 @@
 package loggedInUserJWT
 
 import (
+	"bytes"
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -52,4 +55,63 @@ func New(options jwtOptions.JWTOptions) JWTHandler {
 	return jwtHandler.New[*Claims](options, func() *Claims {
 		return &Claims{}
 	})
+}
+
+func (c *Claims) FastUnmarshalJSON(p []byte) error {
+	if err := c.tryUnmarshalJSON(p); err != nil {
+		return json.Unmarshal(p, c)
+	}
+	return nil
+}
+
+var errBadJWT = errors.New("bad jwt")
+
+type claimField int8
+
+const (
+	claimFieldExpiresAt claimField = iota + 1
+	claimFieldUserId
+)
+
+func (c *Claims) tryUnmarshalJSON(p []byte) error {
+	i := 0
+	if len(p) < 2 || p[i] != '{' || p[len(p)-1] != '}' {
+		return errBadJWT
+	}
+	i++
+	for len(p) > i+3 && p[i] == '"' {
+		var f claimField
+		switch {
+		case bytes.HasPrefix(p[i:], []byte(`"exp":`)):
+			f = claimFieldExpiresAt
+			i += 6
+		case bytes.HasPrefix(p[i:], []byte(`"userId":`)):
+			f = claimFieldUserId
+			i += 9
+		default:
+			return errBadJWT
+		}
+		next := bytes.IndexByte(p[i:], ',')
+		j := i + next
+		if next == -1 {
+			j = len(p) - 1
+		}
+		switch f {
+		case claimFieldExpiresAt:
+			v, err := strconv.ParseInt(string(p[i:j]), 10, 64)
+			if err != nil {
+				return errBadJWT
+			}
+			c.ExpiresAt = v
+		case claimFieldUserId:
+			if err := c.UserId.UnmarshalJSON(p[i:j]); err != nil {
+				return errBadJWT
+			}
+		}
+		if next == -1 {
+			return nil
+		}
+		i = j + 1
+	}
+	return errBadJWT
 }

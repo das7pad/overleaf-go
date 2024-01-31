@@ -105,7 +105,7 @@ func (h *handler[T]) Parse(blob []byte, now time.Time) (T, error) {
 		return tt, err
 	}
 	t := h.newClaims()
-	if err = json.Unmarshal(payload, t); err != nil {
+	if err = t.FastUnmarshalJSON(payload); err != nil {
 		var tt T
 		return tt, ErrTokenMalformed
 	}
@@ -122,7 +122,7 @@ func (h *handler[T]) ParseInto(t T, blob []byte, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	if err = json.Unmarshal(payload, t); err != nil {
+	if err = t.FastUnmarshalJSON(payload); err != nil {
 		return ErrTokenMalformed
 	}
 	if err = t.Validate(now); err != nil {

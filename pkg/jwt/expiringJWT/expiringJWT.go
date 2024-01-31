@@ -25,6 +25,7 @@ import (
 type ExpiringJWT interface {
 	Validate(now time.Time) error
 	SetExpiry(expiresIn time.Duration)
+	FastUnmarshalJSON(p []byte) error
 }
 
 var ErrExpired = &errors.UnauthorizedError{Reason: "jwt expired"}

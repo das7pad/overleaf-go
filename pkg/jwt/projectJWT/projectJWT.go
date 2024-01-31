@@ -17,7 +17,10 @@
 package projectJWT
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -93,4 +96,143 @@ func New(options jwtOptions.JWTOptions, validate validateProjectJWTEpochs) JWTHa
 			validateProjectJWTEpochs: validate,
 		}
 	})
+}
+
+func (c *Claims) FastUnmarshalJSON(p []byte) error {
+	if err := c.tryUnmarshalJSON(p); err != nil {
+		return json.Unmarshal(p, c)
+	}
+	return nil
+}
+
+var errBadJWT = errors.New("bad jwt")
+
+type claimField int8
+
+const (
+	claimFieldExpiresAt claimField = iota + 1
+	claimFieldEpoch
+	claimFieldPrivilegeLevel
+	claimFieldAccessSource
+	claimFieldCompileGroup
+	claimFieldProjectId
+	claimFieldUserId
+	claimFieldTimeout
+	claimFieldEpochUser
+)
+
+var claimFieldMap [256]claimField
+
+func init() {
+	claimFieldMap['c'] = claimFieldCompileGroup
+	claimFieldMap['l'] = claimFieldPrivilegeLevel
+	claimFieldMap['p'] = claimFieldProjectId
+	claimFieldMap['s'] = claimFieldAccessSource
+	claimFieldMap['t'] = claimFieldTimeout
+	claimFieldMap['u'] = claimFieldUserId
+}
+
+func (c *Claims) tryUnmarshalJSON(p []byte) error {
+	i := 0
+	if len(p) < 2 || p[i] != '{' || p[len(p)-1] != '}' {
+		return errBadJWT
+	}
+	i++
+	for len(p) > i+3 && p[i] == '"' {
+		i++
+		f := claimFieldMap[p[i]]
+		if p[i] == 'e' {
+			switch p[i+1] {
+			case 'u':
+				i++
+				f = claimFieldEpochUser
+			case 'x':
+				if p[i+2] == 'p' {
+					i += 2
+					f = claimFieldExpiresAt
+				} else {
+					return errBadJWT
+				}
+			case '"':
+				f = claimFieldEpoch
+			default:
+				return errBadJWT
+			}
+		}
+		if f == 0 {
+			return errBadJWT
+		}
+		i++
+		if len(p) < i+3 || p[i] != '"' || p[i+1] != ':' {
+			return errBadJWT
+		}
+		i += 2
+		next := bytes.IndexByte(p[i:], ',')
+		j := i + next
+		if next == -1 {
+			j = len(p) - 1
+		}
+		switch f {
+		case claimFieldEpoch, claimFieldEpochUser,
+			claimFieldExpiresAt, claimFieldTimeout:
+			v, err := strconv.ParseInt(string(p[i:j]), 10, 64)
+			if err != nil {
+				return errBadJWT
+			}
+			switch f {
+			case claimFieldEpoch:
+				c.Epoch = v
+			case claimFieldEpochUser:
+				c.EpochUser = v
+			case claimFieldExpiresAt:
+				c.ExpiresAt = v
+			case claimFieldTimeout:
+				c.Timeout = sharedTypes.ComputeTimeout(v)
+			}
+		case claimFieldProjectId:
+			if err := c.ProjectId.UnmarshalJSON(p[i:j]); err != nil {
+				return errBadJWT
+			}
+		case claimFieldUserId:
+			if err := c.UserId.UnmarshalJSON(p[i:j]); err != nil {
+				return errBadJWT
+			}
+		case claimFieldAccessSource:
+			switch project.AccessSource(p[i+1 : j-1]) {
+			case project.AccessSourceToken:
+				c.AccessSource = project.AccessSourceToken
+			case project.AccessSourceInvite:
+				c.AccessSource = project.AccessSourceInvite
+			case project.AccessSourceOwner:
+				c.AccessSource = project.AccessSourceOwner
+			default:
+				return errBadJWT
+			}
+		case claimFieldPrivilegeLevel:
+			switch sharedTypes.PrivilegeLevel(p[i+1 : j-1]) {
+			case sharedTypes.PrivilegeLevelOwner:
+				c.PrivilegeLevel = sharedTypes.PrivilegeLevelOwner
+			case sharedTypes.PrivilegeLevelReadOnly:
+				c.PrivilegeLevel = sharedTypes.PrivilegeLevelReadOnly
+			case sharedTypes.PrivilegeLevelReadAndWrite:
+				c.PrivilegeLevel = sharedTypes.PrivilegeLevelReadAndWrite
+			default:
+				return errBadJWT
+			}
+		case claimFieldCompileGroup:
+			switch sharedTypes.CompileGroup(p[i+1 : j-1]) {
+			case sharedTypes.StandardCompileGroup:
+				c.CompileGroup = sharedTypes.StandardCompileGroup
+			case sharedTypes.PriorityCompileGroup:
+				c.CompileGroup = sharedTypes.PriorityCompileGroup
+			default:
+				return errBadJWT
+			}
+		}
+		if next == -1 {
+			return nil
+		}
+		i = j + 1
+	}
+	return errBadJWT
 }
