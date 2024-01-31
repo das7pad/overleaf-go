@@ -30,8 +30,8 @@ import (
 
 type RoomChange struct {
 	PublicId    sharedTypes.PublicId `json:"i"`
-	DisplayName string               `json:"n"`
-	IsJoin      bool                 `json:"j"`
+	DisplayName string               `json:"n,omitempty"`
+	IsJoin      bool                 `json:"j,omitempty"`
 }
 type RoomChanges []RoomChange
 type FlushRoomChanges func(projectId sharedTypes.UUID, rc RoomChanges)
