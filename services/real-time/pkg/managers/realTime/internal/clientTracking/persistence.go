@@ -83,8 +83,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 		if err != nil {
 			pending.err = err
 		} else {
-			pending.clients, pending.err =
-				m.parseConnectedClients(client.ProjectId, entries)
+			pending.clients = m.buildConnectedClients(client.ProjectId, entries)
 		}
 		m.pcc[client.ProjectId[0]].delete(client.ProjectId)
 		close(pending.done)
@@ -94,7 +93,9 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	return pending.clients, pending.err
 }
 
-func (m *manager) parseConnectedClients(projectId sharedTypes.UUID, entries map[string]string) (json.RawMessage, error) {
+var noClients = []byte("[]")
+
+func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[string]string) json.RawMessage {
 	var staleClients []sharedTypes.PublicId
 	defer func() {
 		if len(staleClients) == 0 {
@@ -104,31 +105,37 @@ func (m *manager) parseConnectedClients(projectId sharedTypes.UUID, entries map[
 	}()
 
 	tStale := encodeAge(time.Now().Add(-UserExpiry))
+	n := 0
 	for k, v := range entries {
-		if clientId, _, isAge := strings.Cut(k, ":age"); isAge {
-			delete(entries, k)
+		if isAge := strings.HasSuffix(k, ":age"); isAge {
 			if v < tStale {
+				clientId := strings.TrimSuffix(k, ":age")
 				staleClients = append(
 					staleClients, sharedTypes.PublicId(clientId),
 				)
 				delete(entries, clientId)
 			}
+			continue
 		}
+		n += 6 + len(k) + 2 + len(v) - 1 + 1
 	}
-	clients := make(types.ConnectedClients, len(entries))
-	i := 0
-	for clientId, v := range entries {
-		if err := json.Unmarshal([]byte(v), &clients[i]); err != nil {
-			return nil, errors.Tag(err, "deserialize client")
+	if n == 0 {
+		return noClients
+	}
+	blob := make([]byte, 0, 1+n-1+1)
+	blob = append(blob, '[')
+	for k, v := range entries {
+		if isAge := strings.HasSuffix(k, ":age"); isAge || len(v) == 0 {
+			continue
 		}
-		clients[i].ClientId = sharedTypes.PublicId(clientId)
-		i++
+		blob = append(blob, `{"i":"`...)
+		blob = append(blob, k...)
+		blob = append(blob, `",`...)
+		blob = append(blob, v[1:]...)
+		blob = append(blob, ',')
 	}
-	blob, err := json.Marshal(clients)
-	if err != nil {
-		return nil, errors.Tag(err, "serialize clients")
-	}
-	return blob, nil
+	blob[len(blob)-1] = ']'
+	return blob
 }
 
 func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTypes.UUID]editorEvents.Clients) error {
