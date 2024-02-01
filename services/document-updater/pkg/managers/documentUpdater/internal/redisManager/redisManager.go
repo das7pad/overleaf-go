@@ -258,7 +258,7 @@ return redis.call("LRANGE", KEYS[1], start, stop)
 
 func (m *manager) GetPreviousDocUpdates(ctx context.Context, docId sharedTypes.UUID, start sharedTypes.Version, end sharedTypes.Version) ([]sharedTypes.DocumentUpdate, error) {
 	if start == end {
-		return make([]sharedTypes.DocumentUpdate, 0), nil
+		return nil, nil
 	}
 	keys := []string{
 		getDocUpdatesKey(docId),

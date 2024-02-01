@@ -134,6 +134,8 @@ func (m *manager) CheckDocExists(ctx context.Context, projectId, docId sharedTyp
 	return err
 }
 
+var noUpdates = make([]sharedTypes.DocumentUpdate, 0)
+
 func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error) {
 	response := types.GetDocResponse{}
 	if fromVersion == -1 {
@@ -141,7 +143,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 		if err != nil {
 			return nil, err
 		}
-		response.Ops = make([]sharedTypes.DocumentUpdate, 0)
+		response.Ops = noUpdates
 		response.PathName = doc.PathName
 		response.Snapshot = string(doc.Snapshot)
 		response.Version = doc.Version
@@ -151,6 +153,9 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if len(updates) == 0 {
+			updates = noUpdates
 		}
 		response.Ops = updates
 		response.Version = doc.Version
