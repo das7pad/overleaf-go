@@ -350,27 +350,17 @@ func (m *manager) UpdateDocument(ctx context.Context, docId sharedTypes.UUID, do
 			getLastUpdatedCtxKey(docId): lastUpdatedCtxBlob,
 		})
 		p.LTrim(ctx, getDocUpdatesKey(docId), -DocOpsMaxLength, -1)
-		if len(appliedUpdatesBlobs) > 0 {
-			p.RPush(ctx, getDocUpdatesKey(docId), appliedUpdatesBlobs...)
-			p.Expire(ctx, getDocUpdatesKey(docId), DocOpsTTL)
+		p.RPush(ctx, getDocUpdatesKey(docId), appliedUpdatesBlobs...)
+		p.Expire(ctx, getDocUpdatesKey(docId), DocOpsTTL)
 
-			uncompressedHistoryOpsRes = p.RPush(
-				ctx,
-				getUncompressedHistoryOpsKey(docId),
-				appliedUpdatesBlobs...,
-			)
-		}
-		// NOTE: Node.JS is doing this in above branch.
-		//       This might be a problem for ranges-only updates.
+		uncompressedHistoryOpsRes = p.RPush(
+			ctx,
+			getUncompressedHistoryOpsKey(docId),
+			appliedUpdatesBlobs...,
+		)
 		now := time.Now().Unix()
 		doc.UnFlushedTime = types.UnFlushedTime(now)
-		p.SetNX(
-			ctx,
-			getUnFlushedTimeKey(docId),
-			now,
-			0,
-		)
-
+		p.SetNX(ctx, getUnFlushedTimeKey(docId), now, 0)
 		return nil
 	})
 	if err != nil {
