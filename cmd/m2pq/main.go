@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/das7pad/overleaf-go/cmd/back-fill-project-last-updated/pkg/backFillProjectLastUpdated"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/chat"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/contact"
 	"github.com/das7pad/overleaf-go/cmd/m2pq/internal/models/docHistory"
@@ -137,6 +138,10 @@ func main() {
 			continue
 		}
 		log.Printf("%s import done", name)
+	}
+
+	if err := backFillProjectLastUpdated.Run(signalCtx, pqDB); err != nil {
+		panic(err)
 	}
 
 	log.Println("Done.")
