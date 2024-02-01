@@ -363,17 +363,26 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sha
 func (m *manager) persistProcessedUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, doc *types.Doc, initialVersion sharedTypes.Version, processed []sharedTypes.DocumentUpdate, updateErr error) error {
 	var queueDepth int64
 	var err error
-	appliedUpdates := make([]sharedTypes.DocumentUpdate, 0, len(processed))
+	var appliedUpdates []sharedTypes.DocumentUpdate
 	if doc.Version != initialVersion {
+		nonDup := 0
 		for _, update := range processed {
-			if update.Dup {
-				continue
+			if !update.Dup {
+				nonDup++
 			}
-			appliedUpdates = append(appliedUpdates, update)
 		}
-		queueDepth, err = m.rm.UpdateDocument(
-			ctx, docId, doc, appliedUpdates,
-		)
+		if nonDup == len(processed) {
+			appliedUpdates = processed
+		} else {
+			appliedUpdates = make([]sharedTypes.DocumentUpdate, 0, nonDup)
+			for _, update := range processed {
+				if update.Dup {
+					continue
+				}
+				appliedUpdates = append(appliedUpdates, update)
+			}
+		}
+		queueDepth, err = m.rm.UpdateDocument(ctx, docId, doc, appliedUpdates)
 		if err != nil {
 			return err
 		}
