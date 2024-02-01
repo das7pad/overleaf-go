@@ -52,6 +52,8 @@ func Periodic(ctx context.Context, uc redis.UniversalClient, prefix string, pc P
 }
 
 func Each(ctx context.Context, uc redis.UniversalClient, prefix string, count int64, fn func(ctx context.Context, id sharedTypes.UUID) bool) (bool, error) {
+	ctx, done := context.WithCancel(ctx)
+	defer done()
 	keys, scanErr := ScanRedis(ctx, uc, prefix+"*", count)
 	var projectId sharedTypes.UUID
 	ok := true

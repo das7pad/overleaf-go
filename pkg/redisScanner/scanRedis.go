@@ -30,8 +30,9 @@ func ScanRedis(ctx context.Context, uc redis.UniversalClient, match string, coun
 		match: match,
 		count: count,
 	}
-	s.eg, ctx = errgroup.WithContext(ctx)
-	go s.run(ctx, uc)
+	var pCtx context.Context
+	s.eg, pCtx = errgroup.WithContext(ctx)
+	go s.run(ctx, pCtx, uc)
 	return s.q, s.err
 }
 
@@ -47,7 +48,7 @@ type scanner struct {
 	count int64
 }
 
-func (s *scanner) run(ctx context.Context, uc redis.UniversalClient) {
+func (s *scanner) run(ctx, pCtx context.Context, uc redis.UniversalClient) {
 	go func() {
 		<-ctx.Done()
 		for range s.q {
@@ -56,9 +57,9 @@ func (s *scanner) run(ctx context.Context, uc redis.UniversalClient) {
 	}()
 	var err error
 	if c, ok := uc.(*redis.ClusterClient); ok {
-		err = s.scanCluster(ctx, c)
+		err = s.scanCluster(pCtx, c)
 	} else {
-		err = s.scan(ctx, uc)
+		err = s.scan(pCtx, uc)
 	}
 	err2 := s.eg.Wait()
 
