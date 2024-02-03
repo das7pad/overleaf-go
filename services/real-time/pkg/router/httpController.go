@@ -254,11 +254,6 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 func (h *httpController) readLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
 	for {
-		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
-			disconnect()
-			_ = conn.Close()
-			return
-		}
 		var request types.RPCRequest
 		if err := conn.ReadJSON(&request); err != nil {
 			if shouldTriggerDisconnect(err) {
@@ -285,6 +280,11 @@ func (h *httpController) readLoop(ctx context.Context, disconnect context.Cancel
 		rpc.Response.Latency.End()
 		if !c.EnsureQueueResponse(&response) || rpc.Response.FatalError {
 			// Do not process further rpc calls after a fatal error.
+			return
+		}
+		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
+			disconnect()
+			_ = conn.Close()
 			return
 		}
 	}
