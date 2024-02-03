@@ -33,7 +33,8 @@ type BootstrapWSResponse struct {
 }
 
 func (b *BootstrapWSResponse) WriteInto(resp *RPCResponse) {
-	o := getResponseBuffer(100 + len(`{"project":,"privilegeLevel":"","connectedClients":,"publicId":""}`) + len(b.Project) + len(b.PrivilegeLevel) + len(b.ConnectedClients) + len(b.PublicId))
+	rb := getResponseBuffer(100 + len(`{"project":,"privilegeLevel":"","connectedClients":,"publicId":""}`) + len(b.Project) + len(b.PrivilegeLevel) + len(b.ConnectedClients) + len(b.PublicId))
+	o := rb.b
 	o = append(o, `{"project":`...)
 	o = append(o, b.Project...)
 	o = append(o, `,"privilegeLevel":"`...)
@@ -48,7 +49,7 @@ func (b *BootstrapWSResponse) WriteInto(resp *RPCResponse) {
 	o = append(o, b.PublicId...)
 	o = append(o, `"}`...)
 	resp.Body = o
-	resp.releaseBody = true
+	resp.releaseBody = rb
 }
 
 type ProjectDetails struct {

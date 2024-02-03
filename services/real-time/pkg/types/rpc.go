@@ -58,28 +58,34 @@ type RPCResponse struct {
 	ProcessedBy          string                  `json:"p,omitempty"`
 	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
 
+	releaseBody *rpcResponseBufEntry
 	FatalError  bool `json:"-"`
-	releaseBody bool
 }
 
-func (r *RPCResponse) ReleaseBuffer(o []byte) {
-	rpcResponseBufPool.Put(o)
+func (r *RPCResponse) ReleaseBuffer() {
+	rpcResponseBufPool.Put(r.releaseBody)
 }
 
 var rpcResponseBufPool sync.Pool
 
-func getResponseBuffer(n int) []byte {
+type rpcResponseBufEntry struct {
+	b []byte
+}
+
+func getResponseBuffer(n int) *rpcResponseBufEntry {
 	if v := rpcResponseBufPool.Get(); v != nil {
-		o := v.([]byte)
-		if cap(o) >= n {
-			return o[:0]
+		o := v.(*rpcResponseBufEntry)
+		if cap(o.b) >= n {
+			o.b = o.b[:0]
+			return o
 		}
 	}
-	return make([]byte, 0, n)
+	return &rpcResponseBufEntry{b: make([]byte, 0, n)}
 }
 
 func (r *RPCResponse) MarshalJSON() ([]byte, error) {
-	o := getResponseBuffer(100 + len(r.Body))
+	rb := getResponseBuffer(100 + len(r.Body))
+	o := rb.b
 	o = append(o, '{')
 	c := false
 	comma := func() {
@@ -93,8 +99,9 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, r.Body...)
 		c = true
 	}
-	if r.releaseBody {
-		rpcResponseBufPool.Put([]byte(r.Body))
+	if r.releaseBody != nil {
+		rpcResponseBufPool.Put(r.releaseBody)
+		r.releaseBody = nil
 	}
 	if r.Callback != 0 {
 		comma()
@@ -106,7 +113,8 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"e":`...)
 		blob, err := json.Marshal(r.Error)
 		if err != nil {
-			rpcResponseBufPool.Put(o)
+			rb.b = o
+			rpcResponseBufPool.Put(rb)
 			return nil, err
 		}
 		o = append(o, blob...)
@@ -134,12 +142,15 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, `"s":`...)
 		blob, err := json.Marshal(r.LazySuccessResponses)
 		if err != nil {
-			rpcResponseBufPool.Put(o)
+			rb.b = o
+			rpcResponseBufPool.Put(rb)
 			return nil, err
 		}
 		o = append(o, blob...)
 	}
 	o = append(o, '}')
+	rb.b = o
+	r.releaseBody = rb
 	return o, nil
 }
 
