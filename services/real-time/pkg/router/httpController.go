@@ -57,9 +57,10 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 			// Validation is performed as part of the bootstrap process.
 			nil,
 		),
-		rateLimitBootstrap: make(chan struct{}, 42),
-		writeQueueDepth:    writeQueueDepth,
+		bootstrapQueue:  make(chan bootstrapWSDetails, 120),
+		writeQueueDepth: writeQueueDepth,
 	}
+	h.startWorker()
 	h.addRoutes(r)
 }
 
@@ -71,17 +72,24 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 			// Validation is performed as part of the bootstrap process.
 			nil,
 		),
-		rateLimitBootstrap: make(chan struct{}, 42),
-		writeQueueDepth:    writeQueueDepth,
+		bootstrapQueue:  make(chan bootstrapWSDetails, 120),
+		writeQueueDepth: writeQueueDepth,
 	}
+	h.startWorker()
 	return h.wsWsServer
 }
 
 type httpController struct {
-	rtm                realTime.Manager
-	jwtProject         jwtHandler.JWTHandler[*projectJWT.Claims]
-	rateLimitBootstrap chan struct{}
-	writeQueueDepth    int
+	rtm             realTime.Manager
+	jwtProject      jwtHandler.JWTHandler[*projectJWT.Claims]
+	bootstrapQueue  chan bootstrapWSDetails
+	writeQueueDepth int
+}
+
+func (h *httpController) startWorker() {
+	for i := 0; i < 60; i++ {
+		go h.bootstrapWorker()
+	}
 }
 
 const (
@@ -223,16 +231,36 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 	}
 }
 
-func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT projectJWT.Claims) bool {
-	ctx, done := context.WithDeadline(context.Background(), t0.Add(10*time.Second))
-	defer done()
+type bootstrapWSDetails struct {
+	t0     time.Time
+	claims projectJWT.Claims
+	resp   *types.RPCResponse
+	client *types.Client
+	done   chan error
+}
 
+func (h *httpController) bootstrapWorker() {
+	for d := range h.bootstrapQueue {
+		ctx, done := context.WithDeadline(context.Background(), d.t0.Add(10*time.Second))
+		d.done <- h.rtm.BootstrapWS(ctx, d.resp, d.client, d.claims)
+		done()
+	}
+}
+
+func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT projectJWT.Claims) bool {
 	resp := types.RPCResponse{Name: sharedTypes.Bootstrap}
 	resp.Latency.SetBegin(t0)
 
-	h.rateLimitBootstrap <- struct{}{}
-	err := h.rtm.BootstrapWS(ctx, &resp, c, claimsProjectJWT)
-	<-h.rateLimitBootstrap
+	done := make(chan error)
+	h.bootstrapQueue <- bootstrapWSDetails{
+		t0:     t0,
+		claims: claimsProjectJWT,
+		resp:   &resp,
+		client: c,
+		done:   done,
+	}
+	err := <-done
+	close(done)
 
 	if err != nil {
 		err = errors.Tag(err, fmt.Sprintf(

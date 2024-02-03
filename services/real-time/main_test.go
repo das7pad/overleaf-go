@@ -181,9 +181,7 @@ func setup() {
 	setLimits()
 	go main()
 
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-	f := jwtFactory(ctx)
+	f := jwtFactory(context.Background())
 	for i := 0; i < 10; i++ {
 		bootstrapSharded = append(bootstrapSharded, f())
 	}
@@ -316,6 +314,10 @@ func BenchmarkBootstrap17k(b *testing.B) {
 
 func BenchmarkBootstrap20k(b *testing.B) {
 	benchmarkBootstrapN(b, 20_000)
+}
+
+func BenchmarkBootstrap21k(b *testing.B) {
+	benchmarkBootstrapN(b, 21_000)
 }
 
 func singleClientSetup() *realTime.Client {
