@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -97,9 +97,9 @@ func (m *manager) broadcast(ctx context.Context, projectId, docId sharedTypes.UU
 	if err != nil {
 		return errors.Tag(err, "serialize meta")
 	}
-	err = m.c.Publish(ctx, &sharedTypes.EditorEventsMessage{
+	err = m.c.Publish(ctx, &sharedTypes.EditorEvent{
 		RoomId:  projectId,
-		Message: "broadcastDocMeta",
+		Message: sharedTypes.BroadcastDocMeta,
 		Payload: blob,
 	})
 	if err != nil {

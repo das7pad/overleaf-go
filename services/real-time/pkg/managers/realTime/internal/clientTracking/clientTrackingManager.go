@@ -105,9 +105,9 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs editorEvents.
 			if len(rcs) == 1 {
 				source = rcs[0].PublicId
 			}
-			msg = &sharedTypes.EditorEventsMessage{
+			msg = &sharedTypes.EditorEvent{
 				Source:  source,
-				Message: ClientBatch,
+				Message: sharedTypes.ClientTrackingBatch,
 				RoomId:  projectId,
 				Payload: body,
 			}

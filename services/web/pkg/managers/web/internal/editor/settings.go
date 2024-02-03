@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -45,7 +46,7 @@ func (m *manager) SetCompiler(ctx context.Context, request *types.SetCompilerReq
 		return errors.Tag(err, "update compiler")
 	}
 	go m.notifyEditor(
-		request.ProjectId, "compilerUpdated", request.Compiler,
+		request.ProjectId, sharedTypes.CompilerUpdated, request.Compiler,
 	)
 	return nil
 }
@@ -65,7 +66,7 @@ func (m *manager) SetImageName(ctx context.Context, request *types.SetImageNameR
 		return errors.Tag(err, "update compiler")
 	}
 	go m.notifyEditor(
-		request.ProjectId, "imageNameUpdated", request.ImageName,
+		request.ProjectId, sharedTypes.ImageNameUpdated, request.ImageName,
 	)
 	return nil
 }
@@ -84,7 +85,7 @@ func (m *manager) SetSpellCheckLanguage(ctx context.Context, request *types.SetS
 	}
 	go m.notifyEditor(
 		request.ProjectId,
-		"spellCheckLanguageUpdated",
+		sharedTypes.SpellCheckLanguageUpdated,
 		request.SpellCheckLanguage,
 	)
 	return nil
@@ -98,6 +99,6 @@ func (m *manager) SetRootDocId(ctx context.Context, r *types.SetRootDocIdRequest
 	if err != nil {
 		return errors.Tag(err, "update rootDoc")
 	}
-	go m.notifyEditor(r.ProjectId, "rootDocUpdated", r.RootDocId)
+	go m.notifyEditor(r.ProjectId, sharedTypes.RootDocUpdated, r.RootDocId)
 	return nil
 }

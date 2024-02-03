@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -40,9 +40,9 @@ func (m *manager) RenameProject(ctx context.Context, request *types.RenameProjec
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	if blob, err := json.Marshal(name); err == nil {
-		_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
+		_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEvent{
 			RoomId:  projectId,
-			Message: "projectNameUpdated",
+			Message: sharedTypes.ProjectNameUpdated,
 			Payload: blob,
 		})
 	}

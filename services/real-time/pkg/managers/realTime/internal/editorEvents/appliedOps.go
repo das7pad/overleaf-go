@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,7 +24,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func (r *room) handleUpdate(msg sharedTypes.EditorEventsMessage) error {
+func (r *room) handleUpdate(msg sharedTypes.EditorEvent) error {
 	var update sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(msg.Payload, &update); err != nil {
 		return errors.Tag(err, "parse document update")

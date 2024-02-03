@@ -25,11 +25,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-const (
-	ClientUpdated = "clientTracking.clientUpdated"
-	ClientBatch   = "clientTracking.batch"
-)
-
 func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p types.ClientPosition) error {
 	body, err := json.Marshal(types.ConnectedClient{
 		ClientId:       client.PublicId,
@@ -38,10 +33,10 @@ func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p typ
 	if err != nil {
 		return errors.Tag(err, "encode notification")
 	}
-	msg := sharedTypes.EditorEventsMessage{
+	msg := sharedTypes.EditorEvent{
 		Source:  client.PublicId,
 		RoomId:  client.ProjectId,
-		Message: ClientUpdated,
+		Message: sharedTypes.ClientTrackingUpdated,
 		Payload: body,
 	}
 	if err = m.c.Publish(ctx, &msg); err != nil {

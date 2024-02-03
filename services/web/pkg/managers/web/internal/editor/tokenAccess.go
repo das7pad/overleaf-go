@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,6 +21,7 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
@@ -50,7 +51,7 @@ func (m *manager) SetPublicAccessLevel(ctx context.Context, request *types.SetPu
 
 	go m.notifyEditor(
 		request.ProjectId,
-		"project:publicAccessLevel:changed",
+		sharedTypes.ProjectPublicAccessLevelChanged,
 		publicAccessLevelChangedBody{
 			NewAccessLevel: request.PublicAccessLevel,
 		},

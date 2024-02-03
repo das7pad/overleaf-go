@@ -153,7 +153,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		m.cleanupDocDeletion(ctx, projectId, existingId)
 	}
 	if uploadedFileRef != nil {
-		m.notifyEditor(projectId, "receiveNewFile", newTreeElementUpdate{
+		m.notifyEditor(projectId, sharedTypes.ReceiveNewFile, newTreeElementUpdate{
 			File:           uploadedFileRef,
 			ProjectVersion: v,
 			ParentFolderId: parentFolderId,
@@ -162,7 +162,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		})
 	} else {
 		uploadedDoc.Snapshot = ""
-		m.notifyEditor(projectId, "receiveNewDoc", newTreeElementUpdate{
+		m.notifyEditor(projectId, sharedTypes.ReceiveNewDoc, newTreeElementUpdate{
 			Doc:            uploadedDoc,
 			ParentFolderId: parentFolderId,
 			ProjectVersion: v,

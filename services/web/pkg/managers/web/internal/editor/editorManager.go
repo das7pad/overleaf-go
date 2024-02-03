@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -112,14 +112,14 @@ type manager struct {
 	smokeTestUserId           sharedTypes.UUID
 }
 
-func (m *manager) notifyEditor(projectId sharedTypes.UUID, message string, payload interface{}) {
+func (m *manager) notifyEditor(projectId sharedTypes.UUID, message sharedTypes.EditorEventMessage, payload interface{}) {
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	blob, err := json.Marshal(payload)
 	if err != nil {
 		return
 	}
-	_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
+	_ = m.editorEvents.Publish(ctx, &sharedTypes.EditorEvent{
 		RoomId:  projectId,
 		Message: message,
 		Payload: blob,
@@ -134,5 +134,5 @@ type refreshMembershipDetails struct {
 }
 
 func (m *manager) notifyEditorAboutAccessChanges(projectId sharedTypes.UUID, r refreshMembershipDetails) {
-	m.notifyEditor(projectId, "project:membership:changed", r)
+	m.notifyEditor(projectId, sharedTypes.ProjectMembershipChanged, r)
 }

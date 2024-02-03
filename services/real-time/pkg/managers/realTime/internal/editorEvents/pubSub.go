@@ -30,8 +30,8 @@ func (r *room) Handle(raw string) {
 	if r.isEmpty() {
 		return
 	}
-	var msg sharedTypes.EditorEventsMessage
-	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
+	var msg sharedTypes.EditorEvent
+	if err := msg.FastUnmarshalJSON([]byte(raw)); err != nil {
 		log.Println("parse editorEvents message: " + err.Error())
 		return
 	}
@@ -41,11 +41,11 @@ func (r *room) Handle(raw string) {
 	}
 	var err error
 	switch msg.Message {
-	case "otUpdateApplied":
+	case sharedTypes.OtUpdateApplied:
 		err = r.handleUpdate(msg)
-	case "project:publicAccessLevel:changed":
+	case sharedTypes.ProjectPublicAccessLevelChanged:
 		err = r.handleProjectPublicAccessLevelChanged(msg)
-	case "project:membership:changed":
+	case sharedTypes.ProjectMembershipChanged:
 		err = r.handleProjectMembershipChanged(msg)
 	default:
 		err = r.handleMessage(msg)
@@ -63,7 +63,7 @@ type publicAccessLevelChangedPayload struct {
 	NewAccessLevel project.PublicAccessLevel `json:"newAccessLevel"`
 }
 
-func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEventsMessage) error {
+func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEvent) error {
 	p := publicAccessLevelChangedPayload{}
 	if err := json.Unmarshal(msg.Payload, &p); err != nil {
 		return errors.Tag(err, "deserialize payload")
@@ -87,7 +87,7 @@ type projectMembershipChangedPayload struct {
 	UserId sharedTypes.UUID `json:"userId"`
 }
 
-func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEventsMessage) error {
+func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEvent) error {
 	p := projectMembershipChangedPayload{}
 	if err := json.Unmarshal(msg.Payload, &p); err != nil {
 		return errors.Tag(err, "deserialize payload")
@@ -104,7 +104,7 @@ func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEventsMessag
 	return r.handleMessage(msg)
 }
 
-func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
+func (r *room) handleMessage(msg sharedTypes.EditorEvent) error {
 	var requiredCapability types.CapabilityComponent
 	var bulkMessage types.WriteQueueEntry
 	clients := r.Clients()
@@ -137,32 +137,32 @@ func (r *room) handleMessage(msg sharedTypes.EditorEventsMessage) error {
 	return nil
 }
 
-func getRequiredCapabilityForMessage(message string) types.CapabilityComponent {
+func getRequiredCapabilityForMessage(message sharedTypes.EditorEventMessage) types.CapabilityComponent {
 	switch message {
 	case
 		// File Tree events
-		"receiveNewDoc",
-		"receiveNewFile",
-		"receiveNewFolder",
-		"receiveEntityMove",
-		"receiveEntityRename",
-		"removeEntity",
+		sharedTypes.ReceiveNewDoc,
+		sharedTypes.ReceiveNewFile,
+		sharedTypes.ReceiveNewFolder,
+		sharedTypes.ReceiveEntityMove,
+		sharedTypes.ReceiveEntityRename,
+		sharedTypes.RemoveEntity,
 
 		// Core project details
-		"compilerUpdated",
-		"imageNameUpdated",
-		"projectNameUpdated",
-		"rootDocUpdated",
+		sharedTypes.CompilerUpdated,
+		sharedTypes.ImageNameUpdated,
+		sharedTypes.ProjectNameUpdated,
+		sharedTypes.RootDocUpdated,
 
 		// Updates
-		"otUpdateError",
-		"otUpdateApplied",
+		sharedTypes.OtUpdateError,
+		sharedTypes.OtUpdateApplied,
 
 		// Auth
-		"project:publicAccessLevel:changed",
+		sharedTypes.ProjectPublicAccessLevelChanged,
 
 		// System
-		"forceDisconnect":
+		sharedTypes.ForceDisconnect:
 		return types.CanSeeNonRestrictedEvents
 	default:
 		return types.CanSeeAllEditorEvents

@@ -32,6 +32,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -226,7 +227,7 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 	ctx, done := context.WithDeadline(context.Background(), t0.Add(10*time.Second))
 	defer done()
 
-	resp := types.RPCResponse{Name: "bootstrap"}
+	resp := types.RPCResponse{Name: sharedTypes.Bootstrap}
 	resp.Latency.SetBegin(t0)
 
 	h.rateLimitBootstrap <- struct{}{}

@@ -35,6 +35,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
@@ -49,7 +50,7 @@ type Client struct {
 }
 
 type listener struct {
-	name string
+	name sharedTypes.EditorEventMessage
 	fn   func(response types.RPCResponse)
 }
 
@@ -233,13 +234,15 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	c.listener = make([]listener, 0, 5)
 
 	res := types.RPCResponse{}
-	c.On("bootstrap", func(response types.RPCResponse) {
+	c.On(sharedTypes.Bootstrap, func(response types.RPCResponse) {
 		res = response
 	})
-	c.On("connectionRejected", func(response types.RPCResponse) {
+	c.On(sharedTypes.ConnectionRejected, func(response types.RPCResponse) {
 		res = response
 	})
-	c.On("clientTracking.batch", func(_ types.RPCResponse) {
+	c.On(sharedTypes.ClientTrackingBatch, func(_ types.RPCResponse) {
+	})
+	c.On(sharedTypes.ClientTrackingUpdated, func(_ types.RPCResponse) {
 	})
 
 	if deadline, ok := ctx.Deadline(); ok {
@@ -254,9 +257,9 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 			return nil, fmt.Errorf("%d: readOnce: %w", id, err)
 		}
 	}
-	if res.Name == "connectionRejected" {
+	if res.Name == sharedTypes.ConnectionRejected {
 		c.Close()
-		err := errors.New("connectionRejected")
+		err := errors.New(string(res.Name))
 		body := string(res.Body)
 		return &res, fmt.Errorf("%d: body=%s: %w", id, body, err)
 	}
@@ -288,7 +291,7 @@ func (c *Client) StartHealthCheck() error {
 	return nil
 }
 
-func (c *Client) On(name string, fn func(response types.RPCResponse)) {
+func (c *Client) On(name sharedTypes.EditorEventMessage, fn func(response types.RPCResponse)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.listener = append(c.listener, listener{

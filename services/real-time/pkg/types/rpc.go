@@ -51,14 +51,14 @@ type RPCRequest struct {
 }
 
 type RPCResponse struct {
-	BodyHint             uint32                  `json:"h,omitempty"`
-	Body                 json.RawMessage         `json:"b,omitempty"`
-	Callback             Callback                `json:"c,omitempty"`
-	Error                *errors.JavaScriptError `json:"e,omitempty"`
-	Name                 string                  `json:"n,omitempty"`
-	Latency              sharedTypes.Timed       `json:"l,omitempty"`
-	ProcessedBy          string                  `json:"p,omitempty"`
-	LazySuccessResponses []LazySuccessResponse   `json:"s,omitempty"`
+	/* "h" is a virtual field indicating the length of Body */
+	Body                 json.RawMessage                `json:"b,omitempty"`
+	Callback             Callback                       `json:"c,omitempty"`
+	Error                *errors.JavaScriptError        `json:"e,omitempty"`
+	Name                 sharedTypes.EditorEventMessage `json:"n,omitempty"`
+	Latency              sharedTypes.Timed              `json:"l,omitempty"`
+	ProcessedBy          string                         `json:"p,omitempty"`
+	LazySuccessResponses []LazySuccessResponse          `json:"s,omitempty"`
 
 	releaseBody *rpcResponseBufEntry
 	FatalError  bool `json:"-"`
@@ -89,10 +89,10 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 	rb := getResponseBuffer(100 + len(r.Body))
 	o := rb.b
 	o = append(o, '{')
-	r.BodyHint = uint32(len(r.Body))
 	o = append(o, `"h":`...)
-	o = strconv.AppendUint(o, uint64(r.BodyHint), 10)
-	if r.BodyHint > 0 {
+	bodyHint := uint64(len(r.Body))
+	o = strconv.AppendUint(o, bodyHint, 10)
+	if bodyHint > 0 {
 		o = append(o, `,"b":`...)
 		o = append(o, r.Body...)
 	}
@@ -152,34 +152,37 @@ var (
 	rpcResponseBody     = []byte(`"b":`)
 )
 
-func (r *RPCResponse) parseBodyHint(p []byte) int {
+func (r *RPCResponse) parseBodyHint(p []byte) (int, int) {
 	if !bytes.HasPrefix(p, rpcResponseBodyHint) || len(p) < 7 {
-		return -1
+		return -1, 0
 	}
 	if p[5] == '0' && p[6] == ',' {
-		r.BodyHint = 0
-		return 7
+		return 7, 0
 	}
 	idx := bytes.IndexByte(p[5:], ',')
 	if idx == -1 || idx == 0 || !bytes.HasPrefix(p[5+idx+1:], rpcResponseBody) {
-		return -1
+		return -1, 0
 	}
 	idx += 5
-	i, err := strconv.ParseUint(string(p[5:idx]), 10, 32)
+	v, err := strconv.ParseUint(string(p[5:idx]), 10, 64)
 	if err != nil {
-		return -1
+		return -1, 0
 	}
-	r.BodyHint = uint32(i)
-	return idx + 1 + len(rpcResponseBody)
+	h := int(v)
+	idx += 1 + len(rpcResponseBody)
+	if len(p) < idx+h+1 {
+		return -1, 0
+	}
+	return idx, h
 }
 
 func (r *RPCResponse) FastUnmarshalJSON(p []byte) error {
-	i := r.parseBodyHint(p)
+	i, bodyHint := r.parseBodyHint(p)
 	if i == -1 {
 		return errMissingBodyHint
 	}
-	if r.BodyHint > 0 {
-		j := i + int(r.BodyHint)
+	if bodyHint > 0 {
+		j := i + bodyHint
 		r.Body = p[i:j]
 		i = j + 1
 	}

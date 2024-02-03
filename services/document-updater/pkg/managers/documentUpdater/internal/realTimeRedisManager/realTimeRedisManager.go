@@ -143,9 +143,9 @@ func (m *manager) ConfirmUpdates(ctx context.Context, projectId sharedTypes.UUID
 			if err != nil {
 				return err
 			}
-			_, err = m.c.PublishVia(ctx, p, &sharedTypes.EditorEventsMessage{
+			_, err = m.c.PublishVia(ctx, p, &sharedTypes.EditorEvent{
 				RoomId:      projectId,
-				Message:     "otUpdateApplied",
+				Message:     sharedTypes.OtUpdateApplied,
 				Payload:     blob,
 				ProcessedBy: m.hostname,
 			})
@@ -170,9 +170,9 @@ func (m *manager) ReportError(ctx context.Context, projectId, docId sharedTypes.
 	if err != nil {
 		return errors.Tag(err, "serialize error meta")
 	}
-	return m.c.Publish(ctx, &sharedTypes.EditorEventsMessage{
+	return m.c.Publish(ctx, &sharedTypes.EditorEvent{
 		RoomId:      projectId,
-		Message:     "otUpdateError",
+		Message:     sharedTypes.OtUpdateError,
 		Payload:     blob,
 		ProcessedBy: m.hostname,
 	})

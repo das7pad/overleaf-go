@@ -35,7 +35,7 @@ func (m *manager) DeleteDocFromProject(ctx context.Context, request *types.Delet
 	}
 
 	// Notify real-time first, triggering users to leave the doc.
-	m.notifyEditor(projectId, "removeEntity", deleteTreeElementUpdate{
+	m.notifyEditor(projectId, sharedTypes.RemoveEntity, deleteTreeElementUpdate{
 		EntityId:       docId,
 		ProjectVersion: projectVersion,
 	})

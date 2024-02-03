@@ -46,7 +46,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 
 	*response = folder
 
-	m.notifyEditor(projectId, "receiveNewFolder", newTreeElementUpdate{
+	m.notifyEditor(projectId, sharedTypes.ReceiveNewFolder, newTreeElementUpdate{
 		Folder:         &folder,
 		ProjectVersion: projectVersion,
 		ParentFolderId: parentFolderId,

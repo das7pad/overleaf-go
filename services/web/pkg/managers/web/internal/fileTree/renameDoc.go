@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	documentUpdaterTypes "github.com/das7pad/overleaf-go/services/document-updater/pkg/types"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -55,7 +56,7 @@ func (m *manager) RenameDocInProject(ctx context.Context, request *types.RenameD
 		_ = m.dum.ProcessProjectUpdates(ctx, projectId, updates)
 	}
 
-	m.notifyEditor(projectId, "receiveEntityRename", renameTreeElementUpdate{
+	m.notifyEditor(projectId, sharedTypes.ReceiveEntityRename, renameTreeElementUpdate{
 		EntityId:       d.Id,
 		Name:           d.Name,
 		ProjectVersion: projectVersion,

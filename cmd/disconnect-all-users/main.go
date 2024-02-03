@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -45,8 +45,8 @@ func main() {
 		panic(errors.Tag(err, "serialize payload"))
 	}
 	log.Println("Broadcasting message.")
-	err = editorEvents.Publish(ctx, &sharedTypes.EditorEventsMessage{
-		Message: "forceDisconnect",
+	err = editorEvents.Publish(ctx, &sharedTypes.EditorEvent{
+		Message: sharedTypes.ForceDisconnect,
 		Payload: payload,
 	})
 	if err != nil {
