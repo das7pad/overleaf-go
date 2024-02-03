@@ -22,32 +22,13 @@ import (
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime/internal/editorEvents"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
 const (
-	ClientConnected    = "clientTracking.clientConnected"
-	ClientDisconnected = "clientTracking.clientDisconnected"
-	ClientUpdated      = "clientTracking.clientUpdated"
-	ClientBatch        = "clientTracking.batch"
+	ClientUpdated = "clientTracking.clientUpdated"
+	ClientBatch   = "clientTracking.batch"
 )
-
-func (m *manager) notifyDisconnected(ctx context.Context, client *types.Client) error {
-	body, err := json.Marshal(client.PublicId)
-	if err != nil {
-		return errors.Tag(err, "serialize public id")
-	}
-	msg := sharedTypes.EditorEventsMessage{
-		RoomId:  client.ProjectId,
-		Message: ClientDisconnected,
-		Payload: body,
-	}
-	if err = m.c.Publish(ctx, &msg); err != nil {
-		return errors.Tag(err, "send notification for client disconnect")
-	}
-	return nil
-}
 
 func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p types.ClientPosition) error {
 	body, err := json.Marshal(types.ConnectedClient{
@@ -65,48 +46,6 @@ func (m *manager) notifyUpdated(ctx context.Context, client *types.Client, p typ
 	}
 	if err = m.c.Publish(ctx, &msg); err != nil {
 		return errors.Tag(err, "send notification for client updated")
-	}
-	return nil
-}
-
-func (m *manager) notifyConnected(ctx context.Context, client *types.Client) error {
-	body, err := json.Marshal(types.ConnectedClient{
-		ClientId:    client.PublicId,
-		DisplayName: client.DisplayName,
-	})
-	if err != nil {
-		return errors.Tag(err, "serialize connected client")
-	}
-	msg := sharedTypes.EditorEventsMessage{
-		Source:  client.PublicId,
-		RoomId:  client.ProjectId,
-		Message: ClientConnected,
-		Payload: body,
-	}
-	if err = m.c.Publish(ctx, &msg); err != nil {
-		return errors.Tag(err, "send notification for client connected")
-	}
-	return nil
-}
-
-func (m *manager) notifyBatch(ctx context.Context, projectId sharedTypes.UUID, rcs editorEvents.RoomChanges) error {
-	body, err := json.Marshal(rcs)
-	if err != nil {
-		return errors.Tag(err, "serialize room changes")
-	}
-
-	var source sharedTypes.PublicId
-	if len(rcs) == 1 {
-		source = rcs[0].PublicId
-	}
-	msg := sharedTypes.EditorEventsMessage{
-		Source:  source,
-		Message: ClientBatch,
-		RoomId:  projectId,
-		Payload: body,
-	}
-	if err = m.c.Publish(ctx, &msg); err != nil {
-		return errors.Tag(err, "send notification for client batch")
 	}
 	return nil
 }

@@ -239,10 +239,6 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	c.On("connectionRejected", func(response types.RPCResponse) {
 		res = response
 	})
-	c.On("clientTracking.clientConnected", func(_ types.RPCResponse) {
-	})
-	c.On("clientTracking.clientDisconnected", func(_ types.RPCResponse) {
-	})
 	c.On("clientTracking.batch", func(_ types.RPCResponse) {
 	})
 
