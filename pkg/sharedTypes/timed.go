@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,8 +17,9 @@
 package sharedTypes
 
 import (
-	"encoding/json"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
 type Timed struct {
@@ -55,15 +56,18 @@ func (t *Timed) Stage() string {
 }
 
 func (t *Timed) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.diff.String())
+	s := t.diff.String()
+	buf := make([]byte, 0, 1+len(s)+1)
+	return append(append(append(buf, '"'), s...), '"'), nil
 }
 
+var errBadTimed = errors.New("bad duration")
+
 func (t *Timed) UnmarshalJSON(bytes []byte) error {
-	var raw string
-	err := json.Unmarshal(bytes, &raw)
-	if err != nil {
-		return err
+	if len(bytes) < 3 || bytes[0] != '"' || bytes[len(bytes)-1] != '"' {
+		return errBadTimed
 	}
-	t.diff, err = time.ParseDuration(raw)
+	var err error
+	t.diff, err = time.ParseDuration(string(bytes[1 : len(bytes)-1]))
 	return err
 }
