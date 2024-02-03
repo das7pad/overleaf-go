@@ -351,8 +351,16 @@ func (c *Client) ReadOnce() error {
 	if c.conn == nil {
 		return errors.New("closed")
 	}
+	_, r, err := c.conn.NextReader()
+	if err != nil {
+		return err
+	}
+	c.buf.ReadBuffer.Reset()
+	if _, err = c.buf.ReadBuffer.ReadFrom(r); err != nil {
+		return err
+	}
 	res := types.RPCResponse{}
-	if err := c.conn.ReadJSON(&res); err != nil {
+	if err = res.FastUnmarshalJSON(c.buf.ReadBuffer.Bytes()); err != nil {
 		return err
 	}
 	matched := false
@@ -398,6 +406,7 @@ var bufferPool sync.Pool
 type rwBuffer struct {
 	*bufio.Reader
 	WriteBuffer []byte
+	ReadBuffer  *bytes.Buffer
 }
 
 func newBuffer(r io.Reader) *rwBuffer {
@@ -409,6 +418,7 @@ func newBuffer(r io.Reader) *rwBuffer {
 	return &rwBuffer{
 		Reader:      bufio.NewReaderSize(r, 2048),
 		WriteBuffer: make([]byte, 2048),
+		ReadBuffer:  bytes.NewBuffer(make([]byte, 0, 4096)),
 	}
 }
 

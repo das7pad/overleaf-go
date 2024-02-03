@@ -17,6 +17,7 @@
 package types
 
 import (
+	"bytes"
 	"encoding/json"
 	"strconv"
 	"sync"
@@ -50,6 +51,7 @@ type RPCRequest struct {
 }
 
 type RPCResponse struct {
+	BodyHint             uint32                  `json:"h,omitempty"`
 	Body                 json.RawMessage         `json:"b,omitempty"`
 	Callback             Callback                `json:"c,omitempty"`
 	Error                *errors.JavaScriptError `json:"e,omitempty"`
@@ -87,30 +89,23 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 	rb := getResponseBuffer(100 + len(r.Body))
 	o := rb.b
 	o = append(o, '{')
-	c := false
-	comma := func() {
-		if c {
-			o = append(o, ',')
-		}
-		c = true
-	}
-	if m := len(r.Body); m > 0 {
-		o = append(o, `"b":`...)
+	r.BodyHint = uint32(len(r.Body))
+	o = append(o, `"h":`...)
+	o = strconv.AppendUint(o, uint64(r.BodyHint), 10)
+	if r.BodyHint > 0 {
+		o = append(o, `,"b":`...)
 		o = append(o, r.Body...)
-		c = true
 	}
 	if r.releaseBody != nil {
 		rpcResponseBufPool.Put(r.releaseBody)
 		r.releaseBody = nil
 	}
 	if r.Callback != 0 {
-		comma()
-		o = append(o, `"c":`...)
+		o = append(o, `,"c":`...)
 		o = strconv.AppendInt(o, int64(r.Callback), 10)
 	}
 	if r.Error != nil {
-		comma()
-		o = append(o, `"e":`...)
+		o = append(o, `,"e":`...)
 		blob, err := json.Marshal(r.Error)
 		if err != nil {
 			rb.b = o
@@ -120,26 +115,22 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 		o = append(o, blob...)
 	}
 	if len(r.Name) > 0 {
-		comma()
-		o = append(o, `"n":"`...)
+		o = append(o, `,"n":"`...)
 		o = append(o, r.Name...)
 		o = append(o, '"')
 	}
 	{
-		comma()
-		o = append(o, `"l":"`...)
+		o = append(o, `,"l":"`...)
 		o = append(o, r.Latency.String()...)
 		o = append(o, '"')
 	}
 	if len(r.ProcessedBy) > 0 {
-		comma()
-		o = append(o, `"p":"`...)
+		o = append(o, `,"p":"`...)
 		o = append(o, r.ProcessedBy...)
 		o = append(o, '"')
 	}
 	if len(r.LazySuccessResponses) > 0 {
-		comma()
-		o = append(o, `"s":`...)
+		o = append(o, `,"s":`...)
 		blob, err := json.Marshal(r.LazySuccessResponses)
 		if err != nil {
 			rb.b = o
@@ -152,6 +143,48 @@ func (r *RPCResponse) MarshalJSON() ([]byte, error) {
 	rb.b = o
 	r.releaseBody = rb
 	return o, nil
+}
+
+var errMissingBodyHint = errors.New("bad RPCResponse: missing body hint")
+
+var (
+	rpcResponseBodyHint = []byte(`{"h":`)
+	rpcResponseBody     = []byte(`"b":`)
+)
+
+func (r *RPCResponse) parseBodyHint(p []byte) int {
+	if !bytes.HasPrefix(p, rpcResponseBodyHint) || len(p) < 7 {
+		return -1
+	}
+	if p[5] == '0' && p[6] == ',' {
+		r.BodyHint = 0
+		return 7
+	}
+	idx := bytes.IndexByte(p[5:], ',')
+	if idx == -1 || idx == 0 || !bytes.HasPrefix(p[5+idx+1:], rpcResponseBody) {
+		return -1
+	}
+	idx += 5
+	i, err := strconv.ParseUint(string(p[5:idx]), 10, 32)
+	if err != nil {
+		return -1
+	}
+	r.BodyHint = uint32(i)
+	return idx + 1 + len(rpcResponseBody)
+}
+
+func (r *RPCResponse) FastUnmarshalJSON(p []byte) error {
+	i := r.parseBodyHint(p)
+	if i == -1 {
+		return errMissingBodyHint
+	}
+	if r.BodyHint > 0 {
+		j := i + int(r.BodyHint)
+		r.Body = p[i:j]
+		i = j + 1
+	}
+	p[i-1] = '{'
+	return json.Unmarshal(p[i-1:], r)
 }
 
 func (r *RPCResponse) IsLazySuccessResponse() bool {

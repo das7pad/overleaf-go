@@ -314,6 +314,10 @@ func BenchmarkBootstrap17k(b *testing.B) {
 	benchmarkBootstrapN(b, 17_000)
 }
 
+func BenchmarkBootstrap20k(b *testing.B) {
+	benchmarkBootstrapN(b, 20_000)
+}
+
 func singleClientSetup() *realTime.Client {
 	return connectedClient(bootstrapSharded[0])
 }
