@@ -191,17 +191,14 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 var emptyConnectedClients = json.RawMessage("[]")
 
 func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, client *types.Client, claims projectJWT.Claims) error {
-	res := types.BootstrapWSResponse{
-		PrivilegeLevel: claims.PrivilegeLevel,
-		PublicId:       client.PublicId,
-	}
 	u := user.WithPublicInfo{}
 	cacheKey := projectCacheKey{
 		ProjectId:        claims.ProjectId,
 		ProjectEpoch:     claims.Epoch,
 		AccessSourceEnum: claims.AccessSource.Enum(),
 	}
-	if cached, ok := m.projectCache.Get(cacheKey); ok {
+	projectBlob, ok := m.projectCache.Get(cacheKey)
+	if ok {
 		err := m.pm.GetBootstrapWSUser(
 			ctx, claims.ProjectId, claims.UserId,
 			claims.Epoch, claims.EpochUser,
@@ -210,7 +207,6 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 		if err != nil {
 			return err
 		}
-		res.Project = cached
 	} else {
 		p := types.ProjectDetails{}
 		err := m.pm.GetBootstrapWSDetails(
@@ -230,11 +226,10 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 			Versioning:     true,
 		}
 		p.RootFolder = []*project.Folder{p.GetRootFolder()}
-		if cached, err = json.Marshal(p); err != nil {
+		if projectBlob, err = json.Marshal(p); err != nil {
 			return err
 		}
-		m.projectCache.Add(cacheKey, cached)
-		res.Project = cached
+		m.projectCache.Add(cacheKey, projectBlob)
 	}
 
 	client.DisplayName = u.DisplayName()
@@ -246,6 +241,11 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 		return errors.Tag(err, "subscribe")
 	}
 
+	res := types.BootstrapWSResponse{
+		PrivilegeLevel: claims.PrivilegeLevel,
+		PublicId:       client.PublicId,
+		Project:        projectBlob,
+	}
 	if client.HasCapability(types.CanSeeOtherClients) {
 		res.ConnectedClients, _ =
 			m.clientTracking.GetConnectedClients(ctx, client)
