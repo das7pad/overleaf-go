@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
@@ -35,6 +34,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/randQueue"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
@@ -109,6 +109,12 @@ var (
 	responseLine          = []byte("HTTP/1.1 101 Switching Protocols\r\n")
 )
 
+var rng = make(randQueue.Q16, 512)
+
+func init() {
+	go rng.Run(4096)
+}
+
 func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, dial ConnectFn) error {
 	w, err := dial(ctx, "", "")
 	if err != nil {
@@ -140,10 +146,8 @@ func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	key := c.buf.WriteBuffer[0:24]
 	p := c.buf.WriteBuffer[24:24]
 
-	if _, err = io.ReadFull(rand.Reader, key[8:]); err != nil {
-		return fmt.Errorf("generate key: %w", err)
-	}
-	base64.StdEncoding.Encode(key, key[8:])
+	rnd := <-rng
+	base64.StdEncoding.Encode(key, rnd[:])
 
 	p = append(p, "GET "...)
 	p = append(p, uri.Path...)

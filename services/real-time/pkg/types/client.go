@@ -17,9 +17,7 @@
 package types
 
 import (
-	"crypto/rand"
 	"encoding/binary"
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/base64Ordered"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/models/project"
+	"github.com/das7pad/overleaf-go/pkg/randQueue"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
@@ -85,26 +84,10 @@ type WriteQueueEntry struct {
 
 type WriteQueue chan<- WriteQueueEntry
 
-type qRng chan [8]byte
-
-func (r qRng) run() {
-	buf := make([]byte, 2048)
-	for {
-		if _, err := rand.Read(buf); err != nil {
-			log.Printf("reading from rand.Read failed: %s", err)
-			time.Sleep(time.Second)
-			continue
-		}
-		for i := 0; i < 2048; i = i + 8 {
-			r <- [8]byte(buf[i : i+8])
-		}
-	}
-}
-
-var rng = qRng(make(chan [8]byte, 256))
+var rng = make(randQueue.Q8, 512)
 
 func init() {
-	go rng.run()
+	go rng.Run(2048)
 }
 
 const PublicIdTsPrefixLength = 11
