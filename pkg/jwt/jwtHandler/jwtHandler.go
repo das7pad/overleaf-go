@@ -78,13 +78,22 @@ func (h *handler[T]) New() T {
 	return h.newClaims()
 }
 
-func (h *handler[T]) getHmac() hash.Hash {
+type hmacPoolEntry struct {
+	hmac hash.Hash
+	buf  []byte
+}
+
+func (h *handler[T]) getHmac() *hmacPoolEntry {
 	if v := h.hmacPool.Get(); v != nil {
-		m := v.(hash.Hash)
-		m.Reset()
+		m := v.(*hmacPoolEntry)
+		m.hmac.Reset()
 		return m
 	}
-	return h.newHmac()
+	m := h.newHmac()
+	return &hmacPoolEntry{
+		hmac: m,
+		buf:  make([]byte, m.Size()),
+	}
 }
 
 var (
@@ -114,7 +123,6 @@ func (h *handler[T]) Parse(blob []byte, now time.Time) (T, error) {
 		return tt, err
 	}
 	return t, nil
-
 }
 
 func (h *handler[T]) ParseInto(t T, blob []byte, now time.Time) error {
@@ -151,10 +159,11 @@ func (h *handler[T]) parsePayload(blob []byte) ([]byte, error) {
 		mac = mac[:n]
 	}
 	m := h.getHmac()
-	m.Write(header[0 : len(header)+1+len(payload)])
-	s := m.Sum(header[:0])
+	m.hmac.Write(header[0 : len(header)+1+len(payload)])
+	s := m.hmac.Sum(m.buf[:0])
+	ok := hmac.Equal(mac, s)
 	h.hmacPool.Put(m)
-	if !hmac.Equal(mac, s) {
+	if !ok {
 		return nil, ErrSignatureInvalid
 	}
 
@@ -183,12 +192,13 @@ func (h *handler[T]) SetExpiryAndSign(claims T) (string, error) {
 	}
 
 	m := h.getHmac()
-	m.Write(buf.Bytes())
-	s := m.Sum(nil)
-	h.hmacPool.Put(m)
+	m.hmac.Write(buf.Bytes())
+	s := m.hmac.Sum(m.buf[:0])
 
 	buf.AppendEncoded(dotSeparator)
-	if _, err := buf.Write(s); err != nil {
+	_, err := buf.Write(s)
+	h.hmacPool.Put(m)
+	if err != nil {
 		return "", err
 	}
 
