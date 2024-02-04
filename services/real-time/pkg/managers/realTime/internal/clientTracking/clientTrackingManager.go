@@ -33,7 +33,7 @@ import (
 
 type Manager interface {
 	GetConnectedClients(ctx context.Context, client *types.Client) (json.RawMessage, error)
-	RefreshClientPositions(ctx context.Context, client map[sharedTypes.UUID]editorEvents.Clients) error
+	RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error
 	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
 	FlushRoomChanges(projectId sharedTypes.UUID, rc editorEvents.RoomChanges)
 }

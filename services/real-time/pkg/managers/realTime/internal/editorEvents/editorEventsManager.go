@@ -19,6 +19,7 @@ package editorEvents
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -30,11 +31,13 @@ import (
 
 type Manager interface {
 	BroadcastGracefulReconnect(suffix uint8) int
-	GetClients() map[sharedTypes.UUID]Clients
+	GetClients() LazyRoomClients
 	Join(ctx context.Context, client *types.Client) error
 	Leave(client *types.Client) bool
 	StartListening(ctx context.Context) error
 }
+
+type LazyRoomClients map[sharedTypes.UUID]*atomic.Pointer[Clients]
 
 type FlushProject func(ctx context.Context, projectId sharedTypes.UUID) bool
 
@@ -277,15 +280,15 @@ func (m *manager) BroadcastGracefulReconnect(suffix uint8) int {
 	return n
 }
 
-func (m *manager) GetClients() map[sharedTypes.UUID]Clients {
+func (m *manager) GetClients() LazyRoomClients {
 	n := 0
 	m.pauseQueueFor(func() {
 		n = len(m.rooms)
 	})
-	clients := make(map[sharedTypes.UUID]Clients, n+1000)
+	clients := make(LazyRoomClients, n+1000)
 	m.pauseQueueFor(func() {
 		for id, r := range m.rooms {
-			clients[id] = r.Clients()
+			clients[id] = &r.clients
 		}
 	})
 	return clients

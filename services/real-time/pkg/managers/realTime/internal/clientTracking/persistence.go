@@ -138,13 +138,14 @@ func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[
 	return blob
 }
 
-func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTypes.UUID]editorEvents.Clients) error {
+func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error {
 	merged := errors.MergedError{}
 	for len(rooms) > 0 {
 		_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 			now := encodeAge(time.Now())
 			n := 0
-			for projectId, clients := range rooms {
+			for projectId, cp := range rooms {
+				clients := cp.Load()
 				if len(clients.All) == 0 {
 					continue
 				}

@@ -136,7 +136,8 @@ func (m *manager) DisconnectAll() {
 		if len(rooms) == 0 {
 			break
 		}
-		for _, clients := range rooms {
+		for _, cp := range rooms {
+			clients := cp.Load()
 			for i, client := range clients.All {
 				if i != clients.Removed {
 					client.TriggerDisconnect()
