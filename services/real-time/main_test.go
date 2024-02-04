@@ -173,6 +173,13 @@ func bootstrapClient(bootstrap string) {
 	c.Close()
 }
 
+func bootstrapClientN(bootstrap string, n int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for i := 0; i < n; i++ {
+		bootstrapClient(bootstrap)
+	}
+}
+
 var bootstrapSharded []string
 var connectFn realTime.ConnectFn
 
@@ -210,14 +217,11 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 		b.SkipNow()
 	}
 
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 	wg.Add((n/len(bootstrapSharded) + len(bootstrapSharded)) * len(bootstrapSharded))
 	for j := 0; j < n/len(bootstrapSharded)+len(bootstrapSharded); j++ {
 		for _, bootstrap := range bootstrapSharded {
-			go func(bootstrap string) {
-				defer wg.Done()
-				bootstrapClient(bootstrap)
-			}(bootstrap)
+			go bootstrapClientN(bootstrap, 3, wg)
 		}
 	}
 	wg.Wait()
@@ -226,12 +230,7 @@ func benchmarkBootstrapN(b *testing.B, n int) {
 	b.ResetTimer()
 	wg.Add(n)
 	for j := 0; j < n; j++ {
-		go func(bootstrap string) {
-			defer wg.Done()
-			for i := 0; i < b.N; i++ {
-				bootstrapClient(bootstrap)
-			}
-		}(bootstrapSharded[j%len(bootstrapSharded)])
+		go bootstrapClientN(bootstrapSharded[j%len(bootstrapSharded)], b.N, wg)
 	}
 	wg.Wait()
 	b.StopTimer()
