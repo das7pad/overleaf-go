@@ -176,18 +176,118 @@ func (r *RPCResponse) parseBodyHint(p []byte) (int, int) {
 	return idx, h
 }
 
+var errBadRPCResponse = errors.New("bad RPCResponse")
+
 func (r *RPCResponse) FastUnmarshalJSON(p []byte) error {
-	i, bodyHint := r.parseBodyHint(p)
+	if len(p) < 2 || p[0] != '{' || p[len(p)-1] != '}' {
+		return errBadRPCResponse
+	}
+	p[len(p)-1] = ','
+	i, next := r.parseBodyHint(p)
 	if i == -1 {
 		return errMissingBodyHint
 	}
-	if bodyHint > 0 {
-		j := i + bodyHint
+	if next > 0 {
+		j := i + next
 		r.Body = p[i:j]
 		i = j + 1
 	}
-	p[i-1] = '{'
-	return json.Unmarshal(p[i-1:], r)
+	if next = bytes.IndexByte(p[i:], ','); next == -1 {
+		return errBadRPCResponse
+	}
+	j := i + next
+	if bytes.HasPrefix(p[i:], []byte(`"c":`)) {
+		v, err := strconv.ParseInt(string(p[i+4:j]), 10, 64)
+		if err != nil {
+			return errBadRPCResponse
+		}
+		r.Callback = Callback(v)
+		i = j + 1
+		if next = bytes.IndexByte(p[i:], ','); next == -1 {
+			return errBadRPCResponse
+		}
+		j = i + next
+	}
+	if bytes.HasPrefix(p[i:], []byte(`"e":`)) {
+		r.Error = &errors.JavaScriptError{}
+		j = i + bytes.IndexByte(p[i:], '}')
+		if err := json.Unmarshal(p[i+4:j], r.Error); err != nil {
+			return errBadRPCResponse
+		}
+		i = j + 1
+		if next = bytes.IndexByte(p[i:], ','); next == -1 {
+			return errBadRPCResponse
+		}
+		j = i + next
+	}
+	if bytes.HasPrefix(p[i:], []byte(`"n":`)) {
+		if err := r.Name.UnmarshalJSON(p[i+4 : j]); err != nil {
+			return errBadRPCResponse
+		}
+		i = j + 1
+		if next = bytes.IndexByte(p[i:], ','); next == -1 {
+			return errBadRPCResponse
+		}
+		j = i + next
+	}
+	if bytes.HasPrefix(p[i:], []byte(`"l":`)) {
+		if err := r.Latency.UnmarshalJSON(p[i+4 : j]); err != nil {
+			return errBadRPCResponse
+		}
+		i = j + 1
+		if next = bytes.IndexByte(p[i:], ','); next == -1 {
+			j = len(p)
+		} else {
+			j = i + next
+		}
+	}
+	if bytes.HasPrefix(p[i:], []byte(`"p":`)) {
+		if p[i+4] != '"' || p[j-1] != '"' {
+			return errBadRPCResponse
+		}
+		r.ProcessedBy = string(p[i+5 : j-1])
+		i = j + 1
+	}
+	if bytes.HasPrefix(p[i:], []byte(`"s":`)) {
+		if p[i+4] != '[' || p[len(p)-2] != ']' {
+			return errBadRPCResponse
+		}
+		i += 5
+		n := bytes.Count(p[i:], []byte("c"))
+		lsr := make([]LazySuccessResponse, n)
+		for l := 0; l < n; l++ {
+			if l > 0 {
+				if p[i] != ',' {
+					return errBadRPCResponse
+				}
+				i++
+			}
+			if !bytes.HasPrefix(p[i:], []byte(`{"c":`)) {
+				return errBadRPCResponse
+			}
+			i += 5
+			if next = bytes.IndexByte(p[i:], ','); next == -1 {
+				return errBadRPCResponse
+			}
+			j = i + next
+			if !bytes.HasPrefix(p[j+1:], []byte(`"l":"`)) {
+				return errBadRPCResponse
+			}
+			v, err := strconv.ParseInt(string(p[i:j]), 10, 64)
+			if err != nil {
+				return errBadRPCResponse
+			}
+			lsr[l].Callback = Callback(v)
+			i = j + 1 + 4
+			j = i + bytes.IndexByte(p[i:], '}')
+			if err = lsr[l].Latency.UnmarshalJSON(p[i:j]); err != nil {
+				return errBadRPCResponse
+			}
+			i = j + 1
+		}
+		r.LazySuccessResponses = lsr
+	}
+	return nil
 }
 
 func (r *RPCResponse) IsLazySuccessResponse() bool {
