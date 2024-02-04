@@ -145,6 +145,9 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms map[sharedTy
 			now := encodeAge(time.Now())
 			n := 0
 			for projectId, clients := range rooms {
+				if len(clients.All) == 0 {
+					continue
+				}
 				fields := make([]interface{}, 2*len(clients.All))
 				for i, client := range clients.All {
 					fields[2*i] = string(client.PublicId) + ":age"
