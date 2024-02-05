@@ -271,7 +271,7 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 }
 
 func (c *Client) Ping() error {
-	return c.RPC(&types.RPCResponse{}, &types.RPCRequest{Action: "ping"})
+	return c.RPC(&types.RPCResponse{}, &types.RPCRequest{Action: types.Ping})
 }
 
 func (c *Client) StartHealthCheck() error {
@@ -322,6 +322,9 @@ func (c *Client) RPCAsyncWrite(res *types.RPCResponse, r *types.RPCRequest) erro
 	}
 
 	c.nextCB++
+	if len(c.callbacks) == 0 {
+		c.nextCB = 1
+	}
 	r.Callback = c.nextCB
 	c.callbacks[r.Callback] = func(response types.RPCResponse) {
 		*res = response

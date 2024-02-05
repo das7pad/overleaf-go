@@ -295,24 +295,33 @@ func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 			c.EnsureQueueMessage(events.BadRequestBulkMessage)
 			return
 		}
-		response := types.RPCResponse{
-			Callback: request.Callback,
+		var ok bool
+		if request.Action == types.Ping {
+			if request.Callback == 1 {
+				ok = c.EnsureQueueMessage(events.IdlePingResponse)
+			} else {
+				// Other RPCs are pending, flush any lazy success responses
+				response := types.RPCResponse{Callback: request.Callback}
+				ok = c.EnsureQueueResponse(&response)
+			}
+		} else {
+			t0 := time.Now()
+			response := types.RPCResponse{Callback: request.Callback}
+			response.Latency.SetBegin(t0)
+			rpc := types.RPC{
+				Client:   c,
+				Request:  &request,
+				Response: &response,
+			}
+			ctx, finishedRPC := context.WithDeadline(
+				context.Background(), t0.Add(time.Second*10),
+			)
+			h.rtm.RPC(ctx, &rpc)
+			finishedRPC()
+			response.Latency.End()
+			ok = c.EnsureQueueResponse(&response) && !response.FatalError
 		}
-		t0 := time.Now()
-		ctx, finishedRPC := context.WithDeadline(
-			context.Background(), t0.Add(time.Second*10),
-		)
-		rpc := types.RPC{
-			Client:   c,
-			Request:  &request,
-			Response: &response,
-		}
-		response.Latency.SetBegin(t0)
-		h.rtm.RPC(ctx, &rpc)
-		finishedRPC()
-		rpc.Response.Latency.End()
-		if !c.EnsureQueueResponse(&response) || rpc.Response.FatalError {
-			// Do not process further rpc calls after a fatal error.
+		if !ok {
 			return
 		}
 		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
