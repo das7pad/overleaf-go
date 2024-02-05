@@ -56,6 +56,8 @@ func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandle
 		`{"alg":"` + options.Algorithm + `","typ":"JWT"}`,
 	)))
 	key := []byte(options.Key)
+	hmacSize := newHash().Size()
+	hmacEncLen := base64.RawURLEncoding.EncodedLen(hmacSize)
 	return &handler[T]{
 		expiresIn:  options.ExpiresIn,
 		newClaims:  newClaims,
@@ -63,6 +65,8 @@ func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandle
 		newHmac: func() hash.Hash {
 			return hmac.New(newHash, key)
 		},
+		hmacOff:    uint32(hmacEncLen - hmacSize),
+		hmacEncLen: uint32(hmacEncLen),
 	}
 }
 
@@ -72,6 +76,8 @@ type handler[T JWT] struct {
 	headerBlob []byte
 	hmacPool   sync.Pool
 	newHmac    func() hash.Hash
+	hmacOff    uint32
+	hmacEncLen uint32
 }
 
 func (h *handler[T]) New() T {
@@ -92,7 +98,7 @@ func (h *handler[T]) getHmac() *hmacPoolEntry {
 	m := h.newHmac()
 	return &hmacPoolEntry{
 		hmac: m,
-		buf:  make([]byte, m.Size()),
+		buf:  make([]byte, h.hmacEncLen),
 	}
 }
 
@@ -146,22 +152,16 @@ func (h *handler[T]) parsePayload(blob []byte) ([]byte, error) {
 		!hasPayload ||
 		len(header) == 0 ||
 		len(payload) == 0 ||
-		len(mac) == 0 ||
+		len(mac) != int(h.hmacEncLen) ||
 		!bytes.Equal(header, h.headerBlob) {
 		return nil, ErrTokenMalformed
 	}
 
-	{
-		n, err := base64.RawURLEncoding.Decode(mac, mac)
-		if err != nil {
-			return nil, ErrTokenMalformed
-		}
-		mac = mac[:n]
-	}
 	m := h.getHmac()
 	m.hmac.Write(header[0 : len(header)+1+len(payload)])
-	s := m.hmac.Sum(m.buf[:0])
-	ok := hmac.Equal(mac, s)
+	m.hmac.Sum(m.buf[h.hmacOff:h.hmacOff])
+	base64.RawURLEncoding.Encode(m.buf, m.buf[h.hmacOff:])
+	ok := hmac.Equal(mac, m.buf)
 	h.hmacPool.Put(m)
 	if !ok {
 		return nil, ErrSignatureInvalid
