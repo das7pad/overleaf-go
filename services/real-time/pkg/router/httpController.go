@@ -240,11 +240,23 @@ type bootstrapWSDetails struct {
 }
 
 func (h *httpController) bootstrapWorker() {
+	ctx, done := context.WithCancel(context.Background())
+	dl := time.Now().Add(11 * time.Second)
+	t := time.AfterFunc(11*time.Second, done)
 	for d := range h.bootstrapQueue {
-		ctx, done := context.WithDeadline(context.Background(), d.t0.Add(10*time.Second))
+		if dl.Sub(d.t0) < 10*time.Second {
+			dl = d.t0.Add(11 * time.Second)
+			if !t.Reset(11 * time.Second) {
+				t.Stop()
+				done()
+				ctx, done = context.WithCancel(context.Background())
+				t = time.AfterFunc(11*time.Second, done)
+			}
+		}
 		d.done <- h.rtm.BootstrapWS(ctx, d.resp, d.client, d.claims)
-		done()
 	}
+	t.Stop()
+	done()
 }
 
 func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT projectJWT.Claims) bool {
