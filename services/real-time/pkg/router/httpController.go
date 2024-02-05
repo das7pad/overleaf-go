@@ -285,7 +285,7 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 
 func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
-	for {
+	for ok := true; ok; {
 		var request types.RPCRequest
 		if err := conn.ReadJSON(&request); err != nil {
 			if shouldTriggerDisconnect(err) {
@@ -295,8 +295,11 @@ func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 			c.EnsureQueueMessage(events.BadRequestBulkMessage)
 			return
 		}
-		var ok bool
 		if request.Action == types.Ping {
+			if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
+				_ = conn.Close()
+				return
+			}
 			if request.Callback == 1 {
 				ok = c.EnsureQueueMessage(events.IdlePingResponse)
 			} else {
@@ -320,13 +323,6 @@ func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 			finishedRPC()
 			response.Latency.End()
 			ok = c.EnsureQueueResponse(&response) && !response.FatalError
-		}
-		if !ok {
-			return
-		}
-		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
-			_ = conn.Close()
-			return
 		}
 	}
 }
