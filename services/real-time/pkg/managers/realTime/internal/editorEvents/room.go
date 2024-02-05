@@ -59,8 +59,6 @@ func (r *room) process(c chan roomQueueEntry, projectId sharedTypes.UUID, flushR
 		switch entry.action {
 		case actionsHandleMessage:
 			r.Handle(entry.msg)
-		case actionLeavingClient:
-			entry.leavingClient.CloseWriteQueue()
 		case actionFlushRoomChanges:
 			r.flushRoomChanges(projectId, flushRoomChanges)
 		default:
@@ -72,14 +70,12 @@ func (r *room) process(c chan roomQueueEntry, projectId sharedTypes.UUID, flushR
 
 const (
 	actionsHandleMessage   = 0
-	actionLeavingClient    = 1
-	actionFlushRoomChanges = 2
+	actionFlushRoomChanges = 1
 )
 
 type roomQueueEntry struct {
-	action        uint8
-	msg           string
-	leavingClient *types.Client
+	action uint8
+	msg    string
 }
 
 type Clients struct {
@@ -118,10 +114,6 @@ func (r *room) broadcast(msg string) {
 	r.c <- roomQueueEntry{action: actionsHandleMessage, msg: msg}
 }
 
-func (r *room) queueLeavingClient(client *types.Client) {
-	r.c <- roomQueueEntry{action: actionLeavingClient, leavingClient: client}
-}
-
 func (r *room) broadcastGracefulReconnect(suffix uint8) {
 	r.c <- roomQueueEntry{action: suffix}
 }
@@ -148,8 +140,6 @@ func (r *room) add(client *types.Client) bool {
 }
 
 func (r *room) remove(client *types.Client) bool {
-	defer r.queueLeavingClient(client)
-
 	p := r.clients.Load()
 	if p == noClients {
 		return true

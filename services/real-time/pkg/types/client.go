@@ -18,6 +18,7 @@ package types
 
 import (
 	"encoding/binary"
+	"math"
 	"sync/atomic"
 	"time"
 
@@ -82,7 +83,7 @@ type WriteQueueEntry struct {
 	FatalError  bool
 }
 
-type WriteQueue chan<- WriteQueueEntry
+type WriteQueue chan WriteQueueEntry
 
 var rng = make(randQueue.Q8, 512)
 
@@ -110,11 +111,10 @@ func generatePublicId() sharedTypes.PublicId {
 	return sharedTypes.PublicId(buf[:])
 }
 
-func NewClient(writeQueue WriteQueue, disconnect func()) *Client {
+func NewClient(writeQueue WriteQueue) *Client {
 	c := Client{
 		PublicId:   generatePublicId(),
 		writeQueue: writeQueue,
-		disconnect: disconnect,
 	}
 	c.MarkAsLeftDoc()
 	return &c
@@ -131,8 +131,11 @@ func (c Clients) Index(needle *Client) int {
 	return -1
 }
 
+const pendingWritesDisconnected = math.MinInt32
+
 type Client struct {
-	capabilities Capabilities
+	capabilities  Capabilities
+	pendingWrites atomic.Int32
 
 	PublicId    sharedTypes.PublicId
 	ProjectId   sharedTypes.UUID
@@ -142,15 +145,10 @@ type Client struct {
 	docId atomic.Pointer[sharedTypes.UUID]
 
 	writeQueue WriteQueue
-	disconnect func()
 }
 
 func (c *Client) String() string {
 	return string(c.PublicId)
-}
-
-func (c *Client) CloseWriteQueue() {
-	close(c.writeQueue)
 }
 
 func (c *Client) HasJoinedDoc(id sharedTypes.UUID) bool {
@@ -230,40 +228,44 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	}
 }
 
-func (c *Client) TriggerDisconnect() {
-	c.disconnect()
+func (c *Client) TriggerDisconnectAndDropQueue() {
+	c.TriggerDisconnect()
+	for range c.writeQueue {
+	}
 }
 
-func (c *Client) QueueResponse(response *RPCResponse) error {
-	return c.QueueMessage(WriteQueueEntry{
+func (c *Client) TriggerDisconnect() {
+	for !c.pendingWrites.CompareAndSwap(0, pendingWritesDisconnected) {
+		if c.pendingWrites.Load() < 0 {
+			return
+		}
+		time.Sleep(time.Nanosecond)
+	}
+	close(c.writeQueue)
+}
+
+func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
+	return c.EnsureQueueMessage(WriteQueueEntry{
 		RPCResponse: response,
 		FatalError:  response.FatalError,
 	})
 }
 
-func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
-	if err := c.QueueResponse(response); err != nil {
-		// Client is out-of-sync.
-		c.TriggerDisconnect()
+func (c *Client) EnsureQueueMessage(msg WriteQueueEntry) bool {
+	if c.pendingWrites.Add(1) < 0 {
+		// The client is in the process of disconnecting
+		c.pendingWrites.Add(-1)
 		return false
 	}
-	return true
-}
-
-func (c *Client) QueueMessage(msg WriteQueueEntry) error {
 	select {
 	case c.writeQueue <- msg:
-		return nil
+		c.pendingWrites.Add(-1)
+		return true
 	default:
-		return errors.New("queue is full")
-	}
-}
-
-func (c *Client) EnsureQueueMessage(msg WriteQueueEntry) bool {
-	if err := c.QueueMessage(msg); err != nil {
-		// Client is out-of-sync.
-		c.TriggerDisconnect()
+		// The queue is full, dropping message
+		c.pendingWrites.Add(-1)
+		// The client is out of sync, disconnect and flush queue
+		c.TriggerDisconnectAndDropQueue()
 		return false
 	}
-	return true
 }

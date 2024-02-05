@@ -134,7 +134,6 @@ func (m *manager) leave(client *types.Client) bool {
 	r, exists := m.rooms[projectId]
 	if !exists || r.isEmpty() {
 		// Not joined yet.
-		client.CloseWriteQueue()
 		return false
 	}
 

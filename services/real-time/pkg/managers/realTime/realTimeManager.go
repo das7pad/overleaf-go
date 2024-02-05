@@ -140,7 +140,7 @@ func (m *manager) DisconnectAll() {
 			clients := cp.Load()
 			for i, client := range clients.All {
 				if i != clients.Removed {
-					client.TriggerDisconnect()
+					client.TriggerDisconnectAndDropQueue()
 				}
 			}
 		}
@@ -324,9 +324,9 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 }
 
 func (m *manager) Disconnect(client *types.Client) {
+	client.TriggerDisconnect()
 	if client.ProjectId.IsZero() {
 		// Disconnected before bootstrap finished.
-		client.CloseWriteQueue()
 		return
 	}
 	client.MarkAsLeftDoc()

@@ -159,25 +159,21 @@ func (h *httpController) ws(conn *websocket.Conn, t0 time.Time, claimsProjectJWT
 		return
 	}
 
-	// The request context will get cancelled once the handler returns.
-	// Upgrading/hijacking has stopped the reader for detecting request abort.
-	ctx, disconnect := context.WithCancel(context.Background())
 	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
-	c := types.NewClient(writeQueue, disconnect)
+	c := types.NewClient(writeQueue)
 
-	go h.writeLoop(ctx, disconnect, conn, writeQueue)
+	go h.writeLoop(conn, writeQueue)
 
 	if !h.bootstrap(t0, c, claimsProjectJWT) {
 		h.rtm.Disconnect(c)
 		return
 	}
 
-	go h.readLoop(ctx, disconnect, conn, c)
+	go h.readLoop(conn, c)
 }
 
-func (h *httpController) writeLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, writeQueue chan types.WriteQueueEntry) {
+func (h *httpController) writeLoop(conn *websocket.Conn, writeQueue chan types.WriteQueueEntry) {
 	defer func() {
-		disconnect()
 		_ = conn.Close()
 		for range writeQueue {
 			// Flush the queue.
@@ -187,46 +183,41 @@ func (h *httpController) writeLoop(ctx context.Context, disconnect context.Cance
 			c.ReleaseBuffers()
 		}
 	}()
-	waitForCtxDone := ctx.Done()
 	var lsr []types.LazySuccessResponse
 	for {
-		select {
-		case <-waitForCtxDone:
+		entry, ok := <-writeQueue
+		if !ok {
 			return
-		case entry, ok := <-writeQueue:
-			if !ok {
+		}
+		if entry.Msg != nil {
+			_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+			if err := conn.WritePreparedMessage(entry.Msg); err != nil {
 				return
 			}
-			if entry.Msg != nil {
-				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
-				if err := conn.WritePreparedMessage(entry.Msg); err != nil {
-					return
-				}
-			} else if len(lsr) < 15 &&
-				entry.RPCResponse.IsLazySuccessResponse() {
-				lsr = append(lsr, types.LazySuccessResponse{
-					Callback: entry.RPCResponse.Callback,
-					Latency:  entry.RPCResponse.Latency,
-				})
-			} else {
-				if len(lsr) > 0 {
-					entry.RPCResponse.LazySuccessResponses = lsr
-					lsr = lsr[:0]
-				}
-				blob, err := entry.RPCResponse.MarshalJSON()
-				if err != nil {
-					return
-				}
-				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
-				err = conn.WriteMessage(websocket.TextMessage, blob)
-				entry.RPCResponse.ReleaseBuffer()
-				if err != nil {
-					return
-				}
+		} else if len(lsr) < 15 &&
+			entry.RPCResponse.IsLazySuccessResponse() {
+			lsr = append(lsr, types.LazySuccessResponse{
+				Callback: entry.RPCResponse.Callback,
+				Latency:  entry.RPCResponse.Latency,
+			})
+		} else {
+			if len(lsr) > 0 {
+				entry.RPCResponse.LazySuccessResponses = lsr
+				lsr = lsr[:0]
 			}
-			if entry.FatalError {
+			blob, err := entry.RPCResponse.MarshalJSON()
+			if err != nil {
 				return
 			}
+			_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+			err = conn.WriteMessage(websocket.TextMessage, blob)
+			entry.RPCResponse.ReleaseBuffer()
+			if err != nil {
+				return
+			}
+		}
+		if entry.FatalError {
+			return
 		}
 	}
 }
@@ -292,13 +283,12 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 	return c.EnsureQueueResponse(&resp)
 }
 
-func (h *httpController) readLoop(ctx context.Context, disconnect context.CancelFunc, conn *websocket.Conn, c *types.Client) {
+func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
 	for {
 		var request types.RPCRequest
 		if err := conn.ReadJSON(&request); err != nil {
 			if shouldTriggerDisconnect(err) {
-				disconnect()
 				_ = conn.Close()
 				return
 			}
@@ -309,14 +299,16 @@ func (h *httpController) readLoop(ctx context.Context, disconnect context.Cancel
 			Callback: request.Callback,
 		}
 		t0 := time.Now()
-		tCtx, finishedRPC := context.WithDeadline(ctx, t0.Add(time.Second*10))
+		ctx, finishedRPC := context.WithDeadline(
+			context.Background(), t0.Add(time.Second*10),
+		)
 		rpc := types.RPC{
 			Client:   c,
 			Request:  &request,
 			Response: &response,
 		}
 		response.Latency.SetBegin(t0)
-		h.rtm.RPC(tCtx, &rpc)
+		h.rtm.RPC(ctx, &rpc)
 		finishedRPC()
 		rpc.Response.Latency.End()
 		if !c.EnsureQueueResponse(&response) || rpc.Response.FatalError {
@@ -324,7 +316,6 @@ func (h *httpController) readLoop(ctx context.Context, disconnect context.Cancel
 			return
 		}
 		if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
-			disconnect()
 			_ = conn.Close()
 			return
 		}
