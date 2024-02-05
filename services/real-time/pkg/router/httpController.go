@@ -285,8 +285,9 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 
 func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
+	var request types.RPCRequest
 	for ok := true; ok; {
-		var request types.RPCRequest
+		request = types.RPCRequest{}
 		if err := conn.ReadJSON(&request); err != nil {
 			if shouldTriggerDisconnect(err) {
 				_ = conn.Close()
