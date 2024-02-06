@@ -19,6 +19,7 @@ package editorEvents
 import (
 	"context"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -84,15 +85,17 @@ type Clients struct {
 }
 
 func (c Clients) String() string {
-	s := "all=["
-	for i, client := range c.All {
-		if i > 0 {
-			s += ", "
+	var s strings.Builder
+	s.WriteByte('[')
+	for _, client := range c.All {
+		if s.Len() > 1 {
+			s.WriteString(", ")
 		}
-		s += client.String()
+		s.WriteString(client.String())
 	}
-	s += "] removed=" + strconv.FormatInt(int64(c.Removed), 10)
-	return s
+	s.WriteString("] removed=")
+	s.WriteString(strconv.FormatInt(int64(c.Removed), 10))
+	return s.String()
 }
 
 type room struct {
