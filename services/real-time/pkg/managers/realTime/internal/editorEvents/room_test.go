@@ -18,19 +18,32 @@ package editorEvents
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
+func clientsEqual(a, b types.Clients) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, client := range a {
+		if b[i] != client {
+			return false
+		}
+	}
+	return true
+}
+
 func Test_room_remove(t *testing.T) {
 	a := &types.Client{PublicId: "a"}
 	b := &types.Client{PublicId: "b"}
 	c := &types.Client{PublicId: "c"}
 	d := &types.Client{PublicId: "d"}
-	all := types.Clients{a, b, c, d}
+	e := &types.Client{PublicId: "e"}
+	f := &types.Client{PublicId: "f"}
+	all := types.Clients{a, b, c, d, e, f}
 	var permutations []types.Clients
 	for _, c0 := range all {
 		permutations = append(permutations, types.Clients{
@@ -57,28 +70,42 @@ func Test_room_remove(t *testing.T) {
 					permutations = append(permutations, types.Clients{
 						c0, c1, c2, c3,
 					})
+					for _, c4 := range all {
+						if c4 == c0 || c4 == c1 || c4 == c2 || c4 == c3 {
+							continue
+						}
+						permutations = append(permutations, types.Clients{
+							c0, c1, c2, c3, c4,
+						})
+						for _, c5 := range all {
+							if c5 == c0 || c5 == c1 || c5 == c2 || c5 == c3 || c5 == c4 {
+								continue
+							}
+							permutations = append(permutations, types.Clients{
+								c0, c1, c2, c3, c4, c5,
+							})
+						}
+					}
 				}
 			}
 		}
 	}
 	fRc := func(sharedTypes.UUID, RoomChanges) {}
 	fP := func(context.Context, sharedTypes.UUID) bool { return true }
+	rc := make(RoomChanges, 0, len(all)*2)
+	r := newRoom(sharedTypes.UUID{}, fRc, fP)
+	close(r.c)
+	r.roomChangesFlush.Stop()
 
 	for i1, p1 := range permutations {
 		for i2, p2 := range permutations {
-			r := newRoom(sharedTypes.UUID{}, fRc, fP)
+			r.clients.Store(noClients)
 			<-r.roomChanges
-			r.roomChanges <- make(RoomChanges, 0, 100)
-			close(r.c)
-			r.c = make(chan roomQueueEntry)
-			go func() {
-				for range r.c {
-				}
-			}()
+			r.roomChanges <- rc[:0]
 			for _, client := range p1 {
 				r.add(client)
 			}
-			if got := r.Clients().All; !reflect.DeepEqual(got, p1) {
+			if got := r.Clients().All; !clientsEqual(got, p1) {
 				t.Fatalf("%d/%d add=%s != clients=%s", i1, i2, p1, got)
 			}
 			for i3, client := range p2 {
@@ -98,9 +125,8 @@ func Test_room_remove(t *testing.T) {
 			if got := r.Clients().All; i1 == i2 && len(got) != 0 {
 				t.Fatalf("%d/%d add+remove=%s, clients=%s", i1, i2, p1, got)
 			}
-			close(r.roomChanges)
-			<-r.roomChanges
-			close(r.c)
 		}
 	}
+	close(r.roomChanges)
+	<-r.roomChanges
 }
