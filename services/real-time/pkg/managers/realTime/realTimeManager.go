@@ -139,7 +139,7 @@ func (m *manager) DisconnectAll() {
 		for _, cp := range rooms {
 			clients := cp.Load()
 			for i, client := range clients.All {
-				if i != clients.Removed {
+				if !clients.Removed.Has(i) {
 					client.TriggerDisconnectAndDropQueue()
 				}
 			}

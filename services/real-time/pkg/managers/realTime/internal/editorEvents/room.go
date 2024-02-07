@@ -18,7 +18,6 @@ package editorEvents
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -83,7 +82,13 @@ type roomQueueEntry struct {
 
 type Clients struct {
 	All     types.Clients
-	Removed int
+	Removed RemovedClients
+}
+
+type RemovedClients [3]int
+
+func (r RemovedClients) Has(i int) bool {
+	return r[0] == i || r[1] == i || r[2] == i
 }
 
 func (c Clients) String() string {
@@ -95,8 +100,17 @@ func (c Clients) String() string {
 		}
 		s.WriteString(client.String())
 	}
-	s.WriteString("] removed=")
-	s.WriteString(strconv.FormatInt(int64(c.Removed), 10))
+	s.WriteString("] removed=[")
+	for i, idx := range c.Removed {
+		if idx == -1 {
+			continue
+		}
+		if i > 0 {
+			s.WriteString(", ")
+		}
+		s.WriteString(c.All[idx].String())
+	}
+	s.WriteByte(']')
 	return s.String()
 }
 
@@ -109,7 +123,10 @@ type room struct {
 	pending pendingOperation.PendingOperation
 }
 
-var noClients = &Clients{Removed: -1}
+var (
+	noneRemoved = [3]int{-1, -1, -1}
+	noClients   = &Clients{Removed: noneRemoved}
+)
 
 func (r *room) Clients() Clients {
 	return *r.clients.Load()
@@ -135,7 +152,7 @@ func (r *room) add(client *types.Client) bool {
 	defer r.scheduleRoomChange(client, true)
 	p := r.clients.Load()
 	if p == noClients {
-		r.clients.Store(&Clients{All: []*types.Client{client}, Removed: -1})
+		r.clients.Store(&Clients{All: types.Clients{client}, Removed: noneRemoved})
 		return true
 	}
 	clients := *p
@@ -157,33 +174,37 @@ func (r *room) remove(client *types.Client) bool {
 
 	defer r.scheduleRoomChange(client, false)
 	n := len(p.All)
-	if n == 1 || (n == 2 && p.Removed != -1 && p.Removed != idx) {
+	if n == 1 ||
+		(n == 2 && p.Removed[0] != -1) ||
+		(n == 3 && p.Removed[0] != -1 && p.Removed[1] != -1) ||
+		(n == 4 && p.Removed[0] != -1 && p.Removed[1] != -1 && p.Removed[2] != -1) {
 		r.clients.Store(noClients)
 		return true
 	}
 
 	clients := *p
-	if p.Removed == -1 {
-		clients.Removed = idx
+	// TODO
+	if p.Removed[0] == -1 {
+		clients.Removed[0] = idx
 	} else {
 		f := make(types.Clients, n-2, n)
 		copy(f, clients.All[:n-2])
 		if idx < n-2 {
-			if clients.Removed == n-1 {
+			if clients.Removed[0] == n-1 {
 				f[idx] = clients.All[n-2]
 			} else {
 				f[idx] = clients.All[n-1]
 			}
 		}
-		if clients.Removed < n-2 {
+		if clients.Removed[0] < n-2 {
 			if idx == n-1 || idx < n-2 {
-				f[clients.Removed] = clients.All[n-2]
+				f[clients.Removed[0]] = clients.All[n-2]
 			} else {
-				f[clients.Removed] = clients.All[n-1]
+				f[clients.Removed[0]] = clients.All[n-1]
 			}
 		}
 		clients.All = f
-		clients.Removed = -1
+		clients.Removed[0] = -1
 	}
 	r.clients.Store(&clients)
 	return false
@@ -212,7 +233,7 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 func (r *room) handleGracefulReconnect(suffix uint8) {
 	clients := r.Clients()
 	for i, client := range clients.All {
-		if i == clients.Removed {
+		if clients.Removed.Has(i) {
 			continue
 		}
 		// The last character of a PublicId is a random hex char.

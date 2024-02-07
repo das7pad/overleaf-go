@@ -114,7 +114,7 @@ func Test_room_remove(t *testing.T) {
 				}
 				clients := r.Clients()
 				for i, other := range clients.All {
-					if i == clients.Removed {
+					if clients.Removed.Has(i) {
 						continue
 					}
 					if client == other {

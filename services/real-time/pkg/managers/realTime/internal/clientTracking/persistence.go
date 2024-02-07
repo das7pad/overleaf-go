@@ -155,7 +155,7 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents
 				}
 				args = args[:0]
 				for i, client := range clients.All {
-					if i == clients.Removed {
+					if clients.Removed.Has(i) {
 						continue
 					}
 					args = append(args, string(client.PublicId)+":age", now)

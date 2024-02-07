@@ -71,7 +71,7 @@ func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEvent
 	if p.NewAccessLevel == project.PrivateAccess {
 		clients := r.Clients()
 		for i, client := range clients.All {
-			if i == clients.Removed {
+			if clients.Removed.Has(i) {
 				continue
 			}
 			if !client.HasCapability(types.CanSeeOtherClients) {
@@ -94,7 +94,7 @@ func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEvent) error
 	}
 	clients := r.Clients()
 	for i, client := range clients.All {
-		if i == clients.Removed {
+		if clients.Removed.Has(i) {
 			continue
 		}
 		if p.UserId == client.UserId {
@@ -109,7 +109,7 @@ func (r *room) handleMessage(msg sharedTypes.EditorEvent) error {
 	var bulkMessage types.WriteQueueEntry
 	clients := r.Clients()
 	for i, client := range clients.All {
-		if i == clients.Removed {
+		if clients.Removed.Has(i) {
 			continue
 		}
 		if client.PublicId == msg.Source {
