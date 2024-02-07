@@ -140,6 +140,7 @@ func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[
 
 func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error {
 	merged := errors.MergedError{}
+	args := make([]interface{}, 0, 2*100)
 	for len(rooms) > 0 {
 		_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 			now := encodeAge(time.Now())
@@ -149,21 +150,21 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents
 				if len(clients.All) == 0 {
 					continue
 				}
-				fields := make([]interface{}, 2*len(clients.All))
-				for i, client := range clients.All {
-					fields[2*i] = string(client.PublicId) + ":age"
-					fields[2*i+1] = now
+				if c := 2 * len(clients.All); cap(args) < c {
+					args = make([]interface{}, 0, c)
 				}
-				if clients.Removed != -1 {
-					fields[2*clients.Removed] = fields[len(fields)-2]
-					fields[2*clients.Removed+1] = fields[len(fields)-1]
-					fields = fields[:len(fields)-2]
+				args = args[:0]
+				for i, client := range clients.All {
+					if i == clients.Removed {
+						continue
+					}
+					args = append(args, string(client.PublicId)+":age", now)
 				}
 				projectKey := getProjectKey(projectId)
-				p.HSet(ctx, projectKey, fields...)
+				p.HSet(ctx, projectKey, args...)
 				p.Expire(ctx, projectKey, ProjectExpiry)
 				delete(rooms, projectId)
-				n += len(clients.All)
+				n += len(args)
 				if n >= 100 {
 					break
 				}
