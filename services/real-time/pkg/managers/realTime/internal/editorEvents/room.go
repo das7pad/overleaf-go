@@ -37,16 +37,18 @@ type RoomChange struct {
 type RoomChanges []RoomChange
 type FlushRoomChanges func(projectId sharedTypes.UUID, rc RoomChanges)
 
+const delayFlushRoomChanges = 10 * time.Millisecond
+
 func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) *room {
 	c := make(chan roomQueueEntry, 20)
 	rc := make(chan RoomChanges, 1)
-	rc <- nil
+	rc <- make(RoomChanges, 0, 10)
 	r := room{
 		c:           c,
 		roomChanges: rc,
 	}
 	r.clients.Store(noClients)
-	r.roomChangesFlush = time.AfterFunc(24*time.Hour, r.queueFlushRoomChanges)
+	r.roomChangesFlush = time.AfterFunc(delayFlushRoomChanges, r.queueFlushRoomChanges)
 	go r.process(c, projectId, flushRoomChanges, flushProject)
 	return &r
 }
@@ -191,7 +193,7 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 	rcs := <-r.roomChanges
 	owner := rcs == nil
 	if owner {
-		rcs = make(RoomChanges, 0, 4)
+		rcs = make(RoomChanges, 0, 10)
 	}
 	rc := RoomChange{
 		PublicId: client.PublicId,
@@ -203,7 +205,7 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 	rcs = append(rcs, rc)
 	r.roomChanges <- rcs
 	if owner {
-		r.roomChangesFlush.Reset(10 * time.Millisecond)
+		r.roomChangesFlush.Reset(delayFlushRoomChanges)
 	}
 }
 
