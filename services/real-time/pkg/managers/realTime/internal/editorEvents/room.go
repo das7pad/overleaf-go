@@ -85,10 +85,50 @@ type Clients struct {
 	Removed RemovedClients
 }
 
-type RemovedClients [3]int
+type RemovedClients [4]int
+
+func (r RemovedClients) Len() int {
+	if r[0] == -1 {
+		return 0
+	}
+	if r[1] == -1 {
+		return 1
+	}
+	if r[2] == -1 {
+		return 2
+	}
+	if r[3] == -1 {
+		return 3
+	}
+	return 4
+}
 
 func (r RemovedClients) Has(i int) bool {
-	return r[0] == i || r[1] == i || r[2] == i
+	return r[0] == i || r[1] == i || r[2] == i || r[3] == i
+}
+
+func (r RemovedClients) Add(i int) (RemovedClients, bool) {
+	if r[0] == -1 {
+		r[0] = i
+		return r, true
+	}
+	if r[3] != -1 {
+		return r, false
+	}
+	if r[2] != -1 && r[2] < i {
+		r[3] = i
+		return r, true
+	}
+	if r[1] != -1 && r[1] < i {
+		r[2], r[3] = i, r[2]
+		return r, true
+	}
+	if r[0] < i {
+		r[1], r[2], r[3] = i, r[1], r[2]
+		return r, true
+	}
+	r[0], r[1], r[2], r[3] = i, r[0], r[1], r[2]
+	return r, true
 }
 
 func (c Clients) String() string {
@@ -124,7 +164,7 @@ type room struct {
 }
 
 var (
-	noneRemoved = [3]int{-1, -1, -1}
+	noneRemoved = [4]int{-1, -1, -1, -1}
 	noClients   = &Clients{Removed: noneRemoved}
 )
 
@@ -156,6 +196,24 @@ func (r *room) add(client *types.Client) bool {
 		return true
 	}
 	clients := *p
+	n := len(clients.All)
+	if n == cap(clients.All) {
+		m := clients.Removed.Len()
+		f := make(types.Clients, n-m, n+(10+n)/2)
+		for i, j := 0, 0; i < n; i++ {
+			if i-j == m {
+				copy(f[j:], clients.All[i:])
+				break
+			}
+			if clients.Removed.Has(i) {
+				continue
+			}
+			f[j] = clients.All[i]
+			j++
+		}
+		clients.All = f
+		clients.Removed = noneRemoved
+	}
 	clients.All = append(clients.All, client)
 	r.clients.Store(&clients)
 	return false
@@ -176,35 +234,30 @@ func (r *room) remove(client *types.Client) bool {
 	n := len(p.All)
 	if n == 1 ||
 		(n == 2 && p.Removed[0] != -1) ||
-		(n == 3 && p.Removed[0] != -1 && p.Removed[1] != -1) ||
-		(n == 4 && p.Removed[0] != -1 && p.Removed[1] != -1 && p.Removed[2] != -1) {
+		(n == 3 && p.Removed[1] != -1) ||
+		(n == 4 && p.Removed[2] != -1) ||
+		(n == 5 && p.Removed[3] != -1) {
 		r.clients.Store(noClients)
 		return true
 	}
 
 	clients := *p
-	// TODO
-	if p.Removed[0] == -1 {
-		clients.Removed[0] = idx
-	} else {
-		f := make(types.Clients, n-2, n)
-		copy(f, clients.All[:n-2])
-		if idx < n-2 {
-			if clients.Removed[0] == n-1 {
-				f[idx] = clients.All[n-2]
-			} else {
-				f[idx] = clients.All[n-1]
+	var ok bool
+	if clients.Removed, ok = clients.Removed.Add(idx); !ok {
+		f := make(types.Clients, n-5, n+(n+10)/2)
+		for i, j := 0, 0; i < n; i++ {
+			if i-j == 5 {
+				copy(f[j:], clients.All[i:])
+				break
 			}
-		}
-		if clients.Removed[0] < n-2 {
-			if idx == n-1 || idx < n-2 {
-				f[clients.Removed[0]] = clients.All[n-2]
-			} else {
-				f[clients.Removed[0]] = clients.All[n-1]
+			if i == idx || clients.Removed.Has(i) {
+				continue
 			}
+			f[j] = clients.All[i]
+			j++
 		}
 		clients.All = f
-		clients.Removed[0] = -1
+		clients.Removed = noneRemoved
 	}
 	r.clients.Store(&clients)
 	return false

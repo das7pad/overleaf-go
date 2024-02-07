@@ -130,3 +130,127 @@ func Test_room_remove(t *testing.T) {
 	close(r.roomChanges)
 	<-r.roomChanges
 }
+
+func TestRemovedClients_Add(t *testing.T) {
+	type want struct {
+		r  RemovedClients
+		ok bool
+	}
+	tests := []struct {
+		name string
+		r    RemovedClients
+		i    int
+		want want
+	}{
+		{
+			name: "first",
+			r:    RemovedClients{-1, -1, -1, -1},
+			i:    0,
+			want: want{
+				r:  RemovedClients{0, -1, -1, -1},
+				ok: true,
+			},
+		},
+		{
+			name: "2nd before",
+			r:    RemovedClients{1, -1, -1, -1},
+			i:    0,
+			want: want{
+				r:  RemovedClients{0, 1, -1, -1},
+				ok: true,
+			},
+		},
+		{
+			name: "2nd after",
+			r:    RemovedClients{0, -1, -1, -1},
+			i:    1,
+			want: want{
+				r:  RemovedClients{0, 1, -1, -1},
+				ok: true,
+			},
+		},
+		{
+			name: "3rd before",
+			r:    RemovedClients{1, 2, -1, -1},
+			i:    0,
+			want: want{
+				r:  RemovedClients{0, 1, 2, -1},
+				ok: true,
+			},
+		},
+		{
+			name: "3rd middle",
+			r:    RemovedClients{0, 2, -1, -1},
+			i:    1,
+			want: want{
+				r:  RemovedClients{0, 1, 2, -1},
+				ok: true,
+			},
+		},
+		{
+			name: "3rd after",
+			r:    RemovedClients{0, 1, -1, -1},
+			i:    2,
+			want: want{
+				r:  RemovedClients{0, 1, 2, -1},
+				ok: true,
+			},
+		},
+		{
+			name: "4th 0",
+			r:    RemovedClients{1, 2, 3, -1},
+			i:    0,
+			want: want{
+				r:  RemovedClients{0, 1, 2, 3},
+				ok: true,
+			},
+		},
+		{
+			name: "4th 1",
+			r:    RemovedClients{0, 2, 3, -1},
+			i:    1,
+			want: want{
+				r:  RemovedClients{0, 1, 2, 3},
+				ok: true,
+			},
+		},
+		{
+			name: "4th 2",
+			r:    RemovedClients{0, 1, 3, -1},
+			i:    2,
+			want: want{
+				r:  RemovedClients{0, 1, 2, 3},
+				ok: true,
+			},
+		},
+		{
+			name: "4th 3",
+			r:    RemovedClients{0, 1, 2, -1},
+			i:    3,
+			want: want{
+				r:  RemovedClients{0, 1, 2, 3},
+				ok: true,
+			},
+		},
+		{
+			name: "5th",
+			r:    RemovedClients{0, 1, 2, 3},
+			i:    4,
+			want: want{
+				r:  RemovedClients{0, 1, 2, 3},
+				ok: false,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, got := tt.r.Add(tt.i)
+			if got != tt.want.ok {
+				t.Errorf("Add() = %v, want %v", got, tt.want.ok)
+			}
+			if r != tt.want.r {
+				t.Errorf("Add() -> %v, want %v", r, tt.want.r)
+			}
+		})
+	}
+}
