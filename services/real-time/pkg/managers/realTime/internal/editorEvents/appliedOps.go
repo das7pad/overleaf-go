@@ -41,7 +41,7 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEvent) error {
 	var bulkMessage types.WriteQueueEntry
 	clients := r.Clients()
 	for i, client := range clients.All {
-		if i == clients.Removed {
+		if clients.Removed.Has(i) {
 			continue
 		}
 		if client.PublicId == update.Meta.Source {

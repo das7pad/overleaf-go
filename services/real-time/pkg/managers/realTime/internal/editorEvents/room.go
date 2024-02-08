@@ -18,7 +18,6 @@ package editorEvents
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -83,7 +82,48 @@ type roomQueueEntry struct {
 
 type Clients struct {
 	All     types.Clients
-	Removed int
+	Removed RemovedClients
+}
+
+type RemovedClients [10]int32
+
+func (r RemovedClients) Len() int {
+	if r[0] == -1 {
+		return 0
+	}
+	if r[5] == -1 {
+		if r[1] == -1 {
+			return 1
+		}
+		if r[2] == -1 {
+			return 2
+		}
+		if r[3] == -1 {
+			return 3
+		}
+		if r[4] == -1 {
+			return 4
+		}
+		return 5
+	}
+	if r[6] == -1 {
+		return 6
+	}
+	if r[7] == -1 {
+		return 7
+	}
+	if r[8] == -1 {
+		return 8
+	}
+	if r[9] == -1 {
+		return 9
+	}
+	return 10
+}
+
+func (r RemovedClients) Has(i int) bool {
+	j := int32(i)
+	return r[0] == j || r[1] == j || r[2] == j || r[3] == j || r[4] == j || r[5] == j || r[6] == j || r[7] == j || r[8] == j || r[9] == j
 }
 
 func (c Clients) String() string {
@@ -95,8 +135,17 @@ func (c Clients) String() string {
 		}
 		s.WriteString(client.String())
 	}
-	s.WriteString("] removed=")
-	s.WriteString(strconv.FormatInt(int64(c.Removed), 10))
+	s.WriteString("] removed=[")
+	for i, idx := range c.Removed {
+		if idx == -1 {
+			continue
+		}
+		if i > 0 {
+			s.WriteString(", ")
+		}
+		s.WriteString(c.All[idx].String())
+	}
+	s.WriteByte(']')
 	return s.String()
 }
 
@@ -109,7 +158,10 @@ type room struct {
 	pending pendingOperation.PendingOperation
 }
 
-var noClients = &Clients{Removed: -1}
+var (
+	noneRemoved = RemovedClients{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
+	noClients   = &Clients{Removed: noneRemoved}
+)
 
 func (r *room) Clients() Clients {
 	return *r.clients.Load()
@@ -135,10 +187,28 @@ func (r *room) add(client *types.Client) bool {
 	defer r.scheduleRoomChange(client, true)
 	p := r.clients.Load()
 	if p == noClients {
-		r.clients.Store(&Clients{All: []*types.Client{client}, Removed: -1})
+		r.clients.Store(&Clients{All: types.Clients{client}, Removed: noneRemoved})
 		return true
 	}
 	clients := *p
+	n := len(clients.All)
+	if n == cap(clients.All) {
+		m := clients.Removed.Len()
+		f := make(types.Clients, n-m, n+(10+n)/2)
+		for i, j := 0, 0; i < n; i++ {
+			if i-j == m {
+				copy(f[j:], clients.All[i:])
+				break
+			}
+			if clients.Removed.Has(i) {
+				continue
+			}
+			f[j] = clients.All[i]
+			j++
+		}
+		clients.All = f
+		clients.Removed = noneRemoved
+	}
 	clients.All = append(clients.All, client)
 	r.clients.Store(&clients)
 	return false
@@ -157,33 +227,30 @@ func (r *room) remove(client *types.Client) bool {
 
 	defer r.scheduleRoomChange(client, false)
 	n := len(p.All)
-	if n == 1 || (n == 2 && p.Removed != -1 && p.Removed != idx) {
+	m := p.Removed.Len()
+	if n == m+1 {
 		r.clients.Store(noClients)
 		return true
 	}
 
 	clients := *p
-	if p.Removed == -1 {
-		clients.Removed = idx
+	if m < 10 {
+		clients.Removed[m] = int32(idx)
 	} else {
-		f := make(types.Clients, n-2, n)
-		copy(f, clients.All[:n-2])
-		if idx < n-2 {
-			if clients.Removed == n-1 {
-				f[idx] = clients.All[n-2]
-			} else {
-				f[idx] = clients.All[n-1]
+		f := make(types.Clients, n-11, n+(n+10)/2)
+		for i, j := 0, 0; i < n; i++ {
+			if i-j == 11 {
+				copy(f[j:], clients.All[i:])
+				break
 			}
-		}
-		if clients.Removed < n-2 {
-			if idx == n-1 || idx < n-2 {
-				f[clients.Removed] = clients.All[n-2]
-			} else {
-				f[clients.Removed] = clients.All[n-1]
+			if i == idx || clients.Removed.Has(i) {
+				continue
 			}
+			f[j] = clients.All[i]
+			j++
 		}
 		clients.All = f
-		clients.Removed = -1
+		clients.Removed = noneRemoved
 	}
 	r.clients.Store(&clients)
 	return false
@@ -212,7 +279,7 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 func (r *room) handleGracefulReconnect(suffix uint8) {
 	clients := r.Clients()
 	for i, client := range clients.All {
-		if i == clients.Removed {
+		if clients.Removed.Has(i) {
 			continue
 		}
 		// The last character of a PublicId is a random hex char.
