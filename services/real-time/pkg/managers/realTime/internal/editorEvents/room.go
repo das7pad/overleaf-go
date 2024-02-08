@@ -217,11 +217,10 @@ func (r *room) add(client *types.Client) bool {
 func (r *room) remove(client *types.Client) bool {
 	p := r.clients.Load()
 	if p == noClients {
-		return true
+		return false
 	}
 	idx := p.All.Index(client)
 	if idx == -1 {
-		// Not found.
 		return false
 	}
 

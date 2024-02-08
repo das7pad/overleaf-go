@@ -33,7 +33,7 @@ type Manager interface {
 	BroadcastGracefulReconnect(suffix uint8) int
 	GetClients() LazyRoomClients
 	Join(ctx context.Context, client *types.Client) error
-	Leave(client *types.Client) bool
+	Leave(client *types.Client)
 	StartListening(ctx context.Context) error
 }
 
@@ -135,22 +135,16 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 	return op
 }
 
-func (m *manager) leave(client *types.Client) bool {
-	projectId := client.ProjectId
+func (m *manager) leave(client *types.Client) {
 	// There is no need for read locking, we are the only potential writer.
-	r, exists := m.rooms[projectId]
-	if !exists || r.isEmpty() {
-		// Not joined yet.
-		return false
+	r, exists := m.rooms[client.ProjectId]
+	if !exists {
+		return
 	}
 
-	roomIsEmpty := r.remove(client)
-	if !roomIsEmpty {
-		// Do not unsubscribe yet.
-		return false
+	if turnedEmpty := r.remove(client); turnedEmpty {
+		m.idle[client.ProjectId] = true
 	}
-	m.idle[projectId] = true
-	return true
 }
 
 func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
@@ -205,11 +199,10 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	return pending.Err()
 }
 
-func (m *manager) Leave(client *types.Client) bool {
+func (m *manager) Leave(client *types.Client) {
 	m.sem <- struct{}{}
-	nowEmpty := m.leave(client)
+	m.leave(client)
 	<-m.sem
-	return nowEmpty
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {
