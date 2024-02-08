@@ -144,100 +144,55 @@ func TestRemovedClients_Add(t *testing.T) {
 	}{
 		{
 			name: "first",
-			r:    RemovedClients{-1, -1, -1, -1},
+			r:    RemovedClients{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 			i:    0,
 			want: want{
-				r:  RemovedClients{0, -1, -1, -1},
+				r:  RemovedClients{0, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 				ok: true,
 			},
 		},
 		{
-			name: "2nd before",
-			r:    RemovedClients{1, -1, -1, -1},
-			i:    0,
-			want: want{
-				r:  RemovedClients{0, 1, -1, -1},
-				ok: true,
-			},
-		},
-		{
-			name: "2nd after",
-			r:    RemovedClients{0, -1, -1, -1},
+			name: "2nd",
+			r:    RemovedClients{0, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 			i:    1,
 			want: want{
-				r:  RemovedClients{0, 1, -1, -1},
+				r:  RemovedClients{0, 1, -1, -1, -1, -1, -1, -1, -1, -1},
 				ok: true,
 			},
 		},
 		{
-			name: "3rd before",
-			r:    RemovedClients{1, 2, -1, -1},
-			i:    0,
-			want: want{
-				r:  RemovedClients{0, 1, 2, -1},
-				ok: true,
-			},
-		},
-		{
-			name: "3rd middle",
-			r:    RemovedClients{0, 2, -1, -1},
-			i:    1,
-			want: want{
-				r:  RemovedClients{0, 1, 2, -1},
-				ok: true,
-			},
-		},
-		{
-			name: "3rd after",
-			r:    RemovedClients{0, 1, -1, -1},
+			name: "3rd",
+			r:    RemovedClients{0, 1, -1, -1, -1, -1, -1, -1, -1, -1},
 			i:    2,
 			want: want{
-				r:  RemovedClients{0, 1, 2, -1},
+				r:  RemovedClients{0, 1, 2, -1, -1, -1, -1, -1, -1, -1},
 				ok: true,
 			},
 		},
 		{
-			name: "4th 0",
-			r:    RemovedClients{1, 2, 3, -1},
-			i:    0,
-			want: want{
-				r:  RemovedClients{0, 1, 2, 3},
-				ok: true,
-			},
-		},
-		{
-			name: "4th 1",
-			r:    RemovedClients{0, 2, 3, -1},
-			i:    1,
-			want: want{
-				r:  RemovedClients{0, 1, 2, 3},
-				ok: true,
-			},
-		},
-		{
-			name: "4th 2",
-			r:    RemovedClients{0, 1, 3, -1},
-			i:    2,
-			want: want{
-				r:  RemovedClients{0, 1, 2, 3},
-				ok: true,
-			},
-		},
-		{
-			name: "4th 3",
-			r:    RemovedClients{0, 1, 2, -1},
+			name: "4th",
+			r:    RemovedClients{0, 1, 2, -1, -1, -1, -1, -1, -1, -1},
 			i:    3,
 			want: want{
-				r:  RemovedClients{0, 1, 2, 3},
+				r:  RemovedClients{0, 1, 2, 3, -1, -1, -1, -1, -1, -1},
 				ok: true,
 			},
 		},
 		{
-			name: "5th",
-			r:    RemovedClients{0, 1, 2, 3},
-			i:    4,
+			name: "10th",
+			r:    RemovedClients{0, 1, 2, 3, 4, 5, 6, 7, 8, -1},
+			i:    9,
 			want: want{
-				r:  RemovedClients{0, 1, 2, 3},
+				r:  RemovedClients{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+				ok: true,
+			},
+		},
+		{
+			name: "11th",
+			r:    RemovedClients{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			i:    10,
+			want: want{
+				r:  RemovedClients{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
 				ok: false,
 			},
 		},
