@@ -112,14 +112,21 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 		delete(m.idle, projectId)
 	}
 
-	pending := r.pending
-	if !roomWasEmpty && (pending.IsPending() || !pending.Failed()) {
-		// Already subscribed or subscribe is still pending.
-		return pending
+	if !roomWasEmpty {
+		if r.pending == nil {
+			return nil // Long finished subscribing
+		} else if err := r.pending.Err(); err == nil {
+			r.pending = nil
+			return nil // Finished subscribing
+		} else if err == pendingOperation.ErrOperationStillPending {
+			return r.pending // Subscribe is still pending
+		}
+		// Retry subscribing
 	}
 
+	pending := r.pending
 	op := pendingOperation.TrackOperation(func() error {
-		if pending != nil && pending.IsPending() {
+		if pending != nil {
 			_ = pending.Wait(ctx)
 		}
 		return m.c.Subscribe(ctx, projectId)

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,13 +23,11 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-var errOperationStillPending = errors.New("operation is still pending")
+var ErrOperationStillPending = errors.New("operation is still pending")
 
 type PendingOperation interface {
 	Done() <-chan struct{}
 	Err() error
-	IsPending() bool
-	Failed() bool
 	Wait(ctx context.Context) error
 }
 
@@ -49,27 +47,15 @@ func (c *pendingOperation) Err() error {
 	return c.err
 }
 
-func (c *pendingOperation) IsPending() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.err == errOperationStillPending
-}
-
-func (c *pendingOperation) Failed() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.err != nil && c.err != errOperationStillPending
-}
-
 func (c *pendingOperation) Wait(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
-		if !c.IsPending() {
-			return c.Err()
+		if err := c.Err(); err != ErrOperationStillPending {
+			return err
 		}
 		return ctx.Err()
-	case <-c.Done():
-		return c.Err()
+	case <-c.c:
+		return c.err
 	}
 }
 
@@ -84,7 +70,7 @@ func newPendingOperation() (PendingOperation, func(err error)) {
 	c := make(chan struct{})
 	pending := pendingOperation{
 		c:   c,
-		err: errOperationStillPending,
+		err: ErrOperationStillPending,
 	}
 	return &pending, pending.setErr
 }
