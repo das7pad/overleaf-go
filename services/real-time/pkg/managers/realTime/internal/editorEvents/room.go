@@ -126,18 +126,6 @@ func (r RemovedClients) Has(i int) bool {
 	return r[0] == j || r[1] == j || r[2] == j || r[3] == j || r[4] == j || r[5] == j || r[6] == j || r[7] == j || r[8] == j || r[9] == j
 }
 
-func (r RemovedClients) Add(i int) (RemovedClients, bool) {
-	if r[0] == -1 {
-		r[0] = int32(i)
-		return r, true
-	}
-	if r[9] != -1 {
-		return r, false
-	}
-	r[r.Len()] = int32(i)
-	return r, true
-}
-
 func (c Clients) String() string {
 	var s strings.Builder
 	s.WriteByte('[')
@@ -239,14 +227,16 @@ func (r *room) remove(client *types.Client) bool {
 
 	defer r.scheduleRoomChange(client, false)
 	n := len(p.All)
-	if n == p.Removed.Len()+1 {
+	m := p.Removed.Len()
+	if n == m+1 {
 		r.clients.Store(noClients)
 		return true
 	}
 
 	clients := *p
-	var ok bool
-	if clients.Removed, ok = clients.Removed.Add(idx); !ok {
+	if m < 10 {
+		clients.Removed[m] = int32(idx)
+	} else {
 		f := make(types.Clients, n-11, n+(n+10)/2)
 		for i, j := 0, 0; i < n; i++ {
 			if i-j == 11 {
