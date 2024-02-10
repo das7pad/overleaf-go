@@ -33,10 +33,11 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func encodeAge(t time.Time) string {
-	buf := [8]byte{}
-	binary.BigEndian.PutUint64(buf[:], uint64(t.UnixNano()))
-	return base64Ordered.EncodeToString(buf[:])
+func encodeAge(t time.Time) [11]byte {
+	buf := [11]byte{}
+	binary.BigEndian.PutUint64(buf[3:], uint64(t.UnixNano()))
+	base64Ordered.Encode(buf[:], buf[3:])
+	return buf
 }
 
 func getProjectKey(projectId sharedTypes.UUID) string {
@@ -57,11 +58,12 @@ func (m *manager) updateClientPosition(ctx context.Context, client *types.Client
 	}
 
 	projectKey := getProjectKey(client.ProjectId)
+	now := encodeAge(time.Now())
 	details := []interface{}{
 		string(client.PublicId),
 		userBlob,
 		string(client.PublicId) + ":age",
-		encodeAge(time.Now()),
+		string(now[:]),
 	}
 	_, err = m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		p.HSet(ctx, projectKey, details...)
@@ -108,7 +110,7 @@ func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[
 	n := 0
 	for k, v := range entries {
 		if isAge := strings.HasSuffix(k, ":age"); isAge {
-			if v < tStale {
+			if v < string(tStale[:]) {
 				clientId := strings.TrimSuffix(k, ":age")
 				staleClients = append(
 					staleClients, sharedTypes.PublicId(clientId),
@@ -141,9 +143,11 @@ func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[
 func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error {
 	merged := errors.MergedError{}
 	args := make([]interface{}, 0, 2*100)
+	now := make([]byte, 11)
 	for len(rooms) > 0 {
 		_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-			now := encodeAge(time.Now())
+			b := encodeAge(time.Now())
+			copy(now, b[:])
 			n := 0
 			for projectId, r := range rooms {
 				clients := r.Clients()
