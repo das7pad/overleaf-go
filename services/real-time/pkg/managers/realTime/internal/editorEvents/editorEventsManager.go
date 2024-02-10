@@ -92,7 +92,7 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	delete(m.idle, id)
 }
 
-func (m *manager) join(ctx context.Context, client *types.Client) pendingOperation.PendingOperation {
+func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, pendingOperation.PendingOperation) {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
@@ -113,12 +113,12 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 
 	if !roomWasEmpty {
 		if r.pending == nil {
-			return nil // Long finished subscribing
+			return r, nil // Long finished subscribing
 		} else if err := r.pending.Err(); err == nil {
 			r.pending = nil
-			return nil // Finished subscribing
+			return r, nil // Finished subscribing
 		} else if err == pendingOperation.ErrOperationStillPending {
-			return r.pending // Subscribe is still pending
+			return r, r.pending // Subscribe is still pending
 		}
 		// Retry subscribing
 	}
@@ -131,19 +131,16 @@ func (m *manager) join(ctx context.Context, client *types.Client) pendingOperati
 		return m.c.Subscribe(ctx, projectId)
 	})
 	r.pending = op
-	return op
+	return r, op
 }
 
-func (m *manager) leave(client *types.Client) {
-	// There is no need for read locking, we are the only potential writer.
-	r, exists := m.rooms[client.ProjectId]
-	if !exists {
-		return
-	}
+func (m *manager) leaveLocked(client *types.Client) *room {
+	r := m.rooms[client.ProjectId]
 
 	if turnedEmpty := r.remove(client); turnedEmpty {
 		m.idle[client.ProjectId] = true
 	}
+	return r
 }
 
 func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
@@ -189,8 +186,9 @@ func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	m.sem <- struct{}{}
-	pending := m.join(ctx, client)
+	r, pending := m.joinLocked(ctx, client)
 	<-m.sem
+	r.scheduleRoomChange(client, true)
 	if pending == nil {
 		return nil
 	}
@@ -200,8 +198,9 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 
 func (m *manager) Leave(client *types.Client) {
 	m.sem <- struct{}{}
-	m.leave(client)
+	r := m.leaveLocked(client)
 	<-m.sem
+	r.scheduleRoomChange(client, false)
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {

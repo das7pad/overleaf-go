@@ -262,7 +262,6 @@ func (r *room) isEmpty() bool {
 }
 
 func (r *room) add(client *types.Client) bool {
-	defer r.scheduleRoomChange(client, true)
 	clients := r.clients
 	if len(clients.All) == 0 {
 		c := newClients(1)
@@ -297,12 +296,7 @@ func (r *room) add(client *types.Client) bool {
 
 func (r *room) remove(client *types.Client) bool {
 	clients := r.clients
-	idx := clients.All.Index(client)
-	if idx == -1 {
-		return false
-	}
 
-	defer r.scheduleRoomChange(client, false)
 	n := len(clients.All)
 	m := clients.Removed.Len()
 	if n == m+1 {
@@ -310,6 +304,7 @@ func (r *room) remove(client *types.Client) bool {
 		return true
 	}
 
+	idx := clients.All.Index(client)
 	if m < removedClientsLen {
 		r.clientsMu.Lock()
 		r.clients.Removed[m] = int32(idx)
