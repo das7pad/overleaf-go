@@ -99,14 +99,16 @@ func Test_room_remove(t *testing.T) {
 
 	for i1, p1 := range permutations {
 		for i2, p2 := range permutations {
-			r.clients.Store(noClients)
+			r.swapClients(r.clients, noClients)
 			<-r.roomChanges
 			r.roomChanges <- rc[:0]
 			for _, client := range p1 {
 				r.add(client)
 			}
-			if got := r.Clients().All; !clientsEqual(got, p1) {
-				t.Fatalf("%d/%d add=%s != clients=%s", i1, i2, p1, got)
+			if got := r.Clients(); !clientsEqual(got.All, p1) {
+				t.Fatalf("%d/%d add=%s != clients=%s", i1, i2, p1, got.String())
+			} else {
+				got.Done()
 			}
 			for i3, client := range p2 {
 				if p1.Index(client) != -1 {
@@ -118,15 +120,40 @@ func Test_room_remove(t *testing.T) {
 						continue
 					}
 					if client == other {
-						t.Fatalf("%d/%d/%d add=%s, clients=%s, not removed=%s", i1, i2, i3, p1, clients.All, client)
+						t.Fatalf("%d/%d/%d add=%s, clients=%s, not removed=%s", i1, i2, i3, p1, clients.String(), client.PublicId)
 					}
 				}
+				clients.Done()
 			}
-			if got := r.Clients().All; i1 == i2 && len(got) != 0 {
-				t.Fatalf("%d/%d add+remove=%s, clients=%s", i1, i2, p1, got)
+			if got := r.Clients(); i1 == i2 && len(got.All) != 0 {
+				t.Fatalf("%d/%d add+remove=%s, clients=%s", i1, i2, p1, got.String())
+			} else {
+				got.Done()
 			}
 		}
 	}
 	close(r.roomChanges)
 	<-r.roomChanges
+}
+
+func Test_getClientsPoolBucket(t *testing.T) {
+	for i := 0; i < 1_000_000; i++ {
+		bucket, upper := getClientsPoolBucket(i)
+		putBucket, _ := getClientsPoolBucket(upper)
+		if bucket != putBucket {
+			t.Fatalf("getClientsPoolBucket(%d) return upper in other bucket", i)
+		}
+	}
+}
+
+func TestRemovedClients_Len(t *testing.T) {
+	for i := 0; i <= removedClientsLen; i++ {
+		r := noneRemoved
+		for j := 0; j < i; j++ {
+			r[j] = int32(j)
+		}
+		if got := r.Len(); got != i {
+			t.Fatalf("RemovedClients[:%d].Len() got = %d, want %d", i, got, i)
+		}
+	}
 }

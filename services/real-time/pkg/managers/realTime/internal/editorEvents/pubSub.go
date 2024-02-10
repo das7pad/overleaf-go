@@ -48,7 +48,7 @@ func (r *room) Handle(raw string) {
 	case sharedTypes.ProjectMembershipChanged:
 		err = r.handleProjectMembershipChanged(msg)
 	default:
-		err = r.handleMessage(msg)
+		err = r.handleMessage(msg, r.Clients())
 	}
 	if err != nil {
 		log.Printf(
@@ -68,8 +68,8 @@ func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEvent
 	if err := json.Unmarshal(msg.Payload, &p); err != nil {
 		return errors.Tag(err, "deserialize payload")
 	}
+	clients := r.Clients()
 	if p.NewAccessLevel == project.PrivateAccess {
-		clients := r.Clients()
 		for i, client := range clients.All {
 			if clients.Removed.Has(i) {
 				continue
@@ -80,7 +80,7 @@ func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEvent
 			}
 		}
 	}
-	return r.handleMessage(msg)
+	return r.handleMessage(msg, clients)
 }
 
 type projectMembershipChangedPayload struct {
@@ -101,13 +101,13 @@ func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEvent) error
 			client.TriggerDisconnectAndDropQueue()
 		}
 	}
-	return r.handleMessage(msg)
+	return r.handleMessage(msg, clients)
 }
 
-func (r *room) handleMessage(msg sharedTypes.EditorEvent) error {
+func (r *room) handleMessage(msg sharedTypes.EditorEvent, clients Clients) error {
+	defer clients.Done()
 	var requiredCapability types.CapabilityComponent
 	var bulkMessage types.WriteQueueEntry
-	clients := r.Clients()
 	for i, client := range clients.All {
 		if clients.Removed.Has(i) {
 			continue

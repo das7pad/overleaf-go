@@ -19,7 +19,6 @@ package editorEvents
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -37,7 +36,7 @@ type Manager interface {
 	StartListening(ctx context.Context) error
 }
 
-type LazyRoomClients map[sharedTypes.UUID]*atomic.Pointer[Clients]
+type LazyRoomClients map[sharedTypes.UUID]*room
 
 type FlushProject func(ctx context.Context, projectId sharedTypes.UUID) bool
 
@@ -80,7 +79,7 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	m.sem <- struct{}{}
 	defer func() { <-m.sem }()
 
-	if !r.isEmpty() {
+	if len(r.clients.All) != 0 {
 		// Someone else joined while we acquired the sem.
 		return
 	}
@@ -287,7 +286,7 @@ func (m *manager) GetClients() LazyRoomClients {
 	clients := make(LazyRoomClients, n+1000)
 	m.pauseQueueFor(func() {
 		for id, r := range m.rooms {
-			clients[id] = &r.clients
+			clients[id] = r
 		}
 	})
 	return clients

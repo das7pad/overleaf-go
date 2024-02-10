@@ -145,11 +145,8 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents
 		_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 			now := encodeAge(time.Now())
 			n := 0
-			for projectId, cp := range rooms {
-				clients := cp.Load()
-				if len(clients.All) == 0 {
-					continue
-				}
+			for projectId, r := range rooms {
+				clients := r.Clients()
 				if c := 2 * len(clients.All); cap(args) < c {
 					args = make([]interface{}, 0, c)
 				}
@@ -160,6 +157,7 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents
 					}
 					args = append(args, string(client.PublicId)+":age", now)
 				}
+				clients.Done()
 				projectKey := getProjectKey(projectId)
 				p.HSet(ctx, projectKey, args...)
 				p.Expire(ctx, projectKey, ProjectExpiry)

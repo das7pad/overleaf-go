@@ -19,6 +19,7 @@ package editorEvents
 import (
 	"context"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -46,7 +47,7 @@ func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flus
 		c:           c,
 		roomChanges: rc,
 	}
-	r.clients.Store(noClients)
+	r.clients = noClients
 	r.roomChangesFlush = time.AfterFunc(delayFlushRoomChanges, r.queueFlushRoomChanges)
 	go r.process(c, projectId, flushRoomChanges, flushProject)
 	return &r
@@ -80,12 +81,64 @@ type roomQueueEntry struct {
 	msg    string
 }
 
+const clientsPoolBuckets = 11
+
+var clientsPool [clientsPoolBuckets]sync.Pool
+
+func getClientsPoolBucket(n int) (int, int) {
+	if n == 1 || n == 2 {
+		return n - 1, n
+	}
+	if n <= removedClientsLen {
+		return (n + 1) / 2, n + n%2
+	}
+	x := (n + removedClientsLen - 1) / removedClientsLen
+	if b := removedClientsLen/2 - 1 + x; b < clientsPoolBuckets {
+		return b, x * removedClientsLen
+	}
+	return clientsPoolBuckets - 1, x * removedClientsLen
+}
+
+func putClients(c Clients) {
+	for i := 0; i < len(c.All); i++ {
+		c.All[i] = nil
+	}
+	idx, _ := getClientsPoolBucket(cap(c.All))
+	clientsPool[idx].Put(c)
+}
+
+func newClients(lower int) Clients {
+	idx, upper := getClientsPoolBucket(lower)
+	if v := clientsPool[idx].Get(); v != nil {
+		c := v.(Clients)
+		c.allRef.Add(1)
+		c.Removed = noneRemoved
+		if cap(c.All) < lower || cap(c.All) > lower*2 {
+			c.All = make(types.Clients, lower, upper)
+		}
+		return c
+	} else {
+		return newClientsSlow(lower, upper)
+	}
+}
+
+func newClientsSlow(lower, upper int) Clients {
+	return Clients{
+		All:     make(types.Clients, lower, upper),
+		Removed: noneRemoved,
+		allRef:  &atomic.Int32{},
+	}
+}
+
 type Clients struct {
 	All     types.Clients
 	Removed RemovedClients
+	allRef  *atomic.Int32
 }
 
-type RemovedClients [10]int32
+const removedClientsLen = 10
+
+type RemovedClients [removedClientsLen]int32
 
 func (r RemovedClients) Len() int {
 	if r[0] == -1 {
@@ -150,7 +203,8 @@ func (c Clients) String() string {
 }
 
 type room struct {
-	clients          atomic.Pointer[Clients]
+	clients          Clients
+	clientsMu        sync.Mutex
 	c                chan roomQueueEntry
 	roomChanges      chan RoomChanges
 	roomChangesFlush *time.Timer
@@ -160,11 +214,33 @@ type room struct {
 
 var (
 	noneRemoved = RemovedClients{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
-	noClients   = &Clients{Removed: noneRemoved}
+	noClients   = Clients{Removed: noneRemoved}
 )
 
+func (r *room) swapClients(old, next Clients) {
+	r.clientsMu.Lock()
+	r.clients = next
+	r.clientsMu.Unlock()
+	old.Done()
+}
+
+func (c Clients) Done() {
+	if len(c.All) == 0 {
+		return
+	}
+	if c.allRef.Add(-1) == -1 {
+		putClients(c)
+	}
+}
+
 func (r *room) Clients() Clients {
-	return *r.clients.Load()
+	r.clientsMu.Lock()
+	c := r.clients
+	if len(c.All) > 0 {
+		c.allRef.Add(1)
+	}
+	r.clientsMu.Unlock()
+	return c
 }
 
 func (r *room) broadcast(msg string) {
@@ -180,21 +256,24 @@ func (r *room) close() {
 }
 
 func (r *room) isEmpty() bool {
-	return r.clients.Load() == noClients
+	r.clientsMu.Lock()
+	defer r.clientsMu.Unlock()
+	return len(r.clients.All) == 0
 }
 
 func (r *room) add(client *types.Client) bool {
 	defer r.scheduleRoomChange(client, true)
-	p := r.clients.Load()
-	if p == noClients {
-		r.clients.Store(&Clients{All: types.Clients{client}, Removed: noneRemoved})
+	clients := r.clients
+	if len(clients.All) == 0 {
+		c := newClients(1)
+		c.All = append(c.All[:0], client)
+		r.swapClients(clients, c)
 		return true
 	}
-	clients := *p
-	n := len(clients.All)
-	if n == cap(clients.All) {
+	if n := len(clients.All); n == cap(clients.All) {
 		m := clients.Removed.Len()
-		f := make(types.Clients, n-m, n+(10+n)/2)
+		c := newClients(n - m + 1)
+		f := c.All[:n-m]
 		for i, j := 0, 0; i < n; i++ {
 			if i-j == m {
 				copy(f[j:], clients.All[i:])
@@ -206,39 +285,40 @@ func (r *room) add(client *types.Client) bool {
 			f[j] = clients.All[i]
 			j++
 		}
-		clients.All = f
-		clients.Removed = noneRemoved
+		c.All = append(f, client)
+		r.swapClients(clients, c)
+	} else {
+		r.clientsMu.Lock()
+		r.clients.All = append(clients.All, client)
+		r.clientsMu.Unlock()
 	}
-	clients.All = append(clients.All, client)
-	r.clients.Store(&clients)
 	return false
 }
 
 func (r *room) remove(client *types.Client) bool {
-	p := r.clients.Load()
-	if p == noClients {
-		return false
-	}
-	idx := p.All.Index(client)
+	clients := r.clients
+	idx := clients.All.Index(client)
 	if idx == -1 {
 		return false
 	}
 
 	defer r.scheduleRoomChange(client, false)
-	n := len(p.All)
-	m := p.Removed.Len()
+	n := len(clients.All)
+	m := clients.Removed.Len()
 	if n == m+1 {
-		r.clients.Store(noClients)
+		r.swapClients(clients, noClients)
 		return true
 	}
 
-	clients := *p
-	if m < 10 {
-		clients.Removed[m] = int32(idx)
+	if m < removedClientsLen {
+		r.clientsMu.Lock()
+		r.clients.Removed[m] = int32(idx)
+		r.clientsMu.Unlock()
 	} else {
-		f := make(types.Clients, n-11, n+(n+10)/2)
+		c := newClients(n - removedClientsLen - 1)
+		f := c.All[:n-removedClientsLen-1]
 		for i, j := 0, 0; i < n; i++ {
-			if i-j == 11 {
+			if i-j == removedClientsLen+1 {
 				copy(f[j:], clients.All[i:])
 				break
 			}
@@ -248,10 +328,9 @@ func (r *room) remove(client *types.Client) bool {
 			f[j] = clients.All[i]
 			j++
 		}
-		clients.All = f
-		clients.Removed = noneRemoved
+		c.All = f
+		r.swapClients(clients, c)
 	}
-	r.clients.Store(&clients)
 	return false
 }
 
@@ -277,6 +356,7 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 
 func (r *room) handleGracefulReconnect(suffix uint8) {
 	clients := r.Clients()
+	defer clients.Done()
 	for i, client := range clients.All {
 		if clients.Removed.Has(i) {
 			continue

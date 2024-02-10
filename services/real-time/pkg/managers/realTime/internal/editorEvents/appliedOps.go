@@ -40,6 +40,7 @@ func (r *room) handleUpdate(msg sharedTypes.EditorEvent) error {
 	}
 	var bulkMessage types.WriteQueueEntry
 	clients := r.Clients()
+	defer clients.Done()
 	for i, client := range clients.All {
 		if clients.Removed.Has(i) {
 			continue
