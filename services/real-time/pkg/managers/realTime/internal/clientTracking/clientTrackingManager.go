@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -65,13 +66,36 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			removed++
 		}
 	}
+	drop := make([]int, 0, removed)
+	if removed > 0 {
+		for i, rc := range rcs {
+			if rc.IsJoin {
+				continue
+			}
+			for j, other := range rcs[:i] {
+				if other.PublicId == rc.PublicId {
+					drop = append(drop, j)
+					break
+				}
+			}
+		}
+		if len(drop) > 0 {
+			sort.Ints(drop)
+			added -= len(drop)
+			// sort.SearchInts(a,i) returns idx<=len(a), make it idx<len(drop)
+			drop = append(drop, len(rcs))
+		}
+	}
 	hSet := make([]interface{}, added*4)
 	hDel := make([]string, removed*2)
 	addedIdx := 0
 	removedIdx := 0
 	namesSize := 0
-	for _, rc := range rcs {
+	for i, rc := range rcs {
 		if rc.IsJoin {
+			if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
+				continue
+			}
 			userBlob, err := json.Marshal(types.ConnectingConnectedClient{
 				DisplayName: rc.DisplayName,
 			})
@@ -103,7 +127,12 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			(added+removed)*1 - 1 + 1
 		p := make([]byte, 0, size)
 		p = append(p, '[')
-		for _, rc := range rcs {
+		for i, rc := range rcs {
+			if rc.IsJoin &&
+				len(drop) > 0 &&
+				drop[sort.SearchInts(drop, i)] == i {
+				continue
+			}
 			p = rc.Append(p)
 			p = append(p, ',')
 		}
