@@ -34,8 +34,46 @@ type ConnectedClient struct {
 	ClientPosition
 }
 
+func appendDisplayName(p []byte, name string, comma bool) []byte {
+	if len(name) == 0 {
+		return p
+	}
+	ok := true
+	for i := 0; ok && i < len(name); i++ {
+		v := name[i]
+		if v == '"' || v == '\\' || v < 32 || v > 126 {
+			ok = false
+		}
+	}
+	if ok {
+		if comma {
+			p = append(p, ',')
+		}
+		p = append(p, `"n":"`...)
+		p = append(p, name...)
+		p = append(p, '"')
+	} else {
+		blob, err := json.Marshal(name)
+		if err == nil {
+			if comma {
+				p = append(p, ',')
+			}
+			p = append(p, `"n":`...)
+			p = append(p, blob...)
+		}
+	}
+	return p
+}
+
 type ConnectingConnectedClient struct {
 	DisplayName string `json:"n,omitempty"`
+}
+
+func (c ConnectingConnectedClient) Append(p []byte) []byte {
+	p = append(p, '{')
+	p = appendDisplayName(p, c.DisplayName, false)
+	p = append(p, '}')
+	return p
 }
 
 type ConnectedClients []ConnectedClient
@@ -63,27 +101,8 @@ func (r RoomChange) Append(p []byte) []byte {
 	p = append(p, `{"i":"`...)
 	p = append(p, r.PublicId...)
 	p = append(p, '"')
-	if r.IsJoin && len(r.DisplayName) > 0 {
-		ok := true
-		for i := 0; ok && i < len(r.DisplayName); i++ {
-			v := r.DisplayName[i]
-			if v == '"' || v == '\\' || v < 32 || v > 126 {
-				ok = false
-			}
-		}
-		if ok {
-			p = append(p, `,"n":"`...)
-			p = append(p, r.DisplayName...)
-			p = append(p, '"')
-		} else {
-			blob, err := json.Marshal(r.DisplayName)
-			if err == nil {
-				p = append(p, `,"n":`...)
-				p = append(p, blob...)
-			}
-		}
-	}
 	if r.IsJoin {
+		p = appendDisplayName(p, r.DisplayName, true)
 		p = append(p, `,"j":true`...)
 	}
 	p = append(p, '}')

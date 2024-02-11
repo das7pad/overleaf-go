@@ -56,12 +56,16 @@ type manager struct {
 	pcc         [256]pendingConnectedClientsManager
 }
 
+var emptyConnectingConnectedClient = []byte("{}")
+
 func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomChanges) {
 	added := 0
 	removed := 0
-	for _, rcc := range rcs {
-		if rcc.IsJoin {
+	namesSize := 0
+	for _, rc := range rcs {
+		if rc.IsJoin {
 			added++
+			namesSize += len(rc.DisplayName)
 		} else {
 			removed++
 		}
@@ -75,6 +79,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			for j, other := range rcs[:i] {
 				if other.PublicId == rc.PublicId {
 					drop = append(drop, j)
+					namesSize -= len(other.DisplayName)
 					break
 				}
 			}
@@ -88,27 +93,23 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	}
 	hSet := make([]interface{}, added*4)
 	hDel := make([]string, removed*2)
+	nameBuf := make([]byte, 0, namesSize+added*len(`{"n":""}`))
 	addedIdx := 0
 	removedIdx := 0
-	namesSize := 0
 	for i, rc := range rcs {
 		if rc.IsJoin {
 			if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
 				continue
 			}
-			userBlob, err := json.Marshal(types.ConnectingConnectedClient{
-				DisplayName: rc.DisplayName,
-			})
-			if err != nil {
-				log.Printf(
-					"%s/%s: failed to serialize connectedClient: %s",
-					projectId, rc.PublicId, err,
-				)
-				continue
-			}
-			namesSize += len(rc.DisplayName)
 			hSet[addedIdx] = string(rc.PublicId)
-			hSet[addedIdx+1] = userBlob
+			if len(rc.DisplayName) == 0 {
+				hSet[addedIdx+1] = emptyConnectingConnectedClient
+			} else {
+				nameBuf = types.ConnectingConnectedClient{
+					DisplayName: rc.DisplayName,
+				}.Append(nameBuf[len(nameBuf):])
+				hSet[addedIdx+1] = nameBuf
+			}
 			hSet[addedIdx+2] = string(rc.PublicId) + ":age"
 			hSet[addedIdx+3] = string(rc.PublicId)[:types.PublicIdTsPrefixLength]
 			addedIdx += 4
