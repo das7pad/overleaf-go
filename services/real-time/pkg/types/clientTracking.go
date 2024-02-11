@@ -59,4 +59,35 @@ type RoomChange struct {
 	IsJoin      bool                 `json:"j,omitempty"`
 }
 
+func (r RoomChange) Append(p []byte) []byte {
+	p = append(p, `{"i":"`...)
+	p = append(p, r.PublicId...)
+	p = append(p, '"')
+	if r.IsJoin && len(r.DisplayName) > 0 {
+		ok := true
+		for i := 0; ok && i < len(r.DisplayName); i++ {
+			v := r.DisplayName[i]
+			if v == '"' || v == '\\' || v < 32 || v > 126 {
+				ok = false
+			}
+		}
+		if ok {
+			p = append(p, `,"n":"`...)
+			p = append(p, r.DisplayName...)
+			p = append(p, '"')
+		} else {
+			blob, err := json.Marshal(r.DisplayName)
+			if err == nil {
+				p = append(p, `,"n":`...)
+				p = append(p, blob...)
+			}
+		}
+	}
+	if r.IsJoin {
+		p = append(p, `,"j":true`...)
+	}
+	p = append(p, '}')
+	return p
+}
+
 type RoomChanges []RoomChange

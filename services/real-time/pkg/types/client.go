@@ -91,23 +91,22 @@ func init() {
 	go rng.Run(2048)
 }
 
-const PublicIdTsPrefixLength = 11
+const (
+	PublicIdLength         = 22
+	PublicIdTsPrefixLength = 11
+)
 
 // generatePublicId yields a secure unique id
 // It contains a timestamp in ns precision and 8 bytes of randomness in b64.
 func generatePublicId() sharedTypes.PublicId {
-	const (
-		// publicIdLength = base64.RawURLEncoding.EncodedLen(16)
-		publicIdLength = 22
-		publicIdOffset = publicIdLength - 16
-	)
-	var buf [publicIdLength]byte
+	const publicIdOffset = PublicIdLength - 16
+	var buf [PublicIdLength]byte
 	binary.BigEndian.PutUint64(
 		buf[publicIdOffset:publicIdOffset+8], uint64(time.Now().UnixNano()),
 	)
 	rnd := <-rng
-	copy(buf[publicIdOffset+8:publicIdLength], rnd[:])
-	base64Ordered.Encode(buf[:], buf[publicIdOffset:publicIdLength])
+	copy(buf[publicIdOffset+8:PublicIdLength], rnd[:])
+	base64Ordered.Encode(buf[:], buf[publicIdOffset:PublicIdLength])
 	return sharedTypes.PublicId(buf[:])
 }
 

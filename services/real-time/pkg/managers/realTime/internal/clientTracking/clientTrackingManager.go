@@ -67,8 +67,9 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	}
 	hSet := make([]interface{}, added*4)
 	hDel := make([]string, removed*2)
-	added = 0
-	removed = 0
+	addedIdx := 0
+	removedIdx := 0
+	namesSize := 0
 	for _, rc := range rcs {
 		if rc.IsJoin {
 			userBlob, err := json.Marshal(types.ConnectingConnectedClient{
@@ -81,36 +82,41 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 				)
 				continue
 			}
-			hSet[added] = string(rc.PublicId)
-			hSet[added+1] = userBlob
-			hSet[added+2] = string(rc.PublicId) + ":age"
-			hSet[added+3] = string(rc.PublicId)[:types.PublicIdTsPrefixLength]
-			added += 4
+			namesSize += len(rc.DisplayName)
+			hSet[addedIdx] = string(rc.PublicId)
+			hSet[addedIdx+1] = userBlob
+			hSet[addedIdx+2] = string(rc.PublicId) + ":age"
+			hSet[addedIdx+3] = string(rc.PublicId)[:types.PublicIdTsPrefixLength]
+			addedIdx += 4
 		} else {
-			hDel[removed] = string(rc.PublicId)
-			hDel[removed+1] = string(rc.PublicId) + ":age"
-			removed += 2
+			hDel[removedIdx] = string(rc.PublicId)
+			hDel[removedIdx+1] = string(rc.PublicId) + ":age"
+			removedIdx += 2
 		}
 	}
 
 	var msg channel.Message
 	{
-		body, err := json.Marshal(rcs)
-		if err != nil {
-			log.Printf(
-				"%s: failed to serialize room changes: %s", projectId, err,
-			)
-		} else {
-			var source sharedTypes.PublicId
-			if len(rcs) == 1 {
-				source = rcs[0].PublicId
-			}
-			msg = &sharedTypes.EditorEvent{
-				Source:  source,
-				Message: sharedTypes.ClientTrackingBatch,
-				RoomId:  projectId,
-				Payload: body,
-			}
+		const addedLen = len(`{"i":"","n":"","j":true}`) + types.PublicIdLength
+		const removedLen = len(`{"i":""}`) + types.PublicIdLength
+		size := 1 + added*addedLen + namesSize + removed*removedLen +
+			(added+removed)*1 - 1 + 1
+		p := make([]byte, 0, size)
+		p = append(p, '[')
+		for _, rc := range rcs {
+			p = rc.Append(p)
+			p = append(p, ',')
+		}
+		p[len(p)-1] = ']'
+		var source sharedTypes.PublicId
+		if len(rcs) == 1 {
+			source = rcs[0].PublicId
+		}
+		msg = &sharedTypes.EditorEvent{
+			Source:  source,
+			Message: sharedTypes.ClientTrackingBatch,
+			RoomId:  projectId,
+			Payload: p,
 		}
 	}
 
@@ -118,8 +124,8 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if added > 0 {
-			p.HSet(ctx, projectKey, hSet[:added]...)
+		if addedIdx > 0 {
+			p.HSet(ctx, projectKey, hSet[:addedIdx]...)
 			p.Expire(ctx, projectKey, ProjectExpiry)
 		}
 		if removed > 0 {
