@@ -87,8 +87,8 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 		} else {
 			pending.clients = m.buildConnectedClients(client.ProjectId, entries)
 		}
-		m.pcc[client.ProjectId[0]].delete(client.ProjectId)
 		close(pending.done)
+		m.pcc[client.ProjectId[0]].delete(client.ProjectId)
 	} else {
 		<-pending.done
 	}
