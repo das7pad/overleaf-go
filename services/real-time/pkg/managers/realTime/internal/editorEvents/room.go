@@ -35,8 +35,8 @@ const delayFlushRoomChanges = 10 * time.Millisecond
 
 func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) *room {
 	c := make(chan roomQueueEntry, 20)
-	rc := make(chan types.RoomChanges, 1)
-	rc <- make(types.RoomChanges, 0, 10)
+	rc := make(chan guidedRoomChanges, 1)
+	rc <- guidedRoomChanges{next: 10}
 	r := room{
 		c:           c,
 		roomChanges: rc,
@@ -196,11 +196,16 @@ func (c Clients) String() string {
 	return s.String()
 }
 
+type guidedRoomChanges struct {
+	rcs  types.RoomChanges
+	next int
+}
+
 type room struct {
 	clients          Clients
 	clientsMu        sync.Mutex
 	c                chan roomQueueEntry
-	roomChanges      chan types.RoomChanges
+	roomChanges      chan guidedRoomChanges
 	roomChangesFlush *time.Timer
 
 	pending pendingOperation.PendingOperation
@@ -324,10 +329,10 @@ func (r *room) remove(client *types.Client) bool {
 }
 
 func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
-	rcs := <-r.roomChanges
-	owner := rcs == nil
+	g := <-r.roomChanges
+	owner := g.rcs == nil
 	if owner {
-		rcs = make(types.RoomChanges, 0, 10)
+		g.rcs = make(types.RoomChanges, 0, g.next)
 	}
 	rc := types.RoomChange{
 		PublicId: client.PublicId,
@@ -336,8 +341,8 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 	if isJoin {
 		rc.DisplayName = client.DisplayName
 	}
-	rcs = append(rcs, rc)
-	r.roomChanges <- rcs
+	g.rcs = append(g.rcs, rc)
+	r.roomChanges <- g
 	if owner {
 		r.roomChangesFlush.Reset(delayFlushRoomChanges)
 	}
@@ -359,12 +364,12 @@ func (r *room) handleGracefulReconnect(suffix uint8) {
 }
 
 func (r *room) flushRoomChanges(projectId sharedTypes.UUID, fn FlushRoomChanges) {
-	rc := <-r.roomChanges
-	if rc == nil {
+	g := <-r.roomChanges
+	if g.rcs == nil {
 		close(r.c)
 		close(r.roomChanges)
 		return
 	}
-	r.roomChanges <- nil
-	go fn(projectId, rc)
+	r.roomChanges <- guidedRoomChanges{next: 10 + (len(g.rcs)+cap(g.rcs))/2}
+	go fn(projectId, g.rcs)
 }

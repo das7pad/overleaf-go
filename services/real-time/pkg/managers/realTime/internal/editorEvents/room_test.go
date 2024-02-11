@@ -101,7 +101,7 @@ func Test_room_remove(t *testing.T) {
 		for i2, p2 := range permutations {
 			r.swapClients(r.clients, noClients)
 			<-r.roomChanges
-			r.roomChanges <- rc[:0]
+			r.roomChanges <- guidedRoomChanges{rcs: rc[:0]}
 			for _, client := range p1 {
 				r.add(client)
 			}
