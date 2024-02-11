@@ -90,9 +90,9 @@ func Test_room_remove(t *testing.T) {
 			}
 		}
 	}
-	fRc := func(sharedTypes.UUID, RoomChanges) {}
+	fRc := func(sharedTypes.UUID, types.RoomChanges) {}
 	fP := func(context.Context, sharedTypes.UUID) bool { return true }
-	rc := make(RoomChanges, 0, len(all)*2)
+	rc := make(types.RoomChanges, 0, len(all)*2)
 	r := newRoom(sharedTypes.UUID{}, fRc, fP)
 	close(r.c)
 	r.roomChangesFlush.Stop()

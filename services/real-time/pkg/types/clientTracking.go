@@ -52,3 +52,11 @@ func (g *GetConnectedUsersResponse) MarshalJSON() ([]byte, error) {
 	o = append(o, '}')
 	return o, nil
 }
+
+type RoomChange struct {
+	PublicId    sharedTypes.PublicId `json:"i"`
+	DisplayName string               `json:"n,omitempty"`
+	IsJoin      bool                 `json:"j,omitempty"`
+}
+
+type RoomChanges []RoomChange

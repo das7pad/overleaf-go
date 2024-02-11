@@ -35,7 +35,7 @@ type Manager interface {
 	GetConnectedClients(ctx context.Context, client *types.Client) (json.RawMessage, error)
 	RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error
 	UpdatePosition(ctx context.Context, client *types.Client, position types.ClientPosition) error
-	FlushRoomChanges(projectId sharedTypes.UUID, rc editorEvents.RoomChanges)
+	FlushRoomChanges(projectId sharedTypes.UUID, rc types.RoomChanges)
 }
 
 func New(client redis.UniversalClient, c channel.Writer) Manager {
@@ -55,7 +55,7 @@ type manager struct {
 	pcc         [256]pendingConnectedClientsManager
 }
 
-func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs editorEvents.RoomChanges) {
+func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomChanges) {
 	added := 0
 	removed := 0
 	for _, rcc := range rcs {

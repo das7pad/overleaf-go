@@ -29,20 +29,14 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type RoomChange struct {
-	PublicId    sharedTypes.PublicId `json:"i"`
-	DisplayName string               `json:"n,omitempty"`
-	IsJoin      bool                 `json:"j,omitempty"`
-}
-type RoomChanges []RoomChange
-type FlushRoomChanges func(projectId sharedTypes.UUID, rc RoomChanges)
+type FlushRoomChanges func(projectId sharedTypes.UUID, rcs types.RoomChanges)
 
 const delayFlushRoomChanges = 10 * time.Millisecond
 
 func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) *room {
 	c := make(chan roomQueueEntry, 20)
-	rc := make(chan RoomChanges, 1)
-	rc <- make(RoomChanges, 0, 10)
+	rc := make(chan types.RoomChanges, 1)
+	rc <- make(types.RoomChanges, 0, 10)
 	r := room{
 		c:           c,
 		roomChanges: rc,
@@ -206,7 +200,7 @@ type room struct {
 	clients          Clients
 	clientsMu        sync.Mutex
 	c                chan roomQueueEntry
-	roomChanges      chan RoomChanges
+	roomChanges      chan types.RoomChanges
 	roomChangesFlush *time.Timer
 
 	pending pendingOperation.PendingOperation
@@ -333,9 +327,9 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
 	rcs := <-r.roomChanges
 	owner := rcs == nil
 	if owner {
-		rcs = make(RoomChanges, 0, 10)
+		rcs = make(types.RoomChanges, 0, 10)
 	}
-	rc := RoomChange{
+	rc := types.RoomChange{
 		PublicId: client.PublicId,
 		IsJoin:   isJoin,
 	}
