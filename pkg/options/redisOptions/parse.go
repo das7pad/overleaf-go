@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,8 +18,9 @@ package redisOptions
 
 import (
 	"strings"
+	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/das7pad/overleaf-go/pkg/options/env"
 )
@@ -30,11 +31,16 @@ func Parse() *redis.UniversalOptions {
 			env.GetString("REDIS_HOST", "localhost:6379"),
 			",",
 		),
+		Username: env.GetString("REDIS_USERNAME", ""),
 		Password: env.GetString("REDIS_PASSWORD", ""),
 		MaxRetries: env.GetInt(
 			"REDIS_MAX_RETRIES_PER_REQUEST", 20,
 		),
-		PoolSize: env.GetInt("REDIS_POOL_SIZE", 0),
-		DB:       env.GetInt("REDIS_DB", 0),
+		PoolSize:              env.GetInt("REDIS_POOL_SIZE", 0),
+		DB:                    env.GetInt("REDIS_DB", 0),
+		DialTimeout:           env.GetDuration("REDIS_TIMEOUT_DIAL", 10*time.Second),
+		ReadTimeout:           env.GetDuration("REDIS_TIMEOUT_READ", 10*time.Second),
+		WriteTimeout:          env.GetDuration("REDIS_TIMEOUT_WRITE", 10*time.Second),
+		ContextTimeoutEnabled: true,
 	}
 }

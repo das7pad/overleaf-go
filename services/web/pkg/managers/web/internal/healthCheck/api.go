@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -36,7 +36,7 @@ func (m *manager) smokeTestRedis(ctx context.Context) error {
 	}
 	perRequestRnd := hex.EncodeToString(rawRand)
 	key := m.randomPrefix + ":" + perRequestRnd
-	err := m.client.SetEX(ctx, key, perRequestRnd, 10*time.Second).Err()
+	err := m.client.SetEx(ctx, key, perRequestRnd, 10*time.Second).Err()
 	if err != nil {
 		return errors.Tag(err, "write")
 	}

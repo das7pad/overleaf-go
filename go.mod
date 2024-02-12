@@ -7,7 +7,6 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
 	github.com/evanw/esbuild v0.19.9
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -15,6 +14,7 @@ require (
 	github.com/minio/madmin-go/v2 v2.2.1
 	github.com/minio/minio-go/v7 v7.0.66
 	github.com/moby/term v0.5.0
+	github.com/redis/go-redis/v9 v9.4.0
 	github.com/sergi/go-diff v1.3.1
 	go.mongodb.org/mongo-driver v1.13.1
 	golang.org/x/crypto v0.16.0

@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -410,7 +410,7 @@ func (m *manager) QueueFlushAndDeleteProject(ctx context.Context, projectId shar
 		Score:  float64(score),
 		Member: projectId.String(),
 	}
-	return m.rClient.ZAdd(ctx, getFlushAndDeleteQueueKey(), &queueEntry).Err()
+	return m.rClient.ZAdd(ctx, getFlushAndDeleteQueueKey(), queueEntry).Err()
 }
 
 func (m *manager) GetNextProjectToFlushAndDelete(ctx context.Context, cutoffTime time.Time) (sharedTypes.UUID, int64, int64, error) {

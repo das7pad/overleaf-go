@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,8 +17,8 @@
 package trackChanges
 
 import (
-	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/das7pad/overleaf-go/pkg/models/docHistory"
 	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"

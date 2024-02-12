@@ -37,15 +37,15 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/go-connections/nat"
-	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/moby/term"
+	"github.com/redis/go-redis/v9"
 
 	configGenerator "github.com/das7pad/overleaf-go/cmd/config-generator/pkg/config-generator"
 	minioSetup "github.com/das7pad/overleaf-go/cmd/minio-setup/pkg/minio-setup"
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
-	"github.com/das7pad/overleaf-go/db"
+	dbSchema "github.com/das7pad/overleaf-go/db"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 )
