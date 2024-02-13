@@ -328,8 +328,7 @@ func (r *room) remove(client *types.Client) bool {
 	return false
 }
 
-func (r *room) scheduleRoomChange(client *types.Client, isJoin bool) {
-	g := <-r.roomChanges
+func (r *room) scheduleRoomChange(client *types.Client, isJoin bool, g guidedRoomChanges) {
 	owner := g.rcs == nil
 	if owner {
 		g.rcs = make(types.RoomChanges, 0, g.next)

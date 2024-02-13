@@ -88,6 +88,7 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	m.mux.Lock()
 	delete(m.rooms, id)
 	m.mux.Unlock()
+
 	r.close()
 	delete(m.idle, id)
 }
@@ -187,8 +188,9 @@ func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	m.sem <- struct{}{}
 	r, pending := m.joinLocked(ctx, client)
+	g := <-r.roomChanges
 	<-m.sem
-	r.scheduleRoomChange(client, true)
+	r.scheduleRoomChange(client, true, g)
 	if pending == nil {
 		return nil
 	}
@@ -199,8 +201,9 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 func (m *manager) Leave(client *types.Client) {
 	m.sem <- struct{}{}
 	r := m.leaveLocked(client)
+	g := <-r.roomChanges
 	<-m.sem
-	r.scheduleRoomChange(client, false)
+	r.scheduleRoomChange(client, false, g)
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {
