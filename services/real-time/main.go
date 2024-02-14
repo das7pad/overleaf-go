@@ -36,7 +36,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/router"
 	realTimeTypes "github.com/das7pad/overleaf-go/services/real-time/pkg/types"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/wsServer"
 )
 
 func main() {
@@ -76,9 +75,9 @@ func main() {
 
 	var server httpUtils.Server
 	if env.GetBool("USE_WS_SERVER") {
-		srv := wsServer.New(router.WS(
+		srv := router.WS(
 			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
-		))
+		)
 		server = srv
 		eg.Go(func() error {
 			<-ctx.Done()

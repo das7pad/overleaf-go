@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package wsServer
+package router
 
 import (
 	"bufio"
@@ -37,21 +37,13 @@ import (
 type Handler func(c net.Conn, brw *RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error
 type ClaimParser[T any] func([]byte) (T, error)
 
-func New(handler Handler) *WSServer {
-	srv := WSServer{
-		h: handler,
-	}
-	srv.ok.Store(true)
-	return &srv
-}
-
 type WSServer struct {
 	state atomic.Uint32
 	n     atomic.Uint32
 	ok    atomic.Bool
 	l     []net.Listener
 	mu    sync.Mutex
-	h     Handler
+	h     *httpController
 }
 
 func (s *WSServer) SetStatus(ok bool) {
@@ -84,7 +76,7 @@ const (
 	stateClosed
 )
 
-func (s *WSServer) Serve(l net.Listener) error {
+func (s *WSServer) addListener(l net.Listener) error {
 	s.mu.Lock()
 	if !(s.state.Load() == stateRunning ||
 		s.state.CompareAndSwap(stateDead, stateRunning)) {
@@ -93,36 +85,90 @@ func (s *WSServer) Serve(l net.Listener) error {
 	}
 	s.l = append(s.l, l)
 	s.mu.Unlock()
+	return nil
+}
+
+func (s *WSServer) handleAcceptError(err error, errDelay time.Duration) (time.Duration, error) {
+	if s.state.Load() != stateRunning {
+		return 0, http.ErrServerClosed
+	}
+	if e, ok := err.(net.Error); ok && e.Temporary() {
+		if errDelay == 0 {
+			errDelay = 5 * time.Millisecond
+		}
+		errDelay *= 2
+		if errDelay > time.Second {
+			errDelay = time.Second
+		}
+		log.Printf(
+			"wsServer: Accept error: %v; retrying in  %s",
+			err, errDelay,
+		)
+		time.Sleep(errDelay)
+		return errDelay, nil
+	}
+	return 0, err
+}
+
+func (s *WSServer) Serve(l net.Listener) error {
+	if ul, ok := l.(*net.UnixListener); ok {
+		return s.ServeUnix(ul)
+	}
+	if err := s.addListener(l); err != nil {
+		return err
+	}
 
 	var errDelay time.Duration
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			if s.state.Load() != stateRunning {
-				return http.ErrServerClosed
+			if errDelay, err = s.handleAcceptError(err, errDelay); err != nil {
+				return err
 			}
-			if e, ok := err.(net.Error); ok && e.Temporary() {
-				if errDelay == 0 {
-					errDelay = 5 * time.Millisecond
-				}
-				errDelay *= 2
-				if errDelay > time.Second {
-					errDelay = time.Second
-				}
-				log.Printf(
-					"wsServer: Accept error: %v; retrying in  %s",
-					err, errDelay,
-				)
-				time.Sleep(errDelay)
-				continue
-			}
-			return err
+			continue
 		}
 		s.n.Add(1)
 		errDelay = 0
-		wc := wsConn{BufferedConn: &BufferedConn{Conn: c}}
-		go wc.serve(s.h, s.decrementN, s.ok.Load)
+		go s.serve(c)
 	}
+}
+
+func (s *WSServer) ServeUnix(l *net.UnixListener) error {
+	if err := s.addListener(l); err != nil {
+		return err
+	}
+
+	var errDelay time.Duration
+	for {
+		c, err := l.AcceptUnix()
+		if err != nil {
+			if errDelay, err = s.handleAcceptError(err, errDelay); err != nil {
+				return err
+			}
+			continue
+		}
+		s.n.Add(1)
+		errDelay = 0
+		go s.serveUnix(c)
+	}
+}
+
+func (s *WSServer) serve(conn net.Conn) {
+	t0 := time.Now()
+	wc := wsConn{
+		BufferedConn: &BufferedConn{Conn: conn},
+		s:            s,
+	}
+	wc.serve(t0)
+}
+
+func (s *WSServer) serveUnix(conn *net.UnixConn) {
+	t0 := time.Now()
+	wc := wsConn{
+		BufferedConn: &BufferedConn{Conn: conn},
+		s:            s,
+	}
+	wc.serve(t0)
 }
 
 func (s *WSServer) decrementN() {
@@ -157,6 +203,7 @@ type wsConn struct {
 	reads       uint8
 	hijacked    bool
 	noKeepalive bool
+	s           *WSServer
 }
 
 func (c *wsConn) writeTimeout(p []byte, d time.Duration) (int, error) {
@@ -205,8 +252,8 @@ var (
 	errTooManyReads = errors.New("too many reads")
 )
 
-func (c *wsConn) serve(h Handler, deref func(), isOK func() bool) {
-	defer deref()
+func (c *wsConn) serve(t0 time.Time) {
+	defer c.s.decrementN()
 	defer func() {
 		if !c.hijacked {
 			_ = c.Close()
@@ -215,12 +262,11 @@ func (c *wsConn) serve(h Handler, deref func(), isOK func() bool) {
 	}()
 	c.brw = newBuffer(c)
 
-	now := time.Now()
-	if c.SetDeadline(now.Add(30*time.Second)) != nil {
+	if c.SetDeadline(t0.Add(30*time.Second)) != nil {
 		return
 	}
 	for {
-		err := c.nextRequest(h, now, isOK)
+		err := c.nextRequest(t0)
 		if err != nil {
 			if e, ok := err.(httpStatusError); ok {
 				_, _ = c.writeTimeout(e.Response(), 5*time.Second)
@@ -245,7 +291,7 @@ func (c *wsConn) Read(p []byte) (int, error) {
 	return c.Conn.Read(p)
 }
 
-func (c *wsConn) nextRequest(fn Handler, now time.Time, isOK func() bool) error {
+func (c *wsConn) nextRequest(t0 time.Time) error {
 	l, err := c.brw.ReadSlice('\n')
 	if err != nil {
 		if err == errTooManyReads || err == bufio.ErrBufferFull {
@@ -260,19 +306,19 @@ func (c *wsConn) nextRequest(fn Handler, now time.Time, isOK func() bool) error 
 		return httpStatusError(http.StatusBadRequest)
 	}
 	if bytes.Equal(l, requestLineWS) {
-		return c.handleWsRequest(fn, now)
+		return c.s.h.wsWsServer(c, t0)
 	}
 	if bytes.Equal(l, requestLineStatusHEAD) {
 		c.noKeepalive = true
-		return c.handleStatusRequest(isOK)
+		return c.handleStatusRequest()
 	}
 	if bytes.Equal(l, requestLineStatusGET) {
-		return c.handleStatusRequest(isOK)
+		return c.handleStatusRequest()
 	}
 	return httpStatusError(http.StatusBadRequest)
 }
 
-func (c *wsConn) handleStatusRequest(isOK func() bool) error {
+func (c *wsConn) handleStatusRequest() error {
 	for {
 		l, err := c.brw.ReadSlice('\n')
 		if err != nil {
@@ -290,7 +336,7 @@ func (c *wsConn) handleStatusRequest(isOK func() bool) error {
 	}
 
 	var err error
-	if isOK() {
+	if c.s.ok.Load() {
 		_, err = c.writeTimeout(response200, 10*time.Second)
 	} else {
 		_, err = c.writeTimeout(response503, 10*time.Second)
@@ -314,10 +360,6 @@ var (
 	responseWS              = []byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: v8.real-time.overleaf.com\r\nSec-WebSocket-Accept: ")
 	responseBodyStart       = []byte("\r\n\r\n")
 )
-
-func (c *wsConn) handleWsRequest(fn Handler, t0 time.Time) error {
-	return fn(c.BufferedConn, c.brw, t0, c.parseWsRequest)
-}
 
 func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 	checks := [6]bool{}

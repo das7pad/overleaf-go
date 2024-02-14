@@ -36,7 +36,6 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
-	"github.com/das7pad/overleaf-go/services/real-time/pkg/wsServer"
 )
 
 func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *httpUtils.Router {
@@ -64,7 +63,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 	h.addRoutes(r)
 }
 
-func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) wsServer.Handler {
+func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *WSServer {
 	h := httpController{
 		rtm: rtm,
 		jwtProject: projectJWT.New(
@@ -76,7 +75,9 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 		writeQueueDepth: writeQueueDepth,
 	}
 	h.startWorker()
-	return h.wsWsServer
+	srv := WSServer{h: &h}
+	srv.ok.Store(true)
+	return &srv
 }
 
 type httpController struct {
@@ -115,7 +116,7 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 	t0 := time.Now()
 	claims := projectJWT.Claims{}
 	var jwtError error
-	c, brw, err := wsServer.HTTPUpgrade(w, r, func(blob []byte) {
+	c, brw, err := HTTPUpgrade(w, r, func(blob []byte) {
 		jwtError = h.jwtProject.ParseInto(&claims, blob, t0)
 	})
 	if err != nil {
@@ -133,17 +134,17 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ws(conn, t0, claims)
 }
 
-func (h *httpController) wsWsServer(c net.Conn, brw *wsServer.RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error {
+func (h *httpController) wsWsServer(c *wsConn, t0 time.Time) error {
 	claims := projectJWT.Claims{}
 	var jwtError error
-	err := parseRequest(func(blob []byte) {
+	err := c.parseWsRequest(func(blob []byte) {
 		jwtError = h.jwtProject.ParseInto(&claims, blob, t0)
 	})
 	if err != nil {
 		return err
 	}
-	buf := brw.WriteBuffer
-	conn := websocket.NewConn(c, true, 2048, 2048, nil, brw.Reader, buf)
+	buf := c.brw.WriteBuffer
+	conn := websocket.NewConn(c.BufferedConn, true, 2048, 2048, nil, c.brw.Reader, buf)
 	if jwtError != nil {
 		log.Println("jwt auth failed: " + jwtError.Error())
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
@@ -179,7 +180,7 @@ func (h *httpController) writeLoop(conn *websocket.Conn, writeQueue chan types.W
 			// Flush the queue.
 			// Eventually the room cleanup will close the channel.
 		}
-		if c, ok := conn.NetConn().(*wsServer.BufferedConn); ok {
+		if c, ok := conn.NetConn().(*BufferedConn); ok {
 			c.ReleaseBuffers()
 		}
 	}()
