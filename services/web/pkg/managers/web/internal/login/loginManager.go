@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -53,7 +53,7 @@ type Manager interface {
 	SettingsPage(ctx context.Context, request *types.SettingsPageRequest, response *types.SettingsPageResponse) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, jwtLoggedInUser loggedInUserJWT.JWTHandler, sm session.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool, um user.Manager, jwtLoggedInUser *loggedInUserJWT.JWTHandler, sm session.Manager) Manager {
 	return &manager{
 		jwtLoggedInUser: jwtLoggedInUser,
 		oTTm:            oneTimeToken.New(db),
@@ -70,7 +70,7 @@ func New(options *types.Options, ps *templates.PublicSettings, db *pgxpool.Pool,
 }
 
 type manager struct {
-	jwtLoggedInUser loggedInUserJWT.JWTHandler
+	jwtLoggedInUser *loggedInUserJWT.JWTHandler
 	oTTm            oneTimeToken.Manager
 	sm              session.Manager
 	um              user.Manager

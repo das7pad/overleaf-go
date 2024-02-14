@@ -30,7 +30,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 )
 
-type JWTHandler jwtHandler.JWTHandler[*Claims]
+type JWTHandler = jwtHandler.JWTHandler[*Claims]
 
 type Claims struct {
 	expiringJWT.Claims
@@ -51,7 +51,7 @@ func (c *Claims) PostProcess(target *httpUtils.Context) (*httpUtils.Context, err
 	return target.AddValue("userId", c.UserId), nil
 }
 
-func New(options jwtOptions.JWTOptions) JWTHandler {
+func New(options jwtOptions.JWTOptions) *JWTHandler {
 	return jwtHandler.New[*Claims](options, func() *Claims {
 		return &Claims{}
 	})

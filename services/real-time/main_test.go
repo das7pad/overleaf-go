@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 
 func fatalIf(err error) {
 	if err != nil {
+		time.Sleep(time.Second)
 		log.Panicln(err)
 	}
 }

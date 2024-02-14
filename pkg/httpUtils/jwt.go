@@ -28,14 +28,14 @@ type JWT interface {
 	PostProcess(c *Context) (*Context, error)
 }
 
-func NewJWTHandler[T JWT](handler jwtHandler.JWTHandler[T]) *JWTHTTPHandler[T] {
+func NewJWTHandler[T JWT](handler *jwtHandler.JWTHandler[T]) *JWTHTTPHandler[T] {
 	return &JWTHTTPHandler[T]{
 		parser: handler,
 	}
 }
 
 type JWTHTTPHandler[T JWT] struct {
-	parser jwtHandler.JWTHandler[T]
+	parser *jwtHandler.JWTHandler[T]
 }
 
 func (h *JWTHTTPHandler[T]) Parse(c *Context) (*Context, error) {

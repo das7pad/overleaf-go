@@ -82,7 +82,7 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 
 type httpController struct {
 	rtm             realTime.Manager
-	jwtProject      jwtHandler.JWTHandler[*projectJWT.Claims]
+	jwtProject      *jwtHandler.JWTHandler[*projectJWT.Claims]
 	bootstrapQueue  chan bootstrapWSDetails
 	writeQueueDepth int
 }

@@ -60,7 +60,7 @@ type Manager interface {
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler projectJWT.JWTHandler, loggedInUserJWTHandler loggedInUserJWT.JWTHandler, cm compile.Manager, smm systemMessage.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler *projectJWT.JWTHandler, loggedInUserJWTHandler *loggedInUserJWT.JWTHandler, cm compile.Manager, smm systemMessage.Manager) Manager {
 	frontendAllowedImageNames := make([]templates.AllowedImageName, 0)
 	for _, allowedImageName := range options.AllowedImageNames {
 		if !allowedImageName.AdminOnly {
@@ -96,8 +96,8 @@ type manager struct {
 	mm              message.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager
-	jwtProject      projectJWT.JWTHandler
-	jwtLoggedInUser loggedInUserJWT.JWTHandler
+	jwtProject      *projectJWT.JWTHandler
+	jwtLoggedInUser *loggedInUserJWT.JWTHandler
 	pm              project.Manager
 	smm             systemMessage.Manager
 	um              user.Manager

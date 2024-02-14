@@ -33,16 +33,9 @@ import (
 
 type JWT = expiringJWT.ExpiringJWT
 
-type JWTHandler[T JWT] interface {
-	New() T
-	Parse(blob []byte, now time.Time) (T, error)
-	ParseInto(t T, blob []byte, now time.Time) error
-	SetExpiryAndSign(claims T) (string, error)
-}
-
 type NewClaims[T JWT] func() T
 
-func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandler[T] {
+func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) *JWTHandler[T] {
 	var newHash func() hash.Hash
 	switch options.Algorithm {
 	case "HS256":
@@ -58,7 +51,7 @@ func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandle
 	key := []byte(options.Key)
 	hmacSize := newHash().Size()
 	hmacEncLen := base64.RawURLEncoding.EncodedLen(hmacSize)
-	return &handler[T]{
+	return &JWTHandler[T]{
 		expiresIn:  options.ExpiresIn,
 		newClaims:  newClaims,
 		headerBlob: headerBlob,
@@ -70,7 +63,7 @@ func New[T JWT](options jwtOptions.JWTOptions, newClaims NewClaims[T]) JWTHandle
 	}
 }
 
-type handler[T JWT] struct {
+type JWTHandler[T JWT] struct {
 	expiresIn  time.Duration
 	newClaims  NewClaims[T]
 	headerBlob []byte
@@ -80,7 +73,7 @@ type handler[T JWT] struct {
 	hmacEncLen uint32
 }
 
-func (h *handler[T]) New() T {
+func (h *JWTHandler[T]) New() T {
 	return h.newClaims()
 }
 
@@ -89,7 +82,7 @@ type hmacPoolEntry struct {
 	buf  []byte
 }
 
-func (h *handler[T]) getHmac() *hmacPoolEntry {
+func (h *JWTHandler[T]) getHmac() *hmacPoolEntry {
 	if v := h.hmacPool.Get(); v != nil {
 		m := v.(*hmacPoolEntry)
 		m.hmac.Reset()
@@ -113,7 +106,7 @@ var (
 	}
 )
 
-func (h *handler[T]) Parse(blob []byte, now time.Time) (T, error) {
+func (h *JWTHandler[T]) Parse(blob []byte, now time.Time) (T, error) {
 	payload, err := h.parsePayload(blob)
 	if err != nil {
 		var tt T
@@ -131,7 +124,7 @@ func (h *handler[T]) Parse(blob []byte, now time.Time) (T, error) {
 	return t, nil
 }
 
-func (h *handler[T]) ParseInto(t T, blob []byte, now time.Time) error {
+func (h *JWTHandler[T]) ParseInto(t T, blob []byte, now time.Time) error {
 	payload, err := h.parsePayload(blob)
 	if err != nil {
 		return err
@@ -145,7 +138,7 @@ func (h *handler[T]) ParseInto(t T, blob []byte, now time.Time) error {
 	return nil
 }
 
-func (h *handler[T]) parsePayload(blob []byte) ([]byte, error) {
+func (h *JWTHandler[T]) parsePayload(blob []byte) ([]byte, error) {
 	header, blob, hasHeader := bytes.Cut(blob, dotSeparator)
 	payload, mac, hasPayload := bytes.Cut(blob, dotSeparator)
 	if !hasHeader ||
@@ -177,7 +170,7 @@ func (h *handler[T]) parsePayload(blob []byte) ([]byte, error) {
 	return payload, nil
 }
 
-func (h *handler[T]) SetExpiryAndSign(claims T) (string, error) {
+func (h *JWTHandler[T]) SetExpiryAndSign(claims T) (string, error) {
 	claims.SetExpiry(h.expiresIn)
 
 	buf := b64Buffer{buf: make([]byte, 0, 384)}

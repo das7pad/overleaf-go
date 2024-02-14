@@ -70,8 +70,8 @@ type Manager interface {
 	Cron(ctx context.Context, dryRun bool, initialJitter time.Duration)
 	CronOnce(ctx context.Context, dryRun bool) bool
 	GetPublicSettings() *templates.PublicSettings
-	GetProjectJWTHandler() projectJWT.JWTHandler
-	GetLoggedInUserJWTHandler() loggedInUserJWT.JWTHandler
+	GetProjectJWTHandler() *projectJWT.JWTHandler
+	GetLoggedInUserJWTHandler() *loggedInUserJWT.JWTHandler
 	betaProgramManager
 	compileManager
 	editorManager
@@ -294,8 +294,8 @@ type manager struct {
 	tokenAccessManager
 	userCreationManager
 	userDeletionManager
-	loggedInUserJWTHandler loggedInUserJWT.JWTHandler
-	projectJWTHandler      projectJWT.JWTHandler
+	loggedInUserJWTHandler *loggedInUserJWT.JWTHandler
+	projectJWTHandler      *projectJWT.JWTHandler
 	ps                     *templates.PublicSettings
 }
 
@@ -303,11 +303,11 @@ func (m *manager) GetPublicSettings() *templates.PublicSettings {
 	return m.ps
 }
 
-func (m *manager) GetProjectJWTHandler() projectJWT.JWTHandler {
+func (m *manager) GetProjectJWTHandler() *projectJWT.JWTHandler {
 	return m.projectJWTHandler
 }
 
-func (m *manager) GetLoggedInUserJWTHandler() loggedInUserJWT.JWTHandler {
+func (m *manager) GetLoggedInUserJWTHandler() *loggedInUserJWT.JWTHandler {
 	return m.loggedInUserJWTHandler
 }
 
