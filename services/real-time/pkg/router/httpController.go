@@ -134,12 +134,9 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ws(conn, t0, claims)
 }
 
-func (h *httpController) wsWsServer(c *wsConn, t0 time.Time) error {
+func (h *httpController) wsWsServer(c *wsConn) error {
 	claims := projectJWT.Claims{}
-	var jwtError error
-	err := c.parseWsRequest(func(blob []byte) {
-		jwtError = h.jwtProject.ParseInto(&claims, blob, t0)
-	})
+	jwtError, err := c.parseWsRequest(&claims)
 	if err != nil {
 		return err
 	}
@@ -150,7 +147,7 @@ func (h *httpController) wsWsServer(c *wsConn, t0 time.Time) error {
 		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return nil
 	}
-	h.ws(conn, t0, claims)
+	h.ws(conn, c.t0, claims)
 	return nil
 }
 

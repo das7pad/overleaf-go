@@ -32,6 +32,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 )
 
 type Handler func(c net.Conn, brw *RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error
@@ -154,21 +156,21 @@ func (s *WSServer) ServeUnix(l *net.UnixListener) error {
 }
 
 func (s *WSServer) serve(conn net.Conn) {
-	t0 := time.Now()
 	wc := wsConn{
 		BufferedConn: &BufferedConn{Conn: conn},
+		t0:           time.Now(),
 		s:            s,
 	}
-	wc.serve(t0)
+	wc.serve()
 }
 
 func (s *WSServer) serveUnix(conn *net.UnixConn) {
-	t0 := time.Now()
 	wc := wsConn{
 		BufferedConn: &BufferedConn{Conn: conn},
+		t0:           time.Now(),
 		s:            s,
 	}
-	wc.serve(t0)
+	wc.serve()
 }
 
 func (s *WSServer) decrementN() {
@@ -203,6 +205,7 @@ type wsConn struct {
 	reads       uint8
 	hijacked    bool
 	noKeepalive bool
+	t0          time.Time
 	s           *WSServer
 }
 
@@ -252,7 +255,7 @@ var (
 	errTooManyReads = errors.New("too many reads")
 )
 
-func (c *wsConn) serve(t0 time.Time) {
+func (c *wsConn) serve() {
 	defer c.s.decrementN()
 	defer func() {
 		if !c.hijacked {
@@ -262,11 +265,11 @@ func (c *wsConn) serve(t0 time.Time) {
 	}()
 	c.brw = newBuffer(c)
 
-	if c.SetDeadline(t0.Add(30*time.Second)) != nil {
+	if c.SetDeadline(c.t0.Add(30*time.Second)) != nil {
 		return
 	}
 	for {
-		err := c.nextRequest(t0)
+		err := c.nextRequest()
 		if err != nil {
 			if e, ok := err.(httpStatusError); ok {
 				_, _ = c.writeTimeout(e.Response(), 5*time.Second)
@@ -291,7 +294,7 @@ func (c *wsConn) Read(p []byte) (int, error) {
 	return c.Conn.Read(p)
 }
 
-func (c *wsConn) nextRequest(t0 time.Time) error {
+func (c *wsConn) nextRequest() error {
 	l, err := c.brw.ReadSlice('\n')
 	if err != nil {
 		if err == errTooManyReads || err == bufio.ErrBufferFull {
@@ -306,7 +309,7 @@ func (c *wsConn) nextRequest(t0 time.Time) error {
 		return httpStatusError(http.StatusBadRequest)
 	}
 	if bytes.Equal(l, requestLineWS) {
-		return c.s.h.wsWsServer(c, t0)
+		return c.s.h.wsWsServer(c)
 	}
 	if bytes.Equal(l, requestLineStatusHEAD) {
 		c.noKeepalive = true
@@ -361,19 +364,20 @@ var (
 	responseBodyStart       = []byte("\r\n\r\n")
 )
 
-func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
+func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 	checks := [6]bool{}
 	buf := c.brw.WriteBuffer[:0]
+	var jwtError error
 	for {
 		l, err := c.brw.ReadSlice('\n')
 		if err != nil {
 			if err == errTooManyReads || err == bufio.ErrBufferFull {
-				return httpStatusError(http.StatusRequestHeaderFieldsTooLarge)
+				return nil, httpStatusError(http.StatusRequestHeaderFieldsTooLarge)
 			}
 			if os.IsTimeout(err) {
-				return httpStatusError(http.StatusRequestTimeout)
+				return nil, httpStatusError(http.StatusRequestTimeout)
 			}
-			return httpStatusError(http.StatusBadRequest)
+			return nil, httpStatusError(http.StatusBadRequest)
 		}
 		if len(l) <= 2 {
 			break
@@ -381,7 +385,7 @@ func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 		name, value, ok := bytes.Cut(l, separatorColon)
 		value = bytes.TrimSpace(value)
 		if !ok || len(name) == 0 || len(value) == 0 {
-			return httpStatusError(http.StatusBadRequest)
+			return nil, httpStatusError(http.StatusBadRequest)
 		}
 		switch {
 		case !checks[0] && bytes.EqualFold(name, headerKeyConnection):
@@ -412,12 +416,12 @@ func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 				}
 				if b, ok2 := bytes.CutSuffix(next, headerValueWSProtocolBS); ok2 {
 					checks[4] = true
-					parseJWT(b)
+					jwtError = c.s.h.jwtProject.ParseInto(claims, b, c.t0)
 				}
 			}
 		case !checks[5] && len(value) == 24 && bytes.EqualFold(name, headerKeyWSKey):
 			if _, err = base64.StdEncoding.Decode(buf[0:18], value); err != nil {
-				return httpStatusError(http.StatusBadRequest)
+				return nil, httpStatusError(http.StatusBadRequest)
 			}
 			buf = append(buf, responseWS...)
 			buf = appendSecWebSocketAccept(buf, value)
@@ -426,19 +430,19 @@ func (c *wsConn) parseWsRequest(parseJWT func([]byte)) error {
 		}
 	}
 	if c.brw.Reader.Buffered() > 0 {
-		return httpStatusError(http.StatusBadRequest)
+		return nil, httpStatusError(http.StatusBadRequest)
 	}
 	for _, ok := range checks {
 		if !ok {
-			return httpStatusError(http.StatusBadRequest)
+			return nil, httpStatusError(http.StatusBadRequest)
 		}
 	}
 	c.hijacked = true
 	if _, err := c.Write(buf); err != nil {
-		return err
+		return nil, err
 	}
 	c.brw.Reader.Reset(c.Conn)
-	return nil
+	return jwtError, nil
 }
 
 func HTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.ReadWriter, error) {
