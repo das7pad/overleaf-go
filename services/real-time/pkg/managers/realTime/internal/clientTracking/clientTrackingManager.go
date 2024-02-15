@@ -120,7 +120,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 		}
 	}
 
-	var msg channel.Message
+	var msg sharedTypes.EditorEvent
 	{
 		const addedLen = len(`{"i":"","n":"","j":1}`) + types.PublicIdLength
 		const removedLen = len(`{"i":""}`) + types.PublicIdLength
@@ -142,7 +142,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 		if len(rcs) == 1 {
 			source = rcs[0].PublicId
 		}
-		msg = &sharedTypes.EditorEvent{
+		msg = sharedTypes.EditorEvent{
 			Source:  source,
 			Message: sharedTypes.ClientTrackingBatch,
 			RoomId:  projectId,
@@ -160,10 +160,8 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 		if removed > 0 {
 			p.HDel(ctx, projectKey, hDel...)
 		}
-		if msg != nil {
-			if _, err := m.c.PublishVia(ctx, p, msg); err != nil {
-				log.Printf("%s: publish room changes: %s", projectId, err)
-			}
+		if _, err := m.c.PublishVia(ctx, p, &msg); err != nil {
+			log.Printf("%s: publish room changes: %s", projectId, err)
 		}
 		return nil
 	})

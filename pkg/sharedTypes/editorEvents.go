@@ -137,10 +137,6 @@ func (e *EditorEvent) MarshalJSON() ([]byte, error) {
 	return o, nil
 }
 
-func (e *EditorEvent) ChannelId() UUID {
-	return e.RoomId
-}
-
 func (e *EditorEvent) Validate() error {
 	if e.Message == "" {
 		return &errors.ValidationError{Msg: "missing message"}

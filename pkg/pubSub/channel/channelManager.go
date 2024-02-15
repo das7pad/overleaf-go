@@ -18,7 +18,6 @@ package channel
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"math"
 	"time"
@@ -34,14 +33,9 @@ type PubSubMessage struct {
 	Channel sharedTypes.UUID
 }
 
-type Message interface {
-	ChannelId() sharedTypes.UUID
-	json.Marshaler
-}
-
 type Writer interface {
-	Publish(ctx context.Context, msg Message) error
-	PublishVia(ctx context.Context, runner redis.Cmdable, msg Message) (*redis.IntCmd, error)
+	Publish(ctx context.Context, msg *sharedTypes.EditorEvent) error
+	PublishVia(ctx context.Context, runner redis.Cmdable, msg *sharedTypes.EditorEvent) (*redis.IntCmd, error)
 }
 
 type Manager interface {
@@ -198,7 +192,7 @@ flush:
 	return bg.err
 }
 
-func (m *manager) Publish(ctx context.Context, msg Message) error {
+func (m *manager) Publish(ctx context.Context, msg *sharedTypes.EditorEvent) error {
 	cmd, err := m.PublishVia(ctx, m.client, msg)
 	if err != nil {
 		return err
@@ -209,13 +203,12 @@ func (m *manager) Publish(ctx context.Context, msg Message) error {
 	return nil
 }
 
-func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg Message) (*redis.IntCmd, error) {
+func (m *manager) PublishVia(ctx context.Context, runner redis.Cmdable, msg *sharedTypes.EditorEvent) (*redis.IntCmd, error) {
 	body, err := msg.MarshalJSON()
 	if err != nil {
 		return nil, errors.Tag(err, "encode message for publishing")
 	}
-	id := msg.ChannelId()
-	return runner.Publish(ctx, string(m.base.join(id)), body), nil
+	return runner.Publish(ctx, string(m.base.join(msg.RoomId)), body), nil
 }
 
 func (m *manager) Listen(ctx context.Context) (<-chan PubSubMessage, error) {
