@@ -151,8 +151,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	}
 
 	projectKey := getProjectKey(projectId)
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
+	ctx := context.Background() // rely on connection timeout
 	_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		if addedIdx > 0 {
 			p.HSet(ctx, projectKey, hSet[:addedIdx]...)

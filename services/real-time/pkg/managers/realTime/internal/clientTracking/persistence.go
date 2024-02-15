@@ -179,15 +179,13 @@ func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents
 }
 
 func (m *manager) cleanupStaleClientsInBackground(projectId sharedTypes.UUID, staleClients []sharedTypes.PublicId) {
-	ctx, done := context.WithTimeout(context.Background(), 10*time.Second)
-	defer done()
-
 	key := getProjectKey(projectId)
 	fields := make([]string, 2*len(staleClients))
 	for idx, id := range staleClients {
 		fields[2*idx] = string(id)
 		fields[2*idx+1] = string(id) + ":age"
 	}
+	ctx := context.Background() // rely on connection timeout
 	if err := m.redisClient.HDel(ctx, key, fields...).Err(); err != nil {
 		log.Printf(
 			"%s: %s",
