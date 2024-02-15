@@ -335,10 +335,10 @@ func (r *room) scheduleRoomChange(client *types.Client, isJoin bool, g guidedRoo
 	}
 	rc := types.RoomChange{
 		PublicId: client.PublicId,
-		IsJoin:   isJoin,
 	}
 	if isJoin {
 		rc.DisplayName = client.DisplayName
+		rc.IsJoin = 1
 	}
 	g.rcs = append(g.rcs, rc)
 	r.roomChanges <- g

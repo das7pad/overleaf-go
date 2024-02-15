@@ -373,7 +373,7 @@ func TestConnectedClients(t *testing.T) {
 			t.Fatalf("deserialize room changes: %q: %s", string(res.Body), err)
 		}
 		for _, rc := range rcs {
-			if rc.IsJoin {
+			if rc.IsJoin != 0 {
 				seen = append(seen, rc.PublicId)
 			} else {
 				removed = append(removed, rc.PublicId)

@@ -94,16 +94,16 @@ func (g *GetConnectedUsersResponse) MarshalJSON() ([]byte, error) {
 type RoomChange struct {
 	PublicId    sharedTypes.PublicId `json:"i"`
 	DisplayName string               `json:"n,omitempty"`
-	IsJoin      bool                 `json:"j,omitempty"`
+	IsJoin      uint8                `json:"j,omitempty"`
 }
 
 func (r RoomChange) Append(p []byte) []byte {
 	p = append(p, `{"i":"`...)
 	p = append(p, r.PublicId...)
 	p = append(p, '"')
-	if r.IsJoin {
+	if r.IsJoin != 0 {
 		p = appendDisplayName(p, r.DisplayName, true)
-		p = append(p, `,"j":true`...)
+		p = append(p, `,"j":1`...)
 	}
 	p = append(p, '}')
 	return p

@@ -63,7 +63,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	removed := 0
 	namesSize := 0
 	for _, rc := range rcs {
-		if rc.IsJoin {
+		if rc.IsJoin != 0 {
 			added++
 			namesSize += len(rc.DisplayName)
 		} else {
@@ -73,7 +73,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	drop := make([]int, 0, removed)
 	if removed > 0 {
 		for i, rc := range rcs {
-			if rc.IsJoin {
+			if rc.IsJoin != 0 {
 				continue
 			}
 			for j, other := range rcs[:i] {
@@ -97,7 +97,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	addedIdx := 0
 	removedIdx := 0
 	for i, rc := range rcs {
-		if rc.IsJoin {
+		if rc.IsJoin != 0 {
 			if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
 				continue
 			}
@@ -122,14 +122,14 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 
 	var msg channel.Message
 	{
-		const addedLen = len(`{"i":"","n":"","j":true}`) + types.PublicIdLength
+		const addedLen = len(`{"i":"","n":"","j":1}`) + types.PublicIdLength
 		const removedLen = len(`{"i":""}`) + types.PublicIdLength
 		size := 1 + added*addedLen + namesSize + removed*removedLen +
 			(added+removed)*1 - 1 + 1
 		p := make([]byte, 0, size)
 		p = append(p, '[')
 		for i, rc := range rcs {
-			if rc.IsJoin &&
+			if rc.IsJoin != 0 &&
 				len(drop) > 0 &&
 				drop[sort.SearchInts(drop, i)] == i {
 				continue
