@@ -99,29 +99,30 @@ func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, 
 	r, exists := m.rooms[projectId]
 	if !exists {
 		r = newRoom(projectId, m.flushRoomChanges, m.flushProject)
+		r.clients = newClients(1)
+		r.clients.All = append(r.clients.All[:0], client)
 		m.mux.Lock()
 		m.rooms[projectId] = r
 		m.mux.Unlock()
-	}
-
-	roomWasEmpty := r.add(client)
-	if exists && roomWasEmpty {
-		if m.idle[projectId] {
-			roomWasEmpty = false
+	} else {
+		roomWasEmpty := r.add(client)
+		if exists && roomWasEmpty {
+			if m.idle[projectId] {
+				roomWasEmpty = false
+			}
+			delete(m.idle, projectId)
 		}
-		delete(m.idle, projectId)
-	}
-
-	if !roomWasEmpty {
-		if r.pending == nil {
-			return r, nil // Long finished subscribing
-		} else if err := r.pending.Err(); err == nil {
-			r.pending = nil
-			return r, nil // Finished subscribing
-		} else if err == pendingOperation.ErrOperationStillPending {
-			return r, r.pending // Subscribe is still pending
+		if !roomWasEmpty {
+			if r.pending == nil {
+				return r, nil // Long finished subscribing
+			} else if err := r.pending.Err(); err == nil {
+				r.pending = nil
+				return r, nil // Finished subscribing
+			} else if err == pendingOperation.ErrOperationStillPending {
+				return r, r.pending // Subscribe is still pending
+			}
+			// Retry subscribing
 		}
-		// Retry subscribing
 	}
 
 	pending := r.pending
