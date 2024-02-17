@@ -42,5 +42,6 @@ func Parse() *redis.UniversalOptions {
 		ReadTimeout:           env.GetDuration("REDIS_TIMEOUT_READ", 10*time.Second),
 		WriteTimeout:          env.GetDuration("REDIS_TIMEOUT_WRITE", 10*time.Second),
 		ContextTimeoutEnabled: true,
+		DisableIndentity:      true,
 	}
 }

@@ -80,3 +80,6 @@ replace github.com/gorilla/mux v1.8.1 => github.com/gorilla/mux v1.8.2-0.2023120
 
 // Expose NewConn and optimize allocations
 replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websocket v0.0.0-20240120192803-643aae3081c6
+
+// Optimize allocations and provide new interfaces
+replace github.com/redis/go-redis/v9 v9.4.0 => github.com/das7pad/go-redis/v9 v9.0.0-20240217230309-3e39232c57ec

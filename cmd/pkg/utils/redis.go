@@ -33,7 +33,7 @@ func ensureRedisAcceptsWrites(ctx context.Context, rClient redis.UniversalClient
 	// Redis cluster: some shard is down -> error
 	//                (provided `cluster-require-full-coverage=yes` is set in
 	//                 redis config -- this is the default)
-	return rClient.Set(ctx, "startup", "42", time.Second).Err()
+	return rClient.Set(ctx, "startup", "OK", time.Second).Err()
 }
 
 func MustConnectRedis(ctx context.Context) redis.UniversalClient {
