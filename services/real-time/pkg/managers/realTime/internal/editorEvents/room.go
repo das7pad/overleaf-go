@@ -34,7 +34,7 @@ type FlushRoomChanges func(projectId sharedTypes.UUID, rcs types.RoomChanges)
 const delayFlushRoomChanges = 10 * time.Millisecond
 
 func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) *room {
-	r := room{c: make(chan roomQueueEntry, 20), clients: noClients}
+	r := room{c: make(chan roomQueueEntry, 20), clients: &noClients}
 	r.roomChangesFlush = time.AfterFunc(time.Hour, func() {
 		r.flushRoomChanges(projectId, flushRoomChanges)
 	})
@@ -81,7 +81,7 @@ func getClientsPoolBucket(n int) (int, int) {
 	return clientsPoolBuckets - 1, x * removedClientsLen
 }
 
-func putClients(c Clients) {
+func putClients(c *Clients) {
 	for i := 0; i < len(c.All); i++ {
 		c.All[i] = nil
 	}
@@ -89,10 +89,10 @@ func putClients(c Clients) {
 	clientsPool[idx].Put(c)
 }
 
-func newClients(lower int) Clients {
+func newClients(lower int) *Clients {
 	idx, upper := getClientsPoolBucket(lower)
 	if v := clientsPool[idx].Get(); v != nil {
-		c := v.(Clients)
+		c := v.(*Clients)
 		c.allRef.Add(1)
 		c.Removed = noneRemoved
 		if cap(c.All) < lower || cap(c.All) > lower*2 {
@@ -104,8 +104,8 @@ func newClients(lower int) Clients {
 	}
 }
 
-func newClientsSlow(lower, upper int) Clients {
-	return Clients{
+func newClientsSlow(lower, upper int) *Clients {
+	return &Clients{
 		All:     make(types.Clients, lower, upper),
 		Removed: noneRemoved,
 		allRef:  &atomic.Int32{},
@@ -209,7 +209,7 @@ type roomChangeInc struct {
 
 type room struct {
 	mu               sync.Mutex
-	clients          Clients
+	clients          *Clients
 	rci              roomChangeInc
 	c                chan roomQueueEntry
 	roomChangesFlush *time.Timer
@@ -222,7 +222,7 @@ var (
 	noClients   = Clients{Removed: noneRemoved}
 )
 
-func (r *room) swapClients(old, next Clients, removed int, join uint16) bool {
+func (r *room) swapClients(old, next *Clients, removed int, join uint16) bool {
 	r.mu.Lock()
 	r.renderRoomChanges(removed)
 	r.clients = next
@@ -235,7 +235,7 @@ func (r *room) swapClients(old, next Clients, removed int, join uint16) bool {
 	return s
 }
 
-func (c Clients) Done() {
+func (c *Clients) Done() {
 	if len(c.All) == 0 {
 		return
 	}
@@ -247,7 +247,7 @@ func (c Clients) Done() {
 func (r *room) Clients() Clients {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	c := r.clients
+	c := *r.clients
 	if len(c.All) > 0 {
 		c.allRef.Add(1)
 	}
@@ -327,7 +327,7 @@ func (r *room) remove(client *types.Client) (bool, bool) {
 	m := clients.Removed.Len()
 	idx := clients.All.Index(client)
 	if n == m+1 {
-		return true, r.swapClients(clients, noClients, idx, 0)
+		return true, r.swapClients(clients, &noClients, idx, 0)
 	}
 
 	if m < removedClientsLen {

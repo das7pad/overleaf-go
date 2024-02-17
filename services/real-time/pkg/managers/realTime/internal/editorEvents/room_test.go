@@ -45,7 +45,7 @@ func Test_room_remove(t *testing.T) {
 	e := &types.Client{PublicId: "e"}
 	f := &types.Client{PublicId: "f"}
 	all := types.Clients{a, b, c, d, e, f}
-	var permutations []types.Clients
+	permutations := make([]types.Clients, 0, 1956)
 	for _, c0 := range all {
 		permutations = append(permutations, types.Clients{
 			c0,
@@ -103,7 +103,7 @@ func Test_room_remove(t *testing.T) {
 	for i1, p1 := range permutations {
 		for i2, p2 := range permutations {
 			r.clients.Done()
-			r.clients = noClients
+			r.clients = &noClients
 			r.rci = rci
 			for _, client := range p1 {
 				r.add(client)
@@ -294,7 +294,7 @@ func Test_room_renderRoomChanges(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := room{
-				clients: tt.fields.clients,
+				clients: &tt.fields.clients,
 				rci:     tt.fields.rci,
 			}
 			r.renderRoomChanges(tt.args.removed)
