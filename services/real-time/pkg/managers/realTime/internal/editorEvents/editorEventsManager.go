@@ -93,36 +93,34 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	delete(m.idle, id)
 }
 
-func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, pendingOperation.PendingOperation) {
+func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, pendingOperation.PendingOperation, bool) {
 	projectId := client.ProjectId
 	// There is no need for read locking, we are the only potential writer.
 	r, exists := m.rooms[projectId]
 	if !exists {
 		r = newRoom(projectId, m.flushRoomChanges, m.flushProject)
-		r.clients = newClients(1)
-		r.clients.All = append(r.clients.All[:0], client)
 		m.mux.Lock()
 		m.rooms[projectId] = r
 		m.mux.Unlock()
-	} else {
-		roomWasEmpty := r.add(client)
-		if exists && roomWasEmpty {
-			if m.idle[projectId] {
-				roomWasEmpty = false
-			}
-			delete(m.idle, projectId)
+	}
+
+	roomWasEmpty, s := r.add(client)
+	if exists && roomWasEmpty {
+		if m.idle[projectId] {
+			roomWasEmpty = false
 		}
-		if !roomWasEmpty {
-			if r.pending == nil {
-				return r, nil // Long finished subscribing
-			} else if err := r.pending.Err(); err == nil {
-				r.pending = nil
-				return r, nil // Finished subscribing
-			} else if err == pendingOperation.ErrOperationStillPending {
-				return r, r.pending // Subscribe is still pending
-			}
-			// Retry subscribing
+		delete(m.idle, projectId)
+	}
+	if !roomWasEmpty {
+		if r.pending == nil {
+			return r, nil, s // Long finished subscribing
+		} else if err := r.pending.Err(); err == nil {
+			r.pending = nil
+			return r, nil, s // Finished subscribing
+		} else if err == pendingOperation.ErrOperationStillPending {
+			return r, r.pending, s // Subscribe is still pending
 		}
+		// Retry subscribing
 	}
 
 	pending := r.pending
@@ -133,16 +131,7 @@ func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, 
 		return m.c.Subscribe(ctx, projectId)
 	})
 	r.pending = op
-	return r, op
-}
-
-func (m *manager) leaveLocked(client *types.Client) *room {
-	r := m.rooms[client.ProjectId]
-
-	if turnedEmpty := r.remove(client); turnedEmpty {
-		m.idle[client.ProjectId] = true
-	}
-	return r
+	return r, op, s
 }
 
 func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
@@ -188,10 +177,11 @@ func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	m.sem <- struct{}{}
-	r, pending := m.joinLocked(ctx, client)
-	g := <-r.roomChanges
+	r, pending, s := m.joinLocked(ctx, client)
 	<-m.sem
-	r.scheduleRoomChange(client, true, g)
+	if !s {
+		r.scheduleFlushRoomChanges()
+	}
 	if pending == nil {
 		return nil
 	}
@@ -200,11 +190,18 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 }
 
 func (m *manager) Leave(client *types.Client) {
+	m.mux.RLock()
+	r := m.rooms[client.ProjectId]
+	m.mux.RUnlock()
 	m.sem <- struct{}{}
-	r := m.leaveLocked(client)
-	g := <-r.roomChanges
+	turnedEmpty, s := r.remove(client)
+	if turnedEmpty {
+		m.idle[client.ProjectId] = true
+	}
 	<-m.sem
-	r.scheduleRoomChange(client, false, g)
+	if !s {
+		r.scheduleFlushRoomChanges()
+	}
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {

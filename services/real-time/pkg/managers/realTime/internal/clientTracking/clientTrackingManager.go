@@ -56,9 +56,59 @@ type manager struct {
 	pcc         [256]pendingConnectedClientsManager
 }
 
+type flushRoomChangesCached struct {
+	drop        []int
+	hSet        [][]byte
+	hDel        [][]byte
+	nameBuf     []byte
+	publicIdBuf []byte
+}
+
+func (f *flushRoomChangesCached) getDrop(n int) []int {
+	if cap(f.drop) < n {
+		f.drop = make([]int, n)
+	}
+	return f.drop[:0]
+}
+
+func (f *flushRoomChangesCached) getHSet(n int) [][]byte {
+	if cap(f.hSet) < n {
+		f.hSet = make([][]byte, n)
+	}
+	return f.hSet[:n]
+}
+
+func (f *flushRoomChangesCached) getHDel(n int) [][]byte {
+	if cap(f.hDel) < n {
+		f.hDel = make([][]byte, n)
+	}
+	return f.hDel[:n]
+}
+
+func (f *flushRoomChangesCached) getNameBuf(n int) []byte {
+	if cap(f.nameBuf) < n {
+		f.nameBuf = make([]byte, n)
+	}
+	return f.nameBuf[:0]
+}
+
+func (f *flushRoomChangesCached) getPublicIdBuf(n int) []byte {
+	if cap(f.publicIdBuf) < n {
+		f.publicIdBuf = make([]byte, n)
+	}
+	return f.publicIdBuf[:0]
+}
+
 var emptyConnectingConnectedClient = []byte("{}")
 
+var flushRoomChangesPool = sync.Pool{New: func() any {
+	return &flushRoomChangesCached{}
+}}
+
 func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomChanges) {
+	f := flushRoomChangesPool.Get().(*flushRoomChangesCached)
+	defer flushRoomChangesPool.Put(f)
+
 	added := 0
 	removed := 0
 	namesSize := 0
@@ -70,7 +120,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			removed++
 		}
 	}
-	drop := make([]int, 0, removed)
+	drop := f.getDrop(removed)
 	if removed > 0 {
 		for i, rc := range rcs {
 			if rc.IsJoin != 0 {
@@ -91,32 +141,43 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			drop = append(drop, len(rcs))
 		}
 	}
-	hSet := make([]interface{}, added*4)
-	hDel := make([]string, removed*2)
-	nameBuf := make([]byte, 0, namesSize+added*len(`{"n":""}`))
+	hSet := f.getHSet(added * 4)
+	hDel := f.getHDel(removed * 2)
+	nameBuf := f.getNameBuf(namesSize + added*len(`{"n":""}`))
+	const publicIdBufItemLen = types.PublicIdLength + len(":age")
+	publicIdBuf := f.getPublicIdBuf((added + removed) * publicIdBufItemLen)
+	for i, rc := range rcs {
+		if rc.IsJoin != 0 && len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
+			continue
+		}
+		publicIdBuf = append(publicIdBuf, rc.PublicId...)
+		publicIdBuf = append(publicIdBuf, ageSuffix...)
+	}
+
 	addedIdx := 0
 	removedIdx := 0
 	for i, rc := range rcs {
+		off := (addedIdx + removedIdx) * publicIdBufItemLen
 		if rc.IsJoin != 0 {
 			if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
 				continue
 			}
-			hSet[addedIdx] = string(rc.PublicId)
+			hSet[addedIdx*4] = publicIdBuf[off : off+types.PublicIdLength]
 			if len(rc.DisplayName) == 0 {
-				hSet[addedIdx+1] = emptyConnectingConnectedClient
+				hSet[addedIdx*4+1] = emptyConnectingConnectedClient
 			} else {
 				nameBuf = types.ConnectingConnectedClient{
 					DisplayName: rc.DisplayName,
 				}.Append(nameBuf[len(nameBuf):])
-				hSet[addedIdx+1] = nameBuf
+				hSet[addedIdx*4+1] = nameBuf
 			}
-			hSet[addedIdx+2] = string(rc.PublicId) + ":age"
-			hSet[addedIdx+3] = string(rc.PublicId)[:types.PublicIdTsPrefixLength]
-			addedIdx += 4
+			hSet[addedIdx*4+2] = publicIdBuf[off : off+publicIdBufItemLen]
+			hSet[addedIdx*4+3] = publicIdBuf[off : off+types.PublicIdTsPrefixLength]
+			addedIdx++
 		} else {
-			hDel[removedIdx] = string(rc.PublicId)
-			hDel[removedIdx+1] = string(rc.PublicId) + ":age"
-			removedIdx += 2
+			hDel[removedIdx*2] = publicIdBuf[off : off+types.PublicIdLength]
+			hDel[removedIdx*2+1] = publicIdBuf[off : off+publicIdBufItemLen]
+			removedIdx++
 		}
 	}
 
@@ -154,11 +215,11 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	ctx := context.Background() // rely on connection timeout
 	_, err := m.redisClient.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		if addedIdx > 0 {
-			p.HSet(ctx, projectKey, hSet[:addedIdx]...)
+			p.HSet(ctx, projectKey, hSet)
 			p.Expire(ctx, projectKey, ProjectExpiry)
 		}
-		if removed > 0 {
-			p.HDel(ctx, projectKey, hDel...)
+		if removedIdx > 0 {
+			p.HDelBulk(ctx, projectKey, hDel)
 		}
 		if _, err := m.c.PublishVia(ctx, p, &msg); err != nil {
 			log.Printf("%s: publish room changes: %s", projectId, err)

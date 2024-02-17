@@ -18,6 +18,7 @@ package editorEvents
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
@@ -92,16 +93,18 @@ func Test_room_remove(t *testing.T) {
 	}
 	fRc := func(sharedTypes.UUID, types.RoomChanges) {}
 	fP := func(context.Context, sharedTypes.UUID) bool { return true }
-	rc := make(types.RoomChanges, 0, len(all)*2)
+	rci := roomChangeInc{
+		rcs: make(types.RoomChanges, 0, len(all)*2),
+	}
 	r := newRoom(sharedTypes.UUID{}, fRc, fP)
 	close(r.c)
 	r.roomChangesFlush.Stop()
 
 	for i1, p1 := range permutations {
 		for i2, p2 := range permutations {
-			r.swapClients(r.clients, noClients)
-			<-r.roomChanges
-			r.roomChanges <- guidedRoomChanges{rcs: rc[:0]}
+			r.clients.Done()
+			r.clients = noClients
+			r.rci = rci
 			for _, client := range p1 {
 				r.add(client)
 			}
@@ -132,8 +135,6 @@ func Test_room_remove(t *testing.T) {
 			}
 		}
 	}
-	close(r.roomChanges)
-	<-r.roomChanges
 }
 
 func Test_getClientsPoolBucket(t *testing.T) {
@@ -155,5 +156,153 @@ func TestRemovedClients_Len(t *testing.T) {
 		if got := r.Len(); got != i {
 			t.Fatalf("RemovedClients[:%d].Len() got = %d, want %d", i, got, i)
 		}
+	}
+}
+
+func Test_room_renderRoomChanges(t *testing.T) {
+	a := &types.Client{PublicId: "a"}
+	b := &types.Client{PublicId: "b"}
+	oneRemoved := noneRemoved
+	oneRemoved[0] = 0
+
+	type fields struct {
+		clients Clients
+		rci     roomChangeInc
+	}
+	type args struct {
+		removed int
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   roomChangeInc
+	}{
+		{
+			name: "empty",
+			fields: fields{
+				clients: Clients{Removed: noneRemoved},
+			},
+			args: args{removed: -1},
+		},
+		{
+			name: "one added",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a},
+					Removed: noneRemoved,
+				},
+				rci: roomChangeInc{join: 1},
+			},
+			args: args{removed: -1},
+			want: roomChangeInc{rcs: types.RoomChanges{
+				{PublicId: "a", IsJoin: 1},
+			}},
+		},
+		{
+			name: "one added already",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a},
+					Removed: noneRemoved,
+				},
+				rci: roomChangeInc{join: 0},
+			},
+			args: args{removed: -1},
+		},
+		{
+			name: "second added",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a, b},
+					Removed: noneRemoved,
+				},
+				rci: roomChangeInc{join: 1},
+			},
+			args: args{removed: -1},
+			want: roomChangeInc{rcs: types.RoomChanges{
+				{PublicId: "b", IsJoin: 1},
+			}},
+		},
+		{
+			name: "two added",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a, b},
+					Removed: noneRemoved,
+				},
+				rci: roomChangeInc{join: 2},
+			},
+			args: args{removed: -1},
+			want: roomChangeInc{rcs: types.RoomChanges{
+				{PublicId: "a", IsJoin: 1},
+				{PublicId: "b", IsJoin: 1},
+			}},
+		},
+		{
+			name: "two added one removed",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a, b},
+					Removed: noneRemoved,
+				},
+				rci: roomChangeInc{join: 2},
+			},
+			args: args{removed: 1},
+			want: roomChangeInc{rcs: types.RoomChanges{
+				{PublicId: "a", IsJoin: 1},
+				{PublicId: "b", IsJoin: 0},
+			}},
+		},
+		{
+			name: "one removed",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a},
+					Removed: oneRemoved,
+				},
+				rci: roomChangeInc{},
+			},
+			args: args{removed: -1},
+			want: roomChangeInc{
+				rcs: types.RoomChanges{
+					{PublicId: "a", IsJoin: 0},
+				},
+				removed: 1,
+			},
+		},
+		{
+			name: "replace pending",
+			fields: fields{
+				clients: Clients{
+					All:     types.Clients{a},
+					Removed: oneRemoved,
+				},
+				rci: roomChangeInc{pending: true},
+			},
+			args: args{removed: -1},
+			want: roomChangeInc{
+				rcs: types.RoomChanges{
+					{PublicId: "a", IsJoin: 0},
+				},
+				removed: 1,
+				pending: true,
+				dirty:   true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := room{
+				clients: tt.fields.clients,
+				rci:     tt.fields.rci,
+			}
+			r.renderRoomChanges(tt.args.removed)
+			if !reflect.DeepEqual(r.rci, tt.want) {
+				t.Logf("r.rci=%#v", r.rci)
+				t.Logf("want =%#v", tt.want)
+				t.Errorf("renderRoomChanges() -> rci = %#v, want %#v", r.rci, tt.want)
+			}
+		})
 	}
 }

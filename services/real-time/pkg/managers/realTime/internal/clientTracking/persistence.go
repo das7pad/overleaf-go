@@ -17,11 +17,12 @@
 package clientTracking
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
 	"log"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -80,13 +81,7 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	pending, ownsPending := m.pcc[client.ProjectId[0]].get(client.ProjectId)
 	if ownsPending {
 		time.Sleep(time.Millisecond)
-		projectKey := getProjectKey(client.ProjectId)
-		entries, err := m.redisClient.HGetAll(ctx, projectKey).Result()
-		if err != nil {
-			pending.err = err
-		} else {
-			pending.clients = m.buildConnectedClients(client.ProjectId, entries)
-		}
+		pending.clients, pending.err = m.buildConnectedClients(ctx, client.ProjectId)
 		close(pending.done)
 		m.pcc[client.ProjectId[0]].delete(client.ProjectId)
 	} else {
@@ -95,9 +90,25 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 	return pending.clients, pending.err
 }
 
-var noClients = []byte("[]")
+var (
+	ageSuffix = []byte(":age")
+	noClients = []byte("[]")
+)
 
-func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[string]string) json.RawMessage {
+type hgetAllBuffers struct {
+	a, b *bytes.Buffer
+}
+
+var hgetAllPool = sync.Pool{New: func() any {
+	return &hgetAllBuffers{
+		a: bytes.NewBuffer(make([]byte, types.PublicIdLength+len(ageSuffix))),
+		b: bytes.NewBuffer(make([]byte, 128)),
+	}
+}}
+
+func (m *manager) buildConnectedClients(ctx context.Context, projectId sharedTypes.UUID) (json.RawMessage, error) {
+	h := hgetAllPool.Get().(*hgetAllBuffers)
+	defer hgetAllPool.Put(h)
 	var staleClients []sharedTypes.PublicId
 	defer func() {
 		if len(staleClients) == 0 {
@@ -105,39 +116,39 @@ func (m *manager) buildConnectedClients(projectId sharedTypes.UUID, entries map[
 		}
 		go m.cleanupStaleClientsInBackground(projectId, staleClients)
 	}()
-
 	tStale := encodeAge(time.Now().Add(-UserExpiry))
-	n := 0
-	for k, v := range entries {
-		if isAge := strings.HasSuffix(k, ":age"); isAge {
-			if v < string(tStale[:]) {
-				clientId := strings.TrimSuffix(k, ":age")
-				staleClients = append(
-					staleClients, sharedTypes.PublicId(clientId),
-				)
-				delete(entries, clientId)
+	var blob []byte
+	err := m.redisClient.HGetAllIncremental(
+		ctx,
+		getProjectKey(projectId),
+		h.a, h.b,
+		func(n, est int, k, v []byte) {
+			if isAge := bytes.HasSuffix(k, ageSuffix); isAge {
+				if bytes.Compare(v, tStale[:]) == -1 {
+					clientId := bytes.TrimSuffix(k, ageSuffix)
+					staleClients = append(
+						staleClients, sharedTypes.PublicId(clientId),
+					)
+				}
+				return
 			}
-			continue
-		}
-		n += 6 + len(k) + 2 + len(v) - 1 + 1
+			if len(blob) == 0 {
+				blob = make([]byte, 0, 1+n/2*(6+len(k)+2+len(v)-1+1)+1)
+				blob = append(blob, '[')
+			} else {
+				blob = append(blob, ',')
+			}
+			blob = append(blob, `{"i":"`...)
+			blob = append(blob, k...)
+			blob = append(blob, `",`...)
+			blob = append(blob, v[1:]...)
+		},
+	)
+	if err != nil || len(blob) == 0 {
+		return noClients, err
 	}
-	if n == 0 {
-		return noClients
-	}
-	blob := make([]byte, 0, 1+n-1+1)
-	blob = append(blob, '[')
-	for k, v := range entries {
-		if isAge := strings.HasSuffix(k, ":age"); isAge || len(v) == 0 {
-			continue
-		}
-		blob = append(blob, `{"i":"`...)
-		blob = append(blob, k...)
-		blob = append(blob, `",`...)
-		blob = append(blob, v[1:]...)
-		blob = append(blob, ',')
-	}
-	blob[len(blob)-1] = ']'
-	return blob
+	blob = append(blob, ']')
+	return blob, nil
 }
 
 func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error {

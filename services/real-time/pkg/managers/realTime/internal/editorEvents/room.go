@@ -34,30 +34,19 @@ type FlushRoomChanges func(projectId sharedTypes.UUID, rcs types.RoomChanges)
 const delayFlushRoomChanges = 10 * time.Millisecond
 
 func newRoom(projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) *room {
-	c := make(chan roomQueueEntry, 20)
-	rc := make(chan guidedRoomChanges, 1)
-	rc <- guidedRoomChanges{next: 10}
-	r := room{
-		c:           c,
-		roomChanges: rc,
-	}
-	r.clients = noClients
-	r.roomChangesFlush = time.AfterFunc(delayFlushRoomChanges, r.queueFlushRoomChanges)
-	go r.process(c, projectId, flushRoomChanges, flushProject)
+	r := room{c: make(chan roomQueueEntry, 20), clients: noClients}
+	r.roomChangesFlush = time.AfterFunc(time.Hour, func() {
+		r.flushRoomChanges(projectId, flushRoomChanges)
+	})
+	go r.process(projectId, flushProject)
 	return &r
 }
 
-func (r *room) queueFlushRoomChanges() {
-	r.c <- roomQueueEntry{action: actionFlushRoomChanges}
-}
-
-func (r *room) process(c chan roomQueueEntry, projectId sharedTypes.UUID, flushRoomChanges FlushRoomChanges, flushProject FlushProject) {
-	for entry := range c {
+func (r *room) process(projectId sharedTypes.UUID, flushProject FlushProject) {
+	for entry := range r.c {
 		switch entry.action {
 		case actionsHandleMessage:
 			r.Handle(entry.msg)
-		case actionFlushRoomChanges:
-			r.flushRoomChanges(projectId, flushRoomChanges)
 		default:
 			r.handleGracefulReconnect(entry.action)
 		}
@@ -66,8 +55,7 @@ func (r *room) process(c chan roomQueueEntry, projectId sharedTypes.UUID, flushR
 }
 
 const (
-	actionsHandleMessage   = 0
-	actionFlushRoomChanges = 1
+	actionsHandleMessage = 0
 )
 
 type roomQueueEntry struct {
@@ -173,6 +161,19 @@ func (r RemovedClients) Has(i int) bool {
 	return r[0] == j || r[1] == j || r[2] == j || r[3] == j || r[4] == j || r[5] == j || r[6] == j || r[7] == j || r[8] == j || r[9] == j
 }
 
+func (r RemovedClients) HasAfter(i int, start uint8) bool {
+	j := int32(i)
+	for idx := start; idx < removedClientsLen; idx++ {
+		if r[idx] == j {
+			return true
+		}
+		if r[idx] == -1 {
+			return false
+		}
+	}
+	return false
+}
+
 func (c Clients) String() string {
 	var s strings.Builder
 	s.WriteByte('[')
@@ -196,16 +197,21 @@ func (c Clients) String() string {
 	return s.String()
 }
 
-type guidedRoomChanges struct {
-	rcs  types.RoomChanges
-	next int
+type roomChangeInc struct {
+	join      uint16
+	removed   uint8
+	pending   bool
+	dirty     bool
+	last      bool
+	scheduled bool
+	rcs       types.RoomChanges
 }
 
 type room struct {
+	mu               sync.Mutex
 	clients          Clients
-	clientsMu        sync.Mutex
+	rci              roomChangeInc
 	c                chan roomQueueEntry
-	roomChanges      chan guidedRoomChanges
 	roomChangesFlush *time.Timer
 
 	pending pendingOperation.PendingOperation
@@ -216,11 +222,17 @@ var (
 	noClients   = Clients{Removed: noneRemoved}
 )
 
-func (r *room) swapClients(old, next Clients) {
-	r.clientsMu.Lock()
+func (r *room) swapClients(old, next Clients, removed int, join uint16) bool {
+	r.mu.Lock()
+	r.renderRoomChanges(removed)
 	r.clients = next
-	r.clientsMu.Unlock()
+	r.rci.removed = 0
+	r.rci.join += join
+	s := r.rci.scheduled
+	r.rci.scheduled = true
+	r.mu.Unlock()
 	old.Done()
+	return s
 }
 
 func (c Clients) Done() {
@@ -233,12 +245,12 @@ func (c Clients) Done() {
 }
 
 func (r *room) Clients() Clients {
-	r.clientsMu.Lock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	c := r.clients
 	if len(c.All) > 0 {
 		c.allRef.Add(1)
 	}
-	r.clientsMu.Unlock()
 	return c
 }
 
@@ -251,22 +263,34 @@ func (r *room) broadcastGracefulReconnect(suffix uint8) {
 }
 
 func (r *room) close() {
-	r.roomChangesFlush.Reset(0)
+	r.mu.Lock()
+	r.rci.last = true
+	s := r.rci.scheduled
+	r.rci.scheduled = true
+	r.mu.Unlock()
+	if !s {
+		r.roomChangesFlush.Reset(0)
+	}
 }
 
 func (r *room) isEmpty() bool {
-	r.clientsMu.Lock()
-	defer r.clientsMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return len(r.clients.All) == 0
 }
 
-func (r *room) add(client *types.Client) bool {
+func (r *room) add(client *types.Client) (bool, bool) {
 	clients := r.clients
 	if len(clients.All) == 0 {
 		c := newClients(1)
 		c.All = append(c.All[:0], client)
-		r.swapClients(clients, c)
-		return true
+		r.mu.Lock()
+		r.clients = c
+		r.rci.join++
+		s := r.rci.scheduled
+		r.rci.scheduled = true
+		r.mu.Unlock()
+		return true, s
 	}
 	if n := len(clients.All); n == cap(clients.All) {
 		m := clients.Removed.Len()
@@ -284,30 +308,35 @@ func (r *room) add(client *types.Client) bool {
 			j++
 		}
 		c.All = append(f, client)
-		r.swapClients(clients, c)
+		return false, r.swapClients(clients, c, -1, 1)
 	} else {
-		r.clientsMu.Lock()
+		r.mu.Lock()
 		r.clients.All = append(clients.All, client)
-		r.clientsMu.Unlock()
+		r.rci.join++
+		s := r.rci.scheduled
+		r.rci.scheduled = true
+		r.mu.Unlock()
+		return false, s
 	}
-	return false
 }
 
-func (r *room) remove(client *types.Client) bool {
+func (r *room) remove(client *types.Client) (bool, bool) {
 	clients := r.clients
 
 	n := len(clients.All)
 	m := clients.Removed.Len()
+	idx := clients.All.Index(client)
 	if n == m+1 {
-		r.swapClients(clients, noClients)
-		return true
+		return true, r.swapClients(clients, noClients, idx, 0)
 	}
 
-	idx := clients.All.Index(client)
 	if m < removedClientsLen {
-		r.clientsMu.Lock()
+		r.mu.Lock()
 		r.clients.Removed[m] = int32(idx)
-		r.clientsMu.Unlock()
+		s := r.rci.scheduled
+		r.rci.scheduled = true
+		r.mu.Unlock()
+		return false, s
 	} else {
 		c := newClients(n - removedClientsLen - 1)
 		f := c.All[:n-removedClientsLen-1]
@@ -323,27 +352,7 @@ func (r *room) remove(client *types.Client) bool {
 			j++
 		}
 		c.All = f
-		r.swapClients(clients, c)
-	}
-	return false
-}
-
-func (r *room) scheduleRoomChange(client *types.Client, isJoin bool, g guidedRoomChanges) {
-	owner := g.rcs == nil
-	if owner {
-		g.rcs = make(types.RoomChanges, 0, g.next)
-	}
-	rc := types.RoomChange{
-		PublicId: client.PublicId,
-	}
-	if isJoin {
-		rc.DisplayName = client.DisplayName
-		rc.IsJoin = 1
-	}
-	g.rcs = append(g.rcs, rc)
-	r.roomChanges <- g
-	if owner {
-		r.roomChangesFlush.Reset(delayFlushRoomChanges)
+		return false, r.swapClients(clients, c, idx, 0)
 	}
 }
 
@@ -362,13 +371,77 @@ func (r *room) handleGracefulReconnect(suffix uint8) {
 	}
 }
 
+func (r *room) scheduleFlushRoomChanges() {
+	r.roomChangesFlush.Reset(delayFlushRoomChanges)
+}
+
+func (r *room) renderRoomChanges(removed int) {
+	rci := r.rci
+	extra := r.clients.Removed.Len() - int(r.rci.removed) + int(r.rci.join)
+	rcs := rci.rcs
+	if rci.pending && !rci.dirty {
+		rcs = make(types.RoomChanges, 0, extra+(len(rcs)+cap(rcs))/2)
+		rci.dirty = true
+	}
+	if cap(rcs)-len(rcs) < extra {
+		rcs = make(types.RoomChanges, len(rcs), extra+(len(rcs)+cap(rcs))/2)
+		copy(rcs, rci.rcs)
+	}
+	clients := r.clients
+	n := len(clients.All)
+	for i := n - int(rci.join); i < n; i++ {
+		if i == removed || clients.Removed.HasAfter(i, rci.removed) {
+			continue
+		}
+		rcs = append(rcs, types.RoomChange{
+			PublicId:    clients.All[i].PublicId,
+			DisplayName: clients.All[i].DisplayName,
+			IsJoin:      1,
+		})
+	}
+	for i := rci.removed; i < removedClientsLen; i++ {
+		idx := clients.Removed[i]
+		if idx == -1 {
+			rci.removed = i
+			break
+		}
+		rcs = append(rcs, types.RoomChange{
+			PublicId: clients.All[idx].PublicId,
+		})
+	}
+	if removed != -1 {
+		rcs = append(rcs, types.RoomChange{
+			PublicId: clients.All[removed].PublicId,
+		})
+	}
+	rci.join = 0
+	rci.rcs = rcs
+	r.rci = rci
+}
+
 func (r *room) flushRoomChanges(projectId sharedTypes.UUID, fn FlushRoomChanges) {
-	g := <-r.roomChanges
-	if g.rcs == nil {
-		close(r.c)
-		close(r.roomChanges)
+	r.mu.Lock()
+	r.renderRoomChanges(-1)
+	r.rci.pending = true
+	r.rci.dirty = false
+	r.rci.scheduled = false
+	last := r.rci.last
+	rcs := r.rci.rcs
+	r.mu.Unlock()
+	if len(rcs) == 0 {
+		if last {
+			close(r.c)
+		}
 		return
 	}
-	r.roomChanges <- guidedRoomChanges{next: 10 + (len(g.rcs)+cap(g.rcs))/2}
-	go fn(projectId, g.rcs)
+	fn(projectId, rcs)
+	r.mu.Lock()
+	if len(r.rci.rcs) > 0 &&
+		r.rci.rcs[0].IsJoin == rcs[0].IsJoin &&
+		r.rci.rcs[0].PublicId == rcs[0].PublicId {
+		r.rci.rcs = rcs[:0]
+		r.rci.pending = false
+		r.rci.dirty = false
+	}
+	r.mu.Unlock()
 }

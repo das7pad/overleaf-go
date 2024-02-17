@@ -395,7 +395,7 @@ func TestConnectedClients(t *testing.T) {
 	var foundId1, foundId2 bool
 	for i := 0; i < 3; i++ {
 		if err := c.ReadOnce(); err != nil {
-			t.Fatal(err)
+			t.Fatal("waiting for join", i, id1, id2, err)
 		}
 		for _, id := range seen {
 			if id == id1 {
@@ -434,7 +434,7 @@ func TestConnectedClients(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		if err := c.ReadOnce(); err != nil {
-			t.Fatal(err)
+			t.Fatal("waiting for leave", err)
 		}
 		for _, id := range removed {
 			if id == id2 {
