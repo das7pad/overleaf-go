@@ -1413,7 +1413,7 @@ SELECT u.email, u.first_name, u.last_name
 FROM projects p, users u
 WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
 `, projectId, projectEpoch, userId, userEpoch).Scan(
-		&u.Email, &u.FirstName, &u.LastName,
+		(*string)(&u.Email), &u.FirstName, &u.LastName,
 	)
 	switch err {
 	case nil:
