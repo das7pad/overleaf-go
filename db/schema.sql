@@ -79,7 +79,7 @@ CREATE TABLE projects
   token_ro             TEXT              NULL UNIQUE,
   token_rw             TEXT              NULL, -- implicit UNIQUE via token_rw_prefix
   token_rw_prefix      TEXT              NULL UNIQUE,
-  tree_version         INTEGER           NOT NULL
+  tree_version INTEGER NOT NULL                -- TODO: rename to version, it is used for cache invalidation of ForBootstrapWS in real-time
 );
 
 CREATE TYPE AccessSource AS ENUM ('token', 'invite', 'owner');

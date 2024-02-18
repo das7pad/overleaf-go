@@ -62,7 +62,7 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 	if err := e.StartListening(ctx); err != nil {
 		return nil, err
 	}
-	pc := cache.NewLimited[projectCacheKey, json.RawMessage](100)
+	pc := cache.NewLimited[projectCacheKey, projectCacheValue](100)
 	return &manager{
 		clientTracking:   ct,
 		editorEvents:     e,
@@ -79,6 +79,11 @@ type projectCacheKey struct {
 	AccessSourceEnum int8
 }
 
+type projectCacheValue struct {
+	json.RawMessage
+	project.VersionField
+}
+
 type manager struct {
 	shuttingDown atomic.Bool
 
@@ -86,7 +91,7 @@ type manager struct {
 	editorEvents   editorEvents.Manager
 	dum            documentUpdater.Manager
 	pm             project.Manager
-	projectCache   *cache.Limited[projectCacheKey, json.RawMessage]
+	projectCache   *cache.Limited[projectCacheKey, projectCacheValue]
 
 	gracefulShutdown types.GracefulShutdownOptions
 }
@@ -202,15 +207,16 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 	}
 	projectBlob, ok := m.projectCache.Get(cacheKey)
 	if ok {
-		err := m.pm.GetBootstrapWSUser(
-			ctx, claims.ProjectId, claims.UserId,
-			claims.Epoch, claims.EpochUser,
-			&u,
-		)
+		var treeVersion sharedTypes.Version
+		err := m.pm.GetBootstrapWSUser(ctx, claims.ProjectId, claims.UserId, claims.Epoch, claims.EpochUser, &u, &treeVersion)
 		if err != nil {
 			return err
 		}
-	} else {
+		if treeVersion != projectBlob.Version {
+			ok = false
+		}
+	}
+	if !ok {
 		p := types.ProjectDetails{}
 		err := m.pm.GetBootstrapWSDetails(
 			ctx, claims.ProjectId, claims.UserId,
@@ -229,9 +235,10 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 			Versioning:     true,
 		}
 		p.RootFolder = []*project.Folder{p.GetRootFolder()}
-		if projectBlob, err = json.Marshal(p); err != nil {
+		if projectBlob.RawMessage, err = json.Marshal(p); err != nil {
 			return err
 		}
+		projectBlob.Version = p.Version
 		m.projectCache.Add(cacheKey, projectBlob)
 	}
 
@@ -247,7 +254,7 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 	res := types.BootstrapWSResponse{
 		PrivilegeLevel: claims.PrivilegeLevel,
 		PublicId:       client.PublicId,
-		Project:        projectBlob,
+		Project:        projectBlob.RawMessage,
 	}
 	if client.HasCapability(types.CanSeeOtherClients) {
 		res.ConnectedClients, _ =

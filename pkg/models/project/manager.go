@@ -63,7 +63,7 @@ type Manager interface {
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
 	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource, p *ForBootstrapWS, u *user.WithPublicInfo) error
-	GetBootstrapWSUser(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, u *user.WithPublicInfo) error
+	GetBootstrapWSUser(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, u *user.WithPublicInfo, treeVersion *sharedTypes.Version) error
 	GetLastUpdatedAt(ctx context.Context, projectId sharedTypes.UUID) (time.Time, error)
 	GetLoadEditorDetails(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken) (*LoadEditorDetails, error)
 	GetProjectWithContent(ctx context.Context, projectId sharedTypes.UUID) ([]Doc, []FileRef, error)
@@ -342,7 +342,8 @@ RETURNING token_ro, token_rw
 func (m *manager) SetCompiler(ctx context.Context, projectId, userId sharedTypes.UUID, compiler sharedTypes.Compiler) error {
 	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
-SET compiler = $3
+SET compiler     = $3,
+    tree_version = tree_version + 1
 FROM project_members pm
 WHERE p.id = $1
   AND p.deleted_at IS NULL
@@ -355,7 +356,8 @@ WHERE p.id = $1
 func (m *manager) SetImageName(ctx context.Context, projectId, userId sharedTypes.UUID, imageName sharedTypes.ImageName) error {
 	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
-SET image_name = $3
+SET image_name = $3,
+    tree_version = tree_version + 1
 FROM project_members pm
 WHERE p.id = $1
   AND p.deleted_at IS NULL
@@ -368,7 +370,8 @@ WHERE p.id = $1
 func (m *manager) SetSpellCheckLanguage(ctx context.Context, projectId, userId sharedTypes.UUID, spellCheckLanguage spellingTypes.SpellCheckLanguage) error {
 	return getErr(m.db.Exec(ctx, `
 UPDATE projects p
-SET spell_check_language = $3
+SET spell_check_language = $3,
+    tree_version = tree_version + 1
 FROM project_members pm
 WHERE p.id = $1
   AND p.deleted_at IS NULL
@@ -390,7 +393,8 @@ WITH d AS (SELECT d.id
                   t.path LIKE '%.rtex' OR
                   t.path LIKE '%.ltex'))
 UPDATE projects p
-SET root_doc_id = d.id
+SET root_doc_id = d.id,
+    tree_version = tree_version + 1
 FROM project_members pm,
      d
 WHERE p.id = $1
@@ -404,7 +408,8 @@ WHERE p.id = $1
 func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, publicAccessLevel PublicAccessLevel) error {
 	return getErr(m.db.Exec(ctx, `
 UPDATE projects
-SET public_access_level = $3
+SET public_access_level = $3,
+    epoch               = epoch + 1
 WHERE id = $1
   AND owner_id = $2
   AND deleted_at IS NULL
@@ -502,7 +507,8 @@ FROM swap_member_old,
 func (m *manager) Rename(ctx context.Context, projectId, userId sharedTypes.UUID, name Name) error {
 	return getErr(m.db.Exec(ctx, `
 UPDATE projects
-SET name = $3
+SET name = $3,
+    tree_version = tree_version + 1
 WHERE id = $1
   AND deleted_at IS NULL
   AND owner_id = $2
@@ -1402,18 +1408,18 @@ WHERE p.id = $1
 	return nil
 }
 
-func (m *manager) GetBootstrapWSUser(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, u *user.WithPublicInfo) error {
+func (m *manager) GetBootstrapWSUser(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, u *user.WithPublicInfo, treeVersion *sharedTypes.Version) error {
 	if userId.IsZero() {
 		return m.ValidateProjectJWTEpochs(
 			ctx, projectId, userId, projectEpoch, userEpoch,
 		)
 	}
 	err := m.db.QueryRow(ctx, `
-SELECT u.email, u.first_name, u.last_name
+SELECT u.email, u.first_name, u.last_name, p.tree_version
 FROM projects p, users u
 WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
 `, projectId, projectEpoch, userId, userEpoch).Scan(
-		(*string)(&u.Email), &u.FirstName, &u.LastName,
+		(*string)(&u.Email), &u.FirstName, &u.LastName, (*int64)(treeVersion),
 	)
 	switch err {
 	case nil:
