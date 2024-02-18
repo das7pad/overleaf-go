@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,21 +42,33 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 			panic(errors.Tag(err, "parse postgres DSN"))
 		}
 	}
+	var extraTypes []*pgtype.Type
+	var extraTypesMu sync.Mutex
 	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		m := conn.TypeMap()
-		if err := registerEnumTypes(ctx, m, conn); err != nil {
-			return errors.Tag(err, "register enum types")
+		extraTypesMu.Lock()
+		if len(extraTypes) == 0 {
+			var err error
+			extraTypes, err = registerEnumTypes(ctx, conn)
+			if err != nil {
+				extraTypesMu.Unlock()
+				return errors.Tag(err, "register enum types")
+			}
+			extraTypes = append(extraTypes, &pgtype.Type{
+				Codec: sharedTypes.UUIDCodec{},
+				Name:  "uuid",
+				OID:   pgtype.UUIDOID,
+			})
+			extraTypes = append(extraTypes, &pgtype.Type{
+				Codec: sharedTypes.UUIDsCodec{},
+				Name:  "_uuid",
+				OID:   pgtype.UUIDArrayOID,
+			})
 		}
-		m.RegisterType(&pgtype.Type{
-			Codec: sharedTypes.UUIDCodec{},
-			Name:  "uuid",
-			OID:   pgtype.UUIDOID,
-		})
-		m.RegisterType(&pgtype.Type{
-			Codec: sharedTypes.UUIDsCodec{},
-			Name:  "_uuid",
-			OID:   pgtype.UUIDArrayOID,
-		})
+		extraTypesMu.Unlock()
+		for _, t := range extraTypes {
+			m.RegisterType(t)
+		}
 		return nil
 	}
 	db, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -68,24 +81,25 @@ func MustConnectPostgres(ctx context.Context) *pgxpool.Pool {
 	return db
 }
 
-func registerEnumTypes(ctx context.Context, m *pgtype.Map, conn *pgx.Conn) error {
+func registerEnumTypes(ctx context.Context, conn *pgx.Conn) ([]*pgtype.Type, error) {
 	//goland:noinspection SpellCheckingInspection
 	rows, err := conn.Query(
 		ctx, `SELECT oid, typname FROM pg_type WHERE typtype = 'e'`,
 	)
 	if err != nil {
-		return errors.Tag(err, "list enum types")
+		return nil, errors.Tag(err, "list enum types")
 	}
 	defer rows.Close()
+	tt := make([]*pgtype.Type, 0, 10)
 	for rows.Next() {
 		t := pgtype.Type{Codec: &pgtype.EnumCodec{}}
 		if err = rows.Scan(&t.OID, &t.Name); err != nil {
-			return errors.Tag(err, "scan enum type")
+			return nil, errors.Tag(err, "scan enum type")
 		}
-		m.RegisterType(&t)
+		tt = append(tt, &t)
 	}
 	if err = rows.Err(); err != nil {
-		return errors.Tag(err, "iter enum types")
+		return nil, errors.Tag(err, "iter enum types")
 	}
-	return nil
+	return tt, nil
 }
