@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -178,9 +178,9 @@ func evalColor(s tokens) (tokens, error) {
 		case "fade":
 			c = c.SetAlpha(float64(x) / 100)
 		case "fadein":
-			c = c.SetAlpha(math.Min(100, c.Alpha()*100+float64(x)) / 100)
+			c = c.SetAlpha(min(100, c.Alpha()*100+float64(x)) / 100)
 		case "fadeout":
-			c = c.SetAlpha(math.Max(0, c.Alpha()*100-float64(x)) / 100)
+			c = c.SetAlpha(max(0, c.Alpha()*100-float64(x)) / 100)
 		case "mix":
 			var c2 color
 			c2, err = parseColor(params[1])
@@ -316,15 +316,15 @@ func (s rgbaColor) ToHSLA() hslaColor {
 	r := float64(s.r) / 255
 	g := float64(s.g) / 255
 	b := float64(s.b) / 255
-	min := math.Min(math.Min(r, g), b)
-	max := math.Max(math.Max(r, g), b)
-	c := max - min
-	l := (min + max) / 2
+	lower := min(min(r, g), b)
+	upper := max(max(r, g), b)
+	c := upper - lower
+	l := (lower + upper) / 2
 	h := hslaColor{
 		alpha: s.a,
 	}
 	if c != 0 {
-		switch max {
+		switch upper {
 		case r:
 			h.hue = 60*(g-b)/c + 0
 		case g:

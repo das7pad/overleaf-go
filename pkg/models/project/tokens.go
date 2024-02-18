@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -107,12 +107,12 @@ var (
 	sizeCharsetNumerics = big.NewInt(int64(len(charsetNumerics)))
 )
 
-func randomStringFrom(source string, max *big.Int, n int) (string, error) {
+func randomStringFrom(source string, upper *big.Int, n int) (string, error) {
 	// NOTE: This naive implementation w/o bulk random reads is fast enough.
 	//       For all token types, p95 n=100 is in O(100µs) or 10k/s.
 	var target strings.Builder
 	for i := 0; i < n; i++ {
-		v, err := rand.Int(rand.Reader, max)
+		v, err := rand.Int(rand.Reader, upper)
 		if err != nil {
 			return "", errors.Tag(err, "get random int")
 		}

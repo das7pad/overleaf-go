@@ -235,10 +235,10 @@ func (m *manager) listen(ctx context.Context) {
 			log.Printf(
 				"pubsub receive: nFailed=%d, %q", nFailed, err.Error(),
 			)
-			time.Sleep(time.Duration(math.Min(
-				float64(5*time.Second),
-				math.Pow(2, float64(nFailed))*float64(time.Millisecond),
-			)))
+			time.Sleep(min(
+				5*time.Second,
+				time.Duration(math.Pow(2, float64(nFailed)))*time.Millisecond,
+			))
 			continue
 		}
 		nFailed = 0

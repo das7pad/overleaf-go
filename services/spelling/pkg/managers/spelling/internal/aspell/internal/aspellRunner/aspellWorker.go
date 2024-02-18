@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"os/exec"
 	"strings"
 	"time"
@@ -129,7 +128,7 @@ func (w *worker) CheckWords(ctx context.Context, words []string) (Suggestions, e
 			return err
 		}
 		for len(words) > 0 {
-			sliceAt := int(math.Min(float64(len(words)), BatchSize))
+			sliceAt := min(len(words), BatchSize)
 			chunk := words[:sliceAt]
 			words = words[sliceAt:]
 

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -110,9 +110,9 @@ func parseNum(s tokens, i int) (int, float64, string, error) {
 				}
 				switch s[i].v {
 				case "min":
-					a = math.Min(a, b)
+					a = min(a, b)
 				case "max":
-					a = math.Max(a, b)
+					a = max(a, b)
 				}
 			}
 			return j, a, aUnit, nil

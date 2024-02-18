@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -104,13 +104,13 @@ func (d *Doc) ToDocContentSnapshot() DocContentSnapshot {
 type DocContentSnapshots []DocContentSnapshot
 
 func (l DocContentSnapshots) LastUpdatedAt() time.Time {
-	max := time.Time{}
+	last := time.Time{}
 	for _, snapshot := range l {
-		if snapshot.LastUpdatedAt.After(max) {
-			max = snapshot.LastUpdatedAt
+		if snapshot.LastUpdatedAt.After(last) {
+			last = snapshot.LastUpdatedAt
 		}
 	}
-	return max
+	return last
 }
 
 func (core *DocCore) DoUnmarshalJSON(bytes []byte) error {
