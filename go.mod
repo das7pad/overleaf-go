@@ -92,3 +92,6 @@ replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websoc
 
 // Optimize allocations and provide new interfaces
 replace github.com/redis/go-redis/v9 v9.4.0 => github.com/das7pad/go-redis/v9 v9.0.0-20240217230309-3e39232c57ec
+
+// Optimize allocations
+replace github.com/jackc/pgx/v5 v5.5.3 => github.com/das7pad/pgx/v5 v5.0.0-20240218114424-2353f3b27b4b
