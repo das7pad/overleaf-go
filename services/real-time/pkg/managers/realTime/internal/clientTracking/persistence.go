@@ -151,7 +151,7 @@ func (m *manager) buildConnectedClients(ctx context.Context, projectId sharedTyp
 	return blob, nil
 }
 
-func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents.LazyRoomClients) error {
+func (m *manager) RefreshClientPositions(ctx context.Context, rooms editorEvents.Rooms) error {
 	merged := errors.MergedError{}
 	args := make([]interface{}, 0, 2*100)
 	now := make([]byte, 11)

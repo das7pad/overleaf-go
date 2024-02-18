@@ -18,6 +18,7 @@ package editorEvents
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
@@ -30,21 +31,21 @@ import (
 
 type Manager interface {
 	BroadcastGracefulReconnect(suffix uint8) int
-	GetClients() LazyRoomClients
+	GetRooms() Rooms
+	GetRoomsFlat() RoomsFlat
 	Join(ctx context.Context, client *types.Client) error
 	Leave(client *types.Client)
 	StartListening(ctx context.Context) error
 }
 
-type LazyRoomClients map[sharedTypes.UUID]*room
+type Rooms map[sharedTypes.UUID]*room
+type RoomsFlat []*room
 
 type FlushProject func(ctx context.Context, projectId sharedTypes.UUID) bool
 
 func New(c channel.Manager, flushRoomChanges FlushRoomChanges, flushProject FlushProject) Manager {
 	m := manager{
 		c:                c,
-		sem:              make(chan struct{}, 1),
-		mux:              sync.RWMutex{},
 		rooms:            make(map[sharedTypes.UUID]*room),
 		idle:             make(map[sharedTypes.UUID]bool),
 		flushRoomChanges: flushRoomChanges,
@@ -56,18 +57,12 @@ func New(c channel.Manager, flushRoomChanges FlushRoomChanges, flushProject Flus
 type manager struct {
 	c channel.Manager
 
-	sem              chan struct{}
-	mux              sync.RWMutex
+	sem              sync.Mutex
+	roomsMux         sync.RWMutex
 	rooms            map[sharedTypes.UUID]*room
 	idle             map[sharedTypes.UUID]bool
 	flushRoomChanges FlushRoomChanges
 	flushProject     FlushProject
-}
-
-func (m *manager) pauseQueueFor(fn func()) {
-	m.sem <- struct{}{}
-	fn()
-	<-m.sem
 }
 
 func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
@@ -76,8 +71,8 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 		return
 	}
 
-	m.sem <- struct{}{}
-	defer func() { <-m.sem }()
+	m.sem.Lock()
+	defer m.sem.Unlock()
 
 	if len(r.clients.All) != 0 {
 		// Someone else joined while we acquired the sem.
@@ -85,23 +80,26 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 	}
 
 	// Get write lock while we are removing the empty room.
-	m.mux.Lock()
+	m.roomsMux.Lock()
 	delete(m.rooms, id)
-	m.mux.Unlock()
+	m.roomsMux.Unlock()
 
 	r.close()
 	delete(m.idle, id)
 }
 
-func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, pendingOperation.PendingOperation, bool) {
+func (m *manager) joinLocked(ctx context.Context, r *room, exists bool, client *types.Client) (*room, pendingOperation.PendingOperation, bool) {
 	projectId := client.ProjectId
-	// There is no need for read locking, we are the only potential writer.
-	r, exists := m.rooms[projectId]
+	if !exists {
+		// Retry lookup under sem lock, the room might exist now.
+		// We are the only potential writer, skip read-locking the roomsMux.
+		r, exists = m.rooms[projectId]
+	}
 	if !exists {
 		r = newRoom(projectId, m.flushRoomChanges, m.flushProject)
-		m.mux.Lock()
+		m.roomsMux.Lock()
 		m.rooms[projectId] = r
-		m.mux.Unlock()
+		m.roomsMux.Unlock()
 	}
 
 	roomWasEmpty, s := r.add(client)
@@ -135,24 +133,24 @@ func (m *manager) joinLocked(ctx context.Context, client *types.Client) (*room, 
 }
 
 func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
-	m.sem <- struct{}{}
+	m.sem.Lock()
 	n := len(m.idle)
 	if n < threshold {
-		<-m.sem
+		m.sem.Unlock()
 		return n
 	}
 	var ids sharedTypes.UUIDBatch
 	extra := 1000
 	for ids.Cap() < n {
-		<-m.sem
+		m.sem.Unlock()
 		n += extra
 		extra = extra * 2
 		ids = sharedTypes.NewUUIDBatch(n)
 
-		m.sem <- struct{}{}
+		m.sem.Lock()
 		n = len(m.idle)
 		if n < threshold {
-			<-m.sem
+			m.sem.Unlock()
 			return n
 		}
 	}
@@ -170,15 +168,18 @@ func (m *manager) cleanupIdleRooms(ctx context.Context, threshold int) int {
 			m.rooms[id].pending = pending
 		}
 	}
-	<-m.sem
+	m.sem.Unlock()
 	_ = pending.Wait(ctx)
 	return n
 }
 
 func (m *manager) Join(ctx context.Context, client *types.Client) error {
-	m.sem <- struct{}{}
-	r, pending, s := m.joinLocked(ctx, client)
-	<-m.sem
+	m.roomsMux.RLock()
+	r, exists := m.rooms[client.ProjectId]
+	m.roomsMux.RUnlock()
+	m.sem.Lock()
+	r, pending, s := m.joinLocked(ctx, r, exists, client)
+	m.sem.Unlock()
 	if !s {
 		r.scheduleFlushRoomChanges()
 	}
@@ -189,42 +190,50 @@ func (m *manager) Join(ctx context.Context, client *types.Client) error {
 	return pending.Err()
 }
 
-func (m *manager) Leave(client *types.Client) {
-	m.mux.RLock()
-	r := m.rooms[client.ProjectId]
-	m.mux.RUnlock()
-	m.sem <- struct{}{}
+func (m *manager) leaveLocked(r *room, client *types.Client) bool {
 	turnedEmpty, s := r.remove(client)
 	if turnedEmpty {
 		m.idle[client.ProjectId] = true
 	}
-	<-m.sem
+	return s
+}
+
+func (m *manager) Leave(client *types.Client) {
+	m.roomsMux.RLock()
+	r := m.rooms[client.ProjectId]
+	m.roomsMux.RUnlock()
+	m.sem.Lock()
+	s := m.leaveLocked(r, client)
+	m.sem.Unlock()
 	if !s {
 		r.scheduleFlushRoomChanges()
 	}
 }
 
 func (m *manager) handleMessage(message channel.PubSubMessage) {
-	m.mux.RLock()
+	m.roomsMux.RLock()
 	r, exists := m.rooms[message.Channel]
-	m.mux.RUnlock()
+	m.roomsMux.RUnlock()
 	if !exists {
 		return
 	}
 	if len(message.Msg) == 0 {
 		m.cleanup(r, message.Channel)
 	} else {
+		// Only m.cleanup can take away the room, so we are OK to just take the
+		//  read lock at the time of getting the room.
+		// m.handleMessage is called synchronous from a single loop.
 		r.broadcast(message.Msg)
 	}
 }
 
 func (m *manager) processAllMessages(allQueue <-chan string) {
 	for message := range allQueue {
-		m.pauseQueueFor(func() {
-			for _, r := range m.rooms {
-				r.broadcast(message)
-			}
-		})
+		m.roomsMux.RLock()
+		for _, r := range m.rooms {
+			r.broadcast(message)
+		}
+		m.roomsMux.RUnlock()
 	}
 }
 
@@ -268,25 +277,39 @@ func (m *manager) periodicallyCleanupIdleRooms(ctx context.Context, t *time.Tick
 }
 
 func (m *manager) BroadcastGracefulReconnect(suffix uint8) int {
-	m.sem <- struct{}{}
-	n := len(m.rooms)
+	m.roomsMux.RLock()
+	defer m.roomsMux.RUnlock()
 	for _, r := range m.rooms {
 		r.broadcastGracefulReconnect(suffix)
 	}
-	<-m.sem
-	return n
+	return len(m.rooms)
 }
 
-func (m *manager) GetClients() LazyRoomClients {
-	n := 0
-	m.pauseQueueFor(func() {
-		n = len(m.rooms)
-	})
-	clients := make(LazyRoomClients, n+1000)
-	m.pauseQueueFor(func() {
-		for id, r := range m.rooms {
-			clients[id] = r
-		}
-	})
+func (m *manager) GetRooms() Rooms {
+	m.roomsMux.RLock()
+	defer m.roomsMux.RUnlock()
+	clients := maps.Clone(m.rooms)
 	return clients
+}
+
+func (m *manager) GetRoomsFlat() RoomsFlat {
+	m.roomsMux.RLock()
+	defer m.roomsMux.RUnlock()
+	var rooms RoomsFlat
+	n := len(m.rooms)
+	for ; n > cap(rooms); n = len(m.rooms) {
+		m.roomsMux.RUnlock()
+		rooms = make(RoomsFlat, n)
+		m.roomsMux.RLock()
+	}
+	if n == 0 {
+		return nil
+	}
+	rooms = rooms[:n]
+	i := 0
+	for _, r := range m.rooms {
+		rooms[i] = r
+		i++
+	}
+	return rooms
 }

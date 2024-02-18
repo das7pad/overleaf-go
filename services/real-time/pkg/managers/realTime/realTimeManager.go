@@ -105,8 +105,8 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			clients := m.editorEvents.GetClients()
-			err := m.clientTracking.RefreshClientPositions(ctx, clients)
+			rooms := m.editorEvents.GetRooms()
+			err := m.clientTracking.RefreshClientPositions(ctx, rooms)
 			if err != nil {
 				log.Printf("refresh client positions: %s", err)
 			}
@@ -132,7 +132,7 @@ func (m *manager) TriggerGracefulReconnect() {
 func (m *manager) DisconnectAll() {
 	deadLine := time.Now().Add(m.gracefulShutdown.CleanupTimeout)
 	for time.Now().Before(deadLine) {
-		rooms := m.editorEvents.GetClients()
+		rooms := m.editorEvents.GetRoomsFlat()
 		if len(rooms) == 0 {
 			break
 		}
