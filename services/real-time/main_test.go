@@ -99,7 +99,7 @@ func randomCredentials() (sharedTypes.Email, webTypes.UserPassword, error) {
 	return sharedTypes.Email(email), webTypes.UserPassword(password), err
 }
 
-func jwtFactory(ctx context.Context) func() string {
+func jwtFactory(ctx context.Context) (func() string, func()) {
 	o := webTypes.Options{}
 	o.FillFromEnv()
 	rClient := utils.MustConnectRedis(ctx)
@@ -108,7 +108,7 @@ func jwtFactory(ctx context.Context) func() string {
 	wm, e := web.New(&o, db, rClient, "", nil, nil)
 	fatalIf(e)
 
-	return func() string {
+	f := func() string {
 		r := httptest.NewRequest(http.MethodTrace, "/", nil)
 		r = r.WithContext(ctx)
 		w := httptest.NewRecorder()
@@ -154,6 +154,10 @@ func jwtFactory(ctx context.Context) func() string {
 
 		return string(jwt)
 	}
+	return f, func() {
+		_ = rClient.Close()
+		db.Close()
+	}
 }
 
 var uri = &url.URL{
@@ -191,7 +195,8 @@ func setup() {
 	setLimits()
 	go main()
 
-	f := jwtFactory(context.Background())
+	f, done := jwtFactory(context.Background())
+	defer done()
 	for i := 0; i < 10; i++ {
 		bootstrapSharded = append(bootstrapSharded, f())
 	}
