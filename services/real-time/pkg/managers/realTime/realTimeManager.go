@@ -130,6 +130,7 @@ func (m *manager) TriggerGracefulReconnect() {
 }
 
 func (m *manager) DisconnectAll() {
+	defer m.editorEvents.StopListening()
 	deadLine := time.Now().Add(m.gracefulShutdown.CleanupTimeout)
 	for time.Now().Before(deadLine) {
 		rooms := m.editorEvents.GetRoomsFlat()

@@ -91,7 +91,7 @@ replace github.com/gorilla/mux v1.8.1 => github.com/gorilla/mux v1.8.2-0.2023120
 replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websocket v0.0.0-20240218131733-b744c15f63fa
 
 // Optimize allocations and provide new interfaces
-replace github.com/redis/go-redis/v9 v9.4.0 => github.com/das7pad/go-redis/v9 v9.0.0-20240217230309-3e39232c57ec
+replace github.com/redis/go-redis/v9 v9.4.0 => github.com/das7pad/go-redis/v9 v9.0.0-20240218204503-4ae018238868
 
 // Optimize allocations
 replace github.com/jackc/pgx/v5 v5.5.3 => github.com/das7pad/pgx/v5 v5.0.0-20240218154221-1951afda28b3

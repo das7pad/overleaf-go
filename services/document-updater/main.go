@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -67,7 +68,13 @@ func main() {
 	httpUtils.ListenAndServeEach(eg.Go, &server, listenAddress.Parse(3003))
 	eg.Go(func() error {
 		<-ctx.Done()
-		return server.Shutdown(context.Background())
+		err2 := server.Shutdown(context.Background())
+		// - Hard cut for processing in document-updater. Go-Redis does not
+		//    respect context cancellation for the blocking reads anymore :/
+		if closeErr := rClient.Close(); closeErr != nil {
+			log.Printf("close redis: %s", closeErr)
+		}
+		return err2
 	})
 	if err = eg.Wait(); err != nil && err != http.ErrServerClosed {
 		panic(err)

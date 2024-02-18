@@ -36,6 +36,7 @@ type Manager interface {
 	Join(ctx context.Context, client *types.Client) error
 	Leave(client *types.Client)
 	StartListening(ctx context.Context) error
+	StopListening()
 }
 
 type Rooms map[sharedTypes.UUID]*room
@@ -63,6 +64,10 @@ type manager struct {
 	idle             map[sharedTypes.UUID]bool
 	flushRoomChanges FlushRoomChanges
 	flushProject     FlushProject
+}
+
+func (m *manager) StopListening() {
+	m.c.Close()
 }
 
 func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
