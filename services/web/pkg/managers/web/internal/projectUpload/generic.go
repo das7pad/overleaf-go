@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -121,13 +121,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 	}
 	{
 		// Prepare tree
-		ctxDone := ctx.Done()
 		for _, file := range request.Files {
-			select {
-			case <-ctxDone:
-				return ctx.Err()
-			default:
-			}
 			path := file.Path()
 			name := path.Filename()
 			parent, errConflict := p.RootFolder.CreateParents(path.Dir())
@@ -205,6 +199,9 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 				})
 			}
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	{
 		// Populate ids
