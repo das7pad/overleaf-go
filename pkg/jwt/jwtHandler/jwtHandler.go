@@ -214,8 +214,6 @@ var newLineSuffix = []byte("\n")
 
 func (b *b64Buffer) Write(p []byte) (int, error) {
 	p = bytes.TrimSuffix(p, newLineSuffix)
-	n := len(b.buf)
-	b.buf = b.buf[0 : n+base64.RawURLEncoding.EncodedLen(len(p))]
-	base64.RawURLEncoding.Encode(b.buf[n:], p)
+	b.buf = base64.RawURLEncoding.AppendEncode(b.buf, p)
 	return len(p), nil
 }

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,8 +25,6 @@ import (
 )
 
 var (
-	b64 = base64.RawStdEncoding
-
 	ErrNoCookie           = &errors.UnauthorizedError{Reason: "no cookie found"}
 	ErrBadCookieFormat    = &errors.UnauthorizedError{Reason: "bad cookie format"}
 	ErrBadCookieSignature = &errors.UnauthorizedError{Reason: "bad cookie signature"}
@@ -48,13 +46,9 @@ func (m *manager) unSign(raw string) (string, error) {
 	return "", ErrBadCookieSignature
 }
 
-var sizeHMAC = b64.EncodedLen(sha256.Size)
-
 func (m *manager) genHMAC(s string, key []byte) []byte {
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte(s))
 	digest := h.Sum(nil)
-	dst := make([]byte, sizeHMAC)
-	b64.Encode(dst, digest)
-	return dst
+	return base64.RawStdEncoding.AppendEncode(nil, digest)
 }

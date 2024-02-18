@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ package signedCookie
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,7 +37,7 @@ func New(options Options, payloadLength int) Manager {
 		secrets[i] = []byte(secret)
 	}
 	posDoc := len("s:") + payloadLength
-	size := posDoc + len(".") + b64.EncodedLen(sha256.Size)
+	size := posDoc + len(".") + base64.RawStdEncoding.EncodedLen(sha256.Size)
 	return &manager{
 		Options:       options,
 		posDot:        posDoc,

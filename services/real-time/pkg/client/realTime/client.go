@@ -402,9 +402,7 @@ func appendSecWebSocketAccept(buf []byte, k []byte) []byte {
 	h.Write(k)
 	h.Write(wsKeyGUID)
 	k = h.Sum(k[:0])
-	n := base64.StdEncoding.EncodedLen(len(k))
-	base64.StdEncoding.Encode(buf[len(buf):len(buf)+n], k)
-	return buf[:len(buf)+n]
+	return base64.StdEncoding.AppendEncode(buf, k)
 }
 
 var bufferPool sync.Pool
