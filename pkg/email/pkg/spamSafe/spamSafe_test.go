@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -50,8 +50,7 @@ func TestGetSafeEmail(t *testing.T) {
 			want: "alt",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetSafeEmail(tt.args.email, tt.args.alternative); got != tt.want {
 				t.Errorf("GetSafeEmail() = %v, want %v", got, tt.want)
@@ -81,8 +80,7 @@ func TestGetSafeProjectName(t *testing.T) {
 			want: "alt",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetSafeProjectName(tt.args.name, tt.args.alternative); got != tt.want {
 				t.Errorf("GetSafeProjectName() = %v, want %v", got, tt.want)
@@ -112,8 +110,7 @@ func TestGetSafeUserName(t *testing.T) {
 			want: "alt",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetSafeUserName(tt.args.name, tt.args.alternative); got != tt.want {
 				t.Errorf("GetSafeUserName() = %v, want %v", got, tt.want)
@@ -163,8 +160,7 @@ func TestIsSafeEmail(t *testing.T) {
 			want: false,
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsSafeEmail(tt.args.email); got != tt.want {
 				t.Errorf("IsSafeEmail() = %v, want %v", got, tt.want)
@@ -222,8 +218,7 @@ func TestIsSafeProjectName(t *testing.T) {
 			want: false,
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsSafeProjectName(tt.args.name); got != tt.want {
 				t.Errorf("IsSafeProjectName() = %v, want %v", got, tt.want)
@@ -282,8 +277,7 @@ func TestIsSafeUserName(t *testing.T) {
 			want: false,
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsSafeUserName(tt.args.name); got != tt.want {
 				t.Errorf("IsSafeUserName() = %v, want %v", got, tt.want)

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -40,8 +40,7 @@ func TestUUID_IsZero(t *testing.T) {
 			want: false,
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.u.IsZero(); got != tt.want {
 				t.Errorf("IsZero() = %v, want %v", got, tt.want)
@@ -67,8 +66,7 @@ func TestUUID_String(t *testing.T) {
 			want: "00010203-0405-0607-0809-0a0b0c0d0eff",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.u.String(); got != tt.want {
 				t.Errorf("String() = %v, want %v", got, tt.want)
@@ -120,8 +118,7 @@ func TestParseUUID(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseUUID(tt.args.s)
 			if (err != nil) != tt.wantErr {

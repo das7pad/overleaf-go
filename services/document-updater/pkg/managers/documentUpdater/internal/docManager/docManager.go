@@ -550,9 +550,7 @@ func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sha
 
 	docs := make([]*types.Doc, len(docIds))
 	eg, pCtx := errgroup.WithContext(ctx)
-	for j, id := range docIds {
-		i := j
-		docId := id
+	for i, docId := range docIds {
 		eg.Go(func() error {
 			d, err := m.processUpdatesForDocAndFlushOld(
 				pCtx, projectId, docId,

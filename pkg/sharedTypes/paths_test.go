@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -42,8 +42,7 @@ func TestPathName_Dir(t *testing.T) {
 			"foo/bar",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.f.Dir(); got != tt.want {
 				t.Errorf("Dir() = %v, want %v", got, tt.want)
@@ -79,8 +78,7 @@ func TestPathName_Type(t *testing.T) {
 			"",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.f.Type(); got != tt.want {
 				t.Errorf("Type() = %v, want %v", got, tt.want)
@@ -151,8 +149,7 @@ func TestPathName_Validate(t *testing.T) {
 			true,
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.f.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -183,8 +180,7 @@ func TestPathName_Filename(t *testing.T) {
 			"bar.txt",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.p.Filename(); got != tt.want {
 				t.Errorf("Filename() = %v, want %v", got, tt.want)

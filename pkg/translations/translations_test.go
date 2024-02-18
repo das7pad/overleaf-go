@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -86,29 +86,27 @@ func Test_parseLocales(t *testing.T) {
 			},
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := parseLocales(tt.args.raw, tt.args.appName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseLocales() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			for j := range tt.tCases {
-				c := tt.tCases[j]
-				t.Run(fmt.Sprintf("%s/%s", tt.name, c.key), func(t *testing.T) {
-					v, err1 := got[c.key].Render(c.data)
+			for _, ttt := range tt.tCases {
+				t.Run(fmt.Sprintf("%s/%s", tt.name, ttt.key), func(t *testing.T) {
+					v, err1 := got[ttt.key].Render(ttt.data)
 					if err1 != nil {
 						t.Errorf(
 							"parseLocales()[%s].Render(%v) error = %v",
-							c.key, c.data, err1,
+							ttt.key, ttt.data, err1,
 						)
 						return
 					}
-					if v != c.want {
+					if v != ttt.want {
 						t.Errorf(
 							"parseLocales()[%s].Render(%v) got = %q, want %q",
-							c.key, c.data, v, c.want,
+							ttt.key, ttt.data, v, ttt.want,
 						)
 						return
 					}

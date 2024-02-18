@@ -220,10 +220,9 @@ func (m *manager) handleMessage(message channel.PubSubMessage) {
 
 func (m *manager) processAllMessages(allQueue <-chan string) {
 	for message := range allQueue {
-		msg := message
 		m.pauseQueueFor(func() {
 			for _, r := range m.rooms {
-				r.broadcast(msg)
+				r.broadcast(message)
 			}
 		})
 	}
