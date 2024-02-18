@@ -66,10 +66,10 @@ func (e *EditorEventMessage) UnmarshalJSON(p []byte) error {
 		*e = ClientTrackingBatch
 	case ClientTrackingUpdated:
 		*e = ClientTrackingUpdated
-	case ConnectionRejected:
-		*e = ConnectionRejected
 	case CompilerUpdated:
 		*e = CompilerUpdated
+	case ConnectionRejected:
+		*e = ConnectionRejected
 	case ForceDisconnect:
 		*e = ForceDisconnect
 	case ImageNameUpdated:
@@ -84,6 +84,8 @@ func (e *EditorEventMessage) UnmarshalJSON(p []byte) error {
 		*e = ProjectMembershipChanged
 	case ProjectNameUpdated:
 		*e = ProjectNameUpdated
+	case ProjectPublicAccessLevelChanged:
+		*e = ProjectPublicAccessLevelChanged
 	case ReceiveEntityMove:
 		*e = ReceiveEntityMove
 	case ReceiveEntityRename:
