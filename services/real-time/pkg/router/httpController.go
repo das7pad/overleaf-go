@@ -18,6 +18,7 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -283,10 +284,14 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 
 func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
-	var request types.RPCRequest
 	for ok := true; ok; {
-		request = types.RPCRequest{}
-		if err := conn.ReadJSON(&request); err != nil {
+		_, r, err := conn.NextReader()
+		if err != nil {
+			_ = conn.Close()
+			return
+		}
+		var request types.RPCRequest
+		if err = json.NewDecoder(r).Decode(&request); err != nil {
 			if shouldTriggerDisconnect(err) {
 				_ = conn.Close()
 				return
