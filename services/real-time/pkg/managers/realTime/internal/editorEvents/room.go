@@ -202,7 +202,7 @@ type roomChangeInc struct {
 	removed   uint8
 	pending   bool
 	dirty     bool
-	last      bool
+	closed    bool
 	scheduled bool
 	rcs       types.RoomChanges
 }
@@ -264,7 +264,7 @@ func (r *room) broadcastGracefulReconnect(suffix uint8) {
 
 func (r *room) close() {
 	r.mu.Lock()
-	r.rci.last = true
+	r.rci.closed = true
 	s := r.rci.scheduled
 	r.rci.scheduled = true
 	r.mu.Unlock()
@@ -425,11 +425,11 @@ func (r *room) flushRoomChanges(projectId sharedTypes.UUID, fn FlushRoomChanges)
 	r.rci.pending = true
 	r.rci.dirty = false
 	r.rci.scheduled = false
-	last := r.rci.last
+	closed := r.rci.closed
 	rcs := r.rci.rcs
 	r.mu.Unlock()
 	if len(rcs) == 0 {
-		if last {
+		if closed {
 			close(r.c)
 		}
 		return

@@ -95,6 +95,11 @@ func (m *manager) cleanup(r *room, id sharedTypes.UUID) {
 
 func (m *manager) joinLocked(ctx context.Context, r *room, exists bool, client *types.Client) (*room, pendingOperation.PendingOperation, bool) {
 	projectId := client.ProjectId
+	if exists {
+		r.mu.Lock()
+		exists = !r.rci.closed
+		r.mu.Unlock()
+	}
 	if !exists {
 		// Retry lookup under sem lock, the room might exist now.
 		// We are the only potential writer, skip read-locking the roomsMux.
