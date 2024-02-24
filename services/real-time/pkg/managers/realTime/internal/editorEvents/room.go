@@ -176,14 +176,8 @@ func (r RemovedClients) HasAfter(i int, start uint8) bool {
 
 func (c Clients) String() string {
 	var s strings.Builder
-	s.WriteByte('[')
-	for _, client := range c.All {
-		if s.Len() > 1 {
-			s.WriteString(", ")
-		}
-		s.WriteString(client.String())
-	}
-	s.WriteString("] removed=[")
+	s.WriteString(c.All.String())
+	s.WriteString(" removed=[")
 	for i, idx := range c.Removed {
 		if idx == -1 {
 			continue

@@ -19,6 +19,7 @@ package types
 import (
 	"encoding/binary"
 	"math"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -120,6 +121,19 @@ func NewClient(writeQueue WriteQueue) *Client {
 }
 
 type Clients []*Client
+
+func (c Clients) String() string {
+	var s strings.Builder
+	s.WriteByte('[')
+	for _, client := range c {
+		if s.Len() > 1 {
+			s.WriteString(", ")
+		}
+		s.WriteString(client.String())
+	}
+	s.WriteByte(']')
+	return s.String()
+}
 
 func (c Clients) Index(needle *Client) int {
 	for i, client := range c {
