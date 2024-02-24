@@ -115,6 +115,13 @@ func init() {
 	go rng.Run(4096)
 }
 
+func equalFoldASCII(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	return bytes.EqualFold(a, b)
+}
+
 func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, dial ConnectFn) error {
 	w, err := dial(ctx, "", "")
 	if err != nil {
@@ -195,21 +202,21 @@ func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, di
 			return fmt.Errorf("header line: %s", string(l))
 		}
 		switch {
-		case !checks[0] && bytes.EqualFold(name, headerKeyConnection):
+		case !checks[0] && equalFoldASCII(name, headerKeyConnection):
 			var next []byte
 			for ok && len(value) > 0 {
 				next, value, ok = bytes.Cut(value, separatorComma)
 				value = bytes.TrimSpace(value)
-				if bytes.EqualFold(next, headerValueConnection) {
+				if equalFoldASCII(next, headerValueConnection) {
 					checks[0] = true
 					break
 				}
 			}
-		case !checks[1] && bytes.EqualFold(name, headerKeyUpgrade):
-			checks[1] = bytes.EqualFold(value, headerValueUpgrade)
-		case !checks[2] && bytes.EqualFold(name, headerKeyWSProtocol):
+		case !checks[1] && equalFoldASCII(name, headerKeyUpgrade):
+			checks[1] = equalFoldASCII(value, headerValueUpgrade)
+		case !checks[2] && equalFoldASCII(name, headerKeyWSProtocol):
 			checks[2] = bytes.Equal(value, headerValueWSProtocol)
-		case !checks[3] && bytes.EqualFold(name, headerKeyWSAccept):
+		case !checks[3] && equalFoldASCII(name, headerKeyWSAccept):
 			checks[3] = bytes.Equal(value, accept)
 			if !checks[3] {
 				return fmt.Errorf(

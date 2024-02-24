@@ -360,9 +360,16 @@ var (
 	headerValueWSProtocol   = []byte("v8.real-time.overleaf.com")
 	headerValueWSProtocolBS = []byte(".bootstrap.v8.real-time.overleaf.com")
 	headerKeyWSKey          = []byte("Sec-Websocket-Key")
-	responseWS              = []byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: v8.real-time.overleaf.com\r\nSec-WebSocket-Accept: ")
+	responseWS              = []byte("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Protocol: v8.real-time.overleaf.com\r\nSec-WebSocket-Accept: ")
 	responseBodyStart       = []byte("\r\n\r\n")
 )
+
+func equalFoldASCII(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	return bytes.EqualFold(a, b)
+}
 
 func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 	checks := [6]bool{}
@@ -388,21 +395,21 @@ func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 			return nil, httpStatusError(http.StatusBadRequest)
 		}
 		switch {
-		case !checks[0] && bytes.EqualFold(name, headerKeyConnection):
+		case !checks[0] && equalFoldASCII(name, headerKeyConnection):
 			var next []byte
 			for ok && len(value) > 0 {
 				next, value, ok = bytes.Cut(value, separatorComma)
 				value = bytes.TrimSpace(value)
-				if bytes.EqualFold(next, headerValueConnection) {
+				if equalFoldASCII(next, headerValueConnection) {
 					checks[0] = true
 					break
 				}
 			}
-		case !checks[1] && bytes.EqualFold(name, headerKeyUpgrade):
-			checks[1] = bytes.EqualFold(value, headerValueUpgrade)
-		case !checks[2] && bytes.EqualFold(name, headerKeyWSVersion):
+		case !checks[1] && equalFoldASCII(name, headerKeyUpgrade):
+			checks[1] = equalFoldASCII(value, headerValueUpgrade)
+		case !checks[2] && equalFoldASCII(name, headerKeyWSVersion):
 			checks[2] = bytes.Equal(value, headerValueWSVersion)
-		case !(checks[3] && checks[4]) && bytes.EqualFold(name, headerKeyWSProtocol):
+		case !(checks[3] && checks[4]) && equalFoldASCII(name, headerKeyWSProtocol):
 			var next []byte
 			for ok && len(value) > 0 {
 				next, value, ok = bytes.Cut(value, separatorComma)
@@ -419,7 +426,7 @@ func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 					jwtError = c.s.h.jwtProject.ParseInto(claims, b, c.t0)
 				}
 			}
-		case !checks[5] && len(value) == 24 && bytes.EqualFold(name, headerKeyWSKey):
+		case !checks[5] && len(value) == 24 && equalFoldASCII(name, headerKeyWSKey):
 			if _, err = base64.StdEncoding.Decode(buf[0:18], value); err != nil {
 				return nil, httpStatusError(http.StatusBadRequest)
 			}
