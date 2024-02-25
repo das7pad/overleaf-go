@@ -57,6 +57,15 @@ type listener struct {
 
 var closeMessage *websocket.PreparedMessage
 
+func (c *Client) AnnounceClose() error {
+	return c.conn.WritePreparedMessage(closeMessage)
+}
+
+func (c *Client) CloseWrite() error {
+	cr := c.conn.Conn.(interface{ CloseWrite() error })
+	return cr.CloseWrite()
+}
+
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -65,7 +74,6 @@ func (c *Client) Close() {
 		c.stopPingTicker = nil
 	}
 	if c.conn.Conn != nil {
-		_ = c.conn.WritePreparedMessage(closeMessage)
 		_ = c.conn.Close()
 		c.conn.Conn = nil
 	}

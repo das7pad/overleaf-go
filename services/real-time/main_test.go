@@ -33,6 +33,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/das7pad/overleaf-go/cmd/pkg/utils"
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/integrationTests"
@@ -232,6 +234,34 @@ func TestBootstrapBadJWT(t *testing.T) {
 	}
 	if err == nil {
 		t.Errorf("Connect() with bad JWT should fail")
+	}
+}
+
+func TestAnnounceClose(t *testing.T) {
+	c := realTime.Client{}
+	_, err := c.Connect(context.Background(), uri, bootstrapSharded[0], connectFn)
+	if err != nil {
+		t.Fatalf("Connect() returned %v", err)
+	}
+	if err = c.AnnounceClose(); err != nil {
+		t.Fatalf("AnnounceClose() retured %v", err)
+	}
+	if err = c.ReadOnce(); err == nil || !websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+		t.Fatalf("ReadOnce() got = %v, want close error with status %v", err, websocket.CloseAbnormalClosure)
+	}
+}
+
+func TestCloseWrite(t *testing.T) {
+	c := realTime.Client{}
+	_, err := c.Connect(context.Background(), uri, bootstrapSharded[0], connectFn)
+	if err != nil {
+		t.Fatalf("Connect() returned %v", err)
+	}
+	if err = c.CloseWrite(); err != nil {
+		t.Fatalf("CloseWrite() retured %v", err)
+	}
+	if err = c.ReadOnce(); err == nil || !websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+		t.Fatalf("ReadOnce() got = %v, want close error with status %v", err, websocket.CloseAbnormalClosure)
 	}
 }
 
