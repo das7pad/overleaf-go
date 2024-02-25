@@ -120,7 +120,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			removed++
 		}
 	}
-	drop := f.getDrop(removed)
+	drop := f.getDrop(removed * 2)
 	if removed > 0 {
 		for i, rc := range rcs {
 			if rc.IsJoin != 0 {
@@ -128,18 +128,25 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 			}
 			for j, other := range rcs[:i] {
 				if other.PublicId == rc.PublicId {
+					added--
 					drop = append(drop, j)
 					namesSize -= len(other.DisplayName)
+					if !rc.HasEmitted {
+						removed--
+						drop = append(drop, i)
+					}
 					break
 				}
 			}
 		}
 		if len(drop) > 0 {
 			sort.Ints(drop)
-			added -= len(drop)
 			// sort.SearchInts(a,i) returns idx<=len(a), make it idx<len(drop)
 			drop = append(drop, len(rcs))
 		}
+	}
+	if added == 0 && removed == 0 {
+		return
 	}
 	hSet := f.getHSet(added * 4)
 	hDel := f.getHDel(removed * 2)
@@ -147,7 +154,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	const publicIdBufItemLen = types.PublicIdLength + len(":age")
 	publicIdBuf := f.getPublicIdBuf((added + removed) * publicIdBufItemLen)
 	for i, rc := range rcs {
-		if rc.IsJoin != 0 && len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
+		if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
 			continue
 		}
 		publicIdBuf = append(publicIdBuf, rc.PublicId...)
@@ -157,11 +164,11 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 	addedIdx := 0
 	removedIdx := 0
 	for i, rc := range rcs {
+		if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
+			continue
+		}
 		off := (addedIdx + removedIdx) * publicIdBufItemLen
 		if rc.IsJoin != 0 {
-			if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
-				continue
-			}
 			hSet[addedIdx*4] = publicIdBuf[off : off+types.PublicIdLength]
 			if len(rc.DisplayName) == 0 {
 				hSet[addedIdx*4+1] = emptyConnectingConnectedClient
@@ -190,9 +197,7 @@ func (m *manager) FlushRoomChanges(projectId sharedTypes.UUID, rcs types.RoomCha
 		p := make([]byte, 0, size)
 		p = append(p, '[')
 		for i, rc := range rcs {
-			if rc.IsJoin != 0 &&
-				len(drop) > 0 &&
-				drop[sort.SearchInts(drop, i)] == i {
+			if len(drop) > 0 && drop[sort.SearchInts(drop, i)] == i {
 				continue
 			}
 			p = rc.Append(p)

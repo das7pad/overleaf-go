@@ -147,8 +147,9 @@ func (c Clients) Index(needle *Client) int {
 const pendingWritesDisconnected = math.MinInt32
 
 type Client struct {
-	capabilities  Capabilities
 	pendingWrites atomic.Int32
+	capabilities  Capabilities
+	HasEmitted    bool // only read after disconnect
 
 	PublicId    sharedTypes.PublicId
 	ProjectId   sharedTypes.UUID

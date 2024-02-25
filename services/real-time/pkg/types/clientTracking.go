@@ -95,6 +95,7 @@ type RoomChange struct {
 	PublicId    sharedTypes.PublicId `json:"i"`
 	DisplayName string               `json:"n,omitempty"`
 	IsJoin      uint8                `json:"j,omitempty"`
+	HasEmitted  bool                 `json:"-"`
 }
 
 func (r RoomChange) Append(p []byte) []byte {

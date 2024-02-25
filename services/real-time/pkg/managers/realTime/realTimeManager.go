@@ -302,6 +302,7 @@ func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	update.Meta.Source = rpc.Client.PublicId
 	update.Meta.UserId = rpc.Client.UserId
 
+	rpc.Client.HasEmitted = true
 	return m.dum.QueueUpdate(
 		ctx, rpc.Client.ProjectId, rpc.Request.DocId, update,
 	)
@@ -326,6 +327,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	if err := json.Unmarshal(rpc.Request.Body, &p); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
 	}
+	rpc.Client.HasEmitted = true
 	if err := m.clientTracking.UpdatePosition(ctx, rpc.Client, p); err != nil {
 		return errors.Tag(err, "handle position update")
 	}

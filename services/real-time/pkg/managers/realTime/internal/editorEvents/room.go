@@ -400,12 +400,14 @@ func (r *room) renderRoomChanges(removed int) {
 			break
 		}
 		rcs = append(rcs, types.RoomChange{
-			PublicId: clients.All[idx].PublicId,
+			PublicId:   clients.All[idx].PublicId,
+			HasEmitted: clients.All[idx].HasEmitted,
 		})
 	}
 	if removed != -1 {
 		rcs = append(rcs, types.RoomChange{
-			PublicId: clients.All[removed].PublicId,
+			PublicId:   clients.All[removed].PublicId,
+			HasEmitted: clients.All[removed].HasEmitted,
 		})
 	}
 	rci.join = 0
