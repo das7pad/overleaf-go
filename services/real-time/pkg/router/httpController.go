@@ -230,17 +230,20 @@ type bootstrapWSDetails struct {
 }
 
 func (h *httpController) bootstrapWorker() {
+	const softLimit = 10 * time.Second
+	const hardLimit = softLimit + 1*time.Second
+
 	ctx, done := context.WithCancel(context.Background())
-	dl := time.Now().Add(11 * time.Second)
-	t := time.AfterFunc(11*time.Second, done)
+	dl := time.Now().Add(hardLimit)
+	t := time.AfterFunc(hardLimit, done)
 	for d := range h.bootstrapQueue {
-		if dl.Sub(d.t0) < 10*time.Second {
-			dl = d.t0.Add(11 * time.Second)
-			if !t.Reset(11 * time.Second) {
+		if dl.Sub(d.t0) < softLimit {
+			dl = d.t0.Add(hardLimit)
+			if !t.Reset(hardLimit) {
 				t.Stop()
 				done()
 				ctx, done = context.WithCancel(context.Background())
-				t = time.AfterFunc(11*time.Second, done)
+				t = time.AfterFunc(hardLimit, done)
 			}
 		}
 		d.done <- h.rtm.BootstrapWS(ctx, d.resp, d.client, d.claims)
