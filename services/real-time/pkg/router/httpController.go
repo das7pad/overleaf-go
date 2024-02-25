@@ -200,7 +200,6 @@ func (h *httpController) writeLoop(conn *websocket.LeanConn, writeQueue chan typ
 			return
 		}
 		if entry.Msg != nil {
-			_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 			if err := conn.WritePreparedMessage(entry.Msg); err != nil {
 				return
 			}
@@ -219,7 +218,6 @@ func (h *httpController) writeLoop(conn *websocket.LeanConn, writeQueue chan typ
 			if err != nil {
 				return
 			}
-			_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 			err = conn.WriteMessage(websocket.TextMessage, blob)
 			entry.RPCResponse.ReleaseBuffer()
 			if err != nil {
@@ -298,6 +296,10 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 
 func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
+	if conn.SetDeadline(time.Now().Add(idleTime)) != nil {
+		_ = conn.Close()
+		return
+	}
 	for ok := true; ok; {
 		_, r, err := conn.NextReader()
 		if err != nil {
@@ -314,7 +316,7 @@ func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 			return
 		}
 		if request.Action == types.Ping {
-			if conn.SetReadDeadline(time.Now().Add(idleTime)) != nil {
+			if conn.SetDeadline(time.Now().Add(idleTime)) != nil {
 				_ = conn.Close()
 				return
 			}
