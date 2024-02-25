@@ -175,17 +175,17 @@ func (c *Claims) tryUnmarshalJSON(p []byte) error {
 		switch f {
 		case claimFieldEpoch, claimFieldEpochUser,
 			claimFieldExpiresAt, claimFieldTimeout:
-			v, err := strconv.ParseInt(string(p[i:j]), 10, 64)
+			v, err := strconv.ParseUint(string(p[i:j]), 10, 64)
 			if err != nil {
 				return errBadJWT
 			}
 			switch f {
 			case claimFieldEpoch:
-				c.Epoch = v
+				c.Epoch = int64(v)
 			case claimFieldEpochUser:
-				c.EpochUser = v
+				c.EpochUser = int64(v)
 			case claimFieldExpiresAt:
-				c.ExpiresAt = v
+				c.ExpiresAt = int64(v)
 			case claimFieldTimeout:
 				c.Timeout = sharedTypes.ComputeTimeout(v)
 			}

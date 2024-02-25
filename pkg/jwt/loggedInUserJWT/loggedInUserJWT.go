@@ -98,11 +98,11 @@ func (c *Claims) tryUnmarshalJSON(p []byte) error {
 		}
 		switch f {
 		case claimFieldExpiresAt:
-			v, err := strconv.ParseInt(string(p[i:j]), 10, 64)
+			v, err := strconv.ParseUint(string(p[i:j]), 10, 64)
 			if err != nil {
 				return errBadJWT
 			}
-			c.ExpiresAt = v
+			c.ExpiresAt = int64(v)
 		case claimFieldUserId:
 			if err := c.UserId.UnmarshalJSON(p[i:j]); err != nil {
 				return errBadJWT

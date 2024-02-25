@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -51,11 +51,11 @@ func (i BuildId) Age() (time.Duration, error) {
 	if err := i.validate(); err != nil {
 		return 0, err
 	}
-	ns, err := strconv.ParseInt(string(i)[:16], 16, 64)
+	ns, err := strconv.ParseUint(string(i)[:16], 16, 64)
 	if err != nil {
 		return 0, err
 	}
-	return time.Since(time.Unix(0, ns)), nil
+	return time.Since(time.Unix(0, int64(ns))), nil
 }
 
 const anonymousSuffix = "-" + sharedTypes.AllZeroUUID
