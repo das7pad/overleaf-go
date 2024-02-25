@@ -91,8 +91,9 @@ func (m *manager) GetConnectedClients(ctx context.Context, client *types.Client)
 }
 
 var (
-	ageSuffix = []byte(":age")
-	noClients = []byte("[]")
+	ageSuffix    = []byte(":age")
+	emptyClients = []byte("[]")
+	noClients    = []byte("null")
 )
 
 type hgetAllBuffers struct {
@@ -144,8 +145,10 @@ func (m *manager) buildConnectedClients(ctx context.Context, projectId sharedTyp
 			blob = append(blob, v[1:]...)
 		},
 	)
-	if err != nil || len(blob) == 0 {
+	if err != nil {
 		return noClients, err
+	} else if len(blob) == 0 {
+		return emptyClients, err
 	}
 	blob = append(blob, ']')
 	return blob, nil
