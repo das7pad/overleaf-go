@@ -44,7 +44,8 @@ type Client struct {
 	mu             sync.Mutex
 	nextCB         types.Callback
 	callbacks      map[types.Callback]func(response types.RPCResponse)
-	listener       []listener
+	listenerFixed  [4]listener
+	listenerExtra  []listener
 	stopPingTicker func()
 	buf            *rwBuffer
 }
@@ -241,8 +242,6 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	if err := c.connect(ctx, uri, bootstrap, dial); err != nil {
 		return nil, fmt.Errorf("%d: %w", id, err)
 	}
-	c.callbacks = make(map[types.Callback]func(response types.RPCResponse))
-	c.listener = make([]listener, 0, 5)
 
 	res := types.RPCResponse{}
 	c.On(sharedTypes.Bootstrap, func(response types.RPCResponse) {
@@ -305,7 +304,16 @@ func (c *Client) StartHealthCheck() error {
 func (c *Client) On(name sharedTypes.EditorEventMessage, fn func(response types.RPCResponse)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.listener = append(c.listener, listener{
+	for i, l := range c.listenerFixed {
+		if l.name == "" {
+			c.listenerFixed[i] = listener{
+				name: name,
+				fn:   fn,
+			}
+			return
+		}
+	}
+	c.listenerExtra = append(c.listenerExtra, listener{
 		name: name,
 		fn:   fn,
 	})
@@ -330,6 +338,9 @@ func (c *Client) RPCAsyncWrite(res *types.RPCResponse, r *types.RPCRequest) erro
 
 	c.nextCB++
 	if len(c.callbacks) == 0 {
+		if c.callbacks == nil {
+			c.callbacks = make(map[types.Callback]func(response types.RPCResponse), 1)
+		}
 		c.nextCB = 1
 	}
 	r.Callback = c.nextCB
@@ -382,7 +393,13 @@ func (c *Client) ReadOnce() error {
 		c.callbacks[res.Callback](res)
 		delete(c.callbacks, res.Callback)
 	} else if res.Name != "" {
-		for _, l := range c.listener {
+		for _, l := range c.listenerFixed {
+			if l.name == res.Name {
+				l.fn(res)
+				matched = true
+			}
+		}
+		for _, l := range c.listenerExtra {
 			if l.name == res.Name {
 				l.fn(res)
 				matched = true
