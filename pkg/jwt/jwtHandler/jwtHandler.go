@@ -104,6 +104,12 @@ var (
 	ErrTokenMalformed = &errors.UnauthorizedError{
 		Reason: "jwt is malformed",
 	}
+	ErrPayloadMalformed = &errors.UnauthorizedError{
+		Reason: "jwt payload is malformed",
+	}
+	ErrPayloadDecodingFailed = &errors.UnauthorizedError{
+		Reason: "jwt payload decoding failed",
+	}
 )
 
 func (h *JWTHandler[T]) Parse(blob []byte, now time.Time) (T, error) {
@@ -115,7 +121,7 @@ func (h *JWTHandler[T]) Parse(blob []byte, now time.Time) (T, error) {
 	t := h.newClaims()
 	if err = t.FastUnmarshalJSON(payload); err != nil {
 		var tt T
-		return tt, ErrTokenMalformed
+		return tt, ErrPayloadMalformed
 	}
 	if err = t.Validate(now); err != nil {
 		var tt T
@@ -130,7 +136,7 @@ func (h *JWTHandler[T]) ParseInto(t T, blob []byte, now time.Time) error {
 		return err
 	}
 	if err = t.FastUnmarshalJSON(payload); err != nil {
-		return ErrTokenMalformed
+		return ErrPayloadMalformed
 	}
 	if err = t.Validate(now); err != nil {
 		return err
@@ -145,7 +151,7 @@ func (h *JWTHandler[T]) parsePayload(blob []byte) ([]byte, error) {
 		!hasPayload ||
 		len(header) == 0 ||
 		len(payload) == 0 ||
-		len(mac) != int(h.hmacEncLen) ||
+		(len(mac) != int(h.hmacEncLen) && len(mac) != int(h.hmacEncLen)+1) ||
 		!bytes.Equal(header, h.headerBlob) {
 		return nil, ErrTokenMalformed
 	}
@@ -163,7 +169,7 @@ func (h *JWTHandler[T]) parsePayload(blob []byte) ([]byte, error) {
 	{
 		n, err := base64.RawURLEncoding.Decode(payload, payload)
 		if err != nil {
-			return nil, ErrTokenMalformed
+			return nil, ErrPayloadDecodingFailed
 		}
 		payload = payload[:n]
 	}
