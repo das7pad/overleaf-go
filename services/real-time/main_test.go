@@ -220,6 +220,21 @@ func TestBootstrap(t *testing.T) {
 	bootstrapClient(bootstrapSharded[0])
 }
 
+func TestBootstrapBadJWT(t *testing.T) {
+	c := realTime.Client{}
+	res, err := c.Connect(context.Background(), uri, "bad.formatted.jwt", connectFn)
+	if want := sharedTypes.ConnectionRejected; res.Name != want {
+		t.Errorf("Connect() name = %q, want %q", res.Name, want)
+	}
+	body := `{"message":"bad wsBootstrap blob","code":"BadWsBootstrapBlob"}`
+	if got := string(res.Body); got != body {
+		t.Errorf("Connect() body = %q, want %q", got, body)
+	}
+	if err == nil {
+		t.Errorf("Connect() with bad JWT should fail")
+	}
+}
+
 func benchmarkBootstrapN(b *testing.B, n int) {
 	if n >= 1_000 && testing.Short() {
 		b.SkipNow()
@@ -329,6 +344,10 @@ func BenchmarkBootstrap21k(b *testing.B) {
 
 func BenchmarkBootstrap24k(b *testing.B) {
 	benchmarkBootstrapN(b, 24_000)
+}
+
+func BenchmarkBootstrap25k(b *testing.B) {
+	benchmarkBootstrapN(b, 25_000)
 }
 
 func singleClientSetup() (*types.RPCResponse, *realTime.Client) {
