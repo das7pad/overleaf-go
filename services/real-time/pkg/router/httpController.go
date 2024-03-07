@@ -108,16 +108,17 @@ func (h *httpController) addRoutes(router *httpUtils.Router) {
 		HandlerFunc(h.wsHTTP)
 }
 
-func sendAndForget(conn *websocket.Conn, entry types.WriteQueueEntry) {
+func sendAndForget(conn *websocket.LeanConn, entry types.WriteQueueEntry) {
 	_ = conn.WritePreparedMessage(entry.Msg)
 	_ = conn.Close()
+	putBuffer(conn.BR)
 }
 
 func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 	t0 := time.Now()
 	claims := projectJWT.Claims{}
 	var jwtError error
-	c, brw, err := HTTPUpgrade(w, r, func(blob []byte) {
+	c, br, err := HTTPUpgrade(w, r, func(blob []byte) {
 		jwtError = h.jwtProject.ParseInto(&claims, blob, t0)
 	})
 	if err != nil {
@@ -125,14 +126,20 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf := brw.AvailableBuffer()[0:4096]
-	conn := websocket.NewConn(c, true, 4096, 4096, nil, brw.Reader, buf)
+	conn := websocket.LeanConn{
+		Conn:                        c,
+		BR:                          br,
+		ReadLimit:                   -1,
+		CompressionLevel:            websocket.DisableCompression,
+		IsServer:                    true,
+		NegotiatedPerMessageDeflate: false,
+	}
 	if jwtError != nil {
 		log.Println("jwt auth failed: " + jwtError.Error())
-		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+		sendAndForget(&conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	h.ws(conn, t0, claims)
+	h.ws(&conn, t0, claims)
 }
 
 func (h *httpController) wsWsServer(c *wsConn) error {
@@ -141,18 +148,24 @@ func (h *httpController) wsWsServer(c *wsConn) error {
 	if err != nil {
 		return err
 	}
-	buf := c.brw.WriteBuffer
-	conn := websocket.NewConn(c.BufferedConn, true, 2048, 2048, nil, c.brw.Reader, buf)
+	conn := websocket.LeanConn{
+		Conn:                        c.Conn,
+		BR:                          c.reader,
+		ReadLimit:                   -1,
+		CompressionLevel:            websocket.DisableCompression,
+		IsServer:                    true,
+		NegotiatedPerMessageDeflate: false,
+	}
 	if jwtError != nil {
 		log.Println("jwt auth failed: " + jwtError.Error())
-		sendAndForget(conn, events.ConnectionRejectedBadWsBootstrapPrepared)
+		sendAndForget(&conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return nil
 	}
-	h.ws(conn, c.t0, claims)
+	h.ws(&conn, c.t0, claims)
 	return nil
 }
 
-func (h *httpController) ws(conn *websocket.Conn, t0 time.Time, claimsProjectJWT projectJWT.Claims) {
+func (h *httpController) ws(conn *websocket.LeanConn, t0 time.Time, claimsProjectJWT projectJWT.Claims) {
 	if h.rtm.IsShuttingDown() {
 		sendAndForget(conn, events.ConnectionRejectedRetryPrepared)
 		return
@@ -171,16 +184,14 @@ func (h *httpController) ws(conn *websocket.Conn, t0 time.Time, claimsProjectJWT
 	go h.readLoop(conn, c)
 }
 
-func (h *httpController) writeLoop(conn *websocket.Conn, writeQueue chan types.WriteQueueEntry) {
+func (h *httpController) writeLoop(conn *websocket.LeanConn, writeQueue chan types.WriteQueueEntry) {
 	defer func() {
 		_ = conn.Close()
 		for range writeQueue {
 			// Flush the queue.
 			// Eventually the room cleanup will close the channel.
 		}
-		if c, ok := conn.NetConn().(*BufferedConn); ok {
-			c.ReleaseBuffers()
-		}
+		putBuffer(conn.BR)
 	}()
 	var lsr []types.LazySuccessResponse
 	for {
@@ -285,7 +296,7 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 	return c.EnsureQueueResponse(&resp)
 }
 
-func (h *httpController) readLoop(conn *websocket.Conn, c *types.Client) {
+func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 	defer h.rtm.Disconnect(c)
 	for ok := true; ok; {
 		_, r, err := conn.NextReader()

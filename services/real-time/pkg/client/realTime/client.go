@@ -40,14 +40,14 @@ import (
 )
 
 type Client struct {
-	conn           *websocket.Conn
+	conn           websocket.LeanConn
 	mu             sync.Mutex
 	nextCB         types.Callback
 	callbacks      map[types.Callback]func(response types.RPCResponse)
 	listenerFixed  [4]listener
 	listenerExtra  []listener
 	stopPingTicker func()
-	buf            *rwBuffer
+	buf            *readBuffer
 }
 
 type listener struct {
@@ -64,13 +64,13 @@ func (c *Client) Close() {
 		c.stopPingTicker()
 		c.stopPingTicker = nil
 	}
-	if c.conn != nil {
+	if c.conn.Conn != nil {
 		_ = c.conn.WritePreparedMessage(closeMessage)
 		_ = c.conn.Close()
-		c.conn = nil
+		c.conn.Conn = nil
 	}
 	if c.buf != nil {
-		putBuffer(c.buf)
+		putReadBuffer(c.buf)
 		c.buf = nil
 	}
 }
@@ -129,12 +129,12 @@ func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, di
 		return fmt.Errorf("dial: %w", err)
 	}
 	defer func() {
-		if c.conn == nil {
+		if c.conn.Conn == nil {
 			_ = w.Close()
 		}
 	}()
 
-	if _, ok := ctx.Deadline(); ok || ctx.Done() != nil {
+	if ctx.Done() != nil {
 		cancelCtx, done := context.WithCancel(ctx)
 		abortDone := make(chan struct{})
 		defer func() {
@@ -143,16 +143,21 @@ func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, di
 		defer done()
 		go func() {
 			<-cancelCtx.Done()
-			if c.conn == nil {
+			c.mu.Lock()
+			if c.conn.Conn == nil {
 				_ = w.Close()
 			}
+			c.mu.Unlock()
 			close(abortDone)
 		}()
 	}
 
-	c.buf = newBuffer(w)
-	key := c.buf.WriteBuffer[0:24]
-	p := c.buf.WriteBuffer[24:24]
+	c.buf = newReadBuffer(w)
+	wBuf := writeBufferPool.Get().(*writeBuf)
+	defer writeBufferPool.Put(wBuf)
+
+	key := wBuf.p[0:24]
+	p := wBuf.p[24:24]
 
 	rnd := <-rng
 	base64.StdEncoding.Encode(key, rnd[:])
@@ -172,6 +177,7 @@ func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	p = append(p, "Sec-Websocket-Key: "...)
 	p = append(p, key...)
 	p = append(p, "\r\n\r\n"...)
+	wBuf.p = p
 
 	if _, err = w.Write(p); err != nil {
 		return fmt.Errorf("write request: %w", err)
@@ -233,7 +239,16 @@ func (c *Client) connect(ctx context.Context, uri *url.URL, bootstrap string, di
 		}
 	}
 
-	c.conn = websocket.NewConn(w, false, 2048, 2048, nil, c.buf.Reader, c.buf.WriteBuffer)
+	c.mu.Lock()
+	c.conn = websocket.LeanConn{
+		Conn:                        w,
+		BR:                          c.buf.Reader,
+		ReadLimit:                   -1,
+		CompressionLevel:            websocket.DisableCompression,
+		IsServer:                    false,
+		NegotiatedPerMessageDeflate: false,
+	}
+	c.mu.Unlock()
 	return nil
 }
 
@@ -283,7 +298,7 @@ func (c *Client) Ping() error {
 func (c *Client) StartHealthCheck() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.conn == nil {
+	if c.conn.Conn == nil {
 		return errors.New("closed")
 	}
 	var t *time.Timer
@@ -332,7 +347,7 @@ func (c *Client) SetDeadline(d time.Time) error {
 func (c *Client) RPCAsyncWrite(res *types.RPCResponse, r *types.RPCRequest) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.conn == nil {
+	if c.conn.Conn == nil {
 		return errors.New("closed")
 	}
 
@@ -372,19 +387,15 @@ func (c *Client) RPC(res *types.RPCResponse, r *types.RPCRequest) error {
 }
 
 func (c *Client) ReadOnce() error {
-	if c.conn == nil {
+	if c.conn.Conn == nil {
 		return errors.New("closed")
 	}
-	_, r, err := c.conn.NextReader()
-	if err != nil {
-		return err
-	}
 	c.buf.ReadBuffer.Reset()
-	if _, err = c.buf.ReadBuffer.ReadFrom(r); err != nil {
+	if _, _, err := c.conn.NextReadIntoBuffer(c.buf.ReadBuffer); err != nil {
 		return err
 	}
 	res := types.RPCResponse{}
-	if err = res.FastUnmarshalJSON(c.buf.ReadBuffer.Bytes()); err != nil {
+	if err := res.FastUnmarshalJSON(c.buf.ReadBuffer.Bytes()); err != nil {
 		return err
 	}
 	matched := false
@@ -429,30 +440,38 @@ func appendSecWebSocketAccept(buf []byte, k []byte) []byte {
 	return base64.StdEncoding.AppendEncode(buf, k)
 }
 
-var bufferPool sync.Pool
+var (
+	readBufferPool sync.Pool
 
-type rwBuffer struct {
-	*bufio.Reader
-	WriteBuffer []byte
-	ReadBuffer  *bytes.Buffer
+	writeBufferPool = sync.Pool{New: func() any {
+		return &writeBuf{p: make([]byte, 1024)}
+	}}
+)
+
+type writeBuf struct {
+	p []byte
 }
 
-func newBuffer(r io.Reader) *rwBuffer {
-	if v := bufferPool.Get(); v != nil {
-		br := v.(*rwBuffer)
+type readBuffer struct {
+	*bufio.Reader
+	ReadBuffer *bytes.Buffer
+}
+
+func newReadBuffer(r io.Reader) *readBuffer {
+	if v := readBufferPool.Get(); v != nil {
+		br := v.(*readBuffer)
 		br.Reader.Reset(r)
 		return br
 	}
-	return &rwBuffer{
-		Reader:      bufio.NewReaderSize(r, 2048),
-		WriteBuffer: make([]byte, 2048),
-		ReadBuffer:  bytes.NewBuffer(make([]byte, 0, 4096)),
+	return &readBuffer{
+		Reader:     bufio.NewReaderSize(r, 2048),
+		ReadBuffer: bytes.NewBuffer(make([]byte, 0, 4096)),
 	}
 }
 
-func putBuffer(br *rwBuffer) {
+func putReadBuffer(br *readBuffer) {
 	br.Reader.Reset(nil)
-	bufferPool.Put(br)
+	readBufferPool.Put(br)
 	return
 }
 

@@ -87,8 +87,8 @@ require (
 // Cut down allocations
 replace github.com/gorilla/mux v1.8.1 => github.com/gorilla/mux v1.8.2-0.20231207045853-e44017df2b87
 
-// Expose NewConn and optimize allocations
-replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websocket v0.0.0-20240218131733-b744c15f63fa
+// Add LeanConn and optimize allocations
+replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websocket v0.0.0-20240307215630-b513d9a4c270
 
 // Optimize allocations and provide new interfaces
 replace github.com/redis/go-redis/v9 v9.4.0 => github.com/das7pad/go-redis/v9 v9.0.0-20240218204503-4ae018238868

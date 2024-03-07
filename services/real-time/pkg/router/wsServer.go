@@ -36,7 +36,6 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
 )
 
-type Handler func(c net.Conn, brw *RWBuffer, t0 time.Time, parseRequest func(parseJWT func([]byte)) error) error
 type ClaimParser[T any] func([]byte) (T, error)
 
 type WSServer struct {
@@ -157,18 +156,18 @@ func (s *WSServer) ServeUnix(l *net.UnixListener) error {
 
 func (s *WSServer) serve(conn net.Conn) {
 	wc := wsConn{
-		BufferedConn: &BufferedConn{Conn: conn},
-		t0:           time.Now(),
-		s:            s,
+		Conn: conn,
+		t0:   time.Now(),
+		s:    s,
 	}
 	wc.serve()
 }
 
 func (s *WSServer) serveUnix(conn *net.UnixConn) {
 	wc := wsConn{
-		BufferedConn: &BufferedConn{Conn: conn},
-		t0:           time.Now(),
-		s:            s,
+		Conn: conn,
+		t0:   time.Now(),
+		s:    s,
 	}
 	wc.serve()
 }
@@ -177,31 +176,9 @@ func (s *WSServer) decrementN() {
 	s.n.Add(^uint32(0))
 }
 
-type BufferedConn struct {
-	net.Conn
-	brw    *RWBuffer
-	closed atomic.Bool
-}
-
-var errConnAlreadyClosed = errors.New("wsServer: connection already closed")
-
-func (c *BufferedConn) Close() error {
-	if c.closed.CompareAndSwap(false, true) {
-		return c.Conn.Close()
-	} else {
-		return errConnAlreadyClosed
-	}
-}
-
-func (c *BufferedConn) ReleaseBuffers() {
-	if c.brw != nil {
-		putBuffer(c.brw)
-		c.brw = nil
-	}
-}
-
 type wsConn struct {
-	*BufferedConn
+	net.Conn
+	reader      *bufio.Reader
 	reads       uint8
 	hijacked    bool
 	noKeepalive bool
@@ -260,10 +237,10 @@ func (c *wsConn) serve() {
 	defer func() {
 		if !c.hijacked {
 			_ = c.Close()
-			c.ReleaseBuffers()
+			putBuffer(c.reader)
 		}
 	}()
-	c.brw = newBuffer(c)
+	c.reader = newBuffer(c)
 
 	if c.SetDeadline(c.t0.Add(30*time.Second)) != nil {
 		return
@@ -295,7 +272,7 @@ func (c *wsConn) Read(p []byte) (int, error) {
 }
 
 func (c *wsConn) nextRequest() error {
-	l, err := c.brw.ReadSlice('\n')
+	l, err := c.reader.ReadSlice('\n')
 	if err != nil {
 		if err == errTooManyReads || err == bufio.ErrBufferFull {
 			return httpStatusError(http.StatusRequestURITooLong)
@@ -323,7 +300,7 @@ func (c *wsConn) nextRequest() error {
 
 func (c *wsConn) handleStatusRequest() error {
 	for {
-		l, err := c.brw.ReadSlice('\n')
+		l, err := c.reader.ReadSlice('\n')
 		if err != nil {
 			if err == errTooManyReads || err == bufio.ErrBufferFull {
 				return httpStatusError(http.StatusRequestHeaderFieldsTooLarge)
@@ -362,7 +339,15 @@ var (
 	headerKeyWSKey          = []byte("Sec-Websocket-Key")
 	responseWS              = []byte("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Protocol: v8.real-time.overleaf.com\r\nSec-WebSocket-Accept: ")
 	responseBodyStart       = []byte("\r\n\r\n")
+
+	writeBufPool = sync.Pool{New: func() any {
+		return &writeBuf{p: make([]byte, 256)}
+	}}
 )
+
+type writeBuf struct {
+	p []byte
+}
 
 func equalFoldASCII(a, b []byte) bool {
 	if len(a) != len(b) {
@@ -373,10 +358,10 @@ func equalFoldASCII(a, b []byte) bool {
 
 func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 	checks := [6]bool{}
-	buf := c.brw.WriteBuffer[:0]
+	var buf *writeBuf
 	var jwtError error
 	for {
-		l, err := c.brw.ReadSlice('\n')
+		l, err := c.reader.ReadSlice('\n')
 		if err != nil {
 			if err == errTooManyReads || err == bufio.ErrBufferFull {
 				return nil, httpStatusError(http.StatusRequestHeaderFieldsTooLarge)
@@ -427,16 +412,22 @@ func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 				}
 			}
 		case !checks[5] && len(value) == 24 && equalFoldASCII(name, headerKeyWSKey):
-			if _, err = base64.StdEncoding.Decode(buf[0:18], value); err != nil {
+			buf = writeBufPool.Get().(*writeBuf)
+			p := buf.p[:0]
+			if _, err = base64.StdEncoding.Decode(p[0:18], value); err != nil {
 				return nil, httpStatusError(http.StatusBadRequest)
 			}
-			buf = append(buf, responseWS...)
-			buf = appendSecWebSocketAccept(buf, value)
-			buf = append(buf, responseBodyStart...)
+			p = append(p, responseWS...)
+			p = appendSecWebSocketAccept(p, value)
+			p = append(p, responseBodyStart...)
+			buf.p = p
 			checks[5] = true
 		}
 	}
-	if c.brw.Reader.Buffered() > 0 {
+	if buf != nil {
+		defer writeBufPool.Put(buf)
+	}
+	if c.reader.Buffered() > 0 {
 		return nil, httpStatusError(http.StatusBadRequest)
 	}
 	for _, ok := range checks {
@@ -444,26 +435,26 @@ func (c *wsConn) parseWsRequest(claims *projectJWT.Claims) (error, error) {
 			return nil, httpStatusError(http.StatusBadRequest)
 		}
 	}
-	c.hijacked = true
-	if _, err := c.Write(buf); err != nil {
+	if _, err := c.Write(buf.p); err != nil {
 		return nil, err
 	}
-	c.brw.Reader.Reset(c.Conn)
+	c.reader.Reset(c.Conn)
+	c.hijacked = true
 	return jwtError, nil
 }
 
-func HTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.ReadWriter, error) {
-	conn, brw, err := tryHTTPUpgrade(w, r, parseJWT)
+func HTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.Reader, error) {
+	conn, br, err := tryHTTPUpgrade(w, r, parseJWT)
 	if err != nil {
 		if code, ok := err.(httpStatusError); ok {
 			w.WriteHeader(int(code))
 		}
-		return nil, brw, err
+		return nil, br, err
 	}
-	return conn, brw, nil
+	return conn, br, nil
 }
 
-func tryHTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.ReadWriter, error) {
+func tryHTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte)) (net.Conn, *bufio.Reader, error) {
 	h := r.Header
 	ok := false
 	for _, v := range h["Connection"] {
@@ -538,7 +529,7 @@ func tryHTTPUpgrade(w http.ResponseWriter, r *http.Request, parseJWT func([]byte
 		return nil, nil, err
 	}
 
-	return c, brw, nil
+	return c, brw.Reader, nil
 }
 
 var wsKeyGUID = []byte("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
@@ -551,27 +542,18 @@ func appendSecWebSocketAccept(buf []byte, k []byte) []byte {
 	return base64.StdEncoding.AppendEncode(buf, k)
 }
 
-var bufferPool sync.Pool
+var readBufferPool sync.Pool
 
-func newBuffer(r io.Reader) *RWBuffer {
-	if v := bufferPool.Get(); v != nil {
-		br := v.(*RWBuffer)
-		br.Reader.Reset(r)
+func newBuffer(r io.Reader) *bufio.Reader {
+	if v := readBufferPool.Get(); v != nil {
+		br := v.(*bufio.Reader)
+		br.Reset(r)
 		return br
 	}
-	return &RWBuffer{
-		Reader:      bufio.NewReaderSize(r, 2048),
-		WriteBuffer: make([]byte, 2048),
-	}
+	return bufio.NewReaderSize(r, 2048)
 }
 
-func putBuffer(br *RWBuffer) {
-	br.Reader.Reset(nil)
-	bufferPool.Put(br)
-	return
-}
-
-type RWBuffer struct {
-	*bufio.Reader
-	WriteBuffer []byte
+func putBuffer(br *bufio.Reader) {
+	br.Reset(nil)
+	readBufferPool.Put(br)
 }
