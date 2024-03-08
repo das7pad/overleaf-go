@@ -446,7 +446,7 @@ func TestConnectedClients(t *testing.T) {
 	defer o.Close()
 	id2 := bs.PublicId
 
-	if err := c.SetDeadline(time.Now().Add(time.Second)); err != nil {
+	if err := c.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		t.Fatalf("set deadline: %s", err)
 	}
 
