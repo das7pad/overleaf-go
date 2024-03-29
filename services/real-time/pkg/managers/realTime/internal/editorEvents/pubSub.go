@@ -76,7 +76,7 @@ func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEvent
 			}
 			if !client.HasCapability(types.CanSeeOtherClients) {
 				// This is a restricted user aka a token user who lost access.
-				client.TriggerDisconnectAndDropQueue()
+				client.ForceDisconnect()
 			}
 		}
 	}
@@ -98,7 +98,7 @@ func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEvent) error
 			continue
 		}
 		if p.UserId == client.UserId {
-			client.TriggerDisconnectAndDropQueue()
+			client.ForceDisconnect()
 		}
 	}
 	return r.handleMessage(msg, clients)

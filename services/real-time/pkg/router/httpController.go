@@ -80,16 +80,22 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 }
 
 type httpController struct {
-	rtm             realTime.Manager
-	jwtProject      *jwtHandler.JWTHandler[*projectJWT.Claims]
-	bootstrapQueue  chan bootstrapWSDetails
-	writeQueueDepth int
+	rtm                realTime.Manager
+	jwtProject         *jwtHandler.JWTHandler[*projectJWT.Claims]
+	bootstrapQueue     chan bootstrapWSDetails
+	scheduleWriteQueue chan *types.Client
+	writeQueueDepth    int
 }
 
 func (h *httpController) startWorker() {
 	h.bootstrapQueue = make(chan bootstrapWSDetails, 120)
 	for i := 0; i < 60; i++ {
 		go h.bootstrapWorker()
+	}
+
+	h.scheduleWriteQueue = make(chan *types.Client, 8192)
+	for i := 0; i < 4096; i++ {
+		go h.writeWorker()
 	}
 }
 
@@ -170,10 +176,7 @@ func (h *httpController) ws(conn *websocket.LeanConn, t0 time.Time, claimsProjec
 		return
 	}
 
-	writeQueue := make(chan types.WriteQueueEntry, h.writeQueueDepth)
-	c := types.NewClient(writeQueue)
-
-	go h.writeLoop(conn, writeQueue)
+	c := types.NewClient(conn, h.writeQueueDepth, h.scheduleWriteQueue)
 
 	if !h.bootstrap(t0, c, claimsProjectJWT) {
 		h.rtm.Disconnect(c)
@@ -181,51 +184,6 @@ func (h *httpController) ws(conn *websocket.LeanConn, t0 time.Time, claimsProjec
 	}
 
 	go h.readLoop(conn, c)
-}
-
-func (h *httpController) writeLoop(conn *websocket.LeanConn, writeQueue chan types.WriteQueueEntry) {
-	defer func() {
-		_ = conn.Close()
-		for range writeQueue {
-			// Flush the queue.
-			// Eventually the room cleanup will close the channel.
-		}
-	}()
-	var lsr []types.LazySuccessResponse
-	for {
-		entry, ok := <-writeQueue
-		if !ok {
-			return
-		}
-		if entry.Msg != nil {
-			if err := conn.WritePreparedMessage(entry.Msg); err != nil {
-				return
-			}
-		} else if len(lsr) < 15 &&
-			entry.RPCResponse.IsLazySuccessResponse() {
-			lsr = append(lsr, types.LazySuccessResponse{
-				Callback: entry.RPCResponse.Callback,
-				Latency:  entry.RPCResponse.Latency,
-			})
-		} else {
-			if len(lsr) > 0 {
-				entry.RPCResponse.LazySuccessResponses = lsr
-				lsr = lsr[:0]
-			}
-			blob, err := entry.RPCResponse.MarshalJSON()
-			if err != nil {
-				return
-			}
-			err = conn.WriteMessage(websocket.TextMessage, blob)
-			entry.RPCResponse.ReleaseBuffer()
-			if err != nil {
-				return
-			}
-		}
-		if entry.FatalError {
-			return
-		}
-	}
 }
 
 type bootstrapWSDetails struct {
@@ -343,6 +301,12 @@ func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 			response.Latency.End()
 			ok = c.EnsureQueueResponse(&response) && !response.FatalError
 		}
+	}
+}
+
+func (h *httpController) writeWorker() {
+	for client := range h.scheduleWriteQueue {
+		client.ProcessQueuedMessages()
 	}
 }
 

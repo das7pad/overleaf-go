@@ -18,7 +18,6 @@ package types
 
 import (
 	"encoding/binary"
-	"math"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -111,10 +110,12 @@ func generatePublicId() sharedTypes.PublicId {
 	return sharedTypes.PublicId(buf[:])
 }
 
-func NewClient(writeQueue WriteQueue) *Client {
+func NewClient(conn *websocket.LeanConn, writeQueueDepth int, scheduleWriteQueue chan *Client) *Client {
 	c := Client{
-		PublicId:   generatePublicId(),
-		writeQueue: writeQueue,
+		PublicId:           generatePublicId(),
+		conn:               conn,
+		writeQueue:         make([]WriteQueueEntry, writeQueueDepth),
+		scheduleWriteQueue: scheduleWriteQueue,
 	}
 	c.MarkAsLeftDoc()
 	return &c
@@ -144,12 +145,20 @@ func (c Clients) Index(needle *Client) int {
 	return -1
 }
 
-const pendingWritesDisconnected = math.MinInt32
+const (
+	pendingWrite              = 1
+	enqueuedWrite             = 1 << 8
+	tryEnqueueWrite           = enqueuedWrite + pendingWrite
+	pendingWritesDisconnected = 1 << 24
+
+	disconnectAfterFlush = 1
+	forceDisconnected    = 2
+)
 
 type Client struct {
-	pendingWrites atomic.Int32
-	capabilities  Capabilities
-	HasEmitted    bool // only read after disconnect
+	writeState   atomic.Uint32
+	capabilities Capabilities
+	HasEmitted   bool // only read after disconnect
 
 	PublicId    sharedTypes.PublicId
 	ProjectId   sharedTypes.UUID
@@ -158,7 +167,10 @@ type Client struct {
 
 	docId atomic.Pointer[sharedTypes.UUID]
 
-	writeQueue WriteQueue
+	lsr                []LazySuccessResponse
+	conn               *websocket.LeanConn
+	writeQueue         []WriteQueueEntry
+	scheduleWriteQueue chan *Client
 }
 
 func (c *Client) String() string {
@@ -242,20 +254,99 @@ func (c *Client) CanDo(action Action, docId sharedTypes.UUID) error {
 	}
 }
 
-func (c *Client) TriggerDisconnectAndDropQueue() {
-	c.TriggerDisconnect()
-	for range c.writeQueue {
+func (c *Client) ForceDisconnect() {
+	if c.initiateDisconnect(forceDisconnected) {
+		c.scheduleWriteQueue <- c
 	}
 }
 
 func (c *Client) TriggerDisconnect() {
-	for !c.pendingWrites.CompareAndSwap(0, pendingWritesDisconnected) {
-		if c.pendingWrites.Load() < 0 {
+	if c.initiateDisconnect(disconnectAfterFlush) {
+		c.scheduleWriteQueue <- c
+	}
+}
+
+func (c *Client) initiateDisconnect(v uint32) bool {
+	for {
+		s := c.writeState.Load()
+		closing, r, w := s>>24, uint8(s>>16), uint8(s>>8)
+		if closing >= v {
+			return false
+		}
+		ok := c.writeState.CompareAndSwap(s, s|(v-closing)*pendingWritesDisconnected)
+		if !ok {
+			continue
+		}
+
+		return r == w
+	}
+}
+
+func (c *Client) ProcessQueuedMessages() {
+	for {
+		hasMore, ok := c.processNextQueuedMessage()
+		if !ok {
+			c.initiateDisconnect(forceDisconnected)
+			_ = c.conn.Close()
 			return
 		}
-		time.Sleep(time.Nanosecond)
+		if !hasMore {
+			return
+		}
 	}
-	close(c.writeQueue)
+}
+
+func (c *Client) processNextQueuedMessage() (bool, bool) {
+	s := c.writeState.Load()
+	closing, r, w, pending := s>>24, uint8(s>>16), uint8(s>>8), uint8(s)
+	if closing >= forceDisconnected {
+		return false, false
+	}
+	if pending > 0 {
+		return true, true
+	}
+	if r == w {
+		return false, closing == 0
+	}
+	n := uint8(cap(c.writeQueue))
+	r = (r + 1) % n
+	entry := c.writeQueue[r]
+	c.writeQueue[r] = WriteQueueEntry{}
+	if entry.Msg != nil {
+		if err := c.conn.WritePreparedMessage(entry.Msg); err != nil {
+			return false, false
+		}
+	} else if len(c.lsr) < 15 && entry.RPCResponse.IsLazySuccessResponse() {
+		c.lsr = append(c.lsr, LazySuccessResponse{
+			Callback: entry.RPCResponse.Callback,
+			Latency:  entry.RPCResponse.Latency,
+		})
+	} else {
+		if len(c.lsr) > 0 {
+			entry.RPCResponse.LazySuccessResponses = c.lsr
+			c.lsr = c.lsr[:0]
+		}
+		blob, err := entry.RPCResponse.MarshalJSON()
+		if err != nil {
+			return false, false
+		}
+		err = c.conn.WriteMessage(websocket.TextMessage, blob)
+		entry.RPCResponse.ReleaseBuffer()
+		if err != nil {
+			return false, false
+		}
+	}
+	for {
+		w = w % n
+		sRolled := closing<<24 | uint32(r)<<16 | uint32(w)<<8 | uint32(pending)
+		if c.writeState.CompareAndSwap(s, sRolled) {
+			break
+		}
+		s = c.writeState.Load()
+		closing, r, w, pending = s>>24, uint8(s>>16), uint8(s>>8), uint8(s)
+		r = (r + 1) % n
+	}
+	return r != w, !entry.FatalError
 }
 
 func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
@@ -266,20 +357,25 @@ func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
 }
 
 func (c *Client) EnsureQueueMessage(msg WriteQueueEntry) bool {
-	if c.pendingWrites.Add(1) < 0 {
-		// The client is in the process of disconnecting
-		c.pendingWrites.Add(-1)
+	s := c.writeState.Add(tryEnqueueWrite)
+	closing, r, w, pending := s>>24, uint8(s>>16), uint8(s>>8), uint8(s)
+	if closing > 0 {
+		// The client is in the process of disconnecting.
+		c.writeState.Add(^uint32(tryEnqueueWrite - 1))
 		return false
 	}
-	select {
-	case c.writeQueue <- msg:
-		c.pendingWrites.Add(-1)
-		return true
-	default:
-		// The queue is full, dropping message
-		c.pendingWrites.Add(-1)
-		// The client is out of sync, disconnect and flush queue
-		c.TriggerDisconnectAndDropQueue()
+	idx := int(w) % cap(c.writeQueue)
+	if r == w-pending+1 {
+		// The queue is full, we need to drop this message.
+		c.writeState.Add(^uint32(tryEnqueueWrite - 1))
+		// In dropping this message, the client went out of sync, disconnect.
+		c.ForceDisconnect()
 		return false
 	}
+	c.writeQueue[idx] = msg
+	c.writeState.Add(^uint32(pendingWrite - 1))
+	if r == w-1 {
+		c.scheduleWriteQueue <- c
+	}
+	return true
 }

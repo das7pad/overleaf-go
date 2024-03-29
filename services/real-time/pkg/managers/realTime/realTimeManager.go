@@ -146,7 +146,7 @@ func (m *manager) DisconnectAll() {
 			clients := r.Clients()
 			for i, client := range clients.All {
 				if !clients.Removed.Has(i) {
-					client.TriggerDisconnectAndDropQueue()
+					client.ForceDisconnect()
 				}
 			}
 			clients.Done()
