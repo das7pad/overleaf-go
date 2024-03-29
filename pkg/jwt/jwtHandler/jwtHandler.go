@@ -151,15 +151,15 @@ func (h *JWTHandler[T]) parsePayload(blob []byte) ([]byte, error) {
 		!hasPayload ||
 		len(header) == 0 ||
 		len(payload) == 0 ||
-		(len(mac) != int(h.hmacEncLen) && len(mac) != int(h.hmacEncLen)+1) ||
+		len(mac) != int(h.hmacEncLen) ||
 		!bytes.Equal(header, h.headerBlob) {
 		return nil, ErrTokenMalformed
 	}
 
 	m := h.getHmac()
 	m.hmac.Write(header[0 : len(header)+1+len(payload)])
-	m.hmac.Sum(m.buf[h.hmacOff:h.hmacOff])
-	base64.RawURLEncoding.Encode(m.buf, m.buf[h.hmacOff:])
+	s := m.hmac.Sum(m.buf[h.hmacOff:h.hmacOff])
+	m.buf = base64.RawURLEncoding.AppendEncode(m.buf[:0], s)
 	ok := hmac.Equal(mac, m.buf)
 	h.hmacPool.Put(m)
 	if !ok {
@@ -184,7 +184,8 @@ func (h *JWTHandler[T]) SetExpiryAndSign(claims T) (string, error) {
 	buf.AppendEncoded(h.headerBlob)
 	buf.AppendEncoded(dotSeparator)
 
-	e := json.NewEncoder(&buf)
+	t := jsonEncoderNewLineTrimmer{b64Buffer: &buf}
+	e := json.NewEncoder(&t)
 	e.SetEscapeHTML(false)
 	if err := e.Encode(claims); err != nil {
 		return "", err
@@ -195,17 +196,18 @@ func (h *JWTHandler[T]) SetExpiryAndSign(claims T) (string, error) {
 	s := m.hmac.Sum(m.buf[:0])
 
 	buf.AppendEncoded(dotSeparator)
-	_, err := buf.Write(s)
+	buf.Append(s)
 	h.hmacPool.Put(m)
-	if err != nil {
-		return "", err
-	}
 
 	return string(buf.Bytes()), nil
 }
 
 type b64Buffer struct {
 	buf []byte
+}
+
+func (b *b64Buffer) Append(p []byte) {
+	b.buf = base64.RawURLEncoding.AppendEncode(b.buf, p)
 }
 
 func (b *b64Buffer) AppendEncoded(p []byte) {
@@ -216,10 +218,15 @@ func (b *b64Buffer) Bytes() []byte {
 	return b.buf
 }
 
+// jsonEncoderNewLineTrimmer trims the trailing \n that json.Encoder adds.
+type jsonEncoderNewLineTrimmer struct {
+	*b64Buffer
+}
+
 var newLineSuffix = []byte("\n")
 
-func (b *b64Buffer) Write(p []byte) (int, error) {
+func (t *jsonEncoderNewLineTrimmer) Write(p []byte) (int, error) {
 	p = bytes.TrimSuffix(p, newLineSuffix)
-	b.buf = base64.RawURLEncoding.AppendEncode(b.buf, p)
+	t.b64Buffer.Append(p)
 	return len(p), nil
 }
