@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -199,6 +199,16 @@ func (d *DocumentUpdate) CheckVersion(current Version) error {
 type DocumentUpdateAck struct {
 	DocId   UUID    `json:"doc"`
 	Version Version `json:"v"`
+}
+
+func (d *DocumentUpdateAck) MarshalJSON() ([]byte, error) {
+	buf := make([]byte, 0, len(`{"doc":"","v":}`)+20+36)
+	buf = append(buf, `{"doc":"`...)
+	buf = d.DocId.Append(buf)
+	buf = append(buf, `","v":`...)
+	buf = strconv.AppendUint(buf, uint64(d.Version), 10)
+	buf = append(buf, `}`...)
+	return buf, nil
 }
 
 type AppliedOpsErrorMeta struct {

@@ -93,7 +93,7 @@ func (r *room) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpd
 		DocId:   msg.DocId,
 		Version: msg.Version,
 	}
-	body, err := json.Marshal(minUpdate)
+	body, err := minUpdate.MarshalJSON()
 	if err != nil {
 		client.TriggerDisconnect()
 		return
