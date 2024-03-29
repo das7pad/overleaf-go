@@ -190,7 +190,6 @@ func (h *httpController) writeLoop(conn *websocket.LeanConn, writeQueue chan typ
 			// Flush the queue.
 			// Eventually the room cleanup will close the channel.
 		}
-		putBuffer(conn.BR)
 	}()
 	var lsr []types.LazySuccessResponse
 	for {
@@ -294,6 +293,7 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 }
 
 func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
+	defer putBuffer(conn.BR)
 	defer h.rtm.Disconnect(c)
 	if conn.SetDeadline(time.Now().Add(idleTime)) != nil {
 		_ = conn.Close()
