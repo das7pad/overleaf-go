@@ -57,7 +57,6 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 			// Validation is performed as part of the bootstrap process.
 			nil,
 		),
-		bootstrapQueue:  make(chan bootstrapWSDetails, 120),
 		writeQueueDepth: writeQueueDepth,
 	}
 	h.startWorker()
@@ -72,7 +71,6 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 			// Validation is performed as part of the bootstrap process.
 			nil,
 		),
-		bootstrapQueue:  make(chan bootstrapWSDetails, 120),
 		writeQueueDepth: writeQueueDepth,
 	}
 	h.startWorker()
@@ -89,6 +87,7 @@ type httpController struct {
 }
 
 func (h *httpController) startWorker() {
+	h.bootstrapQueue = make(chan bootstrapWSDetails, 120)
 	for i := 0; i < 60; i++ {
 		go h.bootstrapWorker()
 	}
