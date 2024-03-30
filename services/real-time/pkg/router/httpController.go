@@ -144,7 +144,7 @@ func (h *httpController) wsHTTP(w http.ResponseWriter, r *http.Request) {
 		sendAndForget(&conn, events.ConnectionRejectedBadWsBootstrapPrepared)
 		return
 	}
-	h.ws(&conn, t0, claims)
+	go h.ws(&conn, t0, claims)
 }
 
 func (h *httpController) wsWsServer(c *wsConn) error {
@@ -183,7 +183,7 @@ func (h *httpController) ws(conn *websocket.LeanConn, t0 time.Time, claimsProjec
 		return
 	}
 
-	go h.readLoop(conn, c)
+	h.readLoop(conn, c)
 }
 
 type bootstrapWSDetails struct {
