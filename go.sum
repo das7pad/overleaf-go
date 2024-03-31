@@ -18,8 +18,8 @@ github.com/das7pad/go-redis/v9 v9.0.0-20240310184036-815cde9897ac h1:h+QhqOLMSnF
 github.com/das7pad/go-redis/v9 v9.0.0-20240310184036-815cde9897ac/go.mod h1:hdY0cQFCN4fnSYT6TkisLufl/4W5UIXyv0b/CLO2V2M=
 github.com/das7pad/gorilla-websocket v0.0.0-20240310181424-0427669d163f h1:eFbAPJ82UxikXmFTusShh93RKw8eiIDuqfTB/IGwP/k=
 github.com/das7pad/gorilla-websocket v0.0.0-20240310181424-0427669d163f/go.mod h1:utGbNFiAunoZPP2WBkmR3vIkaQ7oORNFfm0iNu0WF1A=
-github.com/das7pad/pgx/v5 v5.0.0-20240310182521-0ac0ffa5c3e8 h1:GM5sVXFkBMEYIIWsg+uocobgAeDARRI7pN/Drc0M0Qk=
-github.com/das7pad/pgx/v5 v5.0.0-20240310182521-0ac0ffa5c3e8/go.mod h1:ez9gk+OAat140fv9ErkZDYFWmXLfV+++K0uAOiwgm1A=
+github.com/das7pad/pgx/v5 v5.0.0-20240331181947-b11b5aa0ebb3 h1:X8W0S33TzW9Lee2udf6jU5ACqs6Dqixs/BjFNXKPhKQ=
+github.com/das7pad/pgx/v5 v5.0.0-20240331181947-b11b5aa0ebb3/go.mod h1:ez9gk+OAat140fv9ErkZDYFWmXLfV+++K0uAOiwgm1A=
 github.com/das7pad/puddle/v2 v2.0.0-20240331112630-2d9edcd7fcf9 h1:mqbn+nFlGwYtnWX2ZN6s/LjO49pIcYYrml1L5dni36c=
 github.com/das7pad/puddle/v2 v2.0.0-20240331112630-2d9edcd7fcf9/go.mod h1:Wq0GmwBL9DPmhZY53NwaXWPUzGZjTi/wVzIaFKNZZz0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

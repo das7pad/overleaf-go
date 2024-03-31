@@ -92,7 +92,7 @@ replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websoc
 replace github.com/redis/go-redis/v9 v9.5.1 => github.com/das7pad/go-redis/v9 v9.0.0-20240310184036-815cde9897ac
 
 // Optimize allocations
-replace github.com/jackc/pgx/v5 v5.5.5 => github.com/das7pad/pgx/v5 v5.0.0-20240310182521-0ac0ffa5c3e8
+replace github.com/jackc/pgx/v5 v5.5.5 => github.com/das7pad/pgx/v5 v5.0.0-20240331181947-b11b5aa0ebb3
 
 // Optimize allocations
 replace github.com/jackc/puddle/v2 v2.2.1 => github.com/das7pad/puddle/v2 v2.0.0-20240331112630-2d9edcd7fcf9
