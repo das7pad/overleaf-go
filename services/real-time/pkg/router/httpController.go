@@ -23,6 +23,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -39,7 +40,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *httpUtils.Router {
+func New(rtm *realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *httpUtils.Router {
 	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
 		Ready: func() bool {
 			return !rtm.IsShuttingDown()
@@ -49,7 +50,7 @@ func New(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQue
 	return r
 }
 
-func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) {
+func Add(r *httpUtils.Router, rtm *realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) {
 	h := httpController{
 		rtm: rtm,
 		jwtProject: projectJWT.New(
@@ -63,7 +64,7 @@ func Add(r *httpUtils.Router, rtm realTime.Manager, jwtOptionsProject jwtOptions
 	h.addRoutes(r)
 }
 
-func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *WSServer {
+func WS(rtm *realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *WSServer {
 	h := httpController{
 		rtm: rtm,
 		jwtProject: projectJWT.New(
@@ -80,15 +81,15 @@ func WS(rtm realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueu
 }
 
 type httpController struct {
-	rtm                realTime.Manager
+	rtm                *realTime.Manager
 	jwtProject         *jwtHandler.JWTHandler[*projectJWT.Claims]
-	bootstrapQueue     chan bootstrapWSDetails
+	bootstrapQueue     chan *bootstrapWSDetails
 	scheduleWriteQueue chan *types.Client
 	writeQueueDepth    int
 }
 
 func (h *httpController) startWorker() {
-	h.bootstrapQueue = make(chan bootstrapWSDetails, 120)
+	h.bootstrapQueue = make(chan *bootstrapWSDetails, 120)
 	for i := 0; i < 60; i++ {
 		go h.bootstrapWorker()
 	}
@@ -189,7 +190,7 @@ func (h *httpController) ws(conn *websocket.LeanConn, t0 time.Time, claimsProjec
 type bootstrapWSDetails struct {
 	t0     time.Time
 	claims projectJWT.Claims
-	resp   *types.RPCResponse
+	resp   types.RPCResponse
 	client *types.Client
 	done   chan error
 }
@@ -211,26 +212,25 @@ func (h *httpController) bootstrapWorker() {
 				t = time.AfterFunc(hardLimit, done)
 			}
 		}
-		d.done <- h.rtm.BootstrapWS(ctx, d.resp, d.client, d.claims)
+		d.done <- h.rtm.BootstrapWS(ctx, &d.resp, d.client, d.claims)
 	}
 	t.Stop()
 	done()
 }
 
-func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT projectJWT.Claims) bool {
-	resp := types.RPCResponse{Name: sharedTypes.Bootstrap}
-	resp.Latency.SetBegin(t0)
+var bootstrapDonePool = sync.Pool{New: func() any {
+	return &bootstrapWSDetails{done: make(chan error)}
+}}
 
-	done := make(chan error)
-	h.bootstrapQueue <- bootstrapWSDetails{
-		t0:     t0,
-		claims: claimsProjectJWT,
-		resp:   &resp,
-		client: c,
-		done:   done,
-	}
-	err := <-done
-	close(done)
+func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJWT projectJWT.Claims) bool {
+	d := bootstrapDonePool.Get().(*bootstrapWSDetails)
+	defer bootstrapDonePool.Put(d)
+	d.t0 = t0
+	d.claims = claimsProjectJWT
+	d.client = c
+	d.resp = types.RPCResponse{}
+	h.bootstrapQueue <- d
+	err := <-d.done
 
 	if err != nil {
 		err = errors.Tag(err, fmt.Sprintf(
@@ -246,8 +246,10 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 		}
 		return false
 	}
-	resp.Latency.End()
-	return c.EnsureQueueResponse(&resp)
+	d.resp.Name = sharedTypes.Bootstrap
+	d.resp.Latency.SetBegin(t0)
+	d.resp.Latency.End()
+	return c.TryWriteResponseOrQueue(d.resp)
 }
 
 func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
@@ -282,7 +284,7 @@ func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 			} else {
 				// Other RPCs are pending, flush any lazy success responses
 				response := types.RPCResponse{Callback: request.Callback}
-				ok = c.EnsureQueueResponse(&response)
+				ok = c.TryWriteResponseOrQueue(response)
 			}
 		} else {
 			t0 := time.Now()
@@ -299,7 +301,7 @@ func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 			h.rtm.RPC(ctx, &rpc)
 			finishedRPC()
 			response.Latency.End()
-			ok = c.EnsureQueueResponse(&response) && !response.FatalError
+			ok = c.TryWriteResponseOrQueue(response) && !response.FatalError
 		}
 	}
 }

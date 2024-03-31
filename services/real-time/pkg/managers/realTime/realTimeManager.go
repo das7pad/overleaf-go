@@ -40,7 +40,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-type Manager interface {
+type ManagerI interface {
 	InitiateGracefulShutdown()
 	TriggerGracefulReconnect()
 	DisconnectAll()
@@ -51,7 +51,7 @@ type Manager interface {
 	Disconnect(client *types.Client)
 }
 
-func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Manager) (Manager, error) {
+func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client redis.UniversalClient, dum documentUpdater.Manager) (*Manager, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func New(ctx context.Context, options *types.Options, db *pgxpool.Pool, client r
 		return nil, err
 	}
 	pc := cache.NewLimited[projectCacheKey, projectCacheValue](100)
-	return &manager{
+	return &Manager{
 		clientTracking:   ct,
 		editorEvents:     e,
 		dum:              dum,
@@ -84,7 +84,7 @@ type projectCacheValue struct {
 	project.VersionField
 }
 
-type manager struct {
+type Manager struct {
 	shuttingDown atomic.Bool
 
 	clientTracking clientTracking.Manager
@@ -96,11 +96,11 @@ type manager struct {
 	gracefulShutdown types.GracefulShutdownOptions
 }
 
-func (m *manager) IsShuttingDown() bool {
+func (m *Manager) IsShuttingDown() bool {
 	return m.shuttingDown.Load()
 }
 
-func (m *manager) PeriodicCleanup(ctx context.Context) {
+func (m *Manager) PeriodicCleanup(ctx context.Context) {
 	jitter := time.Duration(rand.Int63n(int64(30 * time.Second)))
 	inter := clientTracking.RefreshUserEvery - jitter
 	t := time.NewTicker(inter)
@@ -119,7 +119,7 @@ func (m *manager) PeriodicCleanup(ctx context.Context) {
 	}
 }
 
-func (m *manager) InitiateGracefulShutdown() {
+func (m *Manager) InitiateGracefulShutdown() {
 	// Start returning 500s on /status
 	m.shuttingDown.Store(true)
 
@@ -127,14 +127,14 @@ func (m *manager) InitiateGracefulShutdown() {
 	time.Sleep(m.gracefulShutdown.Delay)
 }
 
-func (m *manager) TriggerGracefulReconnect() {
+func (m *Manager) TriggerGracefulReconnect() {
 	deadLine := time.Now().Add(m.gracefulShutdown.Timeout)
 	for m.triggerGracefulReconnectOnce() && time.Now().Before(deadLine) {
 		time.Sleep(3 * time.Second)
 	}
 }
 
-func (m *manager) DisconnectAll() {
+func (m *Manager) DisconnectAll() {
 	defer m.editorEvents.StopListening()
 	deadLine := time.Now().Add(m.gracefulShutdown.CleanupTimeout)
 	for time.Now().Before(deadLine) {
@@ -157,7 +157,7 @@ func (m *manager) DisconnectAll() {
 
 const b64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
-func (m *manager) triggerGracefulReconnectOnce() bool {
+func (m *Manager) triggerGracefulReconnectOnce() bool {
 	for _, c := range b64Chars {
 		suffix := uint8(c)
 		nRooms := m.editorEvents.BroadcastGracefulReconnect(suffix)
@@ -176,7 +176,7 @@ func (m *manager) triggerGracefulReconnectOnce() bool {
 	return true
 }
 
-func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
+func (m *Manager) RPC(ctx context.Context, rpc *types.RPC) {
 	err := m.rpc(ctx, rpc)
 	if err == nil {
 		return
@@ -198,7 +198,7 @@ func (m *manager) RPC(ctx context.Context, rpc *types.RPC) {
 
 var emptyConnectedClients = json.RawMessage("[]")
 
-func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, client *types.Client, claims projectJWT.Claims) error {
+func (m *Manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, client *types.Client, claims projectJWT.Claims) error {
 	u := user.WithPublicInfo{}
 	cacheKey := projectCacheKey{
 		ProjectId:        claims.ProjectId,
@@ -267,7 +267,7 @@ func (m *manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 	return nil
 }
 
-func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
+func (m *Manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	var args types.JoinDocRequest
 	if err := json.Unmarshal(rpc.Request.Body, &args); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
@@ -293,7 +293,7 @@ func (m *manager) joinDoc(ctx context.Context, rpc *types.RPC) error {
 	return nil
 }
 
-func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
+func (m *Manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	var update sharedTypes.DocumentUpdate
 	if err := json.Unmarshal(rpc.Request.Body, &update); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
@@ -308,7 +308,7 @@ func (m *manager) applyUpdate(ctx context.Context, rpc *types.RPC) error {
 	)
 }
 
-func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
+func (m *Manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
 	clients, err := m.clientTracking.GetConnectedClients(ctx, rpc.Client)
 	if err != nil {
 		return err
@@ -322,7 +322,7 @@ func (m *manager) getConnectedUsers(ctx context.Context, rpc *types.RPC) error {
 	return nil
 }
 
-func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
+func (m *Manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	var p types.ClientPosition
 	if err := json.Unmarshal(rpc.Request.Body, &p); err != nil {
 		return &errors.ValidationError{Msg: "bad request: " + err.Error()}
@@ -334,7 +334,7 @@ func (m *manager) updatePosition(ctx context.Context, rpc *types.RPC) error {
 	return nil
 }
 
-func (m *manager) Disconnect(client *types.Client) {
+func (m *Manager) Disconnect(client *types.Client) {
 	client.TriggerDisconnect()
 	if client.ProjectId.IsZero() {
 		// Disconnected before bootstrap finished.
@@ -344,7 +344,7 @@ func (m *manager) Disconnect(client *types.Client) {
 	m.editorEvents.Leave(client)
 }
 
-func (m *manager) rpc(ctx context.Context, rpc *types.RPC) error {
+func (m *Manager) rpc(ctx context.Context, rpc *types.RPC) error {
 	if err := rpc.Validate(); err != nil {
 		return err
 	}

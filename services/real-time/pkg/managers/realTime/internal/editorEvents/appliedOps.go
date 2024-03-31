@@ -104,5 +104,5 @@ func (r *room) sendAckToSender(client *types.Client, msg sharedTypes.DocumentUpd
 		Latency:     latency,
 		ProcessedBy: processedBy,
 	}
-	client.EnsureQueueResponse(&resp)
+	client.EnsureQueueResponse(resp)
 }

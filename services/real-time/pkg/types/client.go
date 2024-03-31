@@ -322,17 +322,7 @@ func (c *Client) processNextQueuedMessage() (bool, bool) {
 			Latency:  entry.RPCResponse.Latency,
 		})
 	} else {
-		if len(c.lsr) > 0 {
-			entry.RPCResponse.LazySuccessResponses = c.lsr
-			c.lsr = c.lsr[:0]
-		}
-		blob, err := entry.RPCResponse.MarshalJSON()
-		if err != nil {
-			return false, false
-		}
-		err = c.conn.WriteMessage(websocket.TextMessage, blob)
-		entry.RPCResponse.ReleaseBuffer()
-		if err != nil {
+		if ok := c.writeResponse(*entry.RPCResponse); !ok {
 			return false, false
 		}
 	}
@@ -349,9 +339,42 @@ func (c *Client) processNextQueuedMessage() (bool, bool) {
 	return r != w, !entry.FatalError
 }
 
-func (c *Client) EnsureQueueResponse(response *RPCResponse) bool {
+func (c *Client) writeResponse(response RPCResponse) bool {
+	if len(c.lsr) > 0 {
+		response.LazySuccessResponses = c.lsr
+		c.lsr = c.lsr[:0]
+	}
+	blob, err := response.MarshalJSON()
+	if err != nil {
+		return false
+	}
+	err = c.conn.WriteMessage(websocket.TextMessage, blob)
+	response.ReleaseBuffer()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (c *Client) TryWriteResponseOrQueue(response RPCResponse) bool {
+	s := c.writeState.Add(tryEnqueueWrite)
+	closing, r, w, pending := s>>24, uint8(s>>16), uint8(s>>8), uint8(s)
+	if closing > 0 {
+		c.writeState.Add(^uint32(tryEnqueueWrite - 1))
+		return false
+	}
+	if r == w-1 && pending == 1 {
+		ok := c.writeResponse(response)
+		c.writeState.Add(^uint32(tryEnqueueWrite - 1))
+		return ok
+	}
+	c.writeState.Add(^uint32(tryEnqueueWrite - 1))
+	return c.EnsureQueueResponse(response)
+}
+
+func (c *Client) EnsureQueueResponse(response RPCResponse) bool {
 	return c.EnsureQueueMessage(WriteQueueEntry{
-		RPCResponse: response,
+		RPCResponse: &response,
 		FatalError:  response.FatalError,
 	})
 }
