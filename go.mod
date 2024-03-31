@@ -93,3 +93,6 @@ replace github.com/redis/go-redis/v9 v9.5.1 => github.com/das7pad/go-redis/v9 v9
 
 // Optimize allocations
 replace github.com/jackc/pgx/v5 v5.5.5 => github.com/das7pad/pgx/v5 v5.0.0-20240310182521-0ac0ffa5c3e8
+
+// Optimize allocations
+replace github.com/jackc/puddle/v2 v2.2.1 => github.com/das7pad/puddle/v2 v2.0.0-20240331112630-2d9edcd7fcf9
