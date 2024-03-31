@@ -96,7 +96,11 @@ func setLimits() {
 }
 
 func randomCredentials() (sharedTypes.Email, webTypes.UserPassword, error) {
-	email := fmt.Sprintf("%d@foo.bar", time.Now().UnixNano())
+	username, err := oneTimeToken.GenerateNewToken()
+	if err != nil {
+		return "", "", err
+	}
+	email := fmt.Sprintf("%s@foo.bar", username)
 	password, err := oneTimeToken.GenerateNewToken()
 	return sharedTypes.Email(email), webTypes.UserPassword(password), err
 }
