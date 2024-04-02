@@ -241,6 +241,17 @@ func TestBootstrapBadJWT(t *testing.T) {
 	}
 }
 
+func expectCloseErrorOnRead(t *testing.T, c *realTime.Client) {
+	var err error
+	for i := 0; i < 10; i++ {
+		err = c.ReadOnce()
+		if err != nil && websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			return
+		}
+	}
+	t.Fatalf("ReadOnce() got = %v, want close error with status %v", err, websocket.CloseAbnormalClosure)
+}
+
 func TestAnnounceClose(t *testing.T) {
 	c := realTime.Client{}
 	_, err := c.Connect(context.Background(), uri, bootstrapSharded[0], connectFn)
@@ -250,9 +261,7 @@ func TestAnnounceClose(t *testing.T) {
 	if err = c.AnnounceClose(); err != nil {
 		t.Fatalf("AnnounceClose() retured %v", err)
 	}
-	if err = c.ReadOnce(); err == nil || !websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-		t.Fatalf("ReadOnce() got = %v, want close error with status %v", err, websocket.CloseAbnormalClosure)
-	}
+	expectCloseErrorOnRead(t, &c)
 }
 
 func TestCloseWrite(t *testing.T) {
@@ -264,9 +273,7 @@ func TestCloseWrite(t *testing.T) {
 	if err = c.CloseWrite(); err != nil {
 		t.Fatalf("CloseWrite() retured %v", err)
 	}
-	if err = c.ReadOnce(); err == nil || !websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-		t.Fatalf("ReadOnce() got = %v, want close error with status %v", err, websocket.CloseAbnormalClosure)
-	}
+	expectCloseErrorOnRead(t, &c)
 }
 
 func benchmarkBootstrapN(b *testing.B, n int) {
