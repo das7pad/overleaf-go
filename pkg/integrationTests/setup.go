@@ -32,6 +32,7 @@ import (
 
 	dockerTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
@@ -430,9 +431,7 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 		// already created
 	case errdefs.IsNotFound(err):
 		// missing image
-		r, err2 := c.ImagePull(
-			ctx, containerConfig.Image, dockerTypes.ImagePullOptions{},
-		)
+		r, err2 := c.ImagePull(ctx, containerConfig.Image, image.PullOptions{})
 		if err2 != nil {
 			return nil, errors.Tag(err2, "initiate pull")
 		}
@@ -456,7 +455,7 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 		return nil, errors.Tag(err, "create container")
 	}
 
-	err = c.ContainerStart(ctx, name, dockerTypes.ContainerStartOptions{})
+	err = c.ContainerStart(ctx, name, container.StartOptions{})
 	switch {
 	case err == nil:
 		// happy path
@@ -497,7 +496,7 @@ func monitorContainer(ctx context.Context, c *client.Client, id string) {
 func waitForContainerLogMessage(ctx context.Context, c *client.Client, id string, msg []string) error {
 	delay := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
-		r, err := c.ContainerLogs(ctx, id, dockerTypes.ContainerLogsOptions{
+		r, err := c.ContainerLogs(ctx, id, container.LogsOptions{
 			ShowStderr: true,
 			ShowStdout: true,
 		})

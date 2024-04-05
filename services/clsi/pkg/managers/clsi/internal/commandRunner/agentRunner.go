@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	dockerTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
@@ -302,11 +301,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 
 	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
 	// The container was just created, start it.
-	err = a.dockerClient.ContainerStart(
-		ctx,
-		name,
-		dockerTypes.ContainerStartOptions{},
-	)
+	err = a.dockerClient.ContainerStart(ctx, name, container.StartOptions{})
 	if err != nil {
 		return nil, errors.Tag(err, "start container")
 	}
@@ -362,7 +357,7 @@ func (a *agentRunner) removeContainer(namespace types.Namespace) error {
 	err := a.dockerClient.ContainerRemove(
 		context.Background(),
 		containerName(namespace),
-		dockerTypes.ContainerRemoveOptions{
+		container.RemoveOptions{
 			// Docs: Force the removal of a running container (uses SIGKILL)
 			Force: true,
 		},

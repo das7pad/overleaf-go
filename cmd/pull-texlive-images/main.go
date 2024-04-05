@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,8 +23,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	dockerTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/moby/term"
@@ -50,15 +50,14 @@ func main() {
 		panic(dockerErr)
 	}
 
-	for _, image := range o.AllowedImages {
-		if createTestContainer(ctx, c, image) == nil {
-			log.Printf("%s: already exists", image)
+	for _, img := range o.AllowedImages {
+		if createTestContainer(ctx, c, img) == nil {
+			log.Printf("%s: already exists", img)
 			continue
 		}
 
-		log.Printf("%s: starting to pull, this can take a while!", image)
-		pullOptions := dockerTypes.ImagePullOptions{}
-		r, err := c.ImagePull(ctx, string(image), pullOptions)
+		log.Printf("%s: starting to pull, this can take a while!", img)
+		r, err := c.ImagePull(ctx, string(img), image.PullOptions{})
 		if err != nil {
 			panic(errors.Tag(err, "initiate pull"))
 		}
