@@ -85,6 +85,7 @@ func (m *manager) ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID
 
 func (m *manager) Compile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.CompileRequest, response *types.CompileResponse) error {
 	response.Timings.CompileE2E.Begin()
+	defer response.Timings.CompileE2E.End()
 	if err := request.Preprocess(); err != nil {
 		return err
 	}
@@ -97,9 +98,7 @@ func (m *manager) Compile(ctx context.Context, projectId sharedTypes.UUID, userI
 		projectId,
 		userId,
 		func(p project.Project) error {
-			err := p.Compile(ctx, request, response)
-			response.Timings.CompileE2E.End()
-			return err
+			return p.Compile(ctx, request, response)
 		},
 	)
 }
