@@ -20,9 +20,12 @@ import (
 	"context"
 	"log"
 	"os"
+	"path"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/pendingOperation"
@@ -48,20 +51,42 @@ type Project interface {
 func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers, paths types.Paths) (Project, error) {
 	namespace := types.Namespace(projectId.Concat('-', userId))
 
+	o := paths.OutputBaseDir.OutputDir(namespace)
+	var contentId types.BuildId
+	if dirs, err := os.ReadDir(string(o)); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	} else {
+		for _, dir := range dirs {
+			if dir.IsDir() && types.BuildId(dir.Name()).Validate() == nil {
+				contentId = types.BuildId(dir.Name())
+				break
+			}
+		}
+	}
+	if contentId == "" {
+		var err error
+		if contentId, err = types.GenerateBuildId(); err != nil {
+			return nil, err
+		}
+	}
+
 	createPaths := []string{
 		string(paths.CompileBaseDir.CompileDir(namespace)),
-		string(paths.OutputBaseDir.OutputDir(namespace)),
-		paths.OutputBaseDir.OutputDir(namespace).CompileOutput(),
+		string(o),
+		o.CompileOutput(),
+		path.Dir(string(o.ContentDir(contentId))),
+		string(o.ContentDir(contentId)),
 	}
-	for _, path := range createPaths {
+	for _, d := range createPaths {
 		// Any parent directories have been created during manager init.
-		if err := os.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
+		if err := os.Mkdir(d, 0o755); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
 
 	p := project{
 		namespace: namespace,
+		contentId: contentId,
 		managers:  m,
 	}
 	if m.writer.HasContent(namespace) {
@@ -75,6 +100,7 @@ type project struct {
 	hasContent atomic.Bool
 	lastAccess atomic.Int64
 	namespace  types.Namespace
+	contentId  types.BuildId
 
 	stateMux sync.RWMutex
 
@@ -183,10 +209,22 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 			lastSuccessfulCompileBuildId,
 		)
 		if err2 == nil {
+			ranges, err3 := p.pdfCaching.Process(
+				ctx, p.run, &request.Options, p.namespace, p.contentId,
+				lastSuccessfulCompileBuildId,
+			)
+			if err3 != nil {
+				log.Printf(
+					"pdfCaching: last: %q/%q: %d: %s",
+					p.namespace, lastSuccessfulCompileBuildId, len(ranges), err3,
+				)
+			}
+
 			p.lastSuccessfulCompileBuildId = lastSuccessfulCompileBuildId
 			response.Timings.Output.End()
 			response.Status = constants.Success
 			response.OutputFiles = outputFiles
+			response.OutputFiles.AddRanges(ranges, p.contentId)
 			return nil
 		}
 	}
@@ -197,22 +235,53 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	}
 
 	response.Timings.Output.Begin()
-	outputFiles, hasOutputPDF, err := p.outputCache.SaveOutputFiles(
-		ctx,
-		cache,
-		p.namespace,
-	)
-	response.Timings.Output.End()
-	if response.Status == constants.Success && !hasOutputPDF {
-		response.Status = constants.Failure
-	}
+	defer response.Timings.Output.End()
+	buildId, err := types.GenerateBuildId()
 	if err != nil {
 		return err
 	}
-	response.OutputFiles = outputFiles
+
+	outputPDFReady := make(chan bool)
+	eg, pCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		outputFiles, hasOutputPDF, err2 := p.outputCache.SaveOutputFiles(
+			pCtx, cache, p.namespace, buildId, outputPDFReady,
+		)
+		if response.Status == constants.Success && !hasOutputPDF {
+			response.Status = constants.Failure
+		}
+		if err2 != nil {
+			return err2
+		}
+		response.OutputFiles = outputFiles
+		return nil
+	})
+	var ranges []types.PDFCachingRange
+	eg.Go(func() error {
+		if ok, _ := <-outputPDFReady; !ok {
+			return nil
+		}
+		var err2 error
+		ranges, err2 = p.pdfCaching.Process(
+			pCtx,
+			p.tryRun, &request.Options,
+			p.namespace, p.contentId, buildId,
+		)
+		if err2 != nil {
+			log.Printf(
+				"pdfCaching: %q/%q: %d: %s",
+				p.namespace, buildId, len(ranges), err2,
+			)
+		}
+		return nil
+	})
+	if err = eg.Wait(); err != nil {
+		return err
+	}
 	if response.Status == constants.Success {
 		p.lastSuccessfulCompileOptionsHash = compileOptionsHash
 		p.lastSuccessfulCompileBuildId = response.OutputFiles[0].Build
+		response.OutputFiles.AddRanges(ranges, p.contentId)
 	}
 	return nil
 }

@@ -18,12 +18,8 @@ package outputCache
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"os"
-	"strconv"
 	"syscall"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -38,7 +34,7 @@ import (
 
 type Manager interface {
 	ListOutputFiles(ctx context.Context, namespace types.Namespace, buildId types.BuildId) (types.OutputFiles, error)
-	SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error)
+	SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace, buildId types.BuildId, outputPDFReady chan bool) (types.OutputFiles, HasOutputPDF, error)
 	Clear(namespace types.Namespace) error
 }
 
@@ -71,16 +67,6 @@ func (m *manager) ListOutputFiles(ctx context.Context, namespace types.Namespace
 			continue
 		}
 
-		var size int64
-		if fileName == "output.pdf" {
-			// Fetch the file stats before potentially moving the file.
-			info, err2 := d.Info()
-			if err2 != nil {
-				return nil, err2
-			}
-			size = info.Size()
-		}
-
 		file := types.OutputFile{
 			Build: buildId,
 			DownloadPath: types.BuildDownloadPathFromNamespace(
@@ -88,8 +74,17 @@ func (m *manager) ListOutputFiles(ctx context.Context, namespace types.Namespace
 			),
 			Path: fileName,
 			Type: fileName.Type(),
-			Size: size,
 		}
+
+		if fileName == "output.pdf" {
+			info, err2 := d.Info()
+			if err2 != nil {
+				return nil, err2
+			}
+			file.Size = info.Size()
+			file.Ranges = emptyRanges
+		}
+
 		outputFiles = append(outputFiles, file)
 	}
 	return outputFiles, nil
@@ -97,11 +92,10 @@ func (m *manager) ListOutputFiles(ctx context.Context, namespace types.Namespace
 
 type HasOutputPDF bool
 
-func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace) (types.OutputFiles, HasOutputPDF, error) {
-	buildId, err := getBuildId()
-	if err != nil {
-		return nil, false, err
-	}
+var emptyRanges = make([]types.PDFCachingRange, 0)
+
+func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace, buildId types.BuildId, outputPDFReady chan bool) (types.OutputFiles, HasOutputPDF, error) {
+	defer close(outputPDFReady)
 	compileDir := m.paths.CompileBaseDir.CompileDir(namespace)
 	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
 	compileOutputDir := outputDir.CompileOutputDir(buildId)
@@ -109,7 +103,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 		base:  compileOutputDir,
 		isDir: make(map[sharedTypes.DirName]bool),
 	}
-	if err = dirHelper.CreateBase(); err != nil {
+	if err := dirHelper.CreateBase(); err != nil {
 		return nil, false, err
 	}
 
@@ -136,17 +130,6 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 				continue
 			}
 
-			var size int64
-			if fileName == "output.pdf" {
-				// Fetch the file stats before potentially moving the file.
-				info, err2 := d.Info()
-				if err2 != nil {
-					return err2
-				}
-				size = info.Size()
-				hasOutputPDF = true
-			}
-
 			if err2 := dirHelper.EnsureIsWritable(fileName); err2 != nil {
 				return err2
 			}
@@ -158,8 +141,19 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 				),
 				Path: fileName,
 				Type: fileName.Type(),
-				Size: size,
 			}
+
+			if fileName == "output.pdf" {
+				// Fetch the file stats before potentially moving the file.
+				info, err2 := d.Info()
+				if err2 != nil {
+					return err2
+				}
+				file.Size = info.Size()
+				file.Ranges = emptyRanges
+				hasOutputPDF = true
+			}
+
 			outputFiles = append(outputFiles, file)
 			select {
 			case work <- fileName:
@@ -187,6 +181,9 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 						return errors.Tag(err2, "copy "+src+" -> "+dest)
 					}
 				}
+				if fileName == "output.pdf" {
+					outputPDFReady <- true
+				}
 			}
 			return nil
 		})
@@ -201,19 +198,4 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 func (m *manager) Clear(namespace types.Namespace) error {
 	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
 	return os.RemoveAll(string(outputDir))
-}
-
-// getBuildId yields a secure unique id
-// It contains a 16 hex char long timestamp in ns precision, a hyphen and
-// another 16 hex char long random string.
-func getBuildId() (types.BuildId, error) {
-	buf := make([]byte, 8)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	now := time.Now().UnixNano()
-	buildId := types.BuildId(
-		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
-	)
-	return buildId, nil
 }

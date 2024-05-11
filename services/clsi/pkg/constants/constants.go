@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,8 +29,10 @@ const (
 	CompileDirPlaceHolder = "$COMPILE_DIR"
 	OutputDirPlaceHolder  = "$OUTPUT_DIR"
 
-	CompileOutputLabel       = "compile-output"
-	ProjectSyncStateFilename = ".project-sync-state-v3"
+	CompileOutputLabel        = "compile-output"
+	ContentLabel              = "content"
+	ProjectSyncStateFilename  = ".project-sync-state-v3"
+	PDFCachingTrackerFilename = "pdf-caching.json"
 
 	TimedOut       = "timedout"
 	Cancelled      = "cancelled"

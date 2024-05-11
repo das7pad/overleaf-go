@@ -17,6 +17,8 @@
 package types
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,6 +58,20 @@ func (i BuildId) Age() (time.Duration, error) {
 		return 0, err
 	}
 	return time.Since(time.Unix(0, int64(ns))), nil
+}
+
+// GenerateBuildId yields a secure unique id
+// It contains a 16 hex char long timestamp in ns precision, a hyphen and
+// another 16 hex char long random string.
+func GenerateBuildId() (BuildId, error) {
+	buf := make([]byte, 8)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	now := time.Now().UnixNano()
+	return BuildId(
+		strconv.FormatInt(now, 16) + "-" + hex.EncodeToString(buf),
+	), nil
 }
 
 const anonymousSuffix = "-" + sharedTypes.AllZeroUUID

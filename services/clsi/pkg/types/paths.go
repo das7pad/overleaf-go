@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -57,12 +57,26 @@ func (d OutputBaseDir) OutputDir(namespace Namespace) OutputDir {
 
 type OutputDir string
 
+func (d OutputDir) Tracker() string {
+	return string(d) + "/" + constants.PDFCachingTrackerFilename
+}
+
 func (d OutputDir) CompileOutput() string {
 	return string(d) + "/" + constants.CompileOutputLabel
 }
 
 func (d OutputDir) CompileOutputDir(id BuildId) CompileOutputDir {
 	return CompileOutputDir(d.CompileOutput() + "/" + string(id))
+}
+
+func (d OutputDir) ContentDir(id BuildId) ContentDir {
+	return ContentDir(string(d) + "/" + constants.ContentLabel + "/" + string(id))
+}
+
+type ContentDir string
+
+func (d ContentDir) Join(hash sharedTypes.Hash) string {
+	return string(d) + "/" + string(hash)
 }
 
 type CompileOutputDir string

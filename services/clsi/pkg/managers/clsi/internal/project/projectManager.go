@@ -29,6 +29,7 @@ import (
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/latexRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputCache"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/pdfCaching"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceWriter"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/rootDocAlias"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/syncTex"
@@ -52,6 +53,7 @@ type managers struct {
 	wordCounter  wordCounter.Counter
 	writer       resourceWriter.ResourceWriter
 	latexRunner  latexRunner.LatexRunner
+	pdfCaching   pdfCaching.Manager
 }
 
 func NewManager(options *types.Options) (Manager, error) {
@@ -90,6 +92,7 @@ func NewManager(options *types.Options) (Manager, error) {
 			syncTex:      syncTex.New(options, runner),
 			wordCounter:  wordCounter.New(options),
 			writer:       writer,
+			pdfCaching:   pdfCaching.New(options),
 		},
 
 		paths: options.Paths,

@@ -252,8 +252,23 @@ type OutputFile struct {
 	Path         sharedTypes.PathName `json:"path"`
 	Size         int64                `json:"size,omitempty"`
 	Type         sharedTypes.FileType `json:"type"`
+	Ranges       []PDFCachingRange    `json:"ranges,omitempty"`
+	ContentId    BuildId              `json:"contentId,omitempty"`
 }
 type OutputFiles []OutputFile
+
+func (o OutputFiles) AddRanges(ranges []PDFCachingRange, contentId BuildId) {
+	if len(ranges) == 0 {
+		return
+	}
+	for i, file := range o {
+		if file.Path == "output.pdf" {
+			o[i].Ranges = ranges
+			o[i].ContentId = contentId
+			break
+		}
+	}
+}
 
 type Timings struct {
 	FetchContent sharedTypes.Timed `json:"fetchContent"`
@@ -272,4 +287,11 @@ type CompileResponse struct {
 	Error       CompileError  `json:"error,omitempty"`
 	OutputFiles OutputFiles   `json:"outputFiles"`
 	Timings     Timings       `json:"timings"`
+}
+
+type PDFCachingRange struct {
+	ObjectId string           `json:"objectId"`
+	Start    uint64           `json:"start"`
+	End      uint64           `json:"end"`
+	Hash     sharedTypes.Hash `json:"hash"`
 }
