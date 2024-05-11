@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,8 +25,12 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 )
 
-func Atomic(dest string, reader io.Reader) error {
-	return copyAtomic(dest, reader, 0)
+func Atomic(dst string, reader io.Reader) error {
+	return copyAtomic(dst, reader, 0, 0)
+}
+
+func AtomicN(dst string, reader io.Reader, mode os.FileMode, n int64) error {
+	return copyAtomic(dst, reader, mode, n)
 }
 
 func AtomicWithMode(dest string, reader *os.File) error {
@@ -34,11 +38,11 @@ func AtomicWithMode(dest string, reader *os.File) error {
 	if err != nil {
 		return errors.Tag(err, "stat src")
 	}
-	return copyAtomic(dest, reader, stat.Mode())
+	return copyAtomic(dest, reader, stat.Mode(), 0)
 }
 
-func copyAtomic(dest string, reader io.Reader, mode os.FileMode) error {
-	writer, err := os.CreateTemp(path.Dir(dest), ".atomicWrite-*")
+func copyAtomic(dst string, reader io.Reader, mode os.FileMode, n int64) error {
+	writer, err := os.CreateTemp(path.Dir(dst), ".atomicWrite-*")
 	if err != nil {
 		return errors.Tag(err, "mktemp")
 	}
@@ -47,19 +51,24 @@ func copyAtomic(dest string, reader io.Reader, mode os.FileMode) error {
 			_ = os.Remove(writer.Name())
 		}
 	}()
-	if _, err = io.Copy(writer, reader); err != nil {
+	if n > 0 {
+		_, err = io.CopyN(writer, reader, n)
+	} else {
+		_, err = io.Copy(writer, reader)
+	}
+	if err != nil {
 		_ = writer.Close()
 		return errors.Tag(err, "copy")
 	}
 	if mode != 0 {
 		if err = writer.Chmod(mode); err != nil {
-			return errors.Tag(err, "chmod dest")
+			return errors.Tag(err, "chmod dst")
 		}
 	}
 	if err = writer.Close(); err != nil {
-		return errors.Tag(err, "close dest")
+		return errors.Tag(err, "close dst")
 	}
-	if err = syscall.Rename(writer.Name(), dest); err != nil {
+	if err = syscall.Rename(writer.Name(), dst); err != nil {
 		return errors.Tag(err, "rename")
 	}
 	return nil
