@@ -33,48 +33,47 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/jwt/jwtHandler"
 	"github.com/das7pad/overleaf-go/pkg/jwt/projectJWT"
-	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/events"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/managers/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
-func New(rtm *realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *httpUtils.Router {
+func New(rtm *realTime.Manager, options *types.Options) *httpUtils.Router {
 	r := httpUtils.NewRouter(&httpUtils.RouterOptions{
 		Ready: func() bool {
 			return !rtm.IsShuttingDown()
 		},
 	})
-	Add(r, rtm, jwtOptionsProject, writeQueueDepth)
+	Add(r, rtm, options)
 	return r
 }
 
-func Add(r *httpUtils.Router, rtm *realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) {
+func Add(r *httpUtils.Router, rtm *realTime.Manager, options *types.Options) {
 	h := httpController{
 		rtm: rtm,
 		jwtProject: projectJWT.New(
-			jwtOptionsProject,
+			options.JWT.Project,
 			// Validation is performed as part of the bootstrap process.
 			nil,
 		),
-		writeQueueDepth: writeQueueDepth,
+		writeQueueDepth: options.WriteQueueDepth,
 	}
-	h.startWorker()
+	h.startWorker(options)
 	h.addRoutes(r)
 }
 
-func WS(rtm *realTime.Manager, jwtOptionsProject jwtOptions.JWTOptions, writeQueueDepth int) *WSServer {
+func WS(rtm *realTime.Manager, options *types.Options) *WSServer {
 	h := httpController{
 		rtm: rtm,
 		jwtProject: projectJWT.New(
-			jwtOptionsProject,
+			options.JWT.Project,
 			// Validation is performed as part of the bootstrap process.
 			nil,
 		),
-		writeQueueDepth: writeQueueDepth,
+		writeQueueDepth: options.WriteQueueDepth,
 	}
-	h.startWorker()
+	h.startWorker(options)
 	srv := WSServer{h: &h}
 	srv.ok.Store(true)
 	return &srv
@@ -88,14 +87,22 @@ type httpController struct {
 	writeQueueDepth    int
 }
 
-func (h *httpController) startWorker() {
-	h.bootstrapQueue = make(chan *bootstrapWSDetails, 120)
-	for i := 0; i < 60; i++ {
+func (h *httpController) startWorker(options *types.Options) {
+	n := options.BootstrapWorker
+	if n <= 0 {
+		n = 60
+	}
+	h.bootstrapQueue = make(chan *bootstrapWSDetails, n*2)
+	for i := 0; i < n; i++ {
 		go h.bootstrapWorker()
 	}
 
-	h.scheduleWriteQueue = make(chan *types.Client, 8192)
-	for i := 0; i < 4096; i++ {
+	n = options.WriteWorker
+	if n <= 0 {
+		n = 4096
+	}
+	h.scheduleWriteQueue = make(chan *types.Client, n*2)
+	for i := 0; i < n; i++ {
 		go h.writeWorker()
 	}
 }

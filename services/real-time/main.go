@@ -75,9 +75,7 @@ func main() {
 
 	var server httpUtils.Server
 	if env.GetBool("USE_WS_SERVER") {
-		srv := router.WS(
-			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
-		)
+		srv := router.WS(rtm, &realTimeOptions)
 		server = srv
 		eg.Go(func() error {
 			<-ctx.Done()
@@ -85,9 +83,7 @@ func main() {
 			return nil
 		})
 	} else {
-		server = &http.Server{Handler: router.New(
-			rtm, realTimeOptions.JWT.Project, realTimeOptions.WriteQueueDepth,
-		)}
+		server = &http.Server{Handler: router.New(rtm, &realTimeOptions)}
 	}
 	httpUtils.ListenAndServeEach(eg.Go, server, listenAddress.Parse(3026))
 	eg.Go(func() error {
