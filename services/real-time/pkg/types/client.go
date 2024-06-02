@@ -336,7 +336,10 @@ func (c *Client) processNextQueuedMessage() (bool, bool) {
 		closing, r, w, pending = s>>24, uint8(s>>16), uint8(s>>8), uint8(s)
 		r = (r + 1) % n
 	}
-	return r != w, !entry.FatalError
+	if r != w {
+		return true, !entry.FatalError
+	}
+	return false, closing == 0
 }
 
 func (c *Client) writeResponse(response RPCResponse) bool {
