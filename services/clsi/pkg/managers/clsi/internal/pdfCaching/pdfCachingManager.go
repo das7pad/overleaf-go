@@ -66,7 +66,6 @@ func (m *manager) Process(ctx context.Context, run commandRunner.NamespacedRun, 
 	if t.LastBuild == buildId {
 		return t.LastRanges, nil
 	}
-	defer t.flush()
 
 	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
@@ -91,14 +90,16 @@ func (m *manager) Process(ctx context.Context, run commandRunner.NamespacedRun, 
 	if err != nil {
 		return nil, errors.Tag(err, "xref")
 	}
+	defer t.flush()
 	r, err = extractRanges(ctx, o.CompileOutputDir(buildId).Join(pdfName), &t, r)
-	if err == nil {
-		t.LastBuild = buildId
-		t.LastRanges = r
-	} else {
+	if err != nil {
 		t.LastBuild = ""
+		t.LastRanges = nil
+		return r, err
 	}
-	return r, err
+	t.LastBuild = buildId
+	t.LastRanges = r
+	return r, nil
 }
 
 func extractRanges(ctx context.Context, src string, t *tracker, r []types.PDFCachingRange) ([]types.PDFCachingRange, error) {
@@ -144,9 +145,9 @@ func extractRanges(ctx context.Context, src string, t *tracker, r []types.PDFCac
 		}
 		buf = sha.Sum(buf[:0])
 		h := sharedTypes.Hash(base64.RawURLEncoding.EncodeToString(buf))
-		_, exists := t.M[h]
-		t.M[h] = 0
+		_, exists := t.WrittenHashes[h]
 		if exists {
+			t.WrittenHashes[h] = 0
 			cr.Hash = h
 			r = append(r, cr)
 			continue
@@ -158,6 +159,7 @@ func extractRanges(ctx context.Context, src string, t *tracker, r []types.PDFCac
 		if err != nil {
 			return r, errors.Tag(err, "copy sha")
 		}
+		t.WrittenHashes[h] = 0
 		cr.Hash = h
 		r = append(r, cr)
 	}
@@ -174,8 +176,10 @@ var (
 )
 
 const (
-	minChunkSize = 1024
-	publicRead   = 0o644
+	minChunkSize   = 1024
+	publicRead     = 0o644
+	stageAge       = 5
+	maxPDFXrefSize = 1024 * 1024
 
 	pdfName     = sharedTypes.PathName("output.pdf")
 	pdfXrefName = sharedTypes.PathName("output.pdfxref")
@@ -191,7 +195,7 @@ func parseXref(p string) ([]types.PDFCachingRange, error) {
 		return nil, errors.Tag(err, "stat")
 	} else if !s.Mode().IsRegular() {
 		return nil, errNotAFile
-	} else if s.Size() > 1024*1024 {
+	} else if s.Size() > maxPDFXrefSize {
 		return nil, errTooLarge
 	} else if s.Size() == 0 {
 		return nil, nil
@@ -219,23 +223,20 @@ func parseXref(p string) ([]types.PDFCachingRange, error) {
 }
 
 type tracker struct {
-	M          map[sharedTypes.Hash]uint8
-	LastRanges []types.PDFCachingRange
-	LastBuild  types.BuildId
-	contentDir types.ContentDir
-	o          types.OutputDir
+	WrittenHashes map[sharedTypes.Hash]uint8
+	LastRanges    []types.PDFCachingRange
+	LastBuild     types.BuildId
+	contentDir    types.ContentDir
+	o             types.OutputDir
 }
 
 func (t *tracker) cleanupOld() {
-	for hash, v := range t.M {
-		if v == 0 {
+	for hash, v := range t.WrittenHashes {
+		if v < stageAge {
+			t.WrittenHashes[hash] = v + 1
 			continue
 		}
-		v += 1
-		if v < 5 {
-			t.M[hash] = v
-			continue
-		}
+		delete(t.WrittenHashes, hash)
 		p := t.contentDir.Join(hash)
 		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 			log.Printf("cleanup pdfCaching failed for: %q: %s", p, err)
@@ -247,8 +248,8 @@ func (t *tracker) open() {
 	if err := t.read(); err != nil {
 		log.Printf("read pdfCaching tracker: %q: %s", t.contentDir, err)
 	}
-	if t.M == nil {
-		t.M = make(map[sharedTypes.Hash]uint8)
+	if t.WrittenHashes == nil {
+		t.WrittenHashes = make(map[sharedTypes.Hash]uint8)
 	}
 }
 

@@ -69,6 +69,10 @@ func (d OutputDir) CompileOutputDir(id BuildId) CompileOutputDir {
 	return CompileOutputDir(d.CompileOutput() + "/" + string(id))
 }
 
+func (d OutputDir) ContentDirBase() string {
+	return string(d) + "/" + constants.ContentLabel
+}
+
 func (d OutputDir) ContentDir(id BuildId) ContentDir {
 	return ContentDir(string(d) + "/" + constants.ContentLabel + "/" + string(id))
 }

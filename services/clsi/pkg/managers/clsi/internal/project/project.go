@@ -53,7 +53,7 @@ func newProject(projectId sharedTypes.UUID, userId sharedTypes.UUID, m *managers
 
 	o := paths.OutputBaseDir.OutputDir(namespace)
 	var contentId types.BuildId
-	if dirs, err := os.ReadDir(string(o)); err != nil && !os.IsNotExist(err) {
+	if dirs, err := os.ReadDir(o.ContentDirBase()); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	} else {
 		for _, dir := range dirs {
