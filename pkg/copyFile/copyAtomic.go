@@ -33,12 +33,8 @@ func AtomicN(dst string, reader io.Reader, mode os.FileMode, n int64) error {
 	return copyAtomic(dst, reader, mode, n)
 }
 
-func AtomicWithMode(dest string, reader *os.File) error {
-	stat, err := reader.Stat()
-	if err != nil {
-		return errors.Tag(err, "stat src")
-	}
-	return copyAtomic(dest, reader, stat.Mode(), 0)
+func AtomicMode(dest string, reader io.Reader, mode os.FileMode) error {
+	return copyAtomic(dest, reader, mode, 0)
 }
 
 func copyAtomic(dst string, reader io.Reader, mode os.FileMode, n int64) error {
