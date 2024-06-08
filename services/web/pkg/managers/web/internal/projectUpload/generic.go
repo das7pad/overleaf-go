@@ -237,8 +237,8 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 					if !e.sourceFileId.IsZero() {
 						err := m.fm.CopyProjectFile(
 							uploadCtx,
-							request.SourceProjectId, e.sourceFileId,
 							p.Id, e.fileRef.Id,
+							request.SourceProjectId, e.sourceFileId,
 						)
 						if err != nil {
 							mErr.Add(errors.Tag(err, "copy file"))

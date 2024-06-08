@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -133,12 +133,12 @@ func (m *minioBackend) DeletePrefix(ctx context.Context, prefix string) error {
 	return nil
 }
 
-func (m *minioBackend) CopyObject(ctx context.Context, src string, dest string) error {
+func (m *minioBackend) CopyObject(ctx context.Context, dst string, src string) error {
 	_, err := m.mc.CopyObject(
 		ctx,
 		minio.CopyDestOptions{
 			Bucket: m.bucket,
-			Object: dest,
+			Object: dst,
 		},
 		minio.CopySrcOptions{
 			Bucket: m.bucket,

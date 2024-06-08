@@ -26,7 +26,7 @@ import (
 )
 
 type Manager interface {
-	CopyProjectFile(ctx context.Context, srcProjectId sharedTypes.UUID, srcFileId sharedTypes.UUID, destProjectId sharedTypes.UUID, destFileId sharedTypes.UUID) error
+	CopyProjectFile(ctx context.Context, dstProjectId, dstFileId, srcProjectId, srcFileId sharedTypes.UUID) error
 	DeleteProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) error
 	DeleteProject(ctx context.Context, projectId sharedTypes.UUID) error
 	GetReadStreamForProjectFile(ctx context.Context, projectId sharedTypes.UUID, fileId sharedTypes.UUID) (int64, io.ReadSeekCloser, error)
@@ -66,11 +66,11 @@ func (m *manager) GetRedirectURLForGETOnProjectFile(ctx context.Context, project
 	return m.b.GetRedirectURLForGET(ctx, getProjectFileKey(projectId, fileId))
 }
 
-func (m *manager) CopyProjectFile(ctx context.Context, srcProjectId sharedTypes.UUID, srcFileId sharedTypes.UUID, destProjectId sharedTypes.UUID, destFileId sharedTypes.UUID) error {
+func (m *manager) CopyProjectFile(ctx context.Context, dstProjectId, dstFileId, srcProjectId, srcFileId sharedTypes.UUID) error {
 	return m.b.CopyObject(
 		ctx,
+		getProjectFileKey(dstProjectId, dstFileId),
 		getProjectFileKey(srcProjectId, srcFileId),
-		getProjectFileKey(destProjectId, destFileId),
 	)
 }
 

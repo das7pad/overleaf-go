@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -137,17 +137,17 @@ func transformComponent(op sharedTypes.Op, c, otherC sharedTypes.Component, side
 	return appendOp(op, c), nil
 }
 
-func transformComponentX(left, right sharedTypes.Component, destLeft, destRight sharedTypes.Op) (sharedTypes.Op, sharedTypes.Op, error) {
+func transformComponentX(dstLeft, dstRight sharedTypes.Op, left, right sharedTypes.Component) (sharedTypes.Op, sharedTypes.Op, error) {
 	var err error
-	destLeft, err = transformComponent(destLeft, left, right, leftSide)
+	dstLeft, err = transformComponent(dstLeft, left, right, leftSide)
 	if err != nil {
 		return nil, nil, err
 	}
-	destRight, err = transformComponent(destRight, right, left, rightSide)
+	dstRight, err = transformComponent(dstRight, right, left, rightSide)
 	if err != nil {
 		return nil, nil, err
 	}
-	return destLeft, destRight, nil
+	return dstLeft, dstRight, nil
 }
 
 func transformX(left, right sharedTypes.Op) (sharedTypes.Op, error) {
@@ -161,7 +161,7 @@ func transformX(left, right sharedTypes.Op) (sharedTypes.Op, error) {
 			nextC := make(sharedTypes.Op, 0)
 
 			transformedLeft, nextC, err = transformComponentX(
-				left[k], component, transformedLeft, nextC,
+				transformedLeft, nextC, left[k], component,
 			)
 			if err != nil {
 				return nil, err

@@ -155,7 +155,7 @@ func Import(ctx context.Context, db *mongo.Database, rTx, tx pgx.Tx, limit int) 
 				src := primitive.ObjectID(pId).Hex() +
 					"/" +
 					primitive.ObjectID(fId).Hex()
-				if err := fo.CopyObject(ctx, src, dst); err != nil {
+				if err := fo.CopyObject(ctx, dst, src); err != nil {
 					err = errors.Tag(
 						err,
 						fmt.Sprintf("copy %s -> %s", src, dst),

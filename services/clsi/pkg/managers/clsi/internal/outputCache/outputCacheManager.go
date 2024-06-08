@@ -169,16 +169,16 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 		eg.Go(func() error {
 			for fileName := range work {
 				src := compileDir.Join(fileName)
-				dest := compileOutputDir.Join(fileName)
+				dst := compileOutputDir.Join(fileName)
 				if resourceCleanup.ShouldDelete(fileName) {
 					// Optimization: Steal the file from the compileDir.
 					// The next compile request would delete it anyway.
-					if err2 := syscall.Rename(src, dest); err2 != nil {
-						return errors.Tag(err2, "rename "+src+" -> "+dest)
+					if err2 := syscall.Rename(src, dst); err2 != nil {
+						return errors.Tag(err2, "rename "+src+" -> "+dst)
 					}
 				} else {
-					if err2 := copyFile.NonAtomic(dest, src); err2 != nil {
-						return errors.Tag(err2, "copy "+src+" -> "+dest)
+					if err2 := copyFile.NonAtomic(dst, src); err2 != nil {
+						return errors.Tag(err2, "copy "+src+" -> "+dst)
 					}
 				}
 				if fileName == "output.pdf" {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -57,7 +57,7 @@ func (o Options) Validate() error {
 }
 
 type Backend interface {
-	CopyObject(ctx context.Context, src string, dest string) error
+	CopyObject(ctx context.Context, dst string, src string) error
 	DeleteObject(ctx context.Context, key string) error
 	DeletePrefix(ctx context.Context, prefix string) error
 	GetObjectSize(ctx context.Context, key string) (int64, error)

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -111,13 +111,13 @@ func (u *urlCache) Download(ctx context.Context, namespace types.Namespace, reso
 	cachePath := u.projectDir(namespace).Join(
 		sharedTypes.PathName(strings.ReplaceAll(resource.URL.Path, "/", "-")),
 	)
-	dest := dir.Join(resource.Path)
+	dst := dir.Join(resource.Path)
 
 	// There is no need for atomic writes here. In the error case, the file
 	//  will either get recreated on re-compile, or deleted as part of output
 	//  scrubbing in case it were to be deleted from the projects resources for
 	//  the next compile.
-	if err := copyFile.NonAtomic(dest, cachePath); err == nil {
+	if err := copyFile.NonAtomic(dst, cachePath); err == nil {
 		// Happy path
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -130,7 +130,7 @@ func (u *urlCache) Download(ctx context.Context, namespace types.Namespace, reso
 	}
 
 	// See the note above why we do not need atomic copying here.
-	if err = copyFile.NonAtomic(dest, cachePath); err != nil {
+	if err = copyFile.NonAtomic(dst, cachePath); err != nil {
 		return err
 	}
 	return nil
