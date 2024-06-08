@@ -26,6 +26,13 @@ import (
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
 )
 
+type isFinalEvent int8
+
+const (
+	disconnectAfterHandling = iota
+	keepConnected
+)
+
 func (r *room) Handle(raw string) {
 	if r.isEmpty() {
 		return
@@ -47,8 +54,10 @@ func (r *room) Handle(raw string) {
 		err = r.handleProjectPublicAccessLevelChanged(msg)
 	case sharedTypes.ProjectMembershipChanged:
 		err = r.handleProjectMembershipChanged(msg)
+	case sharedTypes.ProjectEditableUpdated:
+		err = r.handleMessage(msg, r.Clients(), disconnectAfterHandling)
 	default:
-		err = r.handleMessage(msg, r.Clients())
+		err = r.handleMessage(msg, r.Clients(), keepConnected)
 	}
 	if err != nil {
 		log.Printf(
@@ -80,7 +89,7 @@ func (r *room) handleProjectPublicAccessLevelChanged(msg sharedTypes.EditorEvent
 			}
 		}
 	}
-	return r.handleMessage(msg, clients)
+	return r.handleMessage(msg, clients, keepConnected)
 }
 
 type projectMembershipChangedPayload struct {
@@ -101,10 +110,10 @@ func (r *room) handleProjectMembershipChanged(msg sharedTypes.EditorEvent) error
 			client.ForceDisconnect()
 		}
 	}
-	return r.handleMessage(msg, clients)
+	return r.handleMessage(msg, clients, keepConnected)
 }
 
-func (r *room) handleMessage(msg sharedTypes.EditorEvent, clients Clients) error {
+func (r *room) handleMessage(msg sharedTypes.EditorEvent, clients Clients, isFinal isFinalEvent) error {
 	defer clients.Done()
 	var requiredCapability types.CapabilityComponent
 	var bulkMessage types.WriteQueueEntry
@@ -126,6 +135,7 @@ func (r *room) handleMessage(msg sharedTypes.EditorEvent, clients Clients) error
 				Name:        msg.Message,
 				Body:        msg.Payload,
 				ProcessedBy: msg.ProcessedBy,
+				FatalError:  isFinal == disconnectAfterHandling,
 			}
 			var err error
 			if bulkMessage, err = types.PrepareBulkMessage(&resp); err != nil {

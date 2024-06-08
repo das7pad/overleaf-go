@@ -64,9 +64,11 @@ CREATE TYPE PublicAccessLevel AS ENUM ('private', 'tokenBased');
 CREATE TABLE projects
 (
   compiler             TEXT              NOT NULL,
+  content_locked_at    TIMESTAMP         NULL,
   created_at           TIMESTAMP         NOT NULL,
   deleted_at           TIMESTAMP         NULL,
   epoch                INTEGER           NOT NULL,
+  editable             BOOLEAN GENERATED ALWAYS AS (content_locked_at IS NULL AND deleted_at IS NULL) STORED,
   id                   UUID              NOT NULL PRIMARY KEY,
   image_name           TEXT              NOT NULL,
   last_opened_at       TIMESTAMP         NULL,
@@ -77,9 +79,9 @@ CREATE TABLE projects
   public_access_level  PublicAccessLevel NOT NULL,
   spell_check_language TEXT              NOT NULL,
   token_ro             TEXT              NULL UNIQUE,
-  token_rw             TEXT              NULL, -- implicit UNIQUE via token_rw_prefix
+  token_rw             TEXT              NULL,    -- implicit UNIQUE via token_rw_prefix
   token_rw_prefix      TEXT              NULL UNIQUE,
-  tree_version INTEGER NOT NULL                -- TODO: rename to version, it is used for cache invalidation of ForBootstrapWS in real-time
+  tree_version         INTEGER           NOT NULL -- TODO: rename to version, it is used for cache invalidation of ForBootstrapWS in real-time
 );
 
 CREATE TYPE AccessSource AS ENUM ('token', 'invite', 'owner');
@@ -194,7 +196,7 @@ ALTER TABLE projects
   ADD COLUMN root_folder_id UUID NULL REFERENCES tree_nodes
     CHECK (
       -- Check field is not yet set OR enforce is actual root folder.
-        root_folder_id IS NULL
+      root_folder_id IS NULL
         OR is_tree_node_root(id, root_folder_id)
       );
 
@@ -203,9 +205,9 @@ ALTER TABLE tree_nodes
     CHECK (
       -- Check we are root folder (folder w/o parent)
       --  OR parent is folder in the same project.
-        (parent_id IS NULL AND kind = 'folder')
+      (parent_id IS NULL AND kind = 'folder')
         OR
-        is_tree_node_kind_in(project_id, parent_id, 'folder')
+      is_tree_node_kind_in(project_id, parent_id, 'folder')
       );
 
 CREATE TABLE docs

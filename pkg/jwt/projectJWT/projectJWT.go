@@ -41,6 +41,7 @@ type Claims struct {
 	project.AuthorizationDetails
 	sharedTypes.ProjectOptions
 	EpochUser int64 `json:"eu"`
+	Editable  bool  `json:"d,omitempty"`
 }
 
 type validateProjectJWTEpochs func(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
@@ -119,12 +120,14 @@ const (
 	claimFieldUserId
 	claimFieldTimeout
 	claimFieldEpochUser
+	claimFieldEditable
 )
 
 var claimFieldMap [256]claimField
 
 func init() {
 	claimFieldMap['c'] = claimFieldCompileGroup
+	claimFieldMap['d'] = claimFieldEditable
 	claimFieldMap['l'] = claimFieldPrivilegeLevel
 	claimFieldMap['p'] = claimFieldProjectId
 	claimFieldMap['s'] = claimFieldAccessSource
@@ -228,6 +231,8 @@ func (c *Claims) tryUnmarshalJSON(p []byte) error {
 			default:
 				return errBadJWT
 			}
+		case claimFieldEditable:
+			c.Editable = string(p[i:j]) == "true"
 		}
 		if next == -1 {
 			return nil

@@ -31,6 +31,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/pubSub/channel"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/templates"
+	"github.com/das7pad/overleaf-go/services/document-updater/pkg/managers/documentUpdater"
 	"github.com/das7pad/overleaf-go/services/filestore/pkg/managers/filestore"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/compile"
 	"github.com/das7pad/overleaf-go/services/web/pkg/managers/web/internal/systemMessage"
@@ -57,10 +58,11 @@ type Manager interface {
 	SetRootDocId(ctx context.Context, request *types.SetRootDocIdRequest) error
 	GetAccessTokens(ctx context.Context, r *types.GetAccessTokensRequest, response *types.GetAccessTokensResponse) error
 	SetPublicAccessLevel(ctx context.Context, request *types.SetPublicAccessLevelRequest, response *types.SetPublicAccessLevelResponse) error
+	SetContentLocked(ctx context.Context, request *types.SetContentLockedRequest) error
 	UpdateEditorConfig(ctx context.Context, request *types.UpdateEditorConfigRequest) error
 }
 
-func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler *projectJWT.JWTHandler, loggedInUserJWTHandler *loggedInUserJWT.JWTHandler, cm compile.Manager, smm systemMessage.Manager) Manager {
+func New(options *types.Options, ps *templates.PublicSettings, client redis.UniversalClient, editorEvents channel.Writer, pm project.Manager, um user.Manager, mm message.Manager, fm filestore.Manager, projectJWTHandler *projectJWT.JWTHandler, loggedInUserJWTHandler *loggedInUserJWT.JWTHandler, dum documentUpdater.Manager, cm compile.Manager, smm systemMessage.Manager) Manager {
 	frontendAllowedImageNames := make([]templates.AllowedImageName, 0)
 	for _, allowedImageName := range options.AllowedImageNames {
 		if !allowedImageName.AdminOnly {
@@ -70,6 +72,7 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 	return &manager{
 		client:          client,
 		cm:              cm,
+		dum:             dum,
 		mm:              mm,
 		editorEvents:    editorEvents,
 		fm:              fm,
@@ -93,6 +96,7 @@ func New(options *types.Options, ps *templates.PublicSettings, client redis.Univ
 type manager struct {
 	client          redis.UniversalClient
 	cm              compile.Manager
+	dum             documentUpdater.Manager
 	mm              message.Manager
 	editorEvents    channel.Writer
 	fm              filestore.Manager

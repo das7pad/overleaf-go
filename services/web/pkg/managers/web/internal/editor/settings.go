@@ -18,8 +18,10 @@ package editor
 
 import (
 	"context"
+	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
+	"github.com/das7pad/overleaf-go/pkg/models/project"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
@@ -100,5 +102,33 @@ func (m *manager) SetRootDocId(ctx context.Context, r *types.SetRootDocIdRequest
 		return errors.Tag(err, "update rootDoc")
 	}
 	go m.notifyEditor(r.ProjectId, sharedTypes.RootDocUpdated, r.RootDocId)
+	return nil
+}
+
+type projectEditableUpdatedDetails struct {
+	project.ContentLockedAtField
+	project.EditableField
+}
+
+func (m *manager) SetContentLocked(ctx context.Context, r *types.SetContentLockedRequest) error {
+	if err := m.dum.FlushAndDeleteProject(ctx, r.ProjectId); err != nil {
+		return errors.Tag(err, "flush before")
+	}
+	d := projectEditableUpdatedDetails{}
+	if r.ContentLocked {
+		now := time.Now()
+		d.ContentLockedAt = &now
+	}
+	editable, err := m.pm.SetContentLockedAt(
+		ctx, r.ProjectId, r.UserId, d.ContentLockedAt,
+	)
+	if err != nil {
+		return errors.Tag(err, "update content locked")
+	}
+	d.Editable = editable
+	m.notifyEditor(r.ProjectId, sharedTypes.ProjectEditableUpdated, d)
+	if err = m.dum.FlushAndDeleteProject(ctx, r.ProjectId); err != nil {
+		return errors.Tag(err, "flush after")
+	}
 	return nil
 }

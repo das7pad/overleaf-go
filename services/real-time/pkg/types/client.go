@@ -191,7 +191,7 @@ func (c *Client) MarkAsLeftDoc() {
 	c.docId.Store(docIdNotJoined)
 }
 
-func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser) {
+func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, isRestrictedUser project.IsRestrictedUser, editable bool) {
 	switch privilegeLevel {
 	case sharedTypes.PrivilegeLevelOwner, sharedTypes.PrivilegeLevelReadAndWrite:
 		c.capabilities = Capabilities(
@@ -212,6 +212,9 @@ func (c *Client) ResolveCapabilities(privilegeLevel sharedTypes.PrivilegeLevel, 
 	if isRestrictedUser {
 		c.capabilities = c.capabilities.TakeAway(CanSeeOtherClients)
 		c.capabilities = c.capabilities.TakeAway(CanSeeAllEditorEvents)
+	}
+	if !editable {
+		c.capabilities.TakeAway(CanEditContent)
 	}
 }
 

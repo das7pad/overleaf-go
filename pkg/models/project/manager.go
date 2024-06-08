@@ -59,7 +59,7 @@ type Manager interface {
 	GetForZip(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, accessToken AccessToken) (*ForZip, error)
 	ValidateProjectJWTEpochs(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64) error
 	BumpLastOpened(ctx context.Context, projectId sharedTypes.UUID) error
-	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error)
+	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*time.Time, *Doc, error)
 	GetFile(ctx context.Context, projectId, userId sharedTypes.UUID, accessToken AccessToken, fileId sharedTypes.UUID) (*FileWithParent, error)
 	GetElementByPath(ctx context.Context, projectId, userId sharedTypes.UUID, path sharedTypes.PathName) (sharedTypes.UUID, bool, error)
 	GetBootstrapWSDetails(ctx context.Context, projectId, userId sharedTypes.UUID, projectEpoch, userEpoch int64, source AccessSource, p *ForBootstrapWS, u *user.WithPublicInfo) error
@@ -96,6 +96,7 @@ type Manager interface {
 	ListProjectsWithName(ctx context.Context, userId sharedTypes.UUID) ([]WithIdAndName, error)
 	GetOwnedProjects(ctx context.Context, userId sharedTypes.UUID) ([]sharedTypes.UUID, error)
 	GetProjectListDetails(ctx context.Context, userId sharedTypes.UUID, r *ForProjectList) error
+	SetContentLockedAt(ctx context.Context, projectId, userId sharedTypes.UUID, contentLocked *time.Time) (bool, error)
 }
 
 func New(db *pgxpool.Pool) Manager {
@@ -346,7 +347,7 @@ SET compiler     = $3,
     tree_version = tree_version + 1
 FROM project_members pm
 WHERE p.id = $1
-  AND p.deleted_at IS NULL
+  AND p.editable
   AND p.id = pm.project_id
   AND pm.user_id = $2
   AND pm.privilege_level >= 'readAndWrite'
@@ -360,7 +361,7 @@ SET image_name = $3,
     tree_version = tree_version + 1
 FROM project_members pm
 WHERE p.id = $1
-  AND p.deleted_at IS NULL
+  AND p.editable
   AND p.id = pm.project_id
   AND pm.user_id = $2
   AND pm.privilege_level >= 'readAndWrite'
@@ -374,7 +375,7 @@ SET spell_check_language = $3,
     tree_version = tree_version + 1
 FROM project_members pm
 WHERE p.id = $1
-  AND p.deleted_at IS NULL
+  AND p.editable,
   AND p.id = pm.project_id
   AND pm.user_id = $2
   AND pm.privilege_level >= 'readAndWrite'
@@ -398,11 +399,25 @@ SET root_doc_id = d.id,
 FROM project_members pm,
      d
 WHERE p.id = $1
-  AND p.deleted_at IS NULL
+  AND p.editable
   AND p.id = pm.project_id
   AND pm.user_id = $2
   AND pm.privilege_level >= 'readAndWrite'
 `, projectId, userId, rootDocId))
+}
+
+func (m *manager) SetContentLockedAt(ctx context.Context, projectId, userId sharedTypes.UUID, contentLockedAt *time.Time) (bool, error) {
+	editable := false
+	err := rewritePostgresErr(m.db.QueryRow(ctx, `
+UPDATE projects
+SET content_locked_at = $3,
+    epoch             = epoch + 1
+WHERE id = $1
+  AND owner_id = $2
+  AND deleted_at IS NULL
+RETURNING editable
+`, projectId, userId, contentLockedAt).Scan(&editable))
+	return editable, err
 }
 
 func (m *manager) SetPublicAccessLevel(ctx context.Context, projectId, userId sharedTypes.UUID, publicAccessLevel PublicAccessLevel) error {
@@ -535,7 +550,7 @@ WITH f AS (
                                              t.id = $3 AND
                                              t.deleted_at = '1970-01-01')
         WHERE p.id = $1
-          AND p.deleted_at IS NULL
+          AND p.editable
           AND pm.privilege_level >= 'readAndWrite'
         RETURNING project_id)
 UPDATE projects p
@@ -560,7 +575,7 @@ WITH node AS (SELECT t.id
               WHERE t.id = $3
                 AND t.kind = $4
                 AND t.project_id = $1
-                AND p.deleted_at IS NULL
+                AND p.editable
                 AND t.deleted_at = '1970-01-01'
                 AND pm.privilege_level >= 'readAndWrite'),
      deleted AS (
@@ -605,7 +620,7 @@ WITH node AS (SELECT t.id,
                 AND t.kind = 'folder'
                 AND t.project_id = $1
                 AND t.parent_id IS NOT NULL
-                AND p.deleted_at IS NULL
+                AND p.editable
                 AND t.deleted_at = '1970-01-01'
                 AND pm.privilege_level >= 'readAndWrite'),
      updated_children AS (
@@ -645,7 +660,7 @@ WITH f AS (SELECT t.id, t.path, t.project_id
                                    pm.user_id = $2)
            WHERE t.id = $3
              AND t.project_id = $1
-             AND p.deleted_at IS NULL
+             AND p.editable
              AND t.deleted_at = '1970-01-01'
              AND pm.privilege_level >= 'readAndWrite'),
      updated AS (
@@ -698,7 +713,7 @@ WITH node AS (SELECT t.id,
                 AND t.kind = 'folder'
                 AND t.project_id = $1
                 AND t.parent_id IS NOT NULL
-                AND p.deleted_at IS NULL
+                AND p.editable
                 AND t.deleted_at = '1970-01-01'
                 AND pm.privilege_level >= 'readAndWrite'),
      new_parent AS (SELECT t.id, t.path
@@ -778,7 +793,7 @@ WITH node AS (SELECT t.id, f.path AS parent_path
            WHERE t.id = $3
              AND t.kind = $4
              AND t.project_id = $1
-             AND p.deleted_at IS NULL
+             AND p.editable
              AND t.deleted_at = '1970-01-01'
              AND pm.privilege_level >= 'readAndWrite'),
      updated AS (
@@ -828,7 +843,7 @@ WITH node AS (SELECT t.id,
                 AND t.kind = 'folder'
                 AND t.project_id = $1
                 AND t.parent_id IS NOT NULL
-                AND p.deleted_at IS NULL
+                AND p.editable
                 AND t.deleted_at = '1970-01-01'
                 AND pm.privilege_level >= 'readAndWrite'),
      updated_children AS (
@@ -1018,6 +1033,7 @@ func (m *manager) GetForProjectJWT(ctx context.Context, projectId, userId shared
 	err := m.db.QueryRow(ctx, `
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
+       p.editable,
        p.epoch,
        p.public_access_level,
        coalesce(p.token_ro, ''),
@@ -1041,6 +1057,7 @@ WHERE p.id = $1
 `, projectId, userId, accessToken).Scan(
 		&p.Member.AccessSource,
 		&p.Member.PrivilegeLevel,
+		&p.Editable,
 		&p.Epoch,
 		&p.PublicAccessLevel,
 		&p.Tokens.ReadOnly,
@@ -1079,10 +1096,11 @@ WHERE p.id = $1 AND p.epoch = $2 AND u.id = $3 AND u.epoch = $4
 	return &errors.UnauthorizedError{Reason: "epoch mismatch"}
 }
 
-func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*Doc, error) {
+func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*time.Time, *Doc, error) {
+	cl := ContentLockedAtField{}
 	d := Doc{}
 	err := m.db.QueryRow(ctx, `
-SELECT t.path, d.snapshot, d.version
+SELECT t.path, d.snapshot, d.version, p.content_locked_at
 FROM docs d
          INNER JOIN tree_nodes t ON d.id = t.id
          INNER JOIN projects p ON t.project_id = p.id
@@ -1090,13 +1108,13 @@ WHERE d.id = $2
   AND t.project_id = $1
   AND t.deleted_at = '1970-01-01'
   AND p.deleted_at IS NULL
-`, projectId, docId).Scan(&d.Path, &d.Snapshot, &d.Version)
+`, projectId, docId).Scan(&d.Path, &d.Snapshot, &d.Version, &cl.ContentLockedAt)
 	if err == pgx.ErrNoRows {
-		return nil, &errors.DocNotFoundError{}
+		return nil, nil, &errors.DocNotFoundError{}
 	}
 	d.Id = docId
 	d.Name = d.Path.Filename()
-	return &d, err
+	return cl.ContentLockedAt, &d, err
 }
 
 func (m *manager) RestoreDoc(ctx context.Context, projectId, userId, docId sharedTypes.UUID, name sharedTypes.Filename) (sharedTypes.Version, sharedTypes.UUID, error) {
@@ -1112,7 +1130,7 @@ WITH d AS (SELECT t.id, p.root_folder_id
            WHERE t.id = $3
              AND t.kind = 'doc'
              AND t.project_id = $1
-             AND p.deleted_at IS NULL
+             AND p.editable
              AND t.deleted_at != '1970-01-01'
              AND pm.privilege_level >= 'readAndWrite'),
      restored
@@ -1161,11 +1179,19 @@ WHERE f.id = $4
 	return &f, err
 }
 
+var (
+	errElementIsFolder = &errors.UnprocessableEntityError{
+		Msg: "element is a folder",
+	}
+	errProjectNotEditable = &errors.ProjectNotEditableError{}
+)
+
 func (m *manager) getElementHintForOverwrite(ctx context.Context, projectId, userId, folderId sharedTypes.UUID, name sharedTypes.Filename, tx pgx.Tx) (sharedTypes.UUID, bool, error) {
 	var nodeId sharedTypes.UUID
 	var kind TreeNodeKind
+	var editable bool
 	err := tx.QueryRow(ctx, `
-SELECT t.id, t.kind
+SELECT t.id, t.kind, p.editable
 FROM tree_nodes t
          INNER JOIN projects p ON t.project_id = p.id
          INNER JOIN project_members pm ON (p.id = pm.project_id AND
@@ -1176,14 +1202,15 @@ WHERE t.project_id = $1
   AND t.deleted_at = '1970-01-01'
   AND p.deleted_at IS NULL
   AND (t.path = $4 OR t.path LIKE concat('%/', $4::TEXT))
-`, projectId, userId, folderId, name).Scan(&nodeId, &kind)
+`, projectId, userId, folderId, name).Scan(&nodeId, &kind, &editable)
 	if err == pgx.ErrNoRows {
 		return nodeId, false, nil
 	}
+	if !editable {
+		return nodeId, false, errProjectNotEditable
+	}
 	if kind == TreeNodeKindFolder {
-		return nodeId, false, &errors.UnprocessableEntityError{
-			Msg: "element is a folder",
-		}
+		return nodeId, false, errElementIsFolder
 	}
 	return nodeId, kind == TreeNodeKindDoc, err
 }
@@ -1327,6 +1354,8 @@ WITH tree AS
                       GROUP BY t.project_id)
 
 SELECT p.compiler,
+       p.content_locked_at,
+       p.editable,
        p.image_name,
        p.name,
        p.owner_id,
@@ -1366,6 +1395,8 @@ WHERE p.id = $1
   AND p.epoch = $3
 `, projectId, userId, projectEpoch, userEpoch, source).Scan(
 		&p.Compiler,
+		&p.ContentLockedAt,
+		&p.Editable,
 		&p.ImageName,
 		&p.Name,
 		&p.Owner.Id,
@@ -1449,6 +1480,7 @@ func (m *manager) GetLoadEditorDetails(ctx context.Context, projectId, userId sh
 SELECT coalesce(pm.access_source::TEXT, ''),
        coalesce(pm.privilege_level::TEXT, ''),
        p.compiler,
+       p.editable,
        p.epoch,
        p.image_name,
        p.name,
@@ -1484,6 +1516,7 @@ WHERE p.id = $1
 		&d.Project.Member.AccessSource,
 		&d.Project.Member.PrivilegeLevel,
 		&d.Project.Compiler,
+		&d.Project.Editable,
 		&d.Project.Epoch,
 		&d.Project.ImageName,
 		&d.Project.Name,
@@ -1867,7 +1900,7 @@ WITH f AS (SELECT t.id, t.path
                                    pm.user_id = $2)
            WHERE t.id = $3
              AND t.project_id = $1
-             AND p.deleted_at IS NULL
+             AND p.editable
              AND t.deleted_at = '1970-01-01'
              AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
@@ -1951,7 +1984,7 @@ WITH f AS (SELECT t.id, t.path
                                    pm.user_id = $2)
            WHERE t.id = $3
              AND t.project_id = $1
-             AND p.deleted_at IS NULL
+             AND p.editable
              AND t.deleted_at = '1970-01-01'
              AND pm.privilege_level >= 'readAndWrite'),
      inserted_tree_node AS (
@@ -1993,7 +2026,7 @@ WITH f AS (SELECT t.id, t.project_id, t.path
            WHERE f.pending = TRUE
              AND t.id = $3
              AND t.project_id = $1
-             AND p.deleted_at IS NULL
+             AND p.editable
              AND t.deleted_at = $4
              AND pm.privilege_level >= 'readAndWrite'),
      d AS (
@@ -2128,6 +2161,7 @@ func (m *manager) GetProjectListDetails(ctx context.Context, userId sharedTypes.
 	b.Queue(`
 SELECT access_source,
        archived,
+       content_locked_at,
        p.epoch,
        p.id,
        last_updated_at,
@@ -2199,6 +2233,7 @@ WHERE u.id = $1
 		err = r.Scan(
 			&projects[i].AccessSource,
 			&projects[i].Archived,
+			&projects[i].ContentLockedAt,
 			&projects[i].Epoch,
 			&projects[i].Id,
 			&projects[i].LastUpdatedAt,

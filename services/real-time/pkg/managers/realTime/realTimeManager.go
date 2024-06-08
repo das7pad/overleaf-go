@@ -245,7 +245,9 @@ func (m *Manager) BootstrapWS(ctx context.Context, resp *types.RPCResponse, clie
 	client.DisplayName = u.DisplayName()
 	client.ProjectId = claims.ProjectId
 	client.UserId = claims.UserId
-	client.ResolveCapabilities(claims.PrivilegeLevel, claims.IsRestrictedUser())
+	client.ResolveCapabilities(
+		claims.PrivilegeLevel, claims.IsRestrictedUser(), claims.Editable,
+	)
 
 	if err := m.editorEvents.Join(ctx, client); err != nil {
 		return errors.Tag(err, "subscribe")

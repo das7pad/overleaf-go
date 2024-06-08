@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -30,7 +30,7 @@ import (
 )
 
 type Manager interface {
-	ProcessOutstandingUpdates(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
+	ProcessOutstandingUpdates(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate, contentLockedAt *time.Time) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
 	ProcessUpdates(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, updates, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error)
 }
 
@@ -46,10 +46,20 @@ type manager struct {
 	rtRm realTimeRedisManager.Manager
 }
 
-func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
+func (m *manager) ProcessOutstandingUpdates(ctx context.Context, docId sharedTypes.UUID, doc *types.Doc, transformUpdatesCache []sharedTypes.DocumentUpdate, contentLockedAt *time.Time) ([]sharedTypes.DocumentUpdate, []sharedTypes.DocumentUpdate, error) {
 	updates, err := m.rtRm.GetPendingUpdatesForDoc(ctx, docId)
 	if err != nil {
 		return nil, nil, errors.Tag(err, "get work")
+	}
+	if contentLockedAt != nil {
+		allUpdates := updates
+		updates = updates[:0]
+		for _, update := range allUpdates {
+			if !update.Meta.IngestionTime.Before(*contentLockedAt) {
+				continue // Drop any updates that arrived since locking. Sorry.
+			}
+			updates = append(updates, update)
+		}
 	}
 	return m.ProcessUpdates(ctx, docId, doc, updates, transformUpdatesCache)
 }

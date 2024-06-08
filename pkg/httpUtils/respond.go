@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -134,6 +134,8 @@ func GetAndLogErrResponseDetails(c *Context, err error) (int, string) {
 	case *errors.UpdateRangeNotAvailableError:
 		code = http.StatusUnprocessableEntity
 	case *errors.AlreadyCompilingError:
+		code = http.StatusLocked
+	case *errors.ProjectNotEditableError:
 		code = http.StatusLocked
 	case *errors.RateLimitedError:
 		code = http.StatusTooManyRequests

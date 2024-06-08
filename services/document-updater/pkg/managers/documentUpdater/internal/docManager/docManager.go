@@ -129,7 +129,7 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 		return nil, err
 	}
 	err = m.rl.RunWithLock(ctx, docId, func(ctx context.Context) error {
-		d, err = m.getDoc(ctx, projectId, docId)
+		_, d, err = m.getDoc(ctx, projectId, docId)
 		return err
 	})
 	if err != nil {
@@ -138,23 +138,25 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID)
 	return d, nil
 }
 
-func (m *manager) getDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
+func (m *manager) getDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*time.Time, *types.Doc, error) {
 	d, err := m.rm.GetDoc(ctx, projectId, docId)
 	if err == nil {
-		return d, nil
+		return nil, d, nil
 	}
 	if !errors.IsNotFoundError(err) {
-		return nil, errors.Tag(err, "get doc from redis")
+		return nil, nil, errors.Tag(err, "get doc from redis")
 	}
-	flushedDoc, err := m.pm.GetDoc(ctx, projectId, docId)
+	contentLockedAt, flushedDoc, err := m.pm.GetDoc(ctx, projectId, docId)
 	if err != nil {
-		return nil, errors.Tag(err, "get doc from db")
+		return nil, nil, errors.Tag(err, "get doc from db")
 	}
 	d = types.DocFromFlushedDoc(flushedDoc, projectId, docId)
-	if err = m.rm.PutDocInMemory(ctx, projectId, docId, d); err != nil {
-		return nil, errors.Tag(err, "put doc in memory")
+	if contentLockedAt == nil {
+		if err = m.rm.PutDocInMemory(ctx, projectId, docId, d); err != nil {
+			return nil, nil, errors.Tag(err, "put doc in memory")
+		}
 	}
-	return d, nil
+	return contentLockedAt, d, nil
 }
 
 func (m *manager) SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error {
@@ -301,7 +303,7 @@ const (
 var errPartialFlush = errors.New("partial flush")
 
 func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error) {
-	d, err := m.getDoc(ctx, projectId, docId)
+	contentLockedAt, d, err := m.getDoc(ctx, projectId, docId)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +334,7 @@ func (m *manager) processUpdatesForDoc(ctx context.Context, projectId, docId sha
 			return nil, err
 		}
 		processed, transformCache, updateErr = m.u.ProcessOutstandingUpdates(
-			ctx, docId, d, transformCache,
+			ctx, docId, d, transformCache, contentLockedAt,
 		)
 
 		if err = ctx.Err(); err != nil {

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -35,6 +35,10 @@ type CompilerField struct {
 	Compiler sharedTypes.Compiler `json:"compiler"`
 }
 
+type ContentLockedAtField struct {
+	ContentLockedAt *time.Time `json:"contentLockedAt"`
+}
+
 type CreatedAtField struct {
 	CreatedAt time.Time
 }
@@ -45,6 +49,10 @@ type DeletedAtField struct {
 
 type DeletedDocsField struct {
 	DeletedDocs []CommonTreeFields `json:"deletedDocs"`
+}
+
+type EditableField struct {
+	Editable bool `json:"editable"`
 }
 
 type EpochField struct {

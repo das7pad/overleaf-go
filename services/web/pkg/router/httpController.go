@@ -287,6 +287,7 @@ func (h *httpController) addRoutes(router *httpUtils.Router, corsOptions httpUti
 		r.Use(requireProjectAdminAccess)
 
 		r.PUT("/settings/admin/publicAccessLevel", h.setPublicAccessLevel)
+		r.PUT("/settings/admin/contentLocked", h.setContentLocked)
 
 		r.POST("/invite", h.createProjectInvite)
 		r.GET("/invites", h.listProjectInvites)
@@ -325,8 +326,24 @@ func requireProjectAdminAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc
 	return requirePrivilegeLevel(next, sharedTypes.PrivilegeLevelOwner)
 }
 
+var errProjectNotEditable = &errors.ProjectNotEditableError{}
+
 func requireWriteAccess(next httpUtils.HandlerFunc) httpUtils.HandlerFunc {
-	return requirePrivilegeLevel(next, sharedTypes.PrivilegeLevelReadAndWrite)
+	return func(c *httpUtils.Context) {
+		claims := projectJWT.MustGet(c)
+		err := claims.PrivilegeLevel.CheckIsAtLeast(
+			sharedTypes.PrivilegeLevelReadAndWrite,
+		)
+		if err != nil {
+			httpUtils.Respond(c, http.StatusOK, nil, err)
+			return
+		}
+		if !claims.Editable {
+			httpUtils.Respond(c, http.StatusOK, nil, errProjectNotEditable)
+			return
+		}
+		next(c)
+	}
 }
 
 func requirePrivilegeLevel(next httpUtils.HandlerFunc, level sharedTypes.PrivilegeLevel) httpUtils.HandlerFunc {
@@ -1220,6 +1237,16 @@ func (h *httpController) getAccessTokens(c *httpUtils.Context) {
 	response := &types.GetAccessTokensResponse{}
 	err := h.wm.GetAccessTokens(c, request, response)
 	httpUtils.Respond(c, http.StatusOK, response, err)
+}
+
+func (h *httpController) setContentLocked(c *httpUtils.Context) {
+	request := &types.SetContentLockedRequest{}
+	if !httpUtils.MustParseJSON(request, c) {
+		return
+	}
+	h.mustProcessSignedProjectOptions(request, c)
+	err := h.wm.SetContentLocked(c, request)
+	httpUtils.Respond(c, http.StatusNoContent, nil, err)
 }
 
 func (h *httpController) clearSessions(c *httpUtils.Context) {

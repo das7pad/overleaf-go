@@ -38,6 +38,7 @@ const (
 	NewChatMessage                  = EditorEventMessage("new-chat-message")
 	OtUpdateApplied                 = EditorEventMessage("otUpdateApplied")
 	OtUpdateError                   = EditorEventMessage("otUpdateError")
+	ProjectEditableUpdated          = EditorEventMessage("projectEditableUpdated")
 	ProjectMembershipChanged        = EditorEventMessage("project:membership:changed")
 	ProjectNameUpdated              = EditorEventMessage("projectNameUpdated")
 	ProjectPublicAccessLevelChanged = EditorEventMessage("project:publicAccessLevel:changed")
@@ -80,6 +81,8 @@ func (e *EditorEventMessage) UnmarshalJSON(p []byte) error {
 		*e = OtUpdateApplied
 	case OtUpdateError:
 		*e = OtUpdateError
+	case ProjectEditableUpdated:
+		*e = ProjectEditableUpdated
 	case ProjectMembershipChanged:
 		*e = ProjectMembershipChanged
 	case ProjectNameUpdated:

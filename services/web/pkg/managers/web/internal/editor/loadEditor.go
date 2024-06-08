@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -95,13 +95,14 @@ func (m *manager) ProjectEditorPage(ctx context.Context, request *types.ProjectE
 	}
 	{
 		c := m.jwtProject.New()
+		c.Editable = p.Editable
 		c.EpochUser = u.Epoch
 		c.AuthorizationDetails = *authorizationDetails
 		c.ProjectOptions = projectOptions
 
 		s, err := m.jwtProject.SetExpiryAndSign(c)
 		if err != nil {
-			return errors.Tag(err, "get compile jwt")
+			return errors.Tag(err, "get project jwt")
 		}
 		response.JWTProject = s
 	}

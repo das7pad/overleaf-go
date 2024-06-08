@@ -149,6 +149,7 @@ func New(options *types.Options, db *pgxpool.Pool, client redis.UniversalClient,
 		pm, um,
 		mm, fm,
 		projectJWTHandler, loggedInUserJWTHandler,
+		dum,
 		cm, smm,
 	)
 	lm := login.New(options, ps, db, um, loggedInUserJWTHandler, sm)

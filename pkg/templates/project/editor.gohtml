@@ -176,7 +176,8 @@
           </div>
         </li>
       </ul>
-      <span ng-show="!anonymous"><h4>{{ translate "actions" . }}</h4>
+      <span ng-show="!anonymous">
+        <h4>{{ translate "actions" . }}</h4>
         <ul class="list-unstyled nav">
           <li ng-controller="LeftMenuCloneProjectModalController"><a
               href=""
@@ -204,6 +205,22 @@
               show="show"
             ></word-count-modal>
           </li>
+          <li
+              ng-controller="ContentLockModalController"
+              ng-if="permissions.admin"
+           >
+            <a
+                href=""
+                ng-click="openContentLockModal()"
+              >
+              <i class="fa fa-fw fa-lock"></i>
+              <span>&nbsp;&nbsp; {{ translate "content_lock" . }}</span>
+            </a>
+            <content-lock-modal
+              handle-hide="handleHide"
+              show="show"
+            ></content-lock-modal>
+          </li>
         </ul>
       </span>
       <h4>{{ translate "settings" . }}</h4>
@@ -214,12 +231,12 @@
         <div class="container-fluid">
           <div
             class="form-controls"
-            ng-show="permissions.write"
           >
             <label for="compiler">{{ translate "compiler" . }}</label>
             <select
               name="compiler"
               ng-model="project.compiler"
+              ng-disabled="!permissions.write"
             >
               <option value="pdflatex">pdfLaTeX</option>
               <option value="latex">LaTeX</option>
@@ -229,24 +246,24 @@
           </div>
           <div
             class="form-controls"
-            ng-show="permissions.write"
           >
             <label for="imageName">{{ translate "tex_live_version" . }}</label>
             <select
               name="imageName"
               ng-model="project.imageName"
               ng-options="image.name as image.desc for image in allowedImageNames"
+              ng-disabled="!permissions.write"
             ></select>
           </div>
           <div
             class="form-controls"
-            ng-show="permissions.write"
           >
             <label for="rootDoc_id">{{ translate "main_document" . }}</label>
             <select
               name="rootDoc_id"
               ng-model="project.rootDoc_id"
               ng-options="doc.doc.id as doc.path for doc in getValidMainDocs()"
+              ng-disabled="!permissions.write"
             ></select>
           </div>
           <div
@@ -259,6 +276,7 @@
             <select
               name="spellCheckLanguage"
               ng-model="project.spellCheckLanguage"
+              ng-disabled="!permissions.write"
             >
               <option value="">{{ translate "off" . }}</option>
               <optgroup label="Language">

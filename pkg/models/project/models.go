@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -27,6 +27,8 @@ type ForBootstrapWS struct {
 	ForTree `json:"-"`
 
 	CompilerField
+	ContentLockedAtField
+	EditableField
 	DeletedDocsField
 	IdField
 	ImageNameField
@@ -39,6 +41,7 @@ type ForBootstrapWS struct {
 }
 
 type ListViewPrivate struct {
+	ContentLockedAtField
 	ForAuthorizationDetails
 	IdField
 	LastUpdatedAtField
@@ -61,6 +64,7 @@ type WithIdAndName struct {
 type LoadEditorViewPrivate struct {
 	LoadEditorViewPublic
 	ForAuthorizationDetails
+	EditableField
 	RootDocField
 }
 
@@ -147,5 +151,6 @@ type ForClone struct {
 
 type ForProjectJWT struct {
 	ForAuthorizationDetails
+	EditableField
 	OwnerFeaturesField
 }
