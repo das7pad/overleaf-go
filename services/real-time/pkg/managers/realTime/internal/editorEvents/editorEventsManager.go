@@ -55,15 +55,26 @@ func New(c channel.Manager, flushRoomChanges FlushRoomChanges, flushProject Flus
 	return &m
 }
 
+type cleanupTickerState int8
+
+const (
+	cleanupTickerStopped cleanupTickerState = iota
+	cleanupTickerSlow
+	cleanupTickerFast
+)
+
 type manager struct {
 	c channel.Manager
 
-	sem              sync.Mutex
-	roomsMux         sync.RWMutex
-	rooms            map[sharedTypes.UUID]*room
-	idle             map[sharedTypes.UUID]bool
-	flushRoomChanges FlushRoomChanges
-	flushProject     FlushProject
+	sem                sync.Mutex
+	roomsMux           sync.RWMutex
+	rooms              map[sharedTypes.UUID]*room
+	idle               map[sharedTypes.UUID]bool
+	flushRoomChanges   FlushRoomChanges
+	flushProject       FlushProject
+	cleanupTickerMux   sync.Mutex
+	cleanupTicker      *time.Ticker
+	cleanupTickerState cleanupTickerState
 }
 
 func (m *manager) StopListening() {
@@ -253,15 +264,19 @@ func (m *manager) StartListening(ctx context.Context) error {
 		return errors.Tag(err, "listen on all channel")
 	}
 
+	m.cleanupTickerMux.Lock()
+	m.cleanupTicker = time.NewTicker(100 * time.Millisecond)
+	m.cleanupTickerState = cleanupTickerSlow
+	m.cleanupTickerMux.Unlock()
+
 	allQueue := make(chan string)
 	go m.processAllMessages(allQueue)
-	t := time.NewTicker(10 * time.Millisecond)
-	go m.listen(c, allQueue, t)
-	go m.periodicallyCleanupIdleRooms(ctx, t)
+	go m.listen(c, allQueue)
+	go m.periodicallyCleanupIdleRooms(ctx)
 	return nil
 }
 
-func (m *manager) listen(c <-chan channel.PubSubMessage, allQueue chan string, t *time.Ticker) {
+func (m *manager) listen(c <-chan channel.PubSubMessage, allQueue chan string) {
 	defer close(allQueue)
 	for msg := range c {
 		if msg.Channel.IsZero() {
@@ -270,14 +285,26 @@ func (m *manager) listen(c <-chan channel.PubSubMessage, allQueue chan string, t
 			m.handleMessage(msg)
 		}
 	}
-	t.Stop()
+	m.cleanupTickerMux.Lock()
+	m.cleanupTickerState = cleanupTickerStopped
+	m.cleanupTicker.Stop()
+	m.cleanupTickerMux.Unlock()
 }
 
-func (m *manager) periodicallyCleanupIdleRooms(ctx context.Context, t *time.Ticker) {
+func (m *manager) periodicallyCleanupIdleRooms(ctx context.Context) {
 	const initialThreshold = 100
 	threshold := initialThreshold
-	for range t.C {
+	for range m.cleanupTicker.C {
 		n := m.cleanupIdleRooms(ctx, threshold)
+		m.cleanupTickerMux.Lock()
+		if n < threshold && m.cleanupTickerState == cleanupTickerFast {
+			m.cleanupTickerState = cleanupTickerSlow
+			m.cleanupTicker.Reset(100 * time.Millisecond)
+		} else if n >= threshold && m.cleanupTickerState == cleanupTickerSlow {
+			m.cleanupTickerState = cleanupTickerFast
+			m.cleanupTicker.Reset(10 * time.Millisecond)
+		}
+		m.cleanupTickerMux.Unlock()
 		if n < threshold && n != 0 {
 			threshold -= n
 		} else {
