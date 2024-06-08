@@ -30,7 +30,7 @@ func ParseUUID(s string) (UUID, error) {
 	return u, u.UnmarshalText([]byte(s))
 }
 
-func PopulateUUID(u *UUID) error {
+func (u *UUID) Populate() error {
 	if _, err := rand.Read(u[:]); err != nil {
 		return errors.Tag(err, "generate new UUID")
 	}

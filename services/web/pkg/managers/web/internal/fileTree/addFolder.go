@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -34,7 +34,7 @@ func (m *manager) AddFolderToProject(ctx context.Context, request *types.AddFold
 	name := request.Name
 
 	folder := project.NewFolder(name)
-	if err := sharedTypes.PopulateUUID(&folder.Id); err != nil {
+	if err := folder.Id.Populate(); err != nil {
 		return err
 	}
 	projectVersion, err := m.pm.AddFolder(

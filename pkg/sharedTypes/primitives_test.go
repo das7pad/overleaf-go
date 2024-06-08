@@ -234,6 +234,6 @@ func BenchmarkPopulateUUID(b *testing.B) {
 	b.ReportAllocs()
 	u := UUID{}
 	for i := 0; i < b.N; i++ {
-		_ = PopulateUUID(&u)
+		_ = u.Populate()
 	}
 }

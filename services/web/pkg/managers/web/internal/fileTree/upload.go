@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -77,7 +77,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 	if isDoc {
 		doc := project.NewDoc(request.FileName)
 		doc.Snapshot = string(s)
-		if err = sharedTypes.PopulateUUID(&doc.Id); err != nil {
+		if err = doc.Id.Populate(); err != nil {
 			return err
 		}
 		existingId, existingIsDoc, v, err = m.pm.EnsureIsDoc(
@@ -115,7 +115,7 @@ func (m *manager) UploadFile(ctx context.Context, request *types.UploadFileReque
 		file := project.NewFileRef(request.FileName, hash, request.Size)
 		file.CreatedAt = time.Now().Truncate(time.Microsecond)
 		file.LinkedFileData = request.LinkedFileData
-		if err = sharedTypes.PopulateUUID(&file.Id); err != nil {
+		if err = file.Id.Populate(); err != nil {
 			return err
 		}
 		uploadCtx, done := context.WithTimeout(ctx, fileUploadsStaleAfter)

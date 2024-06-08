@@ -34,7 +34,7 @@ func (m *manager) AddDocToProject(ctx context.Context, request *types.AddDocRequ
 	name := request.Name
 
 	doc := project.NewDoc(name)
-	if err := sharedTypes.PopulateUUID(&doc.Id); err != nil {
+	if err := doc.Id.Populate(); err != nil {
 		return err
 	}
 	projectVersion, err := m.pm.CreateDoc(

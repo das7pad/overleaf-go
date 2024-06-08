@@ -68,7 +68,7 @@ func (m *manager) CreateProject(ctx context.Context, request *types.CreateProjec
 		return err
 	}
 	p := project.NewProject()
-	if err := sharedTypes.PopulateUUID(&p.Id); err != nil {
+	if err := p.Id.Populate(); err != nil {
 		return err
 	}
 
