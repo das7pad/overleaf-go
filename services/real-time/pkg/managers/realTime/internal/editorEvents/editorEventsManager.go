@@ -297,10 +297,10 @@ func (m *manager) periodicallyCleanupIdleRooms(ctx context.Context) {
 	for range m.cleanupTicker.C {
 		n := m.cleanupIdleRooms(ctx, threshold)
 		m.cleanupTickerMux.Lock()
-		if n < threshold && m.cleanupTickerState == cleanupTickerFast {
+		if n == 0 && m.cleanupTickerState == cleanupTickerFast {
 			m.cleanupTickerState = cleanupTickerSlow
-			m.cleanupTicker.Reset(100 * time.Millisecond)
-		} else if n >= threshold && m.cleanupTickerState == cleanupTickerSlow {
+			m.cleanupTicker.Reset(time.Second)
+		} else if m.cleanupTickerState == cleanupTickerSlow {
 			m.cleanupTickerState = cleanupTickerFast
 			m.cleanupTicker.Reset(10 * time.Millisecond)
 		}
