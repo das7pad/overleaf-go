@@ -141,8 +141,12 @@ func (m *manager) buildConnectedClients(ctx context.Context, projectId sharedTyp
 			}
 			blob = append(blob, `{"i":"`...)
 			blob = append(blob, k...)
-			blob = append(blob, `",`...)
-			blob = append(blob, v[1:]...)
+			if len(v) > 2 {
+				blob = append(blob, `",`...)
+				blob = append(blob, v[1:]...)
+			} else {
+				blob = append(blob, `"}`...)
+			}
 		},
 	)
 	if err != nil {
