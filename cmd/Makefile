@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.22.3 \
+	$(BUILD_IN) golang:1.22.5 \
 		go list -f '{{ join .Deps "\n" }}' ./cmd/... \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
@@ -63,7 +63,7 @@ check-not-changed:
 bin.tar: build_cmds_in_bulk
 build_cmds_in_bulk:
 	rm -rf ../.cache/target/ && mkdir ../.cache/target/
-	$(BUILD_IN) golang:1.22.3 go build -tags osusergo,netgo -o .cache/target/ ./cmd/...
+	$(BUILD_IN) golang:1.22.5 go build -tags osusergo,netgo -o .cache/target/ ./cmd/...
 
 bin.tar: execAgent
 execAgent:
@@ -119,4 +119,4 @@ test:
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u) \
 		--group-add $(shell stat -c '%g' /var/run/docker.sock) \
-		golang:1.22.3 go test ./... -test.v=true -test.short=$(TEST_SHORT)
+		golang:1.22.5 go test ./... -test.v=true -test.short=$(TEST_SHORT)

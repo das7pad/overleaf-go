@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM alpine:3.18
+FROM alpine:3.19
 ENV SERVICE_NAME="real-time"
 ENTRYPOINT ["real-time"]
 COPY --chown=root:root ./real-time /usr/local/bin/
