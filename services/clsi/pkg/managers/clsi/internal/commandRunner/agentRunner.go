@@ -276,9 +276,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 	_, err := a.dockerClient.ContainerCreate(
 		ctx,
 		&container.Config{
-			Cmd: []string{
-				"unix://" + constants.AgentSocketPathContainer,
-			},
+			Cmd:             []string{constants.AgentSocketPathContainer},
 			Entrypoint:      []string{a.o.AgentPathContainer},
 			Env:             env,
 			Hostname:        "overleaf-golang-port",

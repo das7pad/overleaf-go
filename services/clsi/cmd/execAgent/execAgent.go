@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -136,17 +136,14 @@ func run() (int, error) {
 	if len(os.Args) < 2 {
 		return 101, &errors.ValidationError{Msg: "missing socket"}
 	}
-	parts := strings.Split(os.Args[1], "://")
-	if len(parts) != 2 {
-		return 102, &errors.ValidationError{Msg: "missing proto/spec"}
+	address := os.Args[1]
+	if err := os.Remove(address); err != nil && !os.IsNotExist(err) {
+		return 103, errors.Tag(err, "remove unix socket")
 	}
-	proto, address := parts[0], parts[1]
-	if proto == "unix" {
-		if err := os.Remove(address); err != nil && !os.IsNotExist(err) {
-			return 103, errors.Tag(err, "remove unix socket")
-		}
-	}
-	socket, err := net.Listen(proto, address)
+	socket, err := net.ListenUnix("unix", &net.UnixAddr{
+		Name: address,
+		Net:  "unix",
+	})
 	if err != nil {
 		return 104, errors.Tag(err, "listen")
 	}
