@@ -262,11 +262,13 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 			return nil
 		}
 		var err2 error
+		response.Timings.PDFCaching.Begin()
 		ranges, err2 = p.pdfCaching.Process(
 			pCtx,
 			p.tryRun, &request.Options,
 			p.namespace, p.contentId, buildId,
 		)
+		response.Timings.PDFCaching.End()
 		if err2 != nil {
 			log.Printf(
 				"pdfCaching: %q/%q: %d: %s",

@@ -402,8 +402,14 @@ func (a *agentRunner) request(ctx context.Context, namespace types.Namespace, op
 	if err = json.NewDecoder(conn).Decode(&body); err != nil {
 		return -1, err
 	}
-	if options.Timed != nil {
-		*options.Timed = body.Timed
+	if options.SystemTime != nil {
+		*options.SystemTime = body.SystemTime
+	}
+	if options.UserTime != nil {
+		*options.UserTime = body.UserTime
+	}
+	if options.WallTime != nil {
+		*options.WallTime = body.WallTime
 	}
 	if err = ctx.Err(); err != nil {
 		return -1, err

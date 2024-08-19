@@ -271,11 +271,14 @@ func (o OutputFiles) AddRanges(ranges []PDFCachingRange, contentId BuildId) {
 }
 
 type Timings struct {
-	FetchContent sharedTypes.Timed `json:"fetchContent"`
-	Compile      sharedTypes.Timed `json:"compile"`
-	CompileE2E   sharedTypes.Timed `json:"compileE2E"`
-	Output       sharedTypes.Timed `json:"output"`
-	Sync         sharedTypes.Timed `json:"sync"`
+	FetchContent      sharedTypes.Timed `json:"fetchContent"`
+	Sync              sharedTypes.Timed `json:"sync"`
+	Compile           sharedTypes.Timed `json:"compile"`
+	CompileUserTime   sharedTypes.Timed `json:"compileUserTime"`
+	CompileSystemTime sharedTypes.Timed `json:"compileSystemTime"`
+	Output            sharedTypes.Timed `json:"output"`
+	PDFCaching        sharedTypes.Timed `json:"PDFCaching"`
+	CompileE2E        sharedTypes.Timed `json:"compileE2E"`
 }
 
 type CompileStatus string

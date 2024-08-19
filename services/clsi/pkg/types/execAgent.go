@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -21,15 +21,17 @@ import (
 )
 
 type ExecAgentRequestOptions struct {
-	CommandLine                `json:"command_line"`
+	CommandLine                `json:"commandLine"`
 	Environment                `json:"environment,omitempty"`
 	sharedTypes.ImageName      `json:"imageName"`
 	sharedTypes.ComputeTimeout `json:"timeout"`
-	CommandOutputFiles         `json:"command_output_files"`
+	CommandOutputFiles         `json:"CommandOutputFiles"`
 }
 
 type ExecAgentResponseBody struct {
 	ExitCode     ExitCode          `json:"exitCode,omitempty"`
-	ErrorMessage string            `json:"error_message,omitempty"`
-	Timed        sharedTypes.Timed `json:"timed"`
+	ErrorMessage string            `json:"errorMessage,omitempty"`
+	SystemTime   sharedTypes.Timed `json:"systemTime"`
+	UserTime     sharedTypes.Timed `json:"userTime"`
+	WallTime     sharedTypes.Timed `json:"wallTime"`
 }

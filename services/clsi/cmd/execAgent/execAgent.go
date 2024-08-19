@@ -40,7 +40,7 @@ var (
 	imageName = sharedTypes.ImageName(os.Getenv("IMAGE_NAME"))
 )
 
-func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, timed *sharedTypes.Timed) (types.ExitCode, error) {
+func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, res *types.ExecAgentResponseBody) (types.ExitCode, error) {
 	args := make([]string, len(options.CommandLine))
 	for i, s := range options.CommandLine {
 		s = strings.ReplaceAll(
@@ -71,9 +71,16 @@ func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, timed *
 		cmd.Stdout = stdOut
 	}
 
-	timed.Begin()
+	res.WallTime.Begin()
 	err := cmd.Run()
-	timed.End()
+	res.WallTime.End()
+	if cmd.ProcessState != nil {
+		res.SystemTime.SetDiff(cmd.ProcessState.SystemTime())
+		res.UserTime.SetDiff(cmd.ProcessState.UserTime())
+	} else {
+		res.SystemTime.SetDiff(-1)
+		res.UserTime.SetDiff(-1)
+	}
 	if err == nil {
 		return 0, nil
 	}
@@ -86,7 +93,7 @@ func doExec(ctx context.Context, options *types.ExecAgentRequestOptions, timed *
 	return -1, err
 }
 
-func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
+func do(conn net.Conn, res *types.ExecAgentResponseBody) (types.ExitCode, string) {
 	options := types.ExecAgentRequestOptions{}
 	if err := conn.SetDeadline(time.Now().Add(time.Second)); err != nil {
 		return -1, "guard slow read: " + err.Error()
@@ -105,7 +112,7 @@ func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 		_, _ = conn.Read(make([]byte, 1))
 		done()
 	})
-	code, err := doExec(ctx, &options, timed)
+	code, err := doExec(ctx, &options, res)
 	t.Stop()
 	switch err {
 	case nil:
@@ -120,13 +127,10 @@ func do(conn net.Conn, timed *sharedTypes.Timed) (types.ExitCode, string) {
 }
 
 func serve(conn net.Conn) {
-	timed := sharedTypes.Timed{}
-	code, message := do(conn, &timed)
-	msg := &types.ExecAgentResponseBody{
-		ExitCode:     code,
-		ErrorMessage: message,
-		Timed:        timed,
-	}
+	msg := types.ExecAgentResponseBody{}
+	code, message := do(conn, &msg)
+	msg.ExitCode = code
+	msg.ErrorMessage = message
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 	_ = json.NewEncoder(conn).Encode(msg)
 	_ = conn.Close()

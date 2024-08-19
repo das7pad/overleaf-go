@@ -35,6 +35,10 @@ func (t *Timed) SetBegin(t0 time.Time) {
 	t.t0 = t0
 }
 
+func (t *Timed) SetDiff(diff time.Duration) {
+	t.diff = diff
+}
+
 func (t *Timed) End() *Timed {
 	if t.t0.IsZero() {
 		return t
@@ -55,7 +59,7 @@ func (t *Timed) Stage() string {
 	return s
 }
 
-func (t *Timed) MarshalJSON() ([]byte, error) {
+func (t Timed) MarshalJSON() ([]byte, error) {
 	s := t.diff.String()
 	buf := make([]byte, 0, 1+len(s)+1)
 	return append(append(append(buf, '"'), s...), '"'), nil
