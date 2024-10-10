@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -105,11 +105,13 @@ func (t ComputeTimeout) String() string {
 
 var imageNameYearRegex = regexp.MustCompile(`:.*(20\d\d)\b`)
 
+type ImageYear string
+
 type ImageName string
 
-func (i ImageName) Year() string {
+func (i ImageName) Year() ImageYear {
 	m := imageNameYearRegex.FindStringSubmatch(string(i))
-	return m[1]
+	return ImageYear(m[1])
 }
 
 func (i ImageName) CheckIsAllowed(allowedImages []ImageName) error {
