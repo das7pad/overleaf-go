@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2022-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2022-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,14 +18,12 @@ package compile
 
 import (
 	"context"
-	"time"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	clsiTypes "github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type ClsiManager interface {
-	CleanupOldProjects(ctx context.Context, threshold time.Time) error
 	ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
 	Compile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *clsiTypes.CompileRequest, response *clsiTypes.CompileResponse) error
 	HealthCheck(ctx context.Context) error

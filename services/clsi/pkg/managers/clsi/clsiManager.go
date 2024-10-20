@@ -30,7 +30,6 @@ import (
 )
 
 type Manager interface {
-	CleanupOldProjects(ctx context.Context, threshold time.Time) error
 	ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
 	Compile(ctx context.Context, projectId sharedTypes.UUID, userId sharedTypes.UUID, request *types.CompileRequest, response *types.CompileResponse) error
 	HealthCheck(ctx context.Context) error
@@ -73,10 +72,6 @@ type manager struct {
 	healthCheckExpiresAt time.Time
 
 	pm project.Manager
-}
-
-func (m *manager) CleanupOldProjects(ctx context.Context, threshold time.Time) error {
-	return m.pm.CleanupOldProjects(ctx, threshold)
 }
 
 func (m *manager) ClearCache(projectId sharedTypes.UUID, userId sharedTypes.UUID) error {
@@ -185,7 +180,7 @@ Hello world
 func (m *manager) PeriodicCleanup(ctx context.Context) {
 	for {
 		nextCleanup := time.NewTimer(m.projectCacheDuration / 2)
-		err := m.CleanupOldProjects(
+		err := m.pm.CleanupOldProjects(
 			ctx,
 			time.Now().Add(-m.projectCacheDuration),
 		)
