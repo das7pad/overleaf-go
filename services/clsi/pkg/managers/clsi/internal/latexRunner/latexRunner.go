@@ -140,6 +140,7 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 		ComputeTimeout:     request.Options.Timeout,
 		CompileGroup:       request.Options.CompileGroup,
 		CommandOutputFiles: files,
+		SetupTime:          &response.Timings.Setup,
 		UserTime:           &response.Timings.CompileUserTime,
 		SystemTime:         &response.Timings.CompileSystemTime,
 		WallTime:           &response.Timings.Compile,

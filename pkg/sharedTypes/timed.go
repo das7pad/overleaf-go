@@ -39,13 +39,20 @@ func (t *Timed) SetDiff(diff time.Duration) {
 	t.diff = diff
 }
 
-func (t *Timed) End() *Timed {
+func (t *Timed) End() {
 	if t.t0.IsZero() {
-		return t
+		return
 	}
 	t.diff = time.Since(t.t0).Truncate(time.Microsecond)
 	t.t0 = time.Time{}
-	return t
+}
+
+func (t *Timed) EndAdd() {
+	if t.t0.IsZero() {
+		return
+	}
+	t.diff += time.Since(t.t0).Truncate(time.Microsecond)
+	t.t0 = time.Time{}
 }
 
 func (t *Timed) String() string {

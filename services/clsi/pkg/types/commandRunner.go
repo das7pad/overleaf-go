@@ -33,6 +33,7 @@ type CommandOptions struct {
 	sharedTypes.ImageName
 	sharedTypes.CompileGroup
 	CommandOutputFiles
+	SetupTime  *sharedTypes.Timed
 	SystemTime *sharedTypes.Timed
 	UserTime   *sharedTypes.Timed
 	WallTime   *sharedTypes.Timed

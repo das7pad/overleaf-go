@@ -414,7 +414,14 @@ func (p *project) run(ctx context.Context, options *types.CommandOptions) (types
 
 		isFirstAttempt := i == 0
 		if !isFirstAttempt || p.needsRunnerSetup(deadline) {
-			if err := p.setupRunner(ctx, options.ImageName); err != nil {
+			if options.SetupTime != nil {
+				options.SetupTime.Begin()
+			}
+			err := p.setupRunner(ctx, options.ImageName)
+			if options.SetupTime != nil {
+				options.SetupTime.EndAdd()
+			}
+			if err != nil {
 				lastErr = err
 				continue
 			}
