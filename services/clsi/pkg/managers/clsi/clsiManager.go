@@ -53,6 +53,7 @@ func New(options *types.Options) (Manager, error) {
 	return &manager{
 		refreshHealthCheckEvery: options.RefreshHealthCheckEvery,
 		projectCacheDuration:    options.ProjectCacheDuration,
+		projectRunnerMaxAge:     options.ProjectRunnerMaxAge,
 		healthCheckImageName:    options.AllowedImages[0],
 
 		healthCheckMux:       sync.Mutex{},
@@ -65,6 +66,7 @@ func New(options *types.Options) (Manager, error) {
 type manager struct {
 	refreshHealthCheckEvery time.Duration
 	projectCacheDuration    time.Duration
+	projectRunnerMaxAge     time.Duration
 	healthCheckImageName    sharedTypes.ImageName
 
 	healthCheckMux       sync.Mutex
@@ -178,22 +180,33 @@ Hello world
 }
 
 func (m *manager) PeriodicCleanup(ctx context.Context) {
+	inter := min(m.projectCacheDuration, m.projectRunnerMaxAge)
+	nextCleanup := time.NewTicker(inter / 10)
+	now := time.Now()
 	for {
-		nextCleanup := time.NewTimer(m.projectCacheDuration / 2)
-		err := m.pm.CleanupOldProjects(
-			ctx,
-			time.Now().Add(-m.projectCacheDuration),
-		)
-		if err != nil && err != ctx.Err() {
-			log.Printf("cleanup failed: %s", err)
+		{
+			err := m.pm.CleanupOldProjects(
+				ctx,
+				now.Add(-m.projectCacheDuration),
+			)
+			if err != nil && err != ctx.Err() {
+				log.Printf("cleanup old projects failed: %s", err)
+			}
+		}
+		{
+			err := m.pm.StopExpiredRunners(
+				ctx,
+				now.Add(-m.projectRunnerMaxAge),
+			)
+			if err != nil && err != ctx.Err() {
+				log.Printf("stopping expired failed: %s", err)
+			}
 		}
 		select {
 		case <-ctx.Done():
-			if !nextCleanup.Stop() {
-				<-nextCleanup.C
-			}
+			nextCleanup.Stop()
 			return
-		case <-nextCleanup.C:
+		case now = <-nextCleanup.C:
 		}
 	}
 }

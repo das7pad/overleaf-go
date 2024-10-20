@@ -42,6 +42,7 @@ type Manager interface {
 	CleanupProject(projectId sharedTypes.UUID, userId sharedTypes.UUID) error
 	ClearProjectCache(projectId, userId sharedTypes.UUID) error
 	CleanupOldProjects(ctx context.Context, activeThreshold time.Time) error
+	StopExpiredRunners(ctx context.Context, activeThreshold time.Time) error
 }
 
 type managers struct {
@@ -121,14 +122,38 @@ type manager struct {
 
 func (m *manager) getUnhealthyProjects(activeThreshold time.Time) projectsMap {
 	m.l.RLock()
+	n := 1 + len(m.projects)/10 // look at 10% of the projects per iteration
+	m.l.RUnlock()               // release lock for map allocation
+	unhealthyProjects := make(projectsMap, n)
+	m.l.RLock()
 	defer m.l.RUnlock()
-	unhealthyProjects := make(projectsMap, 0)
 	for key, p := range m.projects {
 		if !p.IsHealthy(activeThreshold) {
 			unhealthyProjects[key] = p
 		}
+		if n--; n <= 0 {
+			break
+		}
 	}
 	return unhealthyProjects
+}
+
+func (m *manager) getProjectsWithExpiredSetup(now time.Time) projectsMap {
+	m.l.RLock()
+	n := 1 + len(m.projects)/10 // look at 10% of the projects per iteration
+	m.l.RUnlock()               // release lock for map allocation
+	expired := make(projectsMap, n)
+	m.l.RLock()
+	defer m.l.RUnlock()
+	for key, p := range m.projects {
+		if p.RunnerExpired(now) {
+			expired[key] = p
+		}
+		if n--; n <= 0 {
+			break
+		}
+	}
+	return expired
 }
 
 func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.Time) error {
@@ -143,6 +168,21 @@ func (m *manager) CleanupOldProjects(ctx context.Context, activeThreshold time.T
 		if p.IsDead() {
 			// Serialize map access shortly when cleanup was actioned only.
 			m.cleanupIfStillDead(key, p)
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *manager) StopExpiredRunners(ctx context.Context, activeThreshold time.Time) error {
+	// map iteration is randomized in Golang, so broken projects should not
+	//  let the project cleanup get stuck.
+	// Operate on a shadow copy as we would need to lock map access otherwise.
+	for key, p := range m.getProjectsWithExpiredSetup(activeThreshold) {
+		if err := p.StopExpiredRunner(activeThreshold); err != nil {
+			return errors.Tag(err, "cleanup failed for "+key.String())
 		}
 		if err := ctx.Err(); err != nil {
 			return err

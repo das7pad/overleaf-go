@@ -37,8 +37,10 @@ import (
 type Project interface {
 	IsDead() bool
 	IsHealthy(activeThreshold time.Time) bool
+	RunnerExpired(deadline time.Time) bool
 	Cleanup() error
 	CleanupUnlessHealthy(activeThreshold time.Time) error
+	StopExpiredRunner(deadline time.Time) error
 	ClearCache() error
 	Compile(ctx context.Context, request *types.CompileRequest, response *types.CompileResponse) error
 	StartInBackground(imageName sharedTypes.ImageName)
@@ -105,7 +107,7 @@ type project struct {
 	stateMux sync.RWMutex
 
 	runnerSetupMux        sync.RWMutex
-	runnerSetupValidUntil time.Time
+	runnerSetupValidUntil atomic.Int64
 	pendingRunnerSetup    pendingOperation.WithCancel
 
 	abortPendingCompileMux           sync.Mutex
@@ -138,6 +140,22 @@ func (p *project) CleanupUnlessHealthy(activeThreshold time.Time) error {
 		return nil
 	}
 	return p.Cleanup()
+}
+
+func (p *project) StopExpiredRunner(deadline time.Time) error {
+	if !p.RunnerExpired(deadline) {
+		return nil
+	}
+	p.stateMux.Lock()
+	defer p.stateMux.Unlock()
+	if !p.RunnerExpired(deadline) {
+		return nil
+	}
+	p.runnerSetupValidUntil.Store(0)
+	if err := p.runner.Stop(p.namespace); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *project) ClearCache() error {
@@ -447,10 +465,13 @@ func (p *project) StartInBackground(imageName sharedTypes.ImageName) {
 	}
 }
 
+func (p *project) RunnerExpired(deadline time.Time) bool {
+	at := p.runnerSetupValidUntil.Load()
+	return at != 0 && at < deadline.Unix()
+}
+
 func (p *project) needsRunnerSetup(deadline time.Time) bool {
-	p.runnerSetupMux.RLock()
-	defer p.runnerSetupMux.RUnlock()
-	return p.runnerSetupValidUntil.Before(deadline)
+	return p.runnerSetupValidUntil.Load() < deadline.Unix()
 }
 
 func (p *project) setupRunner(ctx context.Context, imageName sharedTypes.ImageName) error {
@@ -492,7 +513,7 @@ func (p *project) triggerRunnerSetup(ctx context.Context, imageName sharedTypes.
 			if p.pendingRunnerSetup == pending {
 				p.pendingRunnerSetup = nil
 				if err == nil {
-					p.runnerSetupValidUntil = validUntil
+					p.runnerSetupValidUntil.Store(validUntil.Unix())
 				}
 			}
 			return err
@@ -517,7 +538,7 @@ func (p *project) tryRun(ctx context.Context, options *types.CommandOptions) (ty
 	}
 
 	deadline, _ := ctx.Deadline()
-	if p.runnerSetupValidUntil.Before(deadline) {
+	if p.runnerSetupValidUntil.Load() < deadline.Unix() {
 		return -1, errors.New("runner setup expired")
 	}
 
