@@ -113,6 +113,8 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 
 	if o.Env == nil {
 		o.Env = make(types.Environment, 0)
+	} else {
+		o.Env = o.Env[:len(o.Env):len(o.Env)]
 	}
 
 	if o.SeccompPolicyPath != "-" {
