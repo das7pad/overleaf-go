@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -41,9 +41,8 @@ func (l *localRunner) Stop(_ types.Namespace) error {
 	return nil
 }
 
-func (l *localRunner) Setup(_ context.Context, _ types.Namespace, _ sharedTypes.ImageName) (*time.Time, error) {
-	validUntilTomorrow := time.Now().Add(time.Hour * 24)
-	return &validUntilTomorrow, nil
+func (l *localRunner) Setup(_ context.Context, _ types.Namespace, _ sharedTypes.ImageName) (time.Time, error) {
+	return time.Now().Add(time.Hour * 24), nil
 }
 
 func (l *localRunner) Run(ctx context.Context, namespace types.Namespace, options *types.CommandOptions) (types.ExitCode, error) {

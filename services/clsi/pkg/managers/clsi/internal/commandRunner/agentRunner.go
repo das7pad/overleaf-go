@@ -140,7 +140,7 @@ func (a *agentRunner) Stop(namespace types.Namespace) error {
 	return a.removeContainer(namespace)
 }
 
-func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
+func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (time.Time, error) {
 	validUntil, err := a.createContainer(ctx, namespace, imageName)
 	switch {
 	case err == nil:
@@ -153,7 +153,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			// - version: options may have changed.
 			// - cycle: we lost track of expected/max container life-time.
 			if err = a.removeContainer(namespace); err != nil {
-				return nil, errors.Tag(err, "remove old container")
+				return time.Time{}, errors.Tag(err, "remove old container")
 			}
 			// The container is not gone immediately. Delay and retry 3 times.
 			for i := 1; i < 4; i++ {
@@ -165,7 +165,7 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 				}
 			}
 			if err != nil {
-				return nil, errors.Tag(err, "re-create old container")
+				return time.Time{}, errors.Tag(err, "re-create old container")
 			}
 		} else {
 			// The container is running, but expired. Reset it.
@@ -177,19 +177,19 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 				// The container just died. Recreate it.
 				validUntil, err = a.createContainer(ctx, namespace, imageName)
 				if err != nil {
-					return nil, errors.Tag(
+					return time.Time{}, errors.Tag(
 						err, "re-create expired container",
 					)
 				}
 			default:
-				return nil, errors.Tag(
+				return time.Time{}, errors.Tag(
 					err, "restart expired container",
 				)
 			}
 		}
 	default:
 		// Bail out on low-level errors.
-		return nil, errors.Tag(err, "low level error while creating container")
+		return time.Time{}, errors.Tag(err, "low level error while creating container")
 	}
 
 	var probeErr error
@@ -202,10 +202,10 @@ func (a *agentRunner) Setup(ctx context.Context, namespace types.Namespace, imag
 			return validUntil, nil
 		}
 	}
-	return nil, probeErr
+	return time.Time{}, probeErr
 }
 
-func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (*time.Time, error) {
+func (a *agentRunner) createContainer(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) (time.Time, error) {
 	compileDir := a.o.CompileBaseDir.CompileDir(namespace)
 	outputDir := a.o.OutputBaseDir.OutputDir(namespace)
 
@@ -263,7 +263,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 	env := a.o.Env
 
 	if err := imageName.CheckIsAllowed(a.allowedImages); err != nil {
-		return nil, err
+		return time.Time{}, err
 	}
 	year := imageName.Year()
 	PATH := fmt.Sprintf(
@@ -294,16 +294,16 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		name,
 	)
 	if err != nil {
-		return nil, errors.Tag(err, "create container")
+		return time.Time{}, errors.Tag(err, "create container")
 	}
 
 	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
 	// The container was just created, start it.
 	err = a.dockerClient.ContainerStart(ctx, name, container.StartOptions{})
 	if err != nil {
-		return nil, errors.Tag(err, "start container")
+		return time.Time{}, errors.Tag(err, "start container")
 	}
-	return &validUntil, nil
+	return validUntil, nil
 }
 
 func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Namespace) (string, error) {
@@ -338,7 +338,7 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace, imag
 	return nil
 }
 
-func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Namespace) (*time.Time, error) {
+func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Namespace) (time.Time, error) {
 	restartTimeout := int(time.Duration(0).Seconds())
 	name := containerName(namespace)
 	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
@@ -346,9 +346,9 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 		Timeout: &restartTimeout,
 	})
 	if err != nil {
-		return nil, errors.Tag(err, "restart container")
+		return time.Time{}, errors.Tag(err, "restart container")
 	}
-	return &validUntil, nil
+	return validUntil, nil
 }
 
 func (a *agentRunner) removeContainer(namespace types.Namespace) error {

@@ -492,7 +492,7 @@ func (p *project) triggerRunnerSetup(ctx context.Context, imageName sharedTypes.
 			if p.pendingRunnerSetup == pending {
 				p.pendingRunnerSetup = nil
 				if err == nil {
-					p.runnerSetupValidUntil = *validUntil
+					p.runnerSetupValidUntil = validUntil
 				}
 			}
 			return err
