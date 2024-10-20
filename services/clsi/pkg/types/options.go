@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,12 +25,11 @@ import (
 )
 
 type DockerContainerOptions struct {
-	User                   string        `json:"user"`
-	Env                    Environment   `json:"env"`
-	AgentPathContainer     string        `json:"agent_path_container"`
-	AgentPathHost          string        `json:"agent_path_host"`
-	AgentContainerLifeSpan time.Duration `json:"agent_container_life_span_ns"`
-	AgentRestartAttempts   int64         `json:"agent_restart_attempts"`
+	User                 string      `json:"user"`
+	Env                  Environment `json:"env"`
+	AgentPathContainer   string      `json:"agent_path_container"`
+	AgentPathHost        string      `json:"agent_path_host"`
+	AgentRestartAttempts int64       `json:"agent_restart_attempts"`
 
 	Runtime           string `json:"runtime"`
 	SeccompPolicyPath string `json:"seccomp_policy_path"`
@@ -46,6 +45,7 @@ type Options struct {
 	CopyExecAgentDst string `json:"copy_exec_agent_dst"`
 
 	ProjectCacheDuration    time.Duration `json:"project_cache_duration_ns"`
+	ProjectRunnerMaxAge     time.Duration `json:"project_runner_max_age_ns"`
 	RefreshHealthCheckEvery time.Duration `json:"health_check_refresh_every_ns"`
 
 	ParallelOutputWrite       int64 `json:"parallel_output_write"`
@@ -121,6 +121,12 @@ func (o *Options) Validate() error {
 	if o.ProjectCacheDuration < maxComputeTime {
 		return &errors.ValidationError{
 			Msg: "project_cache_duration_ns cannot be lower than " +
+				maxComputeTime.String(),
+		}
+	}
+	if o.ProjectRunnerMaxAge < maxComputeTime {
+		return &errors.ValidationError{
+			Msg: "project_runner_max_age_ns cannot be lower than " +
 				maxComputeTime.String(),
 		}
 	}

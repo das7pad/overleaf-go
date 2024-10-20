@@ -46,6 +46,7 @@ type agentRunner struct {
 	allowedImages           []sharedTypes.ImageName
 	compileBaseDir          types.CompileBaseDir
 	o                       types.DockerContainerOptions
+	projectRunnerMaxAge     time.Duration
 	seccompPolicy           string
 	currentClsiProcessEpoch string
 	tries                   int64
@@ -96,14 +97,12 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 		allowedImages:           options.AllowedImages,
 		compileBaseDir:          options.CompileBaseDir,
 		tries:                   1 + o.AgentRestartAttempts,
+		projectRunnerMaxAge:     options.ProjectRunnerMaxAge,
 		currentClsiProcessEpoch: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
 	if o.AgentPathContainer == "" {
 		o.AgentPathContainer = defaultAgentPathContainer
-	}
-	if o.AgentContainerLifeSpan == 0 {
-		o.AgentContainerLifeSpan = defaultAgentContainerLifeSpan
 	}
 	if o.CompileBaseDir == "" {
 		o.CompileBaseDir = options.CompileBaseDir
@@ -130,10 +129,9 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 }
 
 const (
-	defaultAgentContainerLifeSpan = 15 * time.Minute
-	defaultAgentPathContainer     = "/opt/exec-agent"
-	memoryLimitInBytes            = 1024 * 1024 * 1024 * 1024
-	clsiProcessEpochLabel         = "com.overleaf.clsi.process.epoch"
+	defaultAgentPathContainer = "/opt/exec-agent"
+	memoryLimitInBytes        = 1024 * 1024 * 1024 * 1024
+	clsiProcessEpochLabel     = "com.overleaf.clsi.process.epoch"
 )
 
 func (a *agentRunner) Stop(namespace types.Namespace) error {
@@ -209,7 +207,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 	compileDir := a.o.CompileBaseDir.CompileDir(namespace)
 	outputDir := a.o.OutputBaseDir.OutputDir(namespace)
 
-	lifeSpanInSeconds := int64(a.o.AgentContainerLifeSpan) / int64(time.Second)
+	lifeSpanInSeconds := int64(a.projectRunnerMaxAge) / int64(time.Second)
 
 	name := containerName(namespace)
 
@@ -297,7 +295,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		return time.Time{}, errors.Tag(err, "create container")
 	}
 
-	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
+	validUntil := time.Now().Add(a.projectRunnerMaxAge)
 	// The container was just created, start it.
 	err = a.dockerClient.ContainerStart(ctx, name, container.StartOptions{})
 	if err != nil {
@@ -341,7 +339,7 @@ func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace, imag
 func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Namespace) (time.Time, error) {
 	restartTimeout := int(time.Duration(0).Seconds())
 	name := containerName(namespace)
-	validUntil := time.Now().Add(a.o.AgentContainerLifeSpan)
+	validUntil := time.Now().Add(a.projectRunnerMaxAge)
 	err := a.dockerClient.ContainerRestart(ctx, name, container.StopOptions{
 		Timeout: &restartTimeout,
 	})
