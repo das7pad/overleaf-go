@@ -1,0 +1,44 @@
+$success_cmd = "internal overleaf_post_process_pdf %D %Z";
+$failure_cmd = $success_cmd;
+
+# equivalent to -gt option. Used to prevent latexmk from skipping recompilation
+# of output.log and output.pdf
+$go_mode = 3;
+
+sub overleaf_post_process_pdf {
+    my $output_file = $_[0];
+    my $output_dir = $_[1];
+
+    print "Optimizing $output_file\n";
+    my $optimised_file = "${output_file}.optimized.pdf";
+    system(
+      "/usr/bin/qpdf",
+      # $ man qpdf
+      # --linearize -- linearize (web-optimize) output
+      #   Create linearized (web-optimized) output files.
+      "--linearize",
+      # --newline-before-endstream -- force a newline before endstream
+      #   For an extra newline before endstream. Using this option enables
+      #   qpdf to preserve PDF/A when rewriting such files.
+      "--newline-before-endstream",
+      $output_file, $optimised_file);
+    my $qpdf_optimize_exit_code = ($? >> 8);
+    print "qpdf --linearize exit code=$qpdf_optimize_exit_code\n";
+    # Replace the output file if qpdf was successful
+    # qpdf returns 0 for success, 3 for warnings (optimized pdf still created)
+    return if !($qpdf_optimize_exit_code==0 || $qpdf_optimize_exit_code==3);
+    print "Renaming optimized output file to $output_file\n";
+    rename($optimised_file, $output_file);
+
+    print "Extracting xref table for $output_file\n";
+    my $xref_file = "${output_dir}PDF_CACHING_XREF_FILENAME";
+    # $ man qpdf
+    # --show-xref -- show cross reference data
+    #   Show the contents of the cross-reference table or stream (object
+    #   locations  in  the file) in a human-readable form. This is espe‐
+    #   cially useful for files with cross-reference streams, which  are
+    #   stored in a binary format.
+    system("/usr/bin/qpdf --show-xref ${output_file} > ${xref_file}");
+    $qpdf_xref_exit_code = ($? >> 8);
+    print "qpdf --show-xref exit code=$qpdf_xref_exit_code\n";
+}

@@ -35,12 +35,11 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
-	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/commandRunner"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/types"
 )
 
 type Manager interface {
-	Process(ctx context.Context, run commandRunner.NamespacedRun, co *types.CompileOptions, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error)
+	Process(ctx context.Context, co *types.CompileOptions, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error)
 }
 
 func New(options *types.Options) Manager {
@@ -55,7 +54,7 @@ type manager struct {
 	compileBaseDir types.CompileBaseDir
 }
 
-func (m *manager) Process(ctx context.Context, run commandRunner.NamespacedRun, co *types.CompileOptions, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error) {
+func (m *manager) Process(ctx context.Context, co *types.CompileOptions, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error) {
 	o := m.outputBaseDir.OutputDir(namespace)
 	t := tracker{
 		o:          o,
@@ -69,21 +68,6 @@ func (m *manager) Process(ctx context.Context, run commandRunner.NamespacedRun, 
 
 	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
-	code, err := run(ctx, &types.CommandOptions{
-		CommandLine: []string{
-			"qpdf", "--show-xref",
-			types.OutputDir(constants.OutputDirPlaceHolder).
-				CompileOutputDir(buildId).
-				Join(pdfName),
-		},
-		ComputeTimeout:     sharedTypes.ComputeTimeout(time.Second),
-		ImageName:          co.ImageName,
-		CompileGroup:       co.CompileGroup,
-		CommandOutputFiles: types.CommandOutputFiles{StdOut: pdfXrefName},
-	})
-	if err != nil || code != 0 {
-		return nil, err
-	}
 	r, err := parseXref(
 		m.compileBaseDir.CompileDir(namespace).Join(pdfXrefName),
 	)
@@ -182,7 +166,7 @@ const (
 	maxPDFXrefSize = 1024 * 1024
 
 	pdfName     = sharedTypes.PathName("output.pdf")
-	pdfXrefName = sharedTypes.PathName("output.pdfxref")
+	pdfXrefName = sharedTypes.PathName(constants.PDFCachingXrefFilename)
 )
 
 func parseXref(p string) ([]types.PDFCachingRange, error) {

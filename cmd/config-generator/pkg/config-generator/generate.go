@@ -106,7 +106,7 @@ func NewFlags() Flags {
 		SessionCookieName:        "ol.go",
 		SessionCookieSecretsRaw:  genSecret(32),
 		SmokeTestUserPassword:    genSecret(72 / 2),
-		TexLiveImagesRaw:         "texlive/texlive:TL2022-historic",
+		TexLiveImagesRaw:         "texlive/texlive:TL2023-historic",
 		TmpDir:                   "/tmp/ol",
 	}
 }

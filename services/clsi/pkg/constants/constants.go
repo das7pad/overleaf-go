@@ -33,6 +33,7 @@ const (
 	ContentLabel              = "content"
 	ProjectSyncStateFilename  = ".project-sync-state-v3"
 	PDFCachingTrackerFilename = "pdf-caching.json"
+	PDFCachingXrefFilename    = "output.pdfxref"
 
 	TimedOut       = "timedout"
 	Cancelled      = "cancelled"

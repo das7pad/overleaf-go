@@ -111,3 +111,9 @@ and create your first account!
 
 > Tip: Use `$ docker compose up --detach` to keep the services running in the
 > background.
+
+Optional: Build a TeXLive Docker image with qpdf for optimized PDF download.
+
+```shell
+bin/build_texlive_docker_image.sh
+```
