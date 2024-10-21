@@ -15,12 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set -ex
+set -e
 
 SOURCE_IMAGE=${1:-texlive/texlive:TL2023-historic}
 TAG=${2:-"$SOURCE_IMAGE"}
 
-BIN=$(dirname "$0")
+SELF=$(readlink -f "${BASH_SOURCE[0]}")
+BIN=$(dirname "$SELF")
 ROOT=$(dirname "$BIN")
 TMP=$(mktemp -d)
 function cleanup() {
