@@ -41,6 +41,7 @@ docker build --pull --tag "$TAG" --file - "$TMP" <<EOF
 FROM $SOURCE_IMAGE
 RUN apt-get update \
  && apt-get install -y qpdf time \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --no-log-init --home-dir /compile --uid 1000 --comment sandbox tex
 COPY ./latexmkrc /etc/latexmkrc
 EOF
