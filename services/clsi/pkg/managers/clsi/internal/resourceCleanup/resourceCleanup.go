@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -61,7 +61,7 @@ func ShouldDelete(file sharedTypes.PathName) bool {
 		file == "output.log" ||
 		file == "output.stderr" ||
 		file == "output.stdout" ||
-		file == "output.synctex.gz" ||
+		file == "output.synctex" ||
 		file == "output.xdv"
 	if isGenericOutputFile {
 		return true

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -147,13 +147,13 @@ func (m *manager) runSyncTex(ctx context.Context, run commandRunner.NamespacedRu
 	syncTexOptions := request.Options()
 
 	p := commandRunner.ResolveTemplatePath(
-		syncTexOptions.OutputSyncTexGzPath(),
+		syncTexOptions.OutputSynctexPath(),
 		compileDir,
 		outputDir,
 	)
 	if _, statErr := os.Lstat(p); os.IsNotExist(statErr) {
 		return nil, &errors.MissingOutputFileError{
-			Msg: "sync code/pdf: output.synctex.gz missing",
+			Msg: "sync code/pdf: output.synctex missing",
 		}
 	}
 

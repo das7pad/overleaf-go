@@ -103,7 +103,7 @@ func (r *latexRunner) composeCommandOptions(request *types.CompileRequest, respo
 		"-jobname=output",
 		"-auxdir=" + constants.CompileDirPlaceHolder,
 		"-outdir=" + constants.CompileDirPlaceHolder,
-		"-synctex=1",
+		"-synctex=-1",
 		"-interaction=batchmode",
 		request.Options.Compiler.LaTeXmkFlag(),
 		constants.CompileDirPlaceHolder + "/" + mainFile,
