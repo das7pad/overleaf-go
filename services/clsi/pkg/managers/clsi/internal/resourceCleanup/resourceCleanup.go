@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/rootDocAlias"
 )
 
@@ -57,6 +58,7 @@ var PreserveRegex = regexp.MustCompile(
 
 func ShouldDelete(file sharedTypes.PathName) bool {
 	isGenericOutputFile := file == "output.pdf" ||
+		file == constants.PDFCachingXrefFilename ||
 		file == "output.dvi" ||
 		file == "output.log" ||
 		file == "output.stderr" ||

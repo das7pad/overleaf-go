@@ -228,8 +228,7 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 		)
 		if err2 == nil {
 			ranges, err3 := p.pdfCaching.Process(
-				ctx, &request.Options, p.namespace, p.contentId,
-				lastSuccessfulCompileBuildId,
+				ctx, p.namespace, p.contentId, lastSuccessfulCompileBuildId,
 			)
 			if err3 != nil {
 				log.Printf(
@@ -282,7 +281,7 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 		var err2 error
 		response.Timings.PDFCaching.Begin()
 		ranges, err2 = p.pdfCaching.Process(
-			pCtx, &request.Options, p.namespace, p.contentId, buildId,
+			pCtx, p.namespace, p.contentId, buildId,
 		)
 		response.Timings.PDFCaching.End()
 		if err2 != nil {

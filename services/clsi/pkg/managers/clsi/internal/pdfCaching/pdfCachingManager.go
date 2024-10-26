@@ -39,7 +39,7 @@ import (
 )
 
 type Manager interface {
-	Process(ctx context.Context, co *types.CompileOptions, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error)
+	Process(ctx context.Context, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error)
 }
 
 func New(options *types.Options) Manager {
@@ -54,7 +54,7 @@ type manager struct {
 	compileBaseDir types.CompileBaseDir
 }
 
-func (m *manager) Process(ctx context.Context, co *types.CompileOptions, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error) {
+func (m *manager) Process(ctx context.Context, namespace types.Namespace, contentId, buildId types.BuildId) ([]types.PDFCachingRange, error) {
 	o := m.outputBaseDir.OutputDir(namespace)
 	t := tracker{
 		o:          o,
@@ -68,9 +68,7 @@ func (m *manager) Process(ctx context.Context, co *types.CompileOptions, namespa
 
 	ctx, done := context.WithTimeout(ctx, 10*time.Second)
 	defer done()
-	r, err := parseXref(
-		m.compileBaseDir.CompileDir(namespace).Join(pdfXrefName),
-	)
+	r, err := parseXref(o.CompileOutputDir(buildId).Join(pdfXrefName))
 	if err != nil {
 		return nil, errors.Tag(err, "xref")
 	}
