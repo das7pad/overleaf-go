@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path"
 	"strconv"
@@ -245,11 +246,13 @@ func setupPg(ctx context.Context, c *client.Client) func(code *int) {
 
 	dbName := "ci" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	for i := 0; i < 10; i++ {
+	deadline := time.Now().Add(10 * time.Second)
+	for i := 0; time.Now().Before(deadline); i++ {
+		// scale the jitter [10,100) with the number of retries, first try 0ms.
+		time.Sleep(time.Duration(i*(10+rand.Intn(90))) * time.Millisecond)
 		db, err2 := pgx.Connect(ctx, buildPGDSN("postgres"))
 		if err2 != nil {
 			err = errors.Tag(err2, "connect to pgx")
-			time.Sleep(time.Second)
 			continue
 		}
 		// NOTE: CREATE DATABASE does not support arguments.
@@ -264,12 +267,10 @@ CREATE DATABASE %s WITH TEMPLATE postgres OWNER postgres
 			// already exists
 		} else {
 			err = errors.Tag(err2, "copy db")
-			time.Sleep(time.Second)
 			continue
 		}
 		if errClose != nil {
 			err = errors.Tag(errClose, "close db")
-			time.Sleep(time.Second)
 			continue
 		}
 		err = nil
