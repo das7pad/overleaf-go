@@ -33,7 +33,7 @@ pushd "$ROOT"
 if which go > /dev/null; then
   go run "./cmd/latexmkrc-generator" > "$TMP/latexmkrc"
 else
-  docker run --rm -v "$ROOT:$ROOT" -w "$ROOT" golang:1.22.6 \
+  docker run --rm -v "$ROOT:$ROOT" -w "$ROOT" golang:1.23.2 \
     go run "./cmd/latexmkrc-generator" > "$TMP/latexmkrc"
 fi
 
