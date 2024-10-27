@@ -258,11 +258,11 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 		return err
 	}
 
-	outputPDFReady := make(chan bool)
+	pdfCachingDependencyProcessed := make(chan struct{})
 	eg, pCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		outputFiles, hasOutputPDF, err2 := p.outputCache.SaveOutputFiles(
-			pCtx, cache, p.namespace, buildId, outputPDFReady,
+			pCtx, cache, p.namespace, buildId, pdfCachingDependencyProcessed,
 		)
 		if response.Status == constants.Success && !hasOutputPDF {
 			response.Status = constants.Failure
@@ -275,8 +275,10 @@ func (p *project) doCompile(ctx context.Context, request *types.CompileRequest, 
 	})
 	var ranges []types.PDFCachingRange
 	eg.Go(func() error {
-		if ok, _ := <-outputPDFReady; !ok {
-			return nil
+		for i := 0; i < 2; i++ { // wait for output.pdf and output.pdfxref
+			if _, ok := <-pdfCachingDependencyProcessed; !ok {
+				return nil
+			}
 		}
 		var err2 error
 		response.Timings.PDFCaching.Begin()

@@ -57,7 +57,7 @@ var PreserveRegex = regexp.MustCompile(
 )
 
 func ShouldDelete(file sharedTypes.PathName) bool {
-	isGenericOutputFile := file == "output.pdf" ||
+	isGenericOutputFile := file == constants.OutputPDF ||
 		file == constants.PDFCachingXrefFilename ||
 		file == "output.dvi" ||
 		file == "output.log" ||

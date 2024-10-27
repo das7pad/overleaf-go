@@ -26,6 +26,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
+	"github.com/das7pad/overleaf-go/services/clsi/pkg/constants"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/outputFileFinder"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceCleanup"
 	"github.com/das7pad/overleaf-go/services/clsi/pkg/managers/clsi/internal/resourceWriter"
@@ -34,7 +35,7 @@ import (
 
 type Manager interface {
 	ListOutputFiles(ctx context.Context, namespace types.Namespace, buildId types.BuildId) (types.OutputFiles, error)
-	SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace, buildId types.BuildId, outputPDFReady chan bool) (types.OutputFiles, HasOutputPDF, error)
+	SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace, buildId types.BuildId, pdfCachingDependencyProcessed chan struct{}) (types.OutputFiles, HasOutputPDF, error)
 	Clear(namespace types.Namespace) error
 }
 
@@ -76,7 +77,7 @@ func (m *manager) ListOutputFiles(ctx context.Context, namespace types.Namespace
 			Type: fileName.Type(),
 		}
 
-		if fileName == "output.pdf" {
+		if fileName == constants.OutputPDF {
 			info, err2 := d.Info()
 			if err2 != nil {
 				return nil, err2
@@ -94,8 +95,8 @@ type HasOutputPDF bool
 
 var emptyRanges = make([]types.PDFCachingRange, 0)
 
-func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace, buildId types.BuildId, outputPDFReady chan bool) (types.OutputFiles, HasOutputPDF, error) {
-	defer close(outputPDFReady)
+func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWriter.ResourceCache, namespace types.Namespace, buildId types.BuildId, pdfCachingDependencyProcessed chan struct{}) (types.OutputFiles, HasOutputPDF, error) {
+	defer close(pdfCachingDependencyProcessed)
 	compileDir := m.paths.CompileBaseDir.CompileDir(namespace)
 	outputDir := m.paths.OutputBaseDir.OutputDir(namespace)
 	compileOutputDir := outputDir.CompileOutputDir(buildId)
@@ -143,7 +144,7 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 				Type: fileName.Type(),
 			}
 
-			if fileName == "output.pdf" {
+			if fileName == constants.OutputPDF {
 				// Fetch the file stats before potentially moving the file.
 				info, err2 := d.Info()
 				if err2 != nil {
@@ -181,8 +182,9 @@ func (m *manager) SaveOutputFiles(ctx context.Context, allResources resourceWrit
 						return errors.Tag(err2, "copy "+src+" -> "+dst)
 					}
 				}
-				if fileName == "output.pdf" {
-					outputPDFReady <- true
+				if fileName == constants.OutputPDF ||
+					fileName == constants.PDFCachingXrefFilename {
+					pdfCachingDependencyProcessed <- struct{}{}
 				}
 			}
 			return nil

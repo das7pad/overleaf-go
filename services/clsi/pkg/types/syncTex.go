@@ -67,7 +67,7 @@ func (o SyncTexOptions) getPathFor(name sharedTypes.PathName) string {
 }
 
 func (o SyncTexOptions) OutputPDFPath() string {
-	return o.getPathFor("output.pdf")
+	return o.getPathFor(constants.OutputPDF)
 }
 
 func (o SyncTexOptions) OutputSynctexPath() string {

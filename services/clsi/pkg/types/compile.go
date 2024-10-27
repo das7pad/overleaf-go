@@ -262,7 +262,7 @@ func (o OutputFiles) AddRanges(ranges []PDFCachingRange, contentId BuildId) {
 		return
 	}
 	for i, file := range o {
-		if file.Path == "output.pdf" {
+		if file.Path == constants.OutputPDF {
 			o[i].Ranges = ranges
 			o[i].ContentId = contentId
 			break

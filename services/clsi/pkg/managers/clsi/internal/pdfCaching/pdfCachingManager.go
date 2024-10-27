@@ -163,7 +163,7 @@ const (
 	stageAge       = 5
 	maxPDFXrefSize = 1024 * 1024
 
-	pdfName     = sharedTypes.PathName("output.pdf")
+	pdfName     = sharedTypes.PathName(constants.OutputPDF)
 	pdfXrefName = sharedTypes.PathName(constants.PDFCachingXrefFilename)
 )
 
