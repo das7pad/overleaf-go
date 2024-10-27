@@ -23,16 +23,16 @@ import (
 )
 
 func Test_parseLocales(t *testing.T) {
-	data := struct {
-		Settings struct {
-			AppName string
-		}
-		Lng string
-	}{
-		Lng: "English",
-		Settings: struct {
-			AppName string
-		}{
+	type fakeSettings struct {
+		AppName string
+	}
+	type renderData struct {
+		Settings  fakeSettings
+		PoweredBy string
+	}
+	data := renderData{
+		PoweredBy: "Golang",
+		Settings: fakeSettings{
 			AppName: "OverleafFromData",
 		},
 	}
@@ -58,8 +58,8 @@ func Test_parseLocales(t *testing.T) {
 				raw: map[string]string{
 					"no_var":           "Hello World!",
 					"app_name":         "Golang port of {{ .Settings.AppName }}",
-					"var":              "Translated into {{ .Lng }}",
-					"var_and_app_name": "{{ .Settings.AppName }} in {{ .Lng }}",
+					"var":              "Powered by: {{ .PoweredBy }}",
+					"var_and_app_name": "{{ .PoweredBy }} + {{ .Settings.AppName }}",
 				},
 			},
 			tCases: []tCase{
@@ -76,12 +76,12 @@ func Test_parseLocales(t *testing.T) {
 				{
 					key:  "var",
 					data: data,
-					want: "Translated into English",
+					want: "Powered by: Golang",
 				},
 				{
 					key:  "var_and_app_name",
 					data: data,
-					want: "OverleafFromData in English",
+					want: "Golang + OverleafFromData",
 				},
 			},
 		},

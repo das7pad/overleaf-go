@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"os"
 	"path"
 	"strings"
@@ -32,6 +31,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/errors"
 	"github.com/das7pad/overleaf-go/pkg/objectStorage"
 	"github.com/das7pad/overleaf-go/pkg/options/jwtOptions"
+	"github.com/das7pad/overleaf-go/pkg/redisScanner"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/pkg/signedCookie"
 	"github.com/das7pad/overleaf-go/pkg/templates"
@@ -275,10 +275,7 @@ func Generate(f Flags) Config {
 	documentUpdaterOptions := documentUpdaterTypes.Options{
 		Workers:                      20,
 		PendingUpdatesListShardCount: 1,
-		PeriodicFlushAll: struct {
-			Count    int64         `json:"count"`
-			Interval time.Duration `json:"interval"`
-		}{
+		PeriodicFlushAll: redisScanner.PeriodicOptions{
 			Count:    10,
 			Interval: 12 * time.Hour,
 		},
@@ -291,9 +288,7 @@ func Generate(f Flags) Config {
 			CleanupTimeout: 10 * time.Second,
 		},
 		WriteQueueDepth: f.RealTimeWriteQueueDepth,
-		JWT: struct {
-			Project jwtOptions.JWTOptions `json:"project"`
-		}{
+		JWT: realTimeTypes.JWTOptions{
 			Project: f.JWTOptionsProject,
 		},
 	}
@@ -315,17 +310,7 @@ func Generate(f Flags) Config {
 		CDNURL:            cdnURL,
 		CSPReportURL:      nil,
 		DefaultImage:      allowedImages[0],
-		Email: struct {
-			CustomFooter     string            `json:"custom_footer"`
-			CustomFooterHTML template.HTML     `json:"custom_footer_html"`
-			From             email.Identity    `json:"from"`
-			FallbackReplyTo  email.Identity    `json:"fallback_reply_to"`
-			SMTPAddress      email.SMTPAddress `json:"smtp_address"`
-			SMTPHello        string            `json:"smtp_hello"`
-			SMTPIdentity     string            `json:"smtp_identity"`
-			SMTPUser         string            `json:"smtp_user"`
-			SMTPPassword     string            `json:"smtp_password"`
-		}{
+		Email: webTypes.EmailOptionsRaw{
 			From: email.Identity{
 				Address: sharedTypes.Email("no-reply@" + emailHost),
 			},
@@ -353,12 +338,7 @@ func Generate(f Flags) Config {
 		PDFDownloadDomain:   webTypes.PDFDownloadDomain(f.PDFDownloadDomainRaw),
 		Sentry:              webTypes.SentryOptions{},
 		SiteURL:             siteURL,
-		SmokeTest: struct {
-			Email     sharedTypes.Email     `json:"email"`
-			Password  webTypes.UserPassword `json:"password"`
-			ProjectId sharedTypes.UUID      `json:"projectId"`
-			UserId    sharedTypes.UUID      `json:"userId"`
-		}{
+		SmokeTest: webTypes.SmokeTestOptions{
 			Email:     sharedTypes.Email(f.SmokeTestUserEmail),
 			Password:  webTypes.UserPassword(f.SmokeTestUserPassword),
 			ProjectId: sharedTypes.UUID{42},
@@ -369,46 +349,20 @@ func Generate(f Flags) Config {
 		RegistrationDisabled:      false,
 		RobotsNoindex:             false,
 		WatchManifest:             false,
-		APIs: struct {
-			Clsi struct {
-				URL         sharedTypes.URL `json:"url"`
-				Persistence struct {
-					CookieName string        `json:"cookie_name"`
-					TTL        time.Duration `json:"ttl"`
-				} `json:"persistence"`
-			} `json:"clsi"`
-			Filestore      objectStorage.Options `json:"filestore"`
-			LinkedURLProxy struct {
-				Chain []sharedTypes.URL `json:"chain"`
-			} `json:"linked_url_proxy"`
-		}{
-			Clsi: struct {
-				URL         sharedTypes.URL `json:"url"`
-				Persistence struct {
-					CookieName string        `json:"cookie_name"`
-					TTL        time.Duration `json:"ttl"`
-				} `json:"persistence"`
-			}{
+		APIs: webTypes.ApisOptions{
+			Clsi: webTypes.ClsiOptions{
 				URL: clsiURL,
-				Persistence: struct {
-					CookieName string        `json:"cookie_name"`
-					TTL        time.Duration `json:"ttl"`
-				}{
+				Persistence: webTypes.ClsiPersistenceOptions{
 					CookieName: f.CLSICookieName,
 					TTL:        6 * time.Hour,
 				},
 			},
 			Filestore: f.FilestoreOptions,
-			LinkedURLProxy: struct {
-				Chain []sharedTypes.URL `json:"chain"`
-			}{
+			LinkedURLProxy: webTypes.LinkedURLProxyOptions{
 				Chain: linkedURLProxyChain,
 			},
 		},
-		JWT: struct {
-			Project      jwtOptions.JWTOptions `json:"project"`
-			LoggedInUser jwtOptions.JWTOptions `json:"logged_in_user"`
-		}{
+		JWT: webTypes.JWTOptions{
 			Project:      f.JWTOptionsProject,
 			LoggedInUser: f.JWTOptionsLoggedInUser,
 		},
@@ -419,9 +373,7 @@ func Generate(f Flags) Config {
 			Path:    siteURL.Path,
 			Secrets: strings.Split(f.SessionCookieSecretsRaw, ","),
 		},
-		RateLimits: struct {
-			LinkSharingTokenLookupConcurrency int64 `json:"link_sharing_token_lookup_concurrency"`
-		}{
+		RateLimits: webTypes.RateLimitsOptions{
 			LinkSharingTokenLookupConcurrency: 1,
 		},
 	}

@@ -49,9 +49,18 @@ type Options struct {
 	BootstrapWorker int `json:"bootstrap_worker"`
 	WriteWorker     int `json:"write_worker"`
 
-	JWT struct {
-		Project jwtOptions.JWTOptions `json:"project"`
-	} `json:"jwt"`
+	JWT JWTOptions `json:"jwt"`
+}
+
+type JWTOptions struct {
+	Project jwtOptions.JWTOptions `json:"project"`
+}
+
+func (o *JWTOptions) Validate() error {
+	if err := o.Project.Validate(); err != nil {
+		return errors.Tag(err, "project")
+	}
+	return nil
 }
 
 func (o *Options) FillFromEnv() {
@@ -65,6 +74,9 @@ func (o *Options) Validate() error {
 	}
 	if o.WriteQueueDepth <= 0 {
 		return errors.New("write_queue_depth must be greater than 0")
+	}
+	if err := o.JWT.Validate(); err != nil {
+		return errors.Tag(err, "jwt")
 	}
 	return nil
 }
