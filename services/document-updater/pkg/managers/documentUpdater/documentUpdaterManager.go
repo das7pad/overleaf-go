@@ -43,6 +43,7 @@ type Manager interface {
 	CheckDocExists(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID) error
 	GetDoc(ctx context.Context, projectId sharedTypes.UUID, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.GetDocResponse, error)
 	GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error)
+	GetProjectDocsWithRootDocAndFlushIfOld(ctx context.Context, projectId, rootDocId sharedTypes.UUID) (types.DocContentSnapshots, error)
 	FlushAll(ctx context.Context) (bool, error)
 	FlushAndDeleteDoc(ctx context.Context, projectId, docId sharedTypes.UUID) error
 	FlushProject(ctx context.Context, projectId sharedTypes.UUID) error
@@ -164,7 +165,11 @@ func (m *manager) GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID,
 }
 
 func (m *manager) GetProjectDocsAndFlushIfOldSnapshot(ctx context.Context, projectId sharedTypes.UUID) (types.DocContentSnapshots, error) {
-	docs, err := m.dm.GetProjectDocsAndFlushIfOld(ctx, projectId)
+	return m.GetProjectDocsWithRootDocAndFlushIfOld(ctx, projectId, sharedTypes.UUID{})
+}
+
+func (m *manager) GetProjectDocsWithRootDocAndFlushIfOld(ctx context.Context, projectId, rootDocId sharedTypes.UUID) (types.DocContentSnapshots, error) {
+	docs, err := m.dm.GetProjectDocsWithRootDocAndFlushIfOld(ctx, projectId, rootDocId)
 	if err != nil {
 		return nil, err
 	}

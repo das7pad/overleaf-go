@@ -41,7 +41,7 @@ import (
 type Manager interface {
 	GetDoc(ctx context.Context, projectId, docId sharedTypes.UUID) (*types.Doc, error)
 	GetDocAndRecentUpdates(ctx context.Context, projectId, docId sharedTypes.UUID, fromVersion sharedTypes.Version) (*types.Doc, []sharedTypes.DocumentUpdate, error)
-	GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error)
+	GetProjectDocsWithRootDocAndFlushIfOld(ctx context.Context, projectId, rootDocId sharedTypes.UUID) ([]*types.Doc, error)
 	SetDoc(ctx context.Context, projectId, docId sharedTypes.UUID, request types.SetDocRequest) error
 	RenameDoc(ctx context.Context, projectId, docId sharedTypes.UUID, newPath sharedTypes.PathName) error
 	ProcessUpdatesForDocHeadless(ctx context.Context, projectId, docId sharedTypes.UUID) error
@@ -544,10 +544,21 @@ func (m *manager) operateOnAllProjectDocs(ctx context.Context, projectId sharedT
 	return errs.Finalize()
 }
 
-func (m *manager) GetProjectDocsAndFlushIfOld(ctx context.Context, projectId sharedTypes.UUID) ([]*types.Doc, error) {
+func (m *manager) GetProjectDocsWithRootDocAndFlushIfOld(ctx context.Context, projectId, rootDocId sharedTypes.UUID) ([]*types.Doc, error) {
 	docIds, errGetDocIds := m.rm.GetDocIdsInProject(ctx, projectId)
 	if errGetDocIds != nil {
 		return nil, errGetDocIds
+	}
+
+	if !rootDocId.IsZero() {
+		for _, docId := range docIds {
+			if docId == rootDocId {
+				rootDocId = sharedTypes.UUID{}
+			}
+		}
+		if !rootDocId.IsZero() {
+			docIds = append(docIds, rootDocId)
+		}
 	}
 
 	docs := make([]*types.Doc, len(docIds))

@@ -320,9 +320,8 @@ func (m *manager) fromDB(ctx context.Context, request *types.CompileProjectReque
 }
 
 func (m *manager) fromRedis(ctx context.Context, request *types.CompileProjectRequest) (clsiTypes.Resources, sharedTypes.PathName, error) {
-	docs, err := m.dum.GetProjectDocsAndFlushIfOldSnapshot(
-		ctx,
-		request.ProjectId,
+	docs, err := m.dum.GetProjectDocsWithRootDocAndFlushIfOld(
+		ctx, request.ProjectId, request.RootDocId,
 	)
 	if err != nil {
 		return nil, "", errors.Tag(err, "get docs from redis")
