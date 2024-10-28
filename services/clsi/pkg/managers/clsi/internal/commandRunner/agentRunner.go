@@ -233,10 +233,14 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		},
 	}
 
+	logCfg := container.LogConfig{Type: "none"}
+	if a.o.Debugging {
+		logCfg = container.LogConfig{Type: "json-file"}
+	}
 	hostConfig := container.HostConfig{
-		LogConfig:   container.LogConfig{Type: "none"},
+		LogConfig:   logCfg,
 		NetworkMode: "none",
-		AutoRemove:  true,
+		AutoRemove:  !a.o.Debugging,
 		CapDrop:     []string{"ALL"},
 		SecurityOpt: []string{"no-new-privileges"},
 		Resources: container.Resources{

@@ -33,6 +33,7 @@ type DockerContainerOptions struct {
 
 	Runtime           string `json:"runtime"`
 	SeccompPolicyPath string `json:"seccomp_policy_path"`
+	Debugging         bool   `json:"debugging"`
 
 	CompileBaseDir CompileBaseDir `json:"compile_base_dir"`
 	OutputBaseDir  OutputBaseDir  `json:"output_base_dir"`
