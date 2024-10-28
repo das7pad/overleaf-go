@@ -34,6 +34,11 @@
       "args": []
     },
     {
+      "name": "eventfd2",
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
       "name": "mlock",
       "action": "SCMP_ACT_ALLOW",
       "args": []
