@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2025 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -218,7 +218,7 @@ func setupPg(ctx context.Context, c *client.Client) func(code *int) {
 			"POSTGRES_HOST_AUTH_METHOD=trust",
 		},
 		Cmd:   []string{"-c", "log_connections=yes"},
-		Image: "postgres:14",
+		Image: "postgres:16",
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "none",

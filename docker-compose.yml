@@ -23,7 +23,7 @@ networks:
 
 services:
   postgres:
-    image: postgres:14
+    image: postgres:16
     networks:
       - internal
     environment:
