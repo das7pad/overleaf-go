@@ -62,6 +62,8 @@ const (
 	tmpPostgres           = "/tmp/" + postgresContainerName
 	tmpRedis              = "/tmp/" + redisContainerName
 	redisSocket           = tmpRedis + "/s"
+
+	builtInPostgresDB = "template1"
 )
 
 func Setup(m *testing.M) {
@@ -250,7 +252,7 @@ func setupPg(ctx context.Context, c *client.Client) func(code *int) {
 	for i := 0; time.Now().Before(deadline); i++ {
 		// scale the jitter [10,100) with the number of retries, first try 0ms.
 		time.Sleep(time.Duration(i*(10+rand.Intn(90))) * time.Millisecond)
-		db, err2 := pgx.Connect(ctx, buildPGDSN("postgres"))
+		db, err2 := pgx.Connect(ctx, buildPGDSN(builtInPostgresDB))
 		if err2 != nil {
 			err = errors.Tag(err2, "connect to pgx")
 			continue
@@ -289,7 +291,7 @@ CREATE DATABASE %s WITH TEMPLATE postgres OWNER postgres
 		if *code != 0 {
 			return
 		}
-		db, err2 := pgx.Connect(context.Background(), buildPGDSN("postgres"))
+		db, err2 := pgx.Connect(context.Background(), buildPGDSN(builtInPostgresDB))
 		if err2 != nil {
 			panic(errors.Tag(err2, "connect to pgx"))
 		}
