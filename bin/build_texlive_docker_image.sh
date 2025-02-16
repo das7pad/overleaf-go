@@ -1,6 +1,6 @@
 #!/bin/bash
 # Golang port of Overleaf
-# Copyright (C) 2024 Jakob Ackermann <das7pad@outlook.com>
+# Copyright (C) 2024-2025 Jakob Ackermann <das7pad@outlook.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -33,7 +33,7 @@ pushd "$ROOT"
 if which go > /dev/null; then
   go run "./cmd/latexmkrc-generator" > "$TMP/latexmkrc"
 else
-  docker run --rm -v "$ROOT:$ROOT" -w "$ROOT" golang:1.23.2 \
+  docker run --rm -v "$ROOT:$ROOT" -w "$ROOT" golang:1.24.0 \
     go run "./cmd/latexmkrc-generator" > "$TMP/latexmkrc"
 fi
 

@@ -1,5 +1,5 @@
 # Golang port of Overleaf
-# Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
+# Copyright (C) 2021-2025 Jakob Ackermann <das7pad@outlook.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.23.2-alpine3.19 go list -f '{{ join .Deps "\n" }}' \
+	$(BUILD_IN) golang:1.24.0-alpine3.20 go list -f '{{ join .Deps "\n" }}' \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
 		go.mod \
@@ -60,7 +60,7 @@ check-not-changed:
 
 .PHONY: $(SERVICE)
 $(SERVICE):
-	$(BUILD_IN) golang:1.23.2-alpine3.19 go build
+	$(BUILD_IN) golang:1.24.0-alpine3.20 go build
 	touch -m -d 2021-01-01T00:00Z $@
 
 docker/build/production: $(SERVICE)

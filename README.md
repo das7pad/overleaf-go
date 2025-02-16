@@ -68,7 +68,7 @@ docker compose up
 - Without Golang installed on Linux and docker-compose v2:
 
   ```shell
-  docker run --rm -v `pwd`:`pwd` -w `pwd` golang:1.23.2 \
+  docker run --rm -v `pwd`:`pwd` -w `pwd` golang:1.24.0 \
     go build -tags osusergo,netgo ./cmd/config-generator
   ./config-generator | tee .env
   docker compose up
@@ -78,7 +78,7 @@ docker compose up
 
   ```shell
   docker run --rm -v `pwd`:`pwd` -w `pwd` \
-    -e GOOS=darwin -e GOARCH=amd64 golang:1.23.2 \
+    -e GOOS=darwin -e GOARCH=amd64 golang:1.24.0 \
     go build -tags osusergo,netgo ./cmd/config-generator
   ./config-generator | tee .env
   docker compose up
@@ -88,7 +88,7 @@ docker compose up
 
   ```shell
   docker run --rm -v `pwd`:`pwd` -w `pwd` \
-    -e GOOS=darwin -e GOARCH=arm64 golang:1.23.2 \
+    -e GOOS=darwin -e GOARCH=arm64 golang:1.24.0 \
     go build -tags osusergo,netgo ./cmd/config-generator
   ./config-generator | tee .env
   docker compose up

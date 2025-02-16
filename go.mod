@@ -1,6 +1,6 @@
 module github.com/das7pad/overleaf-go
 
-go 1.22
+go 1.24
 
 require (
 	github.com/docker/docker v27.3.1+incompatible

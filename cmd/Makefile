@@ -1,5 +1,5 @@
 # Golang port of Overleaf
-# Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
+# Copyright (C) 2021-2025 Jakob Ackermann <das7pad@outlook.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -49,7 +49,7 @@ run-ci:
 	$(MAKE) docker/push
 
 check-not-changed:
-	$(BUILD_IN) golang:1.23.2 \
+	$(BUILD_IN) golang:1.24.0 \
 		go list -f '{{ join .Deps "\n" }}' ./cmd/... \
 	| grep $(PACKAGE) | sed s,$(PACKAGE)/,, \
 	| xargs echo \
@@ -63,7 +63,7 @@ check-not-changed:
 bin.tar: build_cmds_in_bulk
 build_cmds_in_bulk:
 	rm -rf ../.cache/target/ && mkdir ../.cache/target/
-	$(BUILD_IN) golang:1.23.2 go build -tags osusergo,netgo -o .cache/target/ ./cmd/...
+	$(BUILD_IN) golang:1.24.0 go build -tags osusergo,netgo -o .cache/target/ ./cmd/...
 
 bin.tar: execAgent
 execAgent:
@@ -119,4 +119,4 @@ test:
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u) \
 		--group-add $(shell stat -c '%g' /var/run/docker.sock) \
-		golang:1.23.2 go test ./... -test.v=true -test.short=$(TEST_SHORT)
+		golang:1.24.0 go test ./... -test.v=true -test.short=$(TEST_SHORT)

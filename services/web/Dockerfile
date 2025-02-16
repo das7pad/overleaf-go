@@ -1,5 +1,5 @@
 # Golang port of Overleaf
-# Copyright (C) 2021-2023 Jakob Ackermann <das7pad@outlook.com>
+# Copyright (C) 2021-2025 Jakob Ackermann <das7pad@outlook.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM alpine:3.19
+FROM alpine:3.20
 ENV SERVICE_NAME="web"
 ENTRYPOINT ["web"]
 COPY --chown=root:root ./web /usr/local/bin/
