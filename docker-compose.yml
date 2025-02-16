@@ -33,7 +33,7 @@ services:
       - ./db:/docker-entrypoint-initdb.d
 
   redis:
-    image: redis:5
+    image: redis:7.2
     networks:
       - internal
     volumes:

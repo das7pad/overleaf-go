@@ -317,7 +317,7 @@ func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
 			"redis-server", "--databases", "1024",
 			"--unixsocket", redisSocket, "--unixsocketperm", "777",
 		},
-		Image: "redis:6",
+		Image: "redis:7.2",
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "none",
