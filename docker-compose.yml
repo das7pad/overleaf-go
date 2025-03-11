@@ -52,7 +52,7 @@ services:
       - ~/overleaf-go/minio:/data
 
   build-minio-setup:
-    image: golang:1.24.0
+    image: golang:1.24.1
     network_mode: bridge
     working_dir: /go/src/cmd/minio-setup
     command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/minio-setup
@@ -86,7 +86,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-frontend-build:
-    image: golang:1.24.0
+    image: golang:1.24.1
     network_mode: bridge
     working_dir: /go/src/cmd/frontend-build
     command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/frontend-build
@@ -136,7 +136,7 @@ services:
       - ${TMP_DIR}/assets:${TMP_DIR}/assets:ro
 
   build-linked-url-proxy:
-    image: golang:1.24.0
+    image: golang:1.24.1
     network_mode: bridge
     working_dir: /go/src/services/linked-url-proxy
     command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/linked-url-proxy
@@ -161,7 +161,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-pull-texlive-images:
-    image: golang:1.24.0
+    image: golang:1.24.1
     network_mode: bridge
     working_dir: /go/src/cmd/pull-texlive-images
     command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/pull-texlive-images
@@ -187,7 +187,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries:ro
 
   build-execAgent:
-    image: golang:1.24.0
+    image: golang:1.24.1
     network_mode: bridge
     working_dir: /go/src/services/clsi
     command:
@@ -199,7 +199,7 @@ services:
       - ${TMP_DIR}/binaries:${TMP_DIR}/binaries
 
   build-overleaf:
-    image: golang:1.24.0
+    image: golang:1.24.1
     network_mode: bridge
     working_dir: /go/src/cmd/overleaf
     command: go build -tags osusergo,netgo -o ${TMP_DIR}/binaries/overleaf
