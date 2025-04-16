@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2025 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -39,6 +39,7 @@ import (
 	"github.com/das7pad/overleaf-go/pkg/httpUtils"
 	"github.com/das7pad/overleaf-go/pkg/integrationTests"
 	"github.com/das7pad/overleaf-go/pkg/models/oneTimeToken"
+	"github.com/das7pad/overleaf-go/pkg/options/env"
 	"github.com/das7pad/overleaf-go/pkg/sharedTypes"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/client/realTime"
 	"github.com/das7pad/overleaf-go/services/real-time/pkg/types"
@@ -46,6 +47,7 @@ import (
 	webTypes "github.com/das7pad/overleaf-go/services/web/pkg/types"
 )
 
+var usePipe = flag.Bool("test.use-pipe", false, "")
 var useUnixSocket = flag.Bool("test.use-unix-socket", false, "")
 
 func TestMain(m *testing.M) {
@@ -60,7 +62,13 @@ func fatalIf(err error) {
 }
 
 func pickTransport() {
-	if *useUnixSocket {
+	if *usePipe {
+		addr := "real-time-pipe"
+		err := os.Setenv("LISTEN_ADDRESS", addr)
+		fatalIf(err)
+		host := addr + ":" + env.GetString("PORT", "3026")
+		connectFn = httpUtils.MemListener(host)
+	} else if *useUnixSocket {
 		err := os.Setenv("LISTEN_ADDRESS", realTime.UnixRunRealTime.Name)
 		fatalIf(err)
 		connectFn = realTime.DialUnix

@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2024-2025 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -18,10 +18,12 @@ package httpUtils
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
 
 type Server interface {
@@ -32,7 +34,9 @@ type Server interface {
 func ListenAndServe(server Server, addr string) error {
 	var l net.Listener
 	var err error
-	if strings.HasPrefix(addr, "/") {
+	if m, ok := memListeners[addr]; ok {
+		l = m
+	} else if strings.HasPrefix(addr, "/") {
 		if err = os.Remove(addr); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -61,4 +65,57 @@ func ListenAndServeEach(do func(func() error), server Server, each []string) {
 			return ListenAndServe(server, addr)
 		})
 	}
+}
+
+var memListeners map[string]*memListener
+
+func MemListener(host string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	m := &memListener{
+		c: make(chan net.Conn),
+	}
+	if memListeners == nil {
+		memListeners = make(map[string]*memListener)
+	}
+	memListeners[host] = m
+	return m.connect
+}
+
+type memListener struct {
+	c      chan net.Conn
+	mu     sync.RWMutex
+	closed bool
+}
+
+func (m *memListener) connect(_ context.Context, _, _ string) (net.Conn, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closed {
+		return nil, net.ErrClosed
+	}
+	a, b := net.Pipe()
+	m.c <- a
+	return b, nil
+}
+
+func (m *memListener) Accept() (net.Conn, error) {
+	c, ok := <-m.c
+	if !ok {
+		return nil, io.ErrClosedPipe
+	}
+	return c, nil
+}
+
+func (m *memListener) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return net.ErrClosed
+	}
+	m.closed = true
+	close(m.c)
+	return nil
+}
+
+func (m *memListener) Addr() net.Addr {
+	return nil
 }
