@@ -119,4 +119,7 @@ test:
 		--env HOME=$(ROOT_DOCKER)/.cache/home/ \
 		--user $(shell id -u) \
 		--group-add $(shell stat -c '%g' /var/run/docker.sock) \
-		golang:1.24.2 go test ./... -test.v=true -test.short=$(TEST_SHORT)
+		golang:1.24.2 sh -ec ' \
+			go test ./... -test.v=true -test.short=$(TEST_SHORT) 2>&1 \
+			| go run github.com/jstemmer/go-junit-report/v2 -set-exit-code -iocopy -out .cache/report.xml \
+		'

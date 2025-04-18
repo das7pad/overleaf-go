@@ -29,6 +29,11 @@ pipeline {
               sh 'make test'
             }
           }
+          post {
+            always {
+              junit '.cache/report.xml'
+            }
+          }
         }
         stage('clsi') {
           agent {
