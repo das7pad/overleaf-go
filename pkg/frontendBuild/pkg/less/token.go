@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2025 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -22,7 +22,7 @@ import (
 	"sync"
 )
 
-//go:generate stringer -type=kind
+//go:generate go run golang.org/x/tools/cmd/stringer -type=kind
 
 type kind int8
 
