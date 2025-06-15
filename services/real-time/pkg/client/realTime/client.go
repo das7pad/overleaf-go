@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2025 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -279,7 +279,7 @@ func (c *Client) Connect(ctx context.Context, uri *url.URL, bootstrap string, di
 	})
 
 	if deadline, ok := ctx.Deadline(); ok {
-		if err := c.conn.SetReadDeadline(deadline); err != nil {
+		if err := c.conn.SetDeadline(deadline); err != nil {
 			c.Close()
 			return nil, fmt.Errorf("%d: set deadline: %w", id, err)
 		}
@@ -343,13 +343,7 @@ func (c *Client) On(name sharedTypes.EditorEventMessage, fn func(response types.
 }
 
 func (c *Client) SetDeadline(d time.Time) error {
-	if err := c.conn.SetWriteDeadline(d); err != nil {
-		return err
-	}
-	if err := c.conn.SetReadDeadline(d); err != nil {
-		return err
-	}
-	return nil
+	return c.conn.SetDeadline(d)
 }
 
 func (c *Client) RPCAsyncWrite(res *types.RPCResponse, r *types.RPCRequest) error {
