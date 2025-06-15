@@ -237,6 +237,9 @@ func TestBootstrap(t *testing.T) {
 func TestBootstrapBadJWT(t *testing.T) {
 	c := realTime.Client{}
 	res, err := c.Connect(context.Background(), uri, "bad.formatted.jwt", connectFn)
+	if res == nil {
+		t.Fatalf("Connect() low level error %s", err)
+	}
 	if want := sharedTypes.ConnectionRejected; res.Name != want {
 		t.Errorf("Connect() name = %q, want %q", res.Name, want)
 	}
