@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2026 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -25,11 +25,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/errdefs"
-	"github.com/docker/go-units"
+	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/client"
 
 	"github.com/das7pad/overleaf-go/pkg/copyFile"
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -75,10 +74,7 @@ func copyAgent(dst, src string) error {
 }
 
 func newAgentRunner(options *types.Options) (Runner, error) {
-	dockerClient, dockerErr := client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithAPIVersionNegotiation(),
-	)
+	dockerClient, dockerErr := client.New(client.FromEnv)
 	if dockerErr != nil {
 		return nil, dockerErr
 	}
@@ -87,6 +83,7 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	{
 		err := copyAgent(options.CopyExecAgentDst, options.CopyExecAgentSrc)
 		if err != nil {
+			_ = dockerClient.Close()
 			return nil, err
 		}
 	}
@@ -120,6 +117,7 @@ func newAgentRunner(options *types.Options) (Runner, error) {
 	if o.SeccompPolicyPath != "-" {
 		policy, err := seccomp.Load(o.SeccompPolicyPath)
 		if err != nil {
+			_ = dockerClient.Close()
 			return nil, errors.Tag(err, "seccomp policy invalid")
 		}
 		runner.seccompPolicy = policy
@@ -245,7 +243,7 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 		SecurityOpt: []string{"no-new-privileges"},
 		Resources: container.Resources{
 			Memory: memoryLimitInBytes,
-			Ulimits: []*units.Ulimit{
+			Ulimits: []*container.Ulimit{
 				{
 					Name: "cpu",
 					Soft: lifeSpanInSeconds,
@@ -277,9 +275,8 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 	env = append(env, "PATH="+PATH, "HOME=/tmp")
 	env = append(env, "IMAGE_NAME="+string(imageName))
 
-	_, err := a.dockerClient.ContainerCreate(
-		ctx,
-		&container.Config{
+	_, err := a.dockerClient.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &container.Config{
 			Cmd:             []string{constants.AgentSocketPathContainer},
 			Entrypoint:      []string{a.o.AgentPathContainer},
 			Env:             env,
@@ -292,18 +289,16 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 				clsiProcessEpochLabel: a.currentClsiProcessEpoch,
 			},
 		},
-		&hostConfig,
-		nil,
-		nil,
-		name,
-	)
+		HostConfig: &hostConfig,
+		Name:       name,
+	})
 	if err != nil {
 		return time.Time{}, errors.Tag(err, "create container")
 	}
 
 	validUntil := time.Now().Add(a.projectRunnerMaxAge)
 	// The container was just created, start it.
-	err = a.dockerClient.ContainerStart(ctx, name, container.StartOptions{})
+	_, err = a.dockerClient.ContainerStart(ctx, name, client.ContainerStartOptions{})
 	if err != nil {
 		return time.Time{}, errors.Tag(err, "start container")
 	}
@@ -311,14 +306,16 @@ func (a *agentRunner) createContainer(ctx context.Context, namespace types.Names
 }
 
 func (a *agentRunner) getContainerEpoch(ctx context.Context, namespace types.Namespace) (string, error) {
-	res, err := a.dockerClient.ContainerInspect(ctx, containerName(namespace))
+	res, err := a.dockerClient.ContainerInspect(
+		ctx, containerName(namespace), client.ContainerInspectOptions{},
+	)
 	if err != nil {
 		return "", errors.Tag(err, "get container epoch")
 	}
-	if res.Config == nil {
+	if res.Container.Config == nil {
 		return "", errors.New("container config missing")
 	}
-	return res.Config.Labels[clsiProcessEpochLabel], nil
+	return res.Container.Config.Labels[clsiProcessEpochLabel], nil
 }
 
 func (a *agentRunner) probe(ctx context.Context, namespace types.Namespace, imageName sharedTypes.ImageName) error {
@@ -346,7 +343,7 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 	restartTimeout := int(time.Duration(0).Seconds())
 	name := containerName(namespace)
 	validUntil := time.Now().Add(a.projectRunnerMaxAge)
-	err := a.dockerClient.ContainerRestart(ctx, name, container.StopOptions{
+	_, err := a.dockerClient.ContainerRestart(ctx, name, client.ContainerRestartOptions{
 		Timeout: &restartTimeout,
 	})
 	if err != nil {
@@ -356,10 +353,10 @@ func (a *agentRunner) restartContainer(ctx context.Context, namespace types.Name
 }
 
 func (a *agentRunner) removeContainer(namespace types.Namespace) error {
-	err := a.dockerClient.ContainerRemove(
+	_, err := a.dockerClient.ContainerRemove(
 		context.Background(),
 		containerName(namespace),
-		container.RemoveOptions{
+		client.ContainerRemoveOptions{
 			// Docs: Force the removal of a running container (uses SIGKILL)
 			Force: true,
 		},

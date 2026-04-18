@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023-2025 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2026 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -24,6 +24,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net/netip"
 	"os"
 	"path"
 	"strconv"
@@ -31,16 +32,14 @@ import (
 	"testing"
 	"time"
 
-	dockerTypes "github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/errdefs"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/go-connections/nat"
+	"github.com/containerd/errdefs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
+	"github.com/moby/moby/client/pkg/jsonmessage"
 	"github.com/moby/term"
 	"github.com/redis/go-redis/v9"
 
@@ -123,15 +122,18 @@ func setupMinio(ctx context.Context, c *client.Client) func(code *int) {
 		},
 		Cmd:   []string{"server", "--address", ":19000", "/data"},
 		Image: "minio/minio:RELEASE.2023-07-07T07-13-57Z",
-		ExposedPorts: map[nat.Port]struct{}{
-			"19000/tcp": {},
+		ExposedPorts: network.PortSet{
+			network.MustParsePort("19000/tcp"): {},
 		},
 	}, &container.HostConfig{
 		LogConfig:   container.LogConfig{Type: "json-file"},
 		NetworkMode: "bridge",
 		AutoRemove:  true,
-		PortBindings: map[nat.Port][]nat.PortBinding{
-			"19000/tcp": {{HostIP: "127.0.1.1", HostPort: "19000"}},
+		PortBindings: network.PortMap{
+			network.MustParsePort("19000/tcp"): {{
+				HostIP:   netip.MustParseAddr("127.0.1.1"),
+				HostPort: "19000",
+			}},
 		},
 	}, minioContainerName, []string{"1 Online"})
 	if err != nil {
@@ -375,15 +377,15 @@ func setupRedis(ctx context.Context, c *client.Client) func(code *int) {
 	}
 }
 
-func getIP(i *dockerTypes.ContainerJSON) string {
+func getIP(i *container.InspectResponse) string {
 	if F.DockerSocketRootful != F.DockerSocket {
 		return "127.0.1.1"
 	}
-	return i.NetworkSettings.Networks["bridge"].IPAddress
+	return i.NetworkSettings.Networks["bridge"].IPAddress.String()
 }
 
-func createAndStartContainer(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string, msg []string) (*dockerTypes.ContainerJSON, error) {
-	var i *dockerTypes.ContainerJSON
+func createAndStartContainer(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string, msg []string) (*container.InspectResponse, error) {
+	var i *container.InspectResponse
 	var err error
 	for j := 0; j < 5; j++ {
 		i, err = createAndStartContainerOnce(ctx, c, containerConfig, hostConfig, name)
@@ -401,32 +403,41 @@ func createAndStartContainer(ctx context.Context, c *client.Client, containerCon
 	return i, err
 }
 
-func createAndStartContainerOnce(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string) (*dockerTypes.ContainerJSON, error) {
-	i, err := c.ContainerInspect(ctx, name)
-	if err == nil && i.State != nil && i.State.Running {
-		t, err2 := time.Parse(time.RFC3339, i.State.StartedAt)
+func createAndStartContainerOnce(ctx context.Context, c *client.Client, containerConfig *container.Config, hostConfig *container.HostConfig, name string) (*container.InspectResponse, error) {
+	i, err := c.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
+	if err == nil && i.Container.State != nil && i.Container.State.Running {
+		t, err2 := time.Parse(time.RFC3339, i.Container.State.StartedAt)
 		if err2 != nil {
 			return nil, errors.Tag(err2, "parse startedAt")
 		}
 		if time.Now().Sub(t) < 24*time.Hour {
-			return &i, nil
+			return &i.Container, nil
 		}
-		if err = c.ContainerKill(ctx, name, "KILL"); err != nil {
+		_, err = c.ContainerKill(ctx, name, client.ContainerKillOptions{
+			Signal: "KILL",
+		})
+		if err != nil {
 			return nil, errors.Tag(err, "kill old container")
 		}
-		res, errs := c.ContainerWait(ctx, name, container.WaitConditionRemoved)
+		res := c.ContainerWait(ctx, name, client.ContainerWaitOptions{
+			Condition: container.WaitConditionRemoved,
+		})
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-res:
-		case err = <-errs:
+		case <-res.Result:
+		case err = <-res.Error:
 			if err != nil && !errdefs.IsNotFound(err) {
 				return nil, errors.Tag(err, "wait for container removal")
 			}
 		}
 	}
 
-	_, err = c.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, name)
+	_, err = c.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:     containerConfig,
+		HostConfig: hostConfig,
+		Name:       name,
+	})
 	switch {
 	case err == nil:
 		// happy path
@@ -434,7 +445,7 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 		// already created
 	case errdefs.IsNotFound(err):
 		// missing image
-		r, err2 := c.ImagePull(ctx, containerConfig.Image, image.PullOptions{})
+		r, err2 := c.ImagePull(ctx, containerConfig.Image, client.ImagePullOptions{})
 		if err2 != nil {
 			return nil, errors.Tag(err2, "initiate pull")
 		}
@@ -448,9 +459,11 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 		if err2 = r.Close(); err2 != nil {
 			return nil, errors.Tag(err2, "close pull response")
 		}
-		_, err2 = c.ContainerCreate(
-			ctx, containerConfig, hostConfig, nil, nil, name,
-		)
+		_, err2 = c.ContainerCreate(ctx, client.ContainerCreateOptions{
+			Config:     containerConfig,
+			HostConfig: hostConfig,
+			Name:       name,
+		})
 		if err2 != nil && !errdefs.IsConflict(err2) {
 			return nil, errors.Tag(err2, "create container")
 		}
@@ -458,7 +471,7 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 		return nil, errors.Tag(err, "create container")
 	}
 
-	err = c.ContainerStart(ctx, name, container.StartOptions{})
+	_, err = c.ContainerStart(ctx, name, client.ContainerStartOptions{})
 	switch {
 	case err == nil:
 		// happy path
@@ -469,12 +482,12 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 	}
 
 	for j := 0; j < 10; j++ {
-		i, err = c.ContainerInspect(ctx, name)
+		i, err = c.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
 		if err != nil {
 			return nil, errors.Tag(err, "inspect container")
 		}
-		if i.State != nil && i.State.Running {
-			return &i, nil
+		if i.Container.State != nil && i.Container.State.Running {
+			return &i.Container, nil
 		}
 		time.Sleep(time.Second)
 	}
@@ -483,13 +496,15 @@ func createAndStartContainerOnce(ctx context.Context, c *client.Client, containe
 }
 
 func monitorContainer(ctx context.Context, c *client.Client, id string) {
-	res, errs := c.ContainerWait(context.Background(), id, container.WaitConditionNotRunning)
+	res := c.ContainerWait(context.Background(), id, client.ContainerWaitOptions{
+		Condition: container.WaitConditionNotRunning,
+	})
 
 	select {
 	case <-ctx.Done():
-	case <-res:
+	case <-res.Result:
 		panic(errors.New("container exited early"))
-	case err := <-errs:
+	case err := <-res.Error:
 		if err != nil {
 			panic(errors.Tag(err, "wait for container"))
 		}
@@ -499,7 +514,7 @@ func monitorContainer(ctx context.Context, c *client.Client, id string) {
 func waitForContainerLogMessage(ctx context.Context, c *client.Client, id string, msg []string) error {
 	delay := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
-		r, err := c.ContainerLogs(ctx, id, container.LogsOptions{
+		r, err := c.ContainerLogs(ctx, id, client.ContainerLogsOptions{
 			ShowStderr: true,
 			ShowStdout: true,
 		})

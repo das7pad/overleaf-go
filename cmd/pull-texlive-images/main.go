@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2023-2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2023-2026 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -23,10 +23,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
+	"github.com/moby/moby/client/pkg/jsonmessage"
 	"github.com/moby/term"
 
 	"github.com/das7pad/overleaf-go/pkg/errors"
@@ -42,13 +41,11 @@ func main() {
 	o := clsiTypes.Options{}
 	o.FillFromEnv()
 
-	c, dockerErr := client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithAPIVersionNegotiation(),
-	)
+	c, dockerErr := client.New(client.FromEnv)
 	if dockerErr != nil {
 		panic(dockerErr)
 	}
+	defer func() { _ = c.Close() }()
 
 	for _, img := range o.AllowedImages {
 		if createTestContainer(ctx, c, img) == nil {
@@ -57,7 +54,7 @@ func main() {
 		}
 
 		log.Printf("%s: starting to pull, this can take a while!", img)
-		r, err := c.ImagePull(ctx, string(img), image.PullOptions{})
+		r, err := c.ImagePull(ctx, string(img), client.ImagePullOptions{})
 		if err != nil {
 			panic(errors.Tag(err, "initiate pull"))
 		}
@@ -78,24 +75,21 @@ func main() {
 }
 
 func createTestContainer(ctx context.Context, c *client.Client, imageName sharedTypes.ImageName) error {
-	_, err := c.ContainerCreate(ctx,
-		&container.Config{
+	_, err := c.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &container.Config{
 			Cmd:             make([]string, 0),
 			Image:           string(imageName),
 			WorkingDir:      "/",
 			Entrypoint:      []string{"/usr/bin/true"},
 			NetworkDisabled: true,
 		},
-		&container.HostConfig{
+		HostConfig: &container.HostConfig{
 			LogConfig: container.LogConfig{
 				Type: "none",
 			},
 			NetworkMode: "none",
 			AutoRemove:  true,
 		},
-		nil,
-		nil,
-		"",
-	)
+	})
 	return err
 }
