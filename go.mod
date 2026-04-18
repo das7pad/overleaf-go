@@ -10,16 +10,16 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/jackc/pgx/v5 v5.7.4
+	github.com/jackc/pgx/v5 v5.9.1
 	github.com/minio/madmin-go/v2 v2.2.1
 	github.com/minio/minio-go/v7 v7.0.90
 	github.com/moby/term v0.5.2
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/sergi/go-diff v1.3.1
 	go.mongodb.org/mongo-driver v1.17.3
-	golang.org/x/crypto v0.37.0
-	golang.org/x/net v0.39.0
-	golang.org/x/sync v0.13.0
+	golang.org/x/crypto v0.41.0
+	golang.org/x/net v0.43.0
+	golang.org/x/sync v0.17.0
 )
 
 tool (
@@ -81,11 +81,11 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
-	golang.org/x/tools v0.32.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	google.golang.org/grpc v1.71.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
@@ -101,7 +101,7 @@ replace github.com/gorilla/websocket v1.5.1 => github.com/das7pad/gorilla-websoc
 replace github.com/redis/go-redis/v9 v9.7.3 => github.com/das7pad/go-redis/v9 v9.0.0-20250416215732-f7d6c3a32276
 
 // Optimize allocations
-replace github.com/jackc/pgx/v5 v5.7.4 => github.com/das7pad/pgx/v5 v5.0.0-20250416220222-5006f5038498
+replace github.com/jackc/pgx/v5 v5.9.1 => github.com/das7pad/pgx/v5 v5.0.0-20260418085349-57e40b02c9fa
 
 // Optimize allocations
 replace github.com/jackc/puddle/v2 v2.2.2 => github.com/das7pad/puddle/v2 v2.0.0-20241027234030-a63b1e47fedb
