@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2022 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2026 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -29,9 +29,10 @@ type policy struct {
 	DefaultAction string   `json:"defaultAction"`
 	Architectures []string `json:"architectures"`
 	SysCalls      []struct {
-		Name   string `json:"name"`
-		Action string `json:"action"`
-		Args   []struct {
+		Name     string `json:"name"`
+		Action   string `json:"action"`
+		ErrNoRet int    `json:"errnoRet,omitempty"`
+		Args     []struct {
 			Index    int    `json:"index"`
 			Value    int    `json:"value"`
 			ValueTwo int    `json:"valueTwo"`

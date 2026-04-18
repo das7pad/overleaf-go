@@ -116,6 +116,11 @@
       ]
     },
     {
+      "name": "clone3",
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 38
+    },
+    {
       "name": "close",
       "action": "SCMP_ACT_ALLOW",
       "args": []
@@ -356,6 +361,11 @@
       "args": []
     },
     {
+      "name": "getrandom",
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
       "name": "getresgid",
       "action": "SCMP_ACT_ALLOW",
       "args": []
@@ -492,6 +502,11 @@
     },
     {
       "name": "openat",
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
+      "name": "openat2",
       "action": "SCMP_ACT_ALLOW",
       "args": []
     },
@@ -697,6 +712,11 @@
     },
     {
       "name": "stat",
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
+      "name": "statx",
       "action": "SCMP_ACT_ALLOW",
       "args": []
     },
