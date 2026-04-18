@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2024-2026 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -232,6 +232,10 @@ var (
 	errTooManyReads = errors.New("too many reads")
 )
 
+func deadline(t time.Time) time.Time {
+	return t.Round(time.Millisecond)
+}
+
 func (c *wsConn) serve() {
 	defer c.s.decrementN()
 	defer func() {
@@ -242,7 +246,7 @@ func (c *wsConn) serve() {
 	}()
 	c.reader = newBuffer(c)
 
-	if c.SetDeadline(c.t0.Add(30*time.Second)) != nil {
+	if c.SetDeadline(deadline(c.t0.Add(30*time.Second))) != nil {
 		return
 	}
 	for {
@@ -256,7 +260,7 @@ func (c *wsConn) serve() {
 		if c.hijacked || c.noKeepalive {
 			return
 		}
-		if c.SetDeadline(time.Now().Add(15*time.Second)) != nil {
+		if c.SetDeadline(deadline(time.Now().Add(15*time.Second))) != nil {
 			return
 		}
 		c.reads = 0

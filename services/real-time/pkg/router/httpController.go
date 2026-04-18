@@ -1,5 +1,5 @@
 // Golang port of Overleaf
-// Copyright (C) 2021-2024 Jakob Ackermann <das7pad@outlook.com>
+// Copyright (C) 2021-2026 Jakob Ackermann <das7pad@outlook.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -262,7 +262,7 @@ func (h *httpController) bootstrap(t0 time.Time, c *types.Client, claimsProjectJ
 func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 	defer putBuffer(conn.BR)
 	defer h.rtm.Disconnect(c)
-	if conn.SetDeadline(time.Now().Add(idleTime)) != nil {
+	if conn.SetDeadline(deadline(time.Now().Add(idleTime))) != nil {
 		_ = conn.Close()
 		return
 	}
@@ -282,7 +282,7 @@ func (h *httpController) readLoop(conn *websocket.LeanConn, c *types.Client) {
 			return
 		}
 		if request.Action == types.Ping {
-			if conn.SetDeadline(time.Now().Add(idleTime)) != nil {
+			if conn.SetDeadline(deadline(time.Now().Add(idleTime))) != nil {
 				_ = conn.Close()
 				return
 			}
